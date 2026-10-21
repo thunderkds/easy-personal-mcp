@@ -1,4 +1,4 @@
-# TASK_REVIEW — HUN-38: 
+# TASK_REVIEW — HUN-38: Scheduled ingest — single-writer lock, systemd user timer, retention_days
 
 > Sibling of `tasks/TASK_GUIDE_HUN-38.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
