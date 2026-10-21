@@ -24,7 +24,7 @@ from easy_personal.core import config, metrics, plan, rules, store
 from easy_personal.surfaces.mcp import LOOPBACK
 
 TOKEN_HEADER = "x-dashboard-token"
-CSP = "default-src 'self'"
+CSP = "default-src 'self'; frame-ancestors 'none'"
 
 
 def static_dir() -> Path:
@@ -51,8 +51,11 @@ class Guard:
         return True
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
+        if scope["type"] == "lifespan":
             return await self.app(scope, receive, send)
+        if scope["type"] != "http":  # no websocket routes: refuse (403 before accept)
+            await receive()
+            return await send({"type": "websocket.close", "code": 1008})
 
         async def send_csp(message):
             if message["type"] == "http.response.start":

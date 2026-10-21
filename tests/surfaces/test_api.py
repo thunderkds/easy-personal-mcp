@@ -74,7 +74,10 @@ def test_csp_on_every_response(client):
         client.get("/api/usage/summary", headers=AUTH),
         client.get("/", headers={"Host": "evil.example"}),
     ):
-        assert res.headers["content-security-policy"] == "default-src 'self'"
+        assert (
+            res.headers["content-security-policy"] == "default-src 'self'; frame-ancestors 'none'"
+        )
+        assert "frame-ancestors 'none'" in res.headers["content-security-policy"]
 
 
 def test_no_static_dir_still_serves_api(home, tmp_path):
@@ -168,3 +171,11 @@ def test_cli_dashboard_lock_busy_does_not_serve(home, monkeypatch, capsys):
         # flock is per open file description, so a second open in this process is blocked
         assert cli.main(["dashboard"]) == 75
     assert calls == []
+
+
+def test_websocket_connect_is_refused(client):
+    from starlette.websockets import WebSocketDisconnect
+
+    for path in ("/ws", "/api/usage/summary"):
+        with pytest.raises(WebSocketDisconnect), client.websocket_connect(path, headers=AUTH):
+            pass
