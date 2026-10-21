@@ -1,0 +1,6 @@
+# Local machine state written by the kit hooks and board sync (not shared)
+/.board/
+/.claude/hooks/.state/
+/memory/event-trace/
+/reports/
+__pycache__/

@@ -1,9 +1,9 @@
 # 0001. Native runtime and the connector write targets
 
-**Status**: Proposed
+**Status**: Accepted (amended 2026-10-21 after the Phase 0 recheck)
 **Date**: 2026-10-21
 **Deciders**: thunderkds
-**Related**: PRD FR-008, FR-011–FR-015, NFR-001, NFR-007 · BRAINSTORMING_LOG.md (Investigation D2–D5)
+**Related**: PRD FR-017–FR-021, FR-023, NFR-001, NFR-007, NFR-008 · BRAINSTORMING_LOG.md (Investigation D2–D5)
 
 ---
 
@@ -28,10 +28,9 @@ ADR-eligible, kept as a DDR unless the owner asks to escalate).
 2. Besides `~/.easy-personal/` and the reports dir, the tool may write **only** to:
    - the OS keychain, under service names prefixed `easy-personal/`;
    - Claude Code user-scope MCP config, **only via** `claude mcp add-json --scope user` / `claude mcp remove --scope user`;
-   - Codex user config, only via the Codex CLI when it offers an equivalent command;
-   - `~/.cursor/mcp.json`, by an atomic edit after showing a diff, with a timestamped backup.
-3. Every write is user-initiated from the CLI or dashboard, shows what will change, and needs confirmation.
-   No MCP tool can trigger a write.
+   - ~~Codex user config~~ and ~~`~/.cursor/mcp.json`~~ — **removed 2026-10-21**: v1 targets Claude Code only (PRD Out of Scope).
+3. Every write is user-initiated from the CLI or the on-demand dashboard, shows what will change, and needs confirmation.
+   No MCP tool can trigger a write. Dashboard writes require the per-launch token and a matching `Host`/`Origin` (NFR-008).
 4. Project-scope files (`.mcp.json`, `.claude/settings.json`, hooks) are never written; they belong to the kernel's `setup.sh`.
 5. When a CLI is missing or a precondition fails, the tool shows the snippet and writes nothing.
 
@@ -52,7 +51,7 @@ ADR-eligible, kept as a DDR unless the owner asks to escalate).
 
 ### Positive
 - Connector secrets never appear in any config file or dotfile.
-- One connector setup reaches Claude Code, Codex and Cursor.
+- One connector setup is registered in Claude Code without hand-editing config.
 
 ### Negative (accepted trade-offs)
 - First Easy Kit plug-in without Docker as the primary mode.
@@ -60,5 +59,5 @@ ADR-eligible, kept as a DDR unless the owner asks to escalate).
 - Headless Linux needs an unlocked Secret Service; otherwise connectors refuse to configure.
 
 ### Follow-up
-- [ ] v1.1: verify the Codex CLI add command and Cursor header interpolation before implementing writers.
-- [ ] v1.1: `easy-personal doctor` checks keychain backend, CLIs on PATH, and that each connector entry still points to the launcher.
+- [x] ~~v1.1: verify the Codex CLI add command and Cursor header interpolation~~ — dropped with the Codex/Cursor writers.
+- [ ] M3: `easy-personal doctor` checks keychain backend, CLIs on PATH, and that each connector entry still points to the launcher.

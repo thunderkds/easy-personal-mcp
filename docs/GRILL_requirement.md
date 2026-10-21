@@ -1,28 +1,47 @@
 # Stage 0.5a — Requirement grill of PRD.md (easy-personal-mcp)
-**Date**: 2026-10-21 · **Skill**: `grill-with-docs` `mode=requirement` · **PRD gate**: FAIL until every item below is resolved
+**Date**: 2026-10-21 (rerun after the Phase 0 recheck) · **Skill**: `grill-with-docs` `mode=requirement` · **PRD gate**: PASS
 
 Checks run: FR → US traceability · scope clarity · ambiguity ("would two engineers build it differently?") ·
 missing NFRs · open questions without owner/date · assumptions that trace only to a supervisor guess.
+Sibling repos read to answer facts instead of asking: `easy-verifier-mcp`, `easy-ui-mcp`, `easy-context-mcp`,
+`~/.easy-context/`, `~/.easy-verifier-reports/`.
 
-Traceability: FR-001…FR-016 each trace to a US ✅. US-012 (life sources) has no FR — correct for v2, kept out of v1 ✅.
+Traceability: FR-001…FR-027 each trace to a US ✅. US-013 (life sources) has no FR — correct for v2 ✅.
+No `<!-- FLAGGED -->` items remain in `PRD.md`.
 
-| # | Finding | Where | Kind | Recommended answer | Status |
-|---|---|---|---|---|---|
-| G1 | Board/workflow (Phase 0 Section D) never asked | Process | Missing | Linear `online`, team HUN, project `easy-personal-mcp` | ✅ Resolved 2026-10-21 (Thunder) |
-| G2 | "Cost" is ambiguous: on a subscription plan, $ per token is notional; the real limit is the plan's usage windows | FR-005, US-001 | Ambiguity | Show tokens as the primary unit; $ as "API-equivalent cost", labelled; usage-window view if the data allows | Open |
-| G3 | Cloud sessions (claude.ai/code, like this project's threads) leave no local transcript, so v1 cannot see them | FR-001, US-001 | Scope gap | State it in Out of Scope for v1; revisit with OTel/export later | Open |
-| G4 | Several machines (laptop + desktop) each have their own `~/.claude` | FR-001, US-002 | Missing NFR | v1 = one machine; store carries a `machine_id` so a later merge is possible | Open |
-| G5 | "Flows" on the dashboard is undefined (session timeline? tool sequence? kit stage flow?) | US-005, FR-008 | Ambiguity | Session timeline + tool-call sequence per session (no content) | Open |
-| G6 | The v1 rule pack is only examples in the log; the PRD names no actual rules or thresholds | FR-006, FR-007 | Ambiguity | Lock ~8 rules in the PRD (list proposed in the question) | Open |
-| G7 | Contradiction: suggestions from "pasted Slack links" read message text, but FR-002 says metadata only | FR-016 vs FR-002 | Conflict | Suggestions only from tool names, Bash command names and WebFetch/MCP target domains; never from message text | Open |
-| G8 | Persona P1 uses Codex and Cursor, but v1 reads Claude Code only | P1, US-001 | Assumption | Confirm Claude Code only in v1; Codex/Cursor in v1.2 | Open |
-| G9 | Retention target 180 days is a supervisor guess | Success metrics, US-002 | Assumption | Keep forever by default; `retention_days` setting to prune | Open |
-| G10 | NFR-005 (500 MB in 60 s) is a guess, not measured | NFR-005 | Assumption | Mark provisional; T001 measures real volume and resets it | Open |
-| G11 | Success metrics don't measure whether the improvement plan works | Success metrics | Missing | Add: number of rule hits per week falls over 4 weeks | Open |
-| G12 | How an agent reaches the MCP: standalone only, or an optional kernel skill (e.g. `weekly-review`)? | US-006, P2 | Scope | Standalone in v1; kernel skill is a separate kernel brainstorm later | Open |
-| G13 | Project names in reports: full paths or short names? | FR-002, FR-008 | Ambiguity | Repo folder name only (no full path) in reports; full path kept in the store | Open |
-| G14 | "Per day" uses which timezone? | FR-004 | Ambiguity | OS local timezone, stored in UTC | Open |
-| G15 | Open Questions table has owners but no due dates | Open Questions | Missing | Due = before the task that needs it (named per row) | Open |
+## New findings (this run)
 
-Only G2–G8 change what gets built in a way the user can feel; they are asked one at a time.
-G9–G15 have a reversible default; they are listed so they can be overridden, and become tracked assumptions if accepted.
+| # | Finding | Where | Resolution | Decided by |
+|---|---|---|---|---|
+| N1 | Kernel trace `summary` field holds raw tool input (file contents) | FR-010 | Read only `timestamp`, `tool_name`, `is_error`, task id from file name; never `summary` | Supervisor (tightens NFR-002) |
+| N2 | Live dashboard has write actions on `127.0.0.1`; any browser tab can send requests there | NFR-008 | Per-launch token + `Host`/`Origin` check on every write | Supervisor (security) |
+| N3 | easy-context: stats exist on disk and via MCP on `127.0.0.1:8767` | FR-012 | MCP client of the service, read-only tools only | Owner |
+| N4 | Owner asked about keeping easy-context's index in sync | FR-012, FR-025 | Show freshness + `context_index_stale` rule; never call `index_path` | Owner |
+| N5 | easy-verifier writes HTML reports only; its MCP tools run a new scoring | FR-011, XR-1 | easy-verifier writes score JSON next to each HTML (task on its own board); HTML-only = "no data" | Owner |
+| N6 | easy-ui writes `session-*.json` into its own `reports/` (206/222 files), with no project field; `target` is caller-authored text | FR-013 | Show UI checks overall, not per project; never store `target` | Owner |
+| N7 | Owner wants easy-ui to check UIs | Open Q 9 | Dev-time only: QA checks our own dashboard with easy-ui as UI Evidence | Owner |
+
+## Carried over from the first run
+
+| # | Finding | Resolution | Decided by |
+|---|---|---|---|
+| G1 | Board/workflow never asked | Linear, project `easy-personal-mcp` only | Owner (Phase 0 D) |
+| G2 | "Cost" ambiguous on a subscription | Tokens primary; $ labelled "API-equivalent cost" (FR-004, FR-005) | Owner |
+| G3 | Cloud sessions leave no local transcript | Out of Scope; dashboard says so (FR-023) | Owner |
+| G4 | Several machines | This machine only; `machine_id` on every row (FR-027) | Owner |
+| G5 | "Flows" undefined | Session timeline only (FR-023) | Owner |
+| G6 | No actual rules named | 7-rule pack locked (FR-026) | Owner |
+| G7 | Suggestions vs. metadata-only | Tool names, Bash first word, WebFetch/MCP domains only (FR-022) | Owner (Phase 0 A privacy) |
+| G8 | Persona uses Codex/Cursor | Claude Code only; Codex/Cursor Out of Scope | Owner (Phase 0 C) |
+| G9 | Retention 180 days was a guess | Keep forever; `retention_days` prunes (FR-027) | Owner (accepted default) |
+| G10 | NFR-005 not measured | Marked provisional; first spike resets it | Owner (accepted default) |
+| G11 | No metric for plan effectiveness | Rule hits/week fall over 4 weeks | Owner (accepted default) |
+| G12 | Agent access: standalone or kernel skill | Standalone; kernel skill calls Out of Scope | Owner (Phase 0 A) |
+| G13 | Full paths in reports | Folder name in reports; full path in store (FR-004) | Owner (accepted default) |
+| G14 | Timezone for "per day" | OS local; stored UTC (FR-004) | Owner (accepted default) |
+| G15 | Open Questions lacked due dates | Every row has a due stage or "confirmed/done" | Supervisor |
+
+## Gate
+No requirement traces only to an unconfirmed guess. Remaining supervisor defaults (Open Questions 3–7)
+were confirmed by the owner in the Phase 0 Project Context Document and carry a Stage 2 revisit flag.
+**PRD gate: PASS.**
