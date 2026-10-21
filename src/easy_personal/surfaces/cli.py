@@ -7,7 +7,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from easy_personal import core
-from easy_personal.core import config, lock, metrics, schedule, store
+from easy_personal.core import config, lock, metrics, plan, rules, schedule, store
 from easy_personal.sources import claude_code
 from easy_personal.surfaces import mcp as mcp_surface
 
@@ -62,6 +62,8 @@ def build_parser() -> argparse.ArgumentParser:
     outliers_p = sub.add_parser("outliers", help="long or tool-heavy sessions (session_outliers)")
     outliers_p.add_argument("--since", type=iso_datetime, help="ISO date/datetime, inclusive")
     outliers_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
+    sub.add_parser("warnings", help="declared usage rules that fired (same as MCP warnings)")
+    sub.add_parser("plan", help="improvement plan by priority (same as MCP improvement_plan)")
     return parser
 
 
@@ -127,6 +129,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "outliers":
         with store.opened(config.store_path()) as conn:
             _print_json(metrics.session_outliers(conn, args.since, args.until))
+        return 0
+    if args.command in ("warnings", "plan"):
+        try:
+            with store.opened(config.store_path()) as conn:
+                _print_json(
+                    rules.evaluate(conn) if args.command == "warnings" else plan.improvement_plan(conn)
+                )
+        except ValueError as exc:  # bad thresholds in config.yaml
+            print(f"easy-personal: {exc}", file=sys.stderr)
+            return 2
         return 0
     try:
         mcp_surface.validate_host(args.host)

@@ -4,7 +4,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from easy_personal import core
-from easy_personal.core import config, metrics, store
+from easy_personal.core import config, metrics, plan, rules, store
 
 LOOPBACK = "127.0.0.1"
 
@@ -49,6 +49,20 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         values and the thresholds used."""
         with store.opened(config.store_path()) as conn:
             return metrics.session_outliers(conn, since, until)
+
+    @app.tool()
+    def warnings() -> dict[str, Any]:
+        """Declared usage rules over the last 7 days (or 14 for week-over-week). Each hit has the
+        rule id, label (improve/aware/warning), measured value, threshold and fix line. Rules that
+        cannot be measured (too little history or data) are listed under `abstained`."""
+        with store.opened(config.store_path()) as conn:
+            return rules.evaluate(conn)
+
+    @app.tool()
+    def improvement_plan() -> dict[str, Any]:
+        """The fired rules grouped by priority (1 first), each with its measured value and fix."""
+        with store.opened(config.store_path()) as conn:
+            return plan.improvement_plan(conn)
 
     return app
 

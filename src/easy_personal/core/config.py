@@ -26,3 +26,8 @@ def store_path() -> Path:
 def claude_projects_dir() -> Path:
     """Claude Code transcript root; overridable so tests never read the real folder."""
     return Path(os.environ.get(CLAUDE_PROJECTS_ENV) or Path.home() / ".claude" / "projects")
+
+
+def config_path() -> Path:
+    """Owner settings file; optional. Today it holds rule `thresholds:` overrides."""
+    return data_dir() / "config.yaml"

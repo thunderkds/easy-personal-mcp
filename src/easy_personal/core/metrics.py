@@ -254,3 +254,59 @@ def session_outliers(
         "thresholds": {"tool_calls": OUTLIER_TOOL_CALLS, "context_tokens": OUTLIER_CONTEXT_TOKENS},
         "sessions": sessions,
     }
+
+
+def history_start(conn: sqlite3.Connection) -> str | None:
+    """UTC time of the earliest stored event; None for an empty store."""
+    return conn.execute("SELECT MIN(ts_utc) FROM events").fetchone()[0]
+
+
+def session_contexts(
+    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+) -> list[dict]:
+    """Per session: peak context (prompt tokens of one message) and whether it was compacted.
+
+    Compaction is inferred from token counts only: a later message whose context is below half
+    of the session's earlier peak. No record text is read.
+    """
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    sessions: dict[str, dict] = {}
+    rows = conn.execute(
+        "SELECT session_id, ts, ctx FROM ("
+        "  SELECT MAX(session_id) AS session_id, MIN(ts_utc) AS ts,"
+        "         MAX(COALESCE(input_tokens, 0) + COALESCE(cache_creation_input_tokens, 0)"
+        "             + COALESCE(cache_read_input_tokens, 0)) AS ctx"
+        "  FROM events WHERE abstained = 0 AND session_id IS NOT NULL"
+        "  AND message_id IS NOT NULL AND input_tokens IS NOT NULL GROUP BY message_id"
+        f") WHERE {_period('ts', since_utc, until_utc)[0]} ORDER BY session_id, ts",
+        _period("ts", since_utc, until_utc)[1],
+    )
+    for session, _, context in rows:
+        state = sessions.setdefault(session, {"session_id": session, "peak": 0, "compacted": False})
+        if context * 2 < state["peak"]:
+            state["compacted"] = True
+        state["peak"] = max(state["peak"], context)
+    return [
+        {
+            "session_id": s["session_id"],
+            "max_context_tokens": s["peak"],
+            "compacted": s["compacted"],
+        }
+        for s in sessions.values()
+    ]
+
+
+def record_readability(
+    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+) -> dict[str, tuple[int, int]]:
+    """Source version -> (abstained records, all records) with a timestamp in [since, until)."""
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    where, params = _period("ts_utc", since_utc, until_utc)
+    return {
+        version: (abstained, total)
+        for version, abstained, total in conn.execute(
+            "SELECT COALESCE(version, 'unknown'), SUM(abstained), COUNT(*) FROM events "
+            f"WHERE {where} GROUP BY 1 ORDER BY 1",
+            params,
+        )
+    }
