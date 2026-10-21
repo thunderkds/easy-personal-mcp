@@ -1,4 +1,4 @@
-# TASK_REVIEW — HUN-37: 
+# TASK_REVIEW — HUN-37: Rules engine + 5 usage rules + warnings + improvement_plan
 
 > Sibling of `tasks/TASK_GUIDE_HUN-37.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on

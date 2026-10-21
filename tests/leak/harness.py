@@ -40,7 +40,8 @@ MCP_CALLS: dict[str, list[dict]] = {
 # CLI command -> list of argv tails. `{projects}` is the planted transcript root.
 CLI_CALLS: dict[str, list[list[str]]] = {
     "ping": [[]],
-    "ingest": [[], ["--source", "{projects}"]],
+    "ingest": [[], ["--source", "{projects}"], ["--retention-days", "3650"]],
+    "schedule": [["install", "--dry-run"], ["remove", "--dry-run"]],
     "usage": [
         [],
         ["--since", "2026-01-01"],

@@ -1,4 +1,4 @@
-# TASK_REVIEW — HUN-40: 
+# TASK_REVIEW — HUN-40: git_local source + kit_summary git part
 
 > Sibling of `tasks/TASK_GUIDE_HUN-40.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
