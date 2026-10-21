@@ -26,12 +26,29 @@ SRC = str(Path(__file__).resolve().parents[2] / "src")
 MCP_CALLS: dict[str, list[dict]] = {
     "ping": [{}],
     "usage_summary": [{}, {"since": "2026-01-01"}, {"until": "2027-01-01"}],
+    "usage_breakdown": [
+        {"by": "day"},
+        {"by": "model"},
+        {"by": "project"},
+        {"by": "tool"},
+        {"by": "day", "since": "2026-01-01"},
+    ],
+    "session_outliers": [{}, {"since": "2026-01-01"}],
 }
 # CLI command -> list of argv tails. `{projects}` is the planted transcript root.
 CLI_CALLS: dict[str, list[list[str]]] = {
     "ping": [[]],
     "ingest": [[], ["--source", "{projects}"]],
-    "usage": [[], ["--since", "2026-01-01"], ["--until", "2027-01-01"]],
+    "usage": [
+        [],
+        ["--since", "2026-01-01"],
+        ["--until", "2027-01-01"],
+        ["--by", "day"],
+        ["--by", "model"],
+        ["--by", "project"],
+        ["--by", "tool"],
+    ],
+    "outliers": [[], ["--since", "2026-01-01"]],
 }
 # Commands that start a long-running server; covered by the stdio test instead of a one-shot call.
 CLI_SERVER_COMMANDS = {"mcp"}
