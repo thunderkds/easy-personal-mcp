@@ -17,7 +17,7 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/fixtures_check/test_no_real_content.py` (AC2, AC3); AC1/AC4 covered by `docs/spikes/transcript-shapes.md` (manual review) |
 | Verification command run | pass | 2026-10-21T09:02:39Z `python3 -m pytest tests/fixtures_check -q` (uv run also works): `5 passed`. Real-id grep over tests/ and docs/ (ids from scan, kept outside repo): 0 files match |
 | Negative cases hold | pass | Mutation: changed a fixture cwd to a /home/ path -> `2 failed, 3 passed` (test_no_home_path_or_username, test_cwd_is_invented); reverted -> 5 passed |
-| verify | N/A | no running app (spike); no pass claimed - fixtures and note only |
+| verify | SKIP | /verify 2026-10-21: no runtime surface (fixtures, spike note, a test, and a throwaway script under experiments/ that ships nowhere). Its acceptance check `python3 -m pytest tests/fixtures_check -q` passed (5 passed) at Stage 4 — pass on the acceptance check, SKIP on runtime |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | pass | 9 new files in `main..spike/HUN-32-transcript-shapes`; code-review 0 P0/P1 (1 P2 owner question, 1 P3) — `reports/code-review_spike-HUN-32-transcript-shapes_20261021T163033.html`; security (inline, built-in unavailable) pass — `reports/security-review_spike-HUN-32-transcript-shapes_20261021T163033.html` (main checkout) |
 | Full smoke suite still green (no regression) | pass | no other tests exist yet; only suite is tests/fixtures_check (5 passed) |
 | **UI: Visual regression (diff or verdict pasted)** | N/A | pure-backend spike, no UI |
