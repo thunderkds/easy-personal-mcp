@@ -20,6 +20,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/easy_personal"]
+artifacts = ["src/easy_personal/dashboard/static/**"]
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["src/easy_personal/dashboard/static/**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
