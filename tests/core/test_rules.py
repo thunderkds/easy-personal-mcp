@@ -157,14 +157,14 @@ def test_too_little_history_abstains(conn, tmp_path):
     assert out["hits"] == []
     assert {a["rule_id"] for a in out["abstained"]} == {
         r.id for r in rules.load_rules() if r.min_history_days
-    }
+    } | {"tool_errors_high"}  # no kernel-trace calls in this store
     assert all(a["reason"] for a in out["abstained"])
 
 
 def test_empty_store_abstains_everything(conn):
     out = rules.evaluate(conn, now=NOW)
     assert out["hits"] == []
-    assert len(out["abstained"]) == 5
+    assert len(out["abstained"]) == 6
 
 
 def test_hit_carries_id_label_measured_threshold_fix(conn, tmp_path):
@@ -199,6 +199,7 @@ def test_missing_config_uses_defaults(tmp_path):
         "tokens_jump": 0.5,
         "project_dominates": 0.6,
         "records_unreadable": 0.02,
+        "tool_errors_high": 0.1,
     }
 
 

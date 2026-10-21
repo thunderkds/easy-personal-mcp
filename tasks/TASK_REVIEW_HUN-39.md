@@ -34,10 +34,23 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-21T12:33:11Z on the unchanged tree, via `git stash -u`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ uv run pytest tests/sources/test_kit_trace.py tests/core/test_rules.py tests/leak -q
+ERROR: file or directory not found: tests/sources/test_kit_trace.py
+no tests ran in 0.00s
+$ EASY_PERSONAL_HOME=<tmp> uv run easy-personal kit
+easy-personal: error: argument command: invalid choice: 'kit' (choose from ping, mcp, ingest, schedule, usage, outliers, warnings, plan)
+```
+
+**AFTER** (2026-10-21T12:35:28Z, temp `EASY_PERSONAL_HOME`, fixture repo with one errored trace line):
+
+```
+$ easy-personal ingest --source <fixture>   ->  "kit_trace": {"files": 1, "new_events": 1}
+$ easy-personal kit   ->  project "repo", parts.kernel: status ok, tool_calls 1, tool_errors 1, error_rate 1.0, kit_tasks 1
+$ uv run pytest tests/sources/test_kit_trace.py tests/core/test_rules.py tests/leak -q  ->  52 passed
+```
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

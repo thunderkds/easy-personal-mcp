@@ -41,6 +41,7 @@ PATTERNS = {
     "agent_name": "LEAKCANARY agent {t}",
     "malformed": "LEAKCANARY malformed {t}",
     "binary": "LEAKCANARY binary {t}",
+    "trace_summary": "LEAKCANARY trace-summary {t}",
 }
 
 
@@ -91,6 +92,20 @@ class Canaries:
             b'{"type":"user","x":"' + self.values["binary"].encode() + b'\xff\xfe"}\n'
         )
         return dest
+
+    def render_kit_trace(self, repo: Path) -> Path:
+        """Write a project with kernel traces whose `summary` holds a canary; return its path."""
+        trace = repo / "memory" / "event-trace"
+        trace.mkdir(parents=True)
+        line = {
+            "timestamp": "2026-02-01T09:02:00+00:00",
+            "tool_name": "Bash",
+            "summary": self.values["trace_summary"],
+            "is_error": True,
+        }
+        for name in ("T001", "_untagged"):
+            (trace / f"{name}.jsonl").write_text(json.dumps(line) + "\n")
+        return repo
 
     def find(self, blob) -> list[tuple[str, str]]:
         """Return (canary name, form) for every canary found in `blob` (str, bytes or object)."""

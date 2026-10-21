@@ -48,6 +48,21 @@ CREATE TABLE IF NOT EXISTS events (
     cache_read_input_tokens     INTEGER,
     UNIQUE (machine_id, source, source_path, inode, byte_offset)
 );
+CREATE TABLE IF NOT EXISTS kit_trace_events (
+    id           INTEGER PRIMARY KEY,
+    machine_id   TEXT NOT NULL,
+    source_path  TEXT NOT NULL,
+    inode        INTEGER NOT NULL,
+    byte_offset  INTEGER NOT NULL,
+    project_path TEXT NOT NULL,
+    kit_task_id  TEXT,
+    abstained    INTEGER NOT NULL,
+    ts_utc       TEXT,
+    tool_name    TEXT,
+    is_error     INTEGER,
+    UNIQUE (machine_id, source_path, inode, byte_offset)
+);
+CREATE INDEX IF NOT EXISTS kit_trace_ts ON kit_trace_events (ts_utc);
 CREATE INDEX IF NOT EXISTS events_ts ON events (ts_utc);
 CREATE INDEX IF NOT EXISTS events_message ON events (message_id);
 """
@@ -164,4 +179,8 @@ def prune(conn: sqlite3.Connection, retention_days: int | None, now: datetime | 
             "DELETE FROM events WHERE ts_utc IS NOT NULL AND ts_utc < ?",
             (cutoff.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),),
         )
-    return cur.rowcount
+        kit = conn.execute(
+            "DELETE FROM kit_trace_events WHERE ts_utc IS NOT NULL AND ts_utc < ?",
+            (cutoff.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),),
+        )
+    return cur.rowcount + kit.rowcount

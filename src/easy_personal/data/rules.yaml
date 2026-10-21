@@ -9,3 +9,4 @@ rules:
   records_unreadable: metric=unreadable_share op=gt threshold=0.02 label=aware priority=2 window_days=7 min_history_days=0 fix=Update easy-personal; this Claude Code version writes records the parser does not know.
   tokens_jump: metric=week_over_week_tokens op=gt threshold=0.5 label=aware priority=3 window_days=7 min_history_days=14 fix=Check which project or session drove the rise before it becomes the new baseline.
   project_dominates: metric=top_project_share op=gt threshold=0.6 label=aware priority=3 window_days=7 min_history_days=7 fix=Confirm the concentration is intended; split long-running work across sessions if one project crowds out the rest.
+  tool_errors_high: metric=kit_error_rate op=gt threshold=0.1 label=warning priority=2 window_days=7 min_history_days=0 fix=Read the failing tool calls in memory/event-trace/ and fix the command or permission that keeps failing.

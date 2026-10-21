@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from easy_personal.core import config, metrics
+from easy_personal.core import config, kit, metrics
 
 PACKAGED = Path(__file__).resolve().parent.parent / "data" / "rules.yaml"
 LABELS = ("improve", "aware", "warning")
@@ -159,12 +159,20 @@ def _week_over_week_tokens(conn, since, until):
     return round(tokens(start, end) / previous - 1, 4), None
 
 
+def _kit_error_rate(conn, since, until):
+    rate, calls = kit.kernel_error_rate(conn, since, until)
+    if not calls:
+        raise Abstain("no kernel-trace tool calls in the window")
+    return round(rate, 4), None
+
+
 METRICS = {
     "cache_hit_ratio": _cache_hit_ratio,
     "median_session_context": _median_session_context,
     "unreadable_share": _unreadable_share,
     "top_project_share": _top_project_share,
     "week_over_week_tokens": _week_over_week_tokens,
+    "kit_error_rate": _kit_error_rate,
 }
 
 
