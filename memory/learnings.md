@@ -36,7 +36,7 @@
 **Files**: `PROJECT_SPEC.md`
 
 ### 2026-10-21 — easy-verifier registered for this repo (local scope)
-**Learning**: `claude mcp add --transport http easy-verifier http://127.0.0.1:8766/mcp` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Pass the repo's absolute path as the tool's `repo` argument; reports land in `~/.easy-verifier-reports/<repo name>/`. No pipeline step or hook runs it — run on request only.
+**Learning**: `claude mcp add --transport http easy-verifier http://127.0.0.1:8766/mcp` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Pass the repo's absolute path as the tool's `repo` argument; reports land in `~/.easy-verifier-reports/<repo name>/`. Stage 4 step 4b runs `score` (`scope="changes"`, `ref="main...<branch>"`) on every task, advisory only (user decision 2026-10-21); no hook runs it.
 **Files**: `PROJECT_SPEC.md`
 
 ### 2026-10-21 — `board_sync.py pull` overwrites the `## Blocked` table

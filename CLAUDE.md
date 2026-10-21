@@ -156,7 +156,7 @@ See [`docs/claude-md/pipeline-stages.md`](docs/claude-md/pipeline-stages.md) for
 - **Stage 1.5** (Sub-Agent Architecture): design the sub-agent team; base team is always Common-Infrastructure/Backend/Frontend/QA; `Skill({ skill: "craft-agent" })` only if an uncovered role is needed.
 - **Stage 2** (`/plan` — Intent Transformation): produce `PROJECT_SPEC.md` + `PROJECT_KANBAN.md`, assign Complexity/Risk/Priority per task, generate every `tasks/TASK_GUIDE_Txxx.md`.
 - **Stage 3** (Parallel Execution via Isolation): three-pillar chain (Adapt requirement → Right implementation → Evaluation) per task, worktree-isolated, `Skill({ skill: "craft-spawn-prompt" })` before every `Agent()` spawn, memory injection of `memory/MEMORY.md`.
-- **Stage 4** (Review): `Skill({ skill: "code-review" })` always; `Skill({ skill: "security-review" })` for Medium/High risk; `Skill({ skill: "blast-radius" })` for sensitive-data Medium/High risk; `Skill({ skill: "migration-safety" })` for DB changes; Evidence Gate on the TASK_GUIDE; `Skill({ skill: "html-report" })` per review skill.
+- **Stage 4** (Review): `Skill({ skill: "code-review" })` always; `Skill({ skill: "security-review" })` for Medium/High risk; `Skill({ skill: "blast-radius" })` for sensitive-data Medium/High risk; `Skill({ skill: "migration-safety" })` for DB changes; easy-verifier MCP `score` (`scope="changes"`, advisory) always; Evidence Gate on the TASK_GUIDE; `Skill({ skill: "html-report" })` per review skill.
 - **Stage 5** (Integration & Verification): `Skill({ skill: "verify" })`, smoke tests, memory update (diff-driven pass), merge + close Kanban, `Skill({ skill: "ship" })` for release planning.
 
 ---
