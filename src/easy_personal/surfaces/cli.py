@@ -64,6 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     outliers_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
     sub.add_parser("warnings", help="declared usage rules that fired (same as MCP warnings)")
     sub.add_parser("plan", help="improvement plan by priority (same as MCP improvement_plan)")
+    for name, text in (("exec", "run a connector's provider server with keychain secrets"),
+                       ("headers", "print a connector's JSON headers from the keychain")):
+        sub.add_parser(name, help=text).add_argument("connector")
     return parser
 
 
@@ -115,6 +118,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "ping":
         print(core.ping())
         return 0
+    if args.command in ("exec", "headers"):
+        from easy_personal import launch
+
+        return launch.main([args.command, args.connector])
     if args.command == "ingest":
         return _ingest(args)
     if args.command == "schedule":

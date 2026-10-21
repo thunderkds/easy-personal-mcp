@@ -57,6 +57,8 @@ CLI_CALLS: dict[str, list[list[str]]] = {
 }
 # Commands that start a long-running server; covered by the stdio test instead of a one-shot call.
 CLI_SERVER_COMMANDS = {"mcp"}
+# Keychain launchers: tested with an in-memory backend in tests/connectors (never the real keychain).
+CLI_KEYCHAIN_COMMANDS = {"exec", "headers"}
 
 
 @dataclass
@@ -83,7 +85,7 @@ def unregistered_tools(app) -> set[str]:
 
 
 def unregistered_commands() -> set[str]:
-    return cli_commands() - set(CLI_CALLS) - CLI_SERVER_COMMANDS
+    return cli_commands() - set(CLI_CALLS) - CLI_SERVER_COMMANDS - CLI_KEYCHAIN_COMMANDS
 
 
 def child_env(home: Path, projects: Path) -> dict[str, str]:

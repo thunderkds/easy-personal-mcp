@@ -34,10 +34,22 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured before any implementation commit):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+2026-10-21T12:32:11Z
+$ uv run pytest tests/connectors/test_launch.py tests/connectors/test_keychain.py -q
+ERROR: file or directory not found: tests/connectors/test_launch.py
+
+
+no tests ran in 0.00s
+$ uv run easy-personal exec slack
+usage: easy-personal [-h] [--version]
+                     {ping,mcp,ingest,schedule,usage,outliers,warnings,plan} ...
+easy-personal: error: argument command: invalid choice: 'exec' (choose from ping, mcp, ingest, schedule, usage, outliers, warnings, plan)
+```
+
+**AFTER**: `uv run pytest tests/connectors/test_launch.py tests/connectors/test_keychain.py -q` -> `15 passed`; full suite `157 passed, 2 skipped`; `uv run easy-personal exec slack` -> `easy-personal: connector 'slack' is not configured` (exit 1). Launcher time to exec/print (5 runs, fake backend): exec 67-81 ms, headers 65-87 ms.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 
