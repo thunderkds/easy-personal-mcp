@@ -1,25 +1,36 @@
 # PROJECT_KANBAN.md
 **Last updated**: 2026-10-21
 
-> Compact task board. Full context lives in `PROJECT_SPEC.md`. Update this file whenever a task status changes.
+> Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
+> the board is the source of truth, and the next pull overwrites this file.
 
 ---
 
 ## Board
 
-> Task line format: **Txxx** — [title] | [agent] | C[0–3] | Risk: Low/Med/High | P[0–2]
-> Board mode `online` (Linear team HUN, project [easy-personal-mcp](https://linear.app/thunderkds/project/easy-personal-mcp-a6ec3c36d1ae)): the board is the source of truth; this file is its cache.
-
 ### Todo
-- [ ] **HUN-21** — Spike: inventory Claude Code transcript shapes → synthetic fixtures per version | QA-Automation-Agent | C1 | Risk: Med | P0
-- [ ] **HUN-22** — Repo skeleton: package layout, CLI + MCP entry points sharing one core | Backend-Implementer | C1 | Risk: Low | P0
-- [ ] **HUN-23** — `claude_code` source: streaming, incremental, metadata-only parser with abstain counts | Backend-Implementer | C2 | Risk: High | P0
-- [ ] **HUN-24** — Store + metrics by day/model/project/tool; dated price table | Backend-Implementer | C2 | Risk: Med | P0
-- [ ] **HUN-28** — Leak test suite: planted secrets/text never reach any output or store row | QA-Automation-Agent | C1 | Risk: High | P0
-- [ ] **HUN-25** — Rules engine + v1 rule pack + improvement plan | Backend-Implementer | C2 | Risk: Med | P1
-- [ ] **HUN-26** — MCP tools (6) + CLI commands over the core | Backend-Implementer | C1 | Risk: Low | P1
-- [ ] **HUN-27** — Static HTML dashboard (charts, flows, warnings, plan) | Frontend-Implementer | C2 | Risk: Low | P1
-- [ ] **HUN-29** — Scheduled ingest so the 30-day transcript cleanup loses nothing | Backend-Implementer | C1 | Risk: Med | P1
+- [ ] **T120** — Score JSON sidecar next to each HTML evidence report | backend-developer | C1 | Risk: Medium | P1
+- [ ] **HUN-32** — Spike: inventory Claude Code transcript shapes and real volume → synthetic fixtures | QA-Automation-Agent | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-32.md`
+- [ ] **HUN-33** — Skeleton: package, pyproject, \`easy-personal\` CLI + MCP stdio entry sharing one core, test runner | Common-Infrastructure-Agent | C1 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-33.md`
+- [ ] **HUN-34** — Tracer bullet: \`claude_code\` source → store (project, machine_id, UTC) → \`usage_summary\` in MCP and CLI | Backend-Implementer | C3 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-34.md`
+- [ ] **HUN-35** — \`usage_breakdown\` + \`session_outliers\`: tokens-first, labelled API-equivalent cost, local day, folder names | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-35.md`
+- [ ] **HUN-36** — Leak test suite: planted secrets and text never reach store, MCP, CLI or logs | QA-Automation-Agent | C2 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-36.md`
+- [ ] **HUN-37** — Rules engine + 5 usage rules + \`warnings\` + \`improvement_plan\` | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-37.md`
+- [ ] **HUN-38** — Scheduled ingest: single-writer lock, systemd user timer, \`retention_days\` | Common-Infrastructure-Agent | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-38.md`
+- [ ] **HUN-39** — \`kit_trace\` source (never \`summary\`) + \`tool_errors_high\` rule + \`kit_summary\` (kernel part) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-39.md`
+- [ ] **HUN-40** — \`git_local\` source + \`kit_summary\` git part | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-40.md`
+- [ ] **HUN-41** — \`context\` read-only MCP client of easy-context + index freshness + \`context_index_stale\` | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-41.md`
+- [ ] **HUN-42** — \`verifier\` source reads easy-verifier score JSON + \`kit_summary\` part | Backend-Implementer | C1 | Risk: Medium | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-42.md`
+- [ ] **HUN-43** — \`ui\` source: easy-ui UI checks overall (never \`target\`) + \`kit_summary\` part | Backend-Implementer | C1 | Risk: Medium | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-43.md`
+- [ ] **HUN-44** — Launcher: keychain store + refusal path, \`exec\`/\`headers\`, env-only secrets, <200 ms | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-44.md`
+- [ ] **HUN-45** — Connector tracer: Slack catalog entry + \`connector add/remove\` CLI → keychain → \`claude mcp add-json\` (snippet fallback) + \`doctor\` | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-45.md`
+- [ ] **HUN-46** — Catalog breadth: Gmail, SendGrid, Teams, Discord + claude.ai-connector flag | Backend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-46.md`
+- [ ] **HUN-47** — MCP \`connector_catalog\` / \`connector_status\` / \`connector_suggestions\` (metadata counters) | Backend-Implementer | C2 | Risk: Medium | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-47.md`
+- [ ] **HUN-48** — \`web/\` toolchain: Vite + React, pinned lockfile, build copied into the package, release check | Common-Infrastructure-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-48.md`
+- [ ] **HUN-49** — Dashboard server: \`easy-personal dashboard\` on demand, free port, token + Host/Origin guard, CSP, read API | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-49.md`
+- [ ] **HUN-50** — Dashboard usage view: summary, breakdowns, session timeline, "not included" notice | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-50.md`
+- [ ] **HUN-51** — Dashboard warnings, improvement plan and kit panel | Frontend-Implementer | C2 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-51.md`
+- [ ] **HUN-52** — Dashboard connector forms + guarded write API (secrets never echoed) | Frontend-Implementer | C2 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-52.md`
 
 ### In Progress
 
@@ -27,23 +38,10 @@
 
 ### Done
 
----
+### Closed (will not do)
 
 ## Blocked
-
-| Task | Reason | Waiting on |
-|------|--------|-----------|
 
 ---
 
 ## Stage Tracker
-
-| Stage | Status |
-|-------|--------|
-| 0.5 Grilling → Brainstorming | 🔄 In Progress (requirement grill running) |
-| 1 Environment Setup | ⬜ Not Started (board connected early) |
-| 1.5 Sub-Agent Architecture | ⬜ Not Started |
-| 2 Planning (/plan) | ⬜ Not Started |
-| 3 Execution | ⬜ Not Started |
-| 4 Review | ⬜ Not Started |
-| 5 Integration & Verify | ⬜ Not Started |

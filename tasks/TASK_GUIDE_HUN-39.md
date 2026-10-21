@@ -1,0 +1,157 @@
+**Date**: 2026-10-21
+**Complexity Level**: C2
+**Risk Level**: High
+**Priority**: P1
+**Assigned agent**: Backend-Implementer
+**Agent guide**: `agents/backend.md`
+
+---
+
+## Mandatory Startup (Do Not Skip)
+
+Before writing any code:
+
+1. Read `PROJECT_SPEC.md`
+2. Read the memory slice in your spawn prompt (`<!-- memory-slice -->`). Read `memory/MEMORY.md` in full only if your work reaches a file, hook, skill or decision the slice does not cover
+3. Read this file completely
+4. Read `agents/backend.md`
+5. Note the **Complexity Level** above and apply the matching process (brainstorm / decompose / verify depth) from the Complexity matrix in your role guide (`agents/backend.md`)
+6. **C2/C3 or multi-file tasks only**: read `memory/codebase-map.md` for directory layout, entry points, and blast-radius hotspots — skip if the task is C0/C1 and touches a single known file
+
+---
+
+## Requirement (Pillar 1 — Adapt the requirement)
+
+The owner wants to see per project what the Easy Kit did, starting with kernel traces; the trace `summary` field holds raw tool input and must never be read into the store (PRD US-007, FR-010, FR-015, FR-026).
+
+**Restated intent** (Supervisor's interpretation, in the project's domain language):
+
+> For every existing project, ingest `memory/event-trace/*.jsonl` keeping only timestamp, tool_name, is_error and the kit task id; expose per-project counts in `kit_summary`; fire `tool_errors_high`.
+
+**Out of scope** (what this task explicitly does NOT do):
+
+* Other kit parts (separate tasks extend `kit_summary`)
+
+**Requirement Refs** (FR/NFR/US IDs from `PRD.md` this task satisfies):
+
+* FR-010: kit_trace fields only
+* FR-015: kit_summary
+* FR-026: tool_errors_high
+* NFR-002
+
+### Requirement Fidelity Gate (sign off BEFORE implementation)
+
+- [X] Restated intent confirmed to match the user's request (Supervisor, from the owner-approved breakdown 2026-10-21)
+- [X] Domain terms align with `PROJECT_SPEC.md` glossary (`grill-with-docs` terminology run 2026-10-21)
+- [X] Every Acceptance Criterion below traces to a line in the Requirement
+- [X] All Requirement Refs exist in `PRD.md` and are fully covered by the Acceptance Criteria above
+
+> An agent must NOT start implementing until this gate is checked. If anything here is unclear,
+> STOP and ask the Supervisor (Karpathy: Think Before Coding).
+
+---
+
+## Dependencies & Reachability
+
+**Depends on**: HUN-37 — Rules engine + 5 usage rules + `warnings` + `improvement_plan`
+
+**Entry point**: `kit_summary` (MCP tool) and `easy-personal kit` (CLI)
+
+---
+
+## Acceptance Criteria
+
+| \# | Criterion (testable) | Traces to requirement |
+| -- | -- | -- |
+| 1 | Only `timestamp`, `tool_name`, `is_error`, kit task id are stored; a canary in `summary` is absent everywhere (leak suite extended) | FR-010, NFR-002 |
+| 2 | `_untagged.jsonl` rows have no kit task id | FR-010 |
+| 3 | `kit_summary` lists each project with kernel trace counts, or "no data" explicitly | FR-015 |
+| 4 | `tool_errors_high` fires above 10% errors over 7 days and not at 10% or below | FR-026 |
+| 5 | Ingest is incremental per trace file (same offset rules as transcripts) | FR-001 pattern |
+
+---
+
+## Evaluation & Acceptance (How we know the agent worked correctly)
+
+> The reviewer fills **Evidence** at Stage 4/5 in `tasks/TASK_REVIEW_<this task ID>.md`, copied from
+> `templates/TASK_REVIEW_template.md`. A task is **not done** until every row has evidence.
+> Rule: the implementing agent must NOT be the sole author of its own acceptance test — the
+> Supervisor writes or signs off on the oracle first, so code and test can't be wrong together.
+
+### Success Criteria (observable, pass/fail)
+
+| \# | Given (input/state) | Expect (output/behavior) | How it's checked |
+| -- | -- | -- | -- |
+| 1 | Trace fixture with canary in summary | 0 canary hits | automated leak suite |
+| 2 | Project without traces | `no data` | automated |
+
+### Verification Command (exact, runnable)
+
+```bash
+uv run pytest tests/sources/test_kit_trace.py tests/core/test_rules.py tests/leak -q
+```
+
+### Evidence (filled by reviewer at Stage 4/5)
+
+> **Moved.** See `tasks/TASK_REVIEW_HUN-39.md` (review sections are never taken from the board).
+
+## Demonstration
+
+> **Moved.** See `tasks/TASK_REVIEW_HUN-39.md` (review sections are never taken from the board).
+
+## Approach
+
+**Pattern reference**: The `claude_code` source from the tracer task (offsets, abstain)
+
+**Vital slice**: metadata-only trace ingest + kit_summary shape that other kit parts extend
+**Cut list**: No per-kit-task drill-down view
+
+Parse JSON per line but read only the four allowed keys; never keep the parsed dict. Define `kit_summary` response with one entry per kit part so later tasks add parts without changing shape.
+
+---
+
+## Edge Case Checklist
+
+- [ ] Line where `summary` is huge (MBs) → bounded memory
+- [ ] Malformed line → abstain
+- [ ] Project deleted → skipped by kit sources, usage history unaffected
+- [ ] Planted secret/text fixtures (from the leak suite) never appear in any store row, MCP/CLI/API response, page or log.
+
+---
+
+## Files to Change (Predicted)
+
+| File | Change |
+| -- | -- |
+| `src/easy_personal/sources/kit_trace.py` | Source |
+| `src/easy_personal/core/kit.py` | kit_summary |
+| `src/easy_personal/data/rules.yaml` | tool_errors_high |
+| `tests/leak/` | Extend |
+
+## Files Must NOT Touch
+
+| File | Reason |
+| -- | -- |
+| `~/.claude/projects/`, any `<repo>/memory/event-trace/`, `<repo>/reports/`, `~/.easy-verifier-reports/`, `easy-ui-mcp/reports/`, `~/.easy-context/` | Read-only sources (NFR-003) |
+| `~/.claude.json` (direct edit) | Only via `claude mcp add-json|remove --scope user` (DDR-0001) |
+| Sibling repos (`../easy-*`) | Conventions-only references |
+| `.claude/`, `agents/`, `skills/`, `templates/`, `scripts/` | Kit framework files, not product code |
+
+---
+
+## Test Plan
+
+Source unit tests, rule boundary test, leak suite extension.
+
+---
+
+## Completion Checklist
+
+- [ ] Implementation done
+- [ ] Self-review: `Skill({ skill: "code-review" })` run
+- [ ] Security review: `Skill({ skill: "security-review" })` run (if Medium/High risk)
+- [ ] Lint passes
+- [ ] Tests written AND pass — output pasted into `tasks/TASK_REVIEW_<this task ID>.md`'s Evidence table (Hard-Stop Gate 5)
+- [ ] `Skill({ skill: "verify" })` run — feature confirmed working in running app
+- [ ] `memory/MEMORY.md` updated (if new patterns or feedback learned)
+- [ ] Supervisor notified: task ready for Stage 4 review
