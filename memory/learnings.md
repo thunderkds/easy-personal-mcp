@@ -10,6 +10,15 @@
 
 ## Patterns
 
+### 2026-10-21 — Dashboard static build is gitignored; build before `uv build`
+**Learning**: `src/easy_personal/dashboard/static/` is not committed. Run `npm --prefix web ci && npm --prefix web run build` before `uv build`, else the wheel ships no page; `scripts/check_static.py` fails on missing or stale builds. On a fresh checkout `tests/test_web_toolchain.py` skips 2 tests ("web/ not built in this checkout") — expected, not a regression.
+**Files**: `scripts/check_static.py`, `pyproject.toml`, `web/`, `tests/test_web_toolchain.py`
+
+### 2026-10-21 — Runtime verify against fixtures, never the real transcripts
+**Learning**: Copy `tests/fixtures/claude_code/*/` into a temp dir as project folders and point `EASY_PERSONAL_CLAUDE_PROJECTS` at it (with a temp `EASY_PERSONAL_HOME`); then `ingest` → `usage` / MCP `usage_summary`, and grep every output + the store dir for `INVENTED_` / `planted-secre`.
+**Files**: `src/easy_personal/core/config.py`, `tests/fixtures/claude_code/`
+
+
 ### 2026-10-21 — FastMCP returns structured output only for typed dicts
 **Learning**: An MCP tool annotated `-> dict` returns no structured output; use `-> dict[str, Any]`. The package version reaches `initialize` only via the private `app._mcp_server.version` (no public argument in mcp 1.x).
 **Files**: `src/easy_personal/surfaces/mcp.py`
