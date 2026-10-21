@@ -34,8 +34,15 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-21T10:51:31Z in the worktree, before any implementation commit.
+Command `uv run pytest tests/leak -q`:
+
+```
+ERROR: file or directory not found: tests/leak
+
+no tests ran in 0.00s
+```
+`ls tests/leak tests/fixtures/leak` -> `No such file or directory` for both.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
