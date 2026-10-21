@@ -10,6 +10,18 @@
 
 ## Patterns
 
+### 2026-10-21 — Merge gate blocks while ANY task is In Progress
+**Learning**: `.claude/hooks/pre_bash_block_unsafe_merge.py` refuses every `git merge`/`push` while any KANBAN row is In Progress, and needs a `verify` row containing "pass" for Ready for Review rows. With no review status in Linear (decision: In Progress → Done), move a task to Done only after its Evidence is complete, then merge. Parallel tasks must all reach Done before any of them merges.
+**Files**: `.claude/hooks/pre_bash_block_unsafe_merge.py`, `PROJECT_KANBAN.md`
+
+### 2026-10-21 — Skills the Supervisor cannot run itself
+**Learning**: `/verify` is user-invoked only (disable-model-invocation); built-in `security-review` diffs `origin/HEAD` (remote here is `github`) on the current checkout, so the Supervisor reviews worktree diffs inline. Sub-agents have no Skill tool: write tdd red-green steps into spawn prompts instead of naming the skill.
+**Files**: `skills/verify/SKILL.md`, `skills/craft-spawn-prompt/SKILL.md`
+
+### 2026-10-21 — easy-context registered for this repo (local scope)
+**Learning**: `claude mcp add --transport http easy-context http://127.0.0.1:8767/mcp --header 'X-Easy-Context-Root: ${PWD}'` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Repo not yet indexed.
+**Files**: `PROJECT_SPEC.md`
+
 ### 2026-10-21 — `board_sync.py pull` overwrites the `## Blocked` table
 **Learning**: The Blocked section of `PROJECT_KANBAN.md` is a fixed footer rendered on every pull; manual rows vanish. Record external blockers in the task's guide (`Depends on` external note) and in `PROJECT_SPEC.md` § Tasks instead (e.g. XR-1 → easy-verifier T120 in `tasks/TASK_GUIDE_HUN-42.md`).
 **Files**: `PROJECT_KANBAN.md`, `scripts/board_sync.py`, `tasks/TASK_GUIDE_HUN-42.md`

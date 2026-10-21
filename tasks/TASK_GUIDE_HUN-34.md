@@ -126,6 +126,7 @@ Stream files line by line; keep `(path, inode, offset)` per file; parse JSON per
 - [ ] API-error `assistant` records (`isApiErrorMessage: true`, zero usage) appear from 2.1.302 — count the session, add 0 tokens.
 - [ ] `cost-state.totalCostUSD` is Claude Code's own cost figure — never read it (owner decision 2026-10-21; FR-005 cost comes only from the price table).
 - [ ] Fixtures: `tests/fixtures/claude_code/{2.1.293,2.1.295,2.1.302,unversioned}/` from HUN-32 (see `docs/spikes/transcript-shapes.md`); `isSidechain`, nested `subagents/` files and truncated last lines were NOT observed live but are in the fixtures as assumptions.
+- [ ] Fix carried from HUN-33 /verify: `initialize` reports `serverInfo.version` = MCP SDK version (1.30.0), not the package version — pass the package version to FastMCP.
 - [ ] Fix carried from HUN-33 review (P2): `core/config.py` `data_dir()` must not chmod a pre-existing directory it did not create (e.g. `EASY_PERSONAL_HOME=$HOME`); add a test.
 - [ ] Partial last line
 - [ ] File deleted by cleanup → rows kept, offset retired
