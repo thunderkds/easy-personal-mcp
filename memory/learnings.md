@@ -39,6 +39,10 @@
 **Learning**: `claude mcp add --transport http easy-verifier http://127.0.0.1:8766/mcp` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Pass the repo's absolute path as the tool's `repo` argument; reports land in `~/.easy-verifier-reports/<repo name>/`. Stage 4 step 4b runs `score` (`scope="changes"`, `ref="main...<branch>"`) on every task, advisory only (user decision 2026-10-21); no hook runs it.
 **Files**: `PROJECT_SPEC.md`
 
+### 2026-10-21 — easy-verifier `score` output: read with jq; known security false positives
+**Learning**: First run (HUN-34 merge, `ref="bfd9c86...3f4aceb"`) returned 780,505 chars despite `budget_bytes=120000`; the harness saves it to a file, so extract `.overall`, `.ratings[]`, `.warnings` with jq. Overall 75 (7 of 13 dimensions rated). Security 18 is false positives: `sink_hits_observed` flags `core/metrics.py` f-string SQL (only a fixed column name is interpolated, values are `?` params); `redaction_hits_observed` 123 comes from a pack that reads `uv.lock` and `web/package-lock.json` plus planted test secrets. `score` writes no report; call `write_report` (findings `[]`) for the path.
+**Files**: `src/easy_personal/core/metrics.py`, `docs/claude-md/pipeline-stages.md`
+
 ### 2026-10-21 — `board_sync.py pull` overwrites the `## Blocked` table
 **Learning**: The Blocked section of `PROJECT_KANBAN.md` is a fixed footer rendered on every pull; manual rows vanish. Record external blockers in the task's guide (`Depends on` external note) and in `PROJECT_SPEC.md` § Tasks instead (e.g. XR-1 → easy-verifier T120 in `tasks/TASK_GUIDE_HUN-42.md`).
 **Files**: `PROJECT_KANBAN.md`, `scripts/board_sync.py`, `tasks/TASK_GUIDE_HUN-42.md`

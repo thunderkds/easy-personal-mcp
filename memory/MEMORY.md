@@ -36,6 +36,7 @@
 - [Merge gate blocks while any task In Progress](learnings.md#2026-10-21--merge-gate-blocks-while-any-task-is-in-progress) — Done after evidence, then merge; parallel tasks finish together.
 - [Skills the Supervisor cannot run](learnings.md#2026-10-21--skills-the-supervisor-cannot-run-itself) — /verify is user-only; security-review inline; no Skill tool in sub-agents.
 - [easy-verifier registered (local scope)](learnings.md#2026-10-21--easy-verifier-registered-for-this-repo-local-scope) — 127.0.0.1:8766; absolute `repo` arg; Stage 4 step 4b, advisory, no hook.
+- [easy-verifier score output](learnings.md#2026-10-21--easy-verifier-score-output-read-with-jq-known-security-false-positives) — >budget, read via jq; security 18 = SQL/lockfile false positives; `write_report` for path.
 - [easy-context registered (local scope)](learnings.md#2026-10-21--easy-context-registered-for-this-repo-local-scope) — indexed; search via MCP, not Read; re-index after merge.
 - [Ignore cost-state.totalCostUSD](learnings.md#2026-10-21--ignore-claude-codes-cost-statetotalcostusd) — cost only from the labelled price table.
 - [Board pull overwrites `## Blocked`](learnings.md#2026-10-21--board_syncpy-pull-overwrites-the--blocked-table) — keep external blockers in the guide + PROJECT_SPEC Tasks.
