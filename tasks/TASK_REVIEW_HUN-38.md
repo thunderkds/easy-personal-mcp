@@ -34,8 +34,17 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-21T11:03:37Z (temp EASY_PERSONAL_HOME / XDG_CONFIG_HOME, nothing installed):
+
+```
+$ uv run easy-personal schedule install
+usage: easy-personal [-h] [--version] {ping,mcp,ingest,usage,outliers} ...
+easy-personal: error: argument command: invalid choice: 'schedule' (choose from ping, mcp, ingest, usage, outliers)
+rc=2
+$ uv run easy-personal ingest --retention-days 30
+usage: easy-personal [-h] [--version] {ping,mcp,ingest,usage,outliers} ...
+easy-personal: error: unrecognized arguments: --retention-days 30
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
