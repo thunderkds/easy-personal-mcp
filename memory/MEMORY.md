@@ -29,6 +29,7 @@
 - [Board scoped to Linear project P-HUN-3](decisions.md#2026-10-21--board-scoped-to-linear-project-easy-personal-mcp-p-hun-3) — empty `project` in board.json pulls the whole team.
 
 ### Learnings
+- [Register hook catches other repos' guides](learnings.md#2026-10-21--the-register-hook-catches-guides-written-in-other-repos) — re-pull the board before committing after a cross-repo guide write.
 - [Board pull overwrites `## Blocked`](learnings.md#2026-10-21--board_syncpy-pull-overwrites-the--blocked-table) — keep external blockers in the guide + PROJECT_SPEC Tasks.
 - [Git remote is `github`](learnings.md#2026-10-21--git-remote-is-github-not-origin) — `git push -u github <branch>`.
 - [Linear escapes backticks in titles](learnings.md#2026-10-21--linear-escapes-backticks-in-issue-titles) — cosmetic in KANBAN cache.

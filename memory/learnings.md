@@ -6,6 +6,10 @@
 
 ## Patterns
 
+### 2026-10-21 — The register hook catches guides written in other repos
+**Learning**: `.claude/hooks/post_write_register_task.py` matches any written path ending `TASK_GUIDE_<id>.md`, even outside this repo. Writing `../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md` added a T120 row to this repo's `PROJECT_KANBAN.md`, and it was committed (removed by the next board pull). Write cross-repo guides with Bash (no PostToolUse Write hook), or re-pull the board before committing.
+**Files**: `.claude/hooks/post_write_register_task.py`, `PROJECT_KANBAN.md`
+
 ### 2026-10-21 — `board_sync.py pull` overwrites the `## Blocked` table
 **Learning**: The Blocked section of `PROJECT_KANBAN.md` is a fixed footer rendered on every pull; manual rows vanish. Record external blockers in the task's guide (`Depends on` external note) and in `PROJECT_SPEC.md` § Tasks instead (e.g. XR-1 → easy-verifier T120 in `tasks/TASK_GUIDE_HUN-42.md`).
 **Files**: `PROJECT_KANBAN.md`, `scripts/board_sync.py`, `tasks/TASK_GUIDE_HUN-42.md`

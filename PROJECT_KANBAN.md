@@ -9,7 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **T120** — Score JSON sidecar next to each HTML evidence report | backend-developer | C1 | Risk: Medium | P1
 - [ ] **HUN-32** — Spike: inventory Claude Code transcript shapes and real volume → synthetic fixtures | QA-Automation-Agent | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-32.md`
 - [ ] **HUN-33** — Skeleton: package, pyproject, \`easy-personal\` CLI + MCP stdio entry sharing one core, test runner | Common-Infrastructure-Agent | C1 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-33.md`
 - [ ] **HUN-34** — Tracer bullet: \`claude_code\` source → store (project, machine_id, UTC) → \`usage_summary\` in MCP and CLI | Backend-Implementer | C3 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-34.md`
