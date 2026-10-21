@@ -81,8 +81,15 @@ def load_rules(config_file: Path | None = None) -> list[Rule]:
     overrides = _read_flat(config_file, "thresholds")
     unknown = set(overrides) - {r.id for r in pack}
     if unknown:
-        raise ValueError(f"config thresholds for unknown rules: {', '.join(sorted(unknown))}")
-    return [r.with_threshold(_number(overrides[r.id])) if r.id in overrides else r for r in pack]
+        raise ValueError(
+            f"config {config_file}: thresholds for unknown rules: {', '.join(sorted(unknown))}"
+        )
+    try:
+        return [
+            r.with_threshold(_number(overrides[r.id])) if r.id in overrides else r for r in pack
+        ]
+    except ValueError:
+        raise ValueError(f"config thresholds must be numbers: {config_file}") from None
 
 
 def _iso(moment: datetime) -> str:

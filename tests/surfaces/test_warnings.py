@@ -91,3 +91,15 @@ def test_empty_store_abstains_without_error(tmp_path, monkeypatch, capsys):
     out = _cli_json(capsys, ["warnings"])
     assert out["hits"] == [] and len(out["abstained"]) == 5
     assert _cli_json(capsys, ["plan"]) == {"groups": []}
+
+
+@pytest.mark.parametrize("command", ["warnings", "plan"])
+@pytest.mark.parametrize("line", ["cache_hit_low: abc", "no_such_rule: 1"])
+def test_bad_config_threshold_is_a_clean_cli_error(tmp_path, monkeypatch, capsys, command, line):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "config.yaml").write_text(f"thresholds:\n  {line}\n")
+    monkeypatch.setenv("EASY_PERSONAL_HOME", str(home))
+    assert cli.main([command]) == 2
+    err = capsys.readouterr().err.strip()
+    assert err.count("\n") == 0 and "config" in err

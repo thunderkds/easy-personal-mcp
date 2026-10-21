@@ -130,13 +130,15 @@ def main(argv: list[str] | None = None) -> int:
         with store.opened(config.store_path()) as conn:
             _print_json(metrics.session_outliers(conn, args.since, args.until))
         return 0
-    if args.command == "warnings":
-        with store.opened(config.store_path()) as conn:
-            _print_json(rules.evaluate(conn))
-        return 0
-    if args.command == "plan":
-        with store.opened(config.store_path()) as conn:
-            _print_json(plan.improvement_plan(conn))
+    if args.command in ("warnings", "plan"):
+        try:
+            with store.opened(config.store_path()) as conn:
+                _print_json(
+                    rules.evaluate(conn) if args.command == "warnings" else plan.improvement_plan(conn)
+                )
+        except ValueError as exc:  # bad thresholds in config.yaml
+            print(f"easy-personal: {exc}", file=sys.stderr)
+            return 2
         return 0
     try:
         mcp_surface.validate_host(args.host)
