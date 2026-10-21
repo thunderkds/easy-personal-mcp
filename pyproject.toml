@@ -1,0 +1,30 @@
+[project]
+name = "easy-personal-mcp"
+version = "0.1.0"
+description = "Personal usage, kit and connector MCP server (stdio default, local HTTP opt-in)"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.29,<2",
+    "keyring>=25",
+]
+
+[project.scripts]
+easy-personal = "easy_personal.surfaces.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.5", "anyio>=4"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/easy_personal"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = [".claude", "agents", "skills", "templates", "scripts", "packs", "docs"]
