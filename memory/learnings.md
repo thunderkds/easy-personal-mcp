@@ -73,3 +73,15 @@
 **Learning**: Guides' Mandatory Startup step 6 names it for C2/C3 tasks, but `map-codebase` was never run; agents report it missing. Run `/map-codebase` once, or drop the read from spawn prompts until then.
 **Files**: `memory/codebase-map.md`, `templates/TASK_GUIDE_template.md`
 
+### 2026-10-21 — Open owner check from HUN-37: compaction is inferred
+**Learning**: The store has no `/compact` marker. `session_huge_no_compact` treats a session as compacted when a later message's context (input + cache tokens) drops below half of its earlier peak (`metrics.session_contexts`). Owner to confirm; a real marker needs a parser + schema change (separate task, `migration-safety`). Rules abstain (with a reason) below `min_history_days` or on an empty window; comparisons are strict, so a value at the threshold does not fire.
+**Files**: `src/easy_personal/core/rules.py`, `src/easy_personal/core/metrics.py`, `src/easy_personal/data/rules.yaml`
+
+### 2026-10-21 — Scheduled ingest: lock, exit 75, systemd only via `--dry-run` in tests
+**Learning**: `ingest` takes an flock on `<data dir>/ingest.lock` (crash-safe); busy past `EASY_PERSONAL_LOCK_TIMEOUT` (default 300 s) → stderr message, exit 75. `schedule install|remove` call real `systemctl --user`; tests stub it and the leak suite registers only `--dry-run` variants. `ExecStart` takes `easy-personal` from PATH at install time. Pruned rows can return when a replaced transcript (new inode) is re-read, until the next prune.
+**Files**: `src/easy_personal/core/lock.py`, `src/easy_personal/core/schedule.py`, `src/easy_personal/core/store.py`, `src/easy_personal/surfaces/cli.py`
+
+### 2026-10-21 — `rm` inside `bash -c` is blocked by the harness safety check
+**Learning**: A Bash call that runs `rm` inside a `bash -c '…'` script is refused (the check cannot inspect the script). For verify runs, give each case its own temp dir instead of deleting files, and do not wrap the recipe in `bash -c` when it removes anything.
+**Files**: `.claude/skills/verify/SKILL.md`
+
