@@ -14,16 +14,16 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☒ pass / ☐ fail | `tests/surfaces/test_api.py` (AC1 `test_bind_free_port_is_loopback`, `test_serve_prints_url_opens_browser_and_hides_token_from_logs`; AC2 `test_missing_or_wrong_token_is_403`, `test_dns_rebinding_host_is_403`, `test_other_origin_is_403`, `test_websocket_connect_is_refused`; AC3 `test_csp_on_every_response` incl. `frame-ancestors 'none'`; AC4 `test_parity_with_core_and_mcp_numbers`; AC5 logging test above); AC6 `tests/leak/test_leak_suite.py::test_every_api_route_is_registered`, `test_api_routes_were_scanned`. Supervisor re-run 2026-10-21T14:56:17Z: `uv run pytest tests/surfaces/test_api.py tests/leak -q` → `36 passed, 1 warning in 7.41s` |
+| Verification command run | ☒ pass / ☐ fail | `36 passed, 1 warning in 7.41s` (warning = Starlette TestClient httpx deprecation, from the dependency) |
+| Negative cases hold | ☒ pass / ☐ fail | no/wrong token 403; `Host: evil.example[:port]` 403; foreign `Origin` 403; websocket refused; `by=bad` / bad `since` 400; CSP on 403/404/400; lock busy → exit 75, no serve; no static dir → API only |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☒ pass / ☐ fail | `main...HUN-49` (8 files) + `cli._ingest`. lane_check: `C2, 6 files, 356 lines, FITS` (before fix commit). code-review 0 P0/P1 code, 1 P1 process (partial read of `agents/backend.md`, closed by conformance check). security (inline): 2 findings fixed in `9e864f9` (websocket scopes skipped the guard; no `frame-ancestors`). blast-radius: low — T4 folder names, T5 counts, short-lived T3 token; no hardening required. |
+| Full smoke suite still green (no regression) | ☒ pass / ☐ fail | `uv run pytest -q` → `162 passed, 1 warning in 15.88s` (2026-10-21T14:56Z) |
+| easy-verifier score (advisory) | ☒ recorded / ☐ N/A | 2026-10-21, MCP `score` repo=HUN-49 worktree, scope=changes, ref=`main...HUN-49`: overall **76** (architecture 100, code-quality 87, test-strategy 75, requirement-fidelity 67, blast-radius 65, security 59); abstained: solution-fit, reliability, supply-chain, api, data, operations, infrastructure. Security = `redaction_hits_observed` 122 (known false positive). Raw JSON ~/.claude-personal/projects/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/dbd9c4da-edf5-49bc-80a5-cb2b8c04f640/tool-results/mcp-easy-verifier-score-1792594499767.txt. Advisory only. |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☒ N/A | Pure backend task: no UI component (Hard-Stop Gate 6 N/A) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☒ N/A | Pure backend task: no UI component (Hard-Stop Gate 6 N/A) |
+| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☒ N/A | Pure backend task: no UI component (Hard-Stop Gate 6 N/A) |
 
 ---
 
