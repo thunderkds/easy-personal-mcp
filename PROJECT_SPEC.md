@@ -97,15 +97,15 @@ src/easy_personal/
 
 | ID | Title | Status | Assigned Agent | Complexity | Risk | Priority |
 |----|-------|--------|---------------|-----------|------|----------|
-| T001 | Spike: inventory Claude Code transcript shapes on the owner's machine → synthetic fixtures per version | Todo | QA-Automation-Agent | C1 | Med | P0 |
-| T002 | Repo skeleton: package layout, CLI + MCP entry points sharing one core, config dirs | Todo | Backend-Implementer | C1 | Low | P0 |
-| T003 | `claude_code` source: streaming, incremental, metadata-only parser with abstain counts | Todo | Backend-Implementer | C2 | High | P0 |
-| T004 | Store + metrics: summaries and breakdowns by day/model/project/tool; dated price table | Todo | Backend-Implementer | C2 | Med | P0 |
-| T005 | Rules engine + v1 rule pack (~8 rules) + improvement plan | Todo | Backend-Implementer | C2 | Med | P1 |
-| T006 | MCP tools (6) + CLI commands over the core | Todo | Backend-Implementer | C1 | Low | P1 |
-| T007 | Static HTML dashboard (charts, flows, warnings, plan) | Todo | Frontend-Implementer | C2 | Low | P1 |
-| T008 | Leak test suite: planted secrets/text in fixtures never reach any output or store row | Todo | QA-Automation-Agent | C1 | High | P0 |
-| T009 | Scheduled ingest (cron/launchd snippet or `SessionEnd` hook doc) so the 30-day cleanup loses nothing | Todo | Backend-Implementer | C1 | Med | P1 |
+| HUN-21 | Spike: inventory Claude Code transcript shapes on the owner's machine → synthetic fixtures per version | Todo | QA-Automation-Agent | C1 | Med | P0 |
+| HUN-22 | Repo skeleton: package layout, CLI + MCP entry points sharing one core, config dirs | Todo | Backend-Implementer | C1 | Low | P0 |
+| HUN-23 | `claude_code` source: streaming, incremental, metadata-only parser with abstain counts | Todo | Backend-Implementer | C2 | High | P0 |
+| HUN-24 | Store + metrics: summaries and breakdowns by day/model/project/tool; dated price table | Todo | Backend-Implementer | C2 | Med | P0 |
+| HUN-25 | Rules engine + v1 rule pack (~8 rules) + improvement plan | Todo | Backend-Implementer | C2 | Med | P1 |
+| HUN-26 | MCP tools (6) + CLI commands over the core | Todo | Backend-Implementer | C1 | Low | P1 |
+| HUN-27 | Static HTML dashboard (charts, flows, warnings, plan) | Todo | Frontend-Implementer | C2 | Low | P1 |
+| HUN-28 | Leak test suite: planted secrets/text in fixtures never reach any output or store row | Todo | QA-Automation-Agent | C1 | High | P0 |
+| HUN-29 | Scheduled ingest (cron/launchd snippet or `SessionEnd` hook doc) so the 30-day cleanup loses nothing | Todo | Backend-Implementer | C1 | Med | P1 |
 
 v1.1 (connectors, keychain, launcher, writers, live dashboard) is planned after v1 ships.
 

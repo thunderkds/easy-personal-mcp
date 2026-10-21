@@ -8,17 +8,18 @@
 ## Board
 
 > Task line format: **Txxx** — [title] | [agent] | C[0–3] | Risk: Low/Med/High | P[0–2]
+> Board mode `online` (Linear team HUN, project [easy-personal-mcp](https://linear.app/thunderkds/project/easy-personal-mcp-a6ec3c36d1ae)): the board is the source of truth; this file is its cache.
 
 ### Todo
-- [ ] **T001** — Spike: inventory Claude Code transcript shapes → synthetic fixtures per version | QA-Automation-Agent | C1 | Risk: Med | P0
-- [ ] **T002** — Repo skeleton: package layout, CLI + MCP entry points sharing one core | Backend-Implementer | C1 | Risk: Low | P0
-- [ ] **T003** — `claude_code` source: streaming, incremental, metadata-only parser with abstain counts | Backend-Implementer | C2 | Risk: High | P0
-- [ ] **T004** — Store + metrics by day/model/project/tool; dated price table | Backend-Implementer | C2 | Risk: Med | P0
-- [ ] **T008** — Leak test suite: planted secrets/text never reach any output or store row | QA-Automation-Agent | C1 | Risk: High | P0
-- [ ] **T005** — Rules engine + v1 rule pack + improvement plan | Backend-Implementer | C2 | Risk: Med | P1
-- [ ] **T006** — MCP tools (6) + CLI commands over the core | Backend-Implementer | C1 | Risk: Low | P1
-- [ ] **T007** — Static HTML dashboard (charts, flows, warnings, plan) | Frontend-Implementer | C2 | Risk: Low | P1
-- [ ] **T009** — Scheduled ingest so the 30-day transcript cleanup loses nothing | Backend-Implementer | C1 | Risk: Med | P1
+- [ ] **HUN-21** — Spike: inventory Claude Code transcript shapes → synthetic fixtures per version | QA-Automation-Agent | C1 | Risk: Med | P0
+- [ ] **HUN-22** — Repo skeleton: package layout, CLI + MCP entry points sharing one core | Backend-Implementer | C1 | Risk: Low | P0
+- [ ] **HUN-23** — `claude_code` source: streaming, incremental, metadata-only parser with abstain counts | Backend-Implementer | C2 | Risk: High | P0
+- [ ] **HUN-24** — Store + metrics by day/model/project/tool; dated price table | Backend-Implementer | C2 | Risk: Med | P0
+- [ ] **HUN-28** — Leak test suite: planted secrets/text never reach any output or store row | QA-Automation-Agent | C1 | Risk: High | P0
+- [ ] **HUN-25** — Rules engine + v1 rule pack + improvement plan | Backend-Implementer | C2 | Risk: Med | P1
+- [ ] **HUN-26** — MCP tools (6) + CLI commands over the core | Backend-Implementer | C1 | Risk: Low | P1
+- [ ] **HUN-27** — Static HTML dashboard (charts, flows, warnings, plan) | Frontend-Implementer | C2 | Risk: Low | P1
+- [ ] **HUN-29** — Scheduled ingest so the 30-day transcript cleanup loses nothing | Backend-Implementer | C1 | Risk: Med | P1
 
 ### In Progress
 
@@ -39,8 +40,8 @@
 
 | Stage | Status |
 |-------|--------|
-| 0.5 Brainstorming | ✅ Done |
-| 1 Environment Setup | 🔄 In Progress |
+| 0.5 Grilling → Brainstorming | 🔄 In Progress (requirement grill running) |
+| 1 Environment Setup | ⬜ Not Started (board connected early) |
 | 1.5 Sub-Agent Architecture | ⬜ Not Started |
 | 2 Planning (/plan) | ⬜ Not Started |
 | 3 Execution | ⬜ Not Started |
