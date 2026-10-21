@@ -14,12 +14,12 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/leak/test_leak_suite.py` (+ helpers `tests/leak/canaries.py`, `harness.py`, `conftest.py`; fixture `tests/fixtures/leak/session.jsonl.tmpl`). AC1 canaries/fixture: test_fixture_plants_every_canary, test_canaries_are_unique_per_run. AC2: test_no_canary_in_any_output_log_or_store. AC3: test_every_mcp_tool_is_registered, test_unregistered_new_tool_fails_meta_test. AC4: `tests/leak/README.md`. Self-test: test_leaking_tool_fails_the_suite, test_scan_detects_every_encoding. |
+| Verification command run | pass | `uv run pytest tests/leak -q` -> `18 passed in 3.90s` |
+| Negative cases hold | pass | Leaking tool, log, store row, 6 encodings, 3 base64 alignments detected by self-tests. Mutation: temporarily set `model=message.get("model")` in sources/claude_code.py -> `LEAKS: {'store .dump': [('model_text', 'raw'), ('model_text', 'json')], 'store file store.sqlite': [...]}`, `1 failed, 17 passed`; change reverted (git checkout). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | pass | `uv run pytest -q` -> `77 passed, 2 skipped in 5.96s`; `uv run ruff check .` -> All checks passed |
 | easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -44,9 +44,15 @@ no tests ran in 0.00s
 ```
 `ls tests/leak tests/fixtures/leak` -> `No such file or directory` for both.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same command after the change (2026-10-21):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ uv run pytest tests/leak -q
+..................                                                       [100%]
+18 passed in 3.90s
+```
+
+**DELTA**: A developer can now run one command that plants canary secrets in transcripts and fails if any appear in the store, any MCP/CLI output or logs.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-36.jsonl`, never the
 implementing agent alone]
