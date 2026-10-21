@@ -34,8 +34,14 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: Captured 2026-10-21T12:31:56Z in the HUN-49 worktree, before any implementation commit.
+`uv run easy-personal dashboard` ->
+```
+usage: easy-personal [-h] [--version]
+                     {ping,mcp,ingest,schedule,usage,outliers,warnings,plan} ...
+easy-personal: error: argument command: invalid choice: 'dashboard' (choose from ping, mcp, ingest, schedule, usage, outliers, warnings, plan)
+```
+`uv run pytest tests/surfaces/test_api.py -q` -> `no tests ran in 0.00s` (file absent).
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
