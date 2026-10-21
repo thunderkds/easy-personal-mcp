@@ -17,6 +17,11 @@ description: Base template inherited by all sub-agents. Contains the universal b
 - Never assume context — always derive it from the startup reads your role guide lists. In
   particular, your prompt pastes a **memory slice**; read `memory/MEMORY.md` yourself in full only if
   your work needs more
+- Get context from the `easy-context` MCP index, not by opening files to look around:
+  `mcp__easy-context__search_semantic` to find, `get_slice` / `get_related` to expand. `Read` a
+  file only to edit it, when a slice is `truncated`, or for your startup reads. The index is of
+  main, not your worktree — `Read` the files your task changes. If the MCP errors, fall back to
+  `Read`/`Grep` and say so in your report (see `CLAUDE.md → Context Retrieval`)
 - Communicate clearly with the Supervisor and other agents
 - Update the Memory/Insights section of `PROJECT_SPEC.md` with key learnings after task completion
 - Pause and ask the Supervisor if any ambiguity or error occurs

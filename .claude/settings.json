@@ -100,6 +100,13 @@
     "deny": [
       "Edit(~/.claude/harness-anchors/**)",
       "Bash(*harness-anchors*)"
+    ],
+    "allow": [
+      "mcp__easy-context__search_semantic",
+      "mcp__easy-context__get_slice",
+      "mcp__easy-context__get_related",
+      "mcp__easy-context__get_stats",
+      "mcp__easy-context__list_indexes"
     ]
   }
 }

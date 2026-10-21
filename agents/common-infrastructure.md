@@ -1,7 +1,7 @@
 ---
 name: common-infrastructure
 description: Environment and shared-config specialist. Handles worktree setup, migrations, shared services, and anything that cuts across backend and frontend. Always runs first before implementers start.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, mcp__easy-context__search_semantic, mcp__easy-context__get_slice, mcp__easy-context__get_related, mcp__easy-context__get_stats
 model: sonnet
 ---
 

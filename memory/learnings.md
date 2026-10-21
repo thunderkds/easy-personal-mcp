@@ -19,7 +19,7 @@
 **Files**: `skills/verify/SKILL.md`, `skills/craft-spawn-prompt/SKILL.md`
 
 ### 2026-10-21 — easy-context registered for this repo (local scope)
-**Learning**: `claude mcp add --transport http easy-context http://127.0.0.1:8767/mcp --header 'X-Easy-Context-Root: ${PWD}'` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Repo not yet indexed.
+**Learning**: `claude mcp add --transport http easy-context http://127.0.0.1:8767/mcp --header 'X-Easy-Context-Root: ${PWD}'` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Indexed 2026-10-21 (177 files, 1646 slices); retrieval rule in `CLAUDE.md → Context Retrieval`; re-index (`index_path`, incremental) after each merge to main.
 **Files**: `PROJECT_SPEC.md`
 
 ### 2026-10-21 — `board_sync.py pull` overwrites the `## Blocked` table

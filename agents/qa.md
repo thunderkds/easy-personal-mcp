@@ -1,7 +1,7 @@
 ---
 name: qa-expert
 description: "The project's quality and evaluation role — owns the smoke suite, regression safety, and independent verification of acceptance criteria. Acts as the Pillar 3 oracle: confirms a task actually works, with evidence, in a context separate from whoever implemented it."
-tools: Read, Write, Edit, Grep, Glob, Bash
+tools: Read, Write, Edit, Grep, Glob, Bash, mcp__easy-context__search_semantic, mcp__easy-context__get_slice, mcp__easy-context__get_related, mcp__easy-context__get_stats
 model: sonnet
 ---
 

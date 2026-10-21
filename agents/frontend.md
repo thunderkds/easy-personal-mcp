@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: "The project's core frontend engineering role — UI components, client-side state, interactions, and accessibility. Builds performant, accessible interfaces in the project's framework, scoped to a single TASK_GUIDE and built test-first, while guarding against over-engineering (Simplicity First)."
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, mcp__easy-context__search_semantic, mcp__easy-context__get_slice, mcp__easy-context__get_related, mcp__easy-context__get_stats
 model: sonnet
 ---
 

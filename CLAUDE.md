@@ -77,6 +77,16 @@ Sub-agents inherit the base rules and communication protocol in `agents/general-
 
 ---
 
+## Context Retrieval (easy-context MCP)
+This repo is indexed by the `easy-context` MCP server (local scope, `http://127.0.0.1:8767/mcp`). The Supervisor and all sub-agents get context from the index, not by opening Markdown or source files to look around.
+- Find: `mcp__easy-context__search_semantic` (use `path_prefix` to narrow, e.g. `docs/`, `src/`). Expand: `get_slice` for one slice, `get_related` for callers/imports/headings.
+- `Read` a file only to edit it (Edit requires it), when a slice is `truncated`, or for the mandatory startup reads (`PROJECT_SPEC.md`, the TASK_GUIDE, the role guide). `Glob`/`Grep` stay for exact-name lookups.
+- The index covers the repo root (main), not worktree edits: inside a worktree, `Read` the files the task changes.
+- Keep it fresh: after each merge to main the Supervisor runs `mcp__easy-context__index_path` (incremental; unchanged files skipped). If `search_semantic` errors or `get_stats` shows no index, fall back to `Read`/`Grep` and say so.
+- This is the Supervisor's tooling. It does not change DDR-0002 (the product stays a read-only client that never calls `index_path`).
+
+---
+
 ## Folder Structure Requirements (Mandatory)
 See [`docs/claude-md/folder-structure.md`](docs/claude-md/folder-structure.md) for the full mandatory folder list.
 Root must contain: `agents/`, `skills/`, `tasks/`, `templates/`, `packs/` (optional), `memory/`. `.claude/skills` and `.claude/agents` are load-bearing **relative** symlinks onto that canon — never delete or absolutize them.
