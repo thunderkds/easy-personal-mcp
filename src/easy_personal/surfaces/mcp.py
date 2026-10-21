@@ -33,6 +33,23 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         with store.opened(config.store_path()) as conn:
             return metrics.usage_summary(conn, since, until)
 
+    @app.tool()
+    def usage_breakdown(
+        by: str, since: str | None = None, until: str | None = None
+    ) -> dict[str, Any]:
+        """Tokens grouped by day (OS local time), model, project (folder name) or tool for
+        [since, until), with an API-equivalent cost (price-table date shown; a model missing
+        from the table abstains). `total` equals usage_summary; tool groups overlap."""
+        with store.opened(config.store_path()) as conn:
+            return metrics.usage_breakdown(conn, by, since, until)
+
+    @app.tool()
+    def session_outliers(since: str | None = None, until: str | None = None) -> dict[str, Any]:
+        """Sessions with at least 90 tool calls or a very long context, each with its measured
+        values and the thresholds used."""
+        with store.opened(config.store_path()) as conn:
+            return metrics.session_outliers(conn, since, until)
+
     return app
 
 

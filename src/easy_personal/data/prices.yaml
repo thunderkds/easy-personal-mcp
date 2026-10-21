@@ -1,0 +1,8 @@
+# API list prices, USD per million tokens. Dated: every cost shown cites as_of.
+# Keep the one-line `name: key=value ...` shape; core/prices.py reads it without a YAML library.
+# A model missing here is abstained (cost not shown), never guessed. Update as_of with the prices.
+as_of: 2026-10-21
+models:
+  claude-opus-5-5: input=5 output=25 cache_write=6.25 cache_read=0.5
+  claude-sonnet-5-5: input=3 output=15 cache_write=3.75 cache_read=0.3
+  claude-haiku-5-5: input=1 output=5 cache_write=1.25 cache_read=0.1

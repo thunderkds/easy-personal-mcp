@@ -34,6 +34,12 @@ def build_parser() -> argparse.ArgumentParser:
     usage_p = sub.add_parser("usage", help="usage summary for a period (same as MCP usage_summary)")
     usage_p.add_argument("--since", type=iso_datetime, help="ISO date/datetime, inclusive")
     usage_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
+    usage_p.add_argument(
+        "--by", choices=metrics.DIMENSIONS, help="break tokens down by this dimension"
+    )
+    outliers_p = sub.add_parser("outliers", help="long or tool-heavy sessions (session_outliers)")
+    outliers_p.add_argument("--since", type=iso_datetime, help="ISO date/datetime, inclusive")
+    outliers_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
     return parser
 
 
@@ -53,7 +59,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "usage":
         with store.opened(config.store_path()) as conn:
-            _print_json(metrics.usage_summary(conn, args.since, args.until))
+            if args.by:
+                _print_json(metrics.usage_breakdown(conn, args.by, args.since, args.until))
+            else:
+                _print_json(metrics.usage_summary(conn, args.since, args.until))
+        return 0
+    if args.command == "outliers":
+        with store.opened(config.store_path()) as conn:
+            _print_json(metrics.session_outliers(conn, args.since, args.until))
         return 0
     try:
         mcp_surface.validate_host(args.host)
