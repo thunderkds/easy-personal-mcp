@@ -43,7 +43,8 @@ easy-personal: error: argument command: invalid choice: 'dashboard' (choose from
 ```
 `uv run pytest tests/surfaces/test_api.py -q` -> `no tests ran in 0.00s` (file absent).
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: Runtime check with fixture transcripts (BROWSER=true, 6 s timeout):
+`easy-personal dashboard` printed `http://127.0.0.1:43661/#<token>`; `GET /` -> 200 with `content-security-policy: default-src 'self'`; `/api/usage/summary` without token -> 403; with `Host: evil.example` -> 403; with token -> 200 `{"sessions":4,"messages":3,...}`. Token appears only in the printed URL (stdout), not stderr. `uv run pytest tests/surfaces/test_api.py tests/leak -q` -> 35 passed.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

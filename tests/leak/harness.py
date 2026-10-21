@@ -56,7 +56,16 @@ CLI_CALLS: dict[str, list[list[str]]] = {
     "plan": [[]],
 }
 # Commands that start a long-running server; covered by the stdio test instead of a one-shot call.
-CLI_SERVER_COMMANDS = {"mcp"}
+# `dashboard` is covered through API_CALLS (in-process TestClient) instead.
+CLI_SERVER_COMMANDS = {"mcp", "dashboard"}
+# Dashboard JSON API route path -> list of query strings (HUN-49).
+API_CALLS: dict[str, list[str]] = {
+    "/api/usage/summary": ["", "?since=2026-01-01", "?until=2027-01-01"],
+    "/api/usage/breakdown": ["?by=day", "?by=model", "?by=project", "?by=tool", "?by=bad"],
+    "/api/usage/outliers": ["", "?since=2026-01-01"],
+    "/api/warnings": [""],
+    "/api/plan": [""],
+}
 
 
 @dataclass
@@ -125,6 +134,30 @@ def collect_mcp(app, out: Collected, logs: "LogCapture") -> None:
             out.add(f"mcp {tool} {args} stdout", sink_out.getvalue())
             out.add(f"mcp {tool} {args} stderr", sink_err.getvalue())
     out.add("log records (in-process)", logs.text())
+
+
+def api_routes(app) -> set[str]:
+    return {r.path for r in app.routes if r.path.startswith("/api/")}
+
+
+def unregistered_api_routes(app) -> set[str]:
+    return api_routes(app) - set(API_CALLS)
+
+
+def collect_api(out: Collected, logs: "LogCapture") -> None:
+    """Call every dashboard API route in-process with a valid token; keep status, headers, body."""
+    from starlette.testclient import TestClient
+
+    from easy_personal.surfaces import api
+
+    token, port = "leak-test-token", 4321
+    client = TestClient(api.create_app(token, port), base_url=f"http://127.0.0.1:{port}")
+    headers = {api.TOKEN_HEADER: token}
+    for path, queries in API_CALLS.items():
+        for query in queries:
+            res = client.get(path + query, headers=headers)
+            out.add(f"api {path}{query}", f"{res.status_code} {dict(res.headers)} {res.text}")
+    out.add("log records (api)", logs.text())
 
 
 def collect_mcp_stdio(env: dict, errlog_path: Path, out: Collected) -> None:
