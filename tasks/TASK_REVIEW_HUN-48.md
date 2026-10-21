@@ -18,7 +18,7 @@
 | Verification command run | pass | 2026-10-21T10:14:49Z: `npm --prefix web ci && npm --prefix web run build && uv build && python3 scripts/check_static.py` -> `built in 296ms`, `Successfully built dist/easy_personal_mcp-0.1.0-py3-none-any.whl`, `check_static: ok` |
 | Negative cases hold | pass | stale: appended a line to `web/src/main.jsx` -> `FAIL: static build stale: web/ sources changed since the last build`, exit 1 (then reverted). Real wheel RED before pyproject fix: `FAIL: wheel lacks static assets under easy_personal/dashboard/static/` (gitignored build dropped by hatch; fixed with `artifacts` in wheel and sdist targets). Missing static: `FAIL: static build missing: ...` |
 | verify | N/A | No Skill tool for sub-agent; Supervisor runs verify. Full suite `26 passed in 2.67s` - pass |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | pass | web/, scripts/check_static.py, pyproject.toml build targets, .gitignore, one test file. No runtime code touched |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | pass | 11 files in `main...feat/HUN-48-web-toolchain`; code-review 0 P0/P1, 1 P2 (partial startup read), 2 P3 — `reports/code-review_feat-HUN-48-web-toolchain_20261021T171645.html`; security (inline) pass — `reports/security-review_feat-HUN-48-web-toolchain_20261021T171645.html` (main checkout) |
 | Full smoke suite still green (no regression) | pass | `uv run pytest -q` -> `26 passed in 2.67s` |
 | **UI: Visual regression (diff or verdict pasted)** | N/A | One placeholder page, no product UI (frontend tasks) |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | N/A | No design system yet (cut list) |
