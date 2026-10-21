@@ -34,6 +34,8 @@ MCP_CALLS: dict[str, list[dict]] = {
         {"by": "day", "since": "2026-01-01"},
     ],
     "session_outliers": [{}, {"since": "2026-01-01"}],
+    "warnings": [{}],
+    "improvement_plan": [{}],
 }
 # CLI command -> list of argv tails. `{projects}` is the planted transcript root.
 CLI_CALLS: dict[str, list[list[str]]] = {
@@ -49,6 +51,8 @@ CLI_CALLS: dict[str, list[list[str]]] = {
         ["--by", "tool"],
     ],
     "outliers": [[], ["--since", "2026-01-01"]],
+    "warnings": [[]],
+    "plan": [[]],
 }
 # Commands that start a long-running server; covered by the stdio test instead of a one-shot call.
 CLI_SERVER_COMMANDS = {"mcp"}

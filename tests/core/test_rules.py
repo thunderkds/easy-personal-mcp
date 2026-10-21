@@ -6,6 +6,7 @@ import pytest
 from easy_personal.core import plan, rules
 from easy_personal.sources import claude_code
 
+
 @pytest.fixture(autouse=True)
 def _home(tmp_path, monkeypatch):
     monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path / "home"))
@@ -62,7 +63,8 @@ def _result(conn, rule_id, **kw):
 
 
 @pytest.mark.parametrize(
-    ("cr", "expected"), [(49, "fired"), (50, "ok"), (51, "ok")]  # 50/100 is not "< 50%"
+    ("cr", "expected"),
+    [(49, "fired"), (50, "ok"), (51, "ok")],  # 50/100 is not "< 50%"
 )
 def test_cache_hit_low_boundary(conn, tmp_path, cr, expected):
     _load(conn, tmp_path, [_msg(1, DAY, i=100 - cr, cr=cr)])
@@ -134,7 +136,8 @@ def test_project_dominates_tie_picks_first_folder_name(conn, tmp_path, monkeypat
 @pytest.mark.parametrize(("bad", "expected"), [(3, "fired"), (2, "ok")])
 def test_records_unreadable_boundary(conn, tmp_path, bad, expected):
     good = [
-        {**_msg(k, DAY), "type": "user", "message": None, "version": "9.9.9"} for k in range(100 - bad)
+        {**_msg(k, DAY), "type": "user", "message": None, "version": "9.9.9"}
+        for k in range(100 - bad)
     ]
     junk = [{"type": "mystery", "version": "9.9.9", "timestamp": _ts(DAY)} for _ in range(bad)]
     _load(conn, tmp_path, good + junk)

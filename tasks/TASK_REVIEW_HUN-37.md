@@ -52,9 +52,31 @@ usage: easy-personal [-h] [--version] {ping,mcp,ingest,usage,outliers} ...
 easy-personal: error: argument command: invalid choice: 'warnings' (choose from ping, mcp, ingest, usage, outliers)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same commands post-change (fixtures only):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+2026-10-21T11:07:23Z
+$ uv run pytest tests/core/test_rules.py tests/surfaces -q
+.........................................                                [100%]
+41 passed in 0.90s
+$ easy-personal ingest; easy-personal warnings (fixtures)
+{
+  "abstained": [
+    {
+      "reason": "no prompt tokens in the window",
+      "rule_id": "cache_hit_low"
+    },
+    {
+      "reason": "fewer than two projects with tokens in the window",
+      "rule_id": "project_dominates"
+    },
+    {
+      "reason": "no records in the window",
+      "rule_id": "records_unreadable"
+    },
+```
+
+**DELTA**: The owner can run `easy-personal warnings` / `plan` (or the MCP `warnings` / `improvement_plan`) and see which of the 5 declared usage rules fired, with value, threshold and fix line.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

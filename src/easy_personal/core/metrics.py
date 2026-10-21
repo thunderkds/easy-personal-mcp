@@ -287,7 +287,11 @@ def session_contexts(
             state["compacted"] = True
         state["peak"] = max(state["peak"], context)
     return [
-        {"session_id": s["session_id"], "max_context_tokens": s["peak"], "compacted": s["compacted"]}
+        {
+            "session_id": s["session_id"],
+            "max_context_tokens": s["peak"],
+            "compacted": s["compacted"],
+        }
         for s in sessions.values()
     ]
 
