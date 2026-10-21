@@ -17,13 +17,13 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/leak/test_leak_suite.py` (+ helpers `tests/leak/canaries.py`, `harness.py`, `conftest.py`; fixture `tests/fixtures/leak/session.jsonl.tmpl`). AC1 canaries/fixture: test_fixture_plants_every_canary, test_canaries_are_unique_per_run. AC2: test_no_canary_in_any_output_log_or_store. AC3: test_every_mcp_tool_is_registered, test_unregistered_new_tool_fails_meta_test. AC4: `tests/leak/README.md`. Self-test: test_leaking_tool_fails_the_suite, test_scan_detects_every_encoding. |
 | Verification command run | pass | `uv run pytest tests/leak -q` -> `18 passed in 3.90s` |
 | Negative cases hold | pass | Leaking tool, log, store row, 6 encodings, 3 base64 alignments detected by self-tests. Mutation: temporarily set `model=message.get("model")` in sources/claude_code.py -> `LEAKS: {'store .dump': [('model_text', 'raw'), ('model_text', 'json')], 'store file store.sqlite': [...]}`, `1 failed, 17 passed`; change reverted (git checkout). |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☒ pass / ☐ fail / ☐ N/A | 2026-10-21T10:55Z Supervisor, HUN-36 worktree: `uv run pytest tests/leak -q` → `18 passed in 3.46s`. Independent mutation (not the implementer's): `sources/claude_code.py:140` `tool_names=str(blocks)[:500]` → `LEAKS: {'store .dump': [('assistant_text','raw'), ('assistant_text','json'), ('thinking','raw'), ('tool_input','raw'), ('file_path','raw'), ...]}`, `1 failed, 17 passed`; reverted with `git checkout`, re-run `18 passed` — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☒ pass / ☐ fail | 9 files in `main...HUN-36` (tests/leak, fixture template, pyproject pytest config) + the surfaces they drive (`surfaces/cli.py`, `surfaces/mcp.py`, `sources/claude_code.py`, read only). lane_check: `C2, 8 files, 495 lines, FITS; unpredicted: pyproject.toml`. code-review 0 P0/P1/P2, 1 P3 (flag-level variants are not meta-tested; registering tasks add them) — `reports/code-review_HUN-36_20261021T175604.html`; security (inline) pass, no findings — `reports/security-review_HUN-36_20261021T175604.html` (main checkout) |
 | Full smoke suite still green (no regression) | pass | `uv run pytest -q` -> `77 passed, 2 skipped in 5.96s`; `uv run ruff check .` -> All checks passed |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| easy-verifier score (advisory) | ☐ recorded / ☒ N/A | N/A — easy-verifier MCP is not registered in this session's Claude profile (`CLAUDE_CONFIG_DIR=~/.claude-wife`; registered only in `~/.claude-personal`), so the `score` tool is not loaded. Server itself is up on 127.0.0.1:8766. |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☒ N/A | Test-only task (no UI component) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☒ N/A | Test-only task (no UI component) |
+| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☒ N/A | Test-only task (no UI component) |
 
 ---
 
@@ -54,5 +54,4 @@ $ uv run pytest tests/leak -q
 
 **DELTA**: A developer can now run one command that plants canary secrets in transcripts and fails if any appear in the store, any MCP/CLI output or logs.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-36.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-21T10:55Z — re-ran `uv run pytest tests/leak -q` and the independent mutation above in the HUN-36 worktree (calls attributed to HUN-36 via the active_task state file; `memory/event-trace/HUN-36.jsonl`).
