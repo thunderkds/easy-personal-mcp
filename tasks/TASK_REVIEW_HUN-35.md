@@ -46,7 +46,18 @@ $ MCP tool list (create_app().list_tools())
 ['ping', 'usage_summary']
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured 2026-10-21T10:53:34Z, same worktree, fixtures ingested into a temp store:
+
+```
+$ uv run pytest tests/core/test_metrics.py tests/core/test_prices.py tests/surfaces -q
+29 passed in 0.59s
+$ uv run easy-personal usage --by model   # (abridged)
+groups[0]: key claude-fixture-model-1, input_tokens 15, output_tokens 8, messages 3,
+  api_equivalent_cost {usd: null, price_table_date: "2026-10-21", abstained_models: ["claude-fixture-model-1"]}
+total: same tokens as usage_summary
+$ uv run easy-personal outliers   -> {"sessions": [], "thresholds": {"context_tokens": 200000, "tool_calls": 90}}
+MCP tools: ping, usage_summary, usage_breakdown, session_outliers
+```
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 
