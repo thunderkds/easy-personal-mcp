@@ -121,10 +121,10 @@ Stream files line by line; keep `(path, inode, offset)` per file; parse JSON per
 
 ## Edge Case Checklist
 
-- [ ] **Dedupe tokens on `message.id`** (HUN-32 spike): one API message is split over several `assistant` records, one per content block, each repeating the same `usage`. 93 records carried 40 distinct ids; summing per record over-counts tokens ~2.3×. Count usage once per `message.id`.
-- [ ] **Version is per record, not per file**: every real file mixed versions. ~28% of lines are metadata types with no `version` and no `cwd` (`agent-name`, `custom-title`, `last-prompt`, `atis-latch`, `queue-operation`, `cost-state`, `file-history-*`, `artifact-*`, `frame-link`) — classify them as known metadata, do NOT abstain on them.
+- [ ] **Dedupe tokens on** `message.id` (HUN-32 spike): one API message is split over several `assistant` records, one per content block, each repeating the same `usage`. 93 records carried 40 distinct ids; summing per record over-counts tokens \~2.3×. Count usage once per `message.id`.
+- [ ] **Version is per record, not per file**: every real file mixed versions. \~28% of lines are metadata types with no `version` and no `cwd` (`agent-name`, `custom-title`, `last-prompt`, `atis-latch`, `queue-operation`, `cost-state`, `file-history-*`, `artifact-*`, `frame-link`) — classify them as known metadata, do NOT abstain on them.
 - [ ] API-error `assistant` records (`isApiErrorMessage: true`, zero usage) appear from 2.1.302 — count the session, add 0 tokens.
-- [ ] `cost-state.totalCostUSD` is Claude Code's own cost figure — do not read it (owner decision pending; FR-005 cost comes only from the price table).
+- [ ] `cost-state.totalCostUSD` is Claude Code's own cost figure — never read it (owner decision 2026-10-21; FR-005 cost comes only from the price table).
 - [ ] Fixtures: `tests/fixtures/claude_code/{2.1.293,2.1.295,2.1.302,unversioned}/` from HUN-32 (see `docs/spikes/transcript-shapes.md`); `isSidechain`, nested `subagents/` files and truncated last lines were NOT observed live but are in the fixtures as assumptions.
 - [ ] Fix carried from HUN-33 review (P2): `core/config.py` `data_dir()` must not chmod a pre-existing directory it did not create (e.g. `EASY_PERSONAL_HOME=$HOME`); add a test.
 - [ ] Partial last line

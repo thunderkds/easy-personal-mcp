@@ -4,6 +4,10 @@
 
 ## Requirement Clarifications
 
+### 2026-10-21 — Ignore Claude Code's `cost-state.totalCostUSD`
+**Learning**: Owner confirmed: cost is only the labelled "API-equivalent cost" from the dated price table (FR-005); the transcript's own `totalCostUSD` is never read.
+**Files**: `src/easy_personal/sources/claude_code.py`, `tasks/TASK_GUIDE_HUN-34.md`
+
 ## Patterns
 
 ### 2026-10-21 — `board_sync.py pull` overwrites the `## Blocked` table
