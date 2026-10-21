@@ -1,6 +1,10 @@
+from importlib.metadata import version
+from typing import Any
+
 from mcp.server.fastmcp import FastMCP
 
 from easy_personal import core
+from easy_personal.core import config, metrics, store
 
 LOOPBACK = "127.0.0.1"
 
@@ -13,11 +17,21 @@ def validate_host(host: str) -> str:
 
 def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
     app = FastMCP("easy-personal", host=validate_host(host), port=port)
+    # FastMCP has no version argument; without this, initialize reports the MCP SDK version.
+    app._mcp_server.version = version("easy-personal-mcp")
 
     @app.tool()
     def ping() -> str:
         """Placeholder tool: returns the shared core's status string."""
         return core.ping()
+
+    @app.tool()
+    def usage_summary(since: str | None = None, until: str | None = None) -> dict[str, Any]:
+        """Claude Code usage for [since, until): sessions, messages, input/output and cache
+        tokens, cache-hit ratio, and records abstained per version. Bounds are ISO 8601 dates or
+        datetimes; without an offset they are local time; omitted means all stored history."""
+        with store.opened(config.store_path()) as conn:
+            return metrics.usage_summary(conn, since, until)
 
     return app
 
