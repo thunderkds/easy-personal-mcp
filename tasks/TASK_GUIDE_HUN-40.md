@@ -108,6 +108,7 @@ uv run pytest tests/sources/test_git_local.py -q
 
 ## Edge Case Checklist
 
+- [ ] Carried from HUN-34 security review (P3): harden git calls with `-c core.fsmonitor=false` and `GIT_OPTIONAL_LOCKS=0`; reuse/extend `core/discovery.py`'s `_git` helper.
 - [ ] Huge repos → timeout + abstain
 - [ ] Shallow clones
 - [ ] Worktrees counted once via main repo

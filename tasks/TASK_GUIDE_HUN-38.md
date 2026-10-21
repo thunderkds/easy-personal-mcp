@@ -110,6 +110,7 @@ flock on a lock file in `~/.easy-personal/`; WAL already on. Unit files rendered
 
 ## Edge Case Checklist
 
+- [ ] Carried from HUN-34 review (P2): add a bounded-memory test for ingest over a generated multi-MB transcript (e.g. `tracemalloc` peak stays under a fixed cap).
 - [ ] Laptop asleep at timer time → `Persistent=true`
 - [ ] Installed path changes after reinstall → `schedule install` is idempotent and rewrites
 - [ ] Lock file left by a crashed run

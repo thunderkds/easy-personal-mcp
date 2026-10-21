@@ -30,6 +30,7 @@
 - [Board scoped to Linear project P-HUN-3](decisions.md#2026-10-21--board-scoped-to-linear-project-easy-personal-mcp-p-hun-3) — empty `project` in board.json pulls the whole team.
 
 ### Learnings
+- [FastMCP typed dict output](learnings.md#2026-10-21--fastmcp-returns-structured-output-only-for-typed-dicts) — `-> dict[str, Any]`; version via private `_mcp_server.version`.
 - [Merge gate blocks while any task In Progress](learnings.md#2026-10-21--merge-gate-blocks-while-any-task-is-in-progress) — Done after evidence, then merge; parallel tasks finish together.
 - [Skills the Supervisor cannot run](learnings.md#2026-10-21--skills-the-supervisor-cannot-run-itself) — /verify is user-only; security-review inline; no Skill tool in sub-agents.
 - [easy-context registered (local scope)](learnings.md#2026-10-21--easy-context-registered-for-this-repo-local-scope) — indexed; search via MCP, not Read; re-index after merge.

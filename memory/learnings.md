@@ -10,6 +10,10 @@
 
 ## Patterns
 
+### 2026-10-21 — FastMCP returns structured output only for typed dicts
+**Learning**: An MCP tool annotated `-> dict` returns no structured output; use `-> dict[str, Any]`. The package version reaches `initialize` only via the private `app._mcp_server.version` (no public argument in mcp 1.x).
+**Files**: `src/easy_personal/surfaces/mcp.py`
+
 ### 2026-10-21 — Merge gate blocks while ANY task is In Progress
 **Learning**: `.claude/hooks/pre_bash_block_unsafe_merge.py` refuses every `git merge`/`push` while any KANBAN row is In Progress, and needs a `verify` row containing "pass" for Ready for Review rows. With no review status in Linear (decision: In Progress → Done), move a task to Done only after its Evidence is complete, then merge. Parallel tasks must all reach Done before any of them merges.
 **Files**: `.claude/hooks/pre_bash_block_unsafe_merge.py`, `PROJECT_KANBAN.md`

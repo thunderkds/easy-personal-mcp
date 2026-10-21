@@ -112,6 +112,7 @@ Price table as a dated data file in the package; metrics in core; surfaces only 
 
 ## Edge Case Checklist
 
+- [ ] Carried from HUN-34: `project_path` is stored at ingest; the *missing on disk* mark is computed when shown (check `Path(project_path).exists()` at query time), not stored.
 - [ ] DST transitions
 - [ ] Sessions spanning midnight
 - [ ] Price table older than N days → still used, date shown
