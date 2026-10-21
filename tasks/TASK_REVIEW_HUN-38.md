@@ -46,9 +46,25 @@ usage: easy-personal [-h] [--version] {ping,mcp,ingest,usage,outliers} ...
 easy-personal: error: unrecognized arguments: --retention-days 30
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-10-21T11:06:11Z (temp dirs; `--dry-run`, nothing written or enabled):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ easy-personal schedule install --dry-run --retention-days 90
+# easy-personal-ingest.service
+[Service]
+Type=oneshot
+ExecStart=<venv>/bin/easy-personal ingest --retention-days 90
+# easy-personal-ingest.timer
+[Timer]
+OnCalendar=daily
+Persistent=true
+[Install]
+WantedBy=timers.target
+```
+
+`uv run pytest tests/ops tests/leak -q` -> `34 passed`; full suite `113 passed, 2 skipped` (before leak registration run).
+
+**DELTA**: A user can install a daily systemd user timer for ingest with one command, and ingest is safe to run twice at once and can prune old rows.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

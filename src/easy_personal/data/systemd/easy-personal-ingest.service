@@ -1,0 +1,6 @@
+[Unit]
+Description=easy-personal ingest (copy new Claude Code usage metadata to the store)
+
+[Service]
+Type=oneshot
+ExecStart=$exec_start

@@ -7,6 +7,7 @@ import sqlite3
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 SCHEMA = """
@@ -148,3 +149,19 @@ def retire_files(conn: sqlite3.Connection, source: str, paths: set[str]) -> None
             "DELETE FROM source_files WHERE machine_id = ? AND source = ? AND path = ?",
             ((mid, source, p) for p in paths),
         )
+
+
+def prune(conn: sqlite3.Connection, retention_days: int | None, now: datetime | None = None) -> int:
+    """Delete events older than `retention_days`; None keeps everything. Return rows deleted.
+
+    Events without a timestamp are kept: their age is unknown.
+    """
+    if retention_days is None:
+        return 0
+    cutoff = (now or datetime.now(UTC)) - timedelta(days=retention_days)
+    with conn:
+        cur = conn.execute(
+            "DELETE FROM events WHERE ts_utc IS NOT NULL AND ts_utc < ?",
+            (cutoff.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),),
+        )
+    return cur.rowcount
