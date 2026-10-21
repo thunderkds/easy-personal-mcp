@@ -2,6 +2,13 @@
 
 import sqlite3
 from datetime import UTC, datetime
+from pathlib import Path
+
+from easy_personal.core import prices as price_table
+
+DIMENSIONS = ("day", "model", "project", "tool")
+OUTLIER_TOOL_CALLS = 90
+OUTLIER_CONTEXT_TOKENS = 200_000
 
 
 def _utc_bound(value: str | None) -> str | None:
@@ -72,4 +79,178 @@ def usage_summary(conn: sqlite3.Connection, since: str | None = None, until: str
         "cache_read_input_tokens": cache_read,
         "cache_hit_ratio": round(cache_read / prompt_tokens, 4) if prompt_tokens else None,
         "abstained": {"total": sum(by_version.values()), "by_version": by_version},
+    }
+
+
+def _folder(project_path: str | None) -> str:
+    return Path(project_path).name or project_path if project_path else "(unknown)"
+
+
+def _messages(conn: sqlite3.Connection, since_utc: str | None, until_utc: str | None):
+    """One row per API message in the period, same selection as `usage_summary`."""
+    where, params = _period("ts", since_utc, until_utc)
+    return conn.execute(
+        "SELECT ts, model, project_path, tools, i, o, cc, cr FROM ("
+        "  SELECT MIN(ts_utc) AS ts, MAX(model) AS model, MAX(project_path) AS project_path,"
+        "         GROUP_CONCAT(tool_names) AS tools, MAX(input_tokens) AS i,"
+        "         MAX(output_tokens) AS o, MAX(cache_creation_input_tokens) AS cc,"
+        "         MAX(cache_read_input_tokens) AS cr"
+        "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
+        "  AND input_tokens IS NOT NULL GROUP BY message_id"
+        f") WHERE {where} ORDER BY ts",
+        params,
+    ).fetchall()
+
+
+def _keys(by: str, ts: str, model, project_path, tools) -> list[str]:
+    if by == "day":  # OS local timezone, DST-aware
+        utc = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=UTC)
+        return [utc.astimezone().strftime("%Y-%m-%d")]
+    if by == "model":
+        return [model or "(unknown)"]
+    if by == "project":
+        return [_folder(project_path)]
+    return sorted(set(tools.split(","))) if tools else ["(none)"]
+
+
+def _new_group() -> dict:
+    return {
+        "messages": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "_usd": 0.0,
+        "_priced": 0,
+        "_abstained": set(),
+    }
+
+
+def _add(group: dict, model, i, o, cc, cr, usd) -> None:
+    group["messages"] += 1
+    group["input_tokens"] += i
+    group["output_tokens"] += o
+    group["cache_creation_input_tokens"] += cc
+    group["cache_read_input_tokens"] += cr
+    if usd is None:
+        group["_abstained"].add(model or "(unknown)")
+    else:
+        group["_usd"] += usd
+        group["_priced"] += 1
+
+
+def _finish(group: dict, as_of: str) -> dict:
+    usd, priced = group.pop("_usd"), group.pop("_priced")
+    abstained = sorted(group.pop("_abstained"))
+    group["api_equivalent_cost"] = {
+        "usd": round(usd, 6) if priced or not abstained else None,
+        "price_table_date": as_of,
+        "abstained_models": abstained,
+    }
+    return group
+
+
+def usage_breakdown(
+    conn: sqlite3.Connection,
+    by: str,
+    since: str | None = None,
+    until: str | None = None,
+    prices: price_table.PriceTable | None = None,
+) -> dict:
+    """Tokens per day (OS local) / model / project (folder name) / tool for [since, until).
+
+    `total` counts each message once, so it equals `usage_summary`. Tool groups overlap: a
+    message that used several tools appears in each. Cost is API-equivalent, never a bill; a
+    model missing from the price table abstains.
+    """
+    if by not in DIMENSIONS:
+        raise ValueError(f"by must be one of {', '.join(DIMENSIONS)}")
+    prices = prices or price_table.load()
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    groups: dict[str, dict] = {}
+    total = _new_group()
+    for ts, model, project_path, tools, i, o, cc, cr in _messages(conn, since_utc, until_utc):
+        usd = prices.cost(model, i, o, cc, cr)
+        _add(total, model, i, o, cc, cr, usd)
+        for key in _keys(by, ts, model, project_path, tools):
+            _add(groups.setdefault(key, _new_group()), model, i, o, cc, cr, usd)
+    rows = [{"key": key, **_finish(group, prices.as_of)} for key, group in groups.items()]
+    if by == "day":
+        rows.sort(key=lambda r: r["key"])
+    else:
+        rows.sort(
+            key=lambda r: (
+                -(
+                    r["input_tokens"]
+                    + r["output_tokens"]
+                    + r["cache_creation_input_tokens"]
+                    + r["cache_read_input_tokens"]
+                ),
+                r["key"],
+            )
+        )
+    return {
+        "by": by,
+        "period": {"since_utc": since_utc, "until_utc": until_utc},
+        "groups": rows,
+        "total": _finish(total, prices.as_of),
+    }
+
+
+def session_outliers(
+    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+) -> dict:
+    """Sessions with >= OUTLIER_TOOL_CALLS tool calls or a context >= OUTLIER_CONTEXT_TOKENS.
+
+    Context = input + cache creation + cache read tokens of one message (its prompt size).
+    """
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    where, params = _period("ts_utc", since_utc, until_utc)
+    calls: dict[str, tuple[int, str | None]] = {}
+    for session, tools, project_path in conn.execute(
+        "SELECT session_id, tool_names, project_path FROM events "
+        f"WHERE abstained = 0 AND session_id IS NOT NULL AND tool_names IS NOT NULL AND {where}",
+        params,
+    ):
+        count, project = calls.get(session, (0, None))
+        calls[session] = (count + len(tools.split(",")), project or project_path)
+    contexts = dict(
+        conn.execute(
+            "SELECT session_id, MAX(COALESCE(input_tokens, 0) + "
+            "COALESCE(cache_creation_input_tokens, 0) + COALESCE(cache_read_input_tokens, 0)) "
+            "FROM events WHERE abstained = 0 AND session_id IS NOT NULL "
+            f"AND message_id IS NOT NULL AND {where} GROUP BY session_id",
+            params,
+        )
+    )
+    projects = dict(
+        conn.execute(
+            "SELECT session_id, MAX(project_path) FROM events "
+            f"WHERE abstained = 0 AND session_id IS NOT NULL AND {where} GROUP BY session_id",
+            params,
+        )
+    )
+    sessions = []
+    for session in sorted(set(calls) | set(contexts)):
+        tool_calls, context = calls.get(session, (0, None))[0], contexts.get(session, 0)
+        reasons = []
+        if tool_calls >= OUTLIER_TOOL_CALLS:
+            reasons.append("tool_calls")
+        if context >= OUTLIER_CONTEXT_TOKENS:
+            reasons.append("context_tokens")
+        if reasons:
+            sessions.append(
+                {
+                    "session_id": session,
+                    "project": _folder(projects.get(session)),
+                    "tool_calls": tool_calls,
+                    "max_context_tokens": context,
+                    "reasons": reasons,
+                }
+            )
+    sessions.sort(key=lambda s: (-s["tool_calls"], s["session_id"]))
+    return {
+        "period": {"since_utc": since_utc, "until_utc": until_utc},
+        "thresholds": {"tool_calls": OUTLIER_TOOL_CALLS, "context_tokens": OUTLIER_CONTEXT_TOKENS},
+        "sessions": sessions,
     }
