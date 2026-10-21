@@ -1,0 +1,11 @@
+# v1 usage rule pack (PRD FR-026). One line per rule; core/rules.py reads it without a YAML library.
+# Keys: metric, op (lt|gt: the rule fires when measured is lt/gt threshold), threshold, label
+# (improve|aware|warning), priority (1 = first), window_days (look-back), min_history_days (less
+# stored history than this -> the rule abstains), fix (last key; the rest of the line is the text).
+# Thresholds are overridden in ~/.easy-personal/config.yaml under `thresholds:`.
+rules:
+  cache_hit_low: metric=cache_hit_ratio op=lt threshold=0.5 label=warning priority=1 window_days=7 min_history_days=7 fix=Keep the prompt prefix stable and avoid editing CLAUDE.md or switching models mid-session so more of each prompt is read from cache.
+  session_huge_no_compact: metric=median_session_context op=gt threshold=150000 label=improve priority=2 window_days=7 min_history_days=7 fix=Run /compact or start a new session before the context passes 150k tokens.
+  records_unreadable: metric=unreadable_share op=gt threshold=0.02 label=aware priority=2 window_days=7 min_history_days=0 fix=Update easy-personal; this Claude Code version writes records the parser does not know.
+  tokens_jump: metric=week_over_week_tokens op=gt threshold=0.5 label=aware priority=3 window_days=7 min_history_days=14 fix=Check which project or session drove the rise before it becomes the new baseline.
+  project_dominates: metric=top_project_share op=gt threshold=0.6 label=aware priority=3 window_days=7 min_history_days=7 fix=Confirm the concentration is intended; split long-running work across sessions if one project crowds out the rest.
