@@ -30,12 +30,12 @@
 - [ ] **HUN-52** — Dashboard connector forms + guarded write API (secrets never echoed) | Frontend-Implementer | C2 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-52.md`
 
 ### In Progress
-- [ ] **HUN-32** — Spike: inventory Claude Code transcript shapes and real volume → synthetic fixtures | QA-Automation-Agent | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-32.md`
-- [ ] **HUN-33** — Skeleton: package, pyproject, \`easy-personal\` CLI + MCP stdio entry sharing one core, test runner | Common-Infrastructure-Agent | C1 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-33.md`
 
 ### Ready for Review
 
 ### Done
+- [x] **HUN-32** — Spike: inventory Claude Code transcript shapes and real volume → synthetic fixtures | QA-Automation-Agent | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-32.md`
+- [x] **HUN-33** — Skeleton: package, pyproject, \`easy-personal\` CLI + MCP stdio entry sharing one core, test runner | Common-Infrastructure-Agent | C1 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-33.md`
 
 ### Closed (will not do)
 
