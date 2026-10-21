@@ -34,8 +34,17 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-21T10:52:01Z in the HUN-35 worktree, before any implementation commit:
+
+```
+$ uv run pytest tests/core/test_metrics.py tests/core/test_prices.py tests/surfaces -q
+ERROR: file or directory not found: tests/core/test_metrics.py
+no tests ran in 0.00s
+$ uv run easy-personal usage --by day
+easy-personal: error: unrecognized arguments: --by day
+$ MCP tool list (create_app().list_tools())
+['ping', 'usage_summary']
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
