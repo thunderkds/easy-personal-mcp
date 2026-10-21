@@ -34,8 +34,23 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-21 before any implementation commit (temp EASY_PERSONAL_HOME):
+
+```
+2026-10-21T11:03:54Z
+$ uv run pytest tests/core/test_rules.py tests/surfaces -q
+Creating virtual environment at: .venv
+   Building easy-personal-mcp @ file:///home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-HUN-37
+      Built easy-personal-mcp @ file:///home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-HUN-37
+Installed 43 packages in 14ms
+ERROR: file or directory not found: tests/core/test_rules.py
+
+
+no tests ran in 0.00s
+$ uv run easy-personal warnings
+usage: easy-personal [-h] [--version] {ping,mcp,ingest,usage,outliers} ...
+easy-personal: error: argument command: invalid choice: 'warnings' (choose from ping, mcp, ingest, usage, outliers)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
