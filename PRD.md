@@ -102,7 +102,7 @@ Milestones are internal delivery order inside the single v1 release.
 | NFR-002 | No secret, message text or tool output appears in any tool response, dashboard, log or store row (fixtures with planted secrets prove it). | Security / Privacy |
 | NFR-003 | Source files are read-only; nothing under `~/.claude/projects/` or any repo is modified. | Safety |
 | NFR-004 | Deterministic: the same inputs give the same numbers; no LLM inside the server. | Correctness |
-| NFR-005 | Ingest of 30 days of transcripts (≈ 500 MB) completes in < 60 s on a laptop and streams (bounded memory). *Provisional: the first spike measures the owner's real volume and resets this number.* | Performance |
+| NFR-005 | Cold ingest of 30 days of transcripts (measured ≈ 10 MB on the owner's machine, HUN-32; design ceiling 100 MB) completes in < 10 s; a re-run with no changed files completes in < 2 s; ingest streams line by line with bounded memory. 500 MB stays as a stress case, not a target. | Performance |
 | NFR-006 | `exec` launcher adds < 200 ms to connector start and has no third-party imports beyond `keyring`. | Performance / Reliability |
 | NFR-007 | Linux only; Python 3.11+; native install (`uv tool install`); Docker optional and analytics-only (DDR-0001). | Portability |
 | NFR-008 | The live dashboard must reject any write request that lacks the per-launch token or whose `Host`/`Origin` is not the dashboard's own `127.0.0.1` address (defends against other browser tabs and DNS rebinding). | Security |

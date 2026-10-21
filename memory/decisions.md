@@ -25,3 +25,8 @@
 **Decision**: `.claude/board.json` `project` = `2a59e842-7dd5-483b-9bdb-f2287019e3f3`; the trashed first project (HUN-21…29) does not carry over.
 **Why**: An empty `project` made `board_sync.py pull` fetch the whole HUN team, mixing in easy-context-mcp tasks (one-project-per-board rule).
 **Files**: `.claude/board.json`, `PROJECT_KANBAN.md`, `tasks/`
+
+### 2026-10-21 — Stage 3–5 git flow: local merge to main, push in batches
+**Decision**: After a task passes code-review (+ security-review when Medium/High) and verify, the Supervisor merges its branch into local `main` (`--no-ff`) without a PR and pushes `main` later in batches when the owner asks. The board skips "Ready for Review": tasks move In Progress → Done. Supersedes Phase 0 D "branch + PR per task".
+**Why**: Owner, 2026-10-21: "you can merge to main and automate, push later". The Linear team HUN has no review-type status.
+**Files**: `.claude/board.json`, `PROJECT_KANBAN.md`

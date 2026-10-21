@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [Local merge to main, push in batches](decisions.md#2026-10-21--stage-35-git-flow-local-merge-to-main-push-in-batches) — no per-task PR; board goes In Progress → Done (no review status in Linear).
 - [v1 = Python core + React/Vite page, on demand](decisions.md#2026-10-21--v1--python-core--reactvite-page-on-demand) — Option B; page on 127.0.0.1 only while `easy-personal dashboard` runs; systemd timer ingests.
 - [Read-only MCP client of easy-context](decisions.md#2026-10-21--read-only-mcp-client-of-easy-context) — only list_indexes/get_stats on 127.0.0.1:8767; never index_path; DDR-0002.
 - [Native runtime; writes via `claude mcp` user scope](decisions.md#2026-10-21--native-runtime-connector-writes-only-via-claude-mcp-user-scope) — keychain + Claude Code only; no Codex/Cursor; DDR-0001.
