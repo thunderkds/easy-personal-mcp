@@ -142,6 +142,7 @@ Chart library chosen in this task (bundled, no CDN); data via the guarded API cl
 - [ ] Empty store → clear empty state
 - [ ] Very long sessions on the timeline
 - [ ] Abstained values rendered distinctly, never as zero
+- [ ] Carried from HUN-35 review (P2): `usage_breakdown(by="project")` groups by full path but shows only the folder name, so two projects with the same folder name give two groups with the same `key`. Do not index groups by `key` alone; render both rows.
 - [ ] Planted secret/text fixtures (from the leak suite) never appear in any store row, MCP/CLI/API response, page or log.
 
 ---

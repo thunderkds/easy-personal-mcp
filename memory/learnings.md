@@ -36,7 +36,7 @@
 **Files**: `PROJECT_SPEC.md`
 
 ### 2026-10-21 — easy-verifier registered for this repo (local scope)
-**Learning**: `claude mcp add --transport http easy-verifier http://127.0.0.1:8766/mcp` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Pass the repo's absolute path as the tool's `repo` argument; reports land in `~/.easy-verifier-reports/<repo name>/`. Stage 4 step 4b runs `score` (`scope="changes"`, `ref="main...<branch>"`) on every task, advisory only (user decision 2026-10-21); no hook runs it.
+**Learning**: `claude mcp add --transport http easy-verifier http://127.0.0.1:8766/mcp` (local scope, `~/.claude-personal/.claude.json`); tools load only after a session restart. Local scope is per Claude profile: a session started with `CLAUDE_CONFIG_DIR=~/.claude-wife` does not see it (HUN-35/HUN-36 recorded the score row as N/A for that reason); register it in each profile, or move both servers to a project `.mcp.json`. Pass the repo's absolute path as the tool's `repo` argument; reports land in `~/.easy-verifier-reports/<repo name>/`. Stage 4 step 4b runs `score` (`scope="changes"`, `ref="main...<branch>"`) on every task, advisory only (user decision 2026-10-21); no hook runs it.
 **Files**: `PROJECT_SPEC.md`
 
 ### 2026-10-21 — easy-verifier `score` output: read with jq; known security false positives
@@ -56,3 +56,20 @@
 **Files**: `PROJECT_KANBAN.md`
 
 ## Gotchas
+
+### 2026-10-21 — New MCP tool or CLI command must be registered in the leak suite
+**Learning**: `tests/leak/test_leak_suite.py` meta-tests fail for any MCP tool or CLI command missing from `MCP_CALLS` / `CLI_CALLS` in `tests/leak/harness.py`. A new *flag* on an existing command (e.g. `usage --by`) is not caught: add its argv variants by hand. Tasks that add surfaces register them in the same branch (HUN-35 did, after merging HUN-36). Dashboard/API tasks add response bodies to `harness.Collected` (`tests/leak/README.md`).
+**Files**: `tests/leak/harness.py`, `tests/leak/README.md`, `src/easy_personal/surfaces/mcp.py`, `src/easy_personal/surfaces/cli.py`
+
+### 2026-10-21 — Open owner checks from HUN-35: price numbers and the long-context threshold
+**Learning**: `src/easy_personal/data/prices.yaml` (as_of 2026-10-21) holds the implementer's approximations, not a checked price list. `OUTLIER_CONTEXT_TOKENS = 200_000` (one message's input + cache-creation + cache-read) was the implementer's choice; the guide gave no number. Both await owner confirmation. The price file is a one-line-per-model YAML subset read without a YAML library (no `pyyaml` dependency).
+**Files**: `src/easy_personal/data/prices.yaml`, `src/easy_personal/core/prices.py`, `src/easy_personal/core/metrics.py`
+
+### 2026-10-21 — Board push needs `LINEAR_API_KEY` in the session's shell
+**Learning**: `board_sync.py push status <ID> done` fails with `LINEAR_API_KEY is not set` and queues nothing (`status` → 0 unsynced) when the session's environment lacks the key. Then only the `PROJECT_KANBAN.md` cache is updated; the Linear issues must be moved by hand or by a re-push from a shell that has the key.
+**Files**: `scripts/board_sync.py`, `PROJECT_KANBAN.md`
+
+### 2026-10-21 — `memory/codebase-map.md` does not exist
+**Learning**: Guides' Mandatory Startup step 6 names it for C2/C3 tasks, but `map-codebase` was never run; agents report it missing. Run `/map-codebase` once, or drop the read from spawn prompts until then.
+**Files**: `memory/codebase-map.md`, `templates/TASK_GUIDE_template.md`
+

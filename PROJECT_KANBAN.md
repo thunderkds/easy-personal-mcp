@@ -9,8 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-35** — \`usage_breakdown\` + \`session_outliers\`: tokens-first, labelled API-equivalent cost, local day, folder names | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-35.md`
-- [ ] **HUN-36** — Leak test suite: planted secrets and text never reach store, MCP, CLI or logs | QA-Automation-Agent | C2 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-36.md`
 - [ ] **HUN-37** — Rules engine + 5 usage rules + \`warnings\` + \`improvement_plan\` | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-37.md`
 - [ ] **HUN-38** — Scheduled ingest: single-writer lock, systemd user timer, \`retention_days\` | Common-Infrastructure-Agent | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-38.md`
 - [ ] **HUN-39** — \`kit_trace\` source (never \`summary\`) + \`tool_errors_high\` rule + \`kit_summary\` (kernel part) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-39.md`
@@ -36,6 +34,8 @@
 - [x] **HUN-33** — Skeleton: package, pyproject, \`easy-personal\` CLI + MCP stdio entry sharing one core, test runner | Common-Infrastructure-Agent | C1 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-33.md`
 - [x] **HUN-34** — Tracer bullet: \`claude_code\` source → store (project, machine_id, UTC) → \`usage_summary\` in MCP and CLI | Backend-Implementer | C3 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-34.md`
 - [x] **HUN-48** — \`web/\` toolchain: Vite + React, pinned lockfile, build copied into the package, release check | Common-Infrastructure-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-48.md`
+- [x] **HUN-35** — \`usage_breakdown\` + \`session_outliers\`: tokens-first, labelled API-equivalent cost, local day, folder names | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-35.md`
+- [x] **HUN-36** — Leak test suite: planted secrets and text never reach store, MCP, CLI or logs | QA-Automation-Agent | C2 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-36.md`
 
 ### Closed (will not do)
 

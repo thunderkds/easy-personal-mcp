@@ -35,10 +35,14 @@
 - [FastMCP typed dict output](learnings.md#2026-10-21--fastmcp-returns-structured-output-only-for-typed-dicts) — `-> dict[str, Any]`; version via private `_mcp_server.version`.
 - [Merge gate blocks while any task In Progress](learnings.md#2026-10-21--merge-gate-blocks-while-any-task-is-in-progress) — Done after evidence, then merge; parallel tasks finish together.
 - [Skills the Supervisor cannot run](learnings.md#2026-10-21--skills-the-supervisor-cannot-run-itself) — /verify is user-only; security-review inline; no Skill tool in sub-agents.
-- [easy-verifier registered (local scope)](learnings.md#2026-10-21--easy-verifier-registered-for-this-repo-local-scope) — 127.0.0.1:8766; absolute `repo` arg; Stage 4 step 4b, advisory, no hook.
+- [easy-verifier registered (local scope)](learnings.md#2026-10-21--easy-verifier-registered-for-this-repo-local-scope) — `~/.claude-personal` profile only; 127.0.0.1:8766; absolute `repo` arg; Stage 4 step 4b, advisory, no hook.
 - [easy-verifier score output](learnings.md#2026-10-21--easy-verifier-score-output-read-with-jq-known-security-false-positives) — >budget, read via jq; security 18 = SQL/lockfile false positives; `write_report` for path.
 - [easy-context registered (local scope)](learnings.md#2026-10-21--easy-context-registered-for-this-repo-local-scope) — indexed; search via MCP, not Read; re-index after merge.
 - [Ignore cost-state.totalCostUSD](learnings.md#2026-10-21--ignore-claude-codes-cost-statetotalcostusd) — cost only from the labelled price table.
 - [Board pull overwrites `## Blocked`](learnings.md#2026-10-21--board_syncpy-pull-overwrites-the--blocked-table) — keep external blockers in the guide + PROJECT_SPEC Tasks.
 - [Git remote is `github`](learnings.md#2026-10-21--git-remote-is-github-not-origin) — `git push -u github <branch>`.
 - [Linear escapes backticks in titles](learnings.md#2026-10-21--linear-escapes-backticks-in-issue-titles) — cosmetic in KANBAN cache.
+- [Register new surfaces in the leak suite](learnings.md#2026-10-21--new-mcp-tool-or-cli-command-must-be-registered-in-the-leak-suite) — `MCP_CALLS`/`CLI_CALLS` in `tests/leak/harness.py`; flag variants by hand.
+- [Owner checks: prices + 200k context](learnings.md#2026-10-21--open-owner-checks-from-hun-35-price-numbers-and-the-long-context-threshold) — `prices.yaml` numbers unverified; outlier threshold is implementer's choice.
+- [Board push needs LINEAR_API_KEY](learnings.md#2026-10-21--board-push-needs-linear_api_key-in-the-sessions-shell) — else only the KANBAN cache moves; nothing queued.
+- [No codebase-map yet](learnings.md#2026-10-21--memorycodebase-mapmd-does-not-exist) — run `/map-codebase` or drop it from C2 spawn reads.
