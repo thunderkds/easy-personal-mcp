@@ -1,4 +1,4 @@
-# TASK_REVIEW — HUN-33: [Short Title]
+# TASK_REVIEW — HUN-33: Skeleton package
 
 > Sibling of `tasks/TASK_GUIDE_HUN-33.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
@@ -18,11 +18,11 @@
 | Verification command run | pass | 2026-10-21T09:01Z: `6 passed in 0.61s`; `All checks passed!`; `Installed 1 executable: easy-personal`; `easy-personal --version` -> `0.1.0` |
 | Negative cases hold | pass | `easy-personal mcp --transport http --host 0.0.0.0` -> `error: refusing host '0.0.0.0': HTTP must bind 127.0.0.1 only`, exit 2 |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | pass | 11 files in `main..feat/HUN-33-skeleton` + their callers (none outside the diff); kit files out of scope. code-review 2026-10-21: 0 P0/P1, 2 P2, 2 P3 — `reports/code-review_feat-HUN-33-skeleton_20261021T160239.html` (main checkout) |
 | Full smoke suite still green (no regression) | pass | 6 passed |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ N/A | No UI in this task (pure infra skeleton). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ N/A | No UI in this task (pure infra skeleton). |
+| **UI: Responsiveness at target viewports** | ☐ N/A | No UI in this task (pure infra skeleton). |
 
 ---
 
