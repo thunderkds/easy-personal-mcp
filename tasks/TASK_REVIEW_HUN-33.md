@@ -17,7 +17,7 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/test_skeleton.py` (6 tests: version, CLI==MCP core value, stdio no stdout noise, 0.0.0.0 refused, default host loopback, data dir 0700) |
 | Verification command run | pass | 2026-10-21T09:01Z: `6 passed in 0.61s`; `All checks passed!`; `Installed 1 executable: easy-personal`; `easy-personal --version` -> `0.1.0` |
 | Negative cases hold | pass | `easy-personal mcp --transport http --host 0.0.0.0` -> `error: refusing host '0.0.0.0': HTTP must bind 127.0.0.1 only`, exit 2 |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| verify | ☑ pass | /verify 2026-10-21, cold start (no verifier skill): installed into a temp uv tool dir; `easy-personal --version` → 0.1.0; `ping` → `easy-personal core ok`; real MCP stdio handshake initialize → tools/list `['ping']` → tools/call → `easy-personal core ok`; HTTP on 127.0.0.1:18765 listens on 127.0.0.1 only and answers initialize; probes 0.0.0.0 / localhost / ::1 refused exit 2, bad --port / --transport rejected exit 2 — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | pass | 11 files in `main..feat/HUN-33-skeleton` + their callers (none outside the diff); kit files out of scope. code-review 2026-10-21: 0 P0/P1, 2 P2, 2 P3 — `reports/code-review_feat-HUN-33-skeleton_20261021T160239.html` (main checkout) |
 | Full smoke suite still green (no regression) | pass | 6 passed |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ N/A | No UI in this task (pure infra skeleton). |
