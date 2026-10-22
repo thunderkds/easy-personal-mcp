@@ -1,18 +1,35 @@
 """Project assignment (FR-009): git top-level of a cwd, worktrees under their main repo."""
 
+import os
 import subprocess
 from pathlib import Path
 
 
-def _git(cwd: str, *args: str) -> str | None:
+def run_git(cwd: str, *args: str, timeout: float = 5) -> str | None:
+    """Run a read-only git command in `cwd`; stdout, or None on failure or empty output.
+
+    Hardened: no fsmonitor daemon, no optional index lock. Raises `subprocess.TimeoutExpired`.
+    """
     try:
         proc = subprocess.run(
-            ["git", "-C", cwd, *args], capture_output=True, text=True, timeout=5, check=False
+            ["git", "-c", "core.fsmonitor=false", "-C", cwd, *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError:
         return None
     out = proc.stdout.strip()
     return out if proc.returncode == 0 and out else None
+
+
+def _git(cwd: str, *args: str) -> str | None:
+    try:
+        return run_git(cwd, *args)
+    except subprocess.TimeoutExpired:
+        return None
 
 
 def resolve_project(cwd: str) -> str:

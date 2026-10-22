@@ -34,10 +34,15 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-10-22T03:57:42Z, `kit_summary` on an in-memory store with one known project, before any change):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+{"projects": [{"project": "easy-personal-mcp", "missing_on_disk": true, "parts": {"kernel": {"status": "no data"}}}]}
+```
+
+No `git` part under `parts`.
+
+**AFTER**: `kit_summary` now returns `parts.git` = `{"status": "ok", "commits": 2, "commits_by_day": {...}}` for a git repo and `{"status": "no data"}` otherwise (tests/sources/test_git_local.py::test_kit_summary_git_part).
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

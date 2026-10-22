@@ -106,7 +106,11 @@ def test_deleted_project_is_skipped_but_history_stays(conn, repo):
 
 def test_kit_summary_counts_and_no_data(conn, repo, tmp_path):
     assert kit.kit_summary(conn)["projects"] == [
-        {"project": "demo", "missing_on_disk": False, "parts": {"kernel": {"status": "no data"}}}
+        {
+            "project": "demo",
+            "missing_on_disk": False,
+            "parts": {"kernel": {"status": "no data"}, "git": {"status": "no data"}},
+        }
     ]
     _trace(repo, "T001", _line(error=True), _line(), _line())
     _trace(repo, "T002", _line())
