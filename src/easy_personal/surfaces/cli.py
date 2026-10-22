@@ -9,7 +9,7 @@ from pathlib import Path
 
 from easy_personal import core
 from easy_personal.core import config, kit, lock, metrics, plan, rules, schedule, store
-from easy_personal.sources import claude_code, context, kit_trace, ui
+from easy_personal.sources import claude_code, context, kit_trace, ui, verifier
 from easy_personal.surfaces import mcp as mcp_surface
 
 
@@ -97,6 +97,7 @@ def _ingest(args) -> int:
             result["kit_trace"] = kit_trace.ingest(conn)  # reads projects the line above stored
             result["context"] = context.ingest(conn)  # never fails the run (FR-012)
             result["ui"] = ui.ingest(conn)  # never fails the run (FR-013)
+            result["verifier"] = verifier.ingest(conn)  # never fails the run (FR-011)
             if args.retention_days is not None:
                 result["pruned"] = store.prune(conn, args.retention_days)
     except lock.LockBusy:

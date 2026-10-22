@@ -45,6 +45,7 @@ def test_events_schema_is_explicit_metadata_only(conn):
         "kit_trace_events",
         "context_index",
         "ui_sessions",
+        "verifier_scores",
         "tool_signals",
     }
 

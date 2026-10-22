@@ -73,6 +73,15 @@ CREATE TABLE IF NOT EXISTS ui_sessions (
     ended_at_utc   TEXT,
     action_count   INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS verifier_scores (
+    project_path       TEXT PRIMARY KEY,
+    status             TEXT NOT NULL,
+    scope              TEXT,
+    generated_at_utc   TEXT,
+    overall_value      REAL,
+    overall_abstained  INTEGER NOT NULL,
+    reason_code        TEXT
+);
 CREATE TABLE IF NOT EXISTS tool_signals (
     machine_id  TEXT NOT NULL,
     source_path TEXT NOT NULL,

@@ -113,6 +113,7 @@ def test_kit_summary_counts_and_no_data(conn, repo, tmp_path):
                 "kernel": {"status": "no data"},
                 "git": {"status": "no data"},
                 "context": {"status": "no data"},
+                "verifier": {"status": "no data"},
             },
         }
     ]

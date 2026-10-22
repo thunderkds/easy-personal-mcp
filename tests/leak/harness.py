@@ -138,6 +138,7 @@ def child_env(home: Path, projects: Path, ui_reports: Path | None = None) -> dic
         EASY_PERSONAL_HOME=str(home),
         EASY_PERSONAL_CLAUDE_PROJECTS=str(projects),
         PYTHONPATH=SRC,
+        EASY_PERSONAL_VERIFIER_REPORTS=str(home / "no-verifier-container"),  # never the owner's
         PYTHON_KEYRING_BACKEND="keyring.backends.fail.Keyring",  # never the owner's keychain
     )
     if ui_reports is not None:
