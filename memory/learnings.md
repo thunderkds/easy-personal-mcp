@@ -78,7 +78,7 @@
 **Files**: `src/easy_personal/core/rules.py`, `src/easy_personal/core/metrics.py`, `src/easy_personal/data/rules.yaml`
 
 ### 2026-10-21 — Scheduled ingest: lock, exit 75, systemd only via `--dry-run` in tests
-**Learning**: `ingest` takes an flock on `<data dir>/ingest.lock` (crash-safe); busy past `EASY_PERSONAL_LOCK_TIMEOUT` (default 300 s) → stderr message, exit 75. `schedule install|remove` call real `systemctl --user`; tests stub it and the leak suite registers only `--dry-run` variants. `ExecStart` takes `easy-personal` from PATH at install time. Pruned rows can return when a replaced transcript (new inode) is re-read, until the next prune.
+**Learning**: `ingest` takes an flock on `<data dir>/ingest.lock` (crash-safe); busy past `EASY_PERSONAL_LOCK_TIMEOUT` (default 300 s) → stderr message, exit 75. `schedule install|remove` call real `systemctl --user`; tests stub it and the leak suite registers only `--dry-run` variants. `ExecStart` takes `easy-personal` from PATH at install time. Pruned rows can return when a replaced transcript (new inode) is re-read, until the next prune. The systemd unit has no `Environment=`: the timer never sees the owner's shell env, so any setting a scheduled ingest needs must also live in `config.yaml` (read with `rules._read_flat`: `section:` + indented `name: value`; env overrides). HUN-43 nearly shipped env-only `EASY_PERSONAL_UI_REPORTS`, which would have cleared `ui_sessions` on every timer run; it now reads `ui: reports_dir:`.
 **Files**: `src/easy_personal/core/lock.py`, `src/easy_personal/core/schedule.py`, `src/easy_personal/core/store.py`, `src/easy_personal/surfaces/cli.py`
 
 ### 2026-10-21 — `rm` inside `bash -c` is blocked by the harness safety check
@@ -116,4 +116,8 @@
 ### 2026-10-22 — Run the easy-verifier score on every task, even when it repeats
 **Learning**: CLAUDE.md Stage 4 says the advisory easy-verifier `score` runs always. On HUN-41 the Supervisor first marked it N/A "to save time", then ran it: skipping a listed step is not the Supervisor's call even when the result is advisory and repetitive. Read the >budget output with `jq` (overall, per-dimension, failed inputs).
 **Files**: `docs/claude-md/pipeline-stages.md`
+
+### 2026-10-22 — `kit_summary` shape after HUN-39/40/41/43
+**Learning**: `{"projects": [{project, missing_on_disk, parts: {kernel, git, context}}], "ui": {...}}`. Per-project parts: `kernel` (kit traces), `git` (query-time commits per local day), `context` (easy-context `last_index_at` stored at ingest, `stale` judged at query time). `ui` is overall (easy-ui sessions: sessions/passed/failed/other/actions/first_utc/last_utc), a top-level key, never inside `parts`. Every part: nothing to read → `{"status": "no data"}`. Verifier part (HUN-42) is still missing (blocked by XR-1). HUN-51's kit panel renders this shape.
+**Files**: `src/easy_personal/core/kit.py`, `src/easy_personal/sources/ui.py`, `src/easy_personal/sources/context.py`, `src/easy_personal/sources/git_local.py`
 
