@@ -64,3 +64,4 @@
 - [Partial role-guide reads recur](learnings.md#2026-10-22--implementers-keep-reading-their-role-guide-partially) — HUN-49/41/51; conformance check each time; consider pasting key rules.
 - [Connector verify recipe](learnings.md#2026-10-22--connector-verify-fresh-install-fake-claude-fake-keychain) — `--reinstall --no-cache`; fake `claude` + throwaway keyring; never the owner's config.
 - [Scope fake `claude mcp get` to one name](learnings.md#2026-10-22--fake-claude-mcp-get-must-be-scoped-to-one-connector-name) — `FAKE_CLAUDE_GET_ONLY`; open owner check: generic claude.ai link, Gmail/Teams login unverified.
+- [Connector surfaces gotchas](learnings.md#2026-10-22--connector-surfaces-claudeai-servers-private-writer-helpers-ui-verify-with-fakes) — `claude_ai_*` MCP servers = already available; duplicated `_configured` (P2); rebuild web before pytest after merge; UI verify with fake claude + keyring.
