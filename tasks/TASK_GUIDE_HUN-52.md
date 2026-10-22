@@ -138,11 +138,12 @@ npm --prefix web test && uv run pytest tests/surfaces/test_api_connectors.py tes
 Backend endpoint thin wrapper over connectors core; frontend form generator from catalog schema.
 
 Supervisor design (2026-10-22, after HUN-45/46 merged):
-- `GET /api/connectors`: catalog entries (id, category, provider, claude_ai_connector, claude_ai_link, fields as {env, label, secret}) + `configured` yes/no per entry (keychain item present AND `claude mcp get <id>` succeeds; reuse writer helpers, never return values). Order like `easy-personal connector list` (category, connector-first, provider).
-- `POST /api/connectors` body `{"provider": id, "values": {ENV: value}, "confirm": bool}` → call `writer.add(catalog.load(id), prompt=<lookup in values>, confirm=lambda: False, out=<collect lines>)` when `confirm` is false: the collected lines ARE the confirmation plan (writer already masks secrets as `***` and writes nothing on abort). With `confirm: true` call it with `assume_yes=True`. Return `{"status": rc, "lines": [...]}`. Same for `DELETE /api/connectors/<id>` via `writer.remove`. One core: no new write logic in `api.py` (AC5).
-- Both write routes use the existing token + Host/Origin guard; additionally require `Content-Type: application/json` (blocks simple cross-site form posts). Values are never logged, never echoed, never stored outside the keychain.
-- Catalog now has 5 entries (slack, gmail, sendgrid, teams, discord) and a `claude_ai_link` key (HUN-46).
-- Register new routes in `tests/leak/harness.py` `API_CALLS` (write routes against the fake keychain + fake `claude`, see `tests/connectors/conftest.py`; set `FAKE_CLAUDE_GET_ONLY` when faking a registered connector).
+
+* `GET /api/connectors`: catalog entries (id, category, provider, claude_ai_connector, claude_ai_link, fields as {env, label, secret}) + `configured` yes/no per entry (keychain item present AND `claude mcp get <id>` succeeds; reuse writer helpers, never return values). Order like `easy-personal connector list` (category, connector-first, provider).
+* `POST /api/connectors` body `{"provider": id, "values": {ENV: value}, "confirm": bool}` → call `writer.add(catalog.load(id), prompt=<lookup in values>, confirm=lambda: False, out=<collect lines>)` when `confirm` is false: the collected lines ARE the confirmation plan (writer already masks secrets as `***` and writes nothing on abort). With `confirm: true` call it with `assume_yes=True`. Return `{"status": rc, "lines": [...]}`. Same for `DELETE /api/connectors/<id>` via `writer.remove`. One core: no new write logic in `api.py` (AC5).
+* Both write routes use the existing token + Host/Origin guard; additionally require `Content-Type: application/json` (blocks simple cross-site form posts). Values are never logged, never echoed, never stored outside the keychain.
+* Catalog now has 5 entries (slack, gmail, sendgrid, teams, discord) and a `claude_ai_link` key (HUN-46).
+* Register new routes in `tests/leak/harness.py` `API_CALLS` (write routes against the fake keychain + fake `claude`, see `tests/connectors/conftest.py`; set `FAKE_CLAUDE_GET_ONLY` when faking a registered connector).
 
 ---
 
