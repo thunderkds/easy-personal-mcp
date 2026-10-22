@@ -9,7 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-58** — Bugfix: ingest crashes on pre-HUN-42 stores (verifier_scores 6 vs 7 columns) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-58.md`
 
 ### In Progress
 
@@ -40,6 +39,7 @@
 - [x] **HUN-53** — Session timeline read: \`metrics.session_timeline\` + \`GET /api/usage/sessions\` | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-53.md`
 - [x] **HUN-56** — README: install, usage and deploy guide for v0.1.0 | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-56.md`
 - [x] **HUN-57** — Landing page: the idea, the flow, the install and deploy guide of easy-personal-mcp | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-57.md`
+- [x] **HUN-58** — Bugfix: ingest crashes on pre-HUN-42 stores (verifier_scores 6 vs 7 columns) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-58.md`
 
 ### Closed (will not do)
 

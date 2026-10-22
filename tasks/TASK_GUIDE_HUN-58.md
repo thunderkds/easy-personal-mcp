@@ -54,16 +54,16 @@
 
 ### Diagnosis Gates (Pillar 1 — must pass before any fix)
 
-- [x] Phase 1 feedback loop built and running
-- [x] Bug reproduces deterministically on the loop
-- [x] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
-- [x] Correct hypothesis identified via Phase 4 instrumentation
+- [X] Phase 1 feedback loop built and running
+- [X] Bug reproduces deterministically on the loop
+- [X] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
+- [X] Correct hypothesis identified via Phase 4 instrumentation
 
 ### Attempts Log (filled live during diagnosis — required if >1 hypothesis tested)
 
 | \# | Hypothesis | Predicted signal | Actual result | Verdict |
 | -- | -- | -- | -- | -- |
-| 1 | `CREATE TABLE IF NOT EXISTS` keeps the 6-col table; INSERT supplies 7 values | repro fails at verifier.py:130 with 6 vs 7 | Repro fails exactly so; after fix the same loop exits 0 | confirmed |
+| 1 | `CREATE TABLE IF NOT EXISTS` keeps the 6-col table; INSERT supplies 7 values | repro fails at [verifier.py:130](<http://verifier.py:130>) with 6 vs 7 | Repro fails exactly so; after fix the same loop exits 0 | confirmed |
 | 2 | `verifier.ingest` has no catch | any sqlite error escapes `cli._ingest` | traceback escaped; test with patched `_projects` now gets status `failed` | confirmed |
 | 3 | Another table drifted too | another INSERT fails | `git log -p` shows none changed; ingest passed all earlier sources | disproven |
 
@@ -75,21 +75,21 @@
 
 ### Fix Gates (Pillar 2)
 
-- [x] Regression test written before the fix (or no-seam documented)
-- [x] Fix applied; regression test passes
-- [x] Phase 1 loop no longer reproduces the bug
-- [x] Fix matches the "correct behaviour" definition from the mental model
-- [x] migration-safety (Skill tool unavailable to this agent; checklist applied by hand): findings below
+- [X] Regression test written before the fix (or no-seam documented)
+- [X] Fix applied; regression test passes
+- [X] Phase 1 loop no longer reproduces the bug
+- [X] Fix matches the "correct behaviour" definition from the mental model
+- [X] migration-safety (Skill tool unavailable to this agent; checklist applied by hand): findings below
   * Reversible/safe: `verifier_scores` is a rebuildable cache (ingest does DELETE + full re-insert), so DROP loses no data.
   * Idempotent: runs only when the table exists AND lacks `status`; after one rebuild it is a no-op. Runs in its own transaction before `SCHEMA`.
   * Other tables untouched; no version bump; no manual SQL step. Tests: tests/sources/test_verifier.py (4 new).
 
 ### Cleanup Checklist (Pillar 3)
 
-- [x] All \[DEBUG-...\] instrumentation removed (grep verified)
-- [x] Throwaway prototypes deleted
-- [x] Correct hypothesis stated in commit message
-- [x] Post-mortem: an in-place CREATE TABLE edit to an already-shipped schema had no migration path, and the 'never raises' promise had no test with a broken table. A `PRAGMA user_version` migration list would prevent the next drift; recommended follow-up if a non-cache table ever changes shape (not built here).
+- [X] All \[DEBUG-...\] instrumentation removed (grep verified)
+- [X] Throwaway prototypes deleted
+- [X] Correct hypothesis stated in commit message
+- [X] Post-mortem: an in-place CREATE TABLE edit to an already-shipped schema had no migration path, and the 'never raises' promise had no test with a broken table. A `PRAGMA user_version` migration list would prevent the next drift; recommended follow-up if a non-cache table ever changes shape (not built here).
 
 ### Evidence (filled by reviewer at Stage 4/5)
 

@@ -68,3 +68,4 @@
 - [Check sibling boards before 'blocked'](learnings.md#2026-10-22--check-the-sibling-repos-board-before-calling-a-task-externally-blocked) — T120 was Done unseen; Done ≠ live until the verifier container is rebuilt.
 - [README drift test](learnings.md#2026-10-22--readme-is-drift-tested-against-the-parser-the-mcp-server-and-runbook) — new subcommand/flag/MCP tool must update README; site quotes README verbatim.
 - [Landing site facts](learnings.md#2026-10-22--landing-site-facts-hun-57) — Vercel from main (owner connects); site tests read README/catalog/tools; "Read tool, no limit" fixed partial reads.
+- [Shipped table shape needs a rebuild step](learnings.md#2026-10-22--a-shipped-tables-shape-never-changes-in-place-without-a-rebuild-step-hun-58) — `CREATE TABLE IF NOT EXISTS` never migrates; HUN-58 drop-on-connect for the verifier cache; sub-agents lack `Skill`; `security-review` needs `origin/HEAD`.
