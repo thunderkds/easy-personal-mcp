@@ -14,16 +14,16 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/test_site_content.py` (AC1 order + verbatim pitch, AC2 two lanes, AC3 tools from `create_app().list_tools()`, AC4 providers from the catalog, AC5 install lines verbatim in README, AC6 2–4 images ≤400 kB with alt, AC7 leak/host/script checks, AC9 footer; negative cases), `tests/test_site_theme.py`, `tests/test_site_deploy_config.py` (AC8 exact files + tree walk). Committed failing first (14a5a32): `39 failed, 2 passed`; after: `41 passed`. Supervisor: `uv run pytest -q` → `426 passed, 1 warning in 23.47s` |
+| Verification command run | ☑ pass | site tests 41 passed; full 426 passed; ruff `All checks passed!` |
+| Negative cases hold | ☑ pass | renamed/extra tool, new provider, flipped flag, edited README command/pitch, leak samples all fail the tests (implementer negative tests); `strings site/*.png | grep -E '/home/|@|127.0.0.1'` → no host path/email/loopback URL |
+| verify | ☑ pass | Supervisor rendered `site/index.html` in headless Chrome at 375/768/1280 (`reports/HUN-57/page-*.png`, local): all sections render, flow lanes side by side at 1280 and stacked at 375, code blocks scroll inside their box; page has no `<script>`; footer links repo, README, personal-agentic-claude.vercel.app, easy-verifier.vercel.app — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `site/`, `vercel.json`, `.vercelignore`, 3 test files. lane_check: `lane: C2, 11 files, 896 lines, EXCEEDS (lines 896 > 500)` — page + 3 test files, as the sibling HUN-20. code-review: P0/P1 0. P3: Usage screenshot shows the page scrollbar and clips the session timeline; capture script kept in scratchpad, method documented in the agent report. Startup reads: all whole via Read (first time this session). security: allowlist `.vercelignore` keeps memory/tasks/reports out of a CLI deploy; no scripts, no external hosts; screenshots fixture-only (demo-app, synthetic session id) — Supervisor viewed all four. |
+| Full smoke suite still green (no regression) | ☑ pass | 426 passed |
+| easy-verifier score (advisory) | ☑ recorded | scope=changes: overall `rating_abstention no_dimension_rated`; all dimensions abstain |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | `reports/HUN-57/page-{375,768,1280}.png` (local): Supervisor vision review vs AC — hero, two-lane flow, 4 dashboard screenshots with captions, install & deploy blocks, ten MCP tools, connector catalog by category with claude.ai flags, footer; no broken layout |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `tests/test_site_theme.py`: Kit tokens in `:root`, no raw colours outside `:root`, AA contrast, system font stack, `:focus-visible`, reduced motion; matches sibling dark neon look in the render |
+| **UI: Responsiveness at target viewports** | ☑ pass | implementer CDP: scrollWidth = clientWidth at 375/768/1280; Supervisor render at 375 single column, long commands scroll inside `<pre>` |
 
 ---
 
@@ -44,9 +44,8 @@ ls: cannot access 'vercel.json': No such file or directory
 ls: cannot access '.vercelignore': No such file or directory
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: `site/index.html` (16 kB) + favicon + 4 fixture screenshots, `vercel.json` `{"outputDirectory": "site"}`, `.vercelignore` allowlist; site tests `41 passed`; full suite `426 passed`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: A developer arriving from GitHub can see what easy-personal does, how data flows, what the dashboard looks like, and copy the install and deploy commands from one page that Vercel can serve from `main`.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-22 ~09:05 UTC, headless Chrome renders of the HUN-57 worktree page and review of all four committed screenshots (trace attributed to HUN-57).
