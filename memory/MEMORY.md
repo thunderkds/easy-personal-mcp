@@ -67,3 +67,4 @@
 - [Connector surfaces gotchas](learnings.md#2026-10-22--connector-surfaces-claudeai-servers-private-writer-helpers-ui-verify-with-fakes) — `claude_ai_*` MCP servers = already available; duplicated `_configured` (P2); rebuild web before pytest after merge; UI verify with fake claude + keyring.
 - [Check sibling boards before 'blocked'](learnings.md#2026-10-22--check-the-sibling-repos-board-before-calling-a-task-externally-blocked) — T120 was Done unseen; Done ≠ live until the verifier container is rebuilt.
 - [README drift test](learnings.md#2026-10-22--readme-is-drift-tested-against-the-parser-the-mcp-server-and-runbook) — new subcommand/flag/MCP tool must update README; site quotes README verbatim.
+- [Landing site facts](learnings.md#2026-10-22--landing-site-facts-hun-57) — Vercel from main (owner connects); site tests read README/catalog/tools; "Read tool, no limit" fixed partial reads.
