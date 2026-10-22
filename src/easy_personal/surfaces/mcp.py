@@ -71,6 +71,31 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         with store.opened(config.store_path()) as conn:
             return kit.kit_summary(conn)
 
+    @app.tool()
+    def connector_catalog() -> dict[str, Any]:
+        """The provider catalog: id, provider, category, whether Claude.ai has an official connector
+        (and its link), and the field labels each needs. Read-only; never a secret value."""
+        from easy_personal.connectors import suggestions
+
+        return suggestions.catalog_view()
+
+    @app.tool()
+    def connector_status() -> dict[str, Any]:
+        """Per catalog id, whether the connector is configured (yes/no only): a keychain item and a
+        Claude Code entry both exist. Never returns a secret or any config value."""
+        from easy_personal.connectors import suggestions
+
+        return suggestions.status()
+
+    @app.tool()
+    def connector_suggestions() -> dict[str, Any]:
+        """Providers not yet configured that your usage points to, from counted WebFetch hosts and
+        MCP tool names (metadata only), with the call counts behind each suggestion."""
+        from easy_personal.connectors import suggestions
+
+        with store.opened(config.store_path()) as conn:
+            return suggestions.suggestions(conn)
+
     return app
 
 

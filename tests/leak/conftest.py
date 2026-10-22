@@ -1,7 +1,11 @@
 import json
+import os
+import sys
 
+import keyring
 import pytest
 
+from connectors.fake_backend import MemoryKeyring
 from leak import harness
 from leak.canaries import Canaries
 
@@ -30,6 +34,18 @@ def leak_run(tmp_path_factory, canaries):
     mp.setenv("EASY_PERSONAL_HOME", str(home))
     mp.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(projects))
     mp.setenv("EASY_PERSONAL_UI_REPORTS", str(ui_reports))
+    # connector_status runs in-process: a memory keyring holding a secret canary and a fake
+    # `claude` that knows only "slack"; the owner's keychain and Claude config are never read.
+    fake_bin = root / "bin"
+    fake_bin.mkdir()
+    fake = fake_bin / "claude"
+    fake.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(0 if sys.argv[1:] == ['mcp', 'get', 'slack'] else 1)\n")
+    fake.chmod(0o755)
+    mp.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
+    old_keyring = keyring.get_keyring()
+    memory = MemoryKeyring()
+    memory.set_password("easy-personal/slack", "connector", canaries.values["api_key"])
+    keyring.set_keyring(memory)
     out = harness.Collected()
     try:
         harness.collect_cli(env, projects, out)  # first call to `ingest` fills the store
@@ -38,6 +54,7 @@ def leak_run(tmp_path_factory, canaries):
             harness.collect_api(out, logs)
         harness.collect_mcp_stdio(env, root / "stdio-stderr.log", out)
     finally:
+        keyring.set_keyring(old_keyring)
         mp.undo()
     out.outputs.update(harness.store_blobs(home))
     return out

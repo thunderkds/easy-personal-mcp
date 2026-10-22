@@ -12,6 +12,7 @@ import sqlite3
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from easy_personal.core import discovery, store
 
@@ -42,10 +43,47 @@ TOKEN_FIELDS = (
 )
 # Identifier-like strings only: a value that does not match is dropped, so free text cannot slip in.
 _LABEL = re.compile(r"^[A-Za-z0-9_.:@/+-]{1,200}$")
+# Connector-suggestion counters (HUN-47): only a Bash command's first word and a WebFetch URL's host.
+_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}")
+_HOST = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+")
 
 
 def _label(value) -> str | None:
     return value if isinstance(value, str) and _LABEL.match(value) else None
+
+
+def _bash_word(command) -> str | None:
+    """First word of a command, as its program name (no path, no arguments); else None.
+
+    The 64-char cap plus the `_WORD` regex are the only guard against a token-like first word.
+    """
+    if not isinstance(command, str) or not command.split():
+        return None
+    word = command.split()[0].rsplit("/", 1)[-1]
+    return word if _WORD.fullmatch(word) else None
+
+
+def _host(url) -> str | None:
+    """Host name of an http(s) URL; the path, query, user info and port are dropped."""
+    try:
+        parts = urlsplit(url) if isinstance(url, str) else None
+        host = (parts.hostname or "").rstrip(".") if parts and parts.scheme in ("http", "https") else ""
+    except ValueError:
+        return None
+    return host if _HOST.fullmatch(host) else None
+
+
+def _signals(blocks) -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    for b in blocks:
+        if not isinstance(b, dict) or b.get("type") != "tool_use":
+            continue
+        tool_input = b.get("input") if isinstance(b.get("input"), dict) else {}
+        if b.get("name") == "Bash" and (word := _bash_word(tool_input.get("command"))):
+            found.append(("bash", word))
+        elif b.get("name") == "WebFetch" and (host := _host(tool_input.get("url"))):
+            found.append(("domain", host))
+    return found
 
 
 def _utc(value) -> str | None:
@@ -138,6 +176,7 @@ def parse_record(record, project_of) -> dict:
         message_id=message_id,
         is_api_error=int(record.get("isApiErrorMessage") is True),
         tool_names=",".join(tools) or None,
+        signals=_signals(blocks),
     )
     return event
 
