@@ -54,7 +54,7 @@ Show easy-context index freshness per project by calling the easy-context servic
 
 ## Dependencies & Reachability
 
-**Depends on**: HUN-39 — `kit_trace` source (never `summary`) + `tool_errors_high` rule + `kit_summary` (kernel part)
+**Depends on**: HUN-39 — `kit_trace` source (never `summary`) + `tool_errors_high` rule + `kit_summary` (kernel part); HUN-40 — `git_local` source (merged 2026-10-22): latest local commit time via `core.discovery.run_git(project, "log", "-1", "--format=%ct")`
 
 **Entry point**: `kit_summary` context entry and rule `context_index_stale`
 
