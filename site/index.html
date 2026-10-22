@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>easy-personal-mcp: your Claude Code usage, as numbers you can act on</title>
+<meta name="description" content="Local usage numbers, warnings and an improvement plan from your Claude Code activity, plus personal tool connectors. Metadata only. No network at runtime.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg:         #0a0a12;
+    --surface:    #111128;
+    --surface2:   #16162e;
+    --border:     #1e1e42;
+    --text:       #e2e2f0;
+    --muted:      #8080b0;
+    --cyan:       #00d4ff;
+    --green:      #00ff88;
+    --amber:      #ffb800;
+    --purple:     #a855f7;
+    --purple-text: #ae5ff8;
+    --cyan-dim:   rgba(0,212,255,.12);
+    --green-dim:  rgba(0,255,136,.12);
+    --amber-dim:  rgba(255,184,0,.12);
+    --purple-dim: rgba(168,85,247,.12);
+    --glow:       0 0 24px rgba(0,212,255,.08), 0 4px 24px rgba(0,0,0,.5);
+    --measure:    64rem;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 1rem/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: var(--measure); margin: 0 auto; padding: 0 1.25rem; }
+  section, header, footer { padding: 2.5rem 0; border-bottom: 1px solid var(--border); }
+  footer { border-bottom: 0; color: var(--muted); }
+  h1, h2, h3 { line-height: 1.2; margin: 0 0 .75rem; }
+  h1 { font-size: clamp(2rem, 6vw, 3rem); color: var(--cyan); }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.1rem; }
+  p { margin: 0 0 .9rem; }
+  a { color: var(--cyan); }
+  code, pre { font-family: var(--mono); }
+  code { color: var(--green); font-size: .92em; overflow-wrap: anywhere; }
+  img { max-width: 100%; height: auto; display: block; }
+  .lead { font-size: 1.25rem; color: var(--text); }
+  .muted { color: var(--muted); }
+  .term { color: var(--purple-text); font-weight: 600; }
+  .skip-link { position: absolute; left: -999px; top: 0; background: var(--surface2); padding: .5rem 1rem; }
+  .skip-link:focus { left: 0; z-index: 10; }
+  a:focus-visible, .skip-link:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .cta { display: inline-block; margin-top: .5rem; padding: .55rem 1.1rem; border: 1px solid var(--cyan);
+    border-radius: .4rem; background: var(--cyan-dim); text-decoration: none; font-weight: 600; }
+
+  /* flow diagram */
+  .lanes { display: grid; gap: 1.25rem; margin-top: 1.25rem; }
+  .lane { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem;
+    padding: 1.1rem 1.1rem 1.25rem; box-shadow: var(--glow); }
+  .lane[data-lane-box="read"] { border-top: 3px solid var(--purple); }
+  .lane[data-lane-box="connect"] { border-top: 3px solid var(--green); }
+  .lane h3 { margin-bottom: .25rem; }
+  .lane[data-lane-box="read"] h3 { color: var(--purple-text); }
+  .lane[data-lane-box="connect"] h3 { color: var(--green); }
+  .lane .note { color: var(--muted); font-size: .92rem; margin-bottom: 1rem; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li { position: relative; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: .5rem; padding: .6rem .8rem; margin-bottom: 1.5rem; display: grid; gap: .1rem; }
+  .steps li:last-child { margin-bottom: 0; }
+  .steps li:not(:last-child)::after { content: "\2193"; position: absolute; left: 50%; bottom: -1.5rem;
+    transform: translateX(-50%); color: var(--cyan); font-size: 1.1rem; line-height: 1.5rem; }
+  .steps .name { font-family: var(--mono); font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+  .steps .caption { color: var(--muted); font-size: .92rem; }
+
+  /* screenshots */
+  .shots { display: grid; gap: 1.25rem; margin-top: 1.25rem; }
+  .shots figure { margin: 0; background: var(--surface); border: 1px solid var(--border);
+    border-radius: .6rem; padding: .6rem; min-width: 0; }
+  .shots img { border-radius: .35rem; }
+  .shots figcaption { color: var(--muted); font-size: .92rem; margin-top: .5rem; }
+
+  /* install, tools, connectors */
+  .cols, .groups { display: grid; gap: 1.25rem; }
+  .cols > div, .lanes > div, .groups > div { min-width: 0; }
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: .5rem;
+    padding: .9rem 1rem; margin: 0 0 .75rem; overflow-x: auto; font-size: .88rem; line-height: 1.5; }
+  .tool-list, .provider-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+  .tool-list li, .provider-list li { background: var(--surface); border: 1px solid var(--border);
+    border-radius: .5rem; padding: .6rem .8rem; }
+  .tool-list code { font-weight: 700; margin-right: .4rem; }
+  .flag { display: inline-block; margin-left: .4rem; padding: 0 .45rem; border-radius: .3rem;
+    font-size: .82rem; border: 1px solid var(--border); }
+  .flag[data-flag="yes"] { color: var(--green); background: var(--green-dim); }
+  .flag[data-flag="no"] { color: var(--amber); background: var(--amber-dim); }
+
+  @media (min-width: 768px) {
+    .tool-list { grid-template-columns: 1fr 1fr; }
+    .shots, .groups { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  }
+  @media (min-width: 900px) {
+    .lanes { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#flow">Skip to the flow diagram</a>
+<main>
+<header id="hero"><div class="wrap">
+  <h1>easy-personal-mcp</h1>
+  <p class="lead pitch">The Easy Kit plug-in about you, not a repo: it turns your local Claude Code activity into usage numbers, warnings and an improvement plan, and manages your personal tool connectors.</p>
+  <p>Everything runs on your machine. It reads metadata only: token counts, model, time, project folder and tool names. It never stores message text. A <span class="term">kit part</span> is one of the Easy Kit tools that leave files for it to read: the kernel, easy-verifier, easy-ui or easy-context.</p>
+  <a class="cta" href="https://github.com/thunderkds/easy-personal-mcp">View on GitHub</a>
+</div></header>
+
+<section id="flow"><div class="wrap">
+  <h2>The flow</h2>
+  <p>There are two lanes. The first lane reads your activity. To <span class="term">ingest</span> is to copy metadata into the store. The second lane connects a tool to Claude Code. A <span class="term">connector</span> is a provider, such as Slack, set up for Claude Code with its secrets kept in the OS keychain. The <span class="term">launcher</span> is the small command that Claude Code starts for a connector.</p>
+  <div class="lanes">
+    <div class="lane" data-lane-box="read">
+      <h3 data-lane="read">Read</h3>
+      <p class="note">Files are only read, never changed. Nothing leaves your machine.</p>
+      <ol class="steps">
+        <li data-lane="read" data-step="transcripts + kit reports"><span class="name">transcripts + kit reports</span><span class="caption">Claude Code session files and the files that kit parts leave behind.</span></li>
+        <li data-lane="read" data-step="ingest"><span class="name">ingest</span><span class="caption">Copy metadata into the store. Message text is dropped.</span></li>
+        <li data-lane="read" data-step="local store"><span class="name">local store</span><span class="caption">One SQLite file on your disk. It keeps history after Claude Code deletes old sessions.</span></li>
+        <li data-lane="read" data-step="MCP / CLI / dashboard"><span class="name">MCP · CLI · dashboard</span><span class="caption">Three ways to read the same numbers. The dashboard listens on 127.0.0.1 only.</span></li>
+      </ol>
+    </div>
+    <div class="lane" data-lane-box="connect">
+      <h3 data-lane="connect">Connect</h3>
+      <p class="note">A secret goes to the keychain once. It is never in a config file or a command line.</p>
+      <ol class="steps">
+        <li data-lane="connect" data-step="catalog form"><span class="name">catalog form</span><span class="caption">Pick a provider and fill in its fields, in the dashboard or the CLI.</span></li>
+        <li data-lane="connect" data-step="OS keychain"><span class="name">OS keychain</span><span class="caption">The secrets are saved in the keychain of your operating system.</span></li>
+        <li data-lane="connect" data-step="claude mcp add-json"><span class="name">claude mcp add-json</span><span class="caption">The official Claude Code command registers <code>easy-personal-launch exec &lt;id&gt;</code>.</span></li>
+        <li data-lane="connect" data-step="launcher"><span class="name">launcher</span><span class="caption">It reads the keychain and passes the secrets to the provider server as environment variables.</span></li>
+      </ol>
+    </div>
+  </div>
+</div></section>
+
+<section id="dashboard"><div class="wrap">
+  <h2>The dashboard</h2>
+  <p>Run <code>easy-personal dashboard</code> to open it. These screenshots use test fixtures, not real usage. The project <code>demo-app</code> is made up.</p>
+  <div class="shots">
+    <figure><img src="dashboard-usage.png" width="1280" alt="Usage tab of the dashboard showing total tokens, cache hit ratio, and breakdowns by day, model, project and tool for the demo-app fixture project"><figcaption>Usage: totals, breakdowns and outlier sessions.</figcaption></figure>
+    <figure><img src="dashboard-warnings.png" width="1280" alt="Warnings and plan tab listing the declared rules that could not be measured, with an empty improvement plan"><figcaption>Warnings and plan: each rule cites its measured value.</figcaption></figure>
+    <figure><img src="dashboard-kit.png" width="1280" alt="Kit tab with a table of kit parts per project for demo-app: kernel, verifier and context show no data, git shows one commit"><figcaption>Kit: what each kit part left for each project.</figcaption></figure>
+    <figure><img src="dashboard-connectors.png" width="1280" alt="Connectors tab listing Gmail and SendGrid under Email and Slack, Teams and Discord under Messaging, each with a set up button"><figcaption>Connectors: set up a provider from the catalog.</figcaption></figure>
+  </div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <h2>Install and deploy</h2>
+  <p>You need Python 3.11 or newer, <code>uv</code> and Node.js. The dashboard page is built from <code>web/</code> and is not in git, so build it before you install. It runs natively on Linux.</p>
+  <div class="cols">
+    <div>
+      <h3>Install</h3>
+<pre>git clone https://github.com/thunderkds/easy-personal-mcp.git
+cd easy-personal-mcp
+npm --prefix web ci &amp;&amp; npm --prefix web run build
+uv tool install --reinstall --no-cache .</pre>
+      <p class="muted">Check the install:</p>
+<pre>easy-personal --version
+easy-personal ping</pre>
+    </div>
+    <div>
+      <h3>First run</h3>
+      <p class="muted">Claude Code deletes old transcripts after 30 days, so ingest often.</p>
+<pre>easy-personal ingest
+easy-personal usage
+easy-personal warnings
+easy-personal plan</pre>
+    </div>
+    <div>
+      <h3>Register the MCP server</h3>
+      <p class="muted">Then restart Claude Code. The server speaks stdio by default.</p>
+<pre>claude mcp add --scope user easy-personal -- easy-personal mcp</pre>
+      <h3>Open the dashboard</h3>
+      <p class="muted">It runs an ingest, then starts the page on <code>127.0.0.1</code> with a new token each time. Press Ctrl-C to stop.</p>
+<pre>easy-personal dashboard</pre>
+    </div>
+    <div>
+      <h3>Schedule</h3>
+      <p class="muted">A systemd user timer runs ingest every day.</p>
+<pre>easy-personal schedule install
+easy-personal schedule remove</pre>
+      <h3>Connectors</h3>
+      <p class="muted">Needs the <code>claude</code> CLI on <code>PATH</code> and a keychain backend. Restart Claude Code after a change.</p>
+<pre>easy-personal connector list
+easy-personal connector add slack
+easy-personal connector remove slack
+easy-personal doctor</pre>
+    </div>
+    <div>
+      <h3>Upgrade</h3>
+      <p class="muted">Always use <code>--reinstall --no-cache</code>. Without it, uv can reuse an old build of the same version.</p>
+<pre>git pull
+npm --prefix web ci &amp;&amp; npm --prefix web run build
+uv tool install --reinstall --no-cache .</pre>
+    </div>
+    <div>
+      <h3>Roll back</h3>
+      <p class="muted">Back up the store before an upgrade:</p>
+<pre>cp -p ~/.easy-personal/store.sqlite ~/.easy-personal/store.sqlite.backup</pre>
+      <p class="muted">To roll back, remove your connectors and the timer, uninstall the tool and restore the store:</p>
+<pre>easy-personal connector remove slack
+easy-personal schedule remove
+uv tool uninstall easy-personal-mcp
+cp -p ~/.easy-personal/store.sqlite.backup ~/.easy-personal/store.sqlite</pre>
+    </div>
+  </div>
+  <p>The full deploy, health check and rollback steps, and the common failures, are in the <a href="https://github.com/thunderkds/easy-personal-mcp/blob/main/RUNBOOK.md">runbook</a>.</p>
+</div></section>
+
+<section id="tools"><div class="wrap">
+  <h2>Ten MCP tools</h2>
+  <p class="muted">None of them writes config or returns a secret.</p>
+  <ul class="tool-list">
+    <li data-tool="ping"><code>ping</code>Check that the server is up.</li>
+    <li data-tool="usage_summary"><code>usage_summary</code>Sessions, messages and tokens for a period.</li>
+    <li data-tool="usage_breakdown"><code>usage_breakdown</code>Tokens grouped by day, model, project or tool.</li>
+    <li data-tool="session_outliers"><code>session_outliers</code>Sessions with very many tool calls or a very long context.</li>
+    <li data-tool="warnings"><code>warnings</code>Rules that fired, each with its measured value.</li>
+    <li data-tool="improvement_plan"><code>improvement_plan</code>The fired rules by priority, each with a fix line.</li>
+    <li data-tool="kit_summary"><code>kit_summary</code>What the Easy Kit did in each project.</li>
+    <li data-tool="connector_catalog"><code>connector_catalog</code>The provider catalog. Never a secret value.</li>
+    <li data-tool="connector_status"><code>connector_status</code>Whether each connector is set up, as yes or no.</li>
+    <li data-tool="connector_suggestions"><code>connector_suggestions</code>Providers your usage points to, with the counts behind each.</li>
+  </ul>
+</div></section>
+
+<section id="connectors"><div class="wrap">
+  <h2>Connector catalog</h2>
+  <p>The catalog has five providers. <span class="muted">Yes means Claude.ai has an official connector too. Use the launcher only if you want it instead.</span></p>
+  <div class="groups">
+    <div>
+      <h3 data-category-title>Email</h3>
+      <ul class="provider-list">
+        <li data-provider="gmail" data-category="Email" data-claude-ai="yes">Gmail<span class="flag" data-flag="yes">claude.ai connector: yes</span></li>
+        <li data-provider="sendgrid" data-category="Email" data-claude-ai="no">SendGrid<span class="flag" data-flag="no">claude.ai connector: no</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3 data-category-title>Messaging</h3>
+      <ul class="provider-list">
+        <li data-provider="discord" data-category="Messaging" data-claude-ai="no">Discord<span class="flag" data-flag="no">claude.ai connector: no</span></li>
+        <li data-provider="slack" data-category="Messaging" data-claude-ai="yes">Slack<span class="flag" data-flag="yes">claude.ai connector: yes</span></li>
+        <li data-provider="teams" data-category="Messaging" data-claude-ai="yes">Teams<span class="flag" data-flag="yes">claude.ai connector: yes</span></li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+</main>
+
+<footer id="footer"><div class="wrap">
+  <p><a href="https://github.com/thunderkds/easy-personal-mcp">GitHub</a> ·
+  <a href="https://github.com/thunderkds/easy-personal-mcp#readme">README</a> for configuration and limits.</p>
+  <p>Also from the easy family:
+  <a href="https://personal-agentic-claude.vercel.app/">Easy Kit</a> ·
+  <a href="https://easy-verifier.vercel.app/">easy-verifier</a></p>
+</div></footer>
+</body>
+</html>
