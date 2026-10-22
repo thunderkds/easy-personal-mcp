@@ -14,16 +14,16 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/test_readme.py` (13 tests: AC1 section order + v0.1.0 status; AC2 commands/flags walked through `build_parser()` + launcher usage, every top-level subcommand documented; AC3 MCP tools = `create_app().list_tools()`; AC4 install/upgrade = RUNBOOK; AC5 no host path/email/token). Agent's run on the OLD README: `9 failed, 4 passed`; after: `13 passed in 0.39s`. Supervisor: `uv run pytest -q` → `385 passed, 1 warning in 27.93s` |
+| Verification command run | ☑ pass | `uv run pytest tests/test_readme.py -q && uv run pytest -q` → 13 passed; 385 passed; ruff `All checks passed!` |
+| Negative cases hold | ☑ pass | test fails when a README command/flag is not in the parser, a tool list differs, or a host path/email/token appears (demonstrated by the 9 failures on the old README) |
+| verify | ☑ pass | Supervisor followed the README in an isolated env (temp EASY_PERSONAL_HOME/UV_TOOL_*, fixtures, failing keyring, no `claude` on PATH): `npm --prefix web ci && npm --prefix web run build` → `✓ built`; `uv tool install --reinstall --no-cache .`; rc=0 for `--version`, `ping`, `ingest`, `usage`, `usage --by project`, `outliers`, `warnings`, `plan`, `kit`, `connector list`, `schedule install --dry-run`; `easy-personal-launch` installed; `doctor` rc=1 with `FAIL keychain`/`FAIL claude` as documented; `dashboard` printed `http://127.0.0.1:<port>/`. `claude mcp add --scope user easy-personal -- easy-personal mcp` matches `claude mcp add --help` usage (`claude mcp add [options] <name> <commandOrUrl> [args...]`); not executed (never registers on the owner's config) — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | README.md + tests/test_readme.py. lane_check: `lane: C1, 2 files, 366 lines, EXCEEDS (lines 366 > 250)` — prose length, acceptable. code-review: P0/P1 0 on content; facts checked vs code (requires-python >=3.11, `thresholds:` + `cache_hit_low` rule id, cron fallback, retention flags, config keys/env vars). P1 process: implementer read `PROJECT_SPEC.md` and `agents/backend.md` partly (lines 56–80 of backend.md unread, tool output truncation) — recurring; conformance checked by Supervisor. P3: rollback example names `slack`; backup name differs from RUNBOOK (`store.sqlite.backup` vs `.pre-v0.1.0`, deliberate). Low risk docs → security-review N/A beyond the safety test; no DB change. |
+| Full smoke suite still green (no regression) | ☑ pass | 385 passed |
+| easy-verifier score (advisory) | ☑ recorded | scope=changes: overall `rating_abstention no_dimension_rated`; all dimensions abstain |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Documentation task; no UI component |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Documentation task; no UI component |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Documentation task; no UI component |
 
 ---
 
@@ -53,9 +53,8 @@
 > [easy-verifier-mcp](https://github.com/thunderkds/easy-verifier-mcp),
 > [easy-context-mcp](https://github.com/thunderkds/easy-context-mcp).
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: `README.md` at the HUN-56 head — sections: pitch · Status: v0.1.0 · What it reads · Install · Quick start (First ingest, Register the MCP server, MCP tools, Dashboard) · Schedule · Connectors · Configuration · Upgrade and rollback (→ RUNBOOK.md) · Development · Easy Kit; `tests/test_readme.py` 13 passed.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: A developer can install, run, register, schedule, connect, upgrade and roll back easy-personal from the README alone, where before it said "Status: planning" and had no commands.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-22 08:52 UTC, isolated install following the README from the HUN-56 worktree (trace attributed to HUN-56).
