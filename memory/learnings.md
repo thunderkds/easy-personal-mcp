@@ -125,3 +125,7 @@
 **Learning**: HUN-49 (backend), HUN-41 (backend: "head only") and HUN-51 (frontend: `head -5`) reported partial reads of `agents/<role>.md`, even when the spawn prompt said a partial read counts as not read (HUN-51). Each was closed by a Supervisor conformance check (P1 process finding). Expect it; keep the startup-reads check in code-review, and consider pasting the role guide's key rules into the spawn prompt instead of relying on the read.
 **Files**: `agents/backend.md`, `agents/frontend.md`, `skills/craft-spawn-prompt/SKILL.md`
 
+### 2026-10-22 — Connector verify: fresh install, fake `claude`, fake keychain
+**Learning**: `uv tool install .` from the same worktree path can reuse a cached build of the same version (0.1.0) and serve old package data (HUN-45 served the old `slack.yaml`): use `uv tool install --reinstall --no-cache .` for a re-verify. Connector verify never touches the owner's config or keychain: a fake `claude` script first on PATH (logs argv, simulates `mcp get`/`add-json`/`remove`) and a throwaway file keyring via `PYTHON_KEYRING_BACKEND`; that fake must raise `keyring.errors.PasswordDeleteError` on deleting a missing item, like real backends. Catalog files use the restricted line format (`key: value`, repeated `field: ENV | label | secret|plain`), no YAML dependency. `tests/leak/` can import `connectors.fake_backend` (tests/ is on pythonpath).
+**Files**: `src/easy_personal/connectors/writer.py`, `src/easy_personal/connectors/catalog.py`, `tests/connectors/fake_backend.py`, `tests/leak/test_connector_leak.py`
+

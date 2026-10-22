@@ -37,3 +37,8 @@
 **Why**: Owner, 2026-10-22 ("yes"). HUN-44 measured `easy_personal.surfaces.cli` import at ~300 ms vs. `easy_personal.launch` at ~50 ms; NFR-006 caps launcher start-up at 200 ms.
 **Files**: `src/easy_personal/launch.py`, `pyproject.toml`, `PRD.md`, `docs/ddr/0001-native-runtime-and-write-targets.md`, `tasks/TASK_GUIDE_HUN-45.md`
 
+### 2026-10-22 — Catalog servers are pinned; Slack = `slack-mcp-server@1.3.0`
+**Decision**: Every catalog `command` that runs `npx`, `uvx` or `pipx run` must name an exact version (`name@1.2.3`); `connectors/catalog.parse` refuses unpinned, `@latest`, ranges and short versions. The Slack entry runs `npx -y slack-mcp-server@1.3.0 --transport stdio` (korotovsky, MIT) with one secret field `SLACK_MCP_XOXB_TOKEN` (bot token: invited channels only, no search).
+**Why**: Owner, 2026-10-22 (accepted the recommendation). The first pick, `@modelcontextprotocol/server-slack`, is deprecated on npm and `npx -y` without a version would run whatever is newest, with the token in its env.
+**Files**: `src/easy_personal/catalog/slack.yaml`, `src/easy_personal/connectors/catalog.py`
+
