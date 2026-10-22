@@ -24,7 +24,7 @@
 **Files**: `src/easy_personal/surfaces/mcp.py`
 
 ### 2026-10-21 — Merge gate blocks while ANY task is In Progress
-**Learning**: `.claude/hooks/pre_bash_block_unsafe_merge.py` refuses every `git merge`/`push` while any KANBAN row is In Progress, and needs a `verify` row containing "pass" for Ready for Review rows. With no review status in Linear (decision: In Progress → Done), move a task to Done only after its Evidence is complete, then merge. Parallel tasks must all reach Done before any of them merges. The command regex `\bgit\s+merge\b` also matches `git merge-base` and `git merge-tree`, so those read-only commands are blocked too: use `git rev-list --count A..B` to check divergence. 2026-10-22: HUN-39/44/49 were verified together, pushed Done, then merged one by one (HUN-44 needed an additive conflict fix in `cli.py` + `tests/leak/harness.py`).
+**Learning**: `.claude/hooks/pre_bash_block_unsafe_merge.py` refuses every `git merge`/`push` while any KANBAN row is In Progress, and needs a `verify` row containing "pass" for Ready for Review rows. With no review status in Linear (decision: In Progress → Done), move a task to Done only after its Evidence is complete, then merge. Parallel tasks must all reach Done before any of them merges. The command regex `\bgit\s+merge\b` also matches `git merge-base` and `git merge-tree`, so those read-only commands are blocked too: use `git rev-list --count A..B` to check divergence. The hook judges the whole Bash command before any part runs, so a compound `board push done && … && git merge` is refused: push the board status in one call, merge in the next. 2026-10-22: HUN-39/44/49 were verified together, pushed Done, then merged one by one (HUN-44 needed an additive conflict fix in `cli.py` + `tests/leak/harness.py`).
 **Files**: `.claude/hooks/pre_bash_block_unsafe_merge.py`, `PROJECT_KANBAN.md`
 
 ### 2026-10-21 — Skills the Supervisor cannot run itself
@@ -104,4 +104,8 @@
 ### 2026-10-22 — `PROJECT_SPEC.md` Tasks Status column is not maintained
 **Learning**: Every row reads `Todo`, including Done tasks; the board (`PROJECT_KANBAN.md` cache of Linear) is the status source of truth. Do not update single rows (it makes the table inconsistent); fix the whole column or drop it, with owner approval.
 **Files**: `PROJECT_SPEC.md`, `PROJECT_KANBAN.md`
+
+### 2026-10-22 — `git` kit part: query time, `run_git`, and an open owner check on `--remotes`
+**Learning**: HUN-40 reads git at query time (no table, no migration): `sources/git_local.git_part` runs `git log --branches --tags --remotes --format=%ct` through `core/discovery.run_git` (hardened: `-c core.fsmonitor=false`, `GIT_OPTIONAL_LOCKS=0`, timeout; raises `TimeoutExpired` → part `abstained`). `--all` was avoided because it counts `refs/stash`. Owner check (P2): `--remotes` also counts fetched commits by others as "local git activity" (FR-014); dropping it is a one-word change. `commits_by_day` is all-time (not period-bound). HUN-41 can get a project's latest commit with `run_git(project, "log", "-1", "--format=%ct")`.
+**Files**: `src/easy_personal/sources/git_local.py`, `src/easy_personal/core/discovery.py`, `src/easy_personal/core/kit.py`
 

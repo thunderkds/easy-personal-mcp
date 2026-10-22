@@ -33,7 +33,7 @@
 - [Static build gitignored](learnings.md#2026-10-21--dashboard-static-build-is-gitignored-build-before-uv-build) — `npm --prefix web run build` before `uv build`; 2 web tests skip unbuilt.
 - [Verify against fixtures](learnings.md#2026-10-21--runtime-verify-against-fixtures-never-the-real-transcripts) — temp `EASY_PERSONAL_CLAUDE_PROJECTS` + `EASY_PERSONAL_HOME`; grep outputs for `INVENTED_`.
 - [FastMCP typed dict output](learnings.md#2026-10-21--fastmcp-returns-structured-output-only-for-typed-dicts) — `-> dict[str, Any]`; version via private `_mcp_server.version`.
-- [Merge gate blocks while any task In Progress](learnings.md#2026-10-21--merge-gate-blocks-while-any-task-is-in-progress) — Done after evidence, then merge; parallel tasks finish together; regex also blocks `git merge-base`.
+- [Merge gate blocks while any task In Progress](learnings.md#2026-10-21--merge-gate-blocks-while-any-task-is-in-progress) — Done after evidence, then merge; parallel tasks finish together; regex also blocks `git merge-base`; push board status and merge in separate calls.
 - [Skills the Supervisor cannot run](learnings.md#2026-10-21--skills-the-supervisor-cannot-run-itself) — /verify loadable via Skill since 2026-10-22; security-review inline; no Skill tool in sub-agents.
 - [easy-verifier registered (local scope)](learnings.md#2026-10-21--easy-verifier-registered-for-this-repo-local-scope) — `~/.claude-personal` profile only; 127.0.0.1:8766; absolute `repo` arg; Stage 4 step 4b, advisory, no hook.
 - [easy-verifier score output](learnings.md#2026-10-21--easy-verifier-score-output-read-with-jq-known-security-false-positives) — >budget, read via jq; security 18 = SQL/lockfile false positives; `write_report` for path.
@@ -54,4 +54,4 @@
 - [Grid tracks `minmax(0, 1fr)`](learnings.md#2026-10-22--css-grid-tracks-need-minmax0-1fr-for-scrolling-tables) — nowrap tables overflow `.panels` otherwise; jsdom can't see it.
 - [Owner check: 30-min timeline gap](learnings.md#2026-10-22--open-owner-check-from-hun-53-timeline-gap-threshold) — `TIMELINE_GAP_MINUTES` is the Supervisor's choice; sessions API dashboard-only.
 - [PROJECT_SPEC Status column stale](learnings.md#2026-10-22--project_specmd-tasks-status-column-is-not-maintained) — all `Todo`; board is the truth; don't patch single rows.
-
+- [git kit part + `--remotes` owner check](learnings.md#2026-10-22--git-kit-part-query-time-run_git-and-an-open-owner-check-on---remotes) — query time via hardened `run_git`; `--remotes` may count others' commits; all-time counts.
