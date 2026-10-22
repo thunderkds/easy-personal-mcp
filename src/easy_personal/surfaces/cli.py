@@ -64,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     outliers_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
     sub.add_parser("warnings", help="declared usage rules that fired (same as MCP warnings)")
     sub.add_parser("plan", help="improvement plan by priority (same as MCP improvement_plan)")
+    sub.add_parser("dashboard", help="ingest, then serve the local dashboard until Ctrl-C")
     return parser
 
 
@@ -119,6 +120,15 @@ def main(argv: list[str] | None = None) -> int:
         return _ingest(args)
     if args.command == "schedule":
         return _schedule(args)
+    if args.command == "dashboard":
+        from easy_personal.surfaces import api
+
+        print("ingesting before start (waits if another ingest runs)...", file=sys.stderr)
+        rc = _ingest(argparse.Namespace(source=None, retention_days=None))
+        if rc:
+            return rc
+        api.serve()
+        return 0
     if args.command == "usage":
         with store.opened(config.store_path()) as conn:
             if args.by:

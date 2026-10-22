@@ -36,6 +36,18 @@ def test_every_cli_command_is_registered():
     assert harness.unregistered_commands() == set()
 
 
+def test_every_api_route_is_registered():
+    from easy_personal.surfaces import api
+
+    assert harness.unregistered_api_routes(api.create_app("t", 1)) == set()
+
+
+def test_api_routes_were_scanned(leak_run):
+    labels = " | ".join(leak_run.outputs)
+    for route in harness.API_CALLS:
+        assert f"api {route}" in labels, route
+
+
 def test_no_canary_in_any_output_log_or_store(leak_run, canaries):
     leaks = {}
     for label, blob in leak_run.outputs.items():
