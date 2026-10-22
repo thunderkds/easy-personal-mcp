@@ -1,4 +1,5 @@
 import argparse
+import getpass
 import json
 import os
 import sys
@@ -69,6 +70,14 @@ def build_parser() -> argparse.ArgumentParser:
     for name, text in (("exec", "run a connector's provider server with keychain secrets"),
                        ("headers", "print a connector's JSON headers from the keychain")):
         sub.add_parser(name, help=text).add_argument("connector")
+    connector_p = sub.add_parser("connector", help="add or remove a provider connector")
+    connector_sub = connector_p.add_subparsers(dest="action", required=True)
+    for action, text in (("add", "store secrets in the keychain and register in Claude Code"),
+                         ("remove", "delete keychain items and the Claude Code entry")):
+        action_p = connector_sub.add_parser(action, help=text)
+        action_p.add_argument("provider" if action == "add" else "name")
+        action_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
+    sub.add_parser("doctor", help="check keychain, claude CLI and connector entries")
     return parser
 
 
@@ -94,6 +103,30 @@ def _ingest(args) -> int:
         return 75
     _print_json(result)
     return 0
+
+
+def _ask(label: str, secret: bool) -> str:
+    return getpass.getpass(f"{label}: ") if secret else input(f"{label}: ").strip()
+
+
+def _confirm() -> bool:
+    return input("Apply these changes? [y/N] ").strip().lower() in ("y", "yes")
+
+
+def _connector(args) -> int:
+    from easy_personal.connectors import catalog, writer
+    from easy_personal.launch import LaunchError
+
+    try:
+        if args.action == "add":
+            return writer.add(catalog.load(args.provider), _ask, _confirm, print, args.yes)
+        return writer.remove(args.name, _confirm, print, args.yes)
+    except catalog.CatalogError as exc:
+        print(f"easy-personal: {exc}", file=sys.stderr)
+        return 2
+    except LaunchError as exc:
+        print(f"easy-personal: {exc}", file=sys.stderr)
+        return 1
 
 
 def _schedule(args) -> int:
@@ -127,6 +160,12 @@ def main(argv: list[str] | None = None) -> int:
         from easy_personal import launch
 
         return launch.main([args.command, args.connector])
+    if args.command == "connector":
+        return _connector(args)
+    if args.command == "doctor":
+        from easy_personal.connectors import writer
+
+        return writer.doctor(print)
     if args.command == "ingest":
         return _ingest(args)
     if args.command == "schedule":

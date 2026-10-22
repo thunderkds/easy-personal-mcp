@@ -34,12 +34,20 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-22T04:36:55Z in worktree easy-personal-mcp-HUN-45 before any implementation commit:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ uv run easy-personal connector add slack
+easy-personal: error: argument command: invalid choice: 'connector' (choose from ping, mcp, ingest, schedule, usage, outliers, warnings, kit, plan, dashboard, exec, headers)
+rc=2
+$ uv run easy-personal doctor
+easy-personal: error: argument command: invalid choice: 'doctor' (choose from ping, mcp, ingest, schedule, usage, outliers, warnings, kit, plan, dashboard, exec, headers)
+rc=2
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: `uv run pytest tests/connectors -q` -> 50 passed; `uv run pytest tests/leak -q` -> 24 passed; `uv run pytest -q` -> 280 passed, 2 skipped (fake `claude` on PATH and in-memory keychain; the real ones are never run).
+
+**DELTA**: `easy-personal connector add|remove slack` and `easy-personal doctor` now exist: secrets go to the keychain and `claude mcp add-json --scope user` registers `easy-personal-launch exec slack`.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

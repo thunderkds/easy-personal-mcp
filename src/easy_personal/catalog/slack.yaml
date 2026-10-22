@@ -1,0 +1,10 @@
+# Provider catalog entry (PRD FR-016). One `key: value` per line; `field:` repeats, one per form field.
+# category, provider: shown in the form. claude_ai_connector: yes|no, an official claude.ai connector exists.
+# command: how the launcher starts the provider server (stdlib shlex split).
+# field: ENV_NAME | label | secret|plain. The value reaches the server as that environment variable.
+category: Messaging
+provider: Slack
+claude_ai_connector: yes
+command: npx -y @modelcontextprotocol/server-slack
+field: SLACK_BOT_TOKEN | Bot token | secret
+field: SLACK_TEAM_ID | Team ID | plain

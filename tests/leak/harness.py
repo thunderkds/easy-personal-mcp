@@ -70,8 +70,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/plan": [""],
     "/api/kit": [""],
 }
-# Keychain launchers: tested with an in-memory backend in tests/connectors (never the real keychain).
-CLI_KEYCHAIN_COMMANDS = {"exec", "headers"}
+# Keychain launchers and connector commands: tested with an in-memory backend in tests/connectors (never the real keychain).
+CLI_KEYCHAIN_COMMANDS = {"exec", "headers", "connector", "doctor"}
 
 
 @dataclass
