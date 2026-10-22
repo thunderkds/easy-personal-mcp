@@ -272,9 +272,10 @@ _TEXT_SUFFIXES = {".html", ".svg", ".json", ".css", ".txt"}
 
 
 def violations(text: str) -> list[str]:
+    bare = re.sub(r"https?://\S+", "", text)  # links are checked by link_violations
     problems = [f"host path {p!r}" for p in _HOST_PATH if p in text]
     problems += [f"email {m!r}" for m in _EMAIL.findall(text)]
-    problems += [f"token-shaped {m!r}" for m in _SECRET.findall(text)]
+    problems += [f"token-shaped {m!r}" for m in _SECRET.findall(bare)]
     problems += [f"dashboard token {m!r}" for m in _FRAGMENT_TOKEN.findall(text)]
     return problems
 
