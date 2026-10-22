@@ -100,13 +100,15 @@ def unregistered_commands() -> set[str]:
     return cli_commands() - set(CLI_CALLS) - CLI_SERVER_COMMANDS - CLI_KEYCHAIN_COMMANDS
 
 
-def child_env(home: Path, projects: Path) -> dict[str, str]:
+def child_env(home: Path, projects: Path, ui_reports: Path | None = None) -> dict[str, str]:
     env = dict(os.environ)
     env.update(
         EASY_PERSONAL_HOME=str(home),
         EASY_PERSONAL_CLAUDE_PROJECTS=str(projects),
         PYTHONPATH=SRC,
     )
+    if ui_reports is not None:
+        env["EASY_PERSONAL_UI_REPORTS"] = str(ui_reports)
     return env
 
 

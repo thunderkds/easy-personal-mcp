@@ -3,6 +3,7 @@ from pathlib import Path
 
 HOME_ENV = "EASY_PERSONAL_HOME"
 CLAUDE_PROJECTS_ENV = "EASY_PERSONAL_CLAUDE_PROJECTS"
+UI_REPORTS_ENV = "EASY_PERSONAL_UI_REPORTS"
 
 
 def data_dir() -> Path:
@@ -31,3 +32,9 @@ def claude_projects_dir() -> Path:
 def config_path() -> Path:
     """Owner settings file; optional. Today it holds rule `thresholds:` overrides."""
     return data_dir() / "config.yaml"
+
+
+def ui_reports_dir() -> Path | None:
+    """easy-ui report folder (`session-*.json`); None when not configured (UI checks: no data)."""
+    value = os.environ.get(UI_REPORTS_ENV)
+    return Path(value) if value else None

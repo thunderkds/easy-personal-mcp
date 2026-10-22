@@ -23,11 +23,13 @@ def leak_run(tmp_path_factory, canaries):
                     "sessionId": "00000000-0000-4000-8000-0000000000bb",
                     "timestamp": "2026-02-01T09:00:00.000Z"}) + "\n"
     )  # fmt: skip
+    ui_reports = canaries.render_ui_reports(root / "ui-reports")
     home = root / "home"
-    env = harness.child_env(home, projects)
+    env = harness.child_env(home, projects, ui_reports)
     mp = pytest.MonkeyPatch()
     mp.setenv("EASY_PERSONAL_HOME", str(home))
     mp.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(projects))
+    mp.setenv("EASY_PERSONAL_UI_REPORTS", str(ui_reports))
     out = harness.Collected()
     try:
         harness.collect_cli(env, projects, out)  # first call to `ingest` fills the store

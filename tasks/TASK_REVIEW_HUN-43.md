@@ -25,6 +25,8 @@
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
 
+Migration-safety note (checklist done by hand, `skills/migration-safety/SKILL.md`): schema change is one additive `CREATE TABLE IF NOT EXISTS ui_sessions` (5 columns) in `core/store.py` SCHEMA, the project's only schema mechanism (like `context_index`); no ALTER/DROP/RENAME, no NOT NULL added to an existing table, no backfill, no index; old code ignores the table, new code on an old store creates it on connect (expand only, zero downtime). Rollback = `DROP TABLE ui_sessions` (nothing else reads it; data re-derivable from the report folder). Dry run: new tests build the table on a fresh store and the end-to-end run above created it on an empty home; the full suite passes. Verdict: GO.
+
 ---
 
 ## Demonstration
@@ -34,12 +36,22 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-22T04:13:44Z, before any implementation commit (empty temp home, `EASY_PERSONAL_HOME=$D/h EASY_PERSONAL_CLAUDE_PROJECTS=$D/p uv run easy-personal kit`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+{
+  "projects": []
+}
+```
+No `ui` key in `kit_summary`; `ui_sessions` appears nowhere in `core/store.py`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: 2026-10-22T04:16:14Z, one synthetic session file (target and an action label hold "SECRET"), `EASY_PERSONAL_UI_REPORTS` set, `easy-personal ingest` then `easy-personal kit`:
+
+```
+"ui": {"actions": 1, "failed": 0, "first_utc": "2026-10-01T10:00:00.000000Z", "last_utc": "2026-10-01T10:00:00.000000Z", "other": 0, "passed": 1, "sessions": 1, "status": "ok"}
+```
+
+**DELTA**: `kit_summary` now reports easy-ui checks overall (counts, actions, first/last time) and never stores the caller-authored `target`.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

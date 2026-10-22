@@ -3,6 +3,7 @@
 Parts: `kernel` (kernel traces), `git` (local commits per day, read from git at query time) and
 `context` (easy-context index freshness, stored at ingest, stale judged at query time);
 later parts add keys next to them. A part with nothing to read is `{"status": "no data"}`, never zero-filled.
+`ui` (easy-ui checks, FR-013) is overall, not per project: a top-level key next to `projects`.
 """
 
 import sqlite3
@@ -10,6 +11,7 @@ from pathlib import Path
 
 from easy_personal.sources.context import context_part
 from easy_personal.sources.git_local import git_part
+from easy_personal.sources.ui import ui_part
 
 NO_DATA = {"status": "no data"}
 
@@ -68,5 +70,6 @@ def kit_summary(conn: sqlite3.Connection) -> dict:
                 },
             }
             for p in projects
-        ]
+        ],
+        "ui": ui_part(conn),
     }
