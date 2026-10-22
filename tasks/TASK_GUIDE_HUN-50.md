@@ -54,7 +54,9 @@ The owner reviews the week at a glance: usage charts and the session timeline (p
 
 ## Dependencies & Reachability
 
-**Depends on**: HUN-49 — Dashboard server
+**Depends on**: HUN-49 — Dashboard server (merged); HUN-53 — `GET /api/usage/sessions` for the session timeline (built in parallel)
+
+Build the timeline against the response contract in `tasks/TASK_GUIDE_HUN-53.md` § "Response contract" (fixed by the Supervisor). Until HUN-53 merges, component tests use a fixture in that exact shape; do not change the shape or add backend code here. Existing routes: `/api/usage/summary`, `/api/usage/breakdown?by=day|model|project|tool`, `/api/usage/outliers`; all need the `X-Dashboard-Token` header (token from the URL fragment `#<token>`).
 
 **Entry point**: Dashboard route `/` (Usage view)
 
@@ -65,7 +67,7 @@ The owner reviews the week at a glance: usage charts and the session timeline (p
 | \# | Criterion (testable) | Traces to requirement |
 | -- | -- | -- |
 | 1 | View renders totals and breakdowns from the API; numbers equal API values | FR-023 |
-| 2 | Session timeline shows start→end, model, token use over time and gaps per session | FR-023 |
+| 2 | Session timeline (from `/api/usage/sessions`, HUN-53) shows start→end, model, token use over time and gaps per session | FR-023 |
 | 3 | Cost always labelled "API-equivalent cost"; abstained cost shown as such | FR-005 |
 | 4 | Notice: cloud sessions and other machines are not included | FR-023 |
 | 5 | No request leaves 127.0.0.1 (easy-ui network log) | NFR-001 |
