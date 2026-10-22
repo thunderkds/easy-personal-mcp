@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 
 import pytest
 
@@ -247,3 +248,66 @@ def test_malformed_newest_is_skipped_older_v1_shows(conn, repo, shared):
     _named(repo / "reports", "20261002T000000", "{oops")
     assert verifier.ingest(conn, shared)["skipped"] == 1
     assert _part(conn, repo)["status"] == "ok"
+
+
+OLD_SHAPE = (
+    "CREATE TABLE verifier_scores (project_path TEXT PRIMARY KEY, scope TEXT NOT NULL, "
+    "generated_at_utc TEXT NOT NULL, overall_value REAL, overall_abstained INTEGER NOT NULL, "
+    "reason_code TEXT)"
+)
+
+
+def _columns(conn):
+    return [r[1] for r in conn.execute("PRAGMA table_info(verifier_scores)")]
+
+
+def test_connect_rebuilds_pre_status_verifier_scores(tmp_path):
+    from easy_personal.core import store
+
+    path = tmp_path / "old.sqlite"
+    old = sqlite3.connect(path)
+    old.execute(OLD_SHAPE)
+    old.commit()
+    old.close()
+    with store.opened(path) as conn:
+        assert _columns(conn) == [
+            "project_path", "status", "scope", "generated_at_utc",
+            "overall_value", "overall_abstained", "reason_code",
+        ]  # fmt: skip
+
+
+def test_ingest_on_pre_status_store_succeeds(tmp_path, monkeypatch, capsys):
+    from easy_personal.surfaces import cli
+
+    home = tmp_path / "home"
+    home.mkdir()
+    old = sqlite3.connect(home / "store.sqlite")
+    old.execute(OLD_SHAPE)
+    old.commit()
+    old.close()
+    monkeypatch.setenv("EASY_PERSONAL_HOME", str(home))
+    monkeypatch.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(tmp_path / "none"))
+    assert cli.main(["ingest"]) == 0
+    assert json.loads(capsys.readouterr().out)["verifier"]["status"] == "no data"
+
+
+def test_verifier_failure_does_not_fail_ingest(conn, monkeypatch, shared):
+    def boom(*_):
+        raise sqlite3.OperationalError("boom")
+
+    monkeypatch.setattr(verifier, "_projects", boom)
+    result = verifier.ingest(conn, shared)
+    assert result["status"] == "failed"
+    assert "Traceback" not in json.dumps(result)
+
+
+def test_cli_ingest_keeps_other_results_when_verifier_fails(tmp_path, monkeypatch, capsys):
+    from easy_personal.surfaces import cli
+
+    monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(tmp_path / "none"))
+    monkeypatch.setattr(verifier, "_projects", lambda *_: 1 / 0)
+    assert cli.main(["ingest"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["verifier"]["status"] == "failed"
+    assert "new_events" in out
