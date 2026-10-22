@@ -7,6 +7,7 @@ def test_fixture_plants_every_canary(canaries, tmp_path):
     import json
 
     canaries.render_fixture(tmp_path / "p")
+    canaries.render_kit_trace(tmp_path / "p" / "repo")
     raw = b"".join(p.read_bytes() for p in (tmp_path / "p").rglob("*.jsonl"))
     for name, value in canaries.values.items():
         escaped = json.dumps(value)[1:-1].encode()  # how a JSON line holds it
@@ -26,6 +27,13 @@ def test_ingest_actually_ran(leak_run):
     dump = leak_run.outputs["store .dump"]
     assert 'INSERT INTO "events"' in dump
     assert "/work/leak-demo" in dump
+
+
+def test_kit_trace_ingest_actually_ran(leak_run):
+    # the canary sits in `summary` of a trace that was really ingested: metadata rows exist
+    dump = leak_run.outputs["store .dump"]
+    assert 'INSERT INTO "kit_trace_events"' in dump
+    assert "'T001'" in dump
 
 
 def test_every_mcp_tool_is_registered():

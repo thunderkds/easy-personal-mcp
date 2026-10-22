@@ -7,8 +7,8 @@ from importlib.metadata import version
 from pathlib import Path
 
 from easy_personal import core
-from easy_personal.core import config, lock, metrics, plan, rules, schedule, store
-from easy_personal.sources import claude_code
+from easy_personal.core import config, kit, lock, metrics, plan, rules, schedule, store
+from easy_personal.sources import claude_code, kit_trace
 from easy_personal.surfaces import mcp as mcp_surface
 
 
@@ -63,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     outliers_p.add_argument("--since", type=iso_datetime, help="ISO date/datetime, inclusive")
     outliers_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
     sub.add_parser("warnings", help="declared usage rules that fired (same as MCP warnings)")
+    sub.add_parser("kit", help="what the Easy Kit did per project (same as MCP kit_summary)")
     sub.add_parser("plan", help="improvement plan by priority (same as MCP improvement_plan)")
     sub.add_parser("dashboard", help="ingest, then serve the local dashboard until Ctrl-C")
     return parser
@@ -80,6 +81,7 @@ def _ingest(args) -> int:
             store.opened(config.store_path()) as conn,
         ):
             result = claude_code.ingest(conn, args.source or config.claude_projects_dir())
+            result["kit_trace"] = kit_trace.ingest(conn)  # reads projects the line above stored
             if args.retention_days is not None:
                 result["pruned"] = store.prune(conn, args.retention_days)
     except lock.LockBusy:
@@ -139,6 +141,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "outliers":
         with store.opened(config.store_path()) as conn:
             _print_json(metrics.session_outliers(conn, args.since, args.until))
+        return 0
+    if args.command == "kit":
+        with store.opened(config.store_path()) as conn:
+            _print_json(kit.kit_summary(conn))
         return 0
     if args.command in ("warnings", "plan"):
         try:

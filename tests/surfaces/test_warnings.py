@@ -89,7 +89,7 @@ def test_config_threshold_changes_cli_output(recent, tmp_path, capsys):
 def test_empty_store_abstains_without_error(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path / "home"))
     out = _cli_json(capsys, ["warnings"])
-    assert out["hits"] == [] and len(out["abstained"]) == 5
+    assert out["hits"] == [] and len(out["abstained"]) == 6
     assert _cli_json(capsys, ["plan"]) == {"groups": []}
 
 

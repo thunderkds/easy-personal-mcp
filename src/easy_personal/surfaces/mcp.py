@@ -4,7 +4,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from easy_personal import core
-from easy_personal.core import config, metrics, plan, rules, store
+from easy_personal.core import config, kit, metrics, plan, rules, store
 
 LOOPBACK = "127.0.0.1"
 
@@ -63,6 +63,13 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         """The fired rules grouped by priority (1 first), each with its measured value and fix."""
         with store.opened(config.store_path()) as conn:
             return plan.improvement_plan(conn)
+
+    @app.tool()
+    def kit_summary() -> dict[str, Any]:
+        """What the Easy Kit did per project (folder name): kernel-trace tool calls, errors, kit
+        tasks and last activity. A part with nothing to read says "no data"."""
+        with store.opened(config.store_path()) as conn:
+            return kit.kit_summary(conn)
 
     return app
 

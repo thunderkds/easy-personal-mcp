@@ -14,16 +14,16 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☒ pass / ☐ fail | `tests/sources/test_kit_trace.py` (AC1 schema columns + dump, AC2 `test_untagged_rows_have_no_kit_task_id`, AC3 `test_kit_summary_counts_and_no_data`, AC4 `test_tool_errors_high_boundary`, AC5 `test_incremental_per_file_and_partial_last_line`); leak suite extended (`tests/leak/canaries.py` trace_summary canary, `conftest.py`, `test_leak_suite.py`). Supervisor re-run 2026-10-21T14:55:33Z: `uv run pytest tests/sources/test_kit_trace.py tests/core/test_rules.py tests/leak -q` → `52 passed in 7.30s` |
+| Verification command run | ☒ pass / ☐ fail | `52 passed in 7.30s` (Supervisor re-run, worktree HUN-39, 2026-10-21T14:55:33Z) |
+| Negative cases hold | ☒ pass / ☐ fail | 10/100 and 9/100 errors do not fire; 8-day-old calls ignored; no calls → abstain; malformed lines abstain; 5 MB `summary` line; deleted project → `missing_on_disk`; summary canary absent from store, MCP, CLI, stdio |
+| verify | ☒ pass / ☐ fail / ☐ N/A | verify skill run 2026-10-22T03:24Z, isolated `uv tool install` (temp EASY_PERSONAL_HOME), fixture transcript with `cwd` rewritten to a temp `demo-app` repo whose `memory/event-trace/` holds `T001.jsonl` (8 ok + 2 error lines) and `_untagged.jsonl` (1 line), every `summary` carrying canary `CANARY_HUN39_7f3a`: ingest 1 `"kit_trace": {"files": 2, "new_events": 11}`; ingest 2 `new_events: 0` (incremental); `easy-personal kit` → `demo-app` kernel `status ok, tool_calls 11, tool_errors 2, error_rate 0.1818, kit_tasks 1` (untagged rows carry no task id); `warnings` lists `tool_errors_high` (threshold 0.1, window_days 7); MCP `kit_summary` returns the same numbers; canary count 0 in kit/warnings/plan/usage CLI output, MCP stdout+stderr and every file under EASY_PERSONAL_HOME (store included) — feature confirmed working — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☒ pass / ☐ fail | 17 files in `main...HUN-39` + callers of `store.prune`, `rules.METRICS`, `cli._ingest`. lane_check: `C2, 16 files, 419 lines, EXCEEDS (files 16 > 14)` — 8 are tests; C2 kept. code-review 0 P0/P1 code, 1 P1 process (partial read of `agents/backend.md`, closed by Supervisor conformance check), 1 P3 (`prune` docstring). migration-safety **GO** (additive `kit_trace_events` + `kit_trace_ts`; up→down→up on a fixture store, 31 events kept; down must also delete `source_files` rows with source `kit_trace`). security (inline) pass, no findings. |
+| Full smoke suite still green (no regression) | ☒ pass / ☐ fail | `uv run pytest -q` → `155 passed, 2 skipped in 16.51s` (2026-10-21T14:55Z) |
+| easy-verifier score (advisory) | ☒ recorded / ☐ N/A | 2026-10-21, MCP `score` repo=HUN-39 worktree, scope=changes, ref=`main...HUN-39`: overall **81** (architecture 100, code-quality 100, reliability 100, test-strategy 75, requirement-fidelity 67, blast-radius 65, security 59); abstained: solution-fit, supply-chain, api, data, operations, infrastructure. Security = `redaction_hits_observed` 119 (known false positive: lockfiles + planted canaries). Raw JSON ~/.claude-personal/projects/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/dbd9c4da-edf5-49bc-80a5-cb2b8c04f640/tool-results/mcp-easy-verifier-score-1792594495200.txt. Advisory only. |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☒ N/A | Pure backend task: no UI component (Hard-Stop Gate 6 N/A) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☒ N/A | Pure backend task: no UI component (Hard-Stop Gate 6 N/A) |
+| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☒ N/A | Pure backend task: no UI component (Hard-Stop Gate 6 N/A) |
 
 ---
 
@@ -34,12 +34,24 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-21T12:33:11Z on the unchanged tree, via `git stash -u`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ uv run pytest tests/sources/test_kit_trace.py tests/core/test_rules.py tests/leak -q
+ERROR: file or directory not found: tests/sources/test_kit_trace.py
+no tests ran in 0.00s
+$ EASY_PERSONAL_HOME=<tmp> uv run easy-personal kit
+easy-personal: error: argument command: invalid choice: 'kit' (choose from ping, mcp, ingest, schedule, usage, outliers, warnings, plan)
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER** (2026-10-21T12:35:28Z, temp `EASY_PERSONAL_HOME`, fixture repo with one errored trace line):
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+```
+$ easy-personal ingest --source <fixture>   ->  "kit_trace": {"files": 1, "new_events": 1}
+$ easy-personal kit   ->  project "repo", parts.kernel: status ok, tool_calls 1, tool_errors 1, error_rate 1.0, kit_tasks 1
+$ uv run pytest tests/sources/test_kit_trace.py tests/core/test_rules.py tests/leak -q  ->  52 passed
+```
+
+**DELTA**: The owner can now see per project what the kit kernel did (tool calls, errors, error rate, kit tasks) through `easy-personal kit` or MCP `kit_summary`, and get a `tool_errors_high` warning above 10% errors; before, kernel traces were not read at all.
+
+**WITNESS**: Supervisor — Stage 4 re-run 2026-10-21T14:55Z; Stage 5 verify recipe 2026-10-22T03:24Z in the HUN-39 worktree (attributed to HUN-39 via the active_task state file; `memory/event-trace/HUN-39.jsonl`).

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from leak import harness
@@ -14,6 +16,13 @@ def leak_run(tmp_path_factory, canaries):
     """Planted transcripts -> real ingest -> every surface called. Returns what each emitted."""
     root = tmp_path_factory.mktemp("leak")
     projects = canaries.render_fixture(root / "projects")
+    repo = canaries.render_kit_trace(root / "repo")
+    (projects / "-repo").mkdir()
+    (projects / "-repo" / "session.jsonl").write_text(
+        json.dumps({"type": "user", "version": "2.1.295", "cwd": str(repo),
+                    "sessionId": "00000000-0000-4000-8000-0000000000bb",
+                    "timestamp": "2026-02-01T09:00:00.000Z"}) + "\n"
+    )  # fmt: skip
     home = root / "home"
     env = harness.child_env(home, projects)
     mp = pytest.MonkeyPatch()
