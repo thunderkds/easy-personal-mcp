@@ -21,6 +21,7 @@ def leak_run(tmp_path_factory, canaries):
     root = tmp_path_factory.mktemp("leak")
     projects = canaries.render_fixture(root / "projects")
     repo = canaries.render_kit_trace(root / "repo")
+    canaries.render_verifier_report(repo)
     (projects / "-repo").mkdir()
     (projects / "-repo" / "session.jsonl").write_text(
         json.dumps({"type": "user", "version": "2.1.295", "cwd": str(repo),
@@ -34,6 +35,7 @@ def leak_run(tmp_path_factory, canaries):
     mp.setenv("EASY_PERSONAL_HOME", str(home))
     mp.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(projects))
     mp.setenv("EASY_PERSONAL_UI_REPORTS", str(ui_reports))
+    mp.setenv("EASY_PERSONAL_VERIFIER_REPORTS", str(root / "no-verifier-container"))
     # connector_status runs in-process: a memory keyring holding a secret canary and a fake
     # `claude` that knows only "slack"; the owner's keychain and Claude config are never read.
     fake_bin = root / "bin"

@@ -42,7 +42,8 @@ no verifier source          (import of easy_personal.sources.verifier fails)
 ```
 No `verifier` part exists.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured 2026-10-22T08:34:57Z, same fixture and script: ingest `{'status': 'ok', 'projects': 1, 'skipped': 0}`; parts now include
+`"verifier": {"status": "ok", "scope": "project", "generated_at": "2026-10-21T12:40:41.000000Z", "overall": {"value": 48, "abstained": false, "reason_code": null}}` (the HTML-only report was ignored).
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

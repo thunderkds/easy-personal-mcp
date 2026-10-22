@@ -45,6 +45,7 @@ PATTERNS = {
     "ui_target": "LEAKCANARY ui-target {t}",
     "ui_issue": "LEAKCANARY ui-issue {t}",
     "ui_action": "LEAKCANARY ui-action {t}",
+    "verifier_evidence": "LEAKCANARY verifier-evidence {t}",
 }
 
 
@@ -109,6 +110,22 @@ class Canaries:
         for name in ("T001", "_untagged"):
             (trace / f"{name}.jsonl").write_text(json.dumps(line) + "\n")
         return repo
+
+    def render_verifier_report(self, repo: Path) -> None:
+        """Write a score JSON in `<repo>/reports/` whose extra keys and dimension reasons hold canaries."""
+        reports = repo / "reports"
+        reports.mkdir(parents=True)
+        report = {
+            "schema_version": 1, "scope": "project", "generated_at": "2026-02-01T09:00:00Z",
+            "overall": {"value": 48, "abstained": False, "reason_code": None},
+            "dimensions": [{"dimension": "api", "rating": 0, "abstained": True,
+                            "reason_code": self.values["verifier_evidence"]}],
+            "evidence": self.values["verifier_evidence"],
+        }  # fmt: skip
+        (reports / "evidence-report-project-20260201T090000-000000Z.json").write_text(json.dumps(report))
+        (reports / "evidence-report-project-20260201T090000-000000Z.html").write_text(
+            f"<html>{self.values['verifier_evidence']}</html>"
+        )
 
     def render_ui_reports(self, folder: Path) -> Path:
         """Write easy-ui session files whose `target`, `issues` and action labels hold canaries."""

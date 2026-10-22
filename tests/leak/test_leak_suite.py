@@ -8,6 +8,7 @@ def test_fixture_plants_every_canary(canaries, tmp_path):
 
     canaries.render_fixture(tmp_path / "p")
     canaries.render_kit_trace(tmp_path / "p" / "repo")
+    canaries.render_verifier_report(tmp_path / "p" / "repo")
     canaries.render_ui_reports(tmp_path / "p" / "ui")
     raw = b"".join(p.read_bytes() for p in (tmp_path / "p").rglob("*.json*"))
     for name, value in canaries.values.items():

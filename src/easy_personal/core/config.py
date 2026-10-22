@@ -4,6 +4,7 @@ from pathlib import Path
 HOME_ENV = "EASY_PERSONAL_HOME"
 CLAUDE_PROJECTS_ENV = "EASY_PERSONAL_CLAUDE_PROJECTS"
 UI_REPORTS_ENV = "EASY_PERSONAL_UI_REPORTS"
+VERIFIER_REPORTS_ENV = "EASY_PERSONAL_VERIFIER_REPORTS"
 
 
 def data_dir() -> Path:
@@ -49,3 +50,20 @@ def ui_reports_dir() -> Path | None:
         except (OSError, UnicodeDecodeError):
             value = None
     return Path(value).expanduser() if value else None
+
+
+def verifier_reports_dir() -> Path:
+    """easy-verifier shared report container (`<repo name>/evidence-report-*.json` inside).
+
+    `EASY_PERSONAL_VERIFIER_REPORTS` wins; else `reports_dir` under `verifier:` in config.yaml (the
+    scheduled ingest has no shell env); else `~/.easy-verifier-reports`.
+    """
+    value = os.environ.get(VERIFIER_REPORTS_ENV)
+    if not value and config_path().exists():
+        from easy_personal.core.rules import _read_flat  # late: import cycle
+
+        try:
+            value = _read_flat(config_path(), "verifier").get("reports_dir")
+        except (OSError, UnicodeDecodeError):
+            value = None
+    return Path(value).expanduser() if value else Path.home() / ".easy-verifier-reports"

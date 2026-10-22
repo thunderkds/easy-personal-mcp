@@ -1,7 +1,8 @@
 """kit_summary (FR-015): what the Easy Kit did, per project, one entry per kit part.
 
 Parts: `kernel` (kernel traces), `git` (local commits per day, read from git at query time) and
-`context` (easy-context index freshness, stored at ingest, stale judged at query time);
+`context` (easy-context index freshness, stored at ingest, stale judged at query time) and
+`verifier` (newest easy-verifier score JSON per project);
 later parts add keys next to them. A part with nothing to read is `{"status": "no data"}`, never zero-filled.
 `ui` (easy-ui checks, FR-013) is overall, not per project: a top-level key next to `projects`.
 """
@@ -12,6 +13,7 @@ from pathlib import Path
 from easy_personal.sources.context import context_part
 from easy_personal.sources.git_local import git_part
 from easy_personal.sources.ui import ui_part
+from easy_personal.sources.verifier import verifier_part
 
 NO_DATA = {"status": "no data"}
 
@@ -67,6 +69,7 @@ def kit_summary(conn: sqlite3.Connection) -> dict:
                     "kernel": _kernel(conn, p),
                     "git": git_part(p),
                     "context": context_part(conn, p),
+                    "verifier": verifier_part(conn, p),
                 },
             }
             for p in projects
