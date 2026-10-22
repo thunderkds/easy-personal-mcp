@@ -43,7 +43,15 @@ POST /api/connectors (json {}): -> HTTP 404 "Not Found"
 tabs in web/src/App.jsx:  Usage, Warnings & plan, Kit   (no Connectors tab)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-10-22 08:03:09 UTC, implementer run; running dashboard, temp home, `PYTHON_KEYRING_BACKEND=keyring.backends.fail.Keyring`, no `claude` on PATH):
+
+```
+GET  /api/connectors                      -> 200 {"connectors":[{"id":"gmail",...,"configured":false},...
+POST /api/connectors (no JSON type)       -> 415 {"error":"content-type must be application/json"}
+POST /api/connectors (Origin evil.example)-> 403 {"error":"forbidden"}
+POST confirm:true, claude missing         -> 200 {"status":0,"lines":["the `claude` CLI is not on PATH; nothing was written. ...claude mcp add-json slack ..."],"pending":false}
+tabs: Usage, Warnings & plan, Kit, Connectors
+```
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 
