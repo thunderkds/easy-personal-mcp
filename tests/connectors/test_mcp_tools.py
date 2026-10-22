@@ -101,7 +101,7 @@ def test_gh_and_webfetch_slack_suggest_slack(tmp_path):
 
 
 def test_mcp_tool_server_name_suggests_and_configured_is_skipped(tmp_path):
-    conn = _ingest(tmp_path, _assistant(1, _tool("mcp__claude_ai_Gmail__search"), _tool("mcp__other__x")))
+    conn = _ingest(tmp_path, _assistant(1, _tool("mcp__gmail_server__search"), _tool("mcp__other__x")))
     assert [s["id"] for s in suggestions.suggestions(conn, configured=[])["suggestions"]] == ["gmail"]
     assert suggestions.suggestions(conn, configured=["gmail"])["suggestions"] == []
 
@@ -129,3 +129,10 @@ def test_additive_schema_applies_to_an_existing_store(tmp_path):
     old.close()
     conn = store.connect(path)
     assert conn.execute("SELECT COUNT(*) FROM tool_signals").fetchone() == (0,)
+
+
+def test_claude_ai_connector_servers_count_as_already_available(tmp_path):
+    conn = _ingest(tmp_path, _assistant(
+        1, _tool("mcp__claude_ai_Gmail__search_threads"), _tool("mcp__slack__post")))
+    out = suggestions.suggestions(conn, configured=[])
+    assert [s["id"] for s in out["suggestions"]] == ["slack"]

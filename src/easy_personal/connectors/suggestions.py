@@ -79,6 +79,7 @@ def suggestions(conn: sqlite3.Connection, configured: list[str] | None = None) -
         if (provider := _provider_of_host(host)) is not None:
             domain_calls[provider] = domain_calls.get(provider, 0) + n
     mcp_calls: dict[str, int] = {}
+    official: set[str] = set()  # reached through a claude.ai connector: already available
     for (names,) in conn.execute("SELECT tool_names FROM events WHERE tool_names LIKE '%mcp\\_\\_%' ESCAPE '\\'"):
         for tool in names.split(","):
             parts = tool.split("__")
@@ -86,6 +87,8 @@ def suggestions(conn: sqlite3.Connection, configured: list[str] | None = None) -
                 server = parts[1].lower()
                 for provider in ids:
                     if provider in server:
+                        if server.startswith("claude_ai_"):
+                            official.add(provider)
                         mcp_calls[provider] = mcp_calls.get(provider, 0) + 1
     found = [
         {
@@ -95,7 +98,7 @@ def suggestions(conn: sqlite3.Connection, configured: list[str] | None = None) -
             "mcp_calls": mcp_calls.get(i, 0),
         }
         for i in ids
-        if i not in skip and (domain_calls.get(i) or mcp_calls.get(i))
+        if i not in skip and i not in official and (domain_calls.get(i) or mcp_calls.get(i))
     ]
     found.sort(key=lambda s: -(s["webfetch_calls"] + s["mcp_calls"]))
     return {"suggestions": found, "note": NOTE}

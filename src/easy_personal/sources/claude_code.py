@@ -53,7 +53,10 @@ def _label(value) -> str | None:
 
 
 def _bash_word(command) -> str | None:
-    """First word of a command, as its program name (no path, no arguments); else None."""
+    """First word of a command, as its program name (no path, no arguments); else None.
+
+    The 64-char cap plus the `_WORD` regex are the only guard against a token-like first word.
+    """
     if not isinstance(command, str) or not command.split():
         return None
     word = command.split()[0].rsplit("/", 1)[-1]
