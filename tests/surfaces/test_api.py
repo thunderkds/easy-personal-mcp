@@ -127,6 +127,17 @@ def test_warnings_and_plan_routes(client):
     assert client.get("/api/plan", headers=AUTH).status_code == 200
 
 
+def test_kit_route_guarded_and_matches_core(client, home):
+    from easy_personal.core import kit
+
+    assert client.get("/api/kit").status_code == 403
+    with store.opened(home / "store.sqlite") as conn:
+        want = kit.kit_summary(conn)
+    res = client.get("/api/kit", headers=AUTH)
+    assert res.status_code == 200
+    assert res.json() == want
+
+
 def test_bind_free_port_is_loopback():
     sock = api.bind_free_port()
     try:

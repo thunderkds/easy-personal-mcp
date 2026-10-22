@@ -34,8 +34,19 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: Captured 2026-10-22T04:22:19Z (TestClient on create_app, empty store, before any HUN-51 change; web has no Warnings or Kit view either):
+
+```
+Using CPython 3.13.2
+Creating virtual environment at: .venv
+   Building easy-personal-mcp @ file:///home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-HUN-51
+      Built easy-personal-mcp @ file:///home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-HUN-51
+Installed 43 packages in 5ms
+<stdin>:3: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+/api/warnings 200
+/api/plan 200
+/api/kit 404
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

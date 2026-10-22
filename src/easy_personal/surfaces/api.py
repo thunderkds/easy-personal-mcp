@@ -20,7 +20,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from easy_personal.core import config, metrics, plan, rules, store
+from easy_personal.core import config, kit, metrics, plan, rules, store
 from easy_personal.surfaces.mcp import LOOPBACK
 
 TOKEN_HEADER = "x-dashboard-token"
@@ -99,6 +99,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/usage/sessions", _query(lambda c, q: metrics.session_timeline(c, *_period(q)))),
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c))),
+        Route("/api/kit", _query(lambda c, q: kit.kit_summary(c))),
     ]
     static = static or static_dir()
     if static.is_dir():

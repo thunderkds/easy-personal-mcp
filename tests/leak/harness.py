@@ -68,6 +68,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01"],
     "/api/warnings": [""],
     "/api/plan": [""],
+    "/api/kit": [""],
 }
 # Keychain launchers: tested with an in-memory backend in tests/connectors (never the real keychain).
 CLI_KEYCHAIN_COMMANDS = {"exec", "headers"}

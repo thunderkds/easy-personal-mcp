@@ -60,3 +60,27 @@ ul.timeline > li { border-top: 1px solid var(--color-border); padding: var(--spa
 .session-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: baseline; }
 .session-head strong { font-size: var(--text-md); }
 .gaps { margin: var(--space-1) 0 0; padding-left: var(--space-3); color: var(--color-gap); font-size: var(--text-sm); }
+.tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); max-width: 72rem; margin: 0 auto; padding: var(--space-3) var(--space-3) 0; }
+.tabs button {
+  font: inherit;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.tabs button[aria-selected='true'] { background: var(--color-accent); color: var(--color-surface); border-color: var(--color-accent); }
+.tabs button:focus-visible, .sort:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+h3 { font-size: var(--text-md); margin: var(--space-3) 0 var(--space-2); }
+ul.entries { list-style: none; margin: 0; padding: 0; }
+ul.entries > li { border-top: 1px solid var(--color-border); padding: var(--space-2) 0; overflow-wrap: anywhere; }
+.entry-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: baseline; }
+.fix { margin: var(--space-1) 0; }
+.label { font-size: var(--text-sm); padding: 0 var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius); }
+.label-warning { color: var(--color-error); border-color: var(--color-error); }
+.label-improve { color: var(--color-accent); border-color: var(--color-accent); }
+.label-aware { color: var(--color-muted); }
+.group { border: 0; padding: 0; margin: 0; }
+.stale { background: var(--color-gap-soft); color: var(--color-gap); border: 1px solid var(--color-gap); border-radius: var(--radius); padding: 0 var(--space-2); font-weight: bold; }
+.sort { font: inherit; font-weight: bold; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
