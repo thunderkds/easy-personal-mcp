@@ -88,3 +88,20 @@
 ### 2026-10-22 — Verify recipes for the dashboard, `kit_trace` and the launcher
 **Learning**: Dashboard API token goes in the `X-Dashboard-Token` header (not `Authorization`); the URL is printed as `http://127.0.0.1:<port>/#<token>`; set `BROWSER=true` so no browser opens. `kit_trace` finds projects only from `claude_code` events' `cwd` that still exist on disk: rewrite a fixture transcript's `cwd` (`/work/demo-app`) to a temp repo holding `memory/event-trace/*.jsonl`. Launcher verify must never touch the owner's keychain: set `PYTHON_KEYRING_BACKEND` to a throwaway file backend on `PYTHONPATH` in the scratchpad, and `keyring.backends.fail.Keyring` for the refusal case.
 **Files**: `src/easy_personal/surfaces/api.py`, `src/easy_personal/sources/kit_trace.py`, `src/easy_personal/launch.py`, `.claude/skills/verify/SKILL.md`
+
+### 2026-10-22 — UI evidence without easy-ui: headless Chrome on a combined checkout
+**Learning**: The easy-ui MCP is not registered in Supervisor sessions. Hard-Stop Gate 6 evidence was taken with `google-chrome --headless=new --window-size=<w>,2600 --virtual-time-budget=8000 --screenshot=… --log-net-log=…` against `easy-personal dashboard` (URL with `#<token>`), at 375/768/1280 px, then read with LLM vision. The net log also lists Chrome's own background hosts (google.com, update.googleapis.com); count only the page's `127.0.0.1` requests for NFR-001. A UI task whose API is in a sibling branch is checked on a throwaway `git worktree add --detach` + `git cherry-pick -n <code commit>` (merge is blocked by the gate while tasks are In Progress); cherry-pick can mis-detect `TASK_REVIEW_<A>.md` → `TASK_REVIEW_<B>.md` as a rename, so restore that file. Fixture dates (2026-01-15) fall outside "Last 7 days": shift them with `sed` in a temp copy. Screenshots live in local `reports/<task>/` (gitignored).
+**Files**: `web/src/app.css`, `src/easy_personal/surfaces/api.py`, `tests/fixtures/claude_code/`
+
+### 2026-10-22 — CSS grid tracks need `minmax(0, 1fr)` for scrolling tables
+**Learning**: In `web/src/app.css`, grid items default to `min-width: auto`, so a `white-space: nowrap` table widens its `.panels` track past the viewport and `.table-wrap { overflow-x: auto }` never scrolls (HUN-50 P1, seen only in screenshots; jsdom tests cannot catch it). Use `minmax(0, 1fr)` tracks and `section { min-width: 0 }`.
+**Files**: `web/src/app.css`
+
+### 2026-10-22 — Open owner check from HUN-53: timeline gap threshold
+**Learning**: `metrics.TIMELINE_GAP_MINUTES = 30` (a pause ≥ 30 min between consecutive events of a session is a gap) was the Supervisor's choice in the HUN-53 guide; no PRD number exists. Owner to confirm. `/api/usage/sessions` is dashboard-only (no MCP tool/CLI command, cut list). A message is placed at its earliest row time; one crossing `since` is judged by that time.
+**Files**: `src/easy_personal/core/metrics.py`, `src/easy_personal/surfaces/api.py`
+
+### 2026-10-22 — `PROJECT_SPEC.md` Tasks Status column is not maintained
+**Learning**: Every row reads `Todo`, including Done tasks; the board (`PROJECT_KANBAN.md` cache of Linear) is the status source of truth. Do not update single rows (it makes the table inconsistent); fix the whole column or drop it, with owner approval.
+**Files**: `PROJECT_SPEC.md`, `PROJECT_KANBAN.md`
+
