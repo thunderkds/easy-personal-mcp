@@ -16,7 +16,6 @@
 - [ ] **HUN-52** — Dashboard connector forms + guarded write API (secrets never echoed) | Frontend-Implementer | C2 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-52.md`
 
 ### In Progress
-- [ ] **HUN-51** — Dashboard warnings, improvement plan and kit panel | Frontend-Implementer | C2 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-51.md`
 
 ### Ready for Review
 
@@ -36,6 +35,7 @@
 - [x] **HUN-48** — \`web/\` toolchain: Vite + React, pinned lockfile, build copied into the package, release check | Common-Infrastructure-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-48.md`
 - [x] **HUN-49** — Dashboard server: \`easy-personal dashboard\` on demand, free port, token + Host/Origin guard, CSP, read API | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-49.md`
 - [x] **HUN-50** — Dashboard usage view: summary, breakdowns, session timeline, "not included" notice | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-50.md`
+- [x] **HUN-51** — Dashboard warnings, improvement plan and kit panel | Frontend-Implementer | C2 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-51.md`
 - [x] **HUN-53** — Session timeline read: \`metrics.session_timeline\` + \`GET /api/usage/sessions\` | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-53.md`
 
 ### Closed (will not do)
