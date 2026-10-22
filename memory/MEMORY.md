@@ -25,7 +25,7 @@
 ### Decisions
 - [Local merge to main, push in batches](decisions.md#2026-10-21--stage-35-git-flow-local-merge-to-main-push-in-batches) — no per-task PR; board goes In Progress → Done (no review status in Linear).
 - [v1 = Python core + React/Vite page, on demand](decisions.md#2026-10-21--v1--python-core--reactvite-page-on-demand) — Option B; page on 127.0.0.1 only while `easy-personal dashboard` runs; systemd timer ingests.
-- [Read-only MCP client of easy-context](decisions.md#2026-10-21--read-only-mcp-client-of-easy-context) — only list_indexes/get_stats on 127.0.0.1:8767; never index_path; DDR-0002.
+- [Read-only MCP client of easy-context](decisions.md#2026-10-21--read-only-mcp-client-of-easy-context) — only list_indexes/get_stats on 127.0.0.1:8767; never index_path; DDR-0002; built in HUN-41 (allow-list + host guard, `context_index` table).
 - [Native runtime; writes via `claude mcp` user scope](decisions.md#2026-10-21--native-runtime-connector-writes-only-via-claude-mcp-user-scope) — keychain + Claude Code only; no Codex/Cursor; DDR-0001.
 - [Board scoped to Linear project P-HUN-3](decisions.md#2026-10-21--board-scoped-to-linear-project-easy-personal-mcp-p-hun-3) — empty `project` in board.json pulls the whole team.
 
@@ -55,3 +55,6 @@
 - [Owner check: 30-min timeline gap](learnings.md#2026-10-22--open-owner-check-from-hun-53-timeline-gap-threshold) — `TIMELINE_GAP_MINUTES` is the Supervisor's choice; sessions API dashboard-only.
 - [PROJECT_SPEC Status column stale](learnings.md#2026-10-22--project_specmd-tasks-status-column-is-not-maintained) — all `Todo`; board is the truth; don't patch single rows.
 - [git kit part + `--remotes` owner check](learnings.md#2026-10-22--git-kit-part-query-time-run_git-and-an-open-owner-check-on---remotes) — query time via hardened `run_git`; `--remotes` may count others' commits; all-time counts.
+- [easy-context spike facts](learnings.md#2026-10-22--easy-context-facts-from-the-hun-41-spike) — root header always needed; 300 s auto-refresh makes stale rare; exact-root matching; tests use a dead port.
+- [Always run easy-verifier score](learnings.md#2026-10-22--run-the-easy-verifier-score-on-every-task-even-when-it-repeats) — advisory but listed; never skip to save time.
+
