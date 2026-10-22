@@ -34,8 +34,16 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-22T03:41:47Z in the HUN-50 worktree, before any implementation commit:
+
+```
+$ npm --prefix web test
+npm error Missing script: "test"
+$ cat web/src/main.jsx
+import { createRoot } from 'react-dom/client'
+
+createRoot(document.getElementById('root')).render(<p>easy-personal dashboard placeholder</p>)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
