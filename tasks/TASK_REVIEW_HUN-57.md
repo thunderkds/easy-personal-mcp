@@ -34,8 +34,15 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured before any implementation commit (cwd = HUN-57 worktree):
+
+```
+$ date -u; ls site vercel.json .vercelignore
+Thu Oct 22 08:54:28 AM UTC 2026
+ls: cannot access 'site': No such file or directory
+ls: cannot access 'vercel.json': No such file or directory
+ls: cannot access '.vercelignore': No such file or directory
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
