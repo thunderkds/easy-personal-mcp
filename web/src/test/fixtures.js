@@ -141,6 +141,54 @@ export const emptyOutliers = { ...outliers, sessions: [] }
 export const emptySessions = { period, gap_minutes: 30, sessions: [] }
 
 /** A fetch stub answering the five read routes; `overrides` replaces a route's body. */
+// Shapes copied from core/rules.evaluate, core/plan.improvement_plan and core/kit.kit_summary.
+export const warnings = {
+  as_of_utc: '2026-10-22T04:00:00Z',
+  hits: [
+    { rule_id: 'cache_hit_low', label: 'warning', priority: 1, measured: 0.31, threshold: 0.5, window_days: 7, fix: 'Keep prompts stable so the cache is reused.' },
+    { rule_id: 'context_index_stale', label: 'improve', priority: 2, measured: 1, threshold: 0, window_days: 7, fix: 'Re-run the easy-context index.', detail: { projects: ['alpha'] } },
+    { rule_id: 'top_project_share', label: 'aware', priority: 3, measured: 0.82, threshold: 0.8, window_days: 30, fix: 'One project uses most tokens.', detail: { project: 'alpha' } },
+  ],
+  abstained: [{ rule_id: 'kit_error_rate', reason: 'no kernel-trace tool calls in the window' }],
+}
+export const plan = {
+  groups: [
+    { priority: 1, items: [{ rule_id: 'cache_hit_low', label: 'warning', measured: 0.31, threshold: 0.5, fix: 'Keep prompts stable so the cache is reused.' }] },
+    {
+      priority: 3,
+      items: [{ rule_id: 'top_project_share', label: 'aware', measured: 0.82, threshold: 0.8, fix: 'One project uses most tokens.', detail: { project: 'alpha' } }],
+    },
+  ],
+}
+export const kit = {
+  projects: [
+    {
+      project: 'beta',
+      missing_on_disk: true,
+      parts: { kernel: { status: 'no data' }, git: { status: 'abstained' }, context: { status: 'no data' } },
+    },
+    {
+      project: 'alpha',
+      missing_on_disk: false,
+      parts: {
+        kernel: { status: 'ok', tool_calls: 40, tool_errors: 0, error_rate: 0.0, kit_tasks: 2, first_utc: '2026-10-01T00:00:00Z', last_utc: '2026-10-20T00:00:00Z', abstained: 0 },
+        git: { status: 'ok', commits: 7, commits_by_day: { '2026-10-20': 7 } },
+        context: { status: 'ok', last_index_at: '2026-10-01T00:00:00Z', latest_commit_utc: '2026-10-20T00:00:00Z', stale: true },
+      },
+    },
+    {
+      project: 'gamma',
+      missing_on_disk: false,
+      parts: {
+        kernel: { status: 'ok', tool_calls: 5, tool_errors: 2, error_rate: 0.4, kit_tasks: 1, first_utc: '2026-10-01T00:00:00Z', last_utc: '2026-10-02T00:00:00Z', abstained: 1 },
+        git: { status: 'ok', commits: 0, commits_by_day: {} },
+        context: { status: 'ok', last_index_at: '2026-10-21T00:00:00Z', latest_commit_utc: null, stale: null },
+      },
+    },
+  ],
+  ui: { status: 'ok', sessions: 6, passed: 4, failed: 1, other: 1, actions: 33, first_utc: '2026-10-01T00:00:00Z', last_utc: '2026-10-21T00:00:00Z' },
+}
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -152,6 +200,9 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/usage/breakdown') body = (overrides.breakdowns ?? breakdowns)[u.searchParams.get('by')]
     else if (path === '/api/usage/outliers') body = overrides.outliers ?? outliers
     else if (path === '/api/usage/sessions') body = overrides.sessions ?? sessions
+    else if (path === '/api/warnings') body = overrides.warnings ?? warnings
+    else if (path === '/api/plan') body = overrides.plan ?? plan
+    else if (path === '/api/kit') body = overrides.kit ?? kit
     if (overrides.status) return { ok: false, status: overrides.status, json: async () => ({ error: 'forbidden' }) }
     if (body === undefined) return { ok: false, status: 404, json: async () => ({}) }
     return { ok: true, status: 200, json: async () => body }
