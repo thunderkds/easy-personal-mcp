@@ -118,13 +118,13 @@ XR-1 is done: easy-verifier-mcp T120 (Done 2026-10-21). Agreed shape, `schema_ve
 }
 ```
 
-- File name `evidence-report-<scope>-<UTC>.json`, beside the HTML of the same base name. `overall.value` is `null` (never 0) when abstained; `dimensions` may be empty.
-- Locations per project (folder name = repo directory name): `<project>/reports/` and `~/.easy-verifier-reports/<project folder name>/` (the shared container dir, `EASY_VERIFIER_REPORTS_DIR`). Match the folder name exactly: dirs like `<project>-HUN-42` are task-worktree reviews, not the project — ignore them.
-- Per project keep the newest file by `generated_at` (tie: file name). Store project, scope, generated_at, overall value/abstained/reason_code; dimensions only if cheap (cut list allows skipping).
-- Reject anything else: unknown `schema_version`, missing keys, wrong types, non-JSON, files over a small size cap → skip that file (count it as skipped), never crash ingest. Read with no symlink following outside the dir. Never read or parse the HTML.
-- `kit_summary` part `verifier`: `{"status":"no data"}` when no file, else `{scope, generated_at, overall: {value, abstained, reason_code}}` (+ `dimensions` if stored).
-- Existing HTML-only reports (before T120) have no JSON: they give "no data" — no back-fill.
-- Note: the running easy-verifier container predates T120, so real JSON files appear only after it is updated; tests use fixtures in exactly this shape.
+* File name `evidence-report-<scope>-<UTC>.json`, beside the HTML of the same base name. `overall.value` is `null` (never 0) when abstained; `dimensions` may be empty.
+* Locations per project (folder name = repo directory name): `<project>/reports/` and `~/.easy-verifier-reports/<project folder name>/` (the shared container dir, `EASY_VERIFIER_REPORTS_DIR`). Match the folder name exactly: dirs like `<project>-HUN-42` are task-worktree reviews, not the project — ignore them.
+* Per project keep the newest file by `generated_at` (tie: file name). Store project, scope, generated_at, overall value/abstained/reason_code; dimensions only if cheap (cut list allows skipping).
+* Reject anything else: unknown `schema_version`, missing keys, wrong types, non-JSON, files over a small size cap → skip that file (count it as skipped), never crash ingest. Read with no symlink following outside the dir. Never read or parse the HTML.
+* `kit_summary` part `verifier`: `{"status":"no data"}` when no file, else `{scope, generated_at, overall: {value, abstained, reason_code}}` (+ `dimensions` if stored).
+* Existing HTML-only reports (before T120) have no JSON: they give "no data" — no back-fill.
+* Note: the running easy-verifier container predates T120, so real JSON files appear only after it is updated; tests use fixtures in exactly this shape.
 
 ---
 
