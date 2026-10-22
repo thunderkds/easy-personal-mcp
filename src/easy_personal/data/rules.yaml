@@ -10,3 +10,4 @@ rules:
   tokens_jump: metric=week_over_week_tokens op=gt threshold=0.5 label=aware priority=3 window_days=7 min_history_days=14 fix=Check which project or session drove the rise before it becomes the new baseline.
   project_dominates: metric=top_project_share op=gt threshold=0.6 label=aware priority=3 window_days=7 min_history_days=7 fix=Confirm the concentration is intended; split long-running work across sessions if one project crowds out the rest.
   tool_errors_high: metric=kit_error_rate op=gt threshold=0.1 label=warning priority=2 window_days=7 min_history_days=0 fix=Read the failing tool calls in memory/event-trace/ and fix the command or permission that keeps failing.
+  context_index_stale: metric=context_stale_indexes op=gt threshold=0 label=improve priority=3 window_days=7 min_history_days=0 fix=Call `index_path` in easy-context for the listed projects; the owner runs it, easy-personal never does.

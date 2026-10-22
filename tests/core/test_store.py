@@ -43,6 +43,7 @@ def test_events_schema_is_explicit_metadata_only(conn):
         "source_files",
         "events",
         "kit_trace_events",
+        "context_index",
     }
 
 

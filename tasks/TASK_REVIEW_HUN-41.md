@@ -25,6 +25,8 @@
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
 
+**Migration-safety checklist (done by hand, HUN-41 adds one table)**: additive only (`CREATE TABLE IF NOT EXISTS context_index (project_path PRIMARY KEY, last_index_at_utc)` in `core/store.py` SCHEMA, the project's migration mechanism; no ad-hoc SQL); no existing table altered; no DROP/RENAME/NOT NULL change/data rewrite; rollback = old code ignores the extra table (`DROP TABLE context_index` is lossless, rows are re-fetched at the next ingest); old and new code coexist (old code never reads it); no backfill, table is tiny (one row per project) so no lock concern; verified by `tests/core/test_store.py` table list and `tests/sources/test_context.py`. Verdict: GO.
+
 ---
 
 ## Demonstration
@@ -34,12 +36,20 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-22T04:03:42Z, main code, before any implementation commit):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ uv run python -c "import easy_personal.sources.context"
+ModuleNotFoundError: No module named 'easy_personal.sources.context'
+$ grep -c context_index_stale src/easy_personal/data/rules.yaml
+0
+$ kit_summary parts for one project (python -c ...)
+['kernel', 'git']
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: `uv run pytest tests/sources/test_context.py -q` -> `22 passed`; `rules.yaml` has `context_index_stale`; `kit_summary` parts are `kernel`, `git`, `context`.
+
+**DELTA**: The owner sees per project when easy-context last indexed it, and a `context_index_stale` hint (call `index_path`) when commits are newer, without easy-personal ever triggering indexing.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

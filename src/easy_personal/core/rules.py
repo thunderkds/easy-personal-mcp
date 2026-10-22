@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from easy_personal.core import config, kit, metrics
+from easy_personal.sources import context
 
 PACKAGED = Path(__file__).resolve().parent.parent / "data" / "rules.yaml"
 LABELS = ("improve", "aware", "warning")
@@ -166,6 +167,14 @@ def _kit_error_rate(conn, since, until):
     return round(rate, 4), None
 
 
+def _context_stale_indexes(conn, since, until):
+    found = context.stale_projects(conn)
+    if found is None:
+        raise Abstain("no easy-context data (service down or no index for a known project)")
+    count, names = found
+    return count, {"projects": names}
+
+
 METRICS = {
     "cache_hit_ratio": _cache_hit_ratio,
     "median_session_context": _median_session_context,
@@ -173,6 +182,7 @@ METRICS = {
     "top_project_share": _top_project_share,
     "week_over_week_tokens": _week_over_week_tokens,
     "kit_error_rate": _kit_error_rate,
+    "context_stale_indexes": _context_stale_indexes,
 }
 
 
