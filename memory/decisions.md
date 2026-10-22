@@ -42,3 +42,10 @@
 **Why**: Owner, 2026-10-22 (accepted the recommendation). The first pick, `@modelcontextprotocol/server-slack`, is deprecated on npm and `npx -y` without a version would run whatever is newest, with the token in its env.
 **Files**: `src/easy_personal/catalog/slack.yaml`, `src/easy_personal/connectors/catalog.py`
 
+
+## 2026-10-22 — HUN-46 catalog servers: Gmail, SendGrid, Teams, Discord
+
+**Decision**: Pinned community servers (no provider publishes its own npm MCP server): Gmail `@gongrzhe/server-gmail-autoauth-mcp@1.1.11` (claude.ai Gmail connector listed first), SendGrid `sendgrid-mcp@1.4.0`, Teams `@softeria/ms-365-mcp-server@0.170.2 --org-mode` (claude.ai Microsoft 365 connector listed first), Discord `@pasympa/discord-mcp@2.2.0`. New catalog key `claude_ai_link` (required when `claude_ai_connector: yes`), value `https://claude.ai/settings/connectors` for now.
+**Why**: Checked on the npm registry 2026-10-22: none deprecated, MIT/ISC, most-used maintained option per provider. Rejected `@chrischall/microsoft-teams-mcp` (captured Teams web tokens, not the official login) and `mcp-discord@1.3.4` (no release since 2025-07). Gmail package has no release since 2025-08, accepted because the claude.ai connector is offered first.
+**Approved by**: owner, 2026-10-22 ("continue your work" after the proposal).
+**Files**: `src/easy_personal/catalog/*.yaml`, `src/easy_personal/connectors/catalog.py`

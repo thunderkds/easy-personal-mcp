@@ -79,7 +79,8 @@ Email and Messaging categories with the providers the owner named; when an offic
 
 | \# | Given (input/state) | Expect (output/behavior) | How it's checked |
 | -- | -- | -- | -- |
-| 1 | Catalog load | 5 providers, 2 categories, schema-valid | automated |
+| 1 | Catalog load | 5 providers (slack, gmail, sendgrid, teams, discord), 2 categories (Email, Messaging), schema-valid, all commands pinned | automated |
+| 2 | `easy-personal connector list` | grouped by category; gmail before sendgrid, slack/teams before discord; links shown; no secret values | automated CLI test |
 
 ### Verification Command (exact, runnable)
 
@@ -102,7 +103,18 @@ uv run pytest tests/connectors/test_catalog.py -q
 **Vital slice**: schema-valid entries
 **Cut list**: No Teams/Discord launch verification beyond schema (documented as unverified if the provider server is unclear)
 
-Research each provider's MCP server launch command; record source URL in the entry's comment; mark unverified fields.
+Servers are fixed by the owner (approved 2026-10-22, see `memory/decisions.md`); do not substitute. Record the npm URL in each entry's comment; mark setup steps you could not run as unverified.
+
+| Entry | category | claude_ai_connector | command | field lines |
+| -- | -- | -- | -- | -- |
+| `gmail.yaml` | Email | yes (official Gmail connector) | `npx -y @gongrzhe/server-gmail-autoauth-mcp@1.1.11` | `GMAIL_OAUTH_PATH \| OAuth client keys file (gcp-oauth.keys.json) \| plain` — comment: one-time browser `auth` step per its README, unverified |
+| `sendgrid.yaml` | Email | no | `npx -y sendgrid-mcp@1.4.0` | `SENDGRID_API_KEY \| API key (SG....) \| secret` |
+| `teams.yaml` | Messaging | yes (Microsoft 365 connector) | `npx -y @softeria/ms-365-mcp-server@0.170.2 --org-mode` | `MS365_MCP_TENANT_ID \| Tenant ID \| plain` — comment: device-code login, server keeps its own token cache, unverified |
+| `discord.yaml` | Messaging | no | `npx -y @pasympa/discord-mcp@2.2.0` | `DISCORD_TOKEN \| Bot token \| secret` |
+
+Schema change (AC2): add a single key `claude_ai_link:` to `connectors/catalog.py` and `Entry`. Required (https URL) when `claude_ai_connector: yes`, refused when `no`. Value for every `yes` entry, including the existing `slack.yaml`: `https://claude.ai/settings/connectors` (owner check: a per-connector deep link may be preferred later).
+
+`easy-personal connector list` does not exist yet: add it to `surfaces/cli.py` (prints entries grouped by category; within a category, entries with a claude.ai connector first, then by provider; shows the link). Print only id, provider, category, connector flag + link and field labels — never values. Cover it in the leak suite: `tests/leak/harness.py` lists `connector` under `CLI_KEYCHAIN_COMMANDS` (excluded); `connector list` reads no keychain, so add a `CLI_CALLS` case for it (or a flag variant) so its output is scanned.
 
 ---
 
@@ -118,6 +130,9 @@ Research each provider's MCP server launch command; record source URL in the ent
 | File | Change |
 | -- | -- |
 | `src/easy_personal/catalog/*.yaml` | Entries |
+| `src/easy_personal/connectors/catalog.py` | `claude_ai_link` key + validation |
+| `src/easy_personal/surfaces/cli.py` | `connector list` |
+| `tests/connectors/test_catalog.py`, `tests/surfaces/` CLI test, `tests/leak/harness.py` | Tests + leak registration |
 
 ## Files Must NOT Touch
 
