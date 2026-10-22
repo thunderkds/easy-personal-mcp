@@ -33,8 +33,8 @@
 - [Static build gitignored](learnings.md#2026-10-21--dashboard-static-build-is-gitignored-build-before-uv-build) — `npm --prefix web run build` before `uv build`; 2 web tests skip unbuilt.
 - [Verify against fixtures](learnings.md#2026-10-21--runtime-verify-against-fixtures-never-the-real-transcripts) — temp `EASY_PERSONAL_CLAUDE_PROJECTS` + `EASY_PERSONAL_HOME`; grep outputs for `INVENTED_`.
 - [FastMCP typed dict output](learnings.md#2026-10-21--fastmcp-returns-structured-output-only-for-typed-dicts) — `-> dict[str, Any]`; version via private `_mcp_server.version`.
-- [Merge gate blocks while any task In Progress](learnings.md#2026-10-21--merge-gate-blocks-while-any-task-is-in-progress) — Done after evidence, then merge; parallel tasks finish together.
-- [Skills the Supervisor cannot run](learnings.md#2026-10-21--skills-the-supervisor-cannot-run-itself) — /verify is user-only; security-review inline; no Skill tool in sub-agents.
+- [Merge gate blocks while any task In Progress](learnings.md#2026-10-21--merge-gate-blocks-while-any-task-is-in-progress) — Done after evidence, then merge; parallel tasks finish together; regex also blocks `git merge-base`.
+- [Skills the Supervisor cannot run](learnings.md#2026-10-21--skills-the-supervisor-cannot-run-itself) — /verify loadable via Skill since 2026-10-22; security-review inline; no Skill tool in sub-agents.
 - [easy-verifier registered (local scope)](learnings.md#2026-10-21--easy-verifier-registered-for-this-repo-local-scope) — `~/.claude-personal` profile only; 127.0.0.1:8766; absolute `repo` arg; Stage 4 step 4b, advisory, no hook.
 - [easy-verifier score output](learnings.md#2026-10-21--easy-verifier-score-output-read-with-jq-known-security-false-positives) — >budget, read via jq; security 18 = SQL/lockfile false positives; `write_report` for path.
 - [easy-context registered (local scope)](learnings.md#2026-10-21--easy-context-registered-for-this-repo-local-scope) — indexed; search via MCP, not Read; re-index after merge.
@@ -42,10 +42,11 @@
 - [Board pull overwrites `## Blocked`](learnings.md#2026-10-21--board_syncpy-pull-overwrites-the--blocked-table) — keep external blockers in the guide + PROJECT_SPEC Tasks.
 - [Git remote is `github`](learnings.md#2026-10-21--git-remote-is-github-not-origin) — `git push -u github <branch>`.
 - [Linear escapes backticks in titles](learnings.md#2026-10-21--linear-escapes-backticks-in-issue-titles) — cosmetic in KANBAN cache.
-- [Register new surfaces in the leak suite](learnings.md#2026-10-21--new-mcp-tool-or-cli-command-must-be-registered-in-the-leak-suite) — `MCP_CALLS`/`CLI_CALLS` in `tests/leak/harness.py`; flag variants by hand.
+- [Register new surfaces in the leak suite](learnings.md#2026-10-21--new-mcp-tool-or-cli-command-must-be-registered-in-the-leak-suite) — `MCP_CALLS`/`CLI_CALLS` in `tests/leak/harness.py`; flag variants by hand; also `API_CALLS`, `CLI_KEYCHAIN_COMMANDS`.
 - [Owner checks: prices + 200k context](learnings.md#2026-10-21--open-owner-checks-from-hun-35-price-numbers-and-the-long-context-threshold) — `prices.yaml` numbers unverified; outlier threshold is implementer's choice.
 - [Board push needs LINEAR_API_KEY](learnings.md#2026-10-21--board-push-needs-linear_api_key-in-the-sessions-shell) — else only the KANBAN cache moves; nothing queued.
 - [No codebase-map yet](learnings.md#2026-10-21--memorycodebase-mapmd-does-not-exist) — run `/map-codebase` or drop it from C2 spawn reads.
 - [Owner check: compaction inferred](learnings.md#2026-10-21--open-owner-check-from-hun-37-compaction-is-inferred) — context drop < half of peak = compacted; rules abstain with reason.
 - [Scheduled ingest lock + systemd](learnings.md#2026-10-21--scheduled-ingest-lock-exit-75-systemd-only-via---dry-run-in-tests) — flock, exit 75; tests stub systemctl, leak suite dry-run only.
 - [No `rm` in `bash -c`](learnings.md#2026-10-21--rm-inside-bash--c-is-blocked-by-the-harness-safety-check) — use a fresh temp dir per verify case.
+- [Verify dashboard/kit_trace/launcher](learnings.md#2026-10-22--verify-recipes-for-the-dashboard-kit_trace-and-the-launcher) — `X-Dashboard-Token`; rewrite fixture `cwd`; throwaway `PYTHON_KEYRING_BACKEND`, never the real keychain.

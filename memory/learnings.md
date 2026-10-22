@@ -24,11 +24,11 @@
 **Files**: `src/easy_personal/surfaces/mcp.py`
 
 ### 2026-10-21 — Merge gate blocks while ANY task is In Progress
-**Learning**: `.claude/hooks/pre_bash_block_unsafe_merge.py` refuses every `git merge`/`push` while any KANBAN row is In Progress, and needs a `verify` row containing "pass" for Ready for Review rows. With no review status in Linear (decision: In Progress → Done), move a task to Done only after its Evidence is complete, then merge. Parallel tasks must all reach Done before any of them merges.
+**Learning**: `.claude/hooks/pre_bash_block_unsafe_merge.py` refuses every `git merge`/`push` while any KANBAN row is In Progress, and needs a `verify` row containing "pass" for Ready for Review rows. With no review status in Linear (decision: In Progress → Done), move a task to Done only after its Evidence is complete, then merge. Parallel tasks must all reach Done before any of them merges. The command regex `\bgit\s+merge\b` also matches `git merge-base` and `git merge-tree`, so those read-only commands are blocked too: use `git rev-list --count A..B` to check divergence. 2026-10-22: HUN-39/44/49 were verified together, pushed Done, then merged one by one (HUN-44 needed an additive conflict fix in `cli.py` + `tests/leak/harness.py`).
 **Files**: `.claude/hooks/pre_bash_block_unsafe_merge.py`, `PROJECT_KANBAN.md`
 
 ### 2026-10-21 — Skills the Supervisor cannot run itself
-**Learning**: `/verify` is user-invoked only (disable-model-invocation); built-in `security-review` diffs `origin/HEAD` (remote here is `github`) on the current checkout, so the Supervisor reviews worktree diffs inline. Sub-agents have no Skill tool: write tdd red-green steps into spawn prompts instead of naming the skill.
+**Learning**: `/verify` was user-invoked only on 2026-10-21; on 2026-10-22 the Supervisor loaded it with `Skill({ skill: "verify" })` (it returns the recipe; the Supervisor runs it); built-in `security-review` diffs `origin/HEAD` (remote here is `github`) on the current checkout, so the Supervisor reviews worktree diffs inline. Sub-agents have no Skill tool: write tdd red-green steps into spawn prompts instead of naming the skill.
 **Files**: `skills/verify/SKILL.md`, `skills/craft-spawn-prompt/SKILL.md`
 
 ### 2026-10-21 — easy-context registered for this repo (local scope)
@@ -58,7 +58,7 @@
 ## Gotchas
 
 ### 2026-10-21 — New MCP tool or CLI command must be registered in the leak suite
-**Learning**: `tests/leak/test_leak_suite.py` meta-tests fail for any MCP tool or CLI command missing from `MCP_CALLS` / `CLI_CALLS` in `tests/leak/harness.py`. A new *flag* on an existing command (e.g. `usage --by`) is not caught: add its argv variants by hand. Tasks that add surfaces register them in the same branch (HUN-35 did, after merging HUN-36). Dashboard/API tasks add response bodies to `harness.Collected` (`tests/leak/README.md`).
+**Learning**: `tests/leak/test_leak_suite.py` meta-tests fail for any MCP tool or CLI command missing from `MCP_CALLS` / `CLI_CALLS` in `tests/leak/harness.py`. Since HUN-39/44/49 the harness also has `API_CALLS` (dashboard routes, covered in-process) and `CLI_KEYCHAIN_COMMANDS` (`exec`/`headers`, covered in `tests/connectors` with a fake backend); `CLI_SERVER_COMMANDS` = `mcp`, `dashboard`. A new *flag* on an existing command (e.g. `usage --by`) is not caught: add its argv variants by hand. Tasks that add surfaces register them in the same branch (HUN-35 did, after merging HUN-36). Dashboard/API tasks add response bodies to `harness.Collected` (`tests/leak/README.md`).
 **Files**: `tests/leak/harness.py`, `tests/leak/README.md`, `src/easy_personal/surfaces/mcp.py`, `src/easy_personal/surfaces/cli.py`
 
 ### 2026-10-21 — Open owner checks from HUN-35: price numbers and the long-context threshold
@@ -85,3 +85,6 @@
 **Learning**: A Bash call that runs `rm` inside a `bash -c '…'` script is refused (the check cannot inspect the script). For verify runs, give each case its own temp dir instead of deleting files, and do not wrap the recipe in `bash -c` when it removes anything.
 **Files**: `.claude/skills/verify/SKILL.md`
 
+### 2026-10-22 — Verify recipes for the dashboard, `kit_trace` and the launcher
+**Learning**: Dashboard API token goes in the `X-Dashboard-Token` header (not `Authorization`); the URL is printed as `http://127.0.0.1:<port>/#<token>`; set `BROWSER=true` so no browser opens. `kit_trace` finds projects only from `claude_code` events' `cwd` that still exist on disk: rewrite a fixture transcript's `cwd` (`/work/demo-app`) to a temp repo holding `memory/event-trace/*.jsonl`. Launcher verify must never touch the owner's keychain: set `PYTHON_KEYRING_BACKEND` to a throwaway file backend on `PYTHONPATH` in the scratchpad, and `keyring.backends.fail.Keyring` for the refusal case.
+**Files**: `src/easy_personal/surfaces/api.py`, `src/easy_personal/sources/kit_trace.py`, `src/easy_personal/launch.py`, `.claude/skills/verify/SKILL.md`
