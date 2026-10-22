@@ -1,10 +1,12 @@
 # Provider catalog entry (PRD FR-016). One `key: value` per line; `field:` repeats, one per form field.
 # category, provider: shown in the form. claude_ai_connector: yes|no, an official claude.ai connector exists.
+# claude_ai_link: https URL of that connector; required with yes, refused with no.
 # command: how the launcher starts the provider server (stdlib shlex split).
 # field: ENV_NAME | label | secret|plain. The value reaches the server as that environment variable.
 category: Messaging
 provider: Slack
 claude_ai_connector: yes
+claude_ai_link: https://claude.ai/settings/connectors
 # Bot token (xoxb-) sees invited channels only and cannot search (slack-mcp-server README).
 command: npx -y slack-mcp-server@1.3.0 --transport stdio
 field: SLACK_MCP_XOXB_TOKEN | Bot token (xoxb-...) | secret

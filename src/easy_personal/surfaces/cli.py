@@ -72,6 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
         sub.add_parser(name, help=text).add_argument("connector")
     connector_p = sub.add_parser("connector", help="add or remove a provider connector")
     connector_sub = connector_p.add_subparsers(dest="action", required=True)
+    connector_sub.add_parser("list", help="list the provider catalog by category (no secret values)")
     for action, text in (("add", "store secrets in the keychain and register in Claude Code"),
                          ("remove", "delete keychain items and the Claude Code entry")):
         action_p = connector_sub.add_parser(action, help=text)
@@ -113,10 +114,29 @@ def _confirm() -> bool:
     return input("Apply these changes? [y/N] ").strip().lower() in ("y", "yes")
 
 
+def _connector_list() -> int:
+    from easy_personal.connectors import catalog
+
+    entries = sorted((catalog.load(i) for i in catalog.ids()),
+                     key=lambda e: (e.category, not e.claude_ai_connector, e.provider))
+    category = None
+    for e in entries:
+        if e.category != category:
+            category = e.category
+            print(category)
+        official = f"claude.ai connector: yes ({e.claude_ai_link})" if e.claude_ai_connector \
+            else "claude.ai connector: no"
+        print(f"  {e.id} {e.provider} | {official}")
+        print(f"    fields: {', '.join(f.label for f in e.fields)}")
+    return 0
+
+
 def _connector(args) -> int:
     from easy_personal.connectors import catalog, writer
     from easy_personal.launch import LaunchError
 
+    if args.action == "list":
+        return _connector_list()
     try:
         if args.action == "add":
             return writer.add(catalog.load(args.provider), _ask, _confirm, print, args.yes)

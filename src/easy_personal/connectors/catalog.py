@@ -11,7 +11,9 @@ PACKAGED = Path(__file__).resolve().parent.parent / "catalog"
 _ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}")
 _ENV = re.compile(r"[A-Z_][A-Z0-9_]*")
 _PINNED = re.compile(r"(@[a-z0-9._-]+/)?[a-z0-9._-]+@\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?")
-_SINGLE = ("category", "provider", "claude_ai_connector", "command")
+_LINK = re.compile(r"https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~/%-]*)?")
+_REQUIRED = ("category", "provider", "claude_ai_connector", "command")
+_SINGLE = (*_REQUIRED, "claude_ai_link")
 
 
 class CatalogError(Exception):
@@ -31,6 +33,7 @@ class Entry:
     category: str
     provider: str
     claude_ai_connector: bool
+    claude_ai_link: str | None
     command: list[str]
     fields: tuple[Field, ...]
 
@@ -73,11 +76,16 @@ def parse(entry_id: str, text: str) -> Entry:
             single[key] = value
         else:
             raise CatalogError(f"{entry_id}: unknown or repeated key '{key}'")
-    missing = [k for k in _SINGLE if not single.get(k)]
+    missing = [k for k in _REQUIRED if not single.get(k)]
     if missing or not fields:
         raise CatalogError(f"{entry_id}: missing {', '.join(missing) or 'field'}")
     if single["claude_ai_connector"] not in ("yes", "no"):
         raise CatalogError(f"{entry_id}: claude_ai_connector must be yes or no")
+    link = single.get("claude_ai_link")
+    if (single["claude_ai_connector"] == "yes") != (link is not None):
+        raise CatalogError(f"{entry_id}: claude_ai_link is required with claude_ai_connector: yes, refused with no")
+    if link is not None and not _LINK.fullmatch(link):
+        raise CatalogError(f"{entry_id}: claude_ai_link must be an https URL")
     if len({f.env for f in fields}) != len(fields):
         raise CatalogError(f"{entry_id}: duplicate field")
     command = shlex.split(single["command"])
@@ -87,6 +95,7 @@ def parse(entry_id: str, text: str) -> Entry:
         category=single["category"],
         provider=single["provider"],
         claude_ai_connector=single["claude_ai_connector"] == "yes",
+        claude_ai_link=link,
         command=command,
         fields=tuple(fields),
     )
