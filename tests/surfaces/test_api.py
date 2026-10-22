@@ -89,6 +89,20 @@ def test_no_static_dir_still_serves_api(home, tmp_path):
 def test_bad_input_is_400(client):
     assert client.get("/api/usage/breakdown?by=bad", headers=AUTH).status_code == 400
     assert client.get("/api/usage/summary?since=notadate", headers=AUTH).status_code == 400
+    assert client.get("/api/usage/sessions?since=bad", headers=AUTH).status_code == 400
+
+
+def test_sessions_route_is_guarded_and_returns_timeline(client):
+    path = "/api/usage/sessions"
+    assert client.get(path).status_code == 403
+    assert client.get(path, headers={**AUTH, "Host": "evil.example"}).status_code == 403
+    assert client.get(path, headers={**AUTH, "Origin": "http://evil.example"}).status_code == 403
+    res = client.get(path, headers=AUTH)
+    assert res.status_code == 200
+    assert res.headers["content-security-policy"].startswith("default-src 'self'")
+    body = res.json()
+    assert body["gap_minutes"] == 30 and len(body["sessions"]) == 4
+    assert all("/" not in s["project"] for s in body["sessions"])
 
 
 def test_parity_with_core_and_mcp_numbers(client, home):
@@ -100,6 +114,7 @@ def test_parity_with_core_and_mcp_numbers(client, home):
             "/api/usage/summary": metrics.usage_summary(conn),
             "/api/usage/breakdown?by=model": metrics.usage_breakdown(conn, "model"),
             "/api/usage/outliers": metrics.session_outliers(conn),
+            "/api/usage/sessions": metrics.session_timeline(conn),
         }
     for path, expected in want.items():
         assert client.get(path, headers=AUTH).json() == expected, path
