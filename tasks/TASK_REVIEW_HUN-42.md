@@ -34,8 +34,13 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-22T08:32:09Z (`date -u`) on branch HUN-42 before any implementation commit. Temp home, a temp project with `reports/evidence-report-project-20261021T124041-825600Z.json` (schema_version 1, overall 48) plus an HTML-only report; ingest of claude_code + kit_trace, then `kit_summary` parts:
+
+```
+no verifier source          (import of easy_personal.sources.verifier fails)
+{"kernel": {"status": "no data"}, "git": {"status": "no data"}, "context": {"status": "no data"}}
+```
+No `verifier` part exists.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
