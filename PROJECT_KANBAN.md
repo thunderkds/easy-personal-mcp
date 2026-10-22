@@ -9,6 +9,7 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-58** — Bugfix: ingest crashes on pre-HUN-42 stores (verifier_scores 6 vs 7 columns) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-58.md`
 
 ### In Progress
 
