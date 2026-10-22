@@ -35,7 +35,7 @@ def leak_run(tmp_path_factory, canaries):
         harness.collect_cli(env, projects, out)  # first call to `ingest` fills the store
         with harness.LogCapture() as logs:
             harness.collect_mcp(harness.build_app(), out, logs)
-            harness.collect_api(out, logs)
+            harness.collect_api(out, logs, canaries.values["api_key"], root / "api-write")
         harness.collect_mcp_stdio(env, root / "stdio-stderr.log", out)
     finally:
         mp.undo()
