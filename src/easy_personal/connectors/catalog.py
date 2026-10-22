@@ -10,6 +10,7 @@ from pathlib import Path
 PACKAGED = Path(__file__).resolve().parent.parent / "catalog"
 _ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}")
 _ENV = re.compile(r"[A-Z_][A-Z0-9_]*")
+_PINNED = re.compile(r"(@[a-z0-9._-]+/)?[a-z0-9._-]+@\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?")
 _SINGLE = ("category", "provider", "claude_ai_connector", "command")
 
 
@@ -43,6 +44,19 @@ def _field(entry_id: str, text: str) -> Field:
     return Field(parts[0], parts[1], parts[2] == "secret")
 
 
+def _check_pinned(entry_id: str, command: list[str]) -> None:
+    """A package runner (npx, uvx, pipx run) must name its package at an exact version."""
+    if command[:1] in (["npx"], ["uvx"]):
+        rest = command[1:]
+    elif command[:2] == ["pipx", "run"]:
+        rest = command[2:]
+    else:
+        return
+    package = next((t for t in rest if not t.startswith("-")), "")
+    if not _PINNED.fullmatch(package):
+        raise CatalogError(f"{entry_id}: package '{package}' must be pinned (name@1.2.3)")
+
+
 def parse(entry_id: str, text: str) -> Entry:
     if not _ID.fullmatch(entry_id):
         raise CatalogError("invalid catalog entry name")
@@ -66,12 +80,14 @@ def parse(entry_id: str, text: str) -> Entry:
         raise CatalogError(f"{entry_id}: claude_ai_connector must be yes or no")
     if len({f.env for f in fields}) != len(fields):
         raise CatalogError(f"{entry_id}: duplicate field")
+    command = shlex.split(single["command"])
+    _check_pinned(entry_id, command)
     return Entry(
         id=entry_id,
         category=single["category"],
         provider=single["provider"],
         claude_ai_connector=single["claude_ai_connector"] == "yes",
-        command=shlex.split(single["command"]),
+        command=command,
         fields=tuple(fields),
     )
 

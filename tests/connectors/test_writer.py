@@ -9,14 +9,13 @@ from easy_personal.connectors import writer
 from easy_personal.surfaces import cli
 
 SECRET = "xoxb-PLANTED-secret-123"
-TEAM = "T-PLANTED-team"
 EXPECTED_JSON = {"type": "stdio", "command": "/opt/fake/bin/easy-personal-launch", "args": ["exec", "slack"]}
 
 
 @pytest.fixture
 def answers(monkeypatch):
     """Inject prompt answers: secret fields via getpass, plain fields and confirm via input."""
-    state = {"secret": SECRET, "plain": TEAM, "confirm": "y", "asked": []}
+    state = {"secret": SECRET, "confirm": "y", "asked": []}
 
     def fake_getpass(prompt=""):
         state["asked"].append(("secret", prompt))
@@ -44,15 +43,15 @@ def test_add_stores_secrets_and_registers_launcher(mem_keyring, fake_claude, lau
     ((service, user), payload), = mem_keyring.items.items()
     assert (service, user) == ("easy-personal/slack", "connector")
     stored = json.loads(payload)
-    assert stored["env"] == {"SLACK_BOT_TOKEN": SECRET, "SLACK_TEAM_ID": TEAM}
+    assert stored["env"] == {"SLACK_MCP_XOXB_TOKEN": SECRET}
     assert stored["command"][0] == "npx"
     assert fake_claude.writes() == [
         ["mcp", "add-json", "slack", json.dumps(EXPECTED_JSON), "--scope", "user"]
     ]
     for text in (out, err, json.dumps(fake_claude.calls())):
-        assert SECRET not in text and TEAM not in text
-    assert "***" in out and "SLACK_BOT_TOKEN" in out  # the what-will-change summary
-    assert ("secret", "Bot token: ") in answers["asked"]
+        assert SECRET not in text
+    assert "***" in out and "SLACK_MCP_XOXB_TOKEN" in out  # the what-will-change summary
+    assert ("secret", "Bot token (xoxb-...): ") in answers["asked"]
 
 
 def test_add_json_has_only_launcher_never_env():
