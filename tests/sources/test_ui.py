@@ -120,3 +120,47 @@ def test_ui_is_top_level_not_per_project(conn):
 def test_table_holds_only_the_five_fields(conn):
     cols = [r[1] for r in conn.execute("PRAGMA table_info(ui_sessions)")]
     assert cols == ["id", "status", "started_at_utc", "ended_at_utc", "action_count"]
+
+
+def _config(tmp_path, folder):
+    (tmp_path / "home").mkdir(exist_ok=True)
+    (tmp_path / "home" / "config.yaml").write_text(f"ui:\n  reports_dir: {folder}\n")
+
+
+@pytest.fixture
+def _home(tmp_path, monkeypatch):
+    monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv(config.UI_REPORTS_ENV, raising=False)
+
+
+def test_config_key_only(conn, folder, tmp_path, _home):
+    _config(tmp_path, folder)
+    assert config.ui_reports_dir() == folder
+
+
+def test_env_overrides_config_key(folder, tmp_path, _home, monkeypatch):
+    _config(tmp_path, tmp_path / "other")
+    monkeypatch.setenv(config.UI_REPORTS_ENV, str(folder))
+    assert config.ui_reports_dir() == folder
+
+
+def test_config_key_expands_home(tmp_path, _home, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    _config(tmp_path, "~/reports")
+    assert config.ui_reports_dir() == tmp_path / "reports"
+
+
+def test_neither_env_nor_key_is_no_data(conn, tmp_path, _home):
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home" / "config.yaml").write_text("thresholds:\n  cache_hit_ratio_low: 0.5\n")
+    assert config.ui_reports_dir() is None
+    ui.ingest(conn)
+    assert kit.kit_summary(conn)["ui"] == {"status": "no data"}
+
+
+def test_scheduled_run_without_env_keeps_sessions(conn, folder, tmp_path, _home):
+    _config(tmp_path, folder)
+    _session(folder, "session-a.json", "a1")
+    ui.ingest(conn)  # the timer run: no env var, folder from config.yaml
+    ui.ingest(conn)
+    assert kit.kit_summary(conn)["ui"]["sessions"] == 1

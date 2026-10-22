@@ -30,11 +30,22 @@ def claude_projects_dir() -> Path:
 
 
 def config_path() -> Path:
-    """Owner settings file; optional. Today it holds rule `thresholds:` overrides."""
+    """Owner settings file; optional. It holds rule `thresholds:` and `ui: reports_dir:`."""
     return data_dir() / "config.yaml"
 
 
 def ui_reports_dir() -> Path | None:
-    """easy-ui report folder (`session-*.json`); None when not configured (UI checks: no data)."""
+    """easy-ui report folder (`session-*.json`); None when not configured (UI checks: no data).
+
+    `EASY_PERSONAL_UI_REPORTS` wins; else `reports_dir` under `ui:` in config.yaml (the scheduled
+    ingest has no shell env, so the file is the persistent place).
+    """
     value = os.environ.get(UI_REPORTS_ENV)
-    return Path(value) if value else None
+    if not value and config_path().exists():
+        from easy_personal.core.rules import _read_flat  # same reader as `thresholds:`; late: cycle
+
+        try:
+            value = _read_flat(config_path(), "ui").get("reports_dir")
+        except (OSError, UnicodeDecodeError):
+            value = None
+    return Path(value).expanduser() if value else None
