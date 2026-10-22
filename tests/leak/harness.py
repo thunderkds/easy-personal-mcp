@@ -37,6 +37,9 @@ MCP_CALLS: dict[str, list[dict]] = {
     "warnings": [{}],
     "improvement_plan": [{}],
     "kit_summary": [{}],
+    "connector_catalog": [{}],
+    "connector_status": [{}],
+    "connector_suggestions": [{}],
 }
 # CLI command -> list of argv tails. `{projects}` is the planted transcript root.
 CLI_CALLS: dict[str, list[list[str]]] = {
@@ -108,6 +111,7 @@ def child_env(home: Path, projects: Path, ui_reports: Path | None = None) -> dic
         EASY_PERSONAL_HOME=str(home),
         EASY_PERSONAL_CLAUDE_PROJECTS=str(projects),
         PYTHONPATH=SRC,
+        PYTHON_KEYRING_BACKEND="keyring.backends.fail.Keyring",  # never the owner's keychain
     )
     if ui_reports is not None:
         env["EASY_PERSONAL_UI_REPORTS"] = str(ui_reports)

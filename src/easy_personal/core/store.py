@@ -73,6 +73,17 @@ CREATE TABLE IF NOT EXISTS ui_sessions (
     ended_at_utc   TEXT,
     action_count   INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tool_signals (
+    machine_id  TEXT NOT NULL,
+    source_path TEXT NOT NULL,
+    inode       INTEGER NOT NULL,
+    byte_offset INTEGER NOT NULL,
+    kind        TEXT NOT NULL,
+    value       TEXT NOT NULL,
+    ts_utc      TEXT,
+    UNIQUE (machine_id, source_path, inode, byte_offset, kind, value)
+);
+CREATE INDEX IF NOT EXISTS tool_signals_kind ON tool_signals (kind, value);
 CREATE INDEX IF NOT EXISTS kit_trace_ts ON kit_trace_events (ts_utc);
 CREATE INDEX IF NOT EXISTS events_ts ON events (ts_utc);
 CREATE INDEX IF NOT EXISTS events_message ON events (message_id);
@@ -142,11 +153,16 @@ def save_file(
     """
     mid = machine_id(conn)
     end = [offset]
+    signals: list[tuple] = []
 
     def values():
         for line_offset, next_offset, event in rows:
             end[0] = next_offset
             if event is not None:
+                signals.extend(
+                    (mid, path, inode, line_offset, kind, value, event["ts_utc"])
+                    for kind, value in event.get("signals", ())
+                )
                 yield (mid, source, path, inode, line_offset, *(event[c] for c in EVENT_COLUMNS))
 
     placeholders = ", ".join("?" * (5 + len(EVENT_COLUMNS)))
@@ -158,6 +174,11 @@ def save_file(
         before = conn.total_changes
         conn.executemany(sql, values())
         added = conn.total_changes - before
+        conn.executemany(
+            "INSERT OR IGNORE INTO tool_signals (machine_id, source_path, inode, byte_offset, "
+            "kind, value, ts_utc) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            signals,
+        )
         conn.execute(
             "INSERT INTO source_files (machine_id, source, path, inode, byte_offset) "
             "VALUES (?, ?, ?, ?, ?) ON CONFLICT (machine_id, source, path) "
@@ -194,4 +215,8 @@ def prune(conn: sqlite3.Connection, retention_days: int | None, now: datetime | 
             "DELETE FROM kit_trace_events WHERE ts_utc IS NOT NULL AND ts_utc < ?",
             (cutoff.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),),
         )
-    return cur.rowcount + kit.rowcount
+        sig = conn.execute(
+            "DELETE FROM tool_signals WHERE ts_utc IS NOT NULL AND ts_utc < ?",
+            (cutoff.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),),
+        )
+    return cur.rowcount + kit.rowcount + sig.rowcount

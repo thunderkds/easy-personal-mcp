@@ -34,10 +34,20 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-22 (`date -u` at run time) in the HUN-47 worktree before any implementation commit. Command: MCP stdio `initialize` + `tools/list` against `python -m easy_personal.surfaces.cli mcp` (temp `EASY_PERSONAL_HOME`, PATH=/usr/bin):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+['improvement_plan', 'kit_summary', 'ping', 'session_outliers', 'usage_breakdown', 'usage_summary', 'warnings']
+{'connector_catalog': False, 'connector_status': False, 'connector_suggestions': False}
+```
+
+**AFTER**: same command after the change:
+
+```
+Processing request of type ListToolsRequest
+['connector_catalog', 'connector_status', 'connector_suggestions', 'improvement_plan', 'kit_summary', 'ping', 'session_outliers', 'usage_breakdown', 'usage_summary', 'warnings']
+{'connector_catalog': True, 'connector_status': True, 'connector_suggestions': True}
+```
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 
