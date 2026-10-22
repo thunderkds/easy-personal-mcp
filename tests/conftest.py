@@ -17,3 +17,9 @@ def conn(tmp_path):
     connection = store.connect(tmp_path / "store.sqlite")
     yield connection
     connection.close()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_easy_context(monkeypatch):
+    """Tests never reach the real easy-context service: point the client at a dead port."""
+    monkeypatch.setenv("EASY_PERSONAL_CONTEXT_URL", "http://127.0.0.1:9/mcp")

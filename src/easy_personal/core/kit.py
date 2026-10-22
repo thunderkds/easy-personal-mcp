@@ -1,12 +1,14 @@
 """kit_summary (FR-015): what the Easy Kit did, per project, one entry per kit part.
 
-Parts: `kernel` (kernel traces) and `git` (local commits per day, read from git at query time);
+Parts: `kernel` (kernel traces), `git` (local commits per day, read from git at query time) and
+`context` (easy-context index freshness, stored at ingest, stale judged at query time);
 later parts add keys next to them. A part with nothing to read is `{"status": "no data"}`, never zero-filled.
 """
 
 import sqlite3
 from pathlib import Path
 
+from easy_personal.sources.context import context_part
 from easy_personal.sources.git_local import git_part
 
 NO_DATA = {"status": "no data"}
@@ -59,7 +61,11 @@ def kit_summary(conn: sqlite3.Connection) -> dict:
             {
                 "project": Path(p).name or p,
                 "missing_on_disk": not Path(p).is_dir(),
-                "parts": {"kernel": _kernel(conn, p), "git": git_part(p)},
+                "parts": {
+                    "kernel": _kernel(conn, p),
+                    "git": git_part(p),
+                    "context": context_part(conn, p),
+                },
             }
             for p in projects
         ]

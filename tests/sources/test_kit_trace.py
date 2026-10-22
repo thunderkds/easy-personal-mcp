@@ -109,7 +109,11 @@ def test_kit_summary_counts_and_no_data(conn, repo, tmp_path):
         {
             "project": "demo",
             "missing_on_disk": False,
-            "parts": {"kernel": {"status": "no data"}, "git": {"status": "no data"}},
+            "parts": {
+                "kernel": {"status": "no data"},
+                "git": {"status": "no data"},
+                "context": {"status": "no data"},
+            },
         }
     ]
     _trace(repo, "T001", _line(error=True), _line(), _line())

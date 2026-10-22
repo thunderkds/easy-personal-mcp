@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS kit_trace_events (
     is_error     INTEGER,
     UNIQUE (machine_id, source_path, inode, byte_offset)
 );
+CREATE TABLE IF NOT EXISTS context_index (
+    project_path      TEXT PRIMARY KEY,
+    last_index_at_utc TEXT
+);
 CREATE INDEX IF NOT EXISTS kit_trace_ts ON kit_trace_events (ts_utc);
 CREATE INDEX IF NOT EXISTS events_ts ON events (ts_utc);
 CREATE INDEX IF NOT EXISTS events_message ON events (message_id);
