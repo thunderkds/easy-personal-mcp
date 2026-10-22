@@ -65,6 +65,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/usage/summary": ["", "?since=2026-01-01", "?until=2027-01-01"],
     "/api/usage/breakdown": ["?by=day", "?by=model", "?by=project", "?by=tool", "?by=bad"],
     "/api/usage/outliers": ["", "?since=2026-01-01"],
+    "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01"],
     "/api/warnings": [""],
     "/api/plan": [""],
 }

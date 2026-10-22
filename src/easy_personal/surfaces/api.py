@@ -96,6 +96,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
             _query(lambda c, q: metrics.usage_breakdown(c, q.get("by", ""), *_period(q))),
         ),
         Route("/api/usage/outliers", _query(lambda c, q: metrics.session_outliers(c, *_period(q)))),
+        Route("/api/usage/sessions", _query(lambda c, q: metrics.session_timeline(c, *_period(q)))),
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c))),
     ]

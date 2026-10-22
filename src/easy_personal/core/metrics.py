@@ -2,6 +2,7 @@
 
 import sqlite3
 from datetime import UTC, datetime
+from itertools import pairwise
 from pathlib import Path
 
 from easy_personal.core import prices as price_table
@@ -9,6 +10,7 @@ from easy_personal.core import prices as price_table
 DIMENSIONS = ("day", "model", "project", "tool")
 OUTLIER_TOOL_CALLS = 90
 OUTLIER_CONTEXT_TOKENS = 200_000
+TIMELINE_GAP_MINUTES = 30
 
 
 def _utc_bound(value: str | None) -> str | None:
@@ -253,6 +255,89 @@ def session_outliers(
         "period": {"since_utc": since_utc, "until_utc": until_utc},
         "thresholds": {"tool_calls": OUTLIER_TOOL_CALLS, "context_tokens": OUTLIER_CONTEXT_TOKENS},
         "sessions": sessions,
+    }
+
+
+def _parse_utc(value: str) -> datetime:
+    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=UTC)
+
+
+def session_timeline(
+    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+) -> dict:
+    """Per session in [since, until): start/end, models, token points per message and idle gaps.
+
+    Start/end/gaps come from every non-abstained event of the session; points and totals count
+    each message once (same rule as `usage_summary`). Tokens and times only, no text.
+    """
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    where, params = _period("ts_utc", since_utc, until_utc)
+    sessions: dict[str, dict] = {}
+    times: dict[str, list[str]] = {}
+    for session, ts, project_path in conn.execute(
+        "SELECT session_id, ts_utc, project_path FROM events WHERE abstained = 0 "
+        f"AND session_id IS NOT NULL AND ts_utc IS NOT NULL AND {where} ORDER BY ts_utc",
+        params,
+    ):
+        times.setdefault(session, []).append(ts)
+        state = sessions.setdefault(session, {"path": None})
+        state["path"] = state["path"] or project_path
+
+    points: dict[str, list[dict]] = {}
+    where, params = _period("ts", since_utc, until_utc)
+    for session, ts, model, i, o, cc, cr in conn.execute(
+        "SELECT session_id, ts, model, i, o, cc, cr FROM ("
+        "  SELECT MAX(session_id) AS session_id, MIN(ts_utc) AS ts, MAX(model) AS model,"
+        "         message_id, MAX(input_tokens) AS i,"
+        "         COALESCE(MAX(output_tokens), 0) AS o,"
+        "         COALESCE(MAX(cache_creation_input_tokens), 0) AS cc,"
+        "         COALESCE(MAX(cache_read_input_tokens), 0) AS cr"
+        "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
+        "  AND input_tokens IS NOT NULL AND session_id IS NOT NULL GROUP BY message_id"
+        f") WHERE ts IS NOT NULL AND {where} ORDER BY ts, message_id",
+        params,
+    ):
+        points.setdefault(session, []).append(
+            {
+                "ts_utc": ts,
+                "model": model,
+                "input_tokens": i,
+                "output_tokens": o,
+                "cache_creation_input_tokens": cc,
+                "cache_read_input_tokens": cr,
+            }
+        )
+
+    result = []
+    for session, state in sessions.items():
+        stamps, pts = times[session], points.get(session, [])
+        gaps = []
+        for before, after in pairwise(stamps):
+            minutes = (_parse_utc(after) - _parse_utc(before)).total_seconds() / 60
+            if minutes >= TIMELINE_GAP_MINUTES:
+                gaps.append({"start_utc": before, "end_utc": after, "minutes": round(minutes, 1)})
+        result.append(
+            {
+                "session_id": session,
+                "project": _folder(state["path"]),
+                "start_utc": stamps[0],
+                "end_utc": stamps[-1],
+                "models": sorted({p["model"] for p in pts if p["model"]}),
+                "messages": len(pts),
+                "input_tokens": sum(p["input_tokens"] for p in pts),
+                "output_tokens": sum(p["output_tokens"] for p in pts),
+                "cache_creation_input_tokens": sum(p["cache_creation_input_tokens"] for p in pts),
+                "cache_read_input_tokens": sum(p["cache_read_input_tokens"] for p in pts),
+                "points": pts,
+                "gaps": gaps,
+            }
+        )
+    result.sort(key=lambda s: s["session_id"])
+    result.sort(key=lambda s: s["start_utc"], reverse=True)
+    return {
+        "period": {"since_utc": since_utc, "until_utc": until_utc},
+        "gap_minutes": TIMELINE_GAP_MINUTES,
+        "sessions": result,
     }
 
 

@@ -34,12 +34,14 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: 2026-10-22T03:41:48Z, in worktree HUN-53 before any implementation commit:
+`grep -n "session_timeline\|usage/sessions" -r src tests` printed nothing;
+`uv run python -c "from easy_personal.core import metrics; print(hasattr(metrics,'session_timeline'))"` printed `False`.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: `hasattr(metrics,'session_timeline')` is True; `GET /api/usage/sessions` returns 200 with the token.
+Verification command: `43 passed, 1 warning in 8.02s`. Full suite: `194 passed, 2 skipped, 1 warning in 17.51s`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The dashboard can now read each session's start/end, models, per-message token points and idle gaps from one guarded route.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
