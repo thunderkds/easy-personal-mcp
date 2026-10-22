@@ -94,7 +94,6 @@ def test_worktree_named_folder_is_ignored(conn, repo, shared):
 @pytest.mark.parametrize(
     "data",
     [
-        _report(schema_version=2),
         _report(schema_version=True),
         _report(schema_version="1"),
         {k: v for k, v in _report().items() if k != "overall"},
@@ -183,7 +182,7 @@ def test_source_files_are_not_modified(conn, repo, shared):
 
 def test_table_holds_only_allowed_columns(conn):
     cols = [r[1] for r in conn.execute("PRAGMA table_info(verifier_scores)")]
-    assert cols == ["project_path", "scope", "generated_at_utc", "overall_value",
+    assert cols == ["project_path", "status", "scope", "generated_at_utc", "overall_value",
                     "overall_abstained", "reason_code"]  # fmt: skip
 
 
@@ -212,4 +211,39 @@ def test_ingest_uses_configured_dir(conn, repo, shared, monkeypatch):
     _write(shared / "proj", _report())
     monkeypatch.setenv(config.VERIFIER_REPORTS_ENV, str(shared))
     verifier.ingest(conn)
+    assert _part(conn, repo)["status"] == "ok"
+
+
+# AC3: unknown schema version -> abstain; the newest file (by name) decides
+ABSTAINED = {"status": "abstained", "reason": "unknown_schema_version"}
+
+
+def _named(folder, stamp, data):
+    _write(folder, data, f"evidence-report-project-{stamp}-000000Z.json")
+
+
+def test_only_unknown_version_abstains(conn, repo, shared):
+    _write(repo / "reports", _report(schema_version=2))
+    assert verifier.ingest(conn, shared)["projects"] == 1
+    assert _part(conn, repo) == ABSTAINED
+
+
+def test_older_v1_newer_v2_abstains(conn, repo, shared):
+    _named(repo / "reports", "20261001T000000", _report())
+    _named(shared / "proj", "20261002T000000", _report(schema_version=2))
+    verifier.ingest(conn, shared)
+    assert _part(conn, repo) == ABSTAINED
+
+
+def test_older_v2_newer_v1_shows_v1(conn, repo, shared):
+    _named(repo / "reports", "20261001T000000", _report(schema_version=2))
+    _named(repo / "reports", "20261002T000000", _report())
+    verifier.ingest(conn, shared)
+    assert _part(conn, repo)["overall"]["value"] == 48
+
+
+def test_malformed_newest_is_skipped_older_v1_shows(conn, repo, shared):
+    _named(repo / "reports", "20261001T000000", _report())
+    _named(repo / "reports", "20261002T000000", "{oops")
+    assert verifier.ingest(conn, shared)["skipped"] == 1
     assert _part(conn, repo)["status"] == "ok"

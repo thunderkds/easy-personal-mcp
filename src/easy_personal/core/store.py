@@ -75,8 +75,9 @@ CREATE TABLE IF NOT EXISTS ui_sessions (
 );
 CREATE TABLE IF NOT EXISTS verifier_scores (
     project_path       TEXT PRIMARY KEY,
-    scope              TEXT NOT NULL,
-    generated_at_utc   TEXT NOT NULL,
+    status             TEXT NOT NULL,
+    scope              TEXT,
+    generated_at_utc   TEXT,
     overall_value      REAL,
     overall_abstained  INTEGER NOT NULL,
     reason_code        TEXT

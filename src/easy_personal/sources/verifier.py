@@ -1,8 +1,8 @@
 """`verifier` source: easy-verifier score JSON -> newest overall score per project (FR-011).
 
-Read-only. For each project that still exists, the newest `evidence-report-*.json` (by `generated_at`,
-tie: file name) is read from `<project>/reports/` and from `<container>/<project folder name>/`
-(default `~/.easy-verifier-reports`). Only `schema_version` 1 is read; HTML is never opened. Only
+Read-only. For each project that still exists, the newest `evidence-report-*.json` (by the UTC time in the file name) is read from `<project>/reports/` and from `<container>/<project folder name>/`
+(default `~/.easy-verifier-reports`). Only `schema_version` 1 is read; HTML is never opened. If the newest file has another integer
+`schema_version`, the project is "abstained" (unknown_schema_version). Only
 scope, `generated_at` and `overall` are kept; `dimensions` and any other key are dropped with the
 decoded file. A file that is unreadable, oversized, not a regular file, a symlink, or of another
 shape is skipped (counted); it never fails ingest. A project with no readable JSON is "no data".
@@ -10,6 +10,7 @@ shape is skipped (counted); it never fails ingest. A project with no readable JS
 
 import json
 import os
+import re
 import sqlite3
 import stat
 from pathlib import Path
@@ -20,6 +21,8 @@ from easy_personal.sources.kit_trace import _projects
 
 SCHEMA_VERSION = 1
 MAX_BYTES = 1_000_000  # a larger file is skipped, not decoded
+UNKNOWN = "unknown"  # a readable JSON object whose integer schema_version is not 1
+_STAMP = re.compile(r"(\d{8}T\d{6}-\d+Z)\.json$")
 
 
 def _number(value) -> float | None:
@@ -28,16 +31,20 @@ def _number(value) -> float | None:
     return float(value) if 0 <= value <= 100 else None
 
 
-def parse_report(raw: bytes) -> tuple | None:
-    """(scope, generated_at_utc, value, abstained, reason_code), or None when it cannot be read."""
+def parse_report(raw: bytes) -> tuple | str | None:
+    """(scope, generated_at_utc, value, abstained, reason_code); `UNKNOWN` for another schema
+    version; None when it cannot be read."""
     try:
         record = json.loads(raw)
     except (ValueError, RecursionError):
         return None
-    if not isinstance(record, dict) or record.get("schema_version") != SCHEMA_VERSION:
+    if not isinstance(record, dict):
         return None
-    if isinstance(record.get("schema_version"), bool):
+    version = record.get("schema_version")
+    if isinstance(version, bool) or not isinstance(version, int):
         return None
+    if version != SCHEMA_VERSION:
+        return UNKNOWN
     scope, generated = _label(record.get("scope")), _utc(record.get("generated_at"))
     overall = record.get("overall")
     if scope is None or generated is None or not isinstance(overall, dict):
@@ -71,27 +78,32 @@ def _read(path: Path, folder: Path) -> bytes | None:
         os.close(fd)
 
 
-def _newest(folder: Path, root: Path) -> tuple[tuple | None, int]:
-    """(newest readable report of the folder as (generated, name, row), skipped count)."""
-    best, skipped = None, 0
+def _candidates(folder: Path, root: Path) -> tuple[list, int]:
+    """([(order key, row or UNKNOWN)], skipped count) for the readable reports of the folder."""
+    found, skipped = [], 0
     try:
         if not folder.is_dir() or folder.resolve().parent != root.resolve():
-            return None, 0
+            return [], 0
         paths = sorted(folder.glob("evidence-report-*.json"))
     except OSError:
-        return None, 0
+        return [], 0
     for path in paths:
         raw = _read(path, folder)
         row = parse_report(raw) if raw is not None and len(raw) <= MAX_BYTES else None
         if row is None:
             skipped += 1
-        elif best is None or (row[1], path.name) > (best[0], best[1]):
-            best = (row[1], path.name, row)
-    return best, skipped
+        else:  # the file name carries the UTC time; an unknown schema's own fields are not trusted
+            stamp = _STAMP.search(path.name)
+            found.append(((stamp.group(1) if stamp else "", path.name), row))
+    return found, skipped
 
 
 def ingest(conn: sqlite3.Connection, container: Path | None = None) -> dict:
-    """Store the newest score per existing project; return this run's counts. Never raises."""
+    """Store the newest report per existing project; return this run's counts. Never raises.
+
+    The newest file (by the UTC time in its name) decides: a readable report of an unknown schema
+    version makes the project "abstained" rather than showing an older score as current.
+    """
     container = container if container is not None else config.verifier_reports_dir()
     projects = _projects(conn)
     names = [Path(p).name for p in projects]
@@ -103,28 +115,34 @@ def ingest(conn: sqlite3.Connection, container: Path | None = None) -> dict:
             folders.append((container / repo.name, container))
         found = []
         for folder, root in folders:
-            best, bad = _newest(folder, root)
+            items, bad = _candidates(folder, root)
+            found += items
             skipped += bad
-            if best:
-                found.append(best)
-        if found:
-            rows.append((project, *max(found)[2]))
+        if not found:
+            continue
+        row = max(found, key=lambda item: item[0])[1]
+        if row == UNKNOWN:
+            rows.append((project, UNKNOWN, None, None, None, 0, None))
+        else:
+            rows.append((project, "ok", *row))
     with conn:
         conn.execute("DELETE FROM verifier_scores")
-        conn.executemany("INSERT INTO verifier_scores VALUES (?, ?, ?, ?, ?, ?)", rows)
+        conn.executemany("INSERT INTO verifier_scores VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
     return {"status": "ok" if rows else "no data", "projects": len(rows), "skipped": skipped}
 
 
 def verifier_part(conn: sqlite3.Connection, project: str) -> dict:
     """The verifier entry of kit_summary for one project; "no data" when no score JSON was read."""
     row = conn.execute(
-        "SELECT scope, generated_at_utc, overall_value, overall_abstained, reason_code "
+        "SELECT status, scope, generated_at_utc, overall_value, overall_abstained, reason_code "
         "FROM verifier_scores WHERE project_path = ?",
         (project,),
     ).fetchone()
     if row is None:
         return {"status": "no data"}
-    scope, generated, value, abstained, reason = row
+    status, scope, generated, value, abstained, reason = row
+    if status == UNKNOWN:
+        return {"status": "abstained", "reason": "unknown_schema_version"}
     return {
         "status": "ok",
         "scope": scope,
