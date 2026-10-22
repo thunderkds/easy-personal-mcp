@@ -26,7 +26,7 @@ Pick a provider, fill its form, keep secrets in the keychain, and have the conne
 
 **Restated intent** (Supervisor's interpretation, in the project's domain language):
 
-> End to end for one provider (Slack): declarative catalog entry → CLI prompts (secrets hidden) → keychain → `claude mcp add-json <name> --scope user` with command `easy-personal exec <name>`; snippet when `claude` is missing; `doctor` checks keychain, CLI and entries.
+> End to end for one provider (Slack): declarative catalog entry → CLI prompts (secrets hidden) → keychain → `claude mcp add-json <name> --scope user` with command `easy-personal-launch exec <name>` (owner decision 2026-10-22: the separate launcher script, NFR-006); snippet when `claude` is missing; `doctor` checks keychain, CLI and entries.
 
 **Out of scope** (what this task explicitly does NOT do):
 

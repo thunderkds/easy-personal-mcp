@@ -63,7 +63,7 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Index freshness** — easy-context `last_index_at` for a project compared with its latest local commit; *stale* fires `context_index_stale`.
 - **API-equivalent cost** — tokens × dated price table; labelled so, never presented as what a subscription pays.
 - **Connector** — a configured provider (e.g. Slack) = catalog entry + keychain refs + a Claude Code user-scope MCP entry pointing at the launcher.
-- **Launcher** — `easy-personal exec|headers <connector>`: the command Claude Code runs, which injects secrets at launch.
+- **Launcher** — `easy-personal-launch exec|headers <connector>` (separate console script, stdlib + `keyring` only): the command Claude Code runs, which injects secrets at launch.
 - **Milestone (M1–M4)** — internal delivery order inside the single v1 release.
 
 ---

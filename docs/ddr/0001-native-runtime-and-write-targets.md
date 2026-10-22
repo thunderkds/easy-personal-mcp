@@ -15,7 +15,8 @@ context (2-of-3 gate: hard to reverse, surprising, real trade-off — all three 
 ADR-eligible, kept as a DDR unless the owner asks to escalate).
 
 - Agent clients (Claude Code, Codex, Cursor) start each MCP server by running a command **on the host**.
-  The connector launcher (`easy-personal exec`) must be that command, so it must run natively.
+  The connector launcher (`easy-personal-launch exec`) must be that command, so it must run natively.
+  *Amended 2026-10-22 (owner):* the registered command is the separate `easy-personal-launch` console script, not `easy-personal exec`: importing the full CLI costs ~300 ms (HUN-44 measurement), over NFR-006's 200 ms; `easy_personal.launch` imports in ~50 ms.
 - Secrets live in the OS keychain. Python `keyring` cannot reach it from Docker without `--privileged`.
 - Connectors only work if their entries exist in each client's user-level config, so the tool must write there.
 

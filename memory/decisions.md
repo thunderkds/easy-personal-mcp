@@ -31,3 +31,9 @@
 **Decision**: After a task passes code-review (+ security-review when Medium/High) and verify, the Supervisor merges its branch into local `main` (`--no-ff`) without a PR and pushes `main` later in batches when the owner asks. The board skips "Ready for Review": tasks move In Progress → Done. Supersedes Phase 0 D "branch + PR per task".
 **Why**: Owner, 2026-10-21: "you can merge to main and automate, push later". The Linear team HUN has no review-type status.
 **Files**: `.claude/board.json`, `PROJECT_KANBAN.md`
+
+### 2026-10-22 — Connectors register `easy-personal-launch exec <name>`
+**Decision**: The command written by `claude mcp add-json` (and printed in the snippet fallback) is `easy-personal-launch exec <connector>` / `headers <connector>`, not `easy-personal exec`. PRD FR-018/FR-019, PROJECT_SPEC glossary, DDR-0001 and the HUN-45 guide updated.
+**Why**: Owner, 2026-10-22 ("yes"). HUN-44 measured `easy_personal.surfaces.cli` import at ~300 ms vs. `easy_personal.launch` at ~50 ms; NFR-006 caps launcher start-up at 200 ms.
+**Files**: `src/easy_personal/launch.py`, `pyproject.toml`, `PRD.md`, `docs/ddr/0001-native-runtime-and-write-targets.md`, `tasks/TASK_GUIDE_HUN-45.md`
+
