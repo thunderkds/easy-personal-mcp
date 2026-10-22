@@ -1,6 +1,6 @@
-# TASK_REVIEW — T[NNN]: [Short Title]
+# TASK_REVIEW — HUN-46: Catalog breadth (Gmail, SendGrid, Teams, Discord)
 
-> Sibling of `tasks/TASK_GUIDE_T[NNN].md`. Everything here is **filled by the reviewer at Stage
+> Sibling of `tasks/TASK_GUIDE_HUN-46.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
 > every turn and never fills these two sections.
 >
@@ -34,8 +34,22 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured before any implementation commit):
+
+```
+Thu Oct 22 07:42:30 AM UTC 2026
+$ uv run easy-personal connector list
+Using CPython 3.13.2
+Creating virtual environment at: .venv
+   Building easy-personal-mcp @ file:///home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-HUN-46
+      Built easy-personal-mcp @ file:///home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-HUN-46
+Installed 43 packages in 5ms
+usage: easy-personal connector [-h] {add,remove} ...
+easy-personal connector: error: argument action: invalid choice: 'list' (choose from add, remove)
+$ uv run pytest tests/connectors/test_catalog.py -q
+.........................                                                [100%]
+25 passed in 0.03s
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

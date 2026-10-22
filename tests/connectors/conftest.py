@@ -30,6 +30,8 @@ with open(os.environ["FAKE_CLAUDE_LOG"], "a") as log:
     log.write(json.dumps(sys.argv[1:]) + "\\n")
 args = sys.argv[1:]
 if args[:2] == ["mcp", "get"]:
+    if os.environ.get("FAKE_CLAUDE_GET_ONLY", args[2]) != args[2]:
+        sys.exit(1)  # only this one connector name exists in Claude Code
     sys.stdout.write(os.environ.get("FAKE_CLAUDE_GET_OUT", ""))
     sys.exit(int(os.environ.get("FAKE_CLAUDE_GET_RC", "1")))
 sys.stderr.write(os.environ.get("FAKE_CLAUDE_ERR", ""))

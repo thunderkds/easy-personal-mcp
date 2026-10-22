@@ -180,6 +180,7 @@ def test_remove_claude_failure_keeps_keychain(mem_keyring, fake_claude, answers,
 
 def good_get(monkeypatch, command="/opt/fake/bin/easy-personal-launch"):
     monkeypatch.setenv("FAKE_CLAUDE_GET_RC", "0")
+    monkeypatch.setenv("FAKE_CLAUDE_GET_ONLY", "slack")
     monkeypatch.setenv(
         "FAKE_CLAUDE_GET_OUT",
         f"slack:\n  Scope: User config\n  Type: stdio\n  Command: {command}\n  Args: exec slack\n",

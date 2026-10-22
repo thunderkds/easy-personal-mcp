@@ -1,0 +1,8 @@
+# Microsoft Teams via the Microsoft 365 server. https://www.npmjs.com/package/@softeria/ms-365-mcp-server
+# Device-code login; the server keeps its own token cache. Unverified.
+category: Messaging
+provider: Teams
+claude_ai_connector: yes
+claude_ai_link: https://claude.ai/settings/connectors
+command: npx -y @softeria/ms-365-mcp-server@0.170.2 --org-mode
+field: MS365_MCP_TENANT_ID | Tenant ID | plain
