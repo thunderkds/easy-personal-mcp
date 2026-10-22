@@ -45,9 +45,16 @@ import { createRoot } from 'react-dom/client'
 createRoot(document.getElementById('root')).render(<p>easy-personal dashboard placeholder</p>)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-10-22, same worktree:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ npm --prefix web test
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+$ npm --prefix web run build   -> built; check_static: ok
+```
+
+**DELTA**: the owner can open the dashboard page and see usage totals, breakdowns by day/model/project/tool, outlier sessions and a session timeline, with cost labelled API-equivalent and a "not included" notice.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
