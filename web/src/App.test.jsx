@@ -9,7 +9,7 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-it('opens on Usage and switches in-page between the three tabs without changing the URL fragment', async () => {
+it('opens on Usage and switches in-page between the tabs without changing the URL fragment', async () => {
   render(<App />)
   expect(await screen.findByRole('heading', { name: 'Totals' })).toBeInTheDocument()
   expect(screen.getByRole('tab', { name: 'Usage' })).toHaveAttribute('aria-selected', 'true')

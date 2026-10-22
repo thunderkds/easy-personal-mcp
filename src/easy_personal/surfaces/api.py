@@ -9,6 +9,7 @@ import contextlib
 import hmac
 import secrets
 import socket
+import threading
 import webbrowser
 from collections.abc import Callable
 from importlib import resources
@@ -16,6 +17,7 @@ from pathlib import Path
 
 import uvicorn
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
@@ -88,6 +90,114 @@ def _period(q):
     return q.get("since"), q.get("until")
 
 
+_WRITE_LOCK = threading.Lock()  # one connector write at a time (double submit, two tabs)
+
+
+def _entry_json(entry, configured: bool) -> dict:
+    return {
+        "id": entry.id,
+        "category": entry.category,
+        "provider": entry.provider,
+        "claude_ai_connector": entry.claude_ai_connector,
+        "claude_ai_link": entry.claude_ai_link,
+        "fields": [{"env": f.env, "label": f.label, "secret": f.secret} for f in entry.fields],
+        "configured": configured,
+    }
+
+
+def _configured(name: str) -> bool:
+    """Keychain item present AND a Claude Code entry exists. Never reads a value out."""
+    from keyring.errors import KeyringError
+
+    from easy_personal.connectors import writer
+    from easy_personal.launch import LaunchError
+
+    try:
+        return writer._keychain_item(name) and writer._entry_exists(name) is not None
+    except (LaunchError, KeyringError):  # no usable, locked or broken keychain
+        return False
+
+
+def connectors_list(request):
+    from easy_personal.connectors import catalog
+
+    entries = sorted((catalog.load(i) for i in catalog.ids()),
+                     key=lambda e: (e.category, not e.claude_ai_connector, e.provider))  # fmt: skip
+    return JSONResponse({"connectors": [_entry_json(e, _configured(e.id)) for e in entries]})
+
+
+async def _json_body(request):
+    """The JSON object body of a write request, or an error response (415 / 400)."""
+    ctype = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if ctype != "application/json":
+        return None, JSONResponse({"error": "content-type must be application/json"}, 415)
+    try:
+        body = await request.json()
+    except ValueError:
+        return None, JSONResponse({"error": "body must be JSON"}, 400)
+    if not isinstance(body, dict) or not isinstance(body.get("confirm", False), bool):
+        return None, JSONResponse({"error": "body must be an object with boolean confirm"}, 400)
+    return body, None
+
+
+def _run_writer(call) -> JSONResponse:
+    """Run a writer call; `pending` is true when it stopped at the confirmation step."""
+    from easy_personal.connectors import catalog
+    from easy_personal.launch import LaunchError
+
+    lines: list[str] = []
+    asked: list[bool] = []
+
+    def confirm() -> bool:
+        asked.append(True)
+        return False
+
+    try:
+        with _WRITE_LOCK:
+            status = call(confirm, lines.append)
+    except catalog.CatalogError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except LaunchError as exc:
+        status = 1
+        lines.append(str(exc))
+    return JSONResponse({"status": status, "lines": lines, "pending": bool(asked)})
+
+
+async def connectors_add(request):
+    from easy_personal.connectors import catalog, writer
+
+    body, error = await _json_body(request)
+    if error:
+        return error
+    values = body.get("values", {})
+    if not isinstance(values, dict) or not all(isinstance(v, str) for v in values.values()):
+        return JSONResponse({"error": "values must map field names to strings"}, 400)
+    try:
+        entry = catalog.load(str(body.get("provider", "")))
+    except catalog.CatalogError:  # the message would echo the caller's input: say it generically
+        return JSONResponse({"error": "unknown provider; see GET /api/connectors"}, 400)
+    by_label = {f.label: values.get(f.env, "") for f in entry.fields}
+    yes = body.get("confirm", False)
+    return await run_in_threadpool(
+        _run_writer,
+        lambda confirm, out: writer.add(entry, lambda label, _secret: by_label[label], confirm, out, yes),
+    )
+
+
+async def connectors_remove(request):
+    from easy_personal.connectors import catalog, writer
+
+    body, error = await _json_body(request)
+    if error:
+        return error
+    if request.path_params["name"] not in catalog.ids():  # never remove entries we did not create
+        return JSONResponse({"error": "unknown connector"}, 404)
+    name, yes = request.path_params["name"], body.get("confirm", False)
+    return await run_in_threadpool(
+        _run_writer, lambda confirm, out: writer.remove(name, confirm, out, yes)
+    )
+
+
 def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
     routes = [
         Route("/api/usage/summary", _query(lambda c, q: metrics.usage_summary(c, *_period(q)))),
@@ -100,6 +210,9 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c))),
         Route("/api/kit", _query(lambda c, q: kit.kit_summary(c))),
+        Route("/api/connectors", connectors_list),
+        Route("/api/connectors", connectors_add, methods=["POST"]),
+        Route("/api/connectors/{name}", connectors_remove, methods=["DELETE"]),
     ]
     static = static or static_dir()
     if static.is_dir():

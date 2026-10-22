@@ -65,6 +65,16 @@ def test_api_routes_were_scanned(leak_run):
         assert f"api {route}" in labels, route
 
 
+def test_api_write_routes_were_scanned(leak_run, canaries):
+    labels = " | ".join(leak_run.outputs)
+    for route in harness.API_WRITE_CALLS:
+        assert f"{route} " in labels.replace("api POST ", "").replace("api DELETE ", "").replace("api GET ", ""), route
+    # the planted key really went through the write path: it reached the (fake) keychain call
+    assert "api fake claude argv" in leak_run.outputs
+    assert "add-json" in leak_run.outputs["api fake claude argv"]
+    assert "will change" in leak_run.outputs["api POST /api/connectors"]
+
+
 def test_no_canary_in_any_output_log_or_store(leak_run, canaries):
     leaks = {}
     for label, blob in leak_run.outputs.items():

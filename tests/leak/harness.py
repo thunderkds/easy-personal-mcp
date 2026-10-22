@@ -8,6 +8,7 @@ registered, so the suite cannot silently fall behind. See tests/leak/README.md.
 import asyncio
 import contextlib
 import io
+import json
 import logging
 import os
 import sqlite3
@@ -16,6 +17,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Self
+
+import pytest
 
 from easy_personal.surfaces import cli
 from easy_personal.surfaces import mcp as mcp_surface
@@ -74,6 +77,30 @@ API_CALLS: dict[str, list[str]] = {
     "/api/plan": [""],
     "/api/kit": [""],
 }
+# Dashboard write routes (HUN-52): route path -> [(method, concrete path, body)]. `{secret}` in a
+# body becomes the planted API-key canary. Run against an in-memory keyring and a fake `claude`.
+API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
+    "/api/connectors": [
+        ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": False}),
+        ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": True}),
+        ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": True}),
+        ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": "{secret}"}),
+        ("POST", "/api/connectors", {"provider": "{secret}", "values": {}, "confirm": True}),
+        ("GET", "/api/connectors", {}),
+    ],
+    "/api/connectors/{name}": [
+        ("DELETE", "/api/connectors/slack", {"confirm": False}),
+        ("DELETE", "/api/connectors/slack", {"confirm": True}),
+        ("DELETE", "/api/connectors/{secret}", {"confirm": True}),
+    ],
+}  # fmt: skip
+_FAKE_CLAUDE = """#!{python}
+import json, os, sys
+open(os.environ["FAKE_CLAUDE_LOG"], "a").write(json.dumps(sys.argv[1:]) + "\\n")
+if sys.argv[2:3] == ["get"]:
+    sys.exit(int(os.environ.get("FAKE_CLAUDE_GET_RC", "1")))
+sys.exit(0)
+"""
 # Keychain launchers and connector commands: tested with an in-memory backend in tests/connectors (never the real keychain).
 CLI_KEYCHAIN_COMMANDS = {"exec", "headers", "connector", "doctor"}
 
@@ -154,13 +181,20 @@ def api_routes(app) -> set[str]:
 
 
 def unregistered_api_routes(app) -> set[str]:
-    return api_routes(app) - set(API_CALLS)
+    return api_routes(app) - set(API_CALLS) - set(API_WRITE_CALLS)
 
 
-def collect_api(out: Collected, logs: "LogCapture") -> None:
-    """Call every dashboard API route in-process with a valid token; keep status, headers, body."""
+def collect_api(out: Collected, logs: "LogCapture", secret: str = "", workdir: Path | None = None) -> None:
+    """Call every dashboard API route in-process with a valid token; keep status, headers, body.
+
+    Write routes run against an in-memory keyring and a fake `claude` (never the real ones);
+    the claude argv log is collected too. They run only when `secret` and `workdir` are given.
+    """
+    import keyring
     from starlette.testclient import TestClient
 
+    from connectors.fake_backend import MemoryKeyring
+    from easy_personal.connectors import writer
     from easy_personal.surfaces import api
 
     token, port = "leak-test-token", 4321
@@ -170,6 +204,29 @@ def collect_api(out: Collected, logs: "LogCapture") -> None:
         for query in queries:
             res = client.get(path + query, headers=headers)
             out.add(f"api {path}{query}", f"{res.status_code} {dict(res.headers)} {res.text}")
+    if secret and workdir is not None:
+        bindir = workdir / "fake-bin"
+        bindir.mkdir(parents=True, exist_ok=True)
+        exe = bindir / "claude"
+        exe.write_text(_FAKE_CLAUDE.format(python=sys.executable))
+        exe.chmod(0o755)
+        log = workdir / "claude-argv.log"
+        mp = pytest.MonkeyPatch()
+        mp.setenv("PATH", str(bindir))
+        mp.setenv("FAKE_CLAUDE_LOG", str(log))
+        mp.setattr(writer, "launcher_path", lambda: "/opt/fake/easy-personal-launch")
+        old = keyring.get_keyring()
+        keyring.set_keyring(MemoryKeyring())
+        try:
+            for route, calls in API_WRITE_CALLS.items():
+                for method, path, body in calls:
+                    text = json.dumps(body).replace("{secret}", secret)
+                    res = client.request(method, path.replace("{secret}", "x"), headers={**headers, "content-type": "application/json"}, content=text)
+                    out.add(f"api {method} {route}", f"{res.status_code} {dict(res.headers)} {res.text}")
+        finally:
+            keyring.set_keyring(old)
+            mp.undo()
+        out.add("api fake claude argv", log.read_text() if log.exists() else "")
     out.add("log records (api)", logs.text())
 
 

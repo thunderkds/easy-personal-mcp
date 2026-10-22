@@ -10,3 +10,15 @@ export async function getJson(path) {
   if (!response.ok) throw new Error(`${path} failed with status ${response.status}`)
   return response.json()
 }
+
+/** Guarded JSON write (POST/DELETE). A non-2xx answer throws with the server's `error` text. */
+export async function sendJson(method, path, body) {
+  const response = await fetch(path, {
+    method,
+    headers: { 'X-Dashboard-Token': readToken(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.error || `${path} failed with status ${response.status}`)
+  return data
+}

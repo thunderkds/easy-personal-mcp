@@ -189,6 +189,32 @@ export const kit = {
   ui: { status: 'ok', sessions: 6, passed: 4, failed: 1, other: 1, actions: 33, first_utc: '2026-10-01T00:00:00Z', last_utc: '2026-10-21T00:00:00Z' },
 }
 
+export const connectors = {
+  connectors: [
+    {
+      id: 'slack',
+      category: 'Messaging',
+      provider: 'Slack',
+      claude_ai_connector: true,
+      claude_ai_link: 'https://claude.ai/settings/connectors',
+      configured: false,
+      fields: [{ env: 'SLACK_MCP_XOXB_TOKEN', label: 'Bot token (xoxb-...)', secret: true }],
+    },
+    {
+      id: 'discord',
+      category: 'Messaging',
+      provider: 'Discord',
+      claude_ai_connector: false,
+      claude_ai_link: null,
+      configured: true,
+      fields: [
+        { env: 'DISCORD_BOT_NAME', label: 'Bot name', secret: false },
+        { env: 'DISCORD_TOKEN', label: 'Bot token', secret: true },
+      ],
+    },
+  ],
+}
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -203,6 +229,7 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/warnings') body = overrides.warnings ?? warnings
     else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
+    else if (path === '/api/connectors' && !init.method) body = overrides.connectors ?? connectors
     if (overrides.status) return { ok: false, status: overrides.status, json: async () => ({ error: 'forbidden' }) }
     if (body === undefined) return { ok: false, status: 404, json: async () => ({}) }
     return { ok: true, status: 200, json: async () => body }
