@@ -9,8 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-40** — \`git_local\` source + \`kit_summary\` git part | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-40.md`
-- [ ] **HUN-41** — \`context\` read-only MCP client of easy-context + index freshness + \`context_index_stale\` | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-41.md`
 - [ ] **HUN-42** — \`verifier\` source reads easy-verifier score JSON + \`kit_summary\` part | Backend-Implementer | C1 | Risk: Medium | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-42.md`
 - [ ] **HUN-43** — \`ui\` source: easy-ui UI checks overall (never \`target\`) + \`kit_summary\` part | Backend-Implementer | C1 | Risk: Medium | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-43.md`
 - [ ] **HUN-45** — Connector tracer: Slack catalog entry + \`connector add/remove\` CLI → keychain → \`claude mcp add-json\` (snippet fallback) + \`doctor\` | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-45.md`
@@ -20,6 +18,8 @@
 - [ ] **HUN-52** — Dashboard connector forms + guarded write API (secrets never echoed) | Frontend-Implementer | C2 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-52.md`
 
 ### In Progress
+- [ ] **HUN-40** — \`git_local\` source + \`kit_summary\` git part | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-40.md`
+- [ ] **HUN-41** — \`context\` read-only MCP client of easy-context + index freshness + \`context_index_stale\` | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-41.md`
 
 ### Ready for Review
 
