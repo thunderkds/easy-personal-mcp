@@ -150,6 +150,8 @@ The first plan's HUN-21…HUN-29 are archived with the trashed project and do no
 | HUN-51 | Dashboard warnings, improvement plan and kit panel | Todo | Frontend-Implementer | C2 | Low | P2 |
 | HUN-52 | Dashboard connector forms + guarded write API (secrets never echoed) | Todo | Frontend-Implementer | C2 | High | P2 |
 | HUN-53 | Session timeline read: `metrics.session_timeline` + `GET /api/usage/sessions` (added 2026-10-22, blocks HUN-50 AC2) | Todo | Backend-Implementer | C1 | Medium | P1 |
+| HUN-56 | README: install, usage and deploy guide for v0.1.0 | Todo | Backend-Implementer | C1 | Low | P1 |
+| HUN-57 | Landing page `site/` (idea, flow, install & deploy guide); scope `PROJECT_SPEC_SITE.md` | Todo | Frontend-Implementer | C2 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
