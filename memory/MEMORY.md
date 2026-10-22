@@ -50,7 +50,7 @@
 - [Scheduled ingest lock + systemd](learnings.md#2026-10-21--scheduled-ingest-lock-exit-75-systemd-only-via---dry-run-in-tests) — flock, exit 75; tests stub systemctl, leak suite dry-run only; timer has no shell env → settings go in `config.yaml`.
 - [No `rm` in `bash -c`](learnings.md#2026-10-21--rm-inside-bash--c-is-blocked-by-the-harness-safety-check) — use a fresh temp dir per verify case.
 - [Verify dashboard/kit_trace/launcher](learnings.md#2026-10-22--verify-recipes-for-the-dashboard-kit_trace-and-the-launcher) — `X-Dashboard-Token`; rewrite fixture `cwd`; throwaway `PYTHON_KEYRING_BACKEND`, never the real keychain.
-- [UI evidence via headless Chrome](learnings.md#2026-10-22--ui-evidence-without-easy-ui-headless-chrome-on-a-combined-checkout) — no easy-ui MCP here; screenshots + net log at 375/768/1280; throwaway cherry-pick checkout for cross-branch UI.
+- [UI evidence via headless Chrome](learnings.md#2026-10-22--ui-evidence-without-easy-ui-headless-chrome-on-a-combined-checkout) — no easy-ui MCP here; screenshots + net log at 375/768/1280; throwaway cherry-pick checkout for cross-branch UI; CDP via Node `WebSocket` for tab clicks.
 - [Grid tracks `minmax(0, 1fr)`](learnings.md#2026-10-22--css-grid-tracks-need-minmax0-1fr-for-scrolling-tables) — nowrap tables overflow `.panels` otherwise; jsdom can't see it.
 - [Owner check: 30-min timeline gap](learnings.md#2026-10-22--open-owner-check-from-hun-53-timeline-gap-threshold) — `TIMELINE_GAP_MINUTES` is the Supervisor's choice; sessions API dashboard-only.
 - [PROJECT_SPEC Status column stale](learnings.md#2026-10-22--project_specmd-tasks-status-column-is-not-maintained) — all `Todo`; board is the truth; don't patch single rows.
@@ -58,3 +58,4 @@
 - [easy-context spike facts](learnings.md#2026-10-22--easy-context-facts-from-the-hun-41-spike) — root header always needed; 300 s auto-refresh makes stale rare; exact-root matching; tests use a dead port.
 - [Always run easy-verifier score](learnings.md#2026-10-22--run-the-easy-verifier-score-on-every-task-even-when-it-repeats) — advisory but listed; never skip to save time.
 - [kit_summary shape](learnings.md#2026-10-22--kit_summary-shape-after-hun-39404143) — parts kernel/git/context per project + top-level `ui`; verifier missing (XR-1).
+- [Partial role-guide reads recur](learnings.md#2026-10-22--implementers-keep-reading-their-role-guide-partially) — HUN-49/41/51; conformance check each time; consider pasting key rules.
