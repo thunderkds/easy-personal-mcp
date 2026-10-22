@@ -53,7 +53,7 @@ Verifier task/job scores over time per project, read only from the score JSON ea
 
 ## Dependencies & Reachability
 
-**Depends on**: HUN-39 — `kit_trace` source (never `summary`) + `tool_errors_high` rule + `kit_summary` (kernel part). External (not a task here): XR-1 (easy-verifier-mcp board): score JSON next to each HTML report — external blocker, tracked in `PROJECT_SPEC.md` § Tasks (Cross-repo XR-1); the Supervisor pastes the agreed JSON shape here before spawn
+**Depends on**: HUN-39 — `kit_trace` source (never `summary`) + `tool_errors_high` rule + `kit_summary` (kernel part). External XR-1 = easy-verifier-mcp T120 — Done 2026-10-21; shape pasted under `## Approach`
 
 **Entry point**: `kit_summary` verifier entry
 
@@ -103,7 +103,28 @@ uv run pytest tests/sources/test_verifier.py -q
 **Vital slice**: JSON read + kit part
 **Cut list**: No per-dimension breakdown unless the JSON makes it free
 
-Blocked until XR-1 defines the JSON shape; the Supervisor pastes the agreed shape into this guide before spawn.
+XR-1 is done: easy-verifier-mcp T120 (Done 2026-10-21). Agreed shape, `schema_version` 1 (from `easy-verifier-mcp/src/easy_verifier/core/report.py` `_score_summary`; real file `../easy-verifier-mcp/reports/evidence-report-project-20261021T124041-825600Z.json`):
+
+```json
+{
+  "schema_version": 1,
+  "scope": "project",
+  "generated_at": "2026-10-21T12:40:41Z",
+  "overall": {"value": 48, "abstained": false, "reason_code": null},
+  "dimensions": [
+    {"dimension": "api", "rating": 0, "abstained": false, "reason_code": null},
+    {"dimension": "architecture", "rating": 100, "abstained": false, "reason_code": null}
+  ]
+}
+```
+
+- File name `evidence-report-<scope>-<UTC>.json`, beside the HTML of the same base name. `overall.value` is `null` (never 0) when abstained; `dimensions` may be empty.
+- Locations per project (folder name = repo directory name): `<project>/reports/` and `~/.easy-verifier-reports/<project folder name>/` (the shared container dir, `EASY_VERIFIER_REPORTS_DIR`). Match the folder name exactly: dirs like `<project>-HUN-42` are task-worktree reviews, not the project — ignore them.
+- Per project keep the newest file by `generated_at` (tie: file name). Store project, scope, generated_at, overall value/abstained/reason_code; dimensions only if cheap (cut list allows skipping).
+- Reject anything else: unknown `schema_version`, missing keys, wrong types, non-JSON, files over a small size cap → skip that file (count it as skipped), never crash ingest. Read with no symlink following outside the dir. Never read or parse the HTML.
+- `kit_summary` part `verifier`: `{"status":"no data"}` when no file, else `{scope, generated_at, overall: {value, abstained, reason_code}}` (+ `dimensions` if stored).
+- Existing HTML-only reports (before T120) have no JSON: they give "no data" — no back-fill.
+- Note: the running easy-verifier container predates T120, so real JSON files appear only after it is updated; tests use fixtures in exactly this shape.
 
 ---
 
