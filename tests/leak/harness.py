@@ -68,6 +68,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/warnings": [""],
     "/api/plan": [""],
 }
+# Keychain launchers: tested with an in-memory backend in tests/connectors (never the real keychain).
+CLI_KEYCHAIN_COMMANDS = {"exec", "headers"}
 
 
 @dataclass
@@ -94,7 +96,7 @@ def unregistered_tools(app) -> set[str]:
 
 
 def unregistered_commands() -> set[str]:
-    return cli_commands() - set(CLI_CALLS) - CLI_SERVER_COMMANDS
+    return cli_commands() - set(CLI_CALLS) - CLI_SERVER_COMMANDS - CLI_KEYCHAIN_COMMANDS
 
 
 def child_env(home: Path, projects: Path) -> dict[str, str]:

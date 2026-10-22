@@ -10,6 +10,7 @@ dependencies = [
 
 [project.scripts]
 easy-personal = "easy_personal.surfaces.cli:main"
+easy-personal-launch = "easy_personal.launch:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.5", "anyio>=4"]
