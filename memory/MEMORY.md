@@ -61,8 +61,9 @@
 - [easy-context spike facts](learnings.md#2026-10-22--easy-context-facts-from-the-hun-41-spike) — root header always needed; 300 s auto-refresh makes stale rare; exact-root matching; tests use a dead port.
 - [Always run easy-verifier score](learnings.md#2026-10-22--run-the-easy-verifier-score-on-every-task-even-when-it-repeats) — advisory but listed; never skip to save time.
 - [kit_summary shape](learnings.md#2026-10-22--kit_summary-shape-after-hun-39404143) — parts kernel/git/context/verifier per project + top-level `ui`.
-- [Partial role-guide reads recur](learnings.md#2026-10-22--implementers-keep-reading-their-role-guide-partially) — HUN-49/41/51; conformance check each time; consider pasting key rules.
+- [Partial role-guide reads recur](learnings.md#2026-10-22--implementers-keep-reading-their-role-guide-partially) — HUN-49/41/51/42/56; conformance check; next: Read tool without limit or paste key rules.
 - [Connector verify recipe](learnings.md#2026-10-22--connector-verify-fresh-install-fake-claude-fake-keychain) — `--reinstall --no-cache`; fake `claude` + throwaway keyring; never the owner's config.
 - [Scope fake `claude mcp get` to one name](learnings.md#2026-10-22--fake-claude-mcp-get-must-be-scoped-to-one-connector-name) — `FAKE_CLAUDE_GET_ONLY`; open owner check: generic claude.ai link, Gmail/Teams login unverified.
 - [Connector surfaces gotchas](learnings.md#2026-10-22--connector-surfaces-claudeai-servers-private-writer-helpers-ui-verify-with-fakes) — `claude_ai_*` MCP servers = already available; duplicated `_configured` (P2); rebuild web before pytest after merge; UI verify with fake claude + keyring.
 - [Check sibling boards before 'blocked'](learnings.md#2026-10-22--check-the-sibling-repos-board-before-calling-a-task-externally-blocked) — T120 was Done unseen; Done ≠ live until the verifier container is rebuilt.
+- [README drift test](learnings.md#2026-10-22--readme-is-drift-tested-against-the-parser-the-mcp-server-and-runbook) — new subcommand/flag/MCP tool must update README; site quotes README verbatim.
