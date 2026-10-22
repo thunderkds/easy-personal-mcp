@@ -10,11 +10,11 @@
 
 ### Todo
 - [ ] **HUN-42** — \`verifier\` source reads easy-verifier score JSON + \`kit_summary\` part | Backend-Implementer | C1 | Risk: Medium | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-42.md`
-- [ ] **HUN-46** — Catalog breadth: Gmail, SendGrid, Teams, Discord + claude.ai-connector flag | Backend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-46.md`
 - [ ] **HUN-47** — MCP \`connector_catalog\` / \`connector_status\` / \`connector_suggestions\` (metadata counters) | Backend-Implementer | C2 | Risk: Medium | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-47.md`
 - [ ] **HUN-52** — Dashboard connector forms + guarded write API (secrets never echoed) | Frontend-Implementer | C2 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-52.md`
 
 ### In Progress
+- [ ] **HUN-46** — Catalog breadth: Gmail, SendGrid, Teams, Discord + claude.ai-connector flag | Backend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-46.md`
 
 ### Ready for Review
 

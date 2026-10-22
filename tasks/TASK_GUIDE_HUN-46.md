@@ -114,7 +114,7 @@ Servers are fixed by the owner (approved 2026-10-22, see `memory/decisions.md`);
 
 Schema change (AC2): add a single key `claude_ai_link:` to `connectors/catalog.py` and `Entry`. Required (https URL) when `claude_ai_connector: yes`, refused when `no`. Value for every `yes` entry, including the existing `slack.yaml`: `https://claude.ai/settings/connectors` (owner check: a per-connector deep link may be preferred later).
 
-`easy-personal connector list` does not exist yet: add it to `surfaces/cli.py` (prints entries grouped by category; within a category, entries with a claude.ai connector first, then by provider; shows the link). Print only id, provider, category, connector flag + link and field labels — never values. Cover it in the leak suite: `tests/leak/harness.py` lists `connector` under `CLI_KEYCHAIN_COMMANDS` (excluded); `connector list` reads no keychain, so add a `CLI_CALLS` case for it (or a flag variant) so its output is scanned.
+`easy-personal connector list` does not exist yet: add it to `surfaces/cli.py` (prints entries grouped by category; within a category, entries with a [claude.ai](<http://claude.ai>) connector first, then by provider; shows the link). Print only id, provider, category, connector flag + link and field labels — never values. Cover it in the leak suite: `tests/leak/harness.py` lists `connector` under `CLI_KEYCHAIN_COMMANDS` (excluded); `connector list` reads no keychain, so add a `CLI_CALLS` case for it (or a flag variant) so its output is scanned.
 
 ---
 
