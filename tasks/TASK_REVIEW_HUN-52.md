@@ -34,8 +34,14 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-22 07:49:13 UTC, before any implementation commit; running `easy-personal dashboard` with a temp `EASY_PERSONAL_HOME`, HEAD of branch HUN-52 = main 63757e7):
+
+```
+Thu Oct 22 07:49:13 AM UTC 2026
+GET /api/connectors:            -> HTTP 404
+POST /api/connectors (json {}): -> HTTP 404 "Not Found"
+tabs in web/src/App.jsx:  Usage, Warnings & plan, Kit   (no Connectors tab)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
