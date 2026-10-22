@@ -165,7 +165,41 @@ def test_delete_previews_then_removes(client, mem_keyring, fake_claude, launcher
     assert mem_keyring.items == {} and fake_claude.writes() == [["mcp", "remove", "slack", "--scope", "user"]]
 
 
-def test_delete_invalid_name_is_refused(client, mem_keyring, fake_claude):
+def test_delete_invalid_name_is_not_found(client, mem_keyring, fake_claude):
     res = client.request("DELETE", "/api/connectors/Bad Name", content='{"confirm": true}', headers={**AUTH, **JSON})
-    assert res.status_code == 200 and res.json()["status"] == 1
+    assert res.status_code == 404
     assert fake_claude.writes() == []
+
+
+def test_delete_of_non_catalog_name_is_404_and_runs_no_claude(client, mem_keyring, fake_claude):
+    res = client.request("DELETE", "/api/connectors/github", content='{"confirm": true}', headers={**AUTH, **JSON})
+    assert res.status_code == 404
+    assert "github" not in res.text
+    assert fake_claude.calls() == []
+
+
+def test_get_survives_a_broken_keychain(client, fake_claude):
+    import keyring
+    from keyring.backend import KeyringBackend
+    from keyring.errors import KeyringError
+
+    class Locked(KeyringBackend):
+        priority = 1
+
+        def get_password(self, service, username):
+            raise KeyringError("locked")
+
+        def set_password(self, service, username, password):
+            raise KeyringError("locked")
+
+        def delete_password(self, service, username):
+            raise KeyringError("locked")
+
+    old = keyring.get_keyring()
+    keyring.set_keyring(Locked())
+    try:
+        res = client.get("/api/connectors", headers=AUTH)
+    finally:
+        keyring.set_keyring(old)
+    assert res.status_code == 200
+    assert not any(i["configured"] for i in res.json()["connectors"])

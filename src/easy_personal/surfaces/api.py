@@ -108,11 +108,13 @@ def _entry_json(entry, configured: bool) -> dict:
 def _configured(name: str) -> bool:
     """Keychain item present AND a Claude Code entry exists. Never reads a value out."""
     from easy_personal.connectors import writer
+    from keyring.errors import KeyringError
+
     from easy_personal.launch import LaunchError
 
     try:
         return writer._keychain_item(name) and writer._entry_exists(name) is not None
-    except LaunchError:  # no usable keychain
+    except (LaunchError, KeyringError):  # no usable, locked or broken keychain
         return False
 
 
@@ -183,11 +185,13 @@ async def connectors_add(request):
 
 
 async def connectors_remove(request):
-    from easy_personal.connectors import writer
+    from easy_personal.connectors import catalog, writer
 
     body, error = await _json_body(request)
     if error:
         return error
+    if request.path_params["name"] not in catalog.ids():  # never remove entries we did not create
+        return JSONResponse({"error": "unknown connector"}, 404)
     name, yes = request.path_params["name"], body.get("confirm", False)
     return await run_in_threadpool(
         _run_writer, lambda confirm, out: writer.remove(name, confirm, out, yes)
