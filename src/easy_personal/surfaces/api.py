@@ -107,9 +107,9 @@ def _entry_json(entry, configured: bool) -> dict:
 
 def _configured(name: str) -> bool:
     """Keychain item present AND a Claude Code entry exists. Never reads a value out."""
-    from easy_personal.connectors import writer
     from keyring.errors import KeyringError
 
+    from easy_personal.connectors import writer
     from easy_personal.launch import LaunchError
 
     try:
