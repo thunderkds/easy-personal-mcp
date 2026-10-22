@@ -42,6 +42,9 @@ PATTERNS = {
     "malformed": "LEAKCANARY malformed {t}",
     "binary": "LEAKCANARY binary {t}",
     "trace_summary": "LEAKCANARY trace-summary {t}",
+    "ui_target": "LEAKCANARY ui-target {t}",
+    "ui_issue": "LEAKCANARY ui-issue {t}",
+    "ui_action": "LEAKCANARY ui-action {t}",
 }
 
 
@@ -106,6 +109,19 @@ class Canaries:
         for name in ("T001", "_untagged"):
             (trace / f"{name}.jsonl").write_text(json.dumps(line) + "\n")
         return repo
+
+    def render_ui_reports(self, folder: Path) -> Path:
+        """Write easy-ui session files whose `target`, `issues` and action labels hold canaries."""
+        folder.mkdir(parents=True)
+        for n, (sid, status) in enumerate((("ui-1", "passed"), ("ui-2", "failed"))):
+            session = {
+                "id": sid, "status": status, "target": self.values["ui_target"],
+                "startedAt": f"2026-02-0{n + 1}T09:00:00.000Z", "endedAt": f"2026-02-0{n + 1}T09:05:00.000Z",
+                "issues": [{"severity": "high", "note": self.values["ui_issue"]}],
+                "actions": [{"type": "click", "label": self.values["ui_action"]}] * (n + 2),
+            }  # fmt: skip
+            (folder / f"session-{sid}.json").write_text(json.dumps(session))
+        return folder
 
     def find(self, blob) -> list[tuple[str, str]]:
         """Return (canary name, form) for every canary found in `blob` (str, bytes or object)."""

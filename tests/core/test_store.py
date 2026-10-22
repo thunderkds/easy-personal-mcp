@@ -44,6 +44,7 @@ def test_events_schema_is_explicit_metadata_only(conn):
         "events",
         "kit_trace_events",
         "context_index",
+        "ui_sessions",
     }
 
 

@@ -8,7 +8,8 @@ def test_fixture_plants_every_canary(canaries, tmp_path):
 
     canaries.render_fixture(tmp_path / "p")
     canaries.render_kit_trace(tmp_path / "p" / "repo")
-    raw = b"".join(p.read_bytes() for p in (tmp_path / "p").rglob("*.jsonl"))
+    canaries.render_ui_reports(tmp_path / "p" / "ui")
+    raw = b"".join(p.read_bytes() for p in (tmp_path / "p").rglob("*.json*"))
     for name, value in canaries.values.items():
         escaped = json.dumps(value)[1:-1].encode()  # how a JSON line holds it
         assert escaped in raw or value.encode() in raw, name
@@ -34,6 +35,14 @@ def test_kit_trace_ingest_actually_ran(leak_run):
     dump = leak_run.outputs["store .dump"]
     assert 'INSERT INTO "kit_trace_events"' in dump
     assert "'T001'" in dump
+
+
+def test_ui_ingest_actually_ran(leak_run):
+    # the canaries sit in `target`, `issues` and an action label of sessions that were ingested
+    dump = leak_run.outputs["store .dump"]
+    assert "INSERT INTO \"ui_sessions\" VALUES('ui-1','passed'" in dump
+    assert "'ui-2'" in dump
+    assert b'"sessions": 2' in leak_run.outputs["cli kit"]["stdout"]  # kit_summary shows them
 
 
 def test_every_mcp_tool_is_registered():
