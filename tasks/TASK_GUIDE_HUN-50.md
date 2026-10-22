@@ -26,7 +26,7 @@ The owner reviews the week at a glance: usage charts and the session timeline (p
 
 **Restated intent** (Supervisor's interpretation, in the project's domain language):
 
-> The Usage view shows totals, breakdowns by day/model/project, outlier sessions and the session timeline, tokens first and cost labelled API-equivalent.
+> The Usage view shows totals, breakdowns by day/model/project/tool, outlier sessions and the session timeline, tokens first and cost labelled API-equivalent.
 
 **Out of scope** (what this task explicitly does NOT do):
 
@@ -38,6 +38,7 @@ The owner reviews the week at a glance: usage charts and the session timeline (p
 * FR-023
 * FR-004
 * FR-005
+* NFR-001
 
 ### Requirement Fidelity Gate (sign off BEFORE implementation)
 
@@ -68,6 +69,7 @@ The owner reviews the week at a glance: usage charts and the session timeline (p
 | 3 | Cost always labelled "API-equivalent cost"; abstained cost shown as such | FR-005 |
 | 4 | Notice: cloud sessions and other machines are not included | FR-023 |
 | 5 | No request leaves 127.0.0.1 (easy-ui network log) | NFR-001 |
+| 6 | Breakdowns by day, model, project and tool show tokens first; project rows show the folder name only; days are OS local days | FR-004 |
 
 ---
 
