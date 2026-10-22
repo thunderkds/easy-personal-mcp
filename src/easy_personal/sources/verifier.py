@@ -104,6 +104,13 @@ def ingest(conn: sqlite3.Connection, container: Path | None = None) -> dict:
     The newest file (by the UTC time in its name) decides: a readable report of an unknown schema
     version makes the project "abstained" rather than showing an older score as current.
     """
+    try:
+        return _ingest(conn, container)
+    except Exception as exc:  # noqa: BLE001 - FR-011: never fail the run; type name is not content
+        return {"status": "failed", "reason": type(exc).__name__}
+
+
+def _ingest(conn: sqlite3.Connection, container: Path | None) -> dict:
     container = container if container is not None else config.verifier_reports_dir()
     projects = _projects(conn)
     names = [Path(p).name for p in projects]

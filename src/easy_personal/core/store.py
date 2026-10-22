@@ -118,10 +118,19 @@ EVENT_COLUMNS = (
 )
 
 
+def _rebuild_old_verifier_scores(conn: sqlite3.Connection) -> None:
+    """Drop the pre-HUN-42 verifier_scores (no `status` column); the next ingest refills this cache."""
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(verifier_scores)")]
+    if columns and "status" not in columns:
+        with conn:
+            conn.execute("DROP TABLE verifier_scores")
+
+
 def connect(path: Path) -> sqlite3.Connection:
     """Open (and create if needed) the store in WAL mode and ensure this store's machine_id."""
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
+    _rebuild_old_verifier_scores(conn)
     conn.executescript(SCHEMA)
     with conn:
         conn.execute(
