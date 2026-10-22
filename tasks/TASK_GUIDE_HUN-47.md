@@ -103,6 +103,13 @@ uv run pytest tests/connectors/test_mcp_tools.py tests/leak -q
 
 Extend the claude_code source to count Bash first word and WebFetch/MCP domains at ingest (metadata only); map domains/commands to catalog providers.
 
+Supervisor design (2026-10-22, after HUN-45/46 merged):
+- Mapping lives as a constant dict in `connectors/suggestions.py` (no catalog schema change): domains `slack.com`→slack, `discord.com`/`discord.gg`→discord, `sendgrid.com`/`api.sendgrid.com`→sendgrid, `mail.google.com`/`gmail.googleapis.com`→gmail, `teams.microsoft.com`/`graph.microsoft.com`→teams (match the registrable domain and its subdomains); MCP tool names `mcp__<server>__*` whose server contains a catalog id; Bash first words have no provider mapping yet (count them, suggest nothing). Suggest only providers not already configured.
+- Counters: new additive table(s) via `CREATE TABLE IF NOT EXISTS` in `store.SCHEMA`; run `migration-safety` reasoning in your report (additive, no existing table altered). Store the domain only (never full URL/path/query) and the Bash first word only.
+- Existing ingested sessions will not have counters until re-ingest: say so in `connector_suggestions` output (e.g. counts cover sessions ingested after this version) or backfill on next ingest — pick the simpler, state it.
+- `connector_status`: configured yes/no per catalog id only (keychain item present AND `claude mcp get <id>` ok; reuse writer helpers). `connector_catalog`: same fields as `easy-personal connector list` (ids, provider, category, connector flag + link, field labels/secret flags) — never values.
+- Register the 3 tools in `tests/leak/harness.py` `MCP_CALLS`; `connector_status` against the fake keychain + fake `claude` (`tests/connectors/conftest.py`, `FAKE_CLAUDE_GET_ONLY`).
+
 ---
 
 ## Edge Case Checklist
