@@ -53,9 +53,11 @@ Warnings with labels and measured values, the improvement plan, and per-project 
 
 ## Dependencies & Reachability
 
-**Depends on**: HUN-50 — Dashboard usage view; HUN-37 — Rules engine + 5 usage rules + `warnings` + `improvement_plan`; HUN-39 — `kit_trace` source (never `summary`) + `tool_errors_high` rule + `kit_summary` (kernel part)
+**Depends on**: HUN-50 — Dashboard usage view; HUN-37 — Rules engine + 5 usage rules + `warnings` + `improvement_plan`; HUN-39 — `kit_trace` source (never `summary`) + `tool_errors_high` rule + `kit_summary` (kernel part); HUN-40 — git part; HUN-41 — context part + `context_index_stale`; HUN-43 — top-level `ui` entry (all merged 2026-10-22). HUN-42 (verifier part) is NOT built (blocked by XR-1): the panel shows verifier as "no data" when the key is absent.
 
-**Entry point**: Dashboard routes `/warnings` and `/kit`
+**kit_summary shape (fixed, from** `core/kit.py`**)**: `{"projects": [{"project", "missing_on_disk", "parts": {"kernel", "git", "context"}}], "ui": {...}}`. Each part is `{"status": "no data"}` or `{"status": "ok", ...}` (`kernel`: tool_calls, tool_errors, error_rate, kit_tasks, first_utc, last_utc, abstained; `git`: commits, commits_by_day; `context`: last_index_at, latest_commit_utc, stale (true/false/null)); `git` may also be `{"status": "abstained"}`. `ui` (overall): sessions, passed, failed, other, actions, first_utc, last_utc. Render parts generically by key so a later `verifier` key shows up without UI changes.
+
+**Entry point**: `GET /api/kit`; in-page tabs "Warnings & plan" and "Kit" next to "Usage" (no server page paths: `StaticFiles(html=True)` has no SPA fallback, and the URL fragment holds the token, so no hash routing)
 
 ---
 
