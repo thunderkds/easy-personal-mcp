@@ -9,9 +9,9 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-57** — Landing page: the idea, the flow, the install and deploy guide of easy-personal-mcp | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-57.md`
 
 ### In Progress
+- [ ] **HUN-57** — Landing page: the idea, the flow, the install and deploy guide of easy-personal-mcp | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-57.md`
 
 ### Ready for Review
 
