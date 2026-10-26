@@ -73,8 +73,19 @@ def _row(row: tuple) -> dict:
 _COLUMNS = "id, provider, folder, label, status, config_dir_env"
 
 
+def _with_picks(conn: sqlite3.Connection, row: dict) -> dict:
+    row["workspaces"] = [
+        r[0] for r in conn.execute(
+            "SELECT w.name FROM account_workspaces p JOIN workspaces w ON w.id = p.workspace_id "
+            "WHERE p.account_id = ? ORDER BY w.name", (row["id"],),
+        )
+    ]  # fmt: skip
+    return row
+
+
 def list_accounts(conn: sqlite3.Connection) -> list[dict]:
-    return [_row(r) for r in conn.execute(f"SELECT {_COLUMNS} FROM agent_accounts ORDER BY id")]
+    rows = conn.execute(f"SELECT {_COLUMNS} FROM agent_accounts ORDER BY id").fetchall()
+    return [_with_picks(conn, _row(r)) for r in rows]
 
 
 def group_by_provider(rows: list[dict]) -> dict[str, list[dict]]:
@@ -109,7 +120,8 @@ def _find(conn: sqlite3.Connection, ref: str) -> int:
 
 
 def _get(conn: sqlite3.Connection, id_: int) -> dict:
-    return _row(conn.execute(f"SELECT {_COLUMNS} FROM agent_accounts WHERE id = ?", (id_,)).fetchone())
+    row = conn.execute(f"SELECT {_COLUMNS} FROM agent_accounts WHERE id = ?", (id_,)).fetchone()
+    return _with_picks(conn, _row(row))
 
 
 def confirm(conn: sqlite3.Connection, ref: str, label: str) -> dict:
@@ -168,3 +180,31 @@ def resolve(conn: sqlite3.Connection, ref: str) -> tuple[str, list]:
     if found[0] == default_id(conn):
         return "(agent_account_id = ? OR agent_account_id IS NULL)", [found[0]]
     return "agent_account_id = ?", [found[0]]
+
+
+def use(conn: sqlite3.Connection, ref: str, names: list[str]) -> dict:
+    """Set the workspaces a confirmed Claude account picks (replaces the list; empty clears it).
+
+    Changes only the store: `connector sync` applies the result to the account's Claude config.
+    Migration 6 triggers refuse the same cases (orphan, Codex, unconfirmed).
+    """
+    id_ = _find(conn, ref)
+    provider, status = conn.execute(
+        "SELECT provider, status FROM agent_accounts WHERE id = ?", (id_,)
+    ).fetchone()
+    if (provider, status) != ("claude", "confirmed"):
+        raise AccountError("only confirmed Claude accounts pick workspaces")
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        raise AccountError("workspaces must be a list of workspace names")
+    ids = set()
+    for name in names:
+        row = conn.execute("SELECT id, is_orphan FROM workspaces WHERE name = ?", (name,)).fetchone()
+        if row is None:
+            raise AccountError("unknown workspace")
+        if row[1]:
+            raise AccountError("the orphan workspace cannot be picked")
+        ids.add(row[0])
+    with conn:
+        conn.execute("DELETE FROM account_workspaces WHERE account_id = ?", (id_,))
+        conn.executemany("INSERT INTO account_workspaces VALUES (?, ?)", ((id_, w) for w in sorted(ids)))
+    return _get(conn, id_)

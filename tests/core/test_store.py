@@ -51,6 +51,9 @@ def test_events_schema_is_explicit_metadata_only(conn):
         "agent_accounts",
         "workspaces",
         "workspace_repos",
+        "connectors",
+        "account_workspaces",
+        "account_registrations",
     }
 
 

@@ -9,6 +9,6 @@ _spec = importlib.util.spec_from_file_location("connector_fixtures", _DIR / "con
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 
-fake_claude, launcher, mem_keyring, no_claude, no_keyring = (
-    _mod.fake_claude, _mod.launcher, _mod.mem_keyring, _mod.no_claude, _mod.no_keyring,
+fake_claude, launcher, mem_keyring, no_claude, no_keyring, claude_state = (
+    _mod.fake_claude, _mod.launcher, _mod.mem_keyring, _mod.no_claude, _mod.no_keyring, _mod.claude_state,
 )  # fmt: skip

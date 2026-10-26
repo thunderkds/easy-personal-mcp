@@ -129,11 +129,13 @@ The timer has no shell environment. Put settings in `~/.easy-personal/config.yam
 
 A connector starts a provider's MCP server for Claude Code and keeps its secrets in the OS keychain. Claude Code runs `easy-personal-launch exec <id>`. The launcher reads the keychain and passes the secrets to the server as environment variables. No secret is in `~/.claude.json` or in a command line.
 
-You never run the launcher by hand. This is the command that Claude Code starts for a connector named `slack`:
+You never run the launcher by hand. This is the command that Claude Code starts for a connector with the id `slack`:
 
 ```bash
 easy-personal-launch exec slack
 ```
+
+Each connector belongs to one workspace and has two names. Its **id** (for example `c1a2b3c4d`) is fixed: it names the keychain item and the launcher argument. Its **alias** is the name in Claude Code. The default alias is `<workspace>-<provider>`, for example `company-slack`. A workspace holds at most one connector per provider.
 
 The catalog has five providers:
 
@@ -142,17 +144,21 @@ The catalog has five providers:
 
 ```bash
 easy-personal connector list
-easy-personal connector add slack
-easy-personal connector remove slack
+easy-personal connector add slack --workspace company
+easy-personal connector add gmail --workspace company --alias work-mail
+easy-personal connector sync
+easy-personal connector sync --account 2 --yes
+easy-personal connector remove c1a2b3c4d
 easy-personal doctor
 ```
 
-- `connector list` shows the catalog by category. It never shows secret values.
-- `connector add` asks for each field, shows what it will change, then asks you to confirm. Add `--yes` to skip the question. It writes the keychain item and registers the entry with `claude mcp add-json --scope user`. It refuses to overwrite an existing connector.
-- `connector remove` deletes the keychain item and runs `claude mcp remove --scope user`.
-- `doctor` checks the keychain backend, the `claude` CLI and the connector entries. It exits 0 when all pass.
+- `connector list` shows the catalog by category, then your connectors (id, alias, provider, workspace). It never shows secret values.
+- `connector add` asks for each field, shows what it will change, then asks you to confirm. Add `--yes` to skip the question. It writes the keychain item and stores the connector. It does not change Claude Code. `--workspace` is required. `--alias` sets the Claude Code name.
+- `connector sync` shows the plan for each confirmed Claude account: which aliases it will add or remove. Then it asks you to confirm and runs `claude mcp add-json` or `claude mcp remove` with `--scope user` in that account. `--account` limits it to one account. It only removes aliases that it added itself. After `account ignore`, sync removes every alias it added to that account. If an MCP server with the same name already exists, sync refuses that step and changes nothing.
+- `connector remove` removes the alias from every account, then deletes the keychain item and the connector. A connector from before workspaces (for example `slack`) is removed as before.
+- `doctor` checks the keychain backend, the `claude` CLI and the connector entries. For each account it checks that every alias it added is still there and still starts the launcher. It reports drift and never removes anything. It exits 0 when all pass.
 
-`connector add`, `connector remove` and `doctor` need the `claude` CLI on `PATH` and a keychain backend such as the Secret Service. Without `claude`, `add` and `remove` write nothing and print the command to run later. Restart Claude Code after a change.
+`connector sync`, `connector remove` and `doctor` need the `claude` CLI on `PATH`. `connector add` and `connector remove` need a keychain backend such as the Secret Service. Without `claude`, `sync` and `remove` write nothing and print the commands to run later. Restart Claude Code after a change.
 
 ## Agent accounts
 
@@ -163,12 +169,14 @@ easy-personal account list --by provider
 easy-personal account confirm ~/.claude-work --label "Claude work"
 easy-personal account ignore ~/.codex
 easy-personal account add /mnt/backup/claude-old
+easy-personal account use 2 company personal
 ```
 
 - `account list` finds new folders, then prints every account with its provider, label, folder and status. `--by provider` groups by provider; `--by account` (default) gives one flat list. A folder that is gone shows as `missing`; its row stays.
 - `account confirm` names an account (1 to 60 characters). Run it again with a new label to rename.
 - `account ignore` hides an account from re-detection. It refuses the default account.
 - `account add` accepts a folder anywhere, only if it passes the same content check.
+- `account use` sets the workspaces that a confirmed Claude account uses. Give no workspace to clear the list. Codex accounts and the `orphan` workspace are refused. Then run `connector sync` to write the change into that account. The default account `~/.claude` writes to `~/.claude.json`; every other account writes to `<folder>/.claude.json`.
 
 `account ignore` refuses the default `~/.claude` account. The dashboard serves the same data at `/api/accounts`.
 

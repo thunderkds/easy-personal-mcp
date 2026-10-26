@@ -129,7 +129,15 @@ def connectors_list(request):
 
     entries = sorted((catalog.load(i) for i in catalog.ids()),
                      key=lambda e: (e.category, not e.claude_ai_connector, e.provider))  # fmt: skip
-    return JSONResponse({"connectors": [_entry_json(e, _configured(e.id)) for e in entries]})
+    with store.opened(config.store_path()) as conn:
+        stored = conn.execute(
+            "SELECT c.id, c.alias, c.provider, w.name FROM connectors c "
+            "JOIN workspaces w ON w.id = c.workspace_id ORDER BY w.name, c.alias"
+        ).fetchall()
+    return JSONResponse({
+        "connectors": [_entry_json(e, _configured(e.id)) for e in entries],
+        "workspace_connectors": [dict(zip(("id", "alias", "provider", "workspace"), r, strict=True)) for r in stored],
+    })  # fmt: skip
 
 
 async def _json_body(request):
@@ -148,7 +156,7 @@ async def _json_body(request):
 
 def _run_writer(call) -> JSONResponse:
     """Run a writer call; `pending` is true when it stopped at the confirmation step."""
-    from easy_personal.connectors import catalog
+    from easy_personal.connectors import catalog, writer
     from easy_personal.launch import LaunchError
 
     lines: list[str] = []
@@ -161,8 +169,8 @@ def _run_writer(call) -> JSONResponse:
     try:
         with _WRITE_LOCK:
             status = call(confirm, lines.append)
-    except catalog.CatalogError as exc:
-        return JSONResponse({"error": str(exc)}, status_code=400)
+    except (catalog.CatalogError, writer.ConnectorError, workspaces.WorkspaceError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)  # messages never echo input
     except LaunchError as exc:
         status = 1
         lines.append(str(exc))
@@ -182,26 +190,101 @@ async def connectors_add(request):
         entry = catalog.load(str(body.get("provider", "")))
     except catalog.CatalogError:  # the message would echo the caller's input: say it generically
         return JSONResponse({"error": "unknown provider; see GET /api/connectors"}, 400)
+    workspace, alias = body.get("workspace"), body.get("alias")
+    if not isinstance(workspace, str) or not workspace:
+        return JSONResponse({"error": "workspace is required (a workspace name)"}, 400)
+    if alias is not None and not isinstance(alias, str):
+        return JSONResponse({"error": "alias must be a string"}, 400)
     by_label = {f.label: values.get(f.env, "") for f in entry.fields}
     yes = body.get("confirm", False)
-    return await run_in_threadpool(
-        _run_writer,
-        lambda confirm, out: writer.add(entry, lambda label, _secret: by_label[label], confirm, out, yes),
-    )
+
+    def add(confirm, out):
+        with store.opened(config.store_path()) as conn:
+            return writer.add_to_workspace(
+                conn, entry, workspace, alias, lambda label, _secret: by_label[label], confirm, out, yes
+            )
+
+    return await run_in_threadpool(_run_writer, add)
+
+
+def _stored_connector(name: str) -> bool:
+    with store.opened(config.store_path()) as conn:
+        return conn.execute("SELECT 1 FROM connectors WHERE id = ?", (name,)).fetchone() is not None
 
 
 async def connectors_remove(request):
-    from easy_personal.connectors import catalog, writer
+    from easy_personal.connectors import catalog, sync, writer
 
     body, error = await _json_body(request)
     if error:
         return error
-    if request.path_params["name"] not in catalog.ids():  # never remove entries we did not create
-        return JSONResponse({"error": "unknown connector"}, 404)
     name, yes = request.path_params["name"], body.get("confirm", False)
+    if await run_in_threadpool(_stored_connector, name):
+
+        def remove(confirm, out):
+            with store.opened(config.store_path()) as conn:
+                return sync.remove_connector(conn, name, confirm, out, yes)
+
+        return await run_in_threadpool(_run_writer, remove)
+    if name not in catalog.ids():  # never remove entries we did not create
+        return JSONResponse({"error": "unknown connector"}, 404)
     return await run_in_threadpool(
-        _run_writer, lambda confirm, out: writer.remove(name, confirm, out, yes)
+        _run_writer, lambda confirm, out: writer.remove(name, confirm, out, yes)  # pre-workspace connector
     )
+
+
+def _sync_account(raw) -> str | None:
+    """`account` of a sync request: absent = every confirmed Claude account; else an integer id."""
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, bool) or not (isinstance(raw, int) or (isinstance(raw, str) and raw.isdigit())):
+        raise accounts.AccountError("account must be an account id")
+    return str(raw)
+
+
+def sync_plan(request):
+    from easy_personal.connectors import sync
+
+    try:
+        account = _sync_account(request.query_params.get("account"))
+        with store.opened(config.store_path()) as conn:
+            accounts.detect(conn)
+            return JSONResponse({"steps": [s.as_dict() for s in sync.plan_all(conn, account)]})
+    except accounts.NotFound as exc:
+        return JSONResponse({"error": str(exc)}, 404)
+    except accounts.AccountError as exc:
+        return JSONResponse({"error": str(exc)}, 400)
+
+
+async def sync_apply(request):
+    """The plan's lines; with `confirm: true` it is applied (CLAUDE_CONFIG_DIR per account)."""
+    from easy_personal.connectors import sync
+
+    body, error = await _json_body(request)
+    if error:
+        return error
+    try:
+        account = _sync_account(body.get("account"))
+    except accounts.AccountError as exc:
+        return JSONResponse({"error": str(exc)}, 400)
+
+    def work(confirm, out):
+        with store.opened(config.store_path()) as conn:
+            accounts.detect(conn)
+            steps = sync.plan_all(conn, account)
+            for step in steps:
+                out(step.line())
+            if not any(s.action in sync.APPLIED for s in steps):
+                out("nothing to change")
+                return 0
+            if not body.get("confirm", False) and not confirm():
+                return 0
+            return sync.apply(conn, steps, out)
+
+    try:
+        return await run_in_threadpool(_run_writer, work)
+    except accounts.NotFound as exc:
+        return JSONResponse({"error": str(exc)}, 404)
 
 
 def _account_write(call: Callable, status: int = 200):
@@ -325,6 +408,9 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/accounts", _account_write(lambda c, _id, b: accounts.add(c, b.get("path")), 201), methods=["POST"]),
         Route("/api/accounts/{id}/confirm", _account_write(lambda c, i, b: accounts.confirm(c, i, b.get("label"))), methods=["POST"]),
         Route("/api/accounts/{id}/ignore", _account_write(lambda c, i, b: accounts.ignore(c, i)), methods=["POST"]),
+        Route("/api/accounts/{id}/workspaces", _account_write(lambda c, i, b: accounts.use(c, i, b.get("workspaces"))), methods=["PUT"]),
+        Route("/api/sync", sync_plan),
+        Route("/api/sync", sync_apply, methods=["POST"]),
         Route("/api/connectors", connectors_list),
         Route("/api/connectors", connectors_add, methods=["POST"]),
         Route("/api/connectors/{name}", connectors_remove, methods=["DELETE"]),

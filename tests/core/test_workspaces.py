@@ -110,6 +110,16 @@ def test_delete_removes_workspace_and_repos(conn):
     assert exc.value.status == 404
 
 
+def test_delete_with_connectors_is_refused_409_and_keeps_everything(conn):
+    ws = make(conn, repos=["/a"])
+    conn.execute("INSERT INTO connectors VALUES ('c00000001', 'acme-slack', 0, 'slack', ?)", (ws["id"],))
+    conn.commit()
+    with pytest.raises(WorkspaceError, match="connectors") as exc:
+        workspaces.delete(conn, ws["id"])
+    assert exc.value.status == 409
+    assert workspaces.get(conn, ws["id"])["repos"] == ["/a"]
+
+
 def test_unknown_id_and_name_are_404(conn):
     for call in (lambda: workspaces.get(conn, 999), lambda: workspaces.by_name(conn, "nope"),
                  lambda: workspaces.edit(conn, 999, {})):

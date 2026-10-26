@@ -1,10 +1,13 @@
-"""A secret typed into `connector add` never reaches stdout, stderr, logs, `claude` argv or disk.
+"""A secret typed into `connector add` never reaches stdout, stderr, logs, `claude` argv, the store or disk.
+
+HUN-65: the flow is add-in-workspace -> account use -> sync (per account) -> doctor -> remove <id>.
 
 The keychain is an in-memory fake and `claude` is a fake script on PATH; the real ones are never used.
 """
 import builtins
 import getpass
 import json
+import re
 import sys
 
 import keyring
@@ -35,6 +38,10 @@ def world(tmp_path, monkeypatch):
     exe.chmod(0o755)
     home = tmp_path / "home"
     home.mkdir()
+    agents = tmp_path / "agents"
+    (agents / ".claude").mkdir(parents=True)  # the default account: CLAUDE_CONFIG_DIR unset
+    (agents / ".claude-work" / "projects").mkdir(parents=True)
+    monkeypatch.setenv("EASY_PERSONAL_AGENT_ROOT", str(agents))
     monkeypatch.setenv("PATH", str(bindir))
     monkeypatch.setenv("FAKE_CLAUDE_LOG", str(tmp_path / "argv.log"))
     monkeypatch.setenv("EASY_PERSONAL_HOME", str(home))
@@ -57,28 +64,40 @@ def _run(capsys, monkeypatch, canaries, rc_claude, argv, confirm="y"):
 
 
 def test_secret_typed_into_connector_add_never_leaks(world, capsys, monkeypatch):
-    tmp_path, home = world
+    tmp_path, _ = world
     canaries = Canaries.new()
     blobs = {}
+
+    def step(rc_claude, argv):
+        code, shown = _run(capsys, monkeypatch, canaries, rc_claude, argv)
+        blobs[f"{argv} rc={rc_claude} -> {code}"] = shown
+        return code, shown
+
     with harness.LogCapture() as logs:
-        for rc_claude, argv in (
-            (0, ["connector", "add", "slack"]),  # success
-            (1, ["connector", "add", "slack"]),  # claude fails -> rollback
-            (0, ["connector", "add", "slack", "--yes"]),
-            (0, ["doctor"]),
-            (0, ["connector", "remove", "slack", "--yes"]),
-        ):
-            code, shown = _run(capsys, monkeypatch, canaries, rc_claude, argv)
-            blobs[f"{argv} rc={rc_claude} -> {code}"] = shown
-    # the argv the fake claude saw, and every file written under the home or the temp tree
+        step(0, ["workspace", "add", "company"])
+        step(0, ["account", "confirm", str(tmp_path / "agents" / ".claude-work"), "--label", "Claude work"])
+        _, shown = step(0, ["connector", "add", "slack", "--workspace", "company"])  # success
+        connector_id = re.search(r"\bc[0-9a-f]{8}\b", shown["stdout"])[0]
+        step(0, ["connector", "add", "slack", "--workspace", "company", "--yes"])  # one per provider: refused
+        step(0, ["connector", "add", "gmail", "--workspace", "company", "--alias", "mail", "--yes"])
+        step(0, ["account", "use", "1", "company"])
+        step(0, ["account", "use", "2", "company"])
+        step(1, ["connector", "sync", "--yes"])  # claude fails -> stops, nothing recorded
+        step(0, ["connector", "sync"])
+        step(0, ["doctor"])
+        step(0, ["connector", "list"])
+        step(0, ["connector", "remove", connector_id, "--yes"])
+        step(0, ["connector", "remove", "slack", "--yes"])  # pre-workspace path
+    # the argv the fake claude saw, and every file written under the home or the temp tree (store included)
     blobs["claude argv"] = (tmp_path / "argv.log").read_text()
     blobs["logs"] = logs.text()
     for path in sorted(p for p in tmp_path.rglob("*") if p.is_file() and p.name != "claude"):
         blobs[f"file {path.relative_to(tmp_path)}"] = path.read_bytes()
     for surface, blob in blobs.items():
         canaries.assert_clean(surface, blob)
-    assert json.loads((tmp_path / "argv.log").read_text().splitlines()[1])[1] == "add-json"
-    assert not list(home.glob("store.sqlite*"))  # connector commands never touch the usage store
+    assert any(k.startswith("file home/store.sqlite") for k in blobs)  # the store was scanned too
+    calls = [json.loads(x) for x in (tmp_path / "argv.log").read_text().splitlines()]
+    assert ["mcp", "add-json"] in [c[:2] for c in calls] and ["mcp", "remove"] in [c[:2] for c in calls]
 
 
 def test_scan_would_catch_a_leaking_argv(world, capsys, monkeypatch):
