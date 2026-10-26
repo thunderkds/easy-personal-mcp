@@ -195,21 +195,42 @@ def _connector_list() -> int:
     return 0
 
 
+def _sync(conn, args) -> int:
+    from easy_personal.connectors import sync
+
+    accounts.detect(conn)
+    steps = sync.plan_all(conn, args.account)
+    for step in steps:
+        print(step.line())
+    if not any(s.action in sync.APPLIED for s in steps):
+        print("nothing to change.")
+        return 0
+    if not args.yes and not _confirm():
+        print("aborted; nothing was written.")
+        return 1
+    return sync.apply(conn, steps, print)
+
+
 def _connector(args) -> int:
-    from easy_personal.connectors import catalog, writer
+    from easy_personal.connectors import catalog, sync, writer
     from easy_personal.launch import LaunchError
 
     if args.action == "list":
         return _connector_list()
     try:
-        if args.action == "add":
-            entry = catalog.load(args.provider)
-            with store.opened(config.store_path()) as conn:
+        with store.opened(config.store_path()) as conn:
+            if args.action == "add":
+                entry = catalog.load(args.provider)
                 return writer.add_to_workspace(
                     conn, entry, args.workspace, args.alias, _ask, _confirm, print, args.yes
                 )
-        return writer.remove(args.name, _confirm, print, args.yes)
-    except (catalog.CatalogError, writer.ConnectorError, workspaces.WorkspaceError) as exc:
+            if args.action == "sync":
+                return _sync(conn, args)
+            rc = sync.remove_connector(conn, args.name, _confirm, print, args.yes)
+        if rc is not None:
+            return rc
+        return writer.remove(args.name, _confirm, print, args.yes)  # a pre-workspace connector
+    except (catalog.CatalogError, writer.ConnectorError, workspaces.WorkspaceError, accounts.AccountError) as exc:
         print(f"easy-personal: {exc}", file=sys.stderr)
         return 2
     except LaunchError as exc:

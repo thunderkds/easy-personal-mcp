@@ -13,7 +13,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from easy_personal.connectors import writer
+from easy_personal.connectors import keychain, writer
 from easy_personal.core import accounts
 
 APPLIED = ("remove", "forget", "add", "record")  # actions apply() runs; `refused` / `skipped` are notes
@@ -156,4 +156,49 @@ def apply(conn: sqlite3.Connection, steps: list[Step], out: writer.Out) -> int:
                              (s.account_id, s.alias))  # fmt: skip
         out(f"done: {s.line()}")
     out("restart Claude Code in the changed accounts to use the change.")
+    return 0
+
+
+def remove_connector(
+    conn: sqlite3.Connection, connector_id: str, confirm: writer.Confirm, out: writer.Out, assume_yes: bool = False
+) -> int | None:
+    """Unregister a connector from every account, then delete its keychain item and row.
+
+    None when `connector_id` is not a stored connector (the caller keeps the pre-workspace path).
+    The keychain item and the row are deleted only once no account holds a registration.
+    """
+    row = conn.execute("SELECT alias FROM connectors WHERE id = ?", (connector_id,)).fetchone()
+    if row is None:
+        return None
+    holders = [r[0] for r in conn.execute(
+        "SELECT DISTINCT account_id FROM account_registrations WHERE connector_id = ? ORDER BY account_id",
+        (connector_id,),
+    )]  # fmt: skip
+    steps = [s for a in holders for s in plan(conn, a, frozenset({connector_id}))
+             if s.connector_id == connector_id or s.action == "skipped"]  # fmt: skip
+    out(f"will change (connector {connector_id}, alias {row[0]}):")
+    for s in steps:
+        out(f"  {s.line()}")
+    out(f"  keychain: delete service easy-personal/{connector_id}")
+    out(f"  store: delete connector {connector_id}")
+    if any(s.action == "skipped" for s in steps):
+        out("an account that holds it can not be changed now; nothing was removed.")
+        return 1
+    if not assume_yes and not confirm():
+        out("aborted; nothing was removed.")
+        return 1
+    if steps:
+        rc = apply(conn, steps, out)
+        if rc:
+            return rc
+    left = conn.execute(
+        "SELECT COUNT(*) FROM account_registrations WHERE connector_id = ?", (connector_id,)
+    ).fetchone()[0]
+    if left:  # `claude` missing: only snippets were printed
+        out("the connector stays until every account has dropped it; run this again afterwards.")
+        return 0
+    keychain.remove(connector_id)
+    with conn:
+        conn.execute("DELETE FROM connectors WHERE id = ?", (connector_id,))
+    out(f"connector {connector_id} removed.")
     return 0
