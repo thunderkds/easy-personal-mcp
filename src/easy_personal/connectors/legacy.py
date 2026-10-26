@@ -96,7 +96,7 @@ def adopt(conn: sqlite3.Connection, confirm: writer.Confirm, out: writer.Out, as
         else:
             out(f"done: removed {item.id} from Claude Code (default account).")
     if not failed:
-        out("assign them to a workspace with a move (HUN-66) when you are ready.")
+        out("assign them to a workspace with `easy-personal connector move <id> <workspace>` when you are ready.")
     return failed
 
 
