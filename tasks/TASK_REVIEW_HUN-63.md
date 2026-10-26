@@ -30,7 +30,7 @@
 - Migration 5 is additive: nullable `ADD COLUMN ... REFERENCES agent_accounts (id)` (no row rewritten) and `CREATE INDEX IF NOT EXISTS events_account_ts (agent_account_id, ts_utc)`. Idempotent (checks `PRAGMA table_info` first), so the "downgraded `user_version`" test pattern still works.
 - Runs in the runner's `BEGIN IMMEDIATE` with the `user_version` bump; the runner writes `store.sqlite.bak-v4` first (restore path = put it back). Test: v4 store with rows keeps every row, adds column + index, leaves the backup.
 - Backfill rule (deviation from AC1 wording, see report): the migration does not backfill. A migration must not read the home folder and the default account row may not exist yet, so **NULL = default account**: reads treat NULL as default (`accounts.resolve`), and every `ingest_accounts` run tags NULL rows with the default account id once it exists. Measured on 1M rows: migration with online backup 0.96 s; the one-time NULL backfill `UPDATE` 4.31 s; the no-op re-run 0.0 ms (index).
-- Old code on a v5 store: still works (column is nullable and ignored by its INSERT/SELECT).
+- Old code on a v5 store: refused by the runner ("newer than this program"); rollback = restore `store.sqlite.bak-v4` (loses events ingested after the upgrade; they are re-read from the transcripts that still exist).
 - Large-table: `ALTER TABLE ADD COLUMN` is metadata-only in SQLite; the new index builds on the 1M-row table inside the 0.96 s above (index is created on an all-NULL column).
 
 ---
