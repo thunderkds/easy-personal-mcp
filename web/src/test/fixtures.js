@@ -215,6 +215,21 @@ export const connectors = {
   ],
 }
 
+export const workspaceList = {
+  workspaces: [
+    { id: 'orphan', name: 'orphan', is_orphan: true, repos: [] },
+    { id: 'w1', name: 'Acme', is_orphan: false, repos: ['/work/acme'] },
+    { id: 'w2', name: 'Empty', is_orphan: false, repos: [] },
+  ],
+}
+export const accountList = {
+  accounts: [
+    { id: 1, provider: 'claude', label: 'Claude company', status: 'confirmed' },
+    { id: 2, provider: 'claude', label: 'Claude detected', status: 'detected' },
+    { id: 3, provider: 'codex', label: 'Codex', status: 'confirmed' },
+  ],
+}
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -227,6 +242,8 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/usage/outliers') body = overrides.outliers ?? outliers
     else if (path === '/api/usage/sessions') body = overrides.sessions ?? sessions
     else if (path === '/api/warnings') body = overrides.warnings ?? warnings
+    else if (path === '/api/workspaces' && !init.method) body = overrides.workspaces ?? workspaceList
+    else if (path === '/api/accounts' && !init.method) body = overrides.accounts ?? accountList
     else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
     else if (path === '/api/connectors' && !init.method) body = overrides.connectors ?? connectors

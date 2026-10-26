@@ -1,0 +1,49 @@
+# TASK_REVIEW — HUN-70: Usage page Workspace and Account filters
+
+> Sibling of `tasks/TASK_GUIDE_HUN-70.md`. Everything here is **filled by the reviewer at Stage
+> 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
+> every turn and never fills these two sections.
+>
+> Consumers resolve each section **guide first, this file second** (`.claude/hooks/lib/guide_sections.py`):
+> a legacy guide that still carries these sections inline keeps working unchanged, and a stray
+> review file can never override an inline section.
+
+---
+
+## Evidence
+
+| Check | Result | Notes / output snippet |
+|-------|--------|------------------------|
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `web/src/UsageView.test.jsx` describe 'workspace and account filters (HUN-70)', 8 tests: options, no default params, workspace=, both params, header, notice, no-repos hint, options failure. Run 2026-10-26: `Test Files 6 passed (6), Tests 58 passed (58)` |
+| Verification command run | pass | `npm --prefix web test && npm --prefix web run build`: 58 passed; `vite build` ok (25 modules, index-1KtoM2Sy.js 240.87 kB); `uv run pytest tests/test_web_toolchain.py -q`: 15 passed |
+| Negative cases hold | ☐ pass / ☐ fail | |
+| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
+| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+
+---
+
+## Demonstration
+
+> Anchors what this task delivered to an observable before/after pair. BEFORE has no `N/A` path:
+> if the task changes executable code, BEFORE is a pasted, timestamped terminal capture taken
+> **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
+> text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
+
+**BEFORE**:
+```
+Mon Oct 26 10:16:04 AM UTC 2026
+$ grep -n "workspace\|account" web/src/UsageView.jsx
+(exit 1; no matches: no filters today)
+```
+
+**AFTER**: `grep -n "workspace\|account" web/src/UsageView.jsx` now matches the filter state, query params (`workspace=`, `account=`), options loader and the two dropdowns; Vitest proves each usage call carries them (58 passed).
+
+**DELTA**: The owner can narrow every Usage number to one workspace and one Claude account from two dropdowns.
+
+**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
+implementing agent alone]
