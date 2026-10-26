@@ -192,3 +192,16 @@ def test_doctor_flags_a_connector_without_keychain_item(world, capsys):
     world["keyring"].items.clear()
     rc, out, _ = run(capsys, "doctor")
     assert rc == 1 and f"FAIL {cid}: no keychain item" in out
+
+
+def test_remove_works_when_the_holder_account_is_ignored(world, capsys):
+    cid = connector_id(capsys)
+    for acc in world["ids"].values():
+        run(capsys, "account", "use", acc, "company")
+    run(capsys, "connector", "sync", "--yes")
+    assert run(capsys, "account", "ignore", world["work_dir"])[0] == 0
+    rc, out, _ = run(capsys, "connector", "remove", cid, "--yes")
+    assert rc == 0, out
+    removes = [(d, a[2]) for d, a in world["fake"].write_records() if a[1] == "remove"]
+    assert sorted(removes) == sorted([("<unset>", "company-slack"), (world["work_dir"], "company-slack")])
+    assert registrations() == [] and world["keyring"].items == {}

@@ -154,7 +154,7 @@ easy-personal doctor
 
 - `connector list` shows the catalog by category, then your connectors (id, alias, provider, workspace). It never shows secret values.
 - `connector add` asks for each field, shows what it will change, then asks you to confirm. Add `--yes` to skip the question. It writes the keychain item and stores the connector. It does not change Claude Code. `--workspace` is required. `--alias` sets the Claude Code name.
-- `connector sync` shows the plan for each confirmed Claude account: which aliases it will add or remove. Then it asks you to confirm and runs `claude mcp add-json` or `claude mcp remove` with `--scope user` in that account. `--account` limits it to one account. It only removes aliases that it added itself. If an MCP server with the same name already exists, sync refuses that step and changes nothing.
+- `connector sync` shows the plan for each confirmed Claude account: which aliases it will add or remove. Then it asks you to confirm and runs `claude mcp add-json` or `claude mcp remove` with `--scope user` in that account. `--account` limits it to one account. It only removes aliases that it added itself. After `account ignore`, sync removes every alias it added to that account. If an MCP server with the same name already exists, sync refuses that step and changes nothing.
 - `connector remove` removes the alias from every account, then deletes the keychain item and the connector. A connector from before workspaces (for example `slack`) is removed as before.
 - `doctor` checks the keychain backend, the `claude` CLI and the connector entries. For each account it checks that every alias it added is still there and still starts the launcher. It reports drift and never removes anything. It exits 0 when all pass.
 

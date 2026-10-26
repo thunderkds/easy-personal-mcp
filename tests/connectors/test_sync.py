@@ -215,3 +215,24 @@ def test_plan_lines_never_hold_a_secret(world, mem_keyring):
     sync.apply(world["conn"], steps, out.append)
     assert "PLANTED" not in "\n".join(lines(steps) + out)
     assert "PLANTED" not in world["fake"].log.read_text()
+
+
+def test_ignored_account_gets_its_registered_aliases_removed(world):
+    """Supervisor decision 2026-10-26: ignoring an account cleans up the entries we own there."""
+    conn, fake, ids = world["conn"], world["fake"], world["ids"]
+    sync.apply(conn, sync.plan_all(conn), lambda _: None)
+    accounts.ignore(conn, str(ids[".claude-work"]))  # its picks stay in the table but are ignored
+    steps = sync.plan(conn, ids[".claude-work"])
+    assert lines(steps) == [
+        f"Claude work: remove company-slack (exec {SLACK})",
+        f"Claude work: remove personal-gmail (exec {GMAIL})",
+    ]
+    assert sync.plan_all(conn) == steps  # included in a full sync
+    assert sync.apply(conn, steps, lambda _: None) == 0
+    assert fake.write_records()[-2:] == [
+        (world["work_dir"], ["mcp", "remove", "company-slack", "--scope", "user"]),
+        (world["work_dir"], ["mcp", "remove", "personal-gmail", "--scope", "user"]),
+    ]
+    assert registered(conn) == [(ids[".claude"], "personal-gmail", GMAIL)]
+    assert fake.state()[world["work_dir"]] == {}
+    assert sync.plan(conn, ids[".claude-work"]) == []  # nothing left: no skipped note either

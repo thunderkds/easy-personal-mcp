@@ -62,14 +62,19 @@ def plan(conn: sqlite3.Connection, account_id: int, drop: frozenset[str] = froze
     step = lambda action, alias="", cid="", note="": Step(
         account_id, name, config_dir_env, action, alias, cid, note
     )
-    if (provider, status) != ("claude", "confirmed"):
+    if provider != "claude" or status not in ("confirmed", "ignored"):
         return [step("skipped", note="not a confirmed Claude account")]
+    registered = _pairs(conn, "SELECT alias, connector_id FROM account_registrations WHERE account_id = ?", account_id)
+    if status == "ignored" and not registered:
+        return []
     if not Path(folder).is_dir():
         return [step("skipped", note="folder missing")]
-    desired = _pairs(conn, "SELECT c.alias, c.id FROM connectors c JOIN account_workspaces p "
-                           "ON p.workspace_id = c.workspace_id WHERE p.account_id = ?", account_id)  # fmt: skip
+    if status == "ignored":  # its picks no longer count: remove every entry we added there
+        desired = {}
+    else:
+        desired = _pairs(conn, "SELECT c.alias, c.id FROM connectors c JOIN account_workspaces p "
+                               "ON p.workspace_id = c.workspace_id WHERE p.account_id = ?", account_id)  # fmt: skip
     desired = {a: c for a, c in desired.items() if c not in drop}
-    registered = _pairs(conn, "SELECT alias, connector_id FROM account_registrations WHERE account_id = ?", account_id)
     has_claude = shutil.which("claude") is not None
     env = writer.account_env(config_dir_env)
     get = (lambda alias: writer._entry_exists(alias, env)) if has_claude else (lambda alias: None)
@@ -102,12 +107,14 @@ def plan(conn: sqlite3.Connection, account_id: int, drop: frozenset[str] = froze
 
 
 def plan_all(conn: sqlite3.Connection, account: str | None = None, drop: frozenset[str] = frozenset()) -> list[Step]:
-    """Plan for one account (id or folder) or for every confirmed Claude account."""
+    """Plan for one account (id or folder) or for every confirmed Claude account, plus every ignored
+    Claude account that still holds registrations (they are removed)."""
     if account is not None:
         ids = [accounts._find(conn, account)]
     else:
         ids = [r[0] for r in conn.execute(
-            "SELECT id FROM agent_accounts WHERE provider = 'claude' AND status = 'confirmed' ORDER BY id"
+            "SELECT id FROM agent_accounts WHERE provider = 'claude' AND (status = 'confirmed' OR (status = 'ignored' "
+            "AND id IN (SELECT account_id FROM account_registrations))) ORDER BY id"
         )]  # fmt: skip
     return [s for i in ids for s in plan(conn, i, drop)]
 
