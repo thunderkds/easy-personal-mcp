@@ -17,13 +17,13 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☒ pass | `tests/test_readme.py::test_status_names_v0_2_0_not_planning` and `::test_connector_remove_rule_for_pre_workspace_connectors` (written first; 2 failed against the old README, then pass). `tests/test_skeleton.py::test_version_flag_prints_package_version` already checks --version against package metadata. |
 | Verification command run | ☒ pass | `uv lock` Resolved 49 packages; readme+site tests `36 passed in 0.57s`; full `746 passed, 2 skipped, 4 deselected, 1 xfailed`; `All checks passed!`; `easy-personal --version` prints `0.2.0` |
 | Negative cases hold | ☒ pass | Test asserts `v0.1.0` is absent from README and `Status: planning` is absent. Before the change the new tests failed (2 failed, 12 passed). |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | Supervisor 2026-10-26: `uv run easy-personal --version` -> `0.2.0`; `uv run pytest tests/test_readme.py tests/test_site_content.py -q` -> 36 passed — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed README (4 lines), pyproject version, uv.lock (own package version only), test_readme.py. No src change — pass |
 | Full smoke suite still green (no regression) | ☒ pass | `746 passed, 2 skipped, 4 deselected, 1 xfailed, 1 warning in 94.43s` |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| easy-verifier score (advisory) | ☐ N/A | N/A — easy-verifier MCP server not loaded in this profile |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | N/A — docs + version only |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | N/A — docs + version only |
+| **UI: Responsiveness at target viewports** | ☑ N/A | N/A — docs + version only |
 
 ---
 
@@ -56,5 +56,4 @@ README.md:162: ... is removed only if its Claude Code entry starts `easy-persona
 
 **DELTA**: The package reports v0.2.0 and the README describes the Workspaces and Agents tabs and the exact rule for removing a pre-workspace connector.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-26 — re-ran the readme/site tests and `--version` on branch HUN-73.
