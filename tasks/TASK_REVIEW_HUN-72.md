@@ -17,13 +17,13 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☒ pass | `tests/connectors/test_workspace_defects.py` (D1 x4, D2 x2, D3 x2, D5 x2), `tests/surfaces/test_api_workspace_ops.py::test_pending_plan_has_no_abort_line` (D4), un-xfailed in `tests/e2e/test_workspaces_flow.py`: `test_doctor_is_clean_after_the_flow` (D2), `test_connector_add_prompt_at_stdin_eof_is_a_clean_error` (D5), `test_cli_remove_of_an_unknown_name_leaves_a_hand_made_server` (D1) |
 | Verification command run | ☒ pass | `334 passed, 1 xfailed` (connectors/surfaces/e2e/leak, only xfail = tool_signals); `745 passed, 2 skipped, 4 deselected, 1 xfailed` (full); `All checks passed!` (ruff) |
 | Negative cases hold | ☒ pass | foreign `slack` entry and hand-made `notes` untouched (no claude write); stored connector without keychain item still `FAIL`; EOF at prompt writes nothing; every default-account call logs `config_dir == <unset>` with `CLAUDE_CONFIG_DIR=/some/other` set |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | Supervisor 2026-10-26 on an isolated install (demo.sh: temp HOME/AGENT_ROOT, fake `claude`, file keyring) with this session's own `CLAUDE_CONFIG_DIR` set: D1 `connector remove notes --yes` -> `easy-personal: unknown connector; nothing was removed` rc=2, hand-made `notes` kept; `connector remove sendgrid --yes` with a foreign entry -> `...did not create; nothing was removed.` rc=1, entry kept; D5 `connector add sendgrid --workspace company < /dev/null` -> `easy-personal: input ended at the prompt; nothing was written` rc=2, no traceback; D2 after adopt-legacy + move + sync -> `doctor` rc=0; D3 fake log: 0 default-account calls with an inherited CLAUDE_CONFIG_DIR; D4 `PUT /api/connectors/<id>/alias` confirm:false -> pending:true, last line `  keychain: untouched` (no abort line) — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed full src diff (writer.remove/doctor, cli `_ask`/remove fallback/doctor, api `_run_writer`/`_configured`, suggestions `_configured`) and the 4 adjusted tests (each now supplies a launcher entry, matching the new ownership rule — not weakened). Security (High risk, inline): removal now requires our launcher entry in the default account; no secret in new messages; keychain untouched on refusal. Decisions accepted: API unknown name stays 404; foreign entry blocks whole removal; exit 2 for unknown name. Added: e2e mtime guard skips ~/.codex* dirs (audit hook still covers) — pass |
 | Full smoke suite still green (no regression) | ☒ pass | `745 passed, 2 skipped, 4 deselected, 1 xfailed`. Note: `test_nothing_outside_the_temp_machine_is_touched[cli]` failed once because the owner's real Codex app-server (VS Code extension, pid running) wrote `~/.codex` during the run; it passed on the full rerun. Environmental, not caused by this change. Fixed in a follow-up commit: `real_mtimes` in `tests/e2e/e2e_support.py` now also skips `~/.codex*` directories (audit hook still covers them); rerun: `334 passed, 1 xfailed` / `747 passed, 4 deselected, 1 xfailed` / ruff clean. |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| easy-verifier score (advisory) | ☐ N/A | N/A — easy-verifier MCP server not loaded in this profile |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | N/A — backend only; API plan lines change only by dropping the abort line |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | N/A — backend only |
+| **UI: Responsiveness at target viewports** | ☑ N/A | N/A — backend only |
 
 ---
 
@@ -56,5 +56,4 @@ FAILED e2e test_copied_transcript_counts_tool_signals_once   (out of scope, stay
 
 **DELTA**: `connector remove`, `doctor` and the dashboard act only on the default account with an ours-only rule, and no longer delete a hand-made server, fail a healthy adoption or print a traceback.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-26 ~22:50 +07 — drove D1–D5 on an isolated install of branch HUN-72 (outputs in the verify row).
