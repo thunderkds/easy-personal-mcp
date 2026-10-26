@@ -215,6 +215,33 @@ export const connectors = {
   ],
 }
 
+// HUN-68: GET /api/accounts and /api/workspaces shapes (3 Claude, 1 Codex, 1 detected, 1 missing).
+const acct = (id, provider, label, folder, status, workspaces = []) => ({
+  id, provider, label, folder, status, config_dir_env: null, workspaces,
+})
+export const accountList = [
+  acct(1, 'claude', 'Claude default', '/home/o/.claude', 'confirmed', ['work']),
+  acct(2, 'claude', 'Claude personal', '/home/o/.claude-personal', 'confirmed', []),
+  acct(3, 'claude', 'Claude gone', '/home/o/.claude-gone', 'missing'),
+  acct(4, 'codex', 'Codex', '/home/o/.codex', 'confirmed'),
+  acct(5, 'claude', '', '/home/o/.claude-new', 'detected'),
+]
+export const accountsByAccount = { by: 'account', accounts: accountList }
+export const accountsByProvider = {
+  by: 'provider',
+  providers: {
+    claude: accountList.filter((a) => a.provider === 'claude'),
+    codex: accountList.filter((a) => a.provider === 'codex'),
+  },
+}
+export const workspaceList = {
+  workspaces: [
+    { id: 1, name: 'orphan', is_orphan: true },
+    { id: 2, name: 'work', is_orphan: false },
+    { id: 3, name: 'personal', is_orphan: false },
+  ],
+}
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -229,6 +256,9 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/warnings') body = overrides.warnings ?? warnings
     else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
+    else if (path === '/api/accounts' && !init.method)
+      body = overrides.accounts ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
+    else if (path === '/api/workspaces' && !init.method) body = overrides.workspaces ?? workspaceList
     else if (path === '/api/connectors' && !init.method) body = overrides.connectors ?? connectors
     if (overrides.status) return { ok: false, status: overrides.status, json: async () => ({ error: 'forbidden' }) }
     if (body === undefined) return { ok: false, status: 404, json: async () => ({}) }
