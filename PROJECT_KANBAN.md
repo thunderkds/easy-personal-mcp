@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-10-22
+**Last updated**: 2026-10-26
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -9,6 +9,17 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-61** — Store foundation: versioned migrations, FK + busy_timeout, time-first usage query + indexes, 1M-event benchmark | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-61.md`
+- [ ] **HUN-62** — Agent accounts: detect ~/.claude\* and ~/.codex\* folders, confirm/name/ignore (CLI + API) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-62.md`
+- [ ] **HUN-63** — Ingest usage from every confirmed Claude account; events tagged by account; usage filter --account | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-63.md`
+- [ ] **HUN-64** — Workspaces: add/edit/rename/delete, repos, built-in orphan; usage filter --workspace (CLI + API) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-64.md`
+- [ ] **HUN-65** — Connectors get id + alias and belong to a workspace; accounts pick workspaces; plan/apply sync into each Claude account | Backend-Implementer | C3 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-65.md`
+- [ ] **HUN-66** — Move connector, change alias, rename workspace, delete workspace → connectors to orphan, assign out of orphan | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-66.md`
+- [ ] **HUN-67** — One-time adoption: pre-workspace connectors (slack, gmail, …) move to orphan | Backend-Implementer | C1 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-67.md`
+- [ ] **HUN-68** — Dashboard Agents page: detected/confirmed accounts, by account / by provider, pick workspaces with plan confirmation | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-68.md`
+- [ ] **HUN-69** — Dashboard Workspaces page + workspace form (repos, connectors, alias, move, delete) + legacy banner | Frontend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-69.md`
+- [ ] **HUN-70** — Usage page: Workspace and Account filters | Frontend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-70.md`
+- [ ] **HUN-71** — QA end-to-end: several fake accounts + workspaces, no secret leaks, no real config touched | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-71.md`
 
 ### In Progress
 

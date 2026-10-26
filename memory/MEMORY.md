@@ -32,6 +32,7 @@
 - [Connectors register `easy-personal-launch exec`](decisions.md#2026-10-22--connectors-register-easy-personal-launch-exec-name) — not `easy-personal exec` (~300 ms import vs 200 ms NFR-006); owner 2026-10-22.
 - [Catalog servers pinned; Slack = slack-mcp-server@1.3.0](decisions.md#2026-10-22--catalog-servers-are-pinned-slack--slack-mcp-server130) — parse refuses unpinned npx/uvx/pipx-run; old Slack package deprecated.
 - [HUN-46 servers: Gmail, SendGrid, Teams, Discord](decisions.md#2026-10-22--hun-46-catalog-servers-gmail-sendgrid-teams-discord) — pinned community servers; `claude_ai_link` required with yes.
+- [Workspaces; agent account picks workspace](decisions.md#2026-10-26--workspaces-group-connectors-the-agent-account-picks-its-workspace) — workspace = email/repos/connectors, no agent settings; Codex listed only (DDR-0001 stands); not yet planned.
 ### Learnings
 - [Static build gitignored](learnings.md#2026-10-21--dashboard-static-build-is-gitignored-build-before-uv-build) — `npm --prefix web run build` before `uv build`; 2 web tests skip unbuilt.
 - [Verify against fixtures](learnings.md#2026-10-21--runtime-verify-against-fixtures-never-the-real-transcripts) — temp `EASY_PERSONAL_CLAUDE_PROJECTS` + `EASY_PERSONAL_HOME`; grep outputs for `INVENTED_`.

@@ -63,7 +63,10 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Index freshness** — easy-context `last_index_at` for a project compared with its latest local commit; *stale* fires `context_index_stale`.
 - **API-equivalent cost** — tokens × dated price table; labelled so, never presented as what a subscription pays.
 - **Connector** — a configured provider (e.g. Slack) = catalog entry + keychain refs + a Claude Code user-scope MCP entry pointing at the launcher.
+- **Connector id / alias** — a connector's fixed id keys its keychain item and its launcher command (`exec <id>`); its alias is the name registered in Claude Code, default `<workspace>-<provider>`, owner-editable. Renames and moves change only the alias. *(planned, 2026-10-26)*
 - **Launcher** — `easy-personal-launch exec|headers <connector>` (separate console script, stdlib + `keyring` only): the command Claude Code runs, which injects secrets at launch.
+- **Workspace** — a named group the owner creates (e.g. "Acme", "Personal"): identity (name, color/icon, description, main email), a plain list of repo paths, and its own connectors. Has a fixed id; its name can be renamed. Holds no agent settings. At most one connector per provider, except the built-in **orphan** workspace. Deleting a workspace never deletes connectors: they move to orphan, which is active in no agent account; from orphan they can be assigned to another workspace. Connectors are deleted one at a time only. Pre-workspace connectors (`slack`, …) start in orphan. *(planned, 2026-10-26)*
+- **Agent account** — one agent config folder on this machine (Claude: `~/.claude*`; Codex: `~/.codex*`), auto-detected and confirmed + named by the owner (e.g. "Claude company"). A Claude agent account picks one or more workspaces whose connectors are written into it under their aliases; a Codex agent account is listed only. *(planned, 2026-10-26)*
 - **Milestone (M1–M4)** — internal delivery order inside the single v1 release.
 
 ---
@@ -152,6 +155,22 @@ The first plan's HUN-21…HUN-29 are archived with the trashed project and do no
 | HUN-53 | Session timeline read: `metrics.session_timeline` + `GET /api/usage/sessions` (added 2026-10-22, blocks HUN-50 AC2) | Todo | Backend-Implementer | C1 | Medium | P1 |
 | HUN-56 | README: install, usage and deploy guide for v0.1.0 | Todo | Backend-Implementer | C1 | Low | P1 |
 | HUN-57 | Landing page `site/` (idea, flow, install & deploy guide); scope `PROJECT_SPEC_SITE.md` | Todo | Frontend-Implementer | C2 | Low | P1 |
+
+**Workspaces** (Stage 2, 2026-10-26, owner-approved; brainstorm `BRAINSTORMING_LOG_WORKSPACES.md`, PRD FR-028…FR-036, NFR-009):
+
+| ID | Title | Status | Assigned Agent | Complexity | Risk | Priority |
+|----|-------|--------|---------------|-----------|------|----------|
+| HUN-61 | Store foundation: versioned migrations, FK + busy_timeout, time-first usage query + indexes, 1M-event benchmark | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-62 | Agent accounts: detect `~/.claude*` / `~/.codex*`, confirm/name/ignore (CLI + API) | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-63 | Ingest every confirmed Claude account; events tagged by account; `--account` filter | Todo | Backend-Implementer | C2 | High | P1 |
+| HUN-64 | Workspaces CRUD + repos + built-in orphan; `--workspace` usage filter | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-65 | Connector id + alias in workspaces; accounts pick workspaces; plan/apply sync per Claude account | Todo | Backend-Implementer | C3 | High | P0 |
+| HUN-66 | Move / alias / workspace rename / delete → orphan | Todo | Backend-Implementer | C2 | High | P1 |
+| HUN-67 | One-time adoption of pre-workspace connectors into orphan | Todo | Backend-Implementer | C1 | High | P1 |
+| HUN-68 | Dashboard Agents page | Todo | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-69 | Dashboard Workspaces page + form + legacy banner | Todo | Frontend-Implementer | C2 | High | P1 |
+| HUN-70 | Usage page Workspace / Account filters | Todo | Frontend-Implementer | C1 | Low | P2 |
+| HUN-71 | QA end-to-end across fake accounts | Todo | QA-Automation-Agent | C2 | Medium | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 

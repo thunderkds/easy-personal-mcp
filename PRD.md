@@ -57,6 +57,9 @@ Milestones are internal delivery order inside the single v1 release.
 | US-011 | As P1, I want connector suggestions based on what I actually do in sessions, so I add the tools that would help. | P1 | M3 |
 | US-012 | As P1, I want a local dashboard with charts, flows, warnings, the plan, kit results and connector forms, so I review my week at a glance and act on it. | P1 | M4 |
 | US-013 | As P1, I want life sources (calendar, finance, health) through the same source interface. | P1 | v2 |
+| US-014 | As P1, I want to group my connectors into workspaces (personal, company, side…) created from an Add button, each with its email and repos, so work and personal tools never mix. | P1 | Workspaces |
+| US-015 | As P1, I want my agent accounts (Claude personal, Claude company, Codex…) found for me and to pick which workspaces each Claude account uses, so each account sees only its own tools. | P1 | Workspaces |
+| US-016 | As P1, I want to filter my usage by workspace, so I see what each part of my life costs. | P1 | Workspaces |
 
 ---
 
@@ -91,6 +94,15 @@ Milestones are internal delivery order inside the single v1 release.
 | FR-025 | A declared rule must mark a repo's easy-context index *stale* when its `last_index_at` is older than the repo's latest local commit, with the fix line "call `index_path`". | US-003, US-007 |
 | FR-026 | The v1 rule pack must contain exactly these rules (defaults shown): `cache_hit_low` (warning, cache-hit ratio < 50% over 7 days); `session_huge_no_compact` (improve, median session > 150k tokens without `/compact`); `tokens_jump` (aware, week-over-week tokens + 50%); `project_dominates` (aware, one project > 60% of weekly tokens); `tool_errors_high` (warning, > 10% of kernel-trace tool calls with `is_error` over 7 days); `context_index_stale` (FR-025); `records_unreadable` (aware, > 2% abstained per source version). | US-003, US-004 |
 | FR-027 | History must be kept forever by default; a `retention_days` setting prunes older rows. Every stored row carries a `machine_id`. | US-002 |
+| FR-028 | Workspaces must be created, listed, edited (including rename) and deleted from the dashboard (Add button) and the CLI (`easy-personal workspace add|list|edit|delete`). Each has a fixed internal id; fields: name (slug `[a-z0-9][a-z0-9-]*`, unique, `orphan` reserved), color/icon, description, main email, repo paths. Email is information only. A repo path may belong to several workspaces. | US-014 |
+| FR-029 | Every connector has a fixed id (keychain service `easy-personal/<id>`, launcher `easy-personal-launch exec <id>`) and an alias — the name registered in Claude Code. The alias defaults to `<workspace>-<provider>` and follows workspace renames and moves; an owner-set alias is kept as typed. Aliases are unique among non-orphan connectors. Every connector belongs to exactly one workspace; a workspace holds at most one connector per provider, except `orphan`. | US-014 |
+| FR-030 | Deleting a workspace must move its connectors to the built-in `orphan` workspace (never deletable or renamable), keeping id, alias and keychain item, and remove them from every agent account. Connectors are deleted only one at a time. | US-014 |
+| FR-031 | Moving a connector, renaming its workspace or changing its alias must never touch the keychain: only the Claude Code entries change (remove old alias, add new alias pointing at the same id) in every affected agent account. A move is refused if the target already has that provider. Orphan is active in no agent account. | US-014, US-015 |
+| FR-032 | Agent accounts must be auto-detected from `~/.claude*` and `~/.codex*` folders (plus folders added by hand) and stay *detected* until the owner confirms and names them. The Agents view groups them by provider or by account. | US-015 |
+| FR-033 | A confirmed Claude agent account picks zero or more workspaces (never `orphan`); their connectors are written or removed only via `claude mcp add-json|remove --scope user` run with `CLAUDE_CONFIG_DIR` set to that account's folder (FR-019, DDR-0001). Codex accounts are listed only. Every write shows its plan and needs confirmation. | US-015 |
+| FR-034 | On first run with workspaces, pre-workspace connectors (`slack`, `gmail`, …) must be placed in `orphan` with their current name as both id and alias (keychain item untouched), and — after one confirmation — removed from the Claude config they were registered in. | US-014 |
+| FR-035 | Dashboard usage views and the CLI usage commands (`--workspace <name>`) must filter to events whose project path equals or sits under one of the workspace's repo paths. | US-016 |
+| FR-036 | Ingest must read the `projects/` folder of every confirmed Claude agent account; every stored event carries its agent account; dashboard and CLI usage can filter by agent account. | US-016, US-015 |
 
 ---
 
@@ -102,10 +114,11 @@ Milestones are internal delivery order inside the single v1 release.
 | NFR-002 | No secret, message text or tool output appears in any tool response, dashboard, log or store row (fixtures with planted secrets prove it). | Security / Privacy |
 | NFR-003 | Source files are read-only; nothing under `~/.claude/projects/` or any repo is modified. | Safety |
 | NFR-004 | Deterministic: the same inputs give the same numbers; no LLM inside the server. | Correctness |
-| NFR-005 | Cold ingest of 30 days of transcripts (measured ≈ 10 MB on the owner's machine, HUN-32; design ceiling 100 MB) completes in < 10 s; a re-run with no changed files completes in < 2 s; ingest streams line by line with bounded memory. 500 MB stays as a stress case, not a target. | Performance |
+| NFR-005 | Cold ingest of all confirmed agent accounts (≈ 960 MB on the owner's machine, 2026-10-26) completes in < 2 min, one time; 30 days of one account (≈ 10 MB, HUN-32) in < 10 s; a re-run with no changed files completes in < 2 s; ingest streams line by line with bounded memory. 500 MB stays as a stress case, not a target. | Performance |
 | NFR-006 | `exec` launcher adds < 200 ms to connector start and has no third-party imports beyond `keyring`. | Performance / Reliability |
 | NFR-007 | Linux only; Python 3.11+; native install (`uv tool install`); Docker optional and analytics-only (DDR-0001). | Portability |
 | NFR-008 | The live dashboard must reject any write request that lacks the per-launch token or whose `Host`/`Origin` is not the dashboard's own `127.0.0.1` address (defends against other browser tabs and DNS rebinding). | Security |
+| NFR-009 | Store scales with all agent accounts and forever history: schema changes go through ordered, versioned migrations (`PRAGMA user_version`), each in one transaction and tested from the previous released schema; `foreign_keys=ON` and a `busy_timeout` on every connection; workspace rules (unique names, one provider per workspace except `orphan`) enforced by constraints, not only code; usage queries filter by time before grouping and are covered by indexes, checked with `EXPLAIN QUERY PLAN` in tests. Target: workspace-filtered 30-day usage over 1,000,000 events returns in < 500 ms (owner delegated the number, 2026-10-26). | Performance / Reliability |
 
 ---
 
@@ -135,6 +148,7 @@ Milestones are internal delivery order inside the single v1 release.
 - Sharing or publishing reports; multi-user.
 - LLM-written narratives or "AI judgment" in reports.
 - Life sources before v2.
+- Workspaces: writing connectors into Codex accounts (listed only, DDR-0001); new providers (GitHub, Linear/Jira, Google Calendar, Notion); MCP tools that create or change workspaces (FR-021 stays read-only).
 
 ---
 
@@ -151,6 +165,8 @@ Milestones are internal delivery order inside the single v1 release.
 | 7 | Default: v1 delivered in internal milestones M1 usage → M2 kit → M3 connectors → M4 dashboard; one release. | Supervisor | revisit Stage 2 |
 | 8 | Assumed: the owner signs in to Claude Code with a claude.ai subscription (needed for FR-020 links to matter). | thunderkds | Stage 2 |
 | 9 | Dev-time only: QA uses the easy-ui container to screenshot/check easy-personal's own dashboard as UI Evidence. easy-personal never calls easy-ui at runtime. | thunderkds | confirmed 2026-10-21 |
+| 10 | Resolved 2026-10-26: usage is ingested from every confirmed Claude agent account (each account's `projects/` folder); every event carries its agent account, and usage can be filtered by account as well as by workspace (FR-036). | thunderkds | done |
+| 11 | Default: workspace and agent-account data live in the existing local store; no new MCP tools in the first version. | Supervisor | revisit Stage 2 |
 
 ---
 
