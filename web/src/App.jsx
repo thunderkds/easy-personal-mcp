@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import AgentsView from './AgentsView.jsx'
-import ConnectorsView from './ConnectorsView.jsx'
 import KitView from './KitView.jsx'
 import UsageView from './UsageView.jsx'
 import WarningsPlanView from './WarningsPlanView.jsx'
+import WorkspacesView from './WorkspacesView.jsx'
 
 const TABS = [
   { id: 'usage', label: 'Usage', View: UsageView },
   { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView },
   { id: 'kit', label: 'Kit', View: KitView },
-  { id: 'connectors', label: 'Connectors', View: ConnectorsView },
+  { id: 'workspaces', label: 'Workspaces', View: WorkspacesView },
   { id: 'agents', label: 'Agents', View: AgentsView },
 ]
 
