@@ -70,6 +70,7 @@ The store must scale to every agent account and forever history using database b
 | 5 | Usage summary / breakdown / outliers / timeline numbers are identical before and after on all existing fixtures | NFR-004 |
 | 6 | `EXPLAIN QUERY PLAN` of the usage message query uses an index on `ts_utc` (no full `SCAN events`) | NFR-009 |
 | 7 | Seeded 1,000,000-event store: 30-day usage summary returns in < 500 ms | NFR-009 |
+| 8 | No test opens the real data dir: an autouse fixture in `tests/conftest.py` points `EASY_PERSONAL_HOME` at a tmp dir for every test, and a guard test fails if any test resolves `config.data_dir()` under the real `~/.easy-personal` (Stage 4 finding 2026-10-26: `tests/leak/test_leak_suite.py::test_leaking_tool_fails_the_suite` opened and migrated the owner's real store) | NFR-003 |
 
 ---
 

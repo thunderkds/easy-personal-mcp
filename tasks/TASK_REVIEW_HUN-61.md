@@ -15,11 +15,11 @@
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/core/test_migrations.py` (runner, v0 upgrade with rows, rollback, newer-store refusal, PRAGMAs, equality on summary/breakdown/outliers/timeline/contexts, EXPLAIN plan, 1M perf) |
-| Verification command run | pass | `uv run pytest tests/core -q` -> 64 passed, 1 deselected; `uv run pytest tests/core -m perf -q` -> 1 passed (229-237 ms); `uv run pytest -q` -> 449 passed, 1 deselected; `uv run ruff check .` -> All checks passed! |
+| Verification command run | pass | `uv run pytest tests/core -q` -> 64 passed, 1 deselected; `uv run pytest tests/core -m perf -q` -> 1 passed (229-237 ms); `uv run pytest -q` -> 451 passed, 1 deselected (after AC 8 fix; red step: 2 failed incl. test_leaking_tool_fails_the_suite); `uv run ruff check .` -> All checks passed! |
 | Negative cases hold | pass | failing migration rolls back; newer store refused; no backup for a new store |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | pass | 449 passed, 1 deselected (perf test runs only with `-m perf`) |
+| Full smoke suite still green (no regression) | pass | 451 passed, 1 deselected (perf test runs only with `-m perf`) |
 | easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -90,3 +90,8 @@ Migration-safety self-check (Supervisor re-runs the skill at Stage 4):
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-61.jsonl`, never the
 implementing agent alone]
+
+AC 8 (no test opens the real data dir): `tests/conftest.py` autouse `_isolated_data_dir` (tmp `EASY_PERSONAL_HOME`) and
+`_never_open_the_real_store` (patched `sqlite3.connect` raises under the real `~/.easy-personal`); guard tests in
+`tests/test_real_home_guard.py`. Red first: with only the guard, `uv run pytest -q` gave 2 failed (the leak test and
+`test_data_dir_is_never_the_real_home`); after the fixture, 451 passed. Perf 1 passed; ruff clean.
