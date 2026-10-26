@@ -1,4 +1,4 @@
-"""Migration 4: workspaces and their repo paths (HUN-64). Additive: two tables, three triggers, one seed row.
+"""Migration 4: workspaces and their repo paths (HUN-64). Additive and idempotent (every statement IF NOT EXISTS, like migration 1): two tables, three triggers, one seed row.
 
 Rules live here, not only in code: slug name (`orphan` reserved for the one built-in row, which
 cannot be edited, renamed or deleted and holds no repos), colour `#rrggbb`, absolute repo paths
@@ -11,7 +11,7 @@ import sqlite3
 def apply(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
-        CREATE TABLE workspaces (
+        CREATE TABLE IF NOT EXISTS workspaces (
             id          INTEGER PRIMARY KEY,
             name        TEXT NOT NULL UNIQUE
                         CHECK (length(name) BETWEEN 1 AND 40
@@ -27,10 +27,10 @@ def apply(conn: sqlite3.Connection) -> None:
         )
         """
     )
-    conn.execute("CREATE UNIQUE INDEX workspaces_one_orphan ON workspaces (is_orphan) WHERE is_orphan = 1")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS workspaces_one_orphan ON workspaces (is_orphan) WHERE is_orphan = 1")
     conn.execute(
         """
-        CREATE TABLE workspace_repos (
+        CREATE TABLE IF NOT EXISTS workspace_repos (
             workspace_id INTEGER NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
             repo_path    TEXT NOT NULL
                          CHECK (substr(repo_path, 1, 1) = '/'
@@ -40,16 +40,16 @@ def apply(conn: sqlite3.Connection) -> None:
         """
     )
     conn.execute(
-        "CREATE TRIGGER workspaces_orphan_no_update BEFORE UPDATE ON workspaces "
+        "CREATE TRIGGER IF NOT EXISTS workspaces_orphan_no_update BEFORE UPDATE ON workspaces "
         "WHEN OLD.is_orphan = 1 BEGIN SELECT RAISE(ABORT, 'the orphan workspace cannot be changed'); END"
     )
     conn.execute(
-        "CREATE TRIGGER workspaces_orphan_no_delete BEFORE DELETE ON workspaces "
+        "CREATE TRIGGER IF NOT EXISTS workspaces_orphan_no_delete BEFORE DELETE ON workspaces "
         "WHEN OLD.is_orphan = 1 BEGIN SELECT RAISE(ABORT, 'the orphan workspace cannot be deleted'); END"
     )
     conn.execute(
-        "CREATE TRIGGER workspace_repos_not_orphan BEFORE INSERT ON workspace_repos "
+        "CREATE TRIGGER IF NOT EXISTS workspace_repos_not_orphan BEFORE INSERT ON workspace_repos "
         "WHEN (SELECT is_orphan FROM workspaces WHERE id = NEW.workspace_id) = 1 "
         "BEGIN SELECT RAISE(ABORT, 'the orphan workspace holds no repos'); END"
     )
-    conn.execute("INSERT INTO workspaces (name, is_orphan) VALUES ('orphan', 1)")
+    conn.execute("INSERT OR IGNORE INTO workspaces (name, is_orphan) VALUES ('orphan', 1)")

@@ -6,6 +6,7 @@ from itertools import pairwise
 from pathlib import Path
 
 from easy_personal.core import prices as price_table
+from easy_personal.core import workspaces
 
 DIMENSIONS = ("day", "model", "project", "tool")
 OUTLIER_TOOL_CALLS = 90
@@ -45,27 +46,55 @@ def _inner_window(since: str | None, until: str | None) -> tuple[str, list[str]]
     of a message that starts inside the period, so `MIN(ts_utc)` stays exact while a message's
     events span less than a day; the exact period test still runs on the grouped `MIN(ts_utc)`.
     """
+    return _period("ts_utc", *_padded(since, until))
+
+
+def _padded(since: str | None, until: str | None) -> tuple[str | None, str | None]:
     padded_since = padded_until = None
     if since is not None:
         padded_since = (datetime.strptime(since, _STORED_TS) - MESSAGE_PAD).strftime(_STORED_TS)
     if until is not None:
         padded_until = (datetime.strptime(until, _STORED_TS) + MESSAGE_PAD).strftime(_STORED_TS)
-    return _period("ts_utc", padded_since, padded_until)
+    return padded_since, padded_until
 
 
-def usage_summary(conn: sqlite3.Connection, since: str | None = None, until: str | None = None):
+def _scope(conn, workspace: str | None, since_utc: str | None, until_utc: str | None):
+    """`project_path IN (...)` clause + params for a workspace filter; `1` when there is none (FR-035).
+
+    The repo paths are resolved to distinct stored project paths first (see
+    `workspaces.project_paths`), so the big `events` table is never matched with a pattern. An
+    unknown workspace raises ValueError; a workspace without matching projects selects nothing (`0`).
+    Further filters (HUN-63 account) AND their own clause in the same way.
+    """
+    if workspace is None:
+        return "1", []
+    paths = workspaces.project_paths(conn, workspace, *_padded(since_utc, until_utc))
+    if not paths:
+        return "0", []
+    return f"project_path IN ({', '.join('?' * len(paths))})", paths
+
+
+def usage_summary(
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+):
     """Sessions, tokens and cache-hit ratio for [since, until); no bound = all history.
+
+    `workspace` (a name) keeps only events under that workspace's repo paths.
 
     Usage is counted once per `message.id` (one API message spans several records), at the
     message's earliest record time. Abstained records never feed a metric; they are counted.
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
 
     where, params = _period("ts_utc", since_utc, until_utc)
     sessions = conn.execute(
         "SELECT COUNT(DISTINCT session_id) FROM events "
-        f"WHERE abstained = 0 AND session_id IS NOT NULL AND {where}",
-        params,
+        f"WHERE abstained = 0 AND session_id IS NOT NULL AND {where} AND {scope}",
+        params + scope_params,
     ).fetchone()[0]
 
     inner, inner_params = _inner_window(since_utc, until_utc)
@@ -76,17 +105,17 @@ def usage_summary(conn: sqlite3.Connection, since: str | None = None, until: str
         "  SELECT MIN(ts_utc) AS ts, MAX(input_tokens) AS i, MAX(output_tokens) AS o,"
         "         MAX(cache_creation_input_tokens) AS cc, MAX(cache_read_input_tokens) AS cr"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
-        f"  AND input_tokens IS NOT NULL AND {inner} GROUP BY message_id"
+        f"  AND input_tokens IS NOT NULL AND {inner} AND {scope} GROUP BY message_id"
         f") WHERE {where}",
-        inner_params + params,
+        inner_params + scope_params + params,
     ).fetchone()
 
     where, params = _period("ts_utc", since_utc, until_utc)
     by_version = dict(
         conn.execute(
             "SELECT COALESCE(version, 'unknown'), COUNT(*) FROM events "
-            f"WHERE abstained = 1 AND {where} GROUP BY 1 ORDER BY 1",
-            params,
+            f"WHERE abstained = 1 AND {where} AND {scope} GROUP BY 1 ORDER BY 1",
+            params + scope_params,
         ).fetchall()
     )
 
@@ -108,9 +137,15 @@ def _folder(project_path: str | None) -> str:
     return Path(project_path).name or project_path if project_path else "(unknown)"
 
 
-def _messages(conn: sqlite3.Connection, since_utc: str | None, until_utc: str | None):
+def _messages(
+    conn: sqlite3.Connection,
+    since_utc: str | None,
+    until_utc: str | None,
+    workspace: str | None = None,
+):
     """One row per API message in the period, same selection as `usage_summary`."""
     inner, inner_params = _inner_window(since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
     where, params = _period("ts", since_utc, until_utc)
     return conn.execute(
         "SELECT ts, model, project_path, tools, i, o, cc, cr FROM ("
@@ -119,9 +154,9 @@ def _messages(conn: sqlite3.Connection, since_utc: str | None, until_utc: str | 
         "         MAX(output_tokens) AS o, MAX(cache_creation_input_tokens) AS cc,"
         "         MAX(cache_read_input_tokens) AS cr"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
-        f"  AND input_tokens IS NOT NULL AND {inner} GROUP BY message_id"
+        f"  AND input_tokens IS NOT NULL AND {inner} AND {scope} GROUP BY message_id"
         f") WHERE {where} ORDER BY ts",
-        inner_params + params,
+        inner_params + scope_params + params,
     ).fetchall()
 
 
@@ -179,6 +214,7 @@ def usage_breakdown(
     since: str | None = None,
     until: str | None = None,
     prices: price_table.PriceTable | None = None,
+    workspace: str | None = None,
 ) -> dict:
     """Tokens per day (OS local) / model / project (folder name) / tool for [since, until).
 
@@ -192,7 +228,7 @@ def usage_breakdown(
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     groups: dict[str, dict] = {}
     total = _new_group()
-    for ts, model, project_path, tools, i, o, cc, cr in _messages(conn, since_utc, until_utc):
+    for ts, model, project_path, tools, i, o, cc, cr in _messages(conn, since_utc, until_utc, workspace):
         usd = prices.cost(model, i, o, cc, cr)
         _add(total, model, i, o, cc, cr, usd)
         for key in _keys(by, ts, model, project_path, tools):
@@ -221,7 +257,10 @@ def usage_breakdown(
 
 
 def session_outliers(
-    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
 ) -> dict:
     """Sessions with >= OUTLIER_TOOL_CALLS tool calls or a context >= OUTLIER_CONTEXT_TOKENS.
 
@@ -229,6 +268,8 @@ def session_outliers(
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     where, params = _period("ts_utc", since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
+    where, params = f"{where} AND {scope}", params + scope_params
     calls: dict[str, tuple[int, str | None]] = {}
     for session, tools, project_path in conn.execute(
         "SELECT session_id, tool_names, project_path FROM events "
@@ -284,7 +325,10 @@ def _parse_utc(value: str) -> datetime:
 
 
 def session_timeline(
-    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
 ) -> dict:
     """Per session in [since, until): start/end, models, token points per message and idle gaps.
 
@@ -292,7 +336,9 @@ def session_timeline(
     each message once (same rule as `usage_summary`). Tokens and times only, no text.
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
     where, params = _period("ts_utc", since_utc, until_utc)
+    where, params = f"{where} AND {scope}", params + scope_params
     sessions: dict[str, dict] = {}
     times: dict[str, list[str]] = {}
     for session, ts, project_path in conn.execute(
@@ -315,10 +361,10 @@ def session_timeline(
         "         COALESCE(MAX(cache_creation_input_tokens), 0) AS cc,"
         "         COALESCE(MAX(cache_read_input_tokens), 0) AS cr"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
-        f"  AND input_tokens IS NOT NULL AND session_id IS NOT NULL AND {inner}"
+        f"  AND input_tokens IS NOT NULL AND session_id IS NOT NULL AND {inner} AND {scope}"
         "  GROUP BY message_id"
         f") WHERE ts IS NOT NULL AND {where} ORDER BY ts, message_id",
-        inner_params + params,
+        inner_params + scope_params + params,
     ):
         points.setdefault(session, []).append(
             {
