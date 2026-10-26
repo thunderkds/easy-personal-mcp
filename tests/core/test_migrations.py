@@ -1,0 +1,283 @@
+import sqlite3
+import time
+from pathlib import Path
+
+import pytest
+
+from easy_personal.core import metrics, store
+from easy_personal.core.migrations import MIGRATIONS
+from easy_personal.sources import claude_code
+
+LATEST = max(number for number, _ in MIGRATIONS)
+
+
+def _make_v0(path: Path, fixtures_root: Path, old_verifier: bool = False) -> int:
+    """A store as the pre-HUN-61 code left it: full schema, rows, user_version 0."""
+    conn = store.connect(path)
+    claude_code.ingest(conn, fixtures_root)
+    n = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    conn.close()
+    raw = sqlite3.connect(path)
+    raw.execute("PRAGMA user_version = 0")
+    if old_verifier:
+        raw.execute("DROP TABLE verifier_scores")
+        raw.execute("CREATE TABLE verifier_scores (project_path TEXT PRIMARY KEY, score REAL)")
+        raw.execute("INSERT INTO verifier_scores VALUES ('/p', 0.5)")
+    raw.execute("DROP INDEX IF EXISTS events_ts_message")
+    raw.execute("CREATE INDEX IF NOT EXISTS events_ts ON events (ts_utc)")
+    raw.commit()
+    raw.close()
+    return n
+
+
+def test_runner_is_ordered_and_numbers_are_versions():
+    numbers = [number for number, _ in MIGRATIONS]
+    assert numbers == sorted(numbers) and numbers[0] == 1 and len(set(numbers)) == len(numbers)
+    assert LATEST >= 2
+
+
+def test_new_store_runs_all_migrations_and_makes_no_backup(tmp_path):
+    path = tmp_path / "store.sqlite"
+    conn = store.connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
+    conn.close()
+    assert not list(tmp_path.glob("*.bak-v*"))
+
+
+def test_rerun_is_a_noop(tmp_path):
+    path = tmp_path / "store.sqlite"
+    store.connect(path).close()
+    before = path.stat().st_mtime_ns
+    conn = store.connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
+    conn.close()
+    assert not list(tmp_path.glob("*.bak-v*"))
+    assert path.stat().st_mtime_ns >= before
+
+
+def test_v0_store_upgrades_keeping_every_row_and_leaves_a_backup(tmp_path, fixtures_root):
+    path = tmp_path / "store.sqlite"
+    n = _make_v0(path, fixtures_root)
+    assert n > 0
+    assert sqlite3.connect(path).execute("PRAGMA user_version").fetchone()[0] == 0
+    conn = store.connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
+    assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == n
+    backup = tmp_path / "store.sqlite.bak-v0"
+    assert backup.exists()
+    assert sqlite3.connect(backup).execute("SELECT COUNT(*) FROM events").fetchone()[0] == n
+    assert sqlite3.connect(backup).execute("PRAGMA user_version").fetchone()[0] == 0
+    names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    assert "events_ts_message" in names and "events_ts" not in names
+
+
+def test_pre_hun42_verifier_scores_is_rebuilt_by_the_baseline(tmp_path, fixtures_root):
+    path = tmp_path / "store.sqlite"
+    n = _make_v0(path, fixtures_root, old_verifier=True)
+    conn = store.connect(path)
+    assert "status" in {r[1] for r in conn.execute("PRAGMA table_info(verifier_scores)")}
+    assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == n
+
+
+def test_failing_migration_rolls_back_fully_and_keeps_user_version(tmp_path):
+    path = tmp_path / "store.sqlite"
+    conn = sqlite3.connect(path)
+
+    def good(c):
+        c.execute("CREATE TABLE t1 (x)")
+
+    def bad(c):
+        c.execute("CREATE TABLE t2 (x)")
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        store.migrate(conn, path, [(1, good), (2, bad)])
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert tables == {"t1"}
+    assert not conn.in_transaction
+
+
+def test_failing_first_migration_leaves_version_zero(tmp_path):
+    path = tmp_path / "store.sqlite"
+    conn = sqlite3.connect(path)
+
+    def bad(c):
+        c.execute("CREATE TABLE t (x)")
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        store.migrate(conn, path, [(1, bad)])
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0] == 0
+
+
+def test_newer_store_is_refused_not_downgraded(tmp_path):
+    path = tmp_path / "store.sqlite"
+    raw = sqlite3.connect(path)
+    raw.execute(f"PRAGMA user_version = {LATEST + 1}")
+    raw.close()
+    with pytest.raises(RuntimeError, match="newer"):
+        store.connect(path)
+    assert sqlite3.connect(path).execute("PRAGMA user_version").fetchone()[0] == LATEST + 1
+
+
+def test_connection_pragmas(conn):
+    assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    assert conn.execute("PRAGMA busy_timeout").fetchone()[0] >= 5000
+    assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+def test_foreign_keys_are_enforced(conn):
+    conn.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE child (p INTEGER REFERENCES parent(id))")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("INSERT INTO child VALUES (99)")
+
+
+# --- usage queries: time first, same numbers -------------------------------------------------
+
+DAY = 86400
+
+
+def _ts(seconds: int) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(seconds)) + ".000000Z"
+
+
+BASE = 1_767_225_600  # 2026-01-01T00:00:00Z
+
+
+def seed(conn, messages: int, span_days: int = 60, spread: int = 1) -> None:
+    """Deterministic synthetic events: `spread` events per message, minutes apart."""
+    rows = []
+    for m in range(messages):
+        t0 = BASE + (m * span_days * DAY) // messages
+        for k in range(spread):
+            rows.append(
+                (
+                    "m",
+                    "claude_code",
+                    f"/p/{m % 7}.jsonl",
+                    1,
+                    m * 10 + k,
+                    0,
+                    "assistant",
+                    "2.1.295",
+                    _ts(t0 + k * 60),
+                    f"s{m % 13}",
+                    f"/work/app{m % 5}",
+                    0,
+                    0,
+                    f"model-{m % 3}",
+                    f"msg{m}",
+                    "Read,Edit" if m % 4 == 0 else None,
+                    100 + k,
+                    10 + m % 50,
+                    m % 7,
+                    m % 11,
+                )
+            )
+    conn.executemany(
+        "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained,"
+        " record_type, version, ts_utc, session_id, project_path, is_sidechain, is_api_error,"
+        " model, message_id, tool_names, input_tokens, output_tokens,"
+        " cache_creation_input_tokens, cache_read_input_tokens)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        rows,
+    )
+    conn.commit()
+
+
+WINDOWS = [
+    (None, None),
+    ("2026-01-10", None),
+    (None, "2026-01-20"),
+    ("2026-01-10", "2026-01-20"),
+    ("2026-01-10T05:30:00Z", "2026-01-20T17:45:00Z"),
+    ("2025-12-01", "2025-12-31"),
+]
+
+
+def _all_numbers(conn, since, until):
+    return (
+        metrics.usage_summary(conn, since, until),
+        metrics._messages(conn, metrics._utc_bound(since), metrics._utc_bound(until)),
+        [metrics.usage_breakdown(conn, by, since, until) for by in metrics.DIMENSIONS],
+        metrics.session_outliers(conn, since, until),
+        metrics.session_timeline(conn, since, until),
+        metrics.session_contexts(conn, since, until),
+    )
+
+
+@pytest.mark.parametrize("since,until", WINDOWS)
+def test_time_first_numbers_equal_the_group_everything_numbers(conn, monkeypatch, since, until):
+    seed(conn, 400, spread=3)
+    claude_code.ingest(conn, Path(__file__).parents[1] / "fixtures" / "claude_code")
+    new = _all_numbers(conn, since, until)
+    monkeypatch.setattr(metrics, "_inner_window", lambda s, u: ("1", []))  # legacy semantics
+    assert _all_numbers(conn, since, until) == new
+
+
+def test_fixture_store_numbers_are_unchanged(conn, fixtures_root, monkeypatch):
+    claude_code.ingest(conn, fixtures_root)
+    new = _all_numbers(conn, "2026-01-15", "2026-01-16")
+    monkeypatch.setattr(metrics, "_inner_window", lambda s, u: ("1", []))
+    assert _all_numbers(conn, "2026-01-15", "2026-01-16") == new
+    assert new[0]["messages"] == 3
+
+
+def test_message_straddling_the_window_start_is_counted_by_its_first_event(conn):
+    seed(conn, 1, spread=3)  # events at BASE, +60, +120
+    start = _ts(BASE + 30)
+    assert len(metrics._messages(conn, start, None)) == 0  # first event is before `since`
+    assert len(metrics._messages(conn, _ts(BASE), None)) == 1
+
+
+def test_message_plan_uses_the_ts_index_not_a_scan(conn):
+    since, until = "2026-01-10T00:00:00.000000Z", "2026-01-20T00:00:00.000000Z"
+    where, params = metrics._inner_window(since, until)
+    plan = " | ".join(
+        row[3]
+        for row in conn.execute(
+            "EXPLAIN QUERY PLAN SELECT MIN(ts_utc) FROM events WHERE abstained = 0 AND "
+            f"message_id IS NOT NULL AND input_tokens IS NOT NULL AND {where} GROUP BY message_id",
+            params,
+        )
+    )
+    assert "events_ts_message" in plan, plan
+    assert "SCAN events" not in plan, plan
+
+
+@pytest.mark.perf
+def test_thirty_day_summary_over_a_million_events_is_under_500ms(tmp_path):
+    conn = store.connect(tmp_path / "big.sqlite")
+    seed(conn, 400_000, span_days=365, spread=2)  # 800k
+    seed_extra = 200_000
+    conn.executemany(
+        "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained,"
+        " ts_utc, session_id, project_path, model, message_id, tool_names, input_tokens,"
+        " output_tokens, cache_creation_input_tokens, cache_read_input_tokens)"
+        " VALUES ('m','claude_code','/x',1,?,0,?,?,?,?,?,NULL,10,5,0,0)",
+        (
+            (
+                10**9 + i,
+                _ts(BASE + (i * 365 * DAY) // seed_extra),
+                f"s{i % 50}",
+                "/w/a",
+                "model-0",
+                f"x{i}",
+            )
+            for i in range(seed_extra)
+        ),
+    )
+    conn.commit()
+    assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1_000_000
+    timings = []
+    for _ in range(3):
+        t = time.perf_counter()
+        out = metrics.usage_summary(conn, "2026-06-01", "2026-07-01")
+        timings.append(time.perf_counter() - t)
+    print(f"perf usage_summary 30d over 1M events: {[round(x * 1000) for x in timings]} ms")
+    assert out["messages"] > 0
+    assert min(timings) < 0.5, timings
+    conn.close()

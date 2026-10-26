@@ -29,6 +29,8 @@ artifacts = ["src/easy_personal/dashboard/static/**"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]
+markers = ["perf: heavy benchmark; run with -m perf"]
+addopts = "-m 'not perf'"
 
 [tool.ruff]
 line-length = 100

@@ -1,7 +1,7 @@
 """Usage metrics over the store. Every surface (MCP, CLI) calls these, so numbers match."""
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 
@@ -34,6 +34,25 @@ def _period(column: str, since: str | None, until: str | None) -> tuple[str, lis
     return " AND ".join(clauses) or "1", params
 
 
+_STORED_TS = "%Y-%m-%dT%H:%M:%S.%fZ"
+MESSAGE_PAD = timedelta(days=1)
+
+
+def _inner_window(since: str | None, until: str | None) -> tuple[str, list[str]]:
+    """Index-friendly `ts_utc` bounds for the inner per-message GROUP BY, padded by one day.
+
+    Filtering events before grouping lets SQLite use `events_ts_message`. The pad keeps every event
+    of a message that starts inside the period, so `MIN(ts_utc)` stays exact while a message's
+    events span less than a day; the exact period test still runs on the grouped `MIN(ts_utc)`.
+    """
+    padded_since = padded_until = None
+    if since is not None:
+        padded_since = (datetime.strptime(since, _STORED_TS) - MESSAGE_PAD).strftime(_STORED_TS)
+    if until is not None:
+        padded_until = (datetime.strptime(until, _STORED_TS) + MESSAGE_PAD).strftime(_STORED_TS)
+    return _period("ts_utc", padded_since, padded_until)
+
+
 def usage_summary(conn: sqlite3.Connection, since: str | None = None, until: str | None = None):
     """Sessions, tokens and cache-hit ratio for [since, until); no bound = all history.
 
@@ -49,6 +68,7 @@ def usage_summary(conn: sqlite3.Connection, since: str | None = None, until: str
         params,
     ).fetchone()[0]
 
+    inner, inner_params = _inner_window(since_utc, until_utc)
     where, params = _period("ts", since_utc, until_utc)
     messages, inp, out, cache_create, cache_read = conn.execute(
         "SELECT COUNT(*), COALESCE(SUM(i), 0), COALESCE(SUM(o), 0), COALESCE(SUM(cc), 0), "
@@ -56,9 +76,9 @@ def usage_summary(conn: sqlite3.Connection, since: str | None = None, until: str
         "  SELECT MIN(ts_utc) AS ts, MAX(input_tokens) AS i, MAX(output_tokens) AS o,"
         "         MAX(cache_creation_input_tokens) AS cc, MAX(cache_read_input_tokens) AS cr"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
-        "  AND input_tokens IS NOT NULL GROUP BY message_id"
+        f"  AND input_tokens IS NOT NULL AND {inner} GROUP BY message_id"
         f") WHERE {where}",
-        params,
+        inner_params + params,
     ).fetchone()
 
     where, params = _period("ts_utc", since_utc, until_utc)
@@ -90,6 +110,7 @@ def _folder(project_path: str | None) -> str:
 
 def _messages(conn: sqlite3.Connection, since_utc: str | None, until_utc: str | None):
     """One row per API message in the period, same selection as `usage_summary`."""
+    inner, inner_params = _inner_window(since_utc, until_utc)
     where, params = _period("ts", since_utc, until_utc)
     return conn.execute(
         "SELECT ts, model, project_path, tools, i, o, cc, cr FROM ("
@@ -98,9 +119,9 @@ def _messages(conn: sqlite3.Connection, since_utc: str | None, until_utc: str | 
         "         MAX(output_tokens) AS o, MAX(cache_creation_input_tokens) AS cc,"
         "         MAX(cache_read_input_tokens) AS cr"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
-        "  AND input_tokens IS NOT NULL GROUP BY message_id"
+        f"  AND input_tokens IS NOT NULL AND {inner} GROUP BY message_id"
         f") WHERE {where} ORDER BY ts",
-        params,
+        inner_params + params,
     ).fetchall()
 
 
@@ -284,6 +305,7 @@ def session_timeline(
         state["path"] = state["path"] or project_path
 
     points: dict[str, list[dict]] = {}
+    inner, inner_params = _inner_window(since_utc, until_utc)
     where, params = _period("ts", since_utc, until_utc)
     for session, ts, model, i, o, cc, cr in conn.execute(
         "SELECT session_id, ts, model, i, o, cc, cr FROM ("
@@ -293,9 +315,10 @@ def session_timeline(
         "         COALESCE(MAX(cache_creation_input_tokens), 0) AS cc,"
         "         COALESCE(MAX(cache_read_input_tokens), 0) AS cr"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
-        "  AND input_tokens IS NOT NULL AND session_id IS NOT NULL GROUP BY message_id"
+        f"  AND input_tokens IS NOT NULL AND session_id IS NOT NULL AND {inner}"
+        "  GROUP BY message_id"
         f") WHERE ts IS NOT NULL AND {where} ORDER BY ts, message_id",
-        params,
+        inner_params + params,
     ):
         points.setdefault(session, []).append(
             {
@@ -356,15 +379,17 @@ def session_contexts(
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     sessions: dict[str, dict] = {}
+    inner, inner_params = _inner_window(since_utc, until_utc)
     rows = conn.execute(
         "SELECT session_id, ts, ctx FROM ("
         "  SELECT MAX(session_id) AS session_id, MIN(ts_utc) AS ts,"
         "         MAX(COALESCE(input_tokens, 0) + COALESCE(cache_creation_input_tokens, 0)"
         "             + COALESCE(cache_read_input_tokens, 0)) AS ctx"
         "  FROM events WHERE abstained = 0 AND session_id IS NOT NULL"
-        "  AND message_id IS NOT NULL AND input_tokens IS NOT NULL GROUP BY message_id"
+        f"  AND message_id IS NOT NULL AND input_tokens IS NOT NULL AND {inner}"
+        "  GROUP BY message_id"
         f") WHERE {_period('ts', since_utc, until_utc)[0]} ORDER BY session_id, ts",
-        _period("ts", since_utc, until_utc)[1],
+        inner_params + _period("ts", since_utc, until_utc)[1],
     )
     for session, _, context in rows:
         state = sessions.setdefault(session, {"session_id": session, "peak": 0, "compacted": False})

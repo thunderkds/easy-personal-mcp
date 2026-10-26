@@ -6,97 +6,12 @@ No column holds a raw record, message text or tool input/output (FR-002, NFR-002
 import sqlite3
 import uuid
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS meta (
-    key   TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS source_files (
-    machine_id  TEXT NOT NULL,
-    source      TEXT NOT NULL,
-    path        TEXT NOT NULL,
-    inode       INTEGER NOT NULL,
-    byte_offset INTEGER NOT NULL,
-    PRIMARY KEY (machine_id, source, path)
-);
-CREATE TABLE IF NOT EXISTS events (
-    id                          INTEGER PRIMARY KEY,
-    machine_id                  TEXT NOT NULL,
-    source                      TEXT NOT NULL,
-    source_path                 TEXT NOT NULL,
-    inode                       INTEGER NOT NULL,
-    byte_offset                 INTEGER NOT NULL,
-    abstained                   INTEGER NOT NULL,
-    record_type                 TEXT,
-    version                     TEXT,
-    ts_utc                      TEXT,
-    session_id                  TEXT,
-    project_path                TEXT,
-    git_branch                  TEXT,
-    is_sidechain                INTEGER,
-    is_api_error                INTEGER,
-    model                       TEXT,
-    message_id                  TEXT,
-    tool_names                  TEXT,
-    input_tokens                INTEGER,
-    output_tokens               INTEGER,
-    cache_creation_input_tokens INTEGER,
-    cache_read_input_tokens     INTEGER,
-    UNIQUE (machine_id, source, source_path, inode, byte_offset)
-);
-CREATE TABLE IF NOT EXISTS kit_trace_events (
-    id           INTEGER PRIMARY KEY,
-    machine_id   TEXT NOT NULL,
-    source_path  TEXT NOT NULL,
-    inode        INTEGER NOT NULL,
-    byte_offset  INTEGER NOT NULL,
-    project_path TEXT NOT NULL,
-    kit_task_id  TEXT,
-    abstained    INTEGER NOT NULL,
-    ts_utc       TEXT,
-    tool_name    TEXT,
-    is_error     INTEGER,
-    UNIQUE (machine_id, source_path, inode, byte_offset)
-);
-CREATE TABLE IF NOT EXISTS context_index (
-    project_path      TEXT PRIMARY KEY,
-    last_index_at_utc TEXT
-);
-CREATE TABLE IF NOT EXISTS ui_sessions (
-    id             TEXT PRIMARY KEY,
-    status         TEXT NOT NULL,
-    started_at_utc TEXT NOT NULL,
-    ended_at_utc   TEXT,
-    action_count   INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS verifier_scores (
-    project_path       TEXT PRIMARY KEY,
-    status             TEXT NOT NULL,
-    scope              TEXT,
-    generated_at_utc   TEXT,
-    overall_value      REAL,
-    overall_abstained  INTEGER NOT NULL,
-    reason_code        TEXT
-);
-CREATE TABLE IF NOT EXISTS tool_signals (
-    machine_id  TEXT NOT NULL,
-    source_path TEXT NOT NULL,
-    inode       INTEGER NOT NULL,
-    byte_offset INTEGER NOT NULL,
-    kind        TEXT NOT NULL,
-    value       TEXT NOT NULL,
-    ts_utc      TEXT,
-    UNIQUE (machine_id, source_path, inode, byte_offset, kind, value)
-);
-CREATE INDEX IF NOT EXISTS tool_signals_kind ON tool_signals (kind, value);
-CREATE INDEX IF NOT EXISTS kit_trace_ts ON kit_trace_events (ts_utc);
-CREATE INDEX IF NOT EXISTS events_ts ON events (ts_utc);
-CREATE INDEX IF NOT EXISTS events_message ON events (message_id);
-"""
+from easy_personal.core.migrations import MIGRATIONS
+from easy_personal.core.migrations.m0001_baseline import SCHEMA  # noqa: F401  (re-export)
 
 EVENT_COLUMNS = (
     "abstained",
@@ -118,20 +33,56 @@ EVENT_COLUMNS = (
 )
 
 
-def _rebuild_old_verifier_scores(conn: sqlite3.Connection) -> None:
-    """Drop the pre-HUN-42 verifier_scores (no `status` column); the next ingest refills this cache."""
-    columns = [row[1] for row in conn.execute("PRAGMA table_info(verifier_scores)")]
-    if columns and "status" not in columns:
-        with conn:
-            conn.execute("DROP TABLE verifier_scores")
+BUSY_TIMEOUT_MS = 5000
+
+
+def _has_tables(conn: sqlite3.Connection) -> bool:
+    return conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone() is not None
+
+
+def migrate(conn: sqlite3.Connection, path: Path, migrations=MIGRATIONS) -> None:
+    """Apply pending numbered migrations in order; a migration's number is its `user_version`.
+
+    Each one runs in its own `BEGIN IMMEDIATE` transaction together with its `user_version` bump, so a
+    failure rolls back fully. Before the first pending migration on a non-empty store the file is copied
+    to `<path>.bak-v<N>` (restore path: put that copy back). A store newer than this code is refused.
+    """
+    latest = max((number for number, _ in migrations), default=0)
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version > latest:
+        raise RuntimeError(
+            f"store {path} is schema v{version}, newer than this program (v{latest}): upgrade easy-personal"
+        )
+    if version == latest:
+        return
+    previous = conn.isolation_level
+    conn.isolation_level = None  # explicit BEGIN/COMMIT: DDL must roll back with the version bump
+    try:
+        if version < latest and _has_tables(conn):
+            with closing(sqlite3.connect(f"{path}.bak-v{version}")) as backup:
+                conn.backup(backup)
+        for number, apply in sorted(migrations, key=lambda m: m[0]):
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                # re-read under the write lock: another process may have migrated meanwhile
+                if number > conn.execute("PRAGMA user_version").fetchone()[0]:
+                    apply(conn)
+                    conn.execute(f"PRAGMA user_version = {number}")
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
+    finally:
+        conn.isolation_level = previous
 
 
 def connect(path: Path) -> sqlite3.Connection:
-    """Open (and create if needed) the store in WAL mode and ensure this store's machine_id."""
+    """Open (and create / upgrade) the store: WAL, FKs on, busy wait, this store's machine_id."""
     conn = sqlite3.connect(path)
+    conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+    conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
-    _rebuild_old_verifier_scores(conn)
-    conn.executescript(SCHEMA)
+    migrate(conn, path)
     with conn:
         conn.execute(
             "INSERT OR IGNORE INTO meta (key, value) VALUES ('machine_id', ?)", (str(uuid.uuid4()),)

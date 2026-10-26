@@ -31,3 +31,29 @@ def _no_real_verifier_reports(monkeypatch, tmp_path_factory):
     monkeypatch.setenv(
         "EASY_PERSONAL_VERIFIER_REPORTS", str(tmp_path_factory.mktemp("verifier-none"))
     )
+
+
+REAL_DATA_DIR = (Path.home() / ".easy-personal").resolve()  # taken at import, before any HOME patch
+
+
+@pytest.fixture(autouse=True)
+def _never_open_the_real_store(monkeypatch):
+    """NFR-003: a test that opens anything under the owner's real ~/.easy-personal fails."""
+    import sqlite3
+
+    real_connect = sqlite3.connect
+
+    def guarded(database, *args, **kwargs):
+        if isinstance(database, str | Path) and str(database) != ":memory:":
+            target = Path(database).resolve()
+            if target == REAL_DATA_DIR or REAL_DATA_DIR in target.parents:
+                raise AssertionError(f"test opened the real store: {target}")
+        return real_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", guarded)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_data_dir(monkeypatch, tmp_path_factory):
+    """Every test gets its own EASY_PERSONAL_HOME; tests that set their own keep overriding it."""
+    monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path_factory.mktemp("epm-home")))
