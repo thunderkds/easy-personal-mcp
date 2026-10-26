@@ -9,8 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-69** — Dashboard Workspaces page + workspace form (repos, connectors, alias, move, delete) + legacy banner | Frontend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-69.md`
-- [ ] **HUN-71** — QA end-to-end: several fake accounts + workspaces, no secret leaks, no real config touched | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-71.md`
 
 ### In Progress
 
@@ -50,7 +48,9 @@
 - [x] **HUN-66** — Move connector, change alias, rename workspace, delete workspace → connectors to orphan, assign out of orphan | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-66.md`
 - [x] **HUN-67** — One-time adoption: pre-workspace connectors (slack, gmail, …) move to orphan | Backend-Implementer | C1 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-67.md`
 - [x] **HUN-68** — Dashboard Agents page: detected/confirmed accounts, by account / by provider, pick workspaces with plan confirmation | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-68.md`
+- [x] **HUN-69** — Dashboard Workspaces page + workspace form (repos, connectors, alias, move, delete) + legacy banner | Frontend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-69.md`
 - [x] **HUN-70** — Usage page: Workspace and Account filters | Frontend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-70.md`
+- [x] **HUN-71** — QA end-to-end: several fake accounts + workspaces, no secret leaks, no real config touched | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-71.md`
 
 ### Closed (will not do)
 
