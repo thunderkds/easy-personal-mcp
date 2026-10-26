@@ -49,6 +49,7 @@
 - [Register new surfaces in the leak suite](learnings.md#2026-10-21--new-mcp-tool-or-cli-command-must-be-registered-in-the-leak-suite) — `MCP_CALLS`/`CLI_CALLS` in `tests/leak/harness.py`; flag variants by hand; also `API_CALLS`, `CLI_KEYCHAIN_COMMANDS`.
 - [Owner checks: prices + 200k context](learnings.md#2026-10-21--open-owner-checks-from-hun-35-price-numbers-and-the-long-context-threshold) — `prices.yaml` numbers unverified; outlier threshold is implementer's choice.
 - [Board push needs LINEAR_API_KEY](learnings.md#2026-10-21--board-push-needs-linear_api_key-in-the-sessions-shell) — else only the KANBAN cache moves; nothing queued.
+- [Store migrations + real-store guard (HUN-61)](learnings.md#2026-10-26--store-migrations-on-user_version-tests-must-never-open-the-real-store-hun-61) — `core/migrations/mNNNN_*`, `.bak-v<N>` rollback; numbers m0003–m0006 pre-assigned; tests isolated from `~/.easy-personal`.
 - [No codebase-map yet](learnings.md#2026-10-21--memorycodebase-mapmd-does-not-exist) — run `/map-codebase` or drop it from C2 spawn reads.
 - [Owner check: compaction inferred](learnings.md#2026-10-21--open-owner-check-from-hun-37-compaction-is-inferred) — context drop < half of peak = compacted; rules abstain with reason.
 - [Scheduled ingest lock + systemd](learnings.md#2026-10-21--scheduled-ingest-lock-exit-75-systemd-only-via---dry-run-in-tests) — flock, exit 75; tests stub systemctl, leak suite dry-run only; timer has no shell env → settings go in `config.yaml`.
