@@ -169,7 +169,12 @@ def _ingest(args) -> int:
 
 
 def _ask(label: str, secret: bool) -> str:
-    return getpass.getpass(f"{label}: ") if secret else input(f"{label}: ").strip()
+    from easy_personal.connectors import writer
+
+    try:
+        return getpass.getpass(f"{label}: ") if secret else input(f"{label}: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        raise writer.ConnectorError("input ended at the prompt; nothing was written") from None
 
 
 def _confirm_text(question: str) -> bool:
@@ -254,6 +259,8 @@ def _connector(args) -> int:
             rc = sync.remove_connector(conn, args.name, _confirm, print, args.yes)
         if rc is not None:
             return rc
+        if args.name not in catalog.ids():  # never remove an entry we did not create
+            raise writer.ConnectorError("unknown connector; nothing was removed")
         return writer.remove(args.name, _confirm, print, args.yes)  # a pre-workspace connector
     except (catalog.CatalogError, writer.ConnectorError, workspaces.WorkspaceError, accounts.AccountError) as exc:
         print(f"easy-personal: {exc}", file=sys.stderr)
@@ -360,8 +367,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "doctor":
         from easy_personal.connectors import legacy, sync, writer
 
-        rc = writer.doctor(print)
         with store.opened(config.store_path()) as conn:
+            stored = frozenset(r[0] for r in conn.execute("SELECT id FROM connectors"))
+            rc = writer.doctor(print, stored)
             legacy.doctor(conn, print)
             return 1 if sync.doctor(conn, print) or rc else 0
     if args.command == "ingest":

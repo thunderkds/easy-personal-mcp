@@ -119,7 +119,7 @@ def _configured(name: str) -> bool:
     from easy_personal.launch import LaunchError
 
     try:
-        return writer._keychain_item(name) and writer._entry_exists(name) is not None
+        return writer._keychain_item(name) and writer._entry_exists(name, writer.account_env(None)) is not None
     except (LaunchError, KeyringError):  # no usable, locked or broken keychain
         return False
 
@@ -166,7 +166,7 @@ def _run_writer(call, extra: Callable[[int], dict] | None = None, own_status: bo
     asked: list[bool] = []
 
     def confirm() -> bool:
-        asked.append(True)
+        asked.append(len(lines))  # the plan ends here; the writer's abort line comes after
         return False
 
     try:
@@ -179,7 +179,7 @@ def _run_writer(call, extra: Callable[[int], dict] | None = None, own_status: bo
     except LaunchError as exc:
         status = 1
         lines.append(str(exc))
-    answer = {"status": status, "lines": lines, "pending": bool(asked)}
+    answer = {"status": status, "lines": lines[: asked[0]] if asked else lines, "pending": bool(asked)}
     return JSONResponse(answer | (extra(status) if extra else {}))
 
 

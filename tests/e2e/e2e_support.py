@@ -625,15 +625,16 @@ def leaks(blobs: dict[str, object], planted: dict[str, str]) -> list[str]:
 def real_mtimes() -> dict[str, tuple]:
     """Read-only `lstat` of the owner's real ~/.claude*, ~/.codex*, ~/.easy-personal (top level only).
 
-    A `~/.claude*` DIRECTORY is skipped: a running Claude Code session rewrites it all the time, so its
-    mtime is noise (the audit hook covers it). Files such as ~/.claude.json are compared.
+    A `~/.claude*` or `~/.codex*` DIRECTORY is skipped: a running Claude Code session or Codex app (VS Code
+    extension) rewrites it all the time, so its mtime is noise (the audit hook covers it). Files such as
+    ~/.claude.json are compared.
     """
     out = {}
     for name in sorted(os.listdir(REAL_HOME)):
         if name.startswith((".claude", ".codex", ".easy-personal")):
             st = os.lstat(REAL_HOME / name)
             is_dir = os.path.isdir(REAL_HOME / name)
-            if is_dir and name.startswith(".claude"):
+            if is_dir and name.startswith((".claude", ".codex")):  # live Codex app rewrites ~/.codex
                 continue
             out[name] = (st.st_mtime_ns, st.st_size if not is_dir else None)
     return out

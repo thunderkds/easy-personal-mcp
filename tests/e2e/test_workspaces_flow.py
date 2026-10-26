@@ -481,8 +481,6 @@ def test_api_refuses_writes_without_the_token(tmp_path):
 # --- CLI-only: doctor reports no drift after the flow -----------------------------------------
 
 
-@pytest.mark.xfail(strict=False, reason="DEFECT P2: `doctor` still runs the pre-workspace catalog-id check, so an "
-                   "adopted legacy connector (keychain item, assigned to a workspace) reports FAIL and exit 1")
 def test_doctor_is_clean_after_the_flow(cli_run):
     w: World = cli_run["world"]
     with w.active():
@@ -495,8 +493,6 @@ def test_doctor_is_clean_after_the_flow(cli_run):
 # --- carry-over P3 findings (reported, not fixed) ------------------------------------------------
 
 
-@pytest.mark.xfail(strict=False, reason="HUN-65 P3: `connector add` prompt at stdin EOF raises a traceback "
-                   "(EOFError from getpass/input) instead of a one-line message and a non-zero exit")
 def test_connector_add_prompt_at_stdin_eof_is_a_clean_error(tmp_path):
     w = World(tmp_path / "w")
     with w.active():
@@ -554,9 +550,6 @@ def test_account_id_in_api_matches_cli(cli_run, api_run):
     assert [a[0] for a in cli_run["state"]["accounts"]] == [a[0] for a in api_run["state"]["accounts"]]
 
 
-@pytest.mark.xfail(strict=False, reason="DEFECT P2: CLI `connector remove <unknown name> --yes` falls back to the "
-                   "pre-workspace path and runs `claude mcp remove <name> --scope user` in the default account, "
-                   "deleting a hand-made server (the API answers 404 for the same call; sync never does this)")
 def test_cli_remove_of_an_unknown_name_leaves_a_hand_made_server(tmp_path):
     w = World(tmp_path / "w")
     with w.active():

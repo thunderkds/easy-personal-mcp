@@ -174,12 +174,20 @@ def remove(name: str, confirm: Confirm, out: Out, assume_yes: bool = False) -> i
     if not shutil.which("claude"):
         out(f"the `claude` CLI is not on PATH; nothing was removed. Run `{snippet}` once it is installed.")
         return 0
-    out(f"will change: delete keychain service easy-personal/{name}; run `{snippet}`")
+    env = account_env(None)  # the default account: CLAUDE_CONFIG_DIR unset
+    got = _entry_exists(name, env)
+    if got is not None and not points_at_launcher(got, name):
+        out(f"the default Claude account has a '{name}' entry that easy-personal did not create; nothing was removed.")
+        return 1
+    if got is None:
+        out(f"will change: delete keychain service easy-personal/{name}; no Claude Code entry to remove")
+    else:
+        out(f"will change: delete keychain service easy-personal/{name}; run `{snippet}`")
     if not assume_yes and not confirm():
         out("aborted; nothing was removed.")
         return 1
-    done = _claude("mcp", "remove", name, "--scope", "user")
-    if done.returncode != 0:
+    done = remove_entry(name, env) if got is not None else None
+    if done is not None and done.returncode != 0:
         out(f"`claude mcp remove` failed (exit {done.returncode}); keychain left as it was.")
         if done.stderr.strip():
             out(done.stderr.strip())
@@ -189,8 +197,10 @@ def remove(name: str, confirm: Confirm, out: Out, assume_yes: bool = False) -> i
     return 0
 
 
-def doctor(out: Out) -> int:
-    """Check keychain backend, `claude` on PATH, the launcher, and each connector entry."""
+def doctor(out: Out, skip: frozenset[str] = frozenset()) -> int:
+    """Check keychain backend, `claude` on PATH, the launcher, and each pre-workspace connector entry.
+
+    `skip`: catalog ids that are stored connectors (adopted); `sync.doctor` checks those."""
     bad = 0
 
     def report(ok: bool, what: str, detail: str = "") -> None:
@@ -212,8 +222,10 @@ def doctor(out: Out) -> int:
     except LaunchError as exc:
         report(False, "launcher", str(exc))
     for name in catalog.ids():
+        if name in skip:
+            continue
         in_keychain = backend_ok and _keychain_item(name)
-        got = _entry_exists(name) if has_claude else None
+        got = _entry_exists(name, account_env(None)) if has_claude else None
         if not in_keychain and got is None:
             continue  # not a configured connector
         if got is None:

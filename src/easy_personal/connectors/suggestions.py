@@ -46,7 +46,7 @@ def catalog_view() -> dict:
 def _configured(name: str, has_claude: bool) -> bool:
     """Keychain item present AND Claude Code reports the entry. Any failure means not configured."""
     try:
-        return has_claude and writer._keychain_item(name) and writer._entry_exists(name) is not None
+        return has_claude and writer._keychain_item(name) and writer._entry_exists(name, writer.account_env(None)) is not None
     except Exception:  # noqa: BLE001 - locked or missing keychain, odd claude output: not configured
         return False
 

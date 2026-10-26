@@ -89,3 +89,17 @@ def test_rename_and_delete_workspace_with_plan(world):
     assert fake.state()["<unset>"] == {}
     assert send(client, "DELETE", path, {"confirm": True}).status_code == 404
     assert send(client, "DELETE", f"/api/workspaces/{ws['side']}", {"confirm": "yes"}).status_code == 400
+
+
+def test_pending_plan_has_no_abort_line(world):
+    client, *_ = world
+    res = send(client, "PUT", f"/api/connectors/{CID}/alias", {"alias": "team-chat", "confirm": False}).json()
+    assert res["pending"] is True and res["lines"]
+    assert not any("aborted" in ln for ln in res["lines"]), res["lines"]
+    assert alias_of()[0] == "company-slack"
+
+
+def test_applied_answer_keeps_its_lines(world):
+    client, *_ = world
+    done = send(client, "PUT", f"/api/connectors/{CID}/alias", {"alias": "team-chat", "confirm": True}).json()
+    assert done["pending"] is False and done["status"] == 0 and any(ln.startswith("done:") for ln in done["lines"])
