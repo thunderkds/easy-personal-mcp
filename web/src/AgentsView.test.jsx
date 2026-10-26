@@ -53,7 +53,7 @@ describe('Agents view', () => {
   it('AC2: a detected folder offers Confirm & name and Ignore', async () => {
     const fn = stub()
     render(<AgentsView />)
-    const r = await screen.findByRole('listitem', { name: '/home/o/.claude-new' })
+    const r = await screen.findByRole('listitem', { name: '.claude-new' })
     fireEvent.change(within(r).getByLabelText('Name'), { target: { value: 'Claude side' } })
     fireEvent.click(within(r).getByRole('button', { name: 'Confirm & name' }))
     await waitFor(() => expect(writes(fn)).toContainEqual(['POST', '/api/accounts/5/confirm', { label: 'Claude side' }]))
@@ -62,15 +62,23 @@ describe('Agents view', () => {
   it('AC2: Ignore posts an empty body', async () => {
     const fn = stub()
     render(<AgentsView />)
-    const r = await screen.findByRole('listitem', { name: '/home/o/.claude-new' })
+    const r = await screen.findByRole('listitem', { name: '.claude-new' })
     fireEvent.click(within(r).getByRole('button', { name: 'Ignore' }))
     await waitFor(() => expect(writes(fn)).toContainEqual(['POST', '/api/accounts/5/ignore', {}]))
+  })
+
+  it('unnamed row heading is the last folder segment; the full path shows once', async () => {
+    stub()
+    render(<AgentsView />)
+    const r = await screen.findByRole('listitem', { name: '.claude-new' })
+    expect(within(r).getByText('.claude-new')).toBeInTheDocument()
+    expect(within(r).getAllByText('/home/o/.claude-new')).toHaveLength(1)
   })
 
   it('AC2: Confirm & name needs a label', async () => {
     const fn = stub()
     render(<AgentsView />)
-    const r = await screen.findByRole('listitem', { name: '/home/o/.claude-new' })
+    const r = await screen.findByRole('listitem', { name: '.claude-new' })
     expect(within(r).getByRole('button', { name: 'Confirm & name' })).toBeDisabled()
     expect(writes(fn)).toHaveLength(0)
   })

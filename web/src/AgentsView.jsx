@@ -172,7 +172,7 @@ function Picker({ account, workspaces }) {
 
 function AccountRow({ account, workspaces, onChanged }) {
   const { provider, label, folder, status } = account
-  const name = label || folder
+  const name = label || folder.split('/').filter(Boolean).pop() || folder
   return (
     <li aria-label={name}>
       <div className="entry-head">

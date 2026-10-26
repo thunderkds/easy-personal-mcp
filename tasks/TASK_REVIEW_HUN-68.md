@@ -14,8 +14,8 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `web/src/AgentsView.test.jsx` (13 tests: AC1-AC6 + edge cases) |
-| Verification command run | pass | `npm --prefix web test`: Test Files 7 passed (7), Tests 63 passed (63); `npm --prefix web run build`: built in 606ms; `uv run pytest tests/surfaces -q tests/test_web_toolchain.py`: 126 passed, 1 warning |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `web/src/AgentsView.test.jsx` (14 tests: AC1-AC6 + edge cases) |
+| Verification command run | pass | `npm --prefix web test`: Test Files 7 passed (7), Tests 64 passed (64) after UI-review fixes (font inherit, short heading); `npm --prefix web run build`: built in 606ms; `uv run pytest tests/surfaces -q tests/test_web_toolchain.py`: 126 passed, 1 warning |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
