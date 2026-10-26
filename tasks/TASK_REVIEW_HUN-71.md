@@ -17,13 +17,13 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | tests/e2e/test_workspaces_flow.py, tests/e2e/e2e_support.py, tests/e2e/e2e_filekeyring.py |
 | Verification command run | pass | `uv run pytest tests/e2e tests/leak -q && uv run pytest -q`: 47 passed, 4 xfailed, 1 warning in 81.83s (0:01:21) / 730 passed, 2 skipped, 4 deselected, 4 xfailed, 1 warning in 150.55s (0:02:30) |
 | Negative cases hold | pass | refusals (dup name, orphan pick, Codex pick, move clash, bad alias, wrong token) asserted on CLI and API |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | Supervisor re-ran 2026-10-26 ~22:10 +07 at 392bac3: `uv run pytest tests/e2e tests/leak -q -rx` -> 47 passed, 4 xfailed (the 4 defects below); `uv run ruff check .` clean. Real `~/.easy-personal/store.sqlite` mtime unchanged before/after (17:47:16 +07). The e2e flow itself is the runtime verification (CLI subprocesses + API TestClient on an isolated machine) — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Test-only change (tests/e2e/*, review file). Reviewed isolation: REAL_HOME used only for top-level lstat/listdir in the no-touch guard and audit-hook prefixes; fake keychain + FAKE_CLAUDE; HOME patched to temp. Open questions decided: (1) ~/.claude* dirs covered by the audit hook only, mtime skipped (live session rewrites them) — accepted; (2) keep the scratch account; (3) in-process ingest via `cli._ingest` for the API world — accepted; (4) ~80 s runtime, not marked slow — accepted. Defects routed to follow-up HUN-72: P2 CLI `connector remove <unknown>` deletes a hand-made server; P2 `doctor` FAIL on adopted legacy ids; P3 `connector add` EOF traceback; P3 tool_signals double count — pass |
 | Full smoke suite still green (no regression) | pass | full suite: 730 passed, 2 skipped, 4 deselected, 4 xfailed, 1 warning in 150.55s (0:02:30); ruff check: All checks passed |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| easy-verifier score (advisory) | ☐ N/A | N/A — easy-verifier MCP server not loaded in this profile |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | N/A — test-only task, no UI change |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | N/A — test-only task, no UI change |
+| **UI: Responsiveness at target viewports** | ☑ N/A | N/A — test-only task, no UI change |
 
 ---
 
@@ -49,5 +49,4 @@ $ uv run pytest -q | tail -1
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-26 ~22:10 +07 — re-ran `uv run pytest tests/e2e tests/leak -q -rx` (47 passed, 4 xfailed) at 392bac3 and checked the real store was untouched.
