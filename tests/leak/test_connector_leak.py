@@ -95,6 +95,9 @@ def test_secret_typed_into_connector_add_never_leaks(world, capsys, monkeypatch)
         step(0, ["connector", "move", connector_id, canaries.values["api_key"], "--yes"])  # refused, no echo
         step(0, ["connector", "remove", connector_id, "--yes"])
         step(0, ["connector", "remove", "slack", "--yes"])  # pre-workspace path
+        keyring.get_keyring().set_password("easy-personal/discord", "connector", canaries.values["api_key"])
+        step(0, ["connector", "adopt-legacy"])  # HUN-67: keychain-only legacy connector -> orphan
+        step(0, ["connector", "adopt-legacy"])  # second run: nothing
     # the argv the fake claude saw, and every file written under the home or the temp tree (store included)
     blobs["claude argv"] = (tmp_path / "argv.log").read_text()
     blobs["logs"] = logs.text()

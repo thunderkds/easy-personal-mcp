@@ -213,6 +213,32 @@ async def connectors_add(request):
     return await run_in_threadpool(_run_writer, add)
 
 
+def connectors_legacy(request):
+    from easy_personal.connectors import legacy
+    from easy_personal.launch import LaunchError
+
+    try:
+        with store.opened(config.store_path()) as conn:
+            return JSONResponse({"legacy": [i.as_dict() for i in legacy.detect(conn)]})
+    except LaunchError as exc:  # no usable keychain: the message is the guidance, no input echoed
+        return JSONResponse({"error": str(exc)}, 503)
+
+
+async def connectors_legacy_adopt(request):
+    from easy_personal.connectors import legacy
+
+    body, error = await _json_body(request)
+    if error:
+        return error
+    yes = body.get("confirm", False)
+
+    def adopt(confirm, out):
+        with store.opened(config.store_path()) as conn:
+            return legacy.adopt(conn, confirm, out, yes)
+
+    return await run_in_threadpool(_run_writer, adopt)
+
+
 def _stored_connector(name: str) -> bool:
     with store.opened(config.store_path()) as conn:
         return conn.execute("SELECT 1 FROM connectors WHERE id = ?", (name,)).fetchone() is not None
@@ -493,6 +519,8 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/sync", sync_apply, methods=["POST"]),
         Route("/api/connectors", connectors_list),
         Route("/api/connectors", connectors_add, methods=["POST"]),
+        Route("/api/connectors/legacy", connectors_legacy),
+        Route("/api/connectors/legacy", connectors_legacy_adopt, methods=["POST"]),
         Route("/api/connectors/{name}", connectors_remove, methods=["DELETE"]),
         Route("/api/connectors/{id}/move", connectors_move, methods=["POST"]),
         Route("/api/connectors/{id}/alias", connectors_alias, methods=["PUT"]),

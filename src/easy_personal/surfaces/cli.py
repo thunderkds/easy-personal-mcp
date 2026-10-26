@@ -121,7 +121,8 @@ def build_parser() -> argparse.ArgumentParser:
     alias_p.add_argument("id", help="connector id")
     alias_p.add_argument("alias", nargs="?", help="new alias")
     alias_p.add_argument("--default", action="store_true", help="reset to <workspace>-<provider>")
-    for action_p in (add_p, remove_p, sync_p, move_p, alias_p):
+    adopt_p = connector_sub.add_parser("adopt-legacy", help="move pre-workspace connectors (slack, ...) into orphan")
+    for action_p in (add_p, remove_p, sync_p, move_p, alias_p, adopt_p):
         action_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
     account_p = sub.add_parser("account", help="agent accounts (~/.claude*, ~/.codex*): list, confirm, ignore, add")
     account_sub = account_p.add_subparsers(dest="action", required=True)
@@ -228,7 +229,7 @@ def _sync(conn, args) -> int:
 
 
 def _connector(args) -> int:
-    from easy_personal.connectors import catalog, sync, writer
+    from easy_personal.connectors import catalog, legacy, sync, writer
     from easy_personal.launch import LaunchError
 
     if args.action == "list":
@@ -248,6 +249,8 @@ def _connector(args) -> int:
                 if args.default == (args.alias is not None):
                     raise writer.ConnectorError("give either a new alias or --default")
                 return sync.set_alias(conn, args.id, None if args.default else args.alias, _confirm, print, args.yes)
+            if args.action == "adopt-legacy":
+                return legacy.adopt(conn, _confirm, print, args.yes)
             rc = sync.remove_connector(conn, args.name, _confirm, print, args.yes)
         if rc is not None:
             return rc
@@ -355,10 +358,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "account":
         return _account(args)
     if args.command == "doctor":
-        from easy_personal.connectors import sync, writer
+        from easy_personal.connectors import legacy, sync, writer
 
         rc = writer.doctor(print)
         with store.opened(config.store_path()) as conn:
+            legacy.doctor(conn, print)
             return 1 if sync.doctor(conn, print) or rc else 0
     if args.command == "ingest":
         return _ingest(args)
