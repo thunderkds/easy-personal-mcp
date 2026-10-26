@@ -14,13 +14,23 @@ HOST = f"127.0.0.1:{PORT}"
 AUTH = {api.TOKEN_HEADER: TOKEN}
 JSON = {"content-type": "application/json"}
 SECRET = "xoxb-PLANTED-secret-123"
-SLACK = {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": SECRET}}
+SLACK = {"provider": "slack", "workspace": "company", "values": {"SLACK_MCP_XOXB_TOKEN": SECRET}}
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
+    from easy_personal.core import config, store, workspaces
+
     monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+    with store.opened(config.store_path()) as conn:
+        workspaces.add(conn, "company")
     return TestClient(api.create_app(TOKEN, PORT, tmp_path / "absent"), base_url=f"http://{HOST}")
+
+
+def stored_id(mem_keyring):
+    ((service, _),) = mem_keyring.items
+    return service.split("/", 1)[1]
 
 
 def post(client, body, headers=None):
@@ -100,7 +110,7 @@ def test_preview_shows_plan_masks_secret_writes_nothing(client, mem_keyring, fak
     body = res.json()
     assert res.status_code == 200 and body["pending"] is True
     text = "\n".join(body["lines"])
-    assert "will change" in text and "mcp add-json slack" in text and "SLACK_MCP_XOXB_TOKEN=***" in text
+    assert "will change" in text and "alias company-slack" in text and "SLACK_MCP_XOXB_TOKEN=***" in text
     assert SECRET not in res.text
     assert mem_keyring.items == {} and fake_claude.writes() == []
 
@@ -109,42 +119,43 @@ def test_confirm_writes_through_the_cli_core_and_never_echoes(client, mem_keyrin
     res = post(client, {**SLACK, "confirm": True})
     body = res.json()
     assert body == {"status": 0, "pending": False, "lines": body["lines"]}
-    assert "configured" in body["lines"][-1]
-    item = json.loads(mem_keyring.items[("easy-personal/slack", "connector")])
+    assert "connector sync" in body["lines"][-1]
+    item = json.loads(mem_keyring.items[(f"easy-personal/{stored_id(mem_keyring)}", "connector")])
     assert item["env"] == {"SLACK_MCP_XOXB_TOKEN": SECRET}
-    adds = fake_claude.writes()
-    assert adds[0][:3] == ["mcp", "add-json", "slack"] and adds[0][-2:] == ["--scope", "user"]
-    assert SECRET not in res.text and SECRET not in json.dumps(adds)
+    assert fake_claude.writes() == []  # no Claude write until a sync (AC2)
+    assert SECRET not in res.text
 
 
-def test_double_submit_is_refused_not_overwritten(client, mem_keyring, fake_claude, launcher, monkeypatch):
+def test_workspace_is_required_and_alias_optional(client, mem_keyring, fake_claude, launcher):
+    no_ws = {k: v for k, v in SLACK.items() if k != "workspace"}
+    res = post(client, {**no_ws, "confirm": True})
+    assert res.status_code == 400 and "workspace" in res.json()["error"]
+    for bad in ({**SLACK, "workspace": 3}, {**SLACK, "alias": 3}):
+        assert post(client, {**bad, "confirm": True}).status_code == 400
+    res = post(client, {**SLACK, "workspace": "nope-PLANTED", "confirm": True})
+    assert res.status_code == 400 and "PLANTED" not in res.text
+    res = post(client, {**SLACK, "alias": "Bad Alias", "confirm": True})
+    assert res.status_code == 400 and "Bad Alias" not in res.text
+    assert mem_keyring.items == {}
+    res = post(client, {**SLACK, "alias": "work-chat", "confirm": True})
+    assert res.json()["status"] == 0 and "work-chat" in "\n".join(res.json()["lines"])
+    listed = client.get("/api/connectors", headers=AUTH).json()["workspace_connectors"]
+    assert listed == [{"id": stored_id(mem_keyring), "alias": "work-chat", "provider": "slack", "workspace": "company"}]
+
+
+def test_double_submit_is_refused_not_overwritten(client, mem_keyring, fake_claude, launcher):
     assert post(client, {**SLACK, "confirm": True}).json()["status"] == 0
-    monkeypatch.setenv("FAKE_CLAUDE_GET_RC", "0")
     again = post(client, {**SLACK, "values": {"SLACK_MCP_XOXB_TOKEN": "other-value"}, "confirm": True})
     body = again.json()
-    assert body["status"] == 1 and "already exists" in "\n".join(body["lines"])
+    assert body["status"] == 1 and "already has a slack connector" in "\n".join(body["lines"])
     assert "other-value" not in again.text and SECRET not in again.text
-    assert len(fake_claude.writes()) == 1
+    assert len(mem_keyring.items) == 1
 
 
 def test_empty_value_writes_nothing(client, mem_keyring, fake_claude, launcher):
-    res = post(client, {"provider": "slack", "values": {}, "confirm": True})
+    res = post(client, {"provider": "slack", "workspace": "company", "values": {}, "confirm": True})
     assert res.json()["status"] == 2 and res.json()["pending"] is False
     assert mem_keyring.items == {} and fake_claude.writes() == []
-
-
-def test_claude_failure_rolls_back_keychain(client, mem_keyring, fake_claude, launcher, monkeypatch):
-    monkeypatch.setenv("FAKE_CLAUDE_RC", "1")
-    res = post(client, {**SLACK, "confirm": True})
-    assert res.json()["status"] == 1 and "rolled back" in "\n".join(res.json()["lines"])
-    assert mem_keyring.items == {} and SECRET not in res.text
-
-
-def test_missing_claude_returns_snippet(client, mem_keyring, no_claude, launcher):
-    res = post(client, {**SLACK, "confirm": True})
-    text = "\n".join(res.json()["lines"])
-    assert res.json()["status"] == 0 and "claude mcp add-json slack" in text
-    assert mem_keyring.items == {} and SECRET not in res.text
 
 
 def test_missing_keychain_shows_refusal_guidance(client, no_keyring, fake_claude, launcher):
@@ -156,13 +167,20 @@ def test_missing_keychain_shows_refusal_guidance(client, no_keyring, fake_claude
 
 def test_delete_previews_then_removes(client, mem_keyring, fake_claude, launcher):
     post(client, {**SLACK, "confirm": True})
-    fake_claude.log.unlink()
-    preview = client.request("DELETE", "/api/connectors/slack", content='{"confirm": false}', headers={**AUTH, **JSON}).json()
+    cid = stored_id(mem_keyring)
+    preview = client.request("DELETE", f"/api/connectors/{cid}", content='{"confirm": false}', headers={**AUTH, **JSON}).json()
     assert preview["pending"] is True and "will change" in "\n".join(preview["lines"])
-    assert ("easy-personal/slack", "connector") in mem_keyring.items and fake_claude.writes() == []
-    done = client.request("DELETE", "/api/connectors/slack", content='{"confirm": true}', headers={**AUTH, **JSON}).json()
+    assert (f"easy-personal/{cid}", "connector") in mem_keyring.items
+    done = client.request("DELETE", f"/api/connectors/{cid}", content='{"confirm": true}', headers={**AUTH, **JSON}).json()
     assert done["status"] == 0 and "removed" in done["lines"][-1]
-    assert mem_keyring.items == {} and fake_claude.writes() == [["mcp", "remove", "slack", "--scope", "user"]]
+    assert mem_keyring.items == {} and fake_claude.writes() == []  # never registered: no claude call
+
+
+def test_delete_pre_workspace_catalog_name_keeps_the_old_path(client, mem_keyring, fake_claude, launcher):
+    mem_keyring.items[("easy-personal/slack", "connector")] = "{}"
+    done = client.request("DELETE", "/api/connectors/slack", content='{"confirm": true}', headers={**AUTH, **JSON}).json()
+    assert done["status"] == 0 and mem_keyring.items == {}
+    assert fake_claude.writes() == [["mcp", "remove", "slack", "--scope", "user"]]
 
 
 def test_delete_invalid_name_is_not_found(client, mem_keyring, fake_claude):

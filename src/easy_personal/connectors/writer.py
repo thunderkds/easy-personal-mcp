@@ -104,53 +104,6 @@ def _keychain_item(name: str) -> bool:
     return keyring.get_password(service_name(name), ITEM_USER) is not None
 
 
-def add(entry: catalog.Entry, prompt: Prompt, confirm: Confirm, out: Out, assume_yes: bool = False) -> int:
-    name = entry.id
-    launcher = launcher_path()
-    json_text = add_json(name, launcher)
-    if not shutil.which("claude"):
-        out("the `claude` CLI is not on PATH; nothing was written. Run this once it is installed:")
-        out(f"claude mcp add-json {shlex.quote(name)} {shlex.quote(json_text)} --scope user")
-        return 0
-    require_backend()
-    existing = _entry_exists(name)
-    if existing is not None or _keychain_item(name):
-        out(f"connector '{name}' already exists; refusing to overwrite it.")
-        out("existing:")
-        if existing is not None:
-            for line in _safe_lines(existing.stdout):
-                out(f"  {line}")
-        if _keychain_item(name):
-            out("  keychain item present (values hidden)")
-        out(f"new: claude mcp add-json {name} {json_text} --scope user")
-        out(f"run `easy-personal connector remove {name}` first to replace it.")
-        return 1
-    env: dict[str, str] = {}
-    for field in entry.fields:
-        value = prompt(field.label, field.secret)
-        if not value:
-            out(f"{field.label} is empty; nothing was written.")
-            return 2
-        env[field.env] = value
-    out(f"will change ({entry.provider}):")
-    out(f"  keychain: service easy-personal/{name}, fields "
-        + ", ".join(f"{f.env}=***" for f in entry.fields))  # fmt: skip
-    out(f"  claude user scope: mcp add-json {name} {json_text}")
-    if not assume_yes and not confirm():
-        out("aborted; nothing was written.")
-        return 1
-    keychain.store(name, entry.command, env=env)
-    done = _claude("mcp", "add-json", name, json_text, "--scope", "user")
-    if done.returncode != 0:
-        keychain.remove(name)  # roll back: no half-configured connector
-        out(f"`claude mcp add-json` failed (exit {done.returncode}); keychain write rolled back.")
-        if done.stderr.strip():
-            out(done.stderr.strip())
-        return 1
-    out(f"connector '{name}' is configured. Restart Claude Code to use it.")
-    return 0
-
-
 def new_id() -> str:
     return "c" + secrets.token_hex(4)
 
