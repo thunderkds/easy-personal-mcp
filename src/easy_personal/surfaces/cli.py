@@ -124,6 +124,9 @@ def build_parser() -> argparse.ArgumentParser:
         "account", help="account id or folder"
     )
     account_sub.add_parser("add", help="add an agent folder by path").add_argument("path")
+    use_p = account_sub.add_parser("use", help="set the workspaces a Claude account picks (none clears)")
+    use_p.add_argument("account", help="account id or folder")
+    use_p.add_argument("workspaces", nargs="*", help="workspace names; `connector sync` applies them")
     sub.add_parser("doctor", help="check keychain, claude CLI and connector entries")
     return parser
 
@@ -225,6 +228,9 @@ def _account(args) -> int:
                 _print_json(accounts.confirm(conn, args.account, args.label))
             elif args.action == "ignore":
                 _print_json(accounts.ignore(conn, args.account))
+            elif args.action == "use":
+                _print_json(accounts.use(conn, args.account, args.workspaces))
+                print("run `easy-personal connector sync` to apply it to the account's Claude config.", file=sys.stderr)
             else:
                 _print_json(accounts.add(conn, args.path))
         except accounts.AccountError as exc:
