@@ -135,9 +135,24 @@ API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
         ("PATCH", "/api/workspaces/3", {"name": "api-ws2", "color": "#010203"}),
         ("PATCH", "/api/workspaces/3", {"name": "{secret}", "repos": ["{secret}"]}),
         ("PATCH", "/api/workspaces/1", {"name": "x"}),
+        ("PATCH", "/api/workspaces/3", {"name": "api-ws3", "confirm": "{secret}"}),
         ("DELETE", "/api/workspaces/1", {}),
-        ("DELETE", "/api/workspaces/3", {}),
+        ("DELETE", "/api/workspaces/3", {"confirm": False}),
+        ("DELETE", "/api/workspaces/3", {"confirm": True}),
         ("DELETE", "/api/workspaces/{secret}", {}),
+    ],
+    # HUN-66: no stored connector id is known up front, so these answer 400 (refused) without echoing input;
+    # the successful move / alias / rename / delete runs are scanned in tests/leak/test_connector_leak.py.
+    "/api/connectors/{id}/move": [
+        ("POST", "/api/connectors/nope/move", {"workspace": "acme", "confirm": True}),
+        ("POST", "/api/connectors/{secret}/move", {"workspace": "{secret}", "confirm": True}),
+        ("POST", "/api/connectors/nope/move", {"workspace": 7}),
+        ("POST", "/api/connectors/nope/move", {"confirm": "{secret}"}),
+    ],
+    "/api/connectors/{id}/alias": [
+        ("PUT", "/api/connectors/nope/alias", {"alias": "{secret}", "confirm": True}),
+        ("PUT", "/api/connectors/nope/alias", {"alias": None, "confirm": False}),
+        ("PUT", "/api/connectors/nope/alias", {"alias": 7}),
     ],
     "/api/connectors/{name}": [
         ("DELETE", "/api/connectors/slack", {"confirm": False}),

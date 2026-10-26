@@ -270,7 +270,7 @@ def test_rename_refused_when_an_alias_would_clash_or_be_too_long(world):
 
 def test_rename_of_a_workspace_without_connectors_needs_no_plan(world):
     conn = world["conn"]
-    rc, out = run(sync.rename_workspace, conn, world["ws"]["side"], {"name": "extra"}, confirm=no)
+    rc, _ = run(sync.rename_workspace, conn, world["ws"]["side"], {"name": "extra"}, confirm=no)
     assert rc == 0 and workspaces.get(conn, world["ws"]["side"])["name"] == "extra" and world["fake"].write_records() == []
 
 
@@ -283,7 +283,7 @@ def test_delete_moves_connectors_to_orphan_and_removes_them_everywhere(world):
         conn.execute("INSERT INTO connectors VALUES ('c0000eee3', 'company-gmail', 0, 'gmail', ?)", (world["ws"]["company"],))
     sync.apply(conn, sync.plan_all(conn), lambda _: None)
     fake.log.unlink()
-    rc, out = run(sync.delete_workspace, conn, world["ws"]["company"])
+    rc, _ = run(sync.delete_workspace, conn, world["ws"]["company"])
     assert rc == 0
     orphan = conn.execute("SELECT id FROM workspaces WHERE is_orphan = 1").fetchone()[0]
     assert row(conn, SLACK) == ("company-slack", 0, orphan) and row(conn, "c0000eee3") == ("company-gmail", 0, orphan)
@@ -298,7 +298,7 @@ def test_delete_moves_connectors_to_orphan_and_removes_them_everywhere(world):
 
 def test_delete_not_confirmed_changes_nothing(world):
     conn = world["conn"]
-    rc, out = run(sync.delete_workspace, conn, world["ws"]["company"], confirm=no)
+    rc, _ = run(sync.delete_workspace, conn, world["ws"]["company"], confirm=no)
     assert rc == 1 and workspaces.get(conn, world["ws"]["company"])["name"] == "company"
     assert row(conn, SLACK)[2] == world["ws"]["company"] and len(regs(conn)) == 2
     assert world["fake"].write_records() == [] and not conn.in_transaction
@@ -325,7 +325,7 @@ def test_delete_refuses_orphan_and_unknown(world):
 
 
 def test_failure_after_the_db_change_is_repaired_by_sync(world, monkeypatch):
-    conn, fake = world["conn"], world["fake"]
+    conn = world["conn"]
     monkeypatch.setenv("FAKE_CLAUDE_FAIL", "remove company-slack")
     rc, out = run(sync.delete_workspace, conn, world["ws"]["company"])
     assert rc == 1 and any("failed" in ln for ln in out)
@@ -345,7 +345,7 @@ def test_orphan_holds_duplicates_and_assigning_out_is_a_move(world):
     with conn:  # a second orphan slack with the very same alias is allowed only in orphan
         conn.execute("INSERT INTO connectors VALUES ('c0000eee5', 'company-slack', 0, 'slack', 1)")
     fake.log.unlink()
-    rc, out = run(sync.move_connector, conn, SLACK, "side")
+    rc, _ = run(sync.move_connector, conn, SLACK, "side")
     assert rc == 0 and row(conn, SLACK)[:3] == ("side-slack", 0, world["ws"]["side"])
     assert regs(conn) == [("Claude work", "side-slack", SLACK)]
     with pytest.raises(writer.ConnectorError, match="already has a slack connector"):

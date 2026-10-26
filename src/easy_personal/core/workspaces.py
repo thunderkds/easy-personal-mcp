@@ -149,14 +149,9 @@ def edit_in_txn(conn: sqlite3.Connection, ws_id: int, changes: dict) -> dict:
 
 
 def delete(conn: sqlite3.Connection, ws_id: int) -> None:
-    """Remove a workspace and its repo rows; refused (409) while it still holds connectors."""
-    if get(conn, ws_id)["is_orphan"]:
-        raise WorkspaceError("the orphan workspace cannot be deleted", 403)
-    try:
-        with conn:
-            conn.execute("DELETE FROM workspaces WHERE id = ?", (ws_id,))
-    except sqlite3.IntegrityError as exc:  # connectors.workspace_id references it (migration 6)
-        raise WorkspaceError("the workspace still has connectors; remove them first", 409) from exc
+    """Delete a workspace; its connectors move to orphan (FR-030). Connector aliases are not synced here."""
+    with conn:
+        delete_to_orphan(conn, ws_id)
 
 
 def delete_to_orphan(conn: sqlite3.Connection, ws_id: int) -> list[str]:

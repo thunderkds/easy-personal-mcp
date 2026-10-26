@@ -220,7 +220,7 @@ def test_confirm_prompt_at_eof_or_ctrl_c_is_no(world, capsys, monkeypatch, exc):
     rc, out, err = run(capsys, "connector", "sync")
     assert rc == 1 and "aborted; nothing was written." in out and "Traceback" not in err
     assert world["fake"].write_records() == [] and registrations() == []
-    rc, *_ = run(capsys, "workspace", "delete", "company")  # the other confirm prompt: its "no" path
-    assert rc == 0
+    rc, out, _ = run(capsys, "workspace", "delete", "company")  # the other confirm prompt: its "no" path
+    assert rc == 1 and "aborted; nothing was changed." in out
     with store.opened(config.store_path()) as conn:
         assert workspaces.by_name(conn, "company")["name"] == "company"

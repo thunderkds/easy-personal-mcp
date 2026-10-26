@@ -86,6 +86,13 @@ def test_secret_typed_into_connector_add_never_leaks(world, capsys, monkeypatch)
         step(0, ["connector", "sync"])
         step(0, ["doctor"])
         step(0, ["connector", "list"])
+        step(0, ["connector", "alias", connector_id, "team-chat", "--yes"])  # HUN-66 operations
+        step(0, ["connector", "alias", connector_id, "--default", "--yes"])
+        step(0, ["workspace", "edit", "company", "--rename", "firm", "--yes"])
+        step(0, ["workspace", "delete", "firm", "--yes"])  # connectors go to orphan
+        step(0, ["workspace", "add", "side"])
+        step(0, ["connector", "move", connector_id, "side", "--yes"])
+        step(0, ["connector", "move", connector_id, canaries.values["api_key"], "--yes"])  # refused, no echo
         step(0, ["connector", "remove", connector_id, "--yes"])
         step(0, ["connector", "remove", "slack", "--yes"])  # pre-workspace path
     # the argv the fake claude saw, and every file written under the home or the temp tree (store included)

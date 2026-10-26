@@ -66,7 +66,7 @@ easy-personal workspace add company --repo ~/work/app --repo ~/work/api
 easy-personal workspace list
 easy-personal workspace edit company --rename acme --add-repo ~/work/web
 easy-personal usage --workspace acme
-easy-personal workspace delete acme
+easy-personal workspace delete acme   # its connectors move to orphan
 ```
 
 ### Register the MCP server
@@ -148,6 +148,9 @@ easy-personal connector add slack --workspace company
 easy-personal connector add gmail --workspace company --alias work-mail
 easy-personal connector sync
 easy-personal connector sync --account 2 --yes
+easy-personal connector move c1a2b3c4d side
+easy-personal connector alias c1a2b3c4d team-chat
+easy-personal connector alias c1a2b3c4d --default
 easy-personal connector remove c1a2b3c4d
 easy-personal doctor
 ```
@@ -155,6 +158,7 @@ easy-personal doctor
 - `connector list` shows the catalog by category, then your connectors (id, alias, provider, workspace). It never shows secret values.
 - `connector add` asks for each field, shows what it will change, then asks you to confirm. Add `--yes` to skip the question. It writes the keychain item and stores the connector. It does not change Claude Code. `--workspace` is required. `--alias` sets the Claude Code name.
 - `connector sync` shows the plan for each confirmed Claude account: which aliases it will add or remove. Then it asks you to confirm and runs `claude mcp add-json` or `claude mcp remove` with `--scope user` in that account. `--account` limits it to one account. It only removes aliases that it added itself. After `account ignore`, sync removes every alias it added to that account. If an MCP server with the same name already exists, sync refuses that step and changes nothing.
+- `connector move` puts a connector in another workspace (`orphan` allowed). It is refused if the target already has that provider. A default alias follows the new workspace name; a custom alias stays. `connector alias` sets a custom alias, or `--default` resets it to `<workspace>-<provider>`. `workspace edit --rename` changes every default alias of that workspace; `workspace delete` moves its connectors to `orphan` and removes them from every account. Each of these shows the plan, asks you to confirm (`--yes` skips it) and then changes only the Claude Code entries (remove the old alias, add the new alias, same id). The keychain is never touched. A connector in `orphan` is active in no account; `connector move <id> <workspace>` assigns it again.
 - `connector remove` removes the alias from every account, then deletes the keychain item and the connector. A connector from before workspaces (for example `slack`) is removed as before.
 - `doctor` checks the keychain backend, the `claude` CLI and the connector entries. For each account it checks that every alias it added is still there and still starts the launcher. It reports drift and never removes anything. It exits 0 when all pass.
 

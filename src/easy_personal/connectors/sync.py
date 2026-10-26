@@ -290,8 +290,8 @@ def move_connector(conn, connector_id: str, workspace: str, confirm: writer.Conf
         new = alias if custom or target["is_orphan"] else f"{target['name']}-{provider}"
         _alias_ok(conn, new, connector_id, check_clash=not target["is_orphan"])
         conn.execute("UPDATE connectors SET workspace_id = ?, alias = ? WHERE id = ?", (target["id"], new, connector_id))
-        return {connector_id}, [f"will change (connector {connector_id}): move to workspace '{target['name']}', "
-                                f"alias {alias} -> {new}"]  # fmt: skip
+        move = f"will change (connector {connector_id}): move to workspace '{target['name']}', alias {alias} -> {new}"
+        return {connector_id}, [move]
 
     return _change(conn, mutate, confirm, out, assume_yes)
 
@@ -323,7 +323,6 @@ def rename_workspace(conn, ws_id: int, changes: dict, confirm: writer.Confirm, o
     held = [r[0] for r in conn.execute("SELECT id FROM connectors WHERE workspace_id = ? ORDER BY id", (ws_id,))]
     if not held:
         workspaces.edit(conn, ws_id, changes)
-        out("workspace changed.")
         return 0
 
     def mutate(conn):
