@@ -47,7 +47,7 @@ def test_add_list_edit_delete_roundtrip(capsys):
 def test_delete_without_yes_asks_and_no_keeps_it(capsys, monkeypatch):
     run(capsys, "workspace", "add", "acme")
     monkeypatch.setattr("builtins.input", lambda _prompt="": "n")
-    run(capsys, "workspace", "delete", "acme")
+    run(capsys, "workspace", "delete", "acme", code=1)
     assert len(run_json(capsys, "workspace", "list")["workspaces"]) == 2
     monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
     run(capsys, "workspace", "delete", "acme")

@@ -90,9 +90,10 @@ def build_parser() -> argparse.ArgumentParser:
             action_p.add_argument("--repo", action="append", default=[], help="repo path (repeatable)")
         else:
             action_p.add_argument("--rename", help="new name; the workspace id stays")
+            action_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
             action_p.add_argument("--add-repo", action="append", default=[], help="repeatable")
             action_p.add_argument("--remove-repo", action="append", default=[], help="repeatable")
-    delete_p = workspace_sub.add_parser("delete", help="delete a workspace and its repo rows")
+    delete_p = workspace_sub.add_parser("delete", help="delete a workspace; its connectors move to orphan")
     delete_p.add_argument("name")
     delete_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
     sub.add_parser("warnings", help="declared usage rules that fired (same as MCP warnings)")
@@ -113,7 +114,14 @@ def build_parser() -> argparse.ArgumentParser:
     remove_p.add_argument("name", help="connector id (or a pre-workspace name such as slack)")
     sync_p = connector_sub.add_parser("sync", help="show and apply each Claude account's add/remove plan")
     sync_p.add_argument("--account", help="account id or folder (default: every confirmed Claude account)")
-    for action_p in (add_p, remove_p, sync_p):
+    move_p = connector_sub.add_parser("move", help="move a connector to another workspace (orphan allowed)")
+    move_p.add_argument("id", help="connector id")
+    move_p.add_argument("workspace", help="target workspace name")
+    alias_p = connector_sub.add_parser("alias", help="set a custom Claude Code name, or --default to reset it")
+    alias_p.add_argument("id", help="connector id")
+    alias_p.add_argument("alias", nargs="?", help="new alias")
+    alias_p.add_argument("--default", action="store_true", help="reset to <workspace>-<provider>")
+    for action_p in (add_p, remove_p, sync_p, move_p, alias_p):
         action_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
     account_p = sub.add_parser("account", help="agent accounts (~/.claude*, ~/.codex*): list, confirm, ignore, add")
     account_sub = account_p.add_subparsers(dest="action", required=True)
@@ -234,6 +242,12 @@ def _connector(args) -> int:
                 )
             if args.action == "sync":
                 return _sync(conn, args)
+            if args.action == "move":
+                return sync.move_connector(conn, args.id, args.workspace, _confirm, print, args.yes)
+            if args.action == "alias":
+                if args.default == (args.alias is not None):
+                    raise writer.ConnectorError("give either a new alias or --default")
+                return sync.set_alias(conn, args.id, None if args.default else args.alias, _confirm, print, args.yes)
             rc = sync.remove_connector(conn, args.name, _confirm, print, args.yes)
         if rc is not None:
             return rc
@@ -270,6 +284,8 @@ def _account(args) -> int:
 
 def _workspace(args) -> int:
     """`workspace` subcommands; a refused operation prints its reason on stderr and exits 2."""
+    from easy_personal.connectors import sync, writer
+
     texts = {f: getattr(args, f, None) for f in ("color", "icon", "description", "email")}
     try:
         with store.opened(config.store_path()) as conn:
@@ -286,13 +302,18 @@ def _workspace(args) -> int:
                     drop = {workspaces.normalise_repo(r) for r in args.remove_repo}
                     keep = [r for r in current["repos"] if r not in drop]
                     changes["repos"] = [*keep, *args.add_repo]
+                if changes.get("name") == current["name"]:
+                    del changes["name"]
+                if "name" in changes:  # default aliases follow the name: show the plan, confirm
+                    rc = sync.rename_workspace(conn, current["id"], changes, _confirm, print, args.yes)
+                    if rc == 0:
+                        _print_json(workspaces.get(conn, current["id"]))
+                    return rc
                 _print_json(workspaces.edit(conn, current["id"], changes))
             else:
                 current = workspaces.by_name(conn, args.name)
-                if not (args.yes or _confirm_text(f"Delete workspace '{current['name']}'?")):
-                    return 0
-                workspaces.delete(conn, current["id"])
-    except workspaces.WorkspaceError as exc:
+                return sync.delete_workspace(conn, current["id"], _confirm, print, args.yes)
+    except (workspaces.WorkspaceError, writer.ConnectorError) as exc:
         print(f"easy-personal: {exc}", file=sys.stderr)
         return 2
     return 0

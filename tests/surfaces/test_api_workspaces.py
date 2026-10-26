@@ -47,8 +47,8 @@ def test_crud_roundtrip_keeps_the_id_on_rename(client):
     assert res.json()["workspace"] == {**ws, "name": "company", "repos": ["/x", "/y"]}
     assert [w["name"] for w in client.get("/api/workspaces", headers=AUTH).json()["workspaces"]] == [
         "orphan", "company"]  # fmt: skip
-    res = send(client, "DELETE", f"/api/workspaces/{ws['id']}")
-    assert res.status_code == 200 and res.json() == {"deleted": ws["id"]}
+    res = send(client, "DELETE", f"/api/workspaces/{ws['id']}", {"confirm": True})
+    assert res.status_code == 200 and res.json()["deleted"] == ws["id"] and res.json()["pending"] is False
     assert send(client, "DELETE", f"/api/workspaces/{ws['id']}").status_code == 404
 
 

@@ -154,8 +154,11 @@ async def _json_body(request):
     return body, None
 
 
-def _run_writer(call) -> JSONResponse:
-    """Run a writer call; `pending` is true when it stopped at the confirmation step."""
+def _run_writer(call, extra: Callable[[int], dict] | None = None, own_status: bool = False) -> JSONResponse:
+    """Run a writer call; `pending` is true when it stopped at the confirmation step.
+
+    `extra(status)` adds keys to the answer; `own_status`: a refused workspace operation answers with its
+    own status (404, 403, 409) instead of 400."""
     from easy_personal.connectors import catalog, writer
     from easy_personal.launch import LaunchError
 
@@ -169,12 +172,15 @@ def _run_writer(call) -> JSONResponse:
     try:
         with _WRITE_LOCK:
             status = call(confirm, lines.append)
-    except (catalog.CatalogError, writer.ConnectorError, workspaces.WorkspaceError) as exc:
+    except workspaces.WorkspaceError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=exc.status if own_status else 400)
+    except (catalog.CatalogError, writer.ConnectorError) as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)  # messages never echo input
     except LaunchError as exc:
         status = 1
         lines.append(str(exc))
-    return JSONResponse({"status": status, "lines": lines, "pending": bool(asked)})
+    answer = {"status": status, "lines": lines, "pending": bool(asked)}
+    return JSONResponse(answer | (extra(status) if extra else {}))
 
 
 async def connectors_add(request):
@@ -361,31 +367,105 @@ async def workspaces_add(request):
     )
 
 
+def _confirmed(body: dict) -> bool:
+    """`confirm` of a write body: absent = False; anything but a boolean is a 400 (TypeError)."""
+    value = body.pop("confirm", False)
+    if not isinstance(value, bool):
+        raise TypeError("confirm must be true or false")
+    return value
+
+
 async def workspaces_edit(request):
+    """Edit a workspace. A new name shows the alias plan; with `confirm: true` it is applied."""
+    from easy_personal.connectors import sync
+
     body, error = await _object_body(request)
     if error:
         return error
     ws_id = _workspace_id(request)
     if ws_id is None:
         return _UNKNOWN_WORKSPACE
-    return await run_in_threadpool(
-        _workspace_call, lambda c: {"workspace": workspaces.edit(c, ws_id, body)}
-    )
+    try:
+        yes = _confirmed(body)
+    except TypeError as exc:
+        return JSONResponse({"error": str(exc)}, 400)
 
+    def work(confirm, out):
+        with store.opened(config.store_path()) as conn:
+            current = workspaces.get(conn, ws_id)
+            if body.get("name") == current["name"]:
+                body.pop("name")
+            if "name" not in body:
+                workspaces.edit(conn, ws_id, body)
+                return 0
+            return sync.rename_workspace(conn, ws_id, body, confirm, out, yes)
 
-def _delete(conn, ws_id: int) -> dict:
-    workspaces.delete(conn, ws_id)
-    return {"deleted": ws_id}
+    def workspace_now(_status):
+        with store.opened(config.store_path()) as conn:
+            return {"workspace": workspaces.get(conn, ws_id)}
+
+    return await run_in_threadpool(_run_writer, work, workspace_now, True)
 
 
 async def workspaces_delete(request):
-    _, error = await _object_body(request, allow_empty=True)
+    """Delete a workspace: its connectors move to orphan. Shows the plan; `confirm: true` applies it."""
+    from easy_personal.connectors import sync
+
+    body, error = await _object_body(request, allow_empty=True)
     if error:
         return error
     ws_id = _workspace_id(request)
     if ws_id is None:
         return _UNKNOWN_WORKSPACE
-    return await run_in_threadpool(_workspace_call, lambda c: _delete(c, ws_id))
+    try:
+        yes = _confirmed(body)
+    except TypeError as exc:
+        return JSONResponse({"error": str(exc)}, 400)
+
+    def work(confirm, out):
+        with store.opened(config.store_path()) as conn:
+            return sync.delete_workspace(conn, ws_id, confirm, out, yes)
+
+    def deleted(status):
+        return {"deleted": ws_id if status == 0 else None}
+
+    return await run_in_threadpool(_run_writer, work, deleted, True)
+
+
+async def connectors_move(request):
+    from easy_personal.connectors import sync
+
+    body, error = await _json_body(request)
+    if error:
+        return error
+    workspace = body.get("workspace")
+    if not isinstance(workspace, str) or not workspace:
+        return JSONResponse({"error": "workspace is required (a workspace name)"}, 400)
+    connector_id, yes = request.path_params["id"], body.get("confirm", False)
+
+    def work(confirm, out):
+        with store.opened(config.store_path()) as conn:
+            return sync.move_connector(conn, connector_id, workspace, confirm, out, yes)
+
+    return await run_in_threadpool(_run_writer, work, None, True)
+
+
+async def connectors_alias(request):
+    from easy_personal.connectors import sync
+
+    body, error = await _json_body(request)
+    if error:
+        return error
+    alias = body.get("alias")
+    if alias is not None and not isinstance(alias, str):
+        return JSONResponse({"error": "alias must be a string, or null for the default"}, 400)
+    connector_id, yes = request.path_params["id"], body.get("confirm", False)
+
+    def work(confirm, out):
+        with store.opened(config.store_path()) as conn:
+            return sync.set_alias(conn, connector_id, alias, confirm, out, yes)
+
+    return await run_in_threadpool(_run_writer, work, None, True)
 
 
 def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
@@ -414,6 +494,8 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/connectors", connectors_list),
         Route("/api/connectors", connectors_add, methods=["POST"]),
         Route("/api/connectors/{name}", connectors_remove, methods=["DELETE"]),
+        Route("/api/connectors/{id}/move", connectors_move, methods=["POST"]),
+        Route("/api/connectors/{id}/alias", connectors_alias, methods=["PUT"]),
     ]
     static = static or static_dir()
     if static.is_dir():
