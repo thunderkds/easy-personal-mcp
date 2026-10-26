@@ -4,7 +4,7 @@ The Easy Kit plug-in about you, not a repo: it turns your local Claude Code acti
 
 Local-first. No network at runtime. Metadata only, never message content. No LLM inside.
 
-Status: v0.1.0. It runs natively on Linux. See `PRD.md` (what and why), `PROJECT_SPEC.md` (how) and `docs/ddr/` (design decisions).
+Status: v0.2.0. It runs natively on Linux. See `PRD.md` (what and why), `PROJECT_SPEC.md` (how) and `docs/ddr/` (design decisions).
 
 ## What it reads
 
@@ -34,7 +34,7 @@ easy-personal --version
 easy-personal ping
 ```
 
-The first command prints `0.1.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
+The first command prints `0.2.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
 
 ## Quick start
 
@@ -106,7 +106,7 @@ The server has 10 tools. None of them writes config or returns a secret.
 easy-personal dashboard
 ```
 
-This runs an ingest, then starts the page on `127.0.0.1` with a free port. It prints a URL like `http://127.0.0.1:<port>/#<token>` and opens your browser. The token is new on every launch. Press Ctrl-C to stop. The tabs are Usage, Warnings & plan, Kit and Connectors.
+This runs an ingest, then starts the page on `127.0.0.1` with a free port. It prints a URL like `http://127.0.0.1:<port>/#<token>` and opens your browser. The token is new on every launch. Press Ctrl-C to stop. The tabs are Usage, Warnings & plan, Kit, Workspaces and Agents.
 
 ## Schedule
 
@@ -159,7 +159,7 @@ easy-personal doctor
 - `connector add` asks for each field, shows what it will change, then asks you to confirm. Add `--yes` to skip the question. It writes the keychain item and stores the connector. It does not change Claude Code. `--workspace` is required. `--alias` sets the Claude Code name.
 - `connector sync` shows the plan for each confirmed Claude account: which aliases it will add or remove. Then it asks you to confirm and runs `claude mcp add-json` or `claude mcp remove` with `--scope user` in that account. `--account` limits it to one account. It only removes aliases that it added itself. After `account ignore`, sync removes every alias it added to that account. If an MCP server with the same name already exists, sync refuses that step and changes nothing.
 - `connector move` puts a connector in another workspace (`orphan` allowed). It is refused if the target already has that provider. A default alias follows the new workspace name; a custom alias stays. `connector alias` sets a custom alias, or `--default` resets it to `<workspace>-<provider>`. `workspace edit --rename` changes every default alias of that workspace; `workspace delete` moves its connectors to `orphan` and removes them from every account. Each of these shows the plan, asks you to confirm (`--yes` skips it) and then changes only the Claude Code entries (remove the old alias, add the new alias, same id). The keychain is never touched. A connector in `orphan` is active in no account; `connector move <id> <workspace>` assigns it again.
-- `connector remove` removes the alias from every account, then deletes the keychain item and the connector. A connector from before workspaces (for example `slack`) is removed as before.
+- `connector remove` removes the alias from every account, then deletes the keychain item and the connector. A connector from before workspaces (for example `slack`) is removed only if its Claude Code entry starts `easy-personal-launch`; any other name is refused and nothing is removed.
 - `doctor` checks the keychain backend, the `claude` CLI and the connector entries. For each account it checks that every alias it added is still there and still starts the launcher. It reports drift and never removes anything. It exits 0 when all pass.
 
 `connector sync`, `connector remove` and `doctor` need the `claude` CLI on `PATH`. `connector add` and `connector remove` need a keychain backend such as the Secret Service. Without `claude`, `sync` and `remove` write nothing and print the commands to run later. Restart Claude Code after a change.
