@@ -162,7 +162,13 @@ def _ask(label: str, secret: bool) -> str:
 
 
 def _confirm_text(question: str) -> bool:
-    return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+    """Ask yes/no; closed stdin (EOF) or Ctrl-C counts as no, so nothing is written."""
+    try:
+        answer = input(f"{question} [y/N] ")
+    except (EOFError, KeyboardInterrupt):
+        print()  # end the prompt line
+        return False
+    return answer.strip().lower() in ("y", "yes")
 
 
 def _confirm() -> bool:

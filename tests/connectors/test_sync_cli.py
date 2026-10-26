@@ -205,3 +205,22 @@ def test_remove_works_when_the_holder_account_is_ignored(world, capsys):
     removes = [(d, a[2]) for d, a in world["fake"].write_records() if a[1] == "remove"]
     assert sorted(removes) == sorted([("<unset>", "company-slack"), (world["work_dir"], "company-slack")])
     assert registrations() == [] and world["keyring"].items == {}
+
+
+@pytest.mark.parametrize("exc", [EOFError, KeyboardInterrupt])
+def test_confirm_prompt_at_eof_or_ctrl_c_is_no(world, capsys, monkeypatch, exc):
+    """`connector sync < /dev/null`: no traceback; the answer counts as no and nothing is written."""
+    connector_id(capsys)
+    run(capsys, "account", "use", world["ids"][".claude"], "company")
+
+    def closed(prompt=""):
+        raise exc
+
+    monkeypatch.setattr(builtins, "input", closed)
+    rc, out, err = run(capsys, "connector", "sync")
+    assert rc == 1 and "aborted; nothing was written." in out and "Traceback" not in err
+    assert world["fake"].write_records() == [] and registrations() == []
+    rc, *_ = run(capsys, "workspace", "delete", "company")  # the other confirm prompt: its "no" path
+    assert rc == 0
+    with store.opened(config.store_path()) as conn:
+        assert workspaces.by_name(conn, "company")["name"] == "company"
