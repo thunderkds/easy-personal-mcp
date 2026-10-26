@@ -114,3 +114,38 @@ def test_filter_plan_uses_an_index(two):
     scope, params = metrics._scope(two, None, None, None, account="2")
     plan = " | ".join(r[3] for r in two.execute(f"EXPLAIN QUERY PLAN SELECT 1 FROM events WHERE ts_utc >= ? AND {scope}", ["2026"] + params))
     assert "SCAN events" not in plan, plan
+
+
+@pytest.mark.perf
+def test_migration_5_and_default_backfill_cost_over_a_million_rows(tmp_path):
+    import time
+
+    path = tmp_path / "big.sqlite"
+    conn = store.connect(path)
+    conn.executemany(
+        "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, ts_utc, message_id, input_tokens)"
+        " VALUES ('m','claude_code','/x',1,?,0,'2026-01-01T00:00:00.000000Z',?,1)",
+        ((i, f"m{i}") for i in range(1_000_000)),
+    )
+    conn.commit()
+    conn.close()
+    raw = sqlite3.connect(path)
+    raw.execute("DROP INDEX events_account_ts")
+    raw.execute("ALTER TABLE events DROP COLUMN agent_account_id")
+    raw.execute("PRAGMA user_version = 4")
+    raw.commit()
+    raw.close()
+    start = time.perf_counter()
+    conn = store.connect(path)  # runs m0005 (plus the online backup of the file)
+    total = time.perf_counter() - start
+    conn.execute("INSERT INTO agent_accounts (provider, folder, label, status) VALUES ('claude', '/d', 'd', 'confirmed')")
+    start = time.perf_counter()
+    with conn:
+        conn.execute("UPDATE events SET agent_account_id = 1 WHERE agent_account_id IS NULL")
+    backfill = time.perf_counter() - start
+    start = time.perf_counter()
+    with conn:
+        conn.execute("UPDATE events SET agent_account_id = 1 WHERE agent_account_id IS NULL")
+    noop = time.perf_counter() - start
+    print(f"perf m0005 on 1M rows incl. backup: {total:.2f}s; one-time NULL backfill {backfill:.2f}s; no-op backfill {noop * 1000:.1f}ms")
+    assert noop < 0.1

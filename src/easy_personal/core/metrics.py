@@ -5,9 +5,8 @@ from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 
-from easy_personal.core import accounts
+from easy_personal.core import accounts, workspaces
 from easy_personal.core import prices as price_table
-from easy_personal.core import workspaces
 
 DIMENSIONS = ("day", "model", "project", "tool")
 OUTLIER_TOOL_CALLS = 90
