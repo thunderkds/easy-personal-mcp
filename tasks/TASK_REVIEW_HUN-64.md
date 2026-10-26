@@ -14,16 +14,25 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass (implementer) | tests/core/test_workspaces_schema.py (AC1, AC2, AC3 raw SQL constraints; v2->v4 upgrade; gap + m0003-after-v4 limitation), tests/core/test_workspaces.py (AC1-5 CRUD, filter incl. `/a/b` vs `/a/bc`, zero repos, perf 1M events), tests/surfaces/test_workspace_cli.py (AC1-5), tests/surfaces/test_api_workspaces.py (AC5, AC7 guard), tests/leak/ (registration + canary scan). AC6 (workspace AND account) NOT testable on this branch: no account filter exists until HUN-63; `metrics._scope` returns an AND-able clause for it. |
+| Verification command run | pass (implementer, 2026-10-26) | ```
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+235 passed, 2 deselected, 1 warning in 14.85s
+perf usage_summary 30d over 1M events: [236, 231, 232] ms
+.perf workspace usage_summary 30d over 1M events: [225, 221, 220] ms
+2 passed, 531 deselected, 1 warning in 20.34s
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+529 passed, 2 skipped, 2 deselected, 1 warning in 30.41s
+```
+`uv run ruff check .` -> All checks passed! |
+| Negative cases hold | pass (implementer) | orphan add/rename/edit/delete refused (CLI exit 2, API 403/400, trigger via raw SQL); duplicate/rename-to-existing 409 with nothing changed; bad slug/colour/relative repo refused; errors do not echo input; guard: no token/wrong Host/foreign Origin 403, non-JSON 415, bad JSON 400 |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | pass | `uv run pytest -q`: 529 passed, 2 skipped, 2 deselected (see above) |
 | easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | N/A | no UI in this task |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | N/A | no UI in this task |
+| **UI: Responsiveness at target viewports** | N/A | no UI in this task |
 
 ---
 
@@ -53,9 +62,138 @@ usage: easy-personal [-h] [--version]
 easy-personal: error: unrecognized arguments: --workspace x
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same temp-home setup, `tests/fixtures/claude_code`):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+Mon Oct 26 09:25:05 AM UTC 2026
+$ easy-personal workspace add demo --repo /work/demo-app --repo /work/other
+{
+  "color": null,
+  "description": null,
+  "email": null,
+  "icon": null,
+  "id": 2,
+  "is_orphan": false,
+  "name": "demo",
+  "repos": [
+    "/work/demo-app",
+    "/work/other"
+  ]
+}
+
+(exit 0)
+$ easy-personal workspace add orphan
+easy-personal: the name 'orphan' is reserved
+
+(exit 2)
+$ easy-personal workspace edit demo --rename company
+{
+  "color": null,
+  "description": null,
+  "email": null,
+  "icon": null,
+  "id": 2,
+  "is_orphan": false,
+  "name": "company",
+  "repos": [
+    "/work/demo-app",
+    "/work/other"
+  ]
+}
+
+(exit 0)
+$ easy-personal workspace list
+{
+  "workspaces": [
+    {
+      "color": null,
+      "description": null,
+      "email": null,
+      "icon": null,
+      "id": 1,
+      "is_orphan": true,
+      "name": "orphan",
+      "repos": []
+    },
+    {
+      "color": null,
+      "description": null,
+      "email": null,
+      "icon": null,
+      "id": 2,
+      "is_orphan": false,
+      "name": "company",
+      "repos": [
+        "/work/demo-app",
+        "/work/other"
+      ]
+    }
+  ]
+}
+
+(exit 0)
+$ easy-personal usage --workspace company
+{
+  "abstained": {
+    "by_version": {},
+    "total": 0
+  },
+  "cache_creation_input_tokens": 250,
+  "cache_hit_ratio": 0.7905,
+  "cache_read_input_tokens": 1000,
+  "input_tokens": 15,
+  "messages": 3,
+  "output_tokens": 8,
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "sessions": 3
+}
+
+(exit 0)
+$ easy-personal usage --workspace x
+easy-personal: unknown workspace
+
+(exit 2)
+$ easy-personal usage
+{
+  "abstained": {
+    "by_version": {
+      "2.1.293": 1,
+      "2.1.295": 1,
+      "2.1.302": 1
+    },
+    "total": 3
+  },
+  "cache_creation_input_tokens": 250,
+  "cache_hit_ratio": 0.7905,
+  "cache_read_input_tokens": 1000,
+  "input_tokens": 15,
+  "messages": 3,
+  "output_tokens": 8,
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "sessions": 4
+}
+
+(exit 0)
+```
+
+**DELTA**: The owner can create, list, rename, edit and delete workspaces (repo paths, colour, email) from the CLI and the guarded dashboard API, and filter usage to one workspace's repos with `--workspace` / `workspace=`.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
+
+## Migration safety (self-applied checklist; no Skill tool in this run)
+
+- Additive only: two new tables, three triggers, one partial unique index, one seed row. No existing table, column or index touched.
+- Idempotent: every statement `IF NOT EXISTS` / `INSERT OR IGNORE` (like m0001), so a store whose `user_version` was reset still upgrades.
+- One transaction with the `user_version` bump (runner); the runner copies a non-empty store to `store.sqlite.bak-v2` first. Restore = put the `.bak-v2` file back.
+- Upgrade test with data: `test_v2_store_upgrades_to_v4_keeping_every_row` (events count unchanged, backup has the rows and `user_version` 2, `orphan` seeded).
+- Gap: runner sorts by number and sets `user_version` to each number, so m0001, m0002, m0004 works (`test_runner_tolerates_a_gap_in_numbers`).
+- KNOWN LIMITATION (reported, runner NOT changed): a store already at v4 never runs a later-merged m0003, because the runner compares each migration number only with `user_version` (`test_known_limitation_m0003_arriving_after_v4_is_skipped`). Safe when both migrations merge before any real store upgrades; unsafe for a store opened on this branch alone.
+- Existing test edited for the new tables: `tests/core/test_store.py` table list.
+- Rollback: no destructive step; dropping the two tables and triggers and setting `user_version` back to 2 reverses it.

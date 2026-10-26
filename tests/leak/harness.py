@@ -82,8 +82,9 @@ CLI_SERVER_COMMANDS = {"mcp", "dashboard"}
 # Dashboard JSON API route path -> list of query strings (HUN-49).
 API_CALLS: dict[str, list[str]] = {
     "/api/usage/summary": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?workspace=nope"],
-    "/api/usage/breakdown": ["?by=day", "?by=model", "?by=project", "?by=tool", "?by=bad",
-                             "?by=project&workspace=acme"],  # fmt: skip
+    "/api/usage/breakdown": [
+        "?by=day", "?by=model", "?by=project", "?by=tool", "?by=bad", "?by=project&workspace=acme",
+    ],
     "/api/usage/outliers": ["", "?since=2026-01-01", "?workspace=acme"],
     "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme"],
     "/api/workspaces": [""],

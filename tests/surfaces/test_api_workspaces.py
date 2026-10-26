@@ -119,7 +119,7 @@ def test_usage_routes_take_workspace(client, tmp_path):
         conn.commit()
     create(client, repos=["/work/a", "/work/b"])
     create_named(client, "empty")
-    get = lambda path, q: client.get(path + q, headers=AUTH)  # noqa: E731
+    get = lambda path, q: client.get(path + q, headers=AUTH)
     assert get("/api/usage/summary", "").json()["messages"] == 4
     assert get("/api/usage/summary", "?workspace=acme").json()["messages"] == 3
     assert get("/api/usage/summary", "?workspace=empty").json()["messages"] == 0

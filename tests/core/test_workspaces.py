@@ -3,11 +3,10 @@
 import re
 
 import pytest
+from test_migrations import BASE, _ts, seed
 
 from easy_personal.core import metrics, workspaces
 from easy_personal.core.workspaces import WorkspaceError
-
-from test_migrations import BASE, _ts, seed  # noqa: F401  (synthetic events helper)
 from tests_helpers import add_event
 
 
