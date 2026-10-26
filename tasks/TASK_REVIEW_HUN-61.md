@@ -17,15 +17,19 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/core/test_migrations.py` (runner, v0 upgrade with rows, rollback, newer-store refusal, PRAGMAs, equality on summary/breakdown/outliers/timeline/contexts, EXPLAIN plan, 1M perf) |
 | Verification command run | pass | `uv run pytest tests/core -q` -> 64 passed, 1 deselected; `uv run pytest tests/core -m perf -q` -> 1 passed (229-237 ms); `uv run pytest -q` -> 451 passed, 1 deselected (after AC 8 fix; red step: 2 failed incl. test_leaking_tool_fails_the_suite); `uv run ruff check .` -> All checks passed! |
 | Negative cases hold | pass | failing migration rolls back; newer store refused; no backup for a new store |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | verify skill run by Supervisor 2026-10-26T09:12:36Z: isolated `uv tool install --reinstall --no-cache .` into temp dir, `--version` → `0.1.0`, `ping` → `easy-personal core ok`; fixtures `tests/fixtures/claude_code` → ingest `files 5, new_events 31`; store `user_version` 2, `foreign_key_check` empty, `integrity_check` ok; `usage` → messages 3, sessions 4; second ingest exit 0; MCP stdio `usage_summary` returns a result — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed: `core/store.py` (`migrate`, `connect`), `core/migrations/*`, `core/metrics.py` (`_inner_window` + its 4 callers; all bounds come from `_utc_bound`, so the strptime format always matches; `rules.py` callers go through it), `tests/conftest.py`, new tests. code-review: P0 0 / P1 1 FIXED (`tests/leak/test_leak_suite.py::test_leaking_tool_fails_the_suite` opened the real `~/.easy-personal/store.sqlite`; with the runner a plain `uv run pytest` migrated the owner's store v0→v2 on 2026-10-26 16:05 local — data intact (575 events, integrity ok), `store.sqlite.bak-v0` written; fixed by AC 8 autouse isolation + refusal guard) / P1 process: agent skipped startup reads first pass, read on rework / P2 0 / P3 1 (NULL-`ts_utc` events of a timed message no longer feed MAX() in bounded windows — no fixture hits it, accepted). security-review (inline): f-string SQL fragments are built from constants; all values are bound params; `PRAGMA user_version = {number}` uses an int from module names matched by `m(\d{4})_\w+`; no secrets touched; no findings. migration-safety: GO — see Migration safety below. |
 | Full smoke suite still green (no regression) | pass | 451 passed, 1 deselected (perf test runs only with `-m perf`) |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| easy-verifier score (advisory) | ☑ N/A | N/A — easy-verifier MCP is registered only in the `~/.claude-personal` profile (memory learning); this Supervisor session runs another profile, tool not loaded |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Pure backend/store task; no UI file changed |
+| **UI: Design-system (tokens/colors/typography verified)** | ☑ N/A | Pure backend/store task; no UI file changed |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Pure backend/store task; no UI file changed |
 
 ---
+
+## Migration safety (Supervisor, Stage 4, 2026-10-26)
+
+Verdict: **GO**. Reversible: yes — restore `store.sqlite.bak-v<N>` (written by `migrate()` before the first pending migration on a non-empty store); old code (main @ 54183e4) also runs unchanged on a v2 store (checked: `usage_summary` on a v2 copy → 40 messages). Downtime: none (local tool; `BEGIN IMMEDIATE` + `busy_timeout` 5000). Data-loss risk: none — m0001 is `IF NOT EXISTS` (+ the existing HUN-58 drop of the rebuildable pre-HUN-42 `verifier_scores` cache); m0002 adds `events_ts_message` and drops the redundant `events_ts` (index only). Dry run on a `.backup` copy of the owner's store: rows before/after equal (events 575, tool_signals 17, kit_trace_events 11564), `integrity_check` ok, 0.04 s; restore-from-bak then re-up → `user_version` 2. No down-migrations by design (cut list): restore path is the backup copy.
 
 ## Demonstration
 
