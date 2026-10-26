@@ -1,5 +1,5 @@
 # RUNBOOK — easy-personal-mcp
-**Last updated**: 2026-10-22
+**Last updated**: 2026-10-26
 
 > Operational runbook: how to deploy, verify, and recover this service. Written/appended by the `ship` skill after Stage 5 verification, and kept current by whoever last touched the deploy path. This is the document an operator opens at 3am — every command must be copy-pasteable and every check must have a pass condition.
 
@@ -17,58 +17,66 @@
 
 ## Deploy Procedure
 
-Run from the repo root. There is no separate migration step: `store.connect` applies the additive `CREATE TABLE IF NOT EXISTS` schema on first open.
+Run from the repo root. Schema changes are numbered migrations (`core/migrations/mNNNN_*.py`, `PRAGMA user_version`). The first command that opens the store applies every pending migration, each in one transaction, and leaves `store.sqlite.bak-v<N>` (the store as it was at version N) beside it. v0.2.0 moves a store from version 2 to version 6.
 
-1. **Pre-deploy checks** — pass condition for each in brackets:
+1. **Pre-deploy checks**. The pass condition for each is in brackets:
    ```bash
    cd ~/workspace/pets/hungnguyen111/easy-personal-mcp
-   git fetch github && git checkout main && git status --short     # [no output]
-   git rev-parse --short HEAD                                       # [30e21a3 for v0.1.0]
+   git checkout main && git status --short -- src web tests pyproject.toml uv.lock README.md   # [no output]
+   git merge-base --is-ancestor ac64aae HEAD && echo ok              # [ok: the v0.2.0 code commit is on main]
    npm --prefix web ci && npm --prefix web run build                # [✓ built]
-   uv run pytest -q && npm --prefix web test                        # [all passed, 0 failed]
+   uv run pytest -q && npm --prefix web test                        # [0 failed; 1 xfailed is the known tool_signals P3]
    ```
-2. **Smoke test (defined before deploy)** — the post-deploy health checks in step 6; all must pass.
-3. **Back up the store** (rollback point):
+2. **Smoke test (defined before deploy)**: the post-deploy health checks in step 7. All must pass.
+3. **Back up the store** (the rollback point). Stop any running `easy-personal dashboard` first:
    ```bash
-   cp -p ~/.easy-personal/store.sqlite ~/.easy-personal/store.sqlite.pre-v0.1.0 2>/dev/null || echo "no store yet"
+   systemctl --user stop easy-personal-ingest.timer 2>/dev/null; true
+   cp -p ~/.easy-personal/store.sqlite ~/.easy-personal/store.sqlite.pre-v0.2.0
    ```
-4. **Install** (replaces the existing install of the same version; `--no-cache` avoids a stale build of 0.1.0):
+4. **Install** (`--no-cache` avoids a stale build):
    ```bash
    uv tool install --reinstall --no-cache .
    ```
-5. **Tag the release**:
+5. **Upgrade the store and adopt connectors from before workspaces**:
    ```bash
-   git tag -a v0.1.0 30e21a3 -m "v0.1.0" && git push github v0.1.0
+   easy-personal account list                # opens the store: migrates v2 -> v6; lists "Claude default" (confirmed) and the detected folders
+   easy-personal connector adopt-legacy      # shows the plan; answer y only if it lists your old connectors. It removes only entries that start easy-personal-launch.
    ```
-6. **Post-deploy health check** (all must pass):
+   Then confirm the other agent folders you use (`easy-personal account confirm <folder> --label "<name>"`), add workspaces, and pick workspaces per account (`easy-personal account use <account> <workspace>...`), then `easy-personal connector sync`.
+6. **Tag the release**:
    ```bash
-   easy-personal --version                    # pass: prints 0.1.0
-   command -v easy-personal-launch            # pass: prints a path under ~/.local/bin
-   easy-personal ping                         # pass: exit 0
-   easy-personal connector list               # pass: Email (gmail, sendgrid), Messaging (slack, teams, discord)
-   easy-personal doctor; echo "rc=$?"         # pass: rc=0 (keychain backend + claude CLI found)
+   git tag -a v0.2.0 ac64aae -m "v0.2.0: workspaces" && git push github main v0.2.0
+   ```
+7. **Post-deploy health check** (all must pass):
+   ```bash
+   easy-personal --version                    # pass: prints 0.2.0
+   python3 -c "import sqlite3;print(sqlite3.connect('file:'+__import__('os').path.expanduser('~/.easy-personal/store.sqlite')+'?mode=ro',uri=True).execute('pragma user_version').fetchone()[0])"
+                                              # pass: 6
+   easy-personal usage | head -5            # pass: totals print (the store kept its 575 events of 2026-10-26)
+   easy-personal workspace list               # pass: includes "orphan"
+   easy-personal account list                 # pass: "Claude default" confirmed
+   easy-personal doctor; echo "rc=$?"         # pass: rc=0 (no FAIL lines)
    printf '%s\n' \
     '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"hc","version":"0"}}}' \
     '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
     '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
     | (cat; sleep 2) | timeout 10 easy-personal mcp 2>/dev/null | grep -o '"name":"[a-z_]*"' | wc -l
-                                              # pass: 10 (verified against 30e21a3 on 2026-10-22)
-   easy-personal dashboard                    # pass: prints "dashboard: http://127.0.0.1:<port>/#<token>"; page opens with tabs Usage, Warnings & plan, Kit, Connectors; Ctrl-C to stop
+                                              # pass: 10
+   easy-personal dashboard                    # pass: prints "dashboard: http://127.0.0.1:<port>/#<token>"; tabs Usage, Warnings & plan, Kit, Workspaces, Agents; Ctrl-C to stop
    ```
-7. **Optional — daily ingest timer**: `easy-personal schedule install`, then `systemctl --user list-timers | grep easy-personal` → pass: one timer listed.
+8. **Optional**: restart the timer if you stopped it: `systemctl --user start easy-personal-ingest.timer`.
 
 ---
 
 ## Rollback Procedure
 
-- **Trigger conditions**: any step-6 health check fails; `easy-personal ingest` or the dashboard errors on the real store; a connector added after deploy fails to start in Claude Code.
-- **Reverse steps** (in order). There is no earlier tagged release, so rollback removes the install and restores the store:
-  1. For each connector added since deploy: `easy-personal connector remove <id>` (deletes the keychain item and runs `claude mcp remove <id> --scope user`).
-  2. If the timer was installed: `easy-personal schedule remove`.
-  3. `uv tool uninstall easy-personal-mcp`
-  4. Restore the store: `cp -p ~/.easy-personal/store.sqlite.pre-v0.1.0 ~/.easy-personal/store.sqlite` (the new tables are additive; restoring only drops derived data that a re-ingest rebuilds).
-  5. To return to a specific earlier commit instead of uninstalling: `git checkout <commit> && npm --prefix web ci && npm --prefix web run build && uv tool install --reinstall --no-cache .`
-- **Verify rollback**: `command -v easy-personal` → no output (uninstalled), and `claude mcp list` shows no `easy-personal`-launched entry.
+- **Trigger conditions**: any step-7 health check fails; the migration in step 5 errors; usage totals drop; a connector stops starting in Claude Code after `connector sync`.
+- **Reverse steps** (in order):
+  1. If `connector sync` ran: unregister every alias it added, keeping the keychain items. For each connector id from `easy-personal connector list`: `easy-personal connector move <id> orphan --yes`.
+  2. Install the previous version: `git checkout 30e21a3 && npm --prefix web ci && npm --prefix web run build && uv tool install --reinstall --no-cache . && git checkout main`.
+  3. Restore the store: `cp -p ~/.easy-personal/store.sqlite.pre-v0.2.0 ~/.easy-personal/store.sqlite && rm -f ~/.easy-personal/store.sqlite-wal ~/.easy-personal/store.sqlite-shm`.
+  4. If `adopt-legacy` removed old entries, add them again with v0.1.0: `easy-personal connector add <name>` (it asks for the secret again).
+- **Verify rollback**: `easy-personal --version` prints `0.1.0`; `easy-personal ping` exits 0; `claude mcp list` shows no `<workspace>-<provider>` alias.
 
 ---
 
@@ -76,11 +84,12 @@ Run from the repo root. There is no separate migration step: `store.connect` app
 
 | Check | Command / URL | Pass condition |
 |-------|---------------|----------------|
-| Version | `easy-personal --version` | `0.1.0` |
+| Version | `easy-personal --version` | `0.2.0` |
+| Store schema | `pragma user_version` (step 7) | `6` |
 | Core | `easy-personal ping` | exit 0 |
-| Connector prerequisites | `easy-personal doctor` | exit 0 |
-| MCP surface | `tools/list` over stdio (step 6) | includes `connector_catalog`, `connector_status`, `connector_suggestions`, `usage_summary`, `kit_summary` |
-| Dashboard | `easy-personal dashboard` | URL on `127.0.0.1` printed; 4 tabs render |
+| Connectors | `easy-personal doctor` | exit 0 |
+| MCP surface | `tools/list` over stdio (step 7) | 10 tools |
+| Dashboard | `easy-personal dashboard` | URL on `127.0.0.1` printed; 5 tabs render |
 
 - **Dashboards**: the local dashboard itself (`easy-personal dashboard`); no remote monitoring.
 
@@ -95,6 +104,9 @@ Run from the repo root. There is no separate migration step: `store.connect` app
 | `doctor` reports no keychain backend | No Secret Service (e.g. headless session) | Unlock/start the keyring daemon; connectors cannot be added without it |
 | `static build stale` in `tests/test_web_toolchain.py` | `web/` changed since the last build | `npm --prefix web run build` |
 | Timer runs but data stale | Timer has no shell env | Put settings in `~/.easy-personal/config.yaml`, not env vars |
+| `doctor` notes "legacy connectors not adopted" | Connectors from v0.1.0 | `easy-personal connector adopt-legacy`, then `connector move <id> <workspace>` |
+| `connector sync` refuses a step "already exists" | An MCP server with that alias was made by hand | Rename yours, or give the connector another alias: `easy-personal connector alias <id> <alias>` |
+| Migration fails on open | Disk full or store locked | Store is unchanged (one transaction per migration); free space or stop other `easy-personal` processes, then retry. Older copies: `store.sqlite.bak-v<N>` |
 
 ---
 
@@ -111,3 +123,4 @@ Run from the repo root. There is no separate migration step: `store.connect` app
 | Version / Tag | Date | Scope (Task IDs) | Deployer | Approved (by / when / answer) | Outcome |
 |---------------|------|------------------|----------|-------------------------------|---------|
 | v0.1.0 @ 30e21a3 (tag to be created at deploy step 5) | 2026-10-22 | HUN-32–41, HUN-43–53 (HUN-42 excluded: blocked by XR-1) | thunderkds (operator) | owner / 2026-10-22 / "Approve v0.1.0 @ 30e21a3 (Recommended)" | Pending — operator to run |
+| v0.2.0 @ ac64aae (tag at deploy step 6) | 2026-10-26 | HUN-42, HUN-56–58, HUN-61–73 (workspaces, agent accounts, connector id/alias + sync, Workspaces/Agents pages, multi-account ingest) | thunderkds (operator) | owner / 2026-10-26 / "Approve v0.2.0 @ ac64aae (Recommended)" | Pending — operator to run |

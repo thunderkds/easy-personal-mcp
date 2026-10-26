@@ -52,6 +52,7 @@
 - [x] **HUN-70** — Usage page: Workspace and Account filters | Frontend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-70.md`
 - [x] **HUN-71** — QA end-to-end: several fake accounts + workspaces, no secret leaks, no real config touched | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-71.md`
 - [x] **HUN-72** — Fix workspace review defects (connector remove ownership, default-account env, doctor after adoption, plan abort line, add EOF) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-72.md`
+- [x] **HUN-73** — Release prep v0.2.0 (version bump, README for Workspaces/Agents tabs and remove rule) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-73.md`
 
 ### Closed (will not do)
 
