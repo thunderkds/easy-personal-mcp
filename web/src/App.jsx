@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AgentsView from './AgentsView.jsx'
 import ConnectorsView from './ConnectorsView.jsx'
 import KitView from './KitView.jsx'
 import UsageView from './UsageView.jsx'
@@ -9,6 +10,7 @@ const TABS = [
   { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView },
   { id: 'kit', label: 'Kit', View: KitView },
   { id: 'connectors', label: 'Connectors', View: ConnectorsView },
+  { id: 'agents', label: 'Agents', View: AgentsView },
 ]
 
 /** In-page tabs only: the URL fragment holds the dashboard token, so there is no routing. */
