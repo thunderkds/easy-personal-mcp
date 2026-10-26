@@ -429,12 +429,21 @@ describe('legacy connectors banner (AC6)', () => {
     render(<WorkspacesView />)
     const banner = await screen.findByRole('region', { name: 'Legacy connectors' })
     expect(within(banner).getByText(/slack/)).toBeInTheDocument()
+    expect(banner).toHaveTextContent('1 connector was set up before workspaces: slack. Adopt it into the orphan workspace')
     click(within(banner).getByRole('button', { name: 'Adopt' }))
     expect(await screen.findByText(/adopt 'slack' into orphan/)).toBeInTheDocument()
     expect(writes(fn)[0].slice(0, 3)).toEqual(['POST', '/api/connectors/legacy', { confirm: false }])
     click(screen.getByRole('button', { name: 'Confirm' }))
     expect(await screen.findByText("adopted 'slack'.")).toBeInTheDocument()
     expect(writes(fn)[1][2]).toEqual({ confirm: true })
+  })
+
+  it('says "Adopt them" for more than one', async () => {
+    const two = { legacy: [...legacyOne.legacy, { id: 'discord', keychain: true, claude: false, foreign: false }] }
+    stub({ overrides: workspaceOverrides({ legacy: two }) })
+    render(<WorkspacesView />)
+    const banner = await screen.findByRole('region', { name: 'Legacy connectors' })
+    expect(banner).toHaveTextContent('2 connectors were set up before workspaces: slack, discord. Adopt them into')
   })
 
   it('notes a same-name entry that is not ours will be left alone', async () => {

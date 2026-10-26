@@ -464,7 +464,7 @@ function LegacyBanner({ legacy, act }) {
     <section className="notice" aria-label="Legacy connectors">
       <p>
         {legacy.length === 1 ? '1 connector was' : `${legacy.length} connectors were`} set up before workspaces:{' '}
-        {legacy.map((l) => l.id).join(', ')}. Adopt them into the orphan workspace to manage them here.
+        {legacy.map((l) => l.id).join(', ')}. Adopt {legacy.length === 1 ? 'it' : 'them'} into the orphan workspace to manage them here.
       </p>
       {foreign.length > 0 && (
         <p className="muted">
@@ -517,7 +517,7 @@ export default function WorkspacesView() {
     setMode(null)
   }
   return (
-    <main>
+    <main className="workspaces">
       {header}
       {formOpen ? (
         <WorkspaceForm key={editing ? editing.id : 'new'} workspace={editing ?? null} data={data} act={act} onBack={back} />
