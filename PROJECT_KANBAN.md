@@ -9,11 +9,7 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-66** — Move connector, change alias, rename workspace, delete workspace → connectors to orphan, assign out of orphan | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-66.md`
-- [ ] **HUN-67** — One-time adoption: pre-workspace connectors (slack, gmail, …) move to orphan | Backend-Implementer | C1 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-67.md`
-- [ ] **HUN-68** — Dashboard Agents page: detected/confirmed accounts, by account / by provider, pick workspaces with plan confirmation | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-68.md`
 - [ ] **HUN-69** — Dashboard Workspaces page + workspace form (repos, connectors, alias, move, delete) + legacy banner | Frontend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-69.md`
-- [ ] **HUN-70** — Usage page: Workspace and Account filters | Frontend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-70.md`
 - [ ] **HUN-71** — QA end-to-end: several fake accounts + workspaces, no secret leaks, no real config touched | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-71.md`
 
 ### In Progress
@@ -51,6 +47,10 @@
 - [x] **HUN-63** — Ingest usage from every confirmed Claude account; events tagged by account; usage filter --account | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-63.md`
 - [x] **HUN-64** — Workspaces: add/edit/rename/delete, repos, built-in orphan; usage filter --workspace (CLI + API) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-64.md`
 - [x] **HUN-65** — Connectors get id + alias and belong to a workspace; accounts pick workspaces; plan/apply sync into each Claude account | Backend-Implementer | C3 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-65.md`
+- [x] **HUN-66** — Move connector, change alias, rename workspace, delete workspace → connectors to orphan, assign out of orphan | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-66.md`
+- [x] **HUN-67** — One-time adoption: pre-workspace connectors (slack, gmail, …) move to orphan | Backend-Implementer | C1 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-67.md`
+- [x] **HUN-68** — Dashboard Agents page: detected/confirmed accounts, by account / by provider, pick workspaces with plan confirmation | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-68.md`
+- [x] **HUN-70** — Usage page: Workspace and Account filters | Frontend-Implementer | C1 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-70.md`
 
 ### Closed (will not do)
 
