@@ -24,10 +24,13 @@ def world(tmp_path, monkeypatch, claude_state, launcher, mem_keyring):
     return {"fake": claude_state, "kr": mem_keyring, "answer": answer, "state": tmp_path / "claude-state.json"}
 
 
-def seed(world, *, keychain=True, claude=True, other=None):
+HAND = {"command": "/usr/bin/some-server", "args": ["--serve"]}
+
+
+def seed(world, *, keychain=True, claude=True, other=None, hand=False):
     if keychain:
         world["kr"].items[("easy-personal/slack", "connector")] = json.dumps({"env": {"T": "s3cret"}})
-    entries = {"slack": LAUNCH} if claude else {}
+    entries = {"slack": HAND if hand else LAUNCH} if claude else {}
     state = {"<unset>": entries}
     if other:
         state["/x/.claude-work"] = {"slack": LAUNCH}
@@ -143,3 +146,18 @@ def test_adopted_connector_can_be_removed_and_keeps_its_old_name_as_keychain_key
     run(capsys, "connector", "adopt-legacy", "--yes")
     rc, _, _ = run(capsys, "connector", "remove", "slack", "--yes")
     assert rc == 0 and connectors() == [] and world["kr"].items == {}
+
+
+def test_hand_made_entry_with_keychain_item_is_adopted_but_never_removed(world, capsys):
+    seed(world, hand=True)
+    rc, out, _ = run(capsys, "connector", "adopt-legacy", "--yes")
+    assert rc == 0 and "slack is not an easy-personal entry; left as it is" in out
+    assert connectors() == [("slack", "slack", "slack", 1)]
+    assert world["fake"].write_records() == [] and world["fake"].state()["<unset>"] == {"slack": HAND}
+
+
+def test_hand_made_entry_without_keychain_item_is_not_legacy(world, capsys):
+    seed(world, keychain=False, hand=True)
+    rc, out, _ = run(capsys, "connector", "adopt-legacy", "--yes")
+    assert rc == 0 and "nothing to adopt" in out and connectors() == []
+    assert world["fake"].write_records() == []

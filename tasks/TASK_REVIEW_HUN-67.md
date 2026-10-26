@@ -14,12 +14,12 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/connectors/test_legacy.py` (12), `tests/surfaces/test_api_legacy.py` (3); leak: `tests/leak/test_connector_leak.py`, `tests/leak/harness.py` |
-| Verification command run | pass | `uv run pytest tests/connectors tests/surfaces tests/leak -q` -> `269 passed, 1 warning in 66.33s`; `uv run pytest -q` -> `680 passed, 2 skipped, 4 deselected, 1 warning in 87.86s`; `uv run ruff check .` -> `All checks passed!` |
-| Negative cases hold | pass | declined, remove failure (row kept, pending), no keychain backend, other account untouched, non-catalog keychain item ignored |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/connectors/test_legacy.py` (14, incl. hand-made entry cases), `tests/surfaces/test_api_legacy.py` (3); leak: `tests/leak/test_connector_leak.py`, `tests/leak/harness.py` |
+| Verification command run | pass | `uv run pytest tests/connectors tests/surfaces tests/leak -q` -> `269 passed, 1 warning in 66.33s`; `uv run pytest -q` -> `682 passed, 2 skipped, 4 deselected, 1 warning in 87.86s`; `uv run ruff check .` -> `All checks passed!` |
+| Negative cases hold | pass | declined, remove failure (row kept, pending), no keychain backend, other account untouched, hand-made same-name entry never removed, non-catalog keychain item ignored |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | pass | 680 passed (above) |
+| Full smoke suite still green (no regression) | pass | 682 passed (above) |
 | easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |

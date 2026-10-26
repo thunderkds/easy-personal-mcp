@@ -1,9 +1,10 @@
 """Adopt pre-workspace connectors into the orphan workspace (FR-034, DDR-0001).
 
 Legacy = a catalog id that has a keychain item `easy-personal/<id>` and/or an entry in the DEFAULT
-Claude account (`claude mcp get <id>`) but no `connectors` row. Adoption inserts
+Claude account (`claude mcp get <id>` that points at `easy-personal-launch exec <id>`) but no `connectors` row. Adoption inserts
 `connectors(id=<name>, alias=<name>, workspace=orphan)` and, only after confirmation, runs
-`claude mcp remove <name> --scope user` in the default account. The keychain is never written.
+`claude mcp remove <name> --scope user` in the default account. An entry of that name that is not our
+launcher entry is never removed. The keychain is never written.
 No other account and no other name is touched. No line holds a secret.
 """
 
@@ -19,10 +20,11 @@ from easy_personal.connectors import catalog, writer
 class Legacy:
     id: str
     keychain: bool
-    claude: bool
+    claude: bool  # the default account holds an entry that points at our launcher (ours: may be removed)
+    foreign: bool = False  # same name, but not our launcher entry: never removed
 
     def as_dict(self) -> dict:
-        return {"id": self.id, "keychain": self.keychain, "claude": self.claude}
+        return {"id": self.id, "keychain": self.keychain, "claude": self.claude, "foreign": self.foreign}
 
 
 def detect(conn: sqlite3.Connection) -> list[Legacy]:
@@ -35,9 +37,10 @@ def detect(conn: sqlite3.Connection) -> list[Legacy]:
         if name in stored:
             continue
         in_keychain = writer._keychain_item(name)
-        in_claude = has_claude and writer._entry_exists(name, env) is not None
-        if in_keychain or in_claude:
-            found.append(Legacy(name, in_keychain, in_claude))
+        got = writer._entry_exists(name, env) if has_claude else None
+        ours = got is not None and writer.points_at_launcher(got, name)
+        if in_keychain or ours:
+            found.append(Legacy(name, in_keychain, ours, got is not None and not ours))
     return found
 
 
@@ -60,6 +63,8 @@ def adopt(conn: sqlite3.Connection, confirm: writer.Confirm, out: writer.Out, as
         out(f"  store: adopt {item.id} (id {item.id}, alias {item.id}) into orphan")
         if item.claude:
             out(f"  Claude Code (default account): remove {item.id}")
+        elif item.foreign:
+            out(f"  Claude Code (default account): {item.id} is not an easy-personal entry; left as it is")
     out("  keychain: untouched")
     if not assume_yes and not confirm():
         out("aborted; nothing was changed.")
