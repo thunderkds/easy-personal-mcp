@@ -70,9 +70,18 @@ def test_sections_exist_in_order():
     assert positions == sorted(positions)
 
 
-def test_status_names_v0_1_0_not_planning():
+def test_status_names_v0_2_0_not_planning():
     assert "Status: planning" not in README
-    assert "v0.1.0" in README
+    assert "Status: v0.2.0" in README
+    assert "v0.1.0" not in README
+    assert "The first command prints `0.2.0`" in README
+    assert 'version = "0.2.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "Usage, Warnings & plan, Kit, Workspaces and Agents" in README
+
+
+def test_connector_remove_rule_for_pre_workspace_connectors():
+    assert "easy-personal-launch" in README
+    assert "any other name is refused and nothing is removed" in README
     assert README.split("\n\n")[1].strip(), "first paragraph after the title is the pitch"
 
 
