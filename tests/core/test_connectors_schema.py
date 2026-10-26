@@ -32,7 +32,7 @@ def _connector(conn, id_, alias, provider, ws):
 
 
 def test_tables_exist_with_the_agreed_columns(conn):
-    cols = lambda t: [r[1] for r in conn.execute(f"PRAGMA table_info({t})")]  # noqa: E731
+    cols = lambda t: [r[1] for r in conn.execute(f"PRAGMA table_info({t})")]
     assert cols("connectors") == ["id", "alias", "alias_custom", "provider", "workspace_id"]
     assert cols("account_workspaces") == ["account_id", "workspace_id"]
     assert cols("account_registrations") == ["account_id", "alias", "connector_id"]

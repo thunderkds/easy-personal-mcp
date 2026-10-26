@@ -103,10 +103,15 @@ def build_parser() -> argparse.ArgumentParser:
     connector_p = sub.add_parser("connector", help="add or remove a provider connector")
     connector_sub = connector_p.add_subparsers(dest="action", required=True)
     connector_sub.add_parser("list", help="list the provider catalog by category (no secret values)")
-    for action, text in (("add", "store secrets in the keychain and register in Claude Code"),
-                         ("remove", "delete keychain items and the Claude Code entry")):
-        action_p = connector_sub.add_parser(action, help=text)
-        action_p.add_argument("provider" if action == "add" else "name")
+    add_p = connector_sub.add_parser("add", help="store a connector in a workspace (secrets in the keychain)")
+    add_p.add_argument("provider")
+    add_p.add_argument("--workspace", required=True, help="workspace name (see `workspace list`)")
+    add_p.add_argument("--alias", help="Claude Code name (default <workspace>-<provider>)")
+    remove_p = connector_sub.add_parser("remove", help="unregister a connector from every account, delete it")
+    remove_p.add_argument("name", help="connector id (or a pre-workspace name such as slack)")
+    sync_p = connector_sub.add_parser("sync", help="show and apply each Claude account's add/remove plan")
+    sync_p.add_argument("--account", help="account id or folder (default: every confirmed Claude account)")
+    for action_p in (add_p, remove_p, sync_p):
         action_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
     account_p = sub.add_parser("account", help="agent accounts (~/.claude*, ~/.codex*): list, confirm, ignore, add")
     account_sub = account_p.add_subparsers(dest="action", required=True)
@@ -175,6 +180,15 @@ def _connector_list() -> int:
             else "claude.ai connector: no"
         print(f"  {e.id} {e.provider} | {official}")
         print(f"    fields: {', '.join(f.label for f in e.fields)}")
+    with store.opened(config.store_path()) as conn:
+        rows = conn.execute(
+            "SELECT c.id, c.alias, c.provider, w.name FROM connectors c "
+            "JOIN workspaces w ON w.id = c.workspace_id ORDER BY w.name, c.alias"
+        ).fetchall()
+    if rows:
+        print("configured (id alias provider workspace)")
+    for row in rows:
+        print("  " + " ".join(row))
     return 0
 
 
@@ -186,9 +200,13 @@ def _connector(args) -> int:
         return _connector_list()
     try:
         if args.action == "add":
-            return writer.add(catalog.load(args.provider), _ask, _confirm, print, args.yes)
+            entry = catalog.load(args.provider)
+            with store.opened(config.store_path()) as conn:
+                return writer.add_to_workspace(
+                    conn, entry, args.workspace, args.alias, _ask, _confirm, print, args.yes
+                )
         return writer.remove(args.name, _confirm, print, args.yes)
-    except catalog.CatalogError as exc:
+    except (catalog.CatalogError, writer.ConnectorError, workspaces.WorkspaceError) as exc:
         print(f"easy-personal: {exc}", file=sys.stderr)
         return 2
     except LaunchError as exc:
