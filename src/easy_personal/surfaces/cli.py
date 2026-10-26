@@ -72,10 +72,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--by", choices=metrics.DIMENSIONS, help="break tokens down by this dimension"
     )
     usage_p.add_argument("--workspace", help="only events under this workspace's repo paths")
+    usage_p.add_argument("--account", help="only events of this agent account (id or label)")
     outliers_p = sub.add_parser("outliers", help="long or tool-heavy sessions (session_outliers)")
     outliers_p.add_argument("--since", type=iso_datetime, help="ISO date/datetime, inclusive")
     outliers_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
     outliers_p.add_argument("--workspace", help="only events under this workspace's repo paths")
+    outliers_p.add_argument("--account", help="only events of this agent account (id or label)")
     workspace_p = sub.add_parser("workspace", help="create, list, edit or delete workspaces")
     workspace_sub = workspace_p.add_subparsers(dest="action", required=True)
     workspace_sub.add_parser("list", help="list workspaces with their repo paths")
@@ -303,15 +305,14 @@ def main(argv: list[str] | None = None) -> int:
         try:
             with store.opened(config.store_path()) as conn:
                 period = (args.since, args.until)
+                filters = {"workspace": args.workspace, "account": args.account}
                 if args.command == "outliers":
-                    _print_json(metrics.session_outliers(conn, *period, workspace=args.workspace))
+                    _print_json(metrics.session_outliers(conn, *period, **filters))
                 elif args.by:
-                    _print_json(
-                        metrics.usage_breakdown(conn, args.by, *period, workspace=args.workspace)
-                    )
+                    _print_json(metrics.usage_breakdown(conn, args.by, *period, **filters))
                 else:
-                    _print_json(metrics.usage_summary(conn, *period, workspace=args.workspace))
-        except workspaces.WorkspaceError as exc:  # unknown workspace
+                    _print_json(metrics.usage_summary(conn, *period, **filters))
+        except (workspaces.WorkspaceError, accounts.AccountError) as exc:  # unknown workspace or account
             print(f"easy-personal: {exc}", file=sys.stderr)
             return 2
         return 0

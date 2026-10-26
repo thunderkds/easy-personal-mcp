@@ -64,6 +64,9 @@ CLI_CALLS: dict[str, list[list[str]]] = {
         [],
         ["--workspace", "acme"],
         ["--workspace", "acme", "--by", "project"],
+        ["--account", "1"],
+        ["--account", "1", "--by", "day"],
+        ["--account", "1", "--workspace", "acme"],
         ["--since", "2026-01-01"],
         ["--until", "2027-01-01"],
         ["--by", "day"],
@@ -71,7 +74,7 @@ CLI_CALLS: dict[str, list[list[str]]] = {
         ["--by", "project"],
         ["--by", "tool"],
     ],
-    "outliers": [[], ["--since", "2026-01-01"], ["--workspace", "acme"]],
+    "outliers": [[], ["--since", "2026-01-01"], ["--workspace", "acme"], ["--account", "1"]],
     "warnings": [[]],
     "plan": [[]],
     "kit": [[]],
@@ -82,12 +85,15 @@ CLI_CALLS: dict[str, list[list[str]]] = {
 CLI_SERVER_COMMANDS = {"mcp", "dashboard"}
 # Dashboard JSON API route path -> list of query strings (HUN-49).
 API_CALLS: dict[str, list[str]] = {
-    "/api/usage/summary": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?workspace=nope"],
+    "/api/usage/summary": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?workspace=nope",
+        "?account=1", "?account=nope", "?account=1&workspace=acme",
+    ],
     "/api/usage/breakdown": [
         "?by=day", "?by=model", "?by=project", "?by=tool", "?by=bad", "?by=project&workspace=acme",
+        "?by=day&account=1", "?by=day&account=nope",
     ],
-    "/api/usage/outliers": ["", "?since=2026-01-01", "?workspace=acme"],
-    "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme"],
+    "/api/usage/outliers": ["", "?since=2026-01-01", "?workspace=acme", "?account=1", "?account=nope"],
+    "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/workspaces": [""],
     "/api/warnings": [""],
     "/api/plan": [""],
