@@ -14,12 +14,12 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/core/test_migrations.py` (runner, v0 upgrade with rows, rollback, newer-store refusal, PRAGMAs, equality on summary/breakdown/outliers/timeline/contexts, EXPLAIN plan, 1M perf) |
+| Verification command run | pass | `uv run pytest tests/core -q` -> 64 passed, 1 deselected; `uv run pytest tests/core -m perf -q` -> 1 passed (229-237 ms); `uv run pytest -q` -> 449 passed, 1 deselected; `uv run ruff check .` -> All checks passed! |
+| Negative cases hold | pass | failing migration rolls back; newer store refused; no backup for a new store |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | pass | 449 passed, 1 deselected (perf test runs only with `-m perf`) |
 | easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
