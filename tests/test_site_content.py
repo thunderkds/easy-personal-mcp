@@ -38,7 +38,7 @@ REQUIRED_COMMANDS = [
     "claude mcp add --scope user easy-personal -- easy-personal mcp",
     "easy-personal dashboard",
     "easy-personal schedule install",
-    "easy-personal connector add slack",
+    "easy-personal connector add slack --workspace company",
     "git pull",
     "cp -p ~/.easy-personal/store.sqlite ~/.easy-personal/store.sqlite.backup",
     "uv tool uninstall easy-personal-mcp",
