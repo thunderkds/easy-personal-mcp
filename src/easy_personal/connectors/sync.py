@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from easy_personal.connectors import keychain, writer
-from easy_personal.core import accounts
-from easy_personal.launch import LaunchError
+from easy_personal.core import accounts, workspaces
+from easy_personal.launch import _NAME, LaunchError
 
 APPLIED = ("remove", "forget", "add", "record")  # actions apply() runs; `refused` / `skipped` are notes
 
@@ -210,6 +210,150 @@ def remove_connector(
         conn.execute("DELETE FROM connectors WHERE id = ?", (connector_id,))
     out(f"connector {connector_id} removed.")
     return 0
+
+
+def _change(conn, mutate, confirm: writer.Confirm, out: writer.Out, assume_yes: bool) -> int:
+    """One owner action: `mutate` changes desired state inside a transaction and returns (connector ids,
+    lines describing it); the plan for the accounts that hold or pick those connectors is shown; only
+    a confirmed action is committed and applied. Not confirmed (or any error) rolls everything back.
+    A failure while applying leaves the committed state; `connector sync` finishes it (FR-033)."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        cids, header = mutate(conn)
+        marks = ",".join("?" * len(cids))
+        ids = sorted({r[0] for r in conn.execute(
+            f"SELECT account_id FROM account_registrations WHERE connector_id IN ({marks}) UNION "
+            f"SELECT p.account_id FROM account_workspaces p JOIN connectors c ON c.workspace_id = p.workspace_id "
+            f"WHERE c.id IN ({marks})", (*cids, *cids))})  # fmt: skip
+        steps = [s for a in ids for s in plan(conn, a) if s.connector_id in cids or s.action == "skipped"]
+        for line in header:
+            out(line)
+        for step in steps:
+            out(f"  {step.line()}")
+        out("  keychain: untouched")
+        if not assume_yes and not confirm():
+            conn.rollback()
+            out("aborted; nothing was changed.")
+            return 1
+        conn.commit()
+    except sqlite3.IntegrityError as exc:
+        conn.rollback()
+        raise writer.ConnectorError("the store refused the change; nothing was changed") from exc
+    except BaseException:
+        conn.rollback()
+        raise
+    rc = apply(conn, steps, out)
+    if rc == 0 and any(s.action == "skipped" for s in steps):
+        out("an account could not be changed now; the store change is kept, `connector sync` finishes it.")
+    return rc
+
+
+def _stored(conn: sqlite3.Connection, connector_id: str) -> tuple[str, str, int, str, int]:
+    row = conn.execute(
+        "SELECT id, alias, alias_custom, provider, workspace_id FROM connectors WHERE id = ?", (connector_id,)
+    ).fetchone()
+    if row is None:
+        raise writer.ConnectorError("no such connector; see `easy-personal connector list`")
+    return row
+
+
+def _alias_ok(conn: sqlite3.Connection, alias: str, connector_id: str, check_clash: bool = True) -> str:
+    """`alias` after the launcher-name rule and (outside orphan) the one-alias-per-connector rule."""
+    if not _NAME.fullmatch(alias):
+        raise writer.ConnectorError(f"alias for connector {connector_id} is too long or has invalid characters; "
+                                    f"it must match {_NAME.pattern}")  # fmt: skip
+    other = conn.execute(
+        "SELECT c.id FROM connectors c JOIN workspaces w ON w.id = c.workspace_id "
+        "WHERE c.alias = ? AND w.is_orphan = 0 AND c.id <> ?", (alias, connector_id),
+    ).fetchone()  # fmt: skip
+    if check_clash and other:
+        raise writer.ConnectorError(f"alias '{alias}' is in use by connector {other[0]}; nothing was changed")
+    return alias
+
+
+def move_connector(conn, connector_id: str, workspace: str, confirm: writer.Confirm, out: writer.Out,
+                   assume_yes: bool = False) -> int:  # fmt: skip
+    """Move a connector to another workspace (orphan included): a default alias follows the new workspace
+    name, a custom alias stays. Refused if the target already has the provider (orphan may hold several)."""
+
+    def mutate(conn):
+        _, alias, custom, provider, current = _stored(conn, connector_id)
+        target = workspaces.by_name(conn, workspace)
+        if target["id"] == current:
+            raise writer.ConnectorError("the connector is already in this workspace")
+        if not target["is_orphan"]:
+            held = conn.execute("SELECT id, alias FROM connectors WHERE workspace_id = ? AND provider = ?",
+                                (target["id"], provider)).fetchone()  # fmt: skip
+            if held:
+                raise writer.ConnectorError(f"workspace '{target['name']}' already has a {provider} connector "
+                                            f"({held[0]}, alias {held[1]}); nothing was changed")  # fmt: skip
+        new = alias if custom or target["is_orphan"] else f"{target['name']}-{provider}"
+        _alias_ok(conn, new, connector_id, check_clash=not target["is_orphan"])
+        conn.execute("UPDATE connectors SET workspace_id = ?, alias = ? WHERE id = ?", (target["id"], new, connector_id))
+        return {connector_id}, [f"will change (connector {connector_id}): move to workspace '{target['name']}', "
+                                f"alias {alias} -> {new}"]  # fmt: skip
+
+    return _change(conn, mutate, confirm, out, assume_yes)
+
+
+def set_alias(conn, connector_id: str, alias: str | None, confirm: writer.Confirm, out: writer.Out,
+              assume_yes: bool = False) -> int:  # fmt: skip
+    """Set a custom alias, or (`alias` None) reset to the default `<workspace>-<provider>`."""
+
+    def mutate(conn):
+        _, old, _, provider, ws_id = _stored(conn, connector_id)
+        ws = workspaces.get(conn, ws_id)
+        if alias is None:
+            if ws["is_orphan"]:
+                raise writer.ConnectorError("a connector in orphan has no default alias; move it to a workspace first")
+            new, custom = f"{ws['name']}-{provider}", 0
+        else:
+            new, custom = alias, 1
+        _alias_ok(conn, new, connector_id, check_clash=not ws["is_orphan"])
+        conn.execute("UPDATE connectors SET alias = ?, alias_custom = ? WHERE id = ?", (new, custom, connector_id))
+        return {connector_id}, [f"will change (connector {connector_id}): alias {old} -> {new}"]
+
+    return _change(conn, mutate, confirm, out, assume_yes)
+
+
+def rename_workspace(conn, ws_id: int, changes: dict, confirm: writer.Confirm, out: writer.Out,
+                     assume_yes: bool = False) -> int:  # fmt: skip
+    """Edit a workspace; a new name moves every default alias of its connectors (custom ones stay).
+    A workspace without connectors has nothing to plan and is edited at once."""
+    held = [r[0] for r in conn.execute("SELECT id FROM connectors WHERE workspace_id = ? ORDER BY id", (ws_id,))]
+    if not held:
+        workspaces.edit(conn, ws_id, changes)
+        out("workspace changed.")
+        return 0
+
+    def mutate(conn):
+        name = workspaces.edit_in_txn(conn, ws_id, changes)["name"]
+        lines = [f"will change (workspace {ws_id}, now '{name}'):"]
+        for cid, old, provider in conn.execute(
+            "SELECT id, alias, provider FROM connectors WHERE workspace_id = ? AND alias_custom = 0 ORDER BY id",
+            (ws_id,),
+        ).fetchall():  # fmt: skip
+            new = _alias_ok(conn, f"{name}-{provider}", cid)
+            if new != old:
+                conn.execute("UPDATE connectors SET alias = ? WHERE id = ?", (new, cid))
+                lines.append(f"  connector {cid}: alias {old} -> {new}")
+        return set(held), lines
+
+    return _change(conn, mutate, confirm, out, assume_yes)
+
+
+def delete_workspace(conn, ws_id: int, confirm: writer.Confirm, out: writer.Out, assume_yes: bool = False) -> int:
+    """Delete a workspace: its connectors go to orphan (id, alias, keychain kept) and leave every account."""
+
+    def mutate(conn):
+        ws = workspaces.get(conn, ws_id)
+        picks = conn.execute("SELECT COUNT(*) FROM account_workspaces WHERE workspace_id = ?", (ws_id,)).fetchone()[0]
+        moved = workspaces.delete_to_orphan(conn, ws_id)
+        return set(moved), [f"will change (delete workspace '{ws['name']}'):",
+                            f"  connectors to orphan: {', '.join(moved) or 'none'}",
+                            f"  account picks removed: {picks}; repo rows deleted: {len(ws['repos'])}"]  # fmt: skip
+
+    return _change(conn, mutate, confirm, out, assume_yes)
 
 
 def doctor(conn: sqlite3.Connection, out: writer.Out) -> int:

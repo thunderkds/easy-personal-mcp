@@ -121,6 +121,12 @@ def edit(conn: sqlite3.Connection, ws_id: int, changes: dict) -> dict:
 
     `repos` replaces the whole list. A rename changes the name only; the id is fixed.
     """
+    with conn:
+        return edit_in_txn(conn, ws_id, changes)
+
+
+def edit_in_txn(conn: sqlite3.Connection, ws_id: int, changes: dict) -> dict:
+    """`edit` without its own commit: the caller owns the transaction (rename + alias plan, HUN-66)."""
     current = get(conn, ws_id)
     if current["is_orphan"]:
         raise WorkspaceError("the orphan workspace cannot be changed", 403)
@@ -131,13 +137,12 @@ def edit(conn: sqlite3.Connection, ws_id: int, changes: dict) -> dict:
         columns["name"] = _check_name(changes["name"])
     repos = _check_repos(changes["repos"]) if "repos" in changes else None
     try:
-        with conn:
-            if columns:
-                sets = ", ".join(f"{c} = ?" for c in columns)
-                conn.execute(f"UPDATE workspaces SET {sets} WHERE id = ?", (*columns.values(), ws_id))
-            if repos is not None:
-                conn.execute("DELETE FROM workspace_repos WHERE workspace_id = ?", (ws_id,))
-                _insert_repos(conn, ws_id, repos)
+        if columns:
+            sets = ", ".join(f"{c} = ?" for c in columns)
+            conn.execute(f"UPDATE workspaces SET {sets} WHERE id = ?", (*columns.values(), ws_id))
+        if repos is not None:
+            conn.execute("DELETE FROM workspace_repos WHERE workspace_id = ?", (ws_id,))
+            _insert_repos(conn, ws_id, repos)
     except sqlite3.IntegrityError as exc:
         raise WorkspaceError("a workspace with this name exists", 409) from exc
     return get(conn, ws_id)
@@ -152,6 +157,19 @@ def delete(conn: sqlite3.Connection, ws_id: int) -> None:
             conn.execute("DELETE FROM workspaces WHERE id = ?", (ws_id,))
     except sqlite3.IntegrityError as exc:  # connectors.workspace_id references it (migration 6)
         raise WorkspaceError("the workspace still has connectors; remove them first", 409) from exc
+
+
+def delete_to_orphan(conn: sqlite3.Connection, ws_id: int) -> list[str]:
+    """Move the workspace's connectors to orphan (id, alias kept), drop its picks and repo rows, delete it
+    (FR-030). No commit: the caller owns the transaction. Returns the moved connector ids."""
+    if get(conn, ws_id)["is_orphan"]:
+        raise WorkspaceError("the orphan workspace cannot be deleted", 403)
+    orphan = conn.execute("SELECT id FROM workspaces WHERE is_orphan = 1").fetchone()[0]
+    moved = [r[0] for r in conn.execute("SELECT id FROM connectors WHERE workspace_id = ? ORDER BY id", (ws_id,))]
+    conn.execute("UPDATE connectors SET workspace_id = ? WHERE workspace_id = ?", (orphan, ws_id))
+    conn.execute("DELETE FROM account_workspaces WHERE workspace_id = ?", (ws_id,))
+    conn.execute("DELETE FROM workspaces WHERE id = ?", (ws_id,))  # workspace_repos cascade (migration 4)
+    return moved
 
 
 def _under(path: str, root: str) -> bool:
