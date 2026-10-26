@@ -241,6 +241,21 @@ export const workspaceList = {
     { id: 3, name: 'personal', is_orphan: false },
   ],
 }
+// HUN-70: Usage filter options (UsageView tests pass these as overrides).
+export const usageWorkspaces = {
+  workspaces: [
+    { id: 'orphan', name: 'orphan', is_orphan: true, repos: [] },
+    { id: 'w1', name: 'Acme', is_orphan: false, repos: ['/work/acme'] },
+    { id: 'w2', name: 'Empty', is_orphan: false, repos: [] },
+  ],
+}
+export const usageAccounts = {
+  accounts: [
+    { id: 1, provider: 'claude', label: 'Claude company', status: 'confirmed' },
+    { id: 2, provider: 'claude', label: 'Claude detected', status: 'detected' },
+    { id: 3, provider: 'codex', label: 'Codex', status: 'confirmed' },
+  ],
+}
 
 export function fakeFetch(overrides = {}) {
   const calls = []
