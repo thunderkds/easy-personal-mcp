@@ -157,10 +157,10 @@ easy-personal account add /mnt/backup/claude-old
 
 - `account list` finds new folders, then prints every account with its provider, label, folder and status. `--by provider` groups by provider; `--by account` (default) gives one flat list. A folder that is gone shows as `missing`; its row stays.
 - `account confirm` names an account (1 to 60 characters). Run it again with a new label to rename.
-- `account ignore` hides an account from re-detection.
+- `account ignore` hides an account from re-detection. It refuses the default account.
 - `account add` accepts a folder anywhere, only if it passes the same content check.
 
-The dashboard serves the same data at `/api/accounts`. Set `EASY_PERSONAL_AGENT_ROOT` to scan a folder other than your home folder.
+`account ignore` refuses the default `~/.claude` account. The dashboard serves the same data at `/api/accounts`.
 
 ## Configuration
 
@@ -185,6 +185,7 @@ thresholds:
 | `EASY_PERSONAL_CLAUDE_PROJECTS` | Transcript folder instead of `~/.claude/projects` |
 | `EASY_PERSONAL_UI_REPORTS` | Same as `ui: reports_dir:` |
 | `EASY_PERSONAL_VERIFIER_REPORTS` | Same as `verifier: reports_dir:` |
+| `EASY_PERSONAL_AGENT_ROOT` | Folder scanned for `.claude*` and `.codex*` accounts (default: your home folder) |
 | `EASY_PERSONAL_CONTEXT_URL` | easy-context MCP URL. The default is `http://127.0.0.1:8767/mcp` |
 
 ## Upgrade and rollback

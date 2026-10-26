@@ -147,3 +147,16 @@ def test_write_needs_json_content_type(root, client):
     client.get("/api/accounts", headers=AUTH)
     res = client.post("/api/accounts/1/ignore", content="{}", headers={**AUTH, "content-type": "text/plain"})
     assert res.status_code == 415
+
+
+def test_cli_ignore_default_is_refused(root, capsys):
+    run(capsys, "list")
+    rc, _, err = run(capsys, "ignore", str(root / ".claude"))
+    assert rc == 2 and "default account cannot be ignored" in err
+
+
+def test_api_ignore_default_is_400(root, client):
+    rows = client.get("/api/accounts", headers=AUTH).json()["accounts"]
+    default = next(r for r in rows if r["label"] == "Claude default")
+    res = post(client, f"/api/accounts/{default['id']}/ignore", {})
+    assert res.status_code == 400 and "default account" in res.text

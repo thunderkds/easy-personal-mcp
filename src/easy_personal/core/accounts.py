@@ -125,6 +125,9 @@ def confirm(conn: sqlite3.Connection, ref: str, label: str) -> dict:
 
 def ignore(conn: sqlite3.Connection, ref: str) -> dict:
     id_ = _find(conn, ref)
+    folder = conn.execute("SELECT folder FROM agent_accounts WHERE id = ?", (id_,)).fetchone()[0]
+    if folder == str((config.agent_root() / ".claude").resolve()):  # the fallback ingest account
+        raise AccountError("the default account cannot be ignored")
     with conn:
         conn.execute("UPDATE agent_accounts SET status = 'ignored' WHERE id = ?", (id_,))
     return _get(conn, id_)

@@ -14,12 +14,12 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/core/test_accounts.py` (AC 1-5, migration v2 upgrade, edge cases), `tests/surfaces/test_accounts_surfaces.py` (AC 2, 6, 7: CLI, API, 403/415), `tests/test_real_home_guard.py`, `tests/leak/` registration. 189 + 484 pass |
-| Verification command run | pass | `uv run pytest tests/core tests/surfaces tests/leak -q` -> `189 passed, 1 deselected`; `uv run pytest -q` -> `484 passed, 2 skipped, 1 deselected`; `uv run ruff check .` -> `All checks passed!` |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/core/test_accounts.py` (AC 1-5, migration v2 upgrade, edge cases), `tests/surfaces/test_accounts_surfaces.py` (AC 2, 6, 7: CLI, API, 403/415), `tests/test_real_home_guard.py`, `tests/leak/` registration. 192 + 487 pass; default-account ignore refusal tested (core, CLI, API) |
+| Verification command run | pass | `uv run pytest tests/core tests/surfaces tests/leak -q` -> `192 passed, 1 deselected`; `uv run pytest -q` -> `487 passed, 2 skipped, 1 deselected`; `uv run ruff check .` -> `All checks passed!` |
 | Negative cases hold | pass | bad labels (empty, 61 chars), unknown account (404), non-folder / empty folder add refused without echoing the path, cross-origin / no-token POST 403, text/plain 415, `.claude.json` and empty `.claude-junk` never accounts |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | pass | 484 passed, 2 skipped. Two existing tests updated: `test_store.py` table list gained `agent_accounts`; README gained an Agent accounts section (`test_readme` requires each command documented) |
+| Full smoke suite still green (no regression) | pass | 487 passed, 2 skipped. Two existing tests updated: `test_store.py` table list gained `agent_accounts`; README gained an Agent accounts section (`test_readme` requires each command documented) |
 | easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |

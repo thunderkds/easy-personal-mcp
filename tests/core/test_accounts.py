@@ -207,3 +207,13 @@ def test_table_rejects_bad_rows(conn):
         conn.execute("INSERT INTO agent_accounts (provider, folder, status) VALUES ('gemini', '/x', 'detected')")
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("INSERT INTO agent_accounts (provider, folder, status) VALUES ('claude', '/x', 'confirmed')")
+
+
+def test_default_account_cannot_be_ignored(conn, root):
+    make_home(root)
+    accounts.detect(conn)
+    default = by_folder(conn)[str(root / ".claude")]
+    for ref in (str(default["id"]), default["folder"]):
+        with pytest.raises(accounts.AccountError, match="default account cannot be ignored"):
+            accounts.ignore(conn, ref)
+    assert by_folder(conn)[default["folder"]]["status"] == "confirmed"

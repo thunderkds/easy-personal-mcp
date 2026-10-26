@@ -124,6 +124,7 @@ def test_env_vars_and_config_keys_exist_in_code():
         config.CLAUDE_PROJECTS_ENV,
         config.UI_REPORTS_ENV,
         config.VERIFIER_REPORTS_ENV,
+        config.AGENT_ROOT_ENV,
         context.URL_ENV,
     ):
         assert f"`{var}`" in README
