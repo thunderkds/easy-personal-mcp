@@ -9,9 +9,7 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-62** — Agent accounts: detect ~/.claude\* and ~/.codex\* folders, confirm/name/ignore (CLI + API) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-62.md`
 - [ ] **HUN-63** — Ingest usage from every confirmed Claude account; events tagged by account; usage filter --account | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-63.md`
-- [ ] **HUN-64** — Workspaces: add/edit/rename/delete, repos, built-in orphan; usage filter --workspace (CLI + API) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-64.md`
 - [ ] **HUN-65** — Connectors get id + alias and belong to a workspace; accounts pick workspaces; plan/apply sync into each Claude account | Backend-Implementer | C3 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-65.md`
 - [ ] **HUN-66** — Move connector, change alias, rename workspace, delete workspace → connectors to orphan, assign out of orphan | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-66.md`
 - [ ] **HUN-67** — One-time adoption: pre-workspace connectors (slack, gmail, …) move to orphan | Backend-Implementer | C1 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-67.md`
@@ -51,6 +49,8 @@
 - [x] **HUN-57** — Landing page: the idea, the flow, the install and deploy guide of easy-personal-mcp | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-57.md`
 - [x] **HUN-58** — Bugfix: ingest crashes on pre-HUN-42 stores (verifier_scores 6 vs 7 columns) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-58.md`
 - [x] **HUN-61** — Store foundation: versioned migrations, FK + busy_timeout, time-first usage query + indexes, 1M-event benchmark | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-61.md`
+- [x] **HUN-62** — Agent accounts: detect ~/.claude\* and ~/.codex\* folders, confirm/name/ignore (CLI + API) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-62.md`
+- [x] **HUN-64** — Workspaces: add/edit/rename/delete, repos, built-in orphan; usage filter --workspace (CLI + API) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-64.md`
 
 ### Closed (will not do)
 

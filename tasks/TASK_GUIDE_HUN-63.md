@@ -72,6 +72,7 @@ Ingest must read the `projects/` folder of every confirmed Claude agent account;
 | 5 | Ingest commits per file and resumes from `source_files` offsets after a kill | NFR-005 |
 | 6 | Throughput: synthetic ≥ 200 MB ingests at ≥ 8 MB/s (≙ 960 MB < 2 min); unchanged re-run < 2 s | NFR-005 |
 | 7 | Source files are only read (NFR-003) | NFR-003 |
+| 8 | Account filter combines with the HUN-64 workspace filter (AND) in metrics, CLI (`--account` + `--workspace`) and API (`account=` + `workspace=`); test with two accounts × two workspaces (moved here from HUN-64 AC6, which could not be tested before the account filter existed). Reuse `metrics._scope`'s AND-able clause. | FR-035, FR-036 |
 
 ---
 
