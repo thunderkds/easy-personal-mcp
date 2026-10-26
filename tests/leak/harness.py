@@ -75,7 +75,12 @@ CLI_CALLS: dict[str, list[list[str]]] = {
     "warnings": [[]],
     "plan": [[]],
     "kit": [[]],
-    "account": [["list"], ["list", "--by", "provider"], ["list", "--by", "account"]],
+    "account": [
+        ["list"], ["list", "--by", "provider"], ["list", "--by", "account"],
+        # HUN-65: id 1 is the fake agent root's `.claude-work`; `acme` comes from "workspace" above.
+        # `connector sync` is not run here (real PATH): tests/leak/test_connector_leak.py covers it.
+        ["confirm", "1", "--label", "Claude work"], ["use", "1", "acme"], ["use", "1"], ["use", "1", "acme"],
+    ],
 }
 # Commands that start a long-running server; covered by the stdio test instead of a one-shot call.
 # `dashboard` is covered through API_CALLS (in-process TestClient) instead.
@@ -98,11 +103,14 @@ API_CALLS: dict[str, list[str]] = {
 # body becomes the planted API-key canary. Run against an in-memory keyring and a fake `claude`.
 API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
     "/api/connectors": [
-        ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": False}),
+        ("POST", "/api/connectors", {"provider": "slack", "workspace": "acme", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": False}),
+        ("POST", "/api/connectors", {"provider": "slack", "workspace": "acme", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": True}),
+        ("POST", "/api/connectors", {"provider": "slack", "workspace": "acme", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": True}),
+        ("POST", "/api/connectors", {"provider": "slack", "workspace": "acme", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": "{secret}"}),
         ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": True}),
-        ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": True}),
-        ("POST", "/api/connectors", {"provider": "slack", "values": {"SLACK_MCP_XOXB_TOKEN": "{secret}"}, "confirm": "{secret}"}),
-        ("POST", "/api/connectors", {"provider": "{secret}", "values": {}, "confirm": True}),
+        ("POST", "/api/connectors", {"provider": "gmail", "workspace": "{secret}", "values": {}, "confirm": True}),
+        ("POST", "/api/connectors", {"provider": "gmail", "workspace": "acme", "alias": "{secret}", "values": {}, "confirm": True}),
+        ("POST", "/api/connectors", {"provider": "{secret}", "workspace": "acme", "values": {}, "confirm": True}),
         ("GET", "/api/connectors", {}),
     ],
     "/api/accounts": [
@@ -140,6 +148,23 @@ API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
     "/api/accounts/{id}/ignore": [
         ("POST", "/api/accounts/2/ignore", {}),
         ("POST", "/api/accounts/{secret}/ignore", {}),
+    ],
+    # HUN-65: account 1 picks `acme`, which holds the slack connector added above; sync writes through
+    # the fake `claude` only. Codex (2), orphan and planted names are refused without echo.
+    "/api/accounts/{id}/workspaces": [
+        ("PUT", "/api/accounts/1/workspaces", {"workspaces": ["acme"]}),
+        ("PUT", "/api/accounts/1/workspaces", {"workspaces": ["{secret}"]}),
+        ("PUT", "/api/accounts/1/workspaces", {"workspaces": ["orphan"]}),
+        ("PUT", "/api/accounts/2/workspaces", {"workspaces": ["acme"]}),
+        ("PUT", "/api/accounts/{secret}/workspaces", {"workspaces": []}),
+    ],
+    "/api/sync": [
+        ("GET", "/api/sync", {}),
+        ("POST", "/api/sync", {"confirm": False}),
+        ("POST", "/api/sync", {"confirm": True}),
+        ("POST", "/api/sync", {"account": "{secret}", "confirm": True}),
+        ("POST", "/api/sync", {"account": 1, "confirm": "{secret}"}),
+        ("GET", "/api/sync", {}),
     ],
 }  # fmt: skip
 _FAKE_CLAUDE = """#!{python}
