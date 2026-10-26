@@ -8,6 +8,7 @@ from easy_personal.core import metrics, workspaces
 from easy_personal.core.workspaces import WorkspaceError
 
 from test_migrations import BASE, _ts, seed  # noqa: F401  (synthetic events helper)
+from tests_helpers import add_event
 
 
 def make(conn, name="acme", **kw):
@@ -119,16 +120,6 @@ def test_unknown_id_and_name_are_404(conn):
 
 
 # --- usage filter ------------------------------------------------------------------------------
-
-
-def add_event(conn, n, project, ts=None):
-    conn.execute(
-        "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, ts_utc,"
-        " session_id, project_path, model, message_id, input_tokens, output_tokens,"
-        " cache_creation_input_tokens, cache_read_input_tokens)"
-        " VALUES ('m','claude_code','/x',1,?,0,?,?,?,'model-0',?,10,5,0,0)",
-        (n, ts or _ts(BASE + n), f"s-{project}", project, f"msg{n}"),
-    )
 
 
 def build_usage(conn):
