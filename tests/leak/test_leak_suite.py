@@ -167,3 +167,14 @@ def test_leak_in_store_is_detected(canaries, tmp_path):
     conn.close()
     blobs = harness.store_blobs(tmp_path)
     assert all(canaries.find(b) for b in blobs.values())
+
+
+def test_workspace_surfaces_really_ran(leak_run):
+    """Guards against a vacuous pass: workspaces were created and the filter selected real events."""
+    import json
+
+    summary = json.loads(leak_run.outputs["cli usage --workspace acme"]["stdout"])
+    assert summary["messages"] > 0
+    assert 'INSERT INTO "workspaces"' in leak_run.outputs["store .dump"]
+    assert "201" in leak_run.outputs["api POST /api/workspaces"]
+    assert "api-ws2" in " ".join(str(v) for k, v in leak_run.outputs.items() if "PATCH" in k)
