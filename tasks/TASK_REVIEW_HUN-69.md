@@ -14,7 +14,7 @@
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `web/src/WorkspacesView.test.jsx` (30 tests: cards AC1, form AC2, add connector + planted secret AC3/AC7, move/alias/delete/assign AC4, delete workspace AC5, legacy banner AC6); `web/src/test/fixtures.js`. `web vitest`: Test Files 7 passed (7), Tests 91 passed (91) |
+| | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `web/src/WorkspacesView.test.jsx` (31 tests: cards AC1, form AC2, add connector + planted secret AC3/AC7, move/alias/delete/assign AC4, delete workspace AC5, legacy banner AC6); `web/src/test/fixtures.js`. `web vitest`: Test Files 7 passed (7), Tests 91 passed (91) |
 | | Verification command run | pass | `npm --prefix web test && npm --prefix web run build && uv run pytest tests/surfaces tests/leak -q` -> vitest 91 passed; vite built (index-C520mTQ-.js 255.83 kB); pytest `144 passed, 1 warning in 24.18s`. Also `uv run pytest tests/test_web_toolchain.py tests/test_site_content.py tests/test_readme.py -q` -> `50 passed` |
 | | Negative cases hold | pass | invalid name shows API message and keeps form; refused move shows API message, no Confirm; refusal clears secret; double click sends one request; legacy check failure shows no banner |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
