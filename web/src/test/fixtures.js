@@ -190,6 +190,7 @@ export const kit = {
 }
 
 export const connectors = {
+  workspace_connectors: [],
   connectors: [
     {
       id: 'slack',
@@ -241,6 +242,40 @@ export const workspaceList = {
     { id: 3, name: 'personal', is_orphan: false },
   ],
 }
+// HUN-69: Workspaces page shapes (GET /api/workspaces with repos, GET /api/connectors with workspace_connectors).
+const ws = (id, name, extra = {}) => ({ id, name, color: null, icon: null, description: null, email: null, is_orphan: false, repos: [], ...extra })
+export const workspacesFull = {
+  workspaces: [
+    ws(1, 'orphan', { is_orphan: true }),
+    ws(2, 'company', { color: '#0b5fd6', icon: 'C', email: 'me@company.test', description: 'Day job', repos: ['/work/company', '/work/company-web'] }),
+    ws(3, 'side'),
+  ],
+}
+export const connectorsFull = {
+  ...connectors,
+  workspace_connectors: [
+    { id: 'c1a2b3c4', alias: 'company-slack', provider: 'slack', workspace: 'company' },
+    { id: 'discord', alias: 'discord', provider: 'discord', workspace: 'orphan' },
+    { id: 'slack', alias: 'slack', provider: 'slack', workspace: 'orphan' },
+  ],
+}
+export const accountsFull = {
+  by: 'account',
+  accounts: [
+    acct(1, 'claude', 'Claude company', '/home/o/.claude', 'confirmed', ['company']),
+    acct(2, 'claude', 'Claude personal', '/home/o/.claude-personal', 'confirmed', []),
+    acct(4, 'codex', 'Codex', '/home/o/.codex', 'confirmed'),
+  ],
+}
+export const legacyOne = { legacy: [{ id: 'slack', keychain: true, claude: true, foreign: false }] }
+/** Overrides that give the Workspaces page its full dataset. */
+export const workspaceOverrides = (extra = {}) => ({
+  workspaces: workspacesFull,
+  connectors: connectorsFull,
+  accounts: accountsFull,
+  ...extra,
+})
+
 // HUN-70: Usage filter options (UsageView tests pass these as overrides).
 export const usageWorkspaces = {
   workspaces: [
@@ -274,6 +309,7 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/accounts' && !init.method)
       body = overrides.accounts ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
     else if (path === '/api/workspaces' && !init.method) body = overrides.workspaces ?? workspaceList
+    else if (path === '/api/connectors/legacy' && !init.method) body = overrides.legacy ?? { legacy: [] }
     else if (path === '/api/connectors' && !init.method) body = overrides.connectors ?? connectors
     if (overrides.status) return { ok: false, status: overrides.status, json: async () => ({ error: 'forbidden' }) }
     if (body === undefined) return { ok: false, status: 404, json: async () => ({}) }
