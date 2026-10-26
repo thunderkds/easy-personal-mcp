@@ -7,6 +7,7 @@ a present `Origin` must match it too. `/api/*` also needs the per-launch token i
 
 import contextlib
 import hmac
+import json
 import secrets
 import socket
 import threading
@@ -22,7 +23,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from easy_personal.core import config, kit, metrics, plan, rules, store
+from easy_personal.core import config, kit, metrics, plan, rules, store, workspaces
 from easy_personal.surfaces.mcp import LOOPBACK
 
 TOKEN_HEADER = "x-dashboard-token"
@@ -88,6 +89,11 @@ def _query(handler: Callable):
 
 def _period(q):
     return q.get("since"), q.get("until")
+
+
+def _scope(q):
+    """`since`, `until` and the optional `workspace` name (empty = no filter)."""
+    return *_period(q), (q.get("workspace") or None)
 
 
 _WRITE_LOCK = threading.Lock()  # one connector write at a time (double submit, two tabs)
@@ -198,15 +204,94 @@ async def connectors_remove(request):
     )
 
 
+async def _object_body(request, allow_empty: bool = False):
+    """The JSON object body of a write request, or an error response (415 / 400)."""
+    ctype = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if ctype != "application/json":
+        return None, JSONResponse({"error": "content-type must be application/json"}, 415)
+    raw = await request.body()
+    if allow_empty and not raw.strip():
+        return {}, None
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        return None, JSONResponse({"error": "body must be JSON"}, 400)
+    if not isinstance(body, dict):
+        return None, JSONResponse({"error": "body must be a JSON object"}, 400)
+    return body, None
+
+
+def _workspace_call(call, status: int = 200) -> JSONResponse:
+    """Run `call(conn)` on a fresh store connection; a refused operation -> its status + reason."""
+    try:
+        with store.opened(config.store_path()) as conn:
+            return JSONResponse(call(conn), status_code=status)
+    except workspaces.WorkspaceError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=exc.status)
+
+
+def _workspace_id(request) -> int | None:
+    raw = request.path_params["id"]
+    return int(raw) if raw.isdigit() else None
+
+
+_UNKNOWN_WORKSPACE = JSONResponse({"error": "unknown workspace"}, 404)
+
+
+async def workspaces_add(request):
+    body, error = await _object_body(request)
+    if error:
+        return error
+    if set(body) - set(workspaces.FIELDS):
+        return JSONResponse({"error": "unknown field"}, 400)
+    text = {k: v for k, v in body.items() if k not in ("name", "repos")}
+    return await run_in_threadpool(
+        _workspace_call,
+        lambda c: {"workspace": workspaces.add(c, body.get("name"), repos=body.get("repos", []), **text)},
+        201,
+    )
+
+
+async def workspaces_edit(request):
+    body, error = await _object_body(request)
+    if error:
+        return error
+    ws_id = _workspace_id(request)
+    if ws_id is None:
+        return _UNKNOWN_WORKSPACE
+    return await run_in_threadpool(
+        _workspace_call, lambda c: {"workspace": workspaces.edit(c, ws_id, body)}
+    )
+
+
+def _delete(conn, ws_id: int) -> dict:
+    workspaces.delete(conn, ws_id)
+    return {"deleted": ws_id}
+
+
+async def workspaces_delete(request):
+    _, error = await _object_body(request, allow_empty=True)
+    if error:
+        return error
+    ws_id = _workspace_id(request)
+    if ws_id is None:
+        return _UNKNOWN_WORKSPACE
+    return await run_in_threadpool(_workspace_call, lambda c: _delete(c, ws_id))
+
+
 def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
     routes = [
-        Route("/api/usage/summary", _query(lambda c, q: metrics.usage_summary(c, *_period(q)))),
+        Route("/api/usage/summary", _query(lambda c, q: metrics.usage_summary(c, *_scope(q)))),
         Route(
             "/api/usage/breakdown",
-            _query(lambda c, q: metrics.usage_breakdown(c, q.get("by", ""), *_period(q))),
+            _query(lambda c, q: metrics.usage_breakdown(c, q.get("by", ""), *_period(q), workspace=_scope(q)[2])),
         ),
-        Route("/api/usage/outliers", _query(lambda c, q: metrics.session_outliers(c, *_period(q)))),
-        Route("/api/usage/sessions", _query(lambda c, q: metrics.session_timeline(c, *_period(q)))),
+        Route("/api/usage/outliers", _query(lambda c, q: metrics.session_outliers(c, *_scope(q)))),
+        Route("/api/usage/sessions", _query(lambda c, q: metrics.session_timeline(c, *_scope(q)))),
+        Route("/api/workspaces", _query(lambda c, q: {"workspaces": workspaces.list_all(c)})),
+        Route("/api/workspaces", workspaces_add, methods=["POST"]),
+        Route("/api/workspaces/{id}", workspaces_edit, methods=["PATCH"]),
+        Route("/api/workspaces/{id}", workspaces_delete, methods=["DELETE"]),
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c))),
         Route("/api/kit", _query(lambda c, q: kit.kit_summary(c))),

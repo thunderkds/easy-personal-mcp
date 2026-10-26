@@ -56,7 +56,7 @@ def _check_text(field: str, value) -> str | None:
 
 
 def _check_repos(repos) -> list[str]:
-    if not isinstance(repos, list):
+    if not isinstance(repos, (list, tuple)):
         raise WorkspaceError("repos must be a list of paths")
     return sorted({normalise_repo(r) for r in repos})
 
@@ -103,7 +103,7 @@ def add(conn: sqlite3.Connection, name, *, repos=(), **text) -> dict:
     if unknown:
         raise WorkspaceError("unknown field")
     values = {f: _check_text(f, text.get(f)) for f in TEXT_FIELDS}
-    clean_repos, name = _check_repos(list(repos)), _check_name(name)
+    clean_repos, name = _check_repos(repos), _check_name(name)
     try:
         with conn:
             cur = conn.execute(
