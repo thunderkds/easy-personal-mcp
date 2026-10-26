@@ -176,7 +176,11 @@ def test_delete_previews_then_removes(client, mem_keyring, fake_claude, launcher
     assert mem_keyring.items == {} and fake_claude.writes() == []  # never registered: no claude call
 
 
-def test_delete_pre_workspace_catalog_name_keeps_the_old_path(client, mem_keyring, fake_claude, launcher):
+def test_delete_pre_workspace_catalog_name_keeps_the_old_path(client, mem_keyring, fake_claude, launcher, monkeypatch):
+    monkeypatch.setenv("FAKE_CLAUDE_GET_RC", "0")
+    monkeypatch.setenv("FAKE_CLAUDE_GET_ONLY", "slack")
+    monkeypatch.setenv("FAKE_CLAUDE_GET_OUT", "slack:\n  Scope: User config\n  Type: stdio\n"
+                       "  Command: /opt/fake/bin/easy-personal-launch\n  Args: exec slack\n")
     mem_keyring.items[("easy-personal/slack", "connector")] = "{}"
     done = client.request("DELETE", "/api/connectors/slack", content='{"confirm": true}', headers={**AUTH, **JSON}).json()
     assert done["status"] == 0 and mem_keyring.items == {}

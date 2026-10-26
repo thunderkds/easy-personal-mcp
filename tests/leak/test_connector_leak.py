@@ -23,6 +23,9 @@ FAKE_CLAUDE = """#!{python}
 import json, os, sys
 open(os.environ["FAKE_CLAUDE_LOG"], "a").write(json.dumps(sys.argv[1:]) + "\\n")
 if sys.argv[2:3] == ["get"]:
+    if sys.argv[3:4] == ["slack"]:  # a pre-workspace entry of ours in the default account
+        sys.stdout.write("slack:\\n  Scope: User config\\n  Type: stdio\\n  Command: /x/easy-personal-launch\\n  Args: exec slack\\n")
+        sys.exit(0)
     sys.exit(1)
 sys.stderr.write("claude: could not write")
 sys.exit(int(os.environ.get("FAKE_CLAUDE_RC", "0")))

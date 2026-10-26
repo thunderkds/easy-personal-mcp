@@ -50,7 +50,8 @@ def test_launcher_path_prefers_sibling_of_interpreter(monkeypatch, tmp_path):
     assert writer.launcher_path() == str(exe)
 
 
-def test_remove_deletes_keychain_and_claude_entry(mem_keyring, fake_claude, launcher, answers, capsys):
+def test_remove_deletes_keychain_and_claude_entry(mem_keyring, fake_claude, launcher, answers, capsys, monkeypatch):
+    good_get(monkeypatch)
     mem_keyring.items[("easy-personal/slack", "connector")] = "{}"
     rc, _, _ = run(capsys, "connector", "remove", "slack")
     assert rc == 0 and mem_keyring.items == {}
@@ -72,6 +73,7 @@ def test_remove_claude_missing_prints_snippet_and_keeps_keychain(mem_keyring, no
 
 
 def test_remove_claude_failure_keeps_keychain(mem_keyring, fake_claude, answers, capsys, monkeypatch):
+    good_get(monkeypatch)
     mem_keyring.items[("easy-personal/slack", "connector")] = "{}"
     monkeypatch.setenv("FAKE_CLAUDE_RC", "1")
     rc, *_ = run(capsys, "connector", "remove", "slack", "--yes")

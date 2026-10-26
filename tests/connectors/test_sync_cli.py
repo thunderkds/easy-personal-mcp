@@ -155,7 +155,7 @@ def test_remove_with_claude_missing_prints_snippets_and_deletes_nothing(world, c
 
 def test_remove_pre_workspace_name_keeps_the_old_path(world, capsys):
     world["keyring"].items[("easy-personal/slack", "connector")] = "{}"
-    legacy = {"<unset>": {"slack": {"type": "stdio", "command": "x", "args": ["exec", "slack"]}}}
+    legacy = {"<unset>": {"slack": {"type": "stdio", "command": "/x/easy-personal-launch", "args": ["exec", "slack"]}}}
     world["fake"].log.parent.joinpath("claude-state.json").write_text(json.dumps(legacy))
     rc, *_ = run(capsys, "connector", "remove", "slack", "--yes")
     assert rc == 0 and world["keyring"].items == {}
