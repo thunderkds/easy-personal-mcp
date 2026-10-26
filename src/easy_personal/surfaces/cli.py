@@ -326,9 +326,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "account":
         return _account(args)
     if args.command == "doctor":
-        from easy_personal.connectors import writer
+        from easy_personal.connectors import sync, writer
 
-        return writer.doctor(print)
+        rc = writer.doctor(print)
+        with store.opened(config.store_path()) as conn:
+            return 1 if sync.doctor(conn, print) or rc else 0
     if args.command == "ingest":
         return _ingest(args)
     if args.command == "schedule":

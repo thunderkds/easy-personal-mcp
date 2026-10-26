@@ -160,3 +160,35 @@ def test_remove_pre_workspace_name_keeps_the_old_path(world, capsys):
     rc, *_ = run(capsys, "connector", "remove", "slack", "--yes")
     assert rc == 0 and world["keyring"].items == {}
     assert world["fake"].write_records()[-1][1] == ["mcp", "remove", "slack", "--scope", "user"]
+
+
+def test_doctor_reports_registered_aliases_and_drift_never_removes(world, capsys):
+    cid = connector_id(capsys)
+    for acc in world["ids"].values():
+        run(capsys, "account", "use", acc, "company")
+    run(capsys, "connector", "sync", "--yes")
+    rc, out, _ = run(capsys, "doctor")
+    assert rc == 0, out
+    assert f"ok Claude default company-slack: points at the launcher (exec {cid})" in out
+    assert f"ok Claude work company-slack: points at the launcher (exec {cid})" in out
+    path = world["fake"].log.parent / "claude-state.json"
+    state = json.loads(path.read_text())
+    del state["<unset>"]["company-slack"]
+    state[world["work_dir"]]["company-slack"]["command"] = "npx"
+    path.write_text(json.dumps(state))
+    before = len(world["fake"].write_records())
+    rc, out, _ = run(capsys, "doctor")
+    assert rc == 1
+    assert "FAIL Claude default company-slack: drift: missing from Claude Code" in out
+    assert "FAIL Claude work company-slack: drift: does not point at easy-personal-launch" in out
+    assert len(world["fake"].write_records()) == before  # doctor never writes
+    assert len(registrations()) == 2
+    gets = [r for r in world["fake"].records() if r["argv"][:3] == ["mcp", "get", "company-slack"]]
+    assert {r["config_dir"] for r in gets} == {"<unset>", world["work_dir"]}
+
+
+def test_doctor_flags_a_connector_without_keychain_item(world, capsys):
+    cid = connector_id(capsys)
+    world["keyring"].items.clear()
+    rc, out, _ = run(capsys, "doctor")
+    assert rc == 1 and f"FAIL {cid}: no keychain item" in out

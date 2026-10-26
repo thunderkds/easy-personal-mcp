@@ -15,6 +15,7 @@ from pathlib import Path
 
 from easy_personal.connectors import keychain, writer
 from easy_personal.core import accounts
+from easy_personal.launch import LaunchError
 
 APPLIED = ("remove", "forget", "add", "record")  # actions apply() runs; `refused` / `skipped` are notes
 
@@ -202,3 +203,40 @@ def remove_connector(
         conn.execute("DELETE FROM connectors WHERE id = ?", (connector_id,))
     out(f"connector {connector_id} removed.")
     return 0
+
+
+def doctor(conn: sqlite3.Connection, out: writer.Out) -> int:
+    """Per account: each registered alias is present and points at `easy-personal-launch exec <id>`;
+    each stored connector has its keychain item. Reports only; never removes or writes anything."""
+    bad = 0
+
+    def report(ok: bool, what: str, detail: str) -> None:
+        nonlocal bad
+        bad += not ok
+        out(f"{'ok' if ok else 'FAIL'} {what}: {detail}")
+
+    for (cid,) in conn.execute("SELECT id FROM connectors ORDER BY id").fetchall():
+        try:
+            if not writer._keychain_item(cid):
+                report(False, cid, "no keychain item; remove and add the connector again")
+        except LaunchError:
+            pass  # the keychain line above already failed
+    if not shutil.which("claude"):
+        return bad
+    rows = conn.execute(
+        "SELECT a.id, a.label, a.folder, a.config_dir_env, r.alias, r.connector_id "
+        "FROM account_registrations r JOIN agent_accounts a ON a.id = r.account_id ORDER BY a.id, r.alias"
+    ).fetchall()
+    for _, label, folder, config_dir_env, alias, cid in rows:
+        name = f"{label or Path(folder).name} {alias}"
+        if not Path(folder).is_dir():
+            report(False, name, "account folder missing")
+            continue
+        got = writer._entry_exists(alias, writer.account_env(config_dir_env))
+        if got is None:
+            report(False, name, "drift: missing from Claude Code; `connector sync` re-adds it")
+        elif not writer.points_at_launcher(got, cid):
+            report(False, name, f"drift: does not point at easy-personal-launch exec {cid}; `connector sync` replaces it")
+        else:
+            report(True, name, f"points at the launcher (exec {cid})")
+    return bad
