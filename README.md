@@ -144,6 +144,24 @@ easy-personal doctor
 
 `connector add`, `connector remove` and `doctor` need the `claude` CLI on `PATH` and a keychain backend such as the Secret Service. Without `claude`, `add` and `remove` write nothing and print the command to run later. Restart Claude Code after a change.
 
+## Agent accounts
+
+`easy-personal` finds your agent config folders: `~/.claude*` that hold `projects/` or `settings.json`, and `~/.codex*` that hold `config.toml`. Files such as `~/.claude.json` are never accounts. A new folder starts as `detected`. `~/.claude` is confirmed on its own as "Claude default".
+
+```bash
+easy-personal account list --by provider
+easy-personal account confirm ~/.claude-work --label "Claude work"
+easy-personal account ignore ~/.codex
+easy-personal account add /mnt/backup/claude-old
+```
+
+- `account list` finds new folders, then prints every account with its provider, label, folder and status. `--by provider` groups by provider; `--by account` (default) gives one flat list. A folder that is gone shows as `missing`; its row stays.
+- `account confirm` names an account (1 to 60 characters). Run it again with a new label to rename.
+- `account ignore` hides an account from re-detection.
+- `account add` accepts a folder anywhere, only if it passes the same content check.
+
+The dashboard serves the same data at `/api/accounts`. Set `EASY_PERSONAL_AGENT_ROOT` to scan a folder other than your home folder.
+
 ## Configuration
 
 Settings live in `~/.easy-personal/config.yaml`. The file is optional. An environment variable wins over the file.

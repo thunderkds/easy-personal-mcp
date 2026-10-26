@@ -30,10 +30,15 @@ def leak_run(tmp_path_factory, canaries):
     )  # fmt: skip
     ui_reports = canaries.render_ui_reports(root / "ui-reports")
     home = root / "home"
+    agent_root = root / "agent-root"  # a fake home: one Claude and one Codex account folder
+    (agent_root / ".claude-work" / "projects").mkdir(parents=True)
+    (agent_root / ".codex").mkdir()
+    (agent_root / ".codex" / "config.toml").write_text("")
     env = harness.child_env(home, projects, ui_reports)
     mp = pytest.MonkeyPatch()
     mp.setenv("EASY_PERSONAL_HOME", str(home))
     mp.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(projects))
+    mp.setenv("EASY_PERSONAL_AGENT_ROOT", str(agent_root))
     mp.setenv("EASY_PERSONAL_UI_REPORTS", str(ui_reports))
     mp.setenv("EASY_PERSONAL_VERIFIER_REPORTS", str(root / "no-verifier-container"))
     # connector_status runs in-process: a memory keyring holding a secret canary and a fake

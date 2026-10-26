@@ -5,6 +5,7 @@ HOME_ENV = "EASY_PERSONAL_HOME"
 CLAUDE_PROJECTS_ENV = "EASY_PERSONAL_CLAUDE_PROJECTS"
 UI_REPORTS_ENV = "EASY_PERSONAL_UI_REPORTS"
 VERIFIER_REPORTS_ENV = "EASY_PERSONAL_VERIFIER_REPORTS"
+AGENT_ROOT_ENV = "EASY_PERSONAL_AGENT_ROOT"
 
 
 def data_dir() -> Path:
@@ -28,6 +29,11 @@ def store_path() -> Path:
 def claude_projects_dir() -> Path:
     """Claude Code transcript root; overridable so tests never read the real folder."""
     return Path(os.environ.get(CLAUDE_PROJECTS_ENV) or Path.home() / ".claude" / "projects")
+
+
+def agent_root() -> Path:
+    """Folder scanned for `.claude*` / `.codex*` agent accounts; overridable so tests never scan the real home."""
+    return Path(os.environ.get(AGENT_ROOT_ENV) or Path.home())
 
 
 def config_path() -> Path:

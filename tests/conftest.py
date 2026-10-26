@@ -57,3 +57,9 @@ def _never_open_the_real_store(monkeypatch):
 def _isolated_data_dir(monkeypatch, tmp_path_factory):
     """Every test gets its own EASY_PERSONAL_HOME; tests that set their own keep overriding it."""
     monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path_factory.mktemp("epm-home")))
+
+
+@pytest.fixture(autouse=True)
+def _isolated_agent_root(monkeypatch, tmp_path_factory):
+    """Account detection scans a fresh empty dir, never the owner's real ~/.claude* / ~/.codex*."""
+    monkeypatch.setenv("EASY_PERSONAL_AGENT_ROOT", str(tmp_path_factory.mktemp("agent-root")))

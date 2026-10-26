@@ -63,6 +63,7 @@ CLI_CALLS: dict[str, list[list[str]]] = {
     "warnings": [[]],
     "plan": [[]],
     "kit": [[]],
+    "account": [["list"], ["list", "--by", "provider"], ["list", "--by", "account"]],
 }
 # Commands that start a long-running server; covered by the stdio test instead of a one-shot call.
 # `dashboard` is covered through API_CALLS (in-process TestClient) instead.
@@ -76,6 +77,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/warnings": [""],
     "/api/plan": [""],
     "/api/kit": [""],
+    "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
 }
 # Dashboard write routes (HUN-52): route path -> [(method, concrete path, body)]. `{secret}` in a
 # body becomes the planted API-key canary. Run against an in-memory keyring and a fake `claude`.
@@ -88,10 +90,26 @@ API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
         ("POST", "/api/connectors", {"provider": "{secret}", "values": {}, "confirm": True}),
         ("GET", "/api/connectors", {}),
     ],
+    "/api/accounts": [
+        ("POST", "/api/accounts", {"path": "/no/such/{secret}"}),
+        ("POST", "/api/accounts", {"path": "{secret}"}),
+        ("POST", "/api/accounts", {"path": 7}),
+    ],
     "/api/connectors/{name}": [
         ("DELETE", "/api/connectors/slack", {"confirm": False}),
         ("DELETE", "/api/connectors/slack", {"confirm": True}),
         ("DELETE", "/api/connectors/{secret}", {"confirm": True}),
+    ],
+    # HUN-62: ids 1/2 are the fake agent root's `.claude-work` and `.codex` (see leak_run); labels and
+    # paths carrying the secret must be refused without echo.
+    "/api/accounts/{id}/confirm": [
+        ("POST", "/api/accounts/1/confirm", {"label": "Claude work"}),
+        ("POST", "/api/accounts/1/confirm", {"label": "{secret}{secret}{secret}"}),
+        ("POST", "/api/accounts/999/confirm", {"label": "{secret}"}),
+    ],
+    "/api/accounts/{id}/ignore": [
+        ("POST", "/api/accounts/2/ignore", {}),
+        ("POST", "/api/accounts/{secret}/ignore", {}),
     ],
 }  # fmt: skip
 _FAKE_CLAUDE = """#!{python}
@@ -139,6 +157,7 @@ def child_env(home: Path, projects: Path, ui_reports: Path | None = None) -> dic
         EASY_PERSONAL_CLAUDE_PROJECTS=str(projects),
         PYTHONPATH=SRC,
         EASY_PERSONAL_VERIFIER_REPORTS=str(home / "no-verifier-container"),  # never the owner's
+        EASY_PERSONAL_AGENT_ROOT=str(home.parent / "agent-root"),  # never the owner's ~/.claude*
         PYTHON_KEYRING_BACKEND="keyring.backends.fail.Keyring",  # never the owner's keychain
     )
     if ui_reports is not None:
