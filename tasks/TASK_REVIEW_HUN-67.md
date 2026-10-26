@@ -17,13 +17,13 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `tests/connectors/test_legacy.py` (14, incl. hand-made entry cases), `tests/surfaces/test_api_legacy.py` (3); leak: `tests/leak/test_connector_leak.py`, `tests/leak/harness.py` |
 | Verification command run | pass | `uv run pytest tests/connectors tests/surfaces tests/leak -q` -> `269 passed, 1 warning in 66.33s`; `uv run pytest -q` -> `682 passed, 2 skipped, 4 deselected, 1 warning in 87.86s`; `uv run ruff check .` -> `All checks passed!` |
 | Negative cases hold | pass | declined, remove failure (row kept, pending), no keychain backend, other account untouched, hand-made same-name entry never removed, non-catalog keychain item ignored |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | Supervisor 2026-10-26T10:26:34Z: isolated install, fake claude default account holding `slack` (ours: launcher `exec slack`), `gmail` (hand-made npx) and `discord` (hand-made); file keyring holding easy-personal/slack + easy-personal/gmail → doctor 'note legacy connectors not adopted: gmail, slack'; `connector adopt-legacy --yes` → plan lists gmail 'not an easy-personal entry; left as it is', slack 'remove slack'; only claude write = `mcp remove slack --scope user` with CLAUDE_CONFIG_DIR <unset>; Claude state keeps gmail + discord; keyring unchanged; store: gmail and slack in orphan; second run 'nothing to adopt' — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed `connectors/legacy.py` (detect/adopt/doctor), cli `connector adopt-legacy`, api GET/POST `/api/connectors/legacy`, leak harness + connector leak test. code-review: P0 0 / P1 1 FIXED (a hand-made same-name MCP server in the default account would have been removed — now only entries pointing at easy-personal-launch `exec <name>` are removed; tests for both hand-made cases) / P2 0 / P3 1 FIXED (internal task ID in user text). security-review (inline): keychain read-only (presence check), only the default account env, catalog ids only, argv lists, no secret in output (keychain canary leak test passes); no findings. migration-safety: N/A (no schema change). |
 | Full smoke suite still green (no regression) | pass | 682 passed (above) |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| easy-verifier score (advisory) | ☑ N/A | N/A — easy-verifier MCP is registered only in the `~/.claude-personal` profile; this Supervisor session runs another profile, tool not loaded |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Pure backend task; no UI file changed |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Pure backend task; no UI file changed |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Pure backend task; no UI file changed |
 
 ---
 
