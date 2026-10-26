@@ -26,13 +26,13 @@ perf usage_summary 30d over 1M events: [236, 231, 232] ms
 ```
 `uv run ruff check .` -> All checks passed! |
 | Negative cases hold | pass (implementer) | orphan add/rename/edit/delete refused (CLI exit 2, API 403/400, trigger via raw SQL); duplicate/rename-to-existing 409 with nothing changed; bad slug/colour/relative repo refused; errors do not echo input; guard: no token/wrong Host/foreign Origin 403, non-JSON 415, bad JSON 400 |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | verify by Supervisor 2026-10-26T09:27:14Z: isolated install + fixtures → ingest; `workspace add company --repo /work/demo-app` ok; `workspace add orphan` → reserved, exit 2; rename company→acme ok; usage all 3 messages, --workspace acme 3 (fixture has one project), --workspace empty 0; delete --yes ok; list shows orphan; user_version 4, integrity ok — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed: m0004 (constraints + triggers), `core/workspaces.py` (normalise, CRUD, `project_paths`), `metrics._scope` + 4 usage functions, cli/api routes, leak registration, tests. code-review: P0 0 / P1 0 / P2 1 deferred (AC6 workspace AND account filter cannot be tested before HUN-63 — moved to HUN-63 guide AC 8) / P3 2 (`resolve_project` runs git per repo on each filtered query — few repos, accepted; `session_contexts`/rules not workspace-scoped — out of FR-035 scope). Known limitation noted: runner skips a migration numbered below the store's `user_version` — merge order HUN-62 (m0003) before HUN-64 (m0004) on main; no store ran HUN-64 alone outside tests. security-review (inline): params bound (`IN (?,…)`), names validated by regex + CHECK, errors never echo input, write routes guarded; no findings. migration-safety: GO — additive; dry run on .backup copy of owner store v2→v4: events 575 / kit 11564 / tool_signals 17 equal, fk_check empty, integrity ok, 0.05 s, bak-v2. |
 | Full smoke suite still green (no regression) | pass | `uv run pytest -q`: 529 passed, 2 skipped, 2 deselected (see above) |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | N/A | no UI in this task |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | N/A | no UI in this task |
-| **UI: Responsiveness at target viewports** | N/A | no UI in this task |
+| easy-verifier score (advisory) | ☑ N/A | N/A — easy-verifier MCP is registered only in the `~/.claude-personal` profile; this Supervisor session runs another profile, tool not loaded |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Pure backend task; no UI file changed |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Pure backend task; no UI file changed |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Pure backend task; no UI file changed |
 
 ---
 
