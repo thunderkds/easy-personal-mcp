@@ -47,7 +47,7 @@ MCP_CALLS: dict[str, list[dict]] = {
 # CLI command -> list of argv tails. `{projects}` is the planted transcript root.
 CLI_CALLS: dict[str, list[list[str]]] = {
     "ping": [[]],
-    "connector": [["list"]],  # reads the catalog only; add/remove/exec/headers use the keychain
+    "connector": [["list"]],  # reads the catalog only; add/remove/adopt-legacy/exec/headers use the keychain (tests/leak/test_connector_leak.py)
     "ingest": [[], ["--source", "{projects}"], ["--retention-days", "3650"]],
     "schedule": [["install", "--dry-run"], ["remove", "--dry-run"]],
     # sequence matters: `acme` is created here and filtered on by `usage --workspace` below (HUN-64)
@@ -104,6 +104,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/plan": [""],
     "/api/kit": [""],
     "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
+    "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
 # Dashboard write routes (HUN-52): route path -> [(method, concrete path, body)]. `{secret}` in a
 # body becomes the planted API-key canary. Run against an in-memory keyring and a fake `claude`.
@@ -118,6 +119,13 @@ API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
         ("POST", "/api/connectors", {"provider": "gmail", "workspace": "acme", "alias": "{secret}", "values": {}, "confirm": True}),
         ("POST", "/api/connectors", {"provider": "{secret}", "workspace": "acme", "values": {}, "confirm": True}),
         ("GET", "/api/connectors", {}),
+    ],
+    # HUN-67: in-memory keyring, fake `claude` (get -> not found): nothing legacy, so adoption is a no-op
+    "/api/connectors/legacy": [
+        ("GET", "/api/connectors/legacy", {}),
+        ("POST", "/api/connectors/legacy", {"confirm": False}),
+        ("POST", "/api/connectors/legacy", {"confirm": True}),
+        ("POST", "/api/connectors/legacy", {"confirm": "{secret}"}),
     ],
     "/api/accounts": [
         ("POST", "/api/accounts", {"path": "/no/such/{secret}"}),
