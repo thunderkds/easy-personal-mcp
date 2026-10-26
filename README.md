@@ -59,6 +59,16 @@ easy-personal kit
 
 `usage --by` takes `day`, `model`, `project` or `tool`. `usage` and `outliers` take `--since` and `--until` (ISO dates). `ingest --retention-days N` deletes events older than N days.
 
+Group repos into workspaces and filter usage by one. A workspace counts events whose project path equals or sits under one of its repo paths. The name is a slug (`orphan` is reserved for the built-in workspace). The email is information only.
+
+```bash
+easy-personal workspace add company --repo ~/work/app --repo ~/work/api
+easy-personal workspace list
+easy-personal workspace edit company --rename acme --add-repo ~/work/web
+easy-personal usage --workspace acme
+easy-personal workspace delete acme
+```
+
 ### Register the MCP server
 
 Add easy-personal to Claude Code with the `claude` CLI:

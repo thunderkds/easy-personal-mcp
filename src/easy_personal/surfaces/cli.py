@@ -8,7 +8,18 @@ from importlib.metadata import version
 from pathlib import Path
 
 from easy_personal import core
-from easy_personal.core import accounts, config, kit, lock, metrics, plan, rules, schedule, store
+from easy_personal.core import (
+    accounts,
+    config,
+    kit,
+    lock,
+    metrics,
+    plan,
+    rules,
+    schedule,
+    store,
+    workspaces,
+)
 from easy_personal.sources import claude_code, context, kit_trace, ui, verifier
 from easy_personal.surfaces import mcp as mcp_surface
 
@@ -60,9 +71,28 @@ def build_parser() -> argparse.ArgumentParser:
     usage_p.add_argument(
         "--by", choices=metrics.DIMENSIONS, help="break tokens down by this dimension"
     )
+    usage_p.add_argument("--workspace", help="only events under this workspace's repo paths")
     outliers_p = sub.add_parser("outliers", help="long or tool-heavy sessions (session_outliers)")
     outliers_p.add_argument("--since", type=iso_datetime, help="ISO date/datetime, inclusive")
     outliers_p.add_argument("--until", type=iso_datetime, help="ISO date/datetime, exclusive")
+    outliers_p.add_argument("--workspace", help="only events under this workspace's repo paths")
+    workspace_p = sub.add_parser("workspace", help="create, list, edit or delete workspaces")
+    workspace_sub = workspace_p.add_subparsers(dest="action", required=True)
+    workspace_sub.add_parser("list", help="list workspaces with their repo paths")
+    for action in ("add", "edit"):
+        action_p = workspace_sub.add_parser(action, help=f"{action} a workspace")
+        action_p.add_argument("name")
+        for field in ("color", "icon", "description", "email"):
+            action_p.add_argument(f"--{field}", help="empty value clears it" if action == "edit" else None)
+        if action == "add":
+            action_p.add_argument("--repo", action="append", default=[], help="repo path (repeatable)")
+        else:
+            action_p.add_argument("--rename", help="new name; the workspace id stays")
+            action_p.add_argument("--add-repo", action="append", default=[], help="repeatable")
+            action_p.add_argument("--remove-repo", action="append", default=[], help="repeatable")
+    delete_p = workspace_sub.add_parser("delete", help="delete a workspace and its repo rows")
+    delete_p.add_argument("name")
+    delete_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
     sub.add_parser("warnings", help="declared usage rules that fired (same as MCP warnings)")
     sub.add_parser("kit", help="what the Easy Kit did per project (same as MCP kit_summary)")
     sub.add_parser("plan", help="improvement plan by priority (same as MCP improvement_plan)")
@@ -123,8 +153,12 @@ def _ask(label: str, secret: bool) -> str:
     return getpass.getpass(f"{label}: ") if secret else input(f"{label}: ").strip()
 
 
+def _confirm_text(question: str) -> bool:
+    return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+
+
 def _confirm() -> bool:
-    return input("Apply these changes? [y/N] ").strip().lower() in ("y", "yes")
+    return _confirm_text("Apply these changes?")
 
 
 def _connector_list() -> int:
@@ -181,6 +215,36 @@ def _account(args) -> int:
     return 0
 
 
+def _workspace(args) -> int:
+    """`workspace` subcommands; a refused operation prints its reason on stderr and exits 2."""
+    texts = {f: getattr(args, f, None) for f in ("color", "icon", "description", "email")}
+    try:
+        with store.opened(config.store_path()) as conn:
+            if args.action == "list":
+                _print_json({"workspaces": workspaces.list_all(conn)})
+            elif args.action == "add":
+                _print_json(workspaces.add(conn, args.name, repos=args.repo, **texts))
+            elif args.action == "edit":
+                current = workspaces.by_name(conn, args.name)
+                changes = {f: (v or None) for f, v in texts.items() if v is not None}
+                if args.rename is not None:
+                    changes["name"] = args.rename
+                if args.add_repo or args.remove_repo:
+                    drop = {workspaces.normalise_repo(r) for r in args.remove_repo}
+                    keep = [r for r in current["repos"] if r not in drop]
+                    changes["repos"] = [*keep, *args.add_repo]
+                _print_json(workspaces.edit(conn, current["id"], changes))
+            else:
+                current = workspaces.by_name(conn, args.name)
+                if not (args.yes or _confirm_text(f"Delete workspace '{current['name']}'?")):
+                    return 0
+                workspaces.delete(conn, current["id"])
+    except workspaces.WorkspaceError as exc:
+        print(f"easy-personal: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
 def _schedule(args) -> int:
     if args.action == "remove":
         if args.dry_run:
@@ -224,6 +288,8 @@ def main(argv: list[str] | None = None) -> int:
         return _ingest(args)
     if args.command == "schedule":
         return _schedule(args)
+    if args.command == "workspace":
+        return _workspace(args)
     if args.command == "dashboard":
         from easy_personal.surfaces import api
 
@@ -233,16 +299,21 @@ def main(argv: list[str] | None = None) -> int:
             return rc
         api.serve()
         return 0
-    if args.command == "usage":
-        with store.opened(config.store_path()) as conn:
-            if args.by:
-                _print_json(metrics.usage_breakdown(conn, args.by, args.since, args.until))
-            else:
-                _print_json(metrics.usage_summary(conn, args.since, args.until))
-        return 0
-    if args.command == "outliers":
-        with store.opened(config.store_path()) as conn:
-            _print_json(metrics.session_outliers(conn, args.since, args.until))
+    if args.command in ("usage", "outliers"):
+        try:
+            with store.opened(config.store_path()) as conn:
+                period = (args.since, args.until)
+                if args.command == "outliers":
+                    _print_json(metrics.session_outliers(conn, *period, workspace=args.workspace))
+                elif args.by:
+                    _print_json(
+                        metrics.usage_breakdown(conn, args.by, *period, workspace=args.workspace)
+                    )
+                else:
+                    _print_json(metrics.usage_summary(conn, *period, workspace=args.workspace))
+        except workspaces.WorkspaceError as exc:  # unknown workspace
+            print(f"easy-personal: {exc}", file=sys.stderr)
+            return 2
         return 0
     if args.command == "kit":
         with store.opened(config.store_path()) as conn:

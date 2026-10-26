@@ -50,8 +50,20 @@ CLI_CALLS: dict[str, list[list[str]]] = {
     "connector": [["list"]],  # reads the catalog only; add/remove/exec/headers use the keychain
     "ingest": [[], ["--source", "{projects}"], ["--retention-days", "3650"]],
     "schedule": [["install", "--dry-run"], ["remove", "--dry-run"]],
+    # sequence matters: `acme` is created here and filtered on by `usage --workspace` below (HUN-64)
+    "workspace": [
+        ["list"],
+        ["add", "acme", "--color", "#336699", "--repo", "{projects}", "--repo", "/work/leak-demo"],
+        ["add", "scratch"],
+        ["edit", "acme", "--description", "company work", "--add-repo", "/work/other"],
+        ["edit", "scratch", "--rename", "scratch2"],
+        ["delete", "scratch2", "--yes"],
+        ["list"],
+    ],
     "usage": [
         [],
+        ["--workspace", "acme"],
+        ["--workspace", "acme", "--by", "project"],
         ["--since", "2026-01-01"],
         ["--until", "2027-01-01"],
         ["--by", "day"],
@@ -59,7 +71,7 @@ CLI_CALLS: dict[str, list[list[str]]] = {
         ["--by", "project"],
         ["--by", "tool"],
     ],
-    "outliers": [[], ["--since", "2026-01-01"]],
+    "outliers": [[], ["--since", "2026-01-01"], ["--workspace", "acme"]],
     "warnings": [[]],
     "plan": [[]],
     "kit": [[]],
@@ -70,10 +82,13 @@ CLI_CALLS: dict[str, list[list[str]]] = {
 CLI_SERVER_COMMANDS = {"mcp", "dashboard"}
 # Dashboard JSON API route path -> list of query strings (HUN-49).
 API_CALLS: dict[str, list[str]] = {
-    "/api/usage/summary": ["", "?since=2026-01-01", "?until=2027-01-01"],
-    "/api/usage/breakdown": ["?by=day", "?by=model", "?by=project", "?by=tool", "?by=bad"],
-    "/api/usage/outliers": ["", "?since=2026-01-01"],
-    "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01"],
+    "/api/usage/summary": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?workspace=nope"],
+    "/api/usage/breakdown": [
+        "?by=day", "?by=model", "?by=project", "?by=tool", "?by=bad", "?by=project&workspace=acme",
+    ],
+    "/api/usage/outliers": ["", "?since=2026-01-01", "?workspace=acme"],
+    "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme"],
+    "/api/workspaces": [""],
     "/api/warnings": [""],
     "/api/plan": [""],
     "/api/kit": [""],
@@ -94,6 +109,21 @@ API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
         ("POST", "/api/accounts", {"path": "/no/such/{secret}"}),
         ("POST", "/api/accounts", {"path": "{secret}"}),
         ("POST", "/api/accounts", {"path": 7}),
+    ],
+    "/api/workspaces": [
+        ("POST", "/api/workspaces", {"name": "api-ws", "repos": ["/work/leak-demo"], "email": "owner@example.test"}),
+        ("POST", "/api/workspaces", {"name": "api-ws"}),
+        ("POST", "/api/workspaces", {"name": "{secret}", "description": "{secret}", "repos": ["{secret}"]}),
+        ("POST", "/api/workspaces", {"name": "orphan"}),
+        ("GET", "/api/workspaces", {}),
+    ],
+    "/api/workspaces/{id}": [
+        ("PATCH", "/api/workspaces/3", {"name": "api-ws2", "color": "#010203"}),
+        ("PATCH", "/api/workspaces/3", {"name": "{secret}", "repos": ["{secret}"]}),
+        ("PATCH", "/api/workspaces/1", {"name": "x"}),
+        ("DELETE", "/api/workspaces/1", {}),
+        ("DELETE", "/api/workspaces/3", {}),
+        ("DELETE", "/api/workspaces/{secret}", {}),
     ],
     "/api/connectors/{name}": [
         ("DELETE", "/api/connectors/slack", {"confirm": False}),
