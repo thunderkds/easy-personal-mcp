@@ -23,6 +23,7 @@ ALLOWED_EVENT_COLUMNS = {
     "is_api_error",
     "model",
     "message_id",
+    "agent_account_id",
     "tool_names",
     "input_tokens",
     "output_tokens",

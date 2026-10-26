@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
         "ingest", help="copy new Claude Code transcript metadata to the store"
     )
     ingest_p.add_argument(
-        "--source", type=Path, help="transcript root (default ~/.claude/projects)"
+        "--source", type=Path, help="transcript root of the default account (default ~/.claude/projects)"
     )
     ingest_p.add_argument(
         "--retention-days",
@@ -135,7 +135,7 @@ def _ingest(args) -> int:
             store.opened(config.store_path()) as conn,
         ):
             accounts.detect(conn)
-            result = claude_code.ingest(conn, args.source or config.claude_projects_dir())
+            result = claude_code.ingest_accounts(conn, args.source)
             result["kit_trace"] = kit_trace.ingest(conn)  # reads projects the line above stored
             result["context"] = context.ingest(conn)  # never fails the run (FR-012)
             result["ui"] = ui.ingest(conn)  # never fails the run (FR-013)

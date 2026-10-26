@@ -113,12 +113,19 @@ def file_offsets(conn: sqlite3.Connection, source: str) -> dict[str, tuple[int, 
 
 
 def save_file(
-    conn: sqlite3.Connection, source: str, path: str, inode: int, offset: int, rows
+    conn: sqlite3.Connection,
+    source: str,
+    path: str,
+    inode: int,
+    offset: int,
+    rows,
+    account_id: int | None = None,
 ) -> int:
     """Insert one file's new events and its new offset in one transaction; return rows added.
 
     `rows` yields (line_offset, next_offset, event or None); the stored offset becomes the last
-    `next_offset` seen, i.e. the start of the first line not yet consumed.
+    `next_offset` seen, i.e. the start of the first line not yet consumed. `account_id` tags the
+    events with their agent account (None: untagged, read as the default account).
     """
     mid = machine_id(conn)
     end = [offset]
@@ -132,12 +139,12 @@ def save_file(
                     (mid, path, inode, line_offset, kind, value, event["ts_utc"])
                     for kind, value in event.get("signals", ())
                 )
-                yield (mid, source, path, inode, line_offset, *(event[c] for c in EVENT_COLUMNS))
+                yield (mid, source, path, inode, line_offset, account_id, *(event[c] for c in EVENT_COLUMNS))
 
-    placeholders = ", ".join("?" * (5 + len(EVENT_COLUMNS)))
+    placeholders = ", ".join("?" * (6 + len(EVENT_COLUMNS)))
     sql = (
         "INSERT OR IGNORE INTO events (machine_id, source, source_path, inode, byte_offset, "
-        f"{', '.join(EVENT_COLUMNS)}) VALUES ({placeholders})"
+        f"agent_account_id, {', '.join(EVENT_COLUMNS)}) VALUES ({placeholders})"
     )
     with conn:
         before = conn.total_changes

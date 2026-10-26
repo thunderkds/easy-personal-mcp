@@ -7,6 +7,7 @@ per-record label only. Anything else is abstained (FR-003).
 """
 
 import json
+import os
 import re
 import sqlite3
 from collections.abc import Iterator
@@ -14,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from easy_personal.core import discovery, store
+from easy_personal.core import accounts, config, discovery, store
 
 SOURCE = "claude_code"
 
@@ -209,8 +210,12 @@ def _file_events(path: Path, offset: int, project_of):
         yield line_offset, next_offset, parse_record(record, project_of)
 
 
-def ingest(conn: sqlite3.Connection, root: Path) -> dict:
-    """Incrementally ingest every *.jsonl under `root`; return counts of this run."""
+def _scan(conn: sqlite3.Connection, roots: list[tuple[int | None, Path]]) -> dict:
+    """Incrementally ingest every *.jsonl under each `(account_id, root)`; return counts of this run.
+
+    Offsets are only forgotten for files under a root that exists now: a missing account folder
+    keeps its offsets (and rows), so it resumes where it stopped when the folder returns.
+    """
     known = store.file_offsets(conn, SOURCE)
     projects: dict[str, str] = {}
 
@@ -221,18 +226,53 @@ def ingest(conn: sqlite3.Connection, root: Path) -> dict:
 
     seen: set[str] = set()
     new_events = 0
-    root = Path(root)
-    for path in sorted(root.rglob("*.jsonl")) if root.is_dir() else []:
-        key = str(path)
-        try:
-            info = path.stat()
-            known_inode, offset = known.get(key, (info.st_ino, 0))
-            if known_inode != info.st_ino or offset > info.st_size:
-                offset = 0  # replaced (new inode) or shrunk file: start over
-            rows = _file_events(path, offset, project_of)
-            new_events += store.save_file(conn, SOURCE, key, info.st_ino, offset, rows)
-        except FileNotFoundError:
-            continue  # removed by cleanup mid-run; the file's transaction rolled back
-        seen.add(key)
-    store.retire_files(conn, SOURCE, set(known) - seen)
+    scanned = [str(root) + os.sep for _, root in roots if root.is_dir()]
+    for account_id, root in roots:
+        for path in sorted(root.rglob("*.jsonl")) if root.is_dir() else []:
+            key = str(path)
+            try:
+                info = path.stat()
+                known_inode, offset = known.get(key, (info.st_ino, 0))
+                if known_inode != info.st_ino or offset > info.st_size:
+                    offset = 0  # replaced (new inode) or shrunk file: start over
+                rows = _file_events(path, offset, project_of)
+                new_events += store.save_file(conn, SOURCE, key, info.st_ino, offset, rows, account_id)
+            except FileNotFoundError:
+                continue  # removed by cleanup mid-run; the file's transaction rolled back
+            seen.add(key)
+    gone = {path for path in set(known) - seen if path.startswith(tuple(scanned))}
+    store.retire_files(conn, SOURCE, gone)
     return {"files": len(seen), "new_events": new_events}
+
+
+def ingest(conn: sqlite3.Connection, root: Path, account_id: int | None = None) -> dict:
+    """Ingest one transcript folder, tagging its events with `account_id` (None: untagged)."""
+    return _scan(conn, [(account_id, Path(root))])
+
+
+def account_roots(conn: sqlite3.Connection, override: Path | None = None) -> list[tuple[int | None, Path]]:
+    """`(account id, <folder>/projects)` of every confirmed Claude account, in id order.
+
+    `override` (else `EASY_PERSONAL_CLAUDE_PROJECTS`) replaces the default account's folder. Without a
+    default account row an override is still read, untagged (NULL = default account).
+    """
+    override = Path(override) if override else config.claude_projects_override()
+    rows = conn.execute(
+        "SELECT id, folder, config_dir_env FROM agent_accounts "
+        "WHERE provider = 'claude' AND status = 'confirmed' ORDER BY id"
+    ).fetchall()
+    roots = [
+        (id_, override if env is None and override else Path(folder) / "projects") for id_, folder, env in rows
+    ]
+    if override and not any(env is None for _, _, env in rows):
+        roots.append((None, override))
+    return roots
+
+
+def ingest_accounts(conn: sqlite3.Connection, override: Path | None = None) -> dict:
+    """Ingest every confirmed Claude account (FR-036); commits per file, resumes from stored offsets."""
+    default = accounts.default_id(conn)
+    if default is not None:  # rows stored before migration 5 carry no account: they are the default's
+        with conn:
+            conn.execute("UPDATE events SET agent_account_id = ? WHERE agent_account_id IS NULL", (default,))
+    return _scan(conn, account_roots(conn, override))
