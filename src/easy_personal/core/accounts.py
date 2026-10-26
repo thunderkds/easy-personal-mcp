@@ -144,3 +144,27 @@ def add(conn: sqlite3.Connection, path: str) -> dict:
     with conn:
         _insert(conn, provider, folder, default=folder == (config.agent_root() / ".claude").resolve())
     return _get(conn, _find(conn, str(folder)))
+
+
+def default_id(conn: sqlite3.Connection) -> int | None:
+    """Id of the default account (`CLAUDE_CONFIG_DIR` unset), or None before it was detected."""
+    row = conn.execute(
+        "SELECT id FROM agent_accounts WHERE provider = 'claude' AND config_dir_env IS NULL ORDER BY id"
+    ).fetchone()
+    return row[0] if row else None
+
+
+def resolve(conn: sqlite3.Connection, ref: str) -> tuple[str, list]:
+    """SQL clause and params selecting events of one confirmed account, by id or label (case-insensitive).
+
+    Events with no account (stored before migration 5) belong to the default account. An unknown
+    reference raises `AccountError` listing the valid labels; the message never echoes `ref`.
+    """
+    ref = ref.strip()
+    rows = conn.execute("SELECT id, label FROM agent_accounts WHERE status = 'confirmed' ORDER BY id").fetchall()
+    found = [i for i, label in rows if str(i) == ref or label.casefold() == ref.casefold()]
+    if not found:
+        raise AccountError("unknown account; valid labels: " + (", ".join(label for _, label in rows) or "(none)"))
+    if found[0] == default_id(conn):
+        return "(agent_account_id = ? OR agent_account_id IS NULL)", [found[0]]
+    return "agent_account_id = ?", [found[0]]

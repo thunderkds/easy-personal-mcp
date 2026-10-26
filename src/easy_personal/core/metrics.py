@@ -5,8 +5,8 @@ from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 
+from easy_personal.core import accounts, workspaces
 from easy_personal.core import prices as price_table
-from easy_personal.core import workspaces
 
 DIMENSIONS = ("day", "model", "project", "tool")
 OUTLIER_TOOL_CALLS = 90
@@ -58,20 +58,24 @@ def _padded(since: str | None, until: str | None) -> tuple[str | None, str | Non
     return padded_since, padded_until
 
 
-def _scope(conn, workspace: str | None, since_utc: str | None, until_utc: str | None):
-    """`project_path IN (...)` clause + params for a workspace filter; `1` when there is none (FR-035).
+def _scope(conn, workspace: str | None, since_utc: str | None, until_utc: str | None, account: str | None = None):
+    """AND-ed filter clause + params: workspace (FR-035) and agent account (FR-036); `1` when neither is set.
 
-    The repo paths are resolved to distinct stored project paths first (see
+    The workspace's repo paths are resolved to distinct stored project paths first (see
     `workspaces.project_paths`), so the big `events` table is never matched with a pattern. An
     unknown workspace raises ValueError; a workspace without matching projects selects nothing (`0`).
-    Further filters (HUN-63 account) AND their own clause in the same way.
+    The account (id or label) becomes `agent_account_id = ?`; an unknown one raises `AccountError`.
     """
-    if workspace is None:
-        return "1", []
-    paths = workspaces.project_paths(conn, workspace, *_padded(since_utc, until_utc))
-    if not paths:
-        return "0", []
-    return f"project_path IN ({', '.join('?' * len(paths))})", paths
+    clauses, params = [], []
+    if workspace is not None:
+        paths = workspaces.project_paths(conn, workspace, *_padded(since_utc, until_utc))
+        clauses.append(f"project_path IN ({', '.join('?' * len(paths))})" if paths else "0")
+        params += paths
+    if account is not None:
+        clause, account_params = accounts.resolve(conn, account)
+        clauses.append(clause)
+        params += account_params
+    return " AND ".join(clauses) or "1", params
 
 
 def usage_summary(
@@ -79,16 +83,18 @@ def usage_summary(
     since: str | None = None,
     until: str | None = None,
     workspace: str | None = None,
+    account: str | None = None,
 ):
     """Sessions, tokens and cache-hit ratio for [since, until); no bound = all history.
 
-    `workspace` (a name) keeps only events under that workspace's repo paths.
+    `workspace` (a name) keeps only events under that workspace's repo paths; `account` (id or
+    label) only events of that agent account. Both given: both must match.
 
     Usage is counted once per `message.id` (one API message spans several records), at the
     message's earliest record time. Abstained records never feed a metric; they are counted.
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
-    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
 
     where, params = _period("ts_utc", since_utc, until_utc)
     sessions = conn.execute(
@@ -142,10 +148,11 @@ def _messages(
     since_utc: str | None,
     until_utc: str | None,
     workspace: str | None = None,
+    account: str | None = None,
 ):
     """One row per API message in the period, same selection as `usage_summary`."""
     inner, inner_params = _inner_window(since_utc, until_utc)
-    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
     where, params = _period("ts", since_utc, until_utc)
     return conn.execute(
         "SELECT ts, model, project_path, tools, i, o, cc, cr FROM ("
@@ -215,6 +222,7 @@ def usage_breakdown(
     until: str | None = None,
     prices: price_table.PriceTable | None = None,
     workspace: str | None = None,
+    account: str | None = None,
 ) -> dict:
     """Tokens per day (OS local) / model / project (folder name) / tool for [since, until).
 
@@ -228,7 +236,7 @@ def usage_breakdown(
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     groups: dict[str, dict] = {}
     total = _new_group()
-    for ts, model, project_path, tools, i, o, cc, cr in _messages(conn, since_utc, until_utc, workspace):
+    for ts, model, project_path, tools, i, o, cc, cr in _messages(conn, since_utc, until_utc, workspace, account):
         usd = prices.cost(model, i, o, cc, cr)
         _add(total, model, i, o, cc, cr, usd)
         for key in _keys(by, ts, model, project_path, tools):
@@ -261,6 +269,7 @@ def session_outliers(
     since: str | None = None,
     until: str | None = None,
     workspace: str | None = None,
+    account: str | None = None,
 ) -> dict:
     """Sessions with >= OUTLIER_TOOL_CALLS tool calls or a context >= OUTLIER_CONTEXT_TOKENS.
 
@@ -268,7 +277,7 @@ def session_outliers(
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     where, params = _period("ts_utc", since_utc, until_utc)
-    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
     where, params = f"{where} AND {scope}", params + scope_params
     calls: dict[str, tuple[int, str | None]] = {}
     for session, tools, project_path in conn.execute(
@@ -329,6 +338,7 @@ def session_timeline(
     since: str | None = None,
     until: str | None = None,
     workspace: str | None = None,
+    account: str | None = None,
 ) -> dict:
     """Per session in [since, until): start/end, models, token points per message and idle gaps.
 
@@ -336,7 +346,7 @@ def session_timeline(
     each message once (same rule as `usage_summary`). Tokens and times only, no text.
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
-    scope, scope_params = _scope(conn, workspace, since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
     where, params = _period("ts_utc", since_utc, until_utc)
     where, params = f"{where} AND {scope}", params + scope_params
     sessions: dict[str, dict] = {}

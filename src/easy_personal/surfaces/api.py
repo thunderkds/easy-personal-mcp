@@ -92,8 +92,8 @@ def _period(q):
 
 
 def _scope(q):
-    """`since`, `until` and the optional `workspace` name (empty = no filter)."""
-    return *_period(q), (q.get("workspace") or None)
+    """`since`, `until` and the optional `workspace` name and `account` id or label (empty = no filter)."""
+    return *_period(q), (q.get("workspace") or None), (q.get("account") or None)
 
 
 _WRITE_LOCK = threading.Lock()  # one connector write at a time (double submit, two tabs)
@@ -310,7 +310,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/usage/summary", _query(lambda c, q: metrics.usage_summary(c, *_scope(q)))),
         Route(
             "/api/usage/breakdown",
-            _query(lambda c, q: metrics.usage_breakdown(c, q.get("by", ""), *_period(q), workspace=_scope(q)[2])),
+            _query(lambda c, q: metrics.usage_breakdown(c, q.get("by", ""), *_period(q), workspace=_scope(q)[2], account=_scope(q)[3])),
         ),
         Route("/api/usage/outliers", _query(lambda c, q: metrics.session_outliers(c, *_scope(q)))),
         Route("/api/usage/sessions", _query(lambda c, q: metrics.session_timeline(c, *_scope(q)))),

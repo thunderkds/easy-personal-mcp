@@ -26,9 +26,10 @@ def store_path() -> Path:
     return data_dir() / "store.sqlite"
 
 
-def claude_projects_dir() -> Path:
-    """Claude Code transcript root; overridable so tests never read the real folder."""
-    return Path(os.environ.get(CLAUDE_PROJECTS_ENV) or Path.home() / ".claude" / "projects")
+def claude_projects_override() -> Path | None:
+    """`EASY_PERSONAL_CLAUDE_PROJECTS`: replaces the default account's transcript folder (tests, verify)."""
+    value = os.environ.get(CLAUDE_PROJECTS_ENV)
+    return Path(value) if value else None
 
 
 def agent_root() -> Path:

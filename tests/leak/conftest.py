@@ -30,7 +30,8 @@ def leak_run(tmp_path_factory, canaries):
     )  # fmt: skip
     ui_reports = canaries.render_ui_reports(root / "ui-reports")
     home = root / "home"
-    agent_root = root / "agent-root"  # a fake home: one Claude and one Codex account folder
+    agent_root = root / "agent-root"  # a fake home: the default Claude, a second Claude and a Codex account folder
+    (agent_root / ".claude" / "projects").mkdir(parents=True)  # the default account (id 1), confirmed by detect
     (agent_root / ".claude-work" / "projects").mkdir(parents=True)
     (agent_root / ".codex").mkdir()
     (agent_root / ".codex" / "config.toml").write_text("")
