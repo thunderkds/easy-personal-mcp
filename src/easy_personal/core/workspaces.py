@@ -144,11 +144,14 @@ def edit(conn: sqlite3.Connection, ws_id: int, changes: dict) -> dict:
 
 
 def delete(conn: sqlite3.Connection, ws_id: int) -> None:
-    """Remove a workspace and its repo rows (connectors are not part of this task)."""
+    """Remove a workspace and its repo rows; refused (409) while it still holds connectors."""
     if get(conn, ws_id)["is_orphan"]:
         raise WorkspaceError("the orphan workspace cannot be deleted", 403)
-    with conn:
-        conn.execute("DELETE FROM workspaces WHERE id = ?", (ws_id,))
+    try:
+        with conn:
+            conn.execute("DELETE FROM workspaces WHERE id = ?", (ws_id,))
+    except sqlite3.IntegrityError as exc:  # connectors.workspace_id references it (migration 6)
+        raise WorkspaceError("the workspace still has connectors; remove them first", 409) from exc
 
 
 def _under(path: str, root: str) -> bool:
