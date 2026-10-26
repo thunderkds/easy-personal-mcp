@@ -144,6 +144,24 @@ easy-personal doctor
 
 `connector add`, `connector remove` and `doctor` need the `claude` CLI on `PATH` and a keychain backend such as the Secret Service. Without `claude`, `add` and `remove` write nothing and print the command to run later. Restart Claude Code after a change.
 
+## Agent accounts
+
+`easy-personal` finds your agent config folders: `~/.claude*` that hold `projects/` or `settings.json`, and `~/.codex*` that hold `config.toml`. Files such as `~/.claude.json` are never accounts. A new folder starts as `detected`. `~/.claude` is confirmed on its own as "Claude default".
+
+```bash
+easy-personal account list --by provider
+easy-personal account confirm ~/.claude-work --label "Claude work"
+easy-personal account ignore ~/.codex
+easy-personal account add /mnt/backup/claude-old
+```
+
+- `account list` finds new folders, then prints every account with its provider, label, folder and status. `--by provider` groups by provider; `--by account` (default) gives one flat list. A folder that is gone shows as `missing`; its row stays.
+- `account confirm` names an account (1 to 60 characters). Run it again with a new label to rename.
+- `account ignore` hides an account from re-detection. It refuses the default account.
+- `account add` accepts a folder anywhere, only if it passes the same content check.
+
+`account ignore` refuses the default `~/.claude` account. The dashboard serves the same data at `/api/accounts`.
+
 ## Configuration
 
 Settings live in `~/.easy-personal/config.yaml`. The file is optional. An environment variable wins over the file.
@@ -167,6 +185,7 @@ thresholds:
 | `EASY_PERSONAL_CLAUDE_PROJECTS` | Transcript folder instead of `~/.claude/projects` |
 | `EASY_PERSONAL_UI_REPORTS` | Same as `ui: reports_dir:` |
 | `EASY_PERSONAL_VERIFIER_REPORTS` | Same as `verifier: reports_dir:` |
+| `EASY_PERSONAL_AGENT_ROOT` | Folder scanned for `.claude*` and `.codex*` accounts (default: your home folder) |
 | `EASY_PERSONAL_CONTEXT_URL` | easy-context MCP URL. The default is `http://127.0.0.1:8767/mcp` |
 
 ## Upgrade and rollback

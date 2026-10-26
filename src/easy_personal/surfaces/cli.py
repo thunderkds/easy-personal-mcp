@@ -8,7 +8,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from easy_personal import core
-from easy_personal.core import config, kit, lock, metrics, plan, rules, schedule, store
+from easy_personal.core import accounts, config, kit, lock, metrics, plan, rules, schedule, store
 from easy_personal.sources import claude_code, context, kit_trace, ui, verifier
 from easy_personal.surfaces import mcp as mcp_surface
 
@@ -78,6 +78,17 @@ def build_parser() -> argparse.ArgumentParser:
         action_p = connector_sub.add_parser(action, help=text)
         action_p.add_argument("provider" if action == "add" else "name")
         action_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
+    account_p = sub.add_parser("account", help="agent accounts (~/.claude*, ~/.codex*): list, confirm, ignore, add")
+    account_sub = account_p.add_subparsers(dest="action", required=True)
+    list_p = account_sub.add_parser("list", help="detect new folders, then list every account")
+    list_p.add_argument("--by", choices=["account", "provider"], default="account", help="grouping")
+    confirm_p = account_sub.add_parser("confirm", help="name an account and mark it confirmed")
+    confirm_p.add_argument("account", help="account id or folder")
+    confirm_p.add_argument("--label", required=True, help="1 to 60 characters, e.g. 'Claude work'")
+    account_sub.add_parser("ignore", help="hide an account from re-detection").add_argument(
+        "account", help="account id or folder"
+    )
+    account_sub.add_parser("add", help="add an agent folder by path").add_argument("path")
     sub.add_parser("doctor", help="check keychain, claude CLI and connector entries")
     return parser
 
@@ -93,6 +104,7 @@ def _ingest(args) -> int:
             lock.ingest_lock(config.data_dir() / "ingest.lock", timeout),
             store.opened(config.store_path()) as conn,
         ):
+            accounts.detect(conn)
             result = claude_code.ingest(conn, args.source or config.claude_projects_dir())
             result["kit_trace"] = kit_trace.ingest(conn)  # reads projects the line above stored
             result["context"] = context.ingest(conn)  # never fails the run (FR-012)
@@ -150,6 +162,25 @@ def _connector(args) -> int:
         return 1
 
 
+def _account(args) -> int:
+    with store.opened(config.store_path()) as conn:
+        try:
+            if args.action == "list":
+                _print_json(accounts.grouped(conn, args.by))
+                return 0
+            accounts.detect(conn)
+            if args.action == "confirm":
+                _print_json(accounts.confirm(conn, args.account, args.label))
+            elif args.action == "ignore":
+                _print_json(accounts.ignore(conn, args.account))
+            else:
+                _print_json(accounts.add(conn, args.path))
+        except accounts.AccountError as exc:
+            print(f"easy-personal: {exc}", file=sys.stderr)
+            return 2
+    return 0
+
+
 def _schedule(args) -> int:
     if args.action == "remove":
         if args.dry_run:
@@ -183,6 +214,8 @@ def main(argv: list[str] | None = None) -> int:
         return launch.main([args.command, args.connector])
     if args.command == "connector":
         return _connector(args)
+    if args.command == "account":
+        return _account(args)
     if args.command == "doctor":
         from easy_personal.connectors import writer
 

@@ -22,7 +22,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from easy_personal.core import config, kit, metrics, plan, rules, store
+from easy_personal.core import accounts, config, kit, metrics, plan, rules, store
 from easy_personal.surfaces.mcp import LOOPBACK
 
 TOKEN_HEADER = "x-dashboard-token"
@@ -198,6 +198,32 @@ async def connectors_remove(request):
     )
 
 
+def _account_write(call: Callable, status: int = 200):
+    """A guarded account write: JSON object body, one fresh connection; bad input 400, unknown 404."""
+
+    async def endpoint(request):
+        body, error = await _json_body(request)
+        if error:
+            return error
+        raw_id = request.path_params.get("id")
+        if raw_id is not None and not raw_id.isdigit():
+            return JSONResponse({"error": "no such account"}, 404)
+
+        def work():
+            with store.opened(config.store_path()) as conn:
+                accounts.detect(conn)
+                return call(conn, raw_id, body)
+
+        try:
+            return JSONResponse(await run_in_threadpool(work), status_code=status)
+        except accounts.NotFound as exc:
+            return JSONResponse({"error": str(exc)}, 404)
+        except accounts.AccountError as exc:
+            return JSONResponse({"error": str(exc)}, 400)
+
+    return endpoint
+
+
 def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
     routes = [
         Route("/api/usage/summary", _query(lambda c, q: metrics.usage_summary(c, *_period(q)))),
@@ -210,6 +236,10 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c))),
         Route("/api/kit", _query(lambda c, q: kit.kit_summary(c))),
+        Route("/api/accounts", _query(lambda c, q: accounts.grouped(c, q.get("by", "account")))),
+        Route("/api/accounts", _account_write(lambda c, _id, b: accounts.add(c, b.get("path")), 201), methods=["POST"]),
+        Route("/api/accounts/{id}/confirm", _account_write(lambda c, i, b: accounts.confirm(c, i, b.get("label"))), methods=["POST"]),
+        Route("/api/accounts/{id}/ignore", _account_write(lambda c, i, b: accounts.ignore(c, i)), methods=["POST"]),
         Route("/api/connectors", connectors_list),
         Route("/api/connectors", connectors_add, methods=["POST"]),
         Route("/api/connectors/{name}", connectors_remove, methods=["DELETE"]),
