@@ -21,13 +21,13 @@
 All checks passed!
 27 passed, 1 warning in 5.16s``` |
 | Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | Supervisor 2026-10-26T10:33:44Z, isolated install + fake claude (per-account state) + file keyring: start default {personal-gmail}, work {company-slack, personal-gmail}; work picks company+personal+side; `connector move <slack> side` without --yes at EOF → 'aborted; nothing was changed', state unchanged; with --yes → work: remove company-slack, add side-slack; `workspace edit personal --rename home --yes` → both accounts remove personal-gmail, add home-gmail; `workspace delete side --yes` → work remove side-slack, connector side-slack in orphan; move it out of orphan into home → both accounts add home-slack; `cmp` keyring before/after identical — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed `sync._change` + move/alias/rename/delete, `workspaces.edit_in_txn/delete_to_orphan`, cli/api routes (+ `_run_writer` extra/own_status), leak harness + connector leak test, 27 new tests. code-review: P0 0 / P1 0 / P2 0 / P3 2 (a rename/move plan also registers never-synced connectors of the affected workspace — shown in the plan, accepted; unconfirmed `workspace delete` now exits 1 like other aborts — accepted). Open questions decided: `connector move <id> orphan` stays allowed (acts as unassign); `workspace edit` with no connector involved needs no confirmation. security-review (inline): keychain never touched (recording keyring call log empty; cmp identical in verify), no secret in plans/outputs (leak suite incl. new steps), refusals before any change, messages never echo input, argv-only claude calls; no findings. migration-safety: N/A (no schema change). |
 | Full smoke suite still green (no regression) | pass (implementer) | `uv run pytest -q`: 694 passed, 4 deselected (perf) |
-| easy-verifier score (advisory) | ☐ recorded / ☐ N/A | [overall result, abstaining dimensions, report path — or `N/A — <reason>` if the server is down; never blocks Done] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| easy-verifier score (advisory) | ☑ N/A | N/A — easy-verifier MCP is registered only in the `~/.claude-personal` profile; this Supervisor session runs another profile, tool not loaded |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Pure backend task; no UI file changed |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Pure backend task; no UI file changed |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Pure backend task; no UI file changed |
 
 ---
 
