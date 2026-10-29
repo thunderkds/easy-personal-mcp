@@ -13,12 +13,12 @@
 ## Auto decisions
 
 Mode: auto
-1. Task breakdown and labels approved — FACT: owner message 2026-10-29 "do all by parallel with tag [auto], merge to main and push" after the Stage 2 plan in `PROJECT_SPEC.md` § Tasks
+1. Task breakdown and labels approved; run all tasks in auto mode — FACT: PROJECT_SPEC.md:175 "do all by parallel with tag [auto], merge to main and push"
 2. Requirement Fidelity Gate signed auto (Supervisor) — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule` (row 13)
 3. Spawn model from the CLI Model Table — RULE: `PROJECT_SPEC.md` § CLI Model Table
 4. Waves (stacked branches) instead of all 8 from main: tasks that edit the same files start from their predecessor's branch — RULE: `PROJECT_SPEC.md` § Tasks ("Waves: 1 = HUN-113, 114, 115, 117 …")
-5. Merge to main and push after `/verify` passes — FACT: owner message 2026-10-29 "merge to main and push"; `docs/claude-md/tracks.md` `### Edge cases` "the explicit ask wins for X"
-Checks: pending
+5. Merge to main and push after `/verify` passes (the owner's explicit ask overrides the auto-mode no-merge rule for this one step) — FACT: docs/claude-md/tracks.md:365 "the explicit ask wins for X"
+Checks: tests `uv run pytest -q` — 766 passed, leak 26 passed; reviews code-review — 0 P0–P2, security-review (inline) — 0; real run fixture CLI `easy-personal warnings --account` / `kit --workspace` BEFORE "unrecognized arguments", AFTER scoped output (auto-checked, not /verify)
 Not done: merge (owner asked for it; runs after verify); auto verify: running (T182)
 
 
@@ -30,7 +30,7 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 | Verification command run | ☑ pass | `uv run pytest -q` (no `EASY_PERSONAL_*` vars set, built web) -> `766 passed, 4 deselected, 1 xfailed, 1 warning in 140.49s (0:02:20)`. `uv run ruff check src tests/surfaces/test_scope_warnings.py tests/surfaces/scope_fixture.py tests/leak` -> `All checks passed!` |
 | Negative cases hold | ☑ pass | Unknown workspace/account: API answers 400 with the same JSON as `/api/usage/summary` and never echoes the bad value; CLI exits 2 with stderr only, listing valid labels; core raises even on an empty store (before the history abstain). Empty `?workspace=` = no filter. Workspace with no matching projects selects nothing (`hits == []`, kit `projects == []`). Leak suite: `uv run pytest -q tests/leak` -> `26 passed`. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review (Supervisor, 2026-10-29): rules/plan/kit/metrics/context scope args + callers (api, mcp, cli), leak harness, tests. lane: C2, 12 files, 640 lines, EXCEEDS (golden fixture + needed helper args; label note). Findings after gate: P0 0, P1 0, P2 0, P3 1 (DISTINCT project scan, pre-existing). security-review inline: all values bound, f-string only builds placeholders/internal clause, unknown scope → 400 — no findings — pass |
 | Full smoke suite still green (no regression) | ☑ pass | Same run as above: `766 passed, 4 deselected, 1 xfailed`. |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression** | ☑ N/A | Pure backend task (API, MCP, CLI); no UI change. The selector UI is a follow-up task. |
