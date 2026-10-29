@@ -7,99 +7,187 @@
 <meta name="description" content="Local usage numbers, warnings and an improvement plan from your Claude Code activity, plus personal tool connectors. Metadata only. No network at runtime.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
+  /* IBM Plex, self-hosted (SIL OFL 1.1, see fonts/OFL.txt). Latin subset; no request leaves the site. */
+  @font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/ibm-plex-sans-latin-500-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/ibm-plex-sans-latin-600-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); }
+
+  /* Graphite Mint with the neon accent: the same values as the dashboard (web/src/tokens.css). This is the only place for a color literal. */
   :root {
-    --bg:         #0a0a12;
-    --surface:    #111128;
-    --surface2:   #16162e;
-    --border:     #1e1e42;
-    --text:       #e2e2f0;
-    --muted:      #8080b0;
-    --cyan:       #00d4ff;
-    --green:      #00ff88;
-    --amber:      #ffb800;
-    --purple:     #a855f7;
-    --purple-text: #ae5ff8;
-    --cyan-dim:   rgba(0,212,255,.12);
-    --green-dim:  rgba(0,255,136,.12);
-    --amber-dim:  rgba(255,184,0,.12);
-    --purple-dim: rgba(168,85,247,.12);
-    --glow:       0 0 24px rgba(0,212,255,.08), 0 4px 24px rgba(0,0,0,.5);
-    --measure:    64rem;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+    --header-height: 4rem;
+    --aside-width: 15.5rem;
+    --shell-max: 90rem;
+
+    --color-bg: #121413;
+    --color-input: #0e100f;
+    --color-border: #262b29;
+    --color-divider: #1f2321;
+    --color-track: #232826;
+    --color-control: #2c3230;
+    --color-dot: #3a413e;
+
+    --color-heading: #eaedea;
+    --color-text: #dce0dd;
+    --color-nav: #b5bcb7;
+    --color-secondary: #abb3ae;
+    --color-muted: #8c9590;
+
+    --color-accent: #3cf5a8;
+    --color-accent-soft: #3cf5a814;
+    --color-accent-line: #3cf5a859;
+    --color-link: #7eddb0;
+    --color-link-hover: #b2edcf;
+
+    --glow-text: 0 0 12px #3cf5a859;
+    --glow-box: 0 0 0 1px #3cf5a840, 0 0 18px #3cf5a840;
+    --glow-dot: 0 0 8px #3cf5a8;
+    --glow-line: drop-shadow(0 0 3px #3cf5a899);
+    --glow-install: 0 0 0 1px #3cf5a833, 0 0 24px #3cf5a81f;
   }
+  /* Readability: no glow when the reader asks for more contrast */
+  @media (prefers-contrast: more) {
+    :root { --glow-text: none; --glow-box: none; --glow-dot: none; --glow-line: none; --glow-install: none; }
+  }
+
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 1rem/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  .wrap { max-width: var(--measure); margin: 0 auto; padding: 0 1.25rem; }
-  section, header, footer { padding: 2.5rem 0; border-bottom: 1px solid var(--border); }
-  footer { border-bottom: 0; color: var(--muted); }
-  h1, h2, h3 { line-height: 1.2; margin: 0 0 .75rem; }
-  h1 { font-size: clamp(2rem, 6vw, 3rem); color: var(--cyan); }
-  h2 { font-size: 1.5rem; }
-  h3 { font-size: 1.1rem; }
-  p { margin: 0 0 .9rem; }
-  a { color: var(--cyan); }
-  code, pre { font-family: var(--mono); }
-  code { color: var(--green); font-size: .92em; overflow-wrap: anywhere; }
+  html { scroll-behavior: smooth; color-scheme: dark; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-text); font: 400 0.9375rem/1.6 var(--font-sans); }
+  a { color: var(--color-link); text-decoration: none; }
+  a:hover { color: var(--color-link-hover); }
+  a:focus-visible, button:focus-visible, pre:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  h1, h2, h3 { margin: 0; color: var(--color-heading); }
+  p { margin: 0; }
+  code, pre { font-family: var(--font-mono); }
+  code { background: var(--color-input); border: 1px solid var(--color-divider); border-radius: 4px; padding: 0.05em 0.35em; font-size: 0.88em; overflow-wrap: anywhere; }
   img { max-width: 100%; height: auto; display: block; }
-  .lead { font-size: 1.25rem; color: var(--text); }
-  .muted { color: var(--muted); }
-  .term { color: var(--purple-text); font-weight: 600; }
-  .skip-link { position: absolute; left: -999px; top: 0; background: var(--surface2); padding: .5rem 1rem; }
+  .muted { color: var(--color-muted); }
+  .term { color: var(--color-accent); font-weight: 600; }
+  .skip-link { position: absolute; left: -999px; top: 0; background: var(--color-input); color: var(--color-heading); padding: 0.5rem 1rem; }
   .skip-link:focus { left: 0; z-index: 10; }
-  a:focus-visible, .skip-link:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-  .cta { display: inline-block; margin-top: .5rem; padding: .55rem 1.1rem; border: 1px solid var(--cyan);
-    border-radius: .4rem; background: var(--cyan-dim); text-decoration: none; font-weight: 600; }
+
+  /* header: brand, version pill, family nav */
+  .site-header { min-height: var(--header-height); padding: 0 max(2rem, calc((100% - var(--shell-max)) / 2 + 2rem)); display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--color-track); }
+  .brand { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .brand-mark { color: var(--color-accent); filter: var(--glow-line); flex: none; }
+  .brand-name { font-weight: 600; font-size: 1.0625rem; color: var(--color-heading); }
+  .pill { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-muted); padding: 3px 8px; border: 1px solid var(--color-control); border-radius: 4px; }
+  .family { display: flex; align-items: center; gap: 1.75rem; font-size: 0.875rem; }
+  .family a { display: flex; align-items: center; gap: 0.5rem; color: var(--color-secondary); }
+  .family a:hover { color: var(--color-heading); }
+  .family a[aria-current="page"] { color: var(--color-heading); }
+  .family .dot { width: 7px; height: 7px; border-radius: 2px; background: var(--color-dot); }
+  .family a[aria-current="page"] .dot { background: var(--color-accent); box-shadow: var(--glow-dot); }
+  .family .gh { padding: 8px 14px; border: 1px solid var(--color-control); border-radius: 6px; }
+
+  /* shell: left section nav + main */
+  .shell { display: flex; max-width: var(--shell-max); margin: 0 auto; }
+  .aside { width: var(--aside-width); flex-shrink: 0; border-right: 1px solid var(--color-divider); }
+  .aside-inner { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; padding: 2rem 1.25rem; display: flex; flex-direction: column; gap: 1.75rem; font-size: 0.875rem; }
+  .group { display: flex; flex-direction: column; gap: 2px; }
+  .group-label { font-family: var(--font-mono); font-size: 0.71875rem; color: var(--color-muted); padding: 0 0.75rem 0.5rem; }
+  .aside a { padding: 7px 0.75rem; border-radius: 6px; color: var(--color-nav); }
+  .aside a:hover { color: var(--color-heading); }
+  .aside a[aria-current] { background: var(--color-accent-soft); color: var(--color-accent); text-shadow: var(--glow-text); box-shadow: inset 0 0 0 1px var(--color-accent-line); font-weight: 500; }
+  main { flex: 1; min-width: 0; padding: 3rem 3.5rem; display: flex; flex-direction: column; gap: 2.5rem; }
+  main > section, main > footer { display: flex; flex-direction: column; gap: 0.875rem; min-width: 0; scroll-margin-top: 1rem; }
+
+  /* hero */
+  .eyebrow { font-family: var(--font-mono); font-size: 0.78125rem; color: var(--color-accent); text-shadow: var(--glow-text); }
+  h1 { font-size: 2.75rem; line-height: 1.1; font-weight: 600; letter-spacing: -0.02em; }
+  .lead { max-width: 42.5rem; font-size: 1.0625rem; line-height: 1.6; color: var(--color-secondary); }
+  .hero-note { max-width: 42.5rem; color: var(--color-secondary); }
+  .btn-row { display: flex; gap: 0.75rem; margin-top: 0.375rem; }
+  .btn-primary { display: inline-flex; align-items: center; height: 40px; padding: 0 18px; border-radius: 6px; background: var(--color-accent); box-shadow: var(--glow-box); color: var(--color-input); font-weight: 500; font-size: 0.875rem; }
+  .btn-primary:hover { color: var(--color-input); filter: brightness(1.08); }
+  .box-label { font-size: 0.8125rem; font-weight: 600; color: var(--color-nav); }
+  .install-box { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 12px 12px 12px 20px; background: var(--color-input); border: 1px solid var(--color-control); border-radius: 6px; box-shadow: var(--glow-install); }
+  .install-box pre { flex: 1; min-width: 0; margin: 0; padding: 4px 0; overflow-x: auto; border: 0; background: none; font-size: 0.875rem; line-height: 1.7; color: var(--color-text); }
+  .ln::before { content: "$ "; color: var(--color-accent); }
+  .copy { flex: none; font: 500 0.8125rem var(--font-sans); color: var(--color-input); background: var(--color-accent); box-shadow: var(--glow-box); border: 0; border-radius: 5px; padding: 0 16px; height: 36px; cursor: pointer; }
+  .copy[hidden] { display: none; }
+  .stats { list-style: none; margin: 0.25rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
+  .stats li { padding: 20px 22px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .stats li + li { border-left: 1px solid var(--color-border); }
+  .stat-num { font-family: var(--font-mono); font-size: 1.75rem; font-weight: 500; line-height: 1.2; color: var(--color-accent); text-shadow: var(--glow-text); }
+  .stat-label { font-size: 0.84375rem; color: var(--color-muted); }
+
+  /* sections */
+  h2 { font-size: 1.25rem; font-weight: 600; }
+  h3 { font-size: 0.9375rem; font-weight: 600; }
+  section > p { max-width: 50rem; }
 
   /* flow diagram */
-  .lanes { display: grid; gap: 1.25rem; margin-top: 1.25rem; }
-  .lane { background: var(--surface); border: 1px solid var(--border); border-radius: .75rem;
-    padding: 1.1rem 1.1rem 1.25rem; box-shadow: var(--glow); }
-  .lane[data-lane-box="read"] { border-top: 3px solid var(--purple); }
-  .lane[data-lane-box="connect"] { border-top: 3px solid var(--green); }
-  .lane h3 { margin-bottom: .25rem; }
-  .lane[data-lane-box="read"] h3 { color: var(--purple-text); }
-  .lane[data-lane-box="connect"] h3 { color: var(--green); }
-  .lane .note { color: var(--muted); font-size: .92rem; margin-bottom: 1rem; }
-  .steps { list-style: none; margin: 0; padding: 0; }
-  .steps li { position: relative; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: .5rem; padding: .6rem .8rem; margin-bottom: 1.5rem; display: grid; gap: .1rem; }
-  .steps li:last-child { margin-bottom: 0; }
-  .steps li:not(:last-child)::after { content: "\2193"; position: absolute; left: 50%; bottom: -1.5rem;
-    transform: translateX(-50%); color: var(--cyan); font-size: 1.1rem; line-height: 1.5rem; }
-  .steps .name { font-family: var(--mono); font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
-  .steps .caption { color: var(--muted); font-size: .92rem; }
+  .lanes { display: grid; gap: 1rem; margin-top: 0.25rem; }
+  .lane { border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; min-width: 0; }
+  .lane-head { padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--color-border); }
+  .lane-head h3 { color: var(--color-accent); text-shadow: var(--glow-text); }
+  .lane .note { color: var(--color-muted); font-size: 0.84375rem; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--color-border); counter-reset: step; }
+  .steps li { background: var(--color-bg); padding: 16px; display: flex; flex-direction: column; gap: 8px; counter-increment: step; min-width: 0; }
+  .steps li::before { content: counter(step, decimal-leading-zero); font-family: var(--font-mono); font-size: 0.71875rem; color: var(--color-accent); }
+  .steps .name { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 500; color: var(--color-heading); overflow-wrap: anywhere; }
+  .steps .caption { color: var(--color-muted); font-size: 0.78125rem; line-height: 1.5; }
 
   /* screenshots */
-  .shots { display: grid; gap: 1.25rem; margin-top: 1.25rem; }
-  .shots figure { margin: 0; background: var(--surface); border: 1px solid var(--border);
-    border-radius: .6rem; padding: .6rem; min-width: 0; }
-  .shots img { border-radius: .35rem; }
-  .shots figcaption { color: var(--muted); font-size: .92rem; margin-top: .5rem; }
+  .shots { display: grid; gap: 1rem; margin-top: 0.25rem; }
+  .shots figure { margin: 0; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; min-width: 0; }
+  .shots figcaption { color: var(--color-muted); font-size: 0.8125rem; padding: 10px 14px; border-top: 1px solid var(--color-border); }
 
-  /* install, tools, connectors */
-  .cols, .groups { display: grid; gap: 1.25rem; }
-  .cols > div, .lanes > div, .groups > div { min-width: 0; }
-  pre { background: var(--surface); border: 1px solid var(--border); border-radius: .5rem;
-    padding: .9rem 1rem; margin: 0 0 .75rem; overflow-x: auto; font-size: .88rem; line-height: 1.5; }
-  .tool-list, .provider-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
-  .tool-list li, .provider-list li { background: var(--surface); border: 1px solid var(--border);
-    border-radius: .5rem; padding: .6rem .8rem; }
-  .tool-list code { font-weight: 700; margin-right: .4rem; }
-  .flag { display: inline-block; margin-left: .4rem; padding: 0 .45rem; border-radius: .3rem;
-    font-size: .82rem; border: 1px solid var(--border); }
-  .flag[data-flag="yes"] { color: var(--green); background: var(--green-dim); }
-  .flag[data-flag="no"] { color: var(--amber); background: var(--amber-dim); }
+  /* install and deploy: numbered steps */
+  .cols { display: grid; gap: 1rem; counter-reset: n; margin-top: 0.25rem; }
+  .step { border: 1px solid var(--color-border); border-radius: 8px; padding: 18px 20px; min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .step h3::before { counter-increment: n; content: counter(n, decimal-leading-zero); display: block; font-family: var(--font-mono); font-size: 0.71875rem; font-weight: 400; color: var(--color-accent); margin-bottom: 4px; }
+  .step p { color: var(--color-muted); font-size: 0.84375rem; }
+  pre { background: var(--color-input); border: 1px solid var(--color-control); border-radius: 6px; padding: 12px 16px; margin: 0; overflow-x: auto; font-size: 0.8125rem; line-height: 1.6; color: var(--color-text); }
 
-  @media (min-width: 768px) {
-    .tool-list { grid-template-columns: 1fr 1fr; }
-    .shots, .groups { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  /* tools table, connector cards */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  th { font-family: var(--font-mono); font-size: 0.71875rem; font-weight: 400; text-align: left; color: var(--color-muted); padding: 10px 16px; }
+  td { padding: 10px 16px; border-top: 1px solid var(--color-divider); vertical-align: top; }
+  td:first-child { white-space: nowrap; }
+  td:last-child { min-width: 16rem; color: var(--color-secondary); }
+  td code { background: none; border: 0; padding: 0; font-size: 0.8125rem; font-weight: 500; color: var(--color-accent); }
+  .groups { display: grid; gap: 1rem; }
+  .group-card { border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; min-width: 0; }
+  .group-card h3 { padding: 14px 16px; font-family: var(--font-mono); font-size: 0.75rem; font-weight: 400; color: var(--color-muted); }
+  .provider-list { list-style: none; margin: 0; padding: 0; }
+  .provider-list li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; padding: 12px 16px; border-top: 1px solid var(--color-divider); font-weight: 600; color: var(--color-heading); }
+  .flag { font-family: var(--font-mono); font-size: 0.71875rem; font-weight: 400; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--color-control); color: var(--color-muted); }
+  .flag[data-flag="yes"] { color: var(--color-accent); background: var(--color-accent-soft); border-color: var(--color-accent-line); }
+
+  main > footer { padding-top: 1.5rem; border-top: 1px solid var(--color-divider); color: var(--color-muted); font-size: 0.84375rem; }
+
+  @media (min-width: 560px) {
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
-  @media (min-width: 900px) {
-    .lanes { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; }
+  @media (min-width: 768px) {
+    .groups { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  }
+  @media (min-width: 1100px) {
+    .shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1200px) {
+    .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (max-width: 768px) {
+    .site-header { padding: 0.75rem 1rem; flex-wrap: wrap; row-gap: 0.625rem; }
+    .family { flex-wrap: wrap; gap: 0.5rem 1.125rem; }
+    .shell { flex-direction: column; }
+    .aside { width: auto; border-right: 0; border-bottom: 1px solid var(--color-divider); }
+    .aside-inner { position: static; max-height: none; padding: 0.75rem 1rem; flex-direction: row; flex-wrap: wrap; gap: 0.25rem; }
+    .group { display: contents; }
+    .group-label { display: none; }
+    main { padding: 2rem 1rem; gap: 2rem; }
+    h1 { font-size: 2.125rem; }
+    .install-box { flex-direction: column; align-items: stretch; padding: 12px 14px; }
+    .stats li { padding: 14px 12px; }
+    .stat-num { font-size: 1.375rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -108,21 +196,75 @@
 </head>
 <body>
 <a class="skip-link" href="#flow">Skip to the flow diagram</a>
-<main>
-<header id="hero"><div class="wrap">
-  <h1>easy-personal-mcp</h1>
-  <p class="lead pitch">The Easy Kit plug-in about you, not a repo: it turns your local Claude Code activity into usage numbers, warnings and an improvement plan, and manages your personal tool connectors.</p>
-  <p>Everything runs on your machine. It reads metadata only: token counts, model, time, project folder and tool names. It never stores message text. A <span class="term">kit part</span> is one of the Easy Kit tools that leave files for it to read: the kernel, easy-verifier, easy-ui or easy-context.</p>
-  <a class="cta" href="https://github.com/thunderkds/easy-personal-mcp">View on GitHub</a>
-</div></header>
 
-<section id="flow"><div class="wrap">
+<header class="site-header">
+  <div class="brand">
+    <svg class="brand-mark" width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true" focusable="false"><rect x="1.5" y="1.5" width="23" height="23" rx="5" stroke="currentColor" stroke-width="1.5"/><circle cx="13" cy="10" r="3.2" stroke="currentColor" stroke-width="1.4"/><path d="M7 19.5c1.2-3 3.4-4.4 6-4.4s4.8 1.4 6 4.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    <span class="brand-name">Easy Personal</span>
+    <span class="pill">usage dashboard · v0.2.0</span>
+  </div>
+  <nav class="family" aria-label="Family">
+    <a href="https://personal-agentic-claude.vercel.app/"><span class="dot"></span>Easy Kit</a>
+    <a href="https://easy-memory.vercel.app/"><span class="dot"></span>Easy Memory</a>
+    <a href="#hero" aria-current="page"><span class="dot"></span>Easy Personal</a>
+    <a href="https://easy-verifier.vercel.app/"><span class="dot"></span>Easy Verifier</a>
+    <a class="gh" href="https://github.com/thunderkds/easy-personal-mcp">GitHub</a>
+  </nav>
+</header>
+
+<div class="shell">
+<aside class="aside">
+  <nav class="aside-inner" aria-label="Sections">
+    <div class="group">
+      <div class="group-label">// overview</div>
+      <a href="#hero" aria-current="true">What it is</a>
+      <a href="#flow">The flow</a>
+      <a href="#dashboard">The dashboard</a>
+    </div>
+    <div class="group">
+      <div class="group-label">// getting started</div>
+      <a href="#install">Install and deploy</a>
+    </div>
+    <div class="group">
+      <div class="group-label">// reference</div>
+      <a href="#tools">MCP tools</a>
+      <a href="#connectors">Connectors</a>
+      <a href="#footer">Links</a>
+    </div>
+  </nav>
+</aside>
+
+<main>
+<section id="hero">
+  <p class="eyebrow">&gt; usage numbers for claude code</p>
+  <h1>Easy Personal</h1>
+  <p class="lead pitch">The Easy Kit plug-in about you, not a repo: it turns your local Claude Code activity into usage numbers, warnings and an improvement plan, and manages your personal tool connectors.</p>
+  <p class="hero-note">Everything runs on your machine. It reads metadata only: token counts, model, time, project folder and tool names. It never stores message text. A <span class="term">kit part</span> is one of the Easy Kit tools that leave files for it to read: the kernel, easy-verifier, easy-ui or easy-context.</p>
+  <div class="btn-row"><a class="btn-primary" href="https://github.com/thunderkds/easy-personal-mcp">View on GitHub</a></div>
+  <div class="box-label">Install</div>
+  <div class="install-box">
+<pre id="install-cmd" tabindex="0"><span class="ln">git clone https://github.com/thunderkds/easy-personal-mcp.git</span>
+<span class="ln">cd easy-personal-mcp</span>
+<span class="ln">npm --prefix web ci &amp;&amp; npm --prefix web run build</span>
+<span class="ln">uv tool install --reinstall --no-cache .</span></pre>
+    <button type="button" class="copy" data-copy="install-cmd" aria-live="polite" hidden>Copy</button>
+  </div>
+  <ul class="stats">
+    <li data-stat="tools"><span class="stat-num">10</span><span class="stat-label">MCP tools</span></li>
+    <li data-stat="connectors"><span class="stat-num">5</span><span class="stat-label">connector providers</span></li>
+    <li data-stat="views"><span class="stat-num">5</span><span class="stat-label">dashboard views</span></li>
+  </ul>
+</section>
+
+<section id="flow">
   <h2>The flow</h2>
   <p>There are two lanes. The first lane reads your activity. To <span class="term">ingest</span> is to copy metadata into the store. The second lane connects a tool to Claude Code. A <span class="term">connector</span> is a provider, such as Slack, set up for Claude Code with its secrets kept in the OS keychain. The <span class="term">launcher</span> is the small command that Claude Code starts for a connector.</p>
   <div class="lanes">
     <div class="lane" data-lane-box="read">
-      <h3 data-lane="read">Read</h3>
-      <p class="note">Files are only read, never changed. Nothing leaves your machine.</p>
+      <div class="lane-head">
+        <h3 data-lane="read">Read</h3>
+        <p class="note">Files are only read, never changed. Nothing leaves your machine.</p>
+      </div>
       <ol class="steps">
         <li data-lane="read" data-step="transcripts + kit reports"><span class="name">transcripts + kit reports</span><span class="caption">Claude Code session files and the files that kit parts leave behind.</span></li>
         <li data-lane="read" data-step="ingest"><span class="name">ingest</span><span class="caption">Copy metadata into the store. Message text is dropped.</span></li>
@@ -131,8 +273,10 @@
       </ol>
     </div>
     <div class="lane" data-lane-box="connect">
-      <h3 data-lane="connect">Connect</h3>
-      <p class="note">A secret goes to the keychain once. It is never in a config file or a command line.</p>
+      <div class="lane-head">
+        <h3 data-lane="connect">Connect</h3>
+        <p class="note">A secret goes to the keychain once. It is never in a config file or a command line.</p>
+      </div>
       <ol class="steps">
         <li data-lane="connect" data-step="catalog form"><span class="name">catalog form</span><span class="caption">Pick a provider and fill in its fields, in the dashboard or the CLI.</span></li>
         <li data-lane="connect" data-step="OS keychain"><span class="name">OS keychain</span><span class="caption">The secrets are saved in the keychain of your operating system.</span></li>
@@ -141,73 +285,77 @@
       </ol>
     </div>
   </div>
-</div></section>
+</section>
 
-<section id="dashboard"><div class="wrap">
+<section id="dashboard">
   <h2>The dashboard</h2>
   <p>Run <code>easy-personal dashboard</code> to open it. These screenshots use test fixtures, not real usage. The project <code>demo-app</code> is made up.</p>
   <div class="shots">
-    <figure><img src="dashboard-usage.png" width="1280" alt="Usage tab of the dashboard showing total tokens, cache hit ratio, and breakdowns by day, model, project and tool for the demo-app fixture project"><figcaption>Usage: totals, breakdowns and outlier sessions.</figcaption></figure>
-    <figure><img src="dashboard-warnings.png" width="1280" alt="Warnings and plan tab listing the declared rules that could not be measured, with an empty improvement plan"><figcaption>Warnings and plan: each rule cites its measured value.</figcaption></figure>
-    <figure><img src="dashboard-kit.png" width="1280" alt="Kit tab with a table of kit parts per project for demo-app: kernel, verifier and context show no data, git shows one commit"><figcaption>Kit: what each kit part left for each project.</figcaption></figure>
-    <figure><img src="dashboard-connectors.png" width="1280" alt="Connectors tab listing Gmail and SendGrid under Email and Slack, Teams and Discord under Messaging, each with a set up button"><figcaption>Connectors: set up a provider from the catalog.</figcaption></figure>
+    <figure><img src="dashboard-usage.png" width="1280" height="1000" alt="Usage view of the dashboard showing total tokens, messages, cache hit ratio, and breakdowns by day, model and project for the demo-app fixture project, with a cache reuse ring on the right"><figcaption>Usage: totals, breakdowns and outlier sessions.</figcaption></figure>
+    <figure><img src="dashboard-warnings.png" width="1280" height="800" alt="Warnings and plan view listing one rule to watch, with its measured value, why it matters and two numbered fix steps, and a collapsed list of rules that were not checked"><figcaption>Warnings and plan: each rule cites its measured value.</figcaption></figure>
+    <figure><img src="dashboard-kit.png" width="1280" height="800" alt="Kit view with one project card for demo-app that says no kit data yet, a details button, and an easy-ui checks section with no data"><figcaption>Kit: what each kit part left for each project.</figcaption></figure>
+    <figure><img src="dashboard-workspaces.png" width="1280" height="800" alt="Workspaces view with the built-in orphan workspace and a workspace named demo with one repo, no connectors and an open button, next to the sidebar with the workspace and account selectors"><figcaption>Workspaces: group repos and connectors, and set up a provider from the catalog.</figcaption></figure>
   </div>
-</div></section>
+</section>
 
-<section id="install"><div class="wrap">
+<section id="install">
   <h2>Install and deploy</h2>
   <p>You need Python 3.11 or newer, <code>uv</code> and Node.js. The dashboard page is built from <code>web/</code> and is not in git, so build it before you install. It runs natively on Linux.</p>
   <div class="cols">
-    <div>
+    <div class="step">
       <h3>Install</h3>
 <pre>git clone https://github.com/thunderkds/easy-personal-mcp.git
 cd easy-personal-mcp
 npm --prefix web ci &amp;&amp; npm --prefix web run build
 uv tool install --reinstall --no-cache .</pre>
-      <p class="muted">Check the install:</p>
+      <p>Check the install:</p>
 <pre>easy-personal --version
 easy-personal ping</pre>
     </div>
-    <div>
+    <div class="step">
       <h3>First run</h3>
-      <p class="muted">Claude Code deletes old transcripts after 30 days, so ingest often.</p>
+      <p>Claude Code deletes old transcripts after 30 days, so ingest often.</p>
 <pre>easy-personal ingest
 easy-personal usage
 easy-personal warnings
 easy-personal plan</pre>
     </div>
-    <div>
+    <div class="step">
       <h3>Register the MCP server</h3>
-      <p class="muted">Then restart Claude Code. The server speaks stdio by default.</p>
+      <p>Then restart Claude Code. The server speaks stdio by default.</p>
 <pre>claude mcp add --scope user easy-personal -- easy-personal mcp</pre>
+    </div>
+    <div class="step">
       <h3>Open the dashboard</h3>
-      <p class="muted">It runs an ingest, then starts the page on <code>127.0.0.1</code> with a new token each time. Press Ctrl-C to stop.</p>
+      <p>It runs an ingest, then starts the page on <code>127.0.0.1</code> with a new token each time. Press Ctrl-C to stop.</p>
 <pre>easy-personal dashboard</pre>
     </div>
-    <div>
+    <div class="step">
       <h3>Schedule</h3>
-      <p class="muted">A systemd user timer runs ingest every day.</p>
+      <p>A systemd user timer runs ingest every day.</p>
 <pre>easy-personal schedule install
 easy-personal schedule remove</pre>
+    </div>
+    <div class="step">
       <h3>Connectors</h3>
-      <p class="muted">Needs the <code>claude</code> CLI on <code>PATH</code> and a keychain backend. Restart Claude Code after a change.</p>
+      <p>Needs the <code>claude</code> CLI on <code>PATH</code> and a keychain backend. Restart Claude Code after a change.</p>
 <pre>easy-personal connector list
 easy-personal connector add slack --workspace company
 easy-personal connector remove slack
 easy-personal doctor</pre>
     </div>
-    <div>
+    <div class="step">
       <h3>Upgrade</h3>
-      <p class="muted">Always use <code>--reinstall --no-cache</code>. Without it, uv can reuse an old build of the same version.</p>
+      <p>Always use <code>--reinstall --no-cache</code>. Without it, uv can reuse an old build of the same version.</p>
 <pre>git pull
 npm --prefix web ci &amp;&amp; npm --prefix web run build
 uv tool install --reinstall --no-cache .</pre>
     </div>
-    <div>
+    <div class="step">
       <h3>Roll back</h3>
-      <p class="muted">Back up the store before an upgrade:</p>
+      <p>Back up the store before an upgrade:</p>
 <pre>cp -p ~/.easy-personal/store.sqlite ~/.easy-personal/store.sqlite.backup</pre>
-      <p class="muted">To roll back, remove your connectors and the timer, uninstall the tool and restore the store:</p>
+      <p>To roll back, remove your connectors and the timer, uninstall the tool and restore the store:</p>
 <pre>easy-personal connector remove slack
 easy-personal schedule remove
 uv tool uninstall easy-personal-mcp
@@ -215,37 +363,42 @@ cp -p ~/.easy-personal/store.sqlite.backup ~/.easy-personal/store.sqlite</pre>
     </div>
   </div>
   <p>The full deploy, health check and rollback steps, and the common failures, are in the <a href="https://github.com/thunderkds/easy-personal-mcp/blob/main/RUNBOOK.md">runbook</a>.</p>
-</div></section>
+</section>
 
-<section id="tools"><div class="wrap">
+<section id="tools">
   <h2>Ten MCP tools</h2>
   <p class="muted">None of them writes config or returns a secret.</p>
-  <ul class="tool-list">
-    <li data-tool="ping"><code>ping</code>Check that the server is up.</li>
-    <li data-tool="usage_summary"><code>usage_summary</code>Sessions, messages and tokens for a period.</li>
-    <li data-tool="usage_breakdown"><code>usage_breakdown</code>Tokens grouped by day, model, project or tool.</li>
-    <li data-tool="session_outliers"><code>session_outliers</code>Sessions with very many tool calls or a very long context.</li>
-    <li data-tool="warnings"><code>warnings</code>Rules that fired, each with its measured value.</li>
-    <li data-tool="improvement_plan"><code>improvement_plan</code>The fired rules by priority, each with a fix line.</li>
-    <li data-tool="kit_summary"><code>kit_summary</code>What the Easy Kit did in each project.</li>
-    <li data-tool="connector_catalog"><code>connector_catalog</code>The provider catalog. Never a secret value.</li>
-    <li data-tool="connector_status"><code>connector_status</code>Whether each connector is set up, as yes or no.</li>
-    <li data-tool="connector_suggestions"><code>connector_suggestions</code>Providers your usage points to, with the counts behind each.</li>
-  </ul>
-</div></section>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">tool</th><th scope="col">what it does</th></tr></thead>
+      <tbody>
+        <tr data-tool="ping"><td><code>ping</code></td><td>Check that the server is up.</td></tr>
+        <tr data-tool="usage_summary"><td><code>usage_summary</code></td><td>Sessions, messages and tokens for a period.</td></tr>
+        <tr data-tool="usage_breakdown"><td><code>usage_breakdown</code></td><td>Tokens grouped by day, model, project or tool.</td></tr>
+        <tr data-tool="session_outliers"><td><code>session_outliers</code></td><td>Sessions with very many tool calls or a very long context.</td></tr>
+        <tr data-tool="warnings"><td><code>warnings</code></td><td>Rules that fired, each with its measured value.</td></tr>
+        <tr data-tool="improvement_plan"><td><code>improvement_plan</code></td><td>The fired rules by priority, each with a fix line.</td></tr>
+        <tr data-tool="kit_summary"><td><code>kit_summary</code></td><td>What the Easy Kit did in each project.</td></tr>
+        <tr data-tool="connector_catalog"><td><code>connector_catalog</code></td><td>The provider catalog. Never a secret value.</td></tr>
+        <tr data-tool="connector_status"><td><code>connector_status</code></td><td>Whether each connector is set up, as yes or no.</td></tr>
+        <tr data-tool="connector_suggestions"><td><code>connector_suggestions</code></td><td>Providers your usage points to, with the counts behind each.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
 
-<section id="connectors"><div class="wrap">
+<section id="connectors">
   <h2>Connector catalog</h2>
   <p>The catalog has five providers. <span class="muted">Yes means Claude.ai has an official connector too. Use the launcher only if you want it instead.</span></p>
   <div class="groups">
-    <div>
+    <div class="group-card">
       <h3 data-category-title>Email</h3>
       <ul class="provider-list">
         <li data-provider="gmail" data-category="Email" data-claude-ai="yes">Gmail<span class="flag" data-flag="yes">claude.ai connector: yes</span></li>
         <li data-provider="sendgrid" data-category="Email" data-claude-ai="no">SendGrid<span class="flag" data-flag="no">claude.ai connector: no</span></li>
       </ul>
     </div>
-    <div>
+    <div class="group-card">
       <h3 data-category-title>Messaging</h3>
       <ul class="provider-list">
         <li data-provider="discord" data-category="Messaging" data-claude-ai="no">Discord<span class="flag" data-flag="no">claude.ai connector: no</span></li>
@@ -254,15 +407,32 @@ cp -p ~/.easy-personal/store.sqlite.backup ~/.easy-personal/store.sqlite</pre>
       </ul>
     </div>
   </div>
-</div></section>
-</main>
+</section>
 
-<footer id="footer"><div class="wrap">
+<footer id="footer">
   <p><a href="https://github.com/thunderkds/easy-personal-mcp">GitHub</a> ·
   <a href="https://github.com/thunderkds/easy-personal-mcp#readme">README</a> for configuration and limits.</p>
   <p>Also from the easy family:
   <a href="https://personal-agentic-claude.vercel.app/">Easy Kit</a> ·
+  <a href="https://easy-memory.vercel.app/">Easy Memory</a> ·
   <a href="https://easy-verifier.vercel.app/">easy-verifier</a></p>
-</div></footer>
+</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  var button = document.querySelector("[data-copy]");
+  var source = button && document.getElementById(button.getAttribute("data-copy"));
+  if (!source || !navigator.clipboard || !navigator.clipboard.writeText) return;
+  button.hidden = false;
+  button.addEventListener("click", function () {
+    navigator.clipboard.writeText(source.textContent.trim()).then(function () {
+      button.textContent = "Copied";
+      setTimeout(function () { button.textContent = "Copy"; }, 2000);
+    }, function () {});
+  });
+})();
+</script>
 </body>
 </html>
