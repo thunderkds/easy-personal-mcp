@@ -18,8 +18,8 @@ Mode: auto
 3. Spawn model from the CLI Model Table — RULE: `PROJECT_SPEC.md` § CLI Model Table
 4. Owner's mid-run request (image 2 + "looks like the timeline") became new task HUN-121, run last because it restyles the same files — RULE: `PROJECT_SPEC.md` § Tasks (waves: tasks that edit the same files start from their predecessor's branch)
 5. Merge to main and push after `/verify` passes (the owner's explicit ask overrides the auto-mode no-merge rule for this one step) — FACT: docs/claude-md/tracks.md:365 "the explicit ask wins for X"
-Checks: pending
 6. HUN-121 scope: restyle + grouped sidebar + right rail from existing data + timeline as feed cards; social features cut — SAFER OPTION: smallest reading of "update the UI like this" that adds no API (Risk Low: Supervisor decides alone) ⚠ decided for you — please review
+Checks: pending
 Not done: merge (owner asked for it; runs after verify); auto verify: running (T182)
 Paused: auto-mode check failed — extended track, but the trace has no `code-review` Skill call (Stage 4 runs in auto mode)
 
