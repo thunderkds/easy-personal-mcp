@@ -13,12 +13,12 @@
 ## Auto decisions
 
 Mode: auto
-1. Task breakdown and labels approved — FACT: owner message 2026-10-29 "do all by parallel with tag [auto], merge to main and push" after the Stage 2 plan in `PROJECT_SPEC.md` § Tasks
+1. Task breakdown and labels approved; run all tasks in auto mode — FACT: PROJECT_SPEC.md:175 "do all by parallel with tag [auto], merge to main and push"
 2. Requirement Fidelity Gate signed auto (Supervisor) — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule` (row 13)
 3. Spawn model from the CLI Model Table — RULE: `PROJECT_SPEC.md` § CLI Model Table
 4. Waves (stacked branches) instead of all 8 from main: tasks that edit the same files start from their predecessor's branch — RULE: `PROJECT_SPEC.md` § Tasks ("Waves: 1 = HUN-113, 114, 115, 117 …")
-5. Merge to main and push after `/verify` passes — FACT: owner message 2026-10-29 "merge to main and push"; `docs/claude-md/tracks.md` `### Edge cases` "the explicit ask wins for X"
-Checks: pending
+5. Merge to main and push after `/verify` passes (the owner's explicit ask overrides the auto-mode no-merge rule for this one step) — FACT: docs/claude-md/tracks.md:365 "the explicit ask wins for X"
+Checks: tests `uv run pytest -q` — 775 passed; perf 1M events 67–87 ms (<100 ms); reviews code-review — 0 findings, security-review (inline) — 0, blast-radius — low (local household data); real run README jq snippet run in a temp dir: writes the file, nothing without rate_limits (auto-checked, not /verify)
 Not done: merge (owner asked for it; runs after verify); auto verify: running (T182)
 
 
@@ -30,7 +30,7 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 | Verification command run | ☑ pass | 2026-10-29T08:18:25Z `uv run pytest -q` -> `775 passed, 5 deselected, 1 xfailed, 1 warning in 159.43s (0:02:39)` (web built first with `npm --prefix web ci && npm --prefix web run build`). `uv run ruff check src tests` -> `All checks passed!`. Benchmark: `uv run pytest tests/core/test_account_status_line.py -m perf -q -s` -> `perf /api/accounts core over 1M events: [70.6, 86.6, 67.3, 67.1, 67.0] ms`, 1 passed (limit 100 ms). |
 | Negative cases hold | ☑ pass | Parametrized tests: missing / `not json` / `[]` / `{}` / `oauthAccount: 5` / non-string email -> null identity; limits `None` / `{broken` / `[]` / `{}` / window not a dict / percent as string -> `limits: null`; bool percent and string `resets_at` -> window dropped / `resets_at` null; Codex folder with `.claude.json` + limits file -> all null; missing folder -> nulls + `missing`; planted `INVENTED_SECRET_115` and leak canaries never in output (leak suite: 27 passed). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review (Supervisor, 2026-10-29): accounts.status_lines + callers (grouped → /api/accounts, CLI account list), README, leak suite. lane: C2, 6 files, 439 lines, FITS. Findings after gate: P0 0, P1 0, P2 0, P3 0. security-review inline: 3 keys only, size caps, read-only, leak suite plants secrets in other keys — no findings. blast-radius: email (T3) of up to 6 local accounts, loopback + token only, household use; optional follow-up: hide email behind a toggle — pass |
 | Full smoke suite still green (no regression) | ☑ pass | Same run: `775 passed, 5 deselected, 1 xfailed` (the 5 deselected are `perf`-marked, run on their own above). |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Backend-only task; no UI change (card UI is the follow-up task). |
