@@ -108,7 +108,7 @@ function Widgets({ summary, day, previous, period }) {
           spark={usd}
           sparkLabel={`${perDay('API-equivalent cost', usd, (n) => `$${n.toFixed(2)}`)}${abstained.length ? `, abstained: ${abstained.join(', ')}` : ''}`}
         />
-        <section className="kpi" aria-labelledby="h-cache-ratio">
+        <section className="kpi kpi-cache" aria-labelledby="h-cache-ratio">
           <h2 id="h-cache-ratio" className="kpi-name">Cache hit ratio</h2>
           {ratio !== null && <span className="kpi-value">{percent(ratio)}</span>}
           <Progress ratio={ratio} label="Cache hit ratio" />
