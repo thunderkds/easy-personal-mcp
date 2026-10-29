@@ -1,20 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import AgentsView from './AgentsView.jsx'
 import KitView from './KitView.jsx'
+import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
 import UsageView from './UsageView.jsx'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
 
 // `scoped` views filter by the global Workspace/Account scope; the others ignore it.
-const TABS = [
-  { id: 'usage', label: 'Usage', View: UsageView, scoped: true },
-  { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView, scoped: true },
-  { id: 'kit', label: 'Kit', View: KitView, scoped: true },
-  { id: 'workspaces', label: 'Workspaces', View: WorkspacesView },
-  { id: 'agents', label: 'Agents', View: AgentsView },
+// `dot` picks one of the five dot colors in tokens.css.
+const GROUPS = [
+  {
+    id: 'insights',
+    label: 'Insights',
+    tabs: [
+      { id: 'usage', label: 'Usage', View: UsageView, scoped: true, dot: 1 },
+      { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView, scoped: true, dot: 2 },
+      { id: 'kit', label: 'Kit', View: KitView, scoped: true, dot: 3 },
+    ],
+  },
+  {
+    id: 'setup',
+    label: 'Setup',
+    tabs: [
+      { id: 'workspaces', label: 'Workspaces', View: WorkspacesView, dot: 4 },
+      { id: 'agents', label: 'Agents', View: AgentsView, dot: 5 },
+    ],
+  },
 ]
+const TABS = GROUPS.flatMap((g) => g.tabs)
 
 const STORAGE_KEY = 'easy-personal-scope'
 
@@ -63,6 +78,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [chosen, setChosen] = useState(readScope)
   const [options, setOptions] = useState(undefined)
+  const [closed, setClosed] = useState({}) // group id -> collapsed
 
   useEffect(() => {
     let current = true
@@ -73,6 +89,11 @@ export default function App() {
     return () => {
       current = false
     }
+  }, [])
+
+  // After Agents changes an account: read the options again. A failed reload keeps the old ones.
+  const reloadOptions = useCallback(() => {
+    loadOptions().then(setOptions, () => {})
   }, [])
 
   const scope = options ? validScope(chosen, options) : NO_SCOPE
@@ -87,18 +108,38 @@ export default function App() {
         <p className="brand">Easy Personal</p>
         {options && <ScopeSelects options={options} scope={scope} onChange={choose} />}
         <nav aria-label="Views">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              aria-current={t.id === active ? 'page' : undefined}
-              onClick={() => {
-                setActive(t.id)
-                setMenuOpen(false)
-              }}
-            >
-              {t.label}
-            </button>
+          {GROUPS.map((g) => (
+            <div key={g.id} className="nav-group">
+              <button
+                type="button"
+                className="group-toggle"
+                aria-expanded={!closed[g.id]}
+                aria-controls={`group-${g.id}`}
+                onClick={() => setClosed((c) => ({ ...c, [g.id]: !c[g.id] }))}
+              >
+                <span className="chevron" aria-hidden="true">
+                  {closed[g.id] ? '▸' : '▾'}
+                </span>
+                {g.label}
+              </button>
+              <div id={`group-${g.id}`} className="group-items">
+                {!closed[g.id] &&
+                  g.tabs.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      aria-current={t.id === active ? 'page' : undefined}
+                      onClick={() => {
+                        setActive(t.id)
+                        setMenuOpen(false)
+                      }}
+                    >
+                      <span className={`dot dot-${t.dot}`} aria-hidden="true" />
+                      {t.label}
+                    </button>
+                  ))}
+              </div>
+            </div>
           ))}
         </nav>
       </aside>
@@ -112,14 +153,17 @@ export default function App() {
           <p className="topbar-title">{label}</p>
           {scoped && options && <p className="topbar-scope">Scope: {scopeNames(scope, options).join(' · ')}</p>}
         </header>
-        <div id="view">
-          {scoped && options === undefined ? (
-            <main>
-              <p role="status">Loading</p>
-            </main>
-          ) : (
-            <View scope={scope} options={options ?? null} onOpenAgents={() => setActive('agents')} />
-          )}
+        <div className="body">
+          <div id="view">
+            {scoped && options === undefined ? (
+              <main>
+                <p role="status">Loading</p>
+              </main>
+            ) : (
+              <View scope={scope} options={options ?? null} onOpenAgents={() => setActive('agents')} onAccountsChanged={reloadOptions} />
+            )}
+          </div>
+          {options !== undefined && <Rail scope={scope} refresh={options} />}
         </div>
       </div>
     </div>

@@ -1,12 +1,14 @@
-/* Design tokens (dark only): every color, size and space in the page comes from here. */
+/* Design tokens (dark only, indigo): every color, size and space in the page comes from here. */
 :root {
   color-scheme: dark;
-  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.5rem;
-  --text-kpi: 1.875rem;
+  /* One monospace stack for all text; system fonts only, no download. */
+  --font: ui-monospace, 'SF Mono', 'Cascadia Mono', 'DejaVu Sans Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-kpi: 1.75rem;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -14,39 +16,55 @@
   --space-4: 1.5rem;
   --space-5: 2rem;
 
-  --sidebar-width: 15rem;
+  --sidebar-width: 14rem;
+  --rail-width: 19rem;
 
-  --color-bg: #080b22;
-  --color-bg-glow: #2a2192;
-  --color-bg-gradient: radial-gradient(ellipse at 85% 100%, var(--color-bg-glow) 0%, transparent 55%), linear-gradient(180deg, #0a0e2c 0%, var(--color-bg) 100%);
-  --color-sidebar: #0b0f2e;
-  --color-topbar: rgba(8, 11, 34, 0.85);
-  --color-surface: #0e1338;
-  --color-surface-2: #182052;
-  --color-text: #eef0ff;
-  --color-muted: #a6acd9;
-  --color-border: #2a3272;
-  --color-accent: #2563eb;
-  --color-accent-text: #8cb0ff;
+  /* Surfaces: page, card, card-raised */
+  --color-bg: #1a1540;
+  --color-bg-glow: #3a2b86;
+  --color-bg-gradient: radial-gradient(ellipse at 85% 100%, var(--color-bg-glow) 0%, transparent 55%), linear-gradient(180deg, #161235 0%, var(--color-bg) 100%);
+  --color-sidebar: #16113a;
+  --color-topbar: rgba(26, 21, 64, 0.88);
+  --color-surface: #251f52;
+  --color-surface-2: #30296a;
+  --color-border: #40387f;
+  --color-divider: #342d70;
+  --color-text: #efecff;
+  --color-muted: #b9b3e3;
+
+  /* Accent: blue to purple */
+  --accent-start: #3b6be0;
+  --accent-end: #9140dc;
+  --gradient-accent: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+  --color-accent: #3b6be0;
+  --color-accent-text: #a9c0ff;
   --color-on-accent: #ffffff;
-  --color-accent-soft: #29327a;
+  --color-accent-soft: #3a3382;
+
+  /* Five dot colors (sidebar items, feed icons) */
+  --dot-1: #7c8cff;
+  --dot-2: #c25cf0;
+  --dot-3: #3fd6a0;
+  --dot-4: #ffb454;
+  --dot-5: #48b8f5;
+
   --color-gap: #ffb454;
   --color-gap-soft: #4a3512;
   --color-notice-bg: #3a2f10;
   --color-notice-border: #b08a1c;
-  --color-error: #ff7c93;
+  --color-error: #ff8aa0;
   --color-up: #2ee6a0;
   --color-up-bg: #0f3a33;
-  --color-down: #ff6b9d;
+  --color-down: #ff7aa8;
   --color-down-bg: #43152f;
-  --color-shadow: rgba(2, 3, 20, 0.6);
-  --shadow-card: 0 8px 24px var(--color-shadow);
+  --color-shadow: rgba(8, 5, 32, 0.55);
+  --shadow-card: 0 6px 20px var(--color-shadow);
   --radius: 14px;
   --radius-sm: 8px;
 
   /* Chart accents */
   --chart-green: #19d38a;
   --chart-amber: #ffc531;
-  --chart-cyan: #22c5f2;
-  --chart-pink: #ff3d8b;
+  --chart-cyan: #3fc6f5;
+  --chart-pink: #ff5c9a;
 }

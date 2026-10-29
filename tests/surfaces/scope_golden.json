@@ -79,11 +79,18 @@
    {
     "items": [
      {
-      "fix": "Read the failing tool calls in memory/event-trace/ and fix the command or permission that keeps failing.",
+      "fix": "Read the failing tool calls in memory/event-trace/. Fix the command or permission that keeps failing.",
       "label": "warning",
       "measured": 0.25,
       "rule_id": "tool_errors_high",
-      "threshold": 0.1
+      "steps": [
+       "Read the failing tool calls in memory/event-trace/.",
+       "Fix the command or permission that keeps failing."
+      ],
+      "summary": "25% of kernel-trace tool calls failed; target 10% or less, last 7 days",
+      "threshold": 0.1,
+      "title": "Many tool calls fail",
+      "why": "Failed tool calls waste tokens and time because Claude retries and explains the error."
      }
     ],
     "priority": 2
@@ -91,11 +98,18 @@
    {
     "items": [
      {
-      "fix": "Check which project or session drove the rise before it becomes the new baseline.",
+      "fix": "Open Usage and find which project or session drove the rise. Decide if the rise is intended before it becomes your baseline.",
       "label": "aware",
       "measured": 102.0,
       "rule_id": "tokens_jump",
-      "threshold": 0.5
+      "steps": [
+       "Open Usage and find which project or session drove the rise.",
+       "Decide if the rise is intended before it becomes your baseline."
+      ],
+      "summary": "Token use rose 10,200% in the last 7 days against the 7 days before; target 50% or less",
+      "threshold": 0.5,
+      "title": "Token use jumped",
+      "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost."
      }
     ],
     "priority": 3
@@ -106,27 +120,42 @@
   "abstained": [
    {
     "reason": "no easy-context data (service down or no index for a known project)",
-    "rule_id": "context_index_stale"
+    "rule_id": "context_index_stale",
+    "title": "Code index is out of date"
    }
   ],
   "as_of_utc": "2026-10-20T00:00:00+00:00",
   "hits": [
    {
-    "fix": "Read the failing tool calls in memory/event-trace/ and fix the command or permission that keeps failing.",
+    "fix": "Read the failing tool calls in memory/event-trace/. Fix the command or permission that keeps failing.",
     "label": "warning",
     "measured": 0.25,
     "priority": 2,
     "rule_id": "tool_errors_high",
+    "steps": [
+     "Read the failing tool calls in memory/event-trace/.",
+     "Fix the command or permission that keeps failing."
+    ],
+    "summary": "25% of kernel-trace tool calls failed; target 10% or less, last 7 days",
     "threshold": 0.1,
+    "title": "Many tool calls fail",
+    "why": "Failed tool calls waste tokens and time because Claude retries and explains the error.",
     "window_days": 7
    },
    {
-    "fix": "Check which project or session drove the rise before it becomes the new baseline.",
+    "fix": "Open Usage and find which project or session drove the rise. Decide if the rise is intended before it becomes your baseline.",
     "label": "aware",
     "measured": 102.0,
     "priority": 3,
     "rule_id": "tokens_jump",
+    "steps": [
+     "Open Usage and find which project or session drove the rise.",
+     "Decide if the rise is intended before it becomes your baseline."
+    ],
+    "summary": "Token use rose 10,200% in the last 7 days against the 7 days before; target 50% or less",
     "threshold": 0.5,
+    "title": "Token use jumped",
+    "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost.",
     "window_days": 7
    }
   ]

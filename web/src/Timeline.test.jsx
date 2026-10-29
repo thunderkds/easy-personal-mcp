@@ -62,4 +62,59 @@ describe('session timeline (AC2)', () => {
     expect(screen.getAllByRole('listitem').filter((li) => li.dataset.session)).toHaveLength(50)
     expect(screen.getByText(/Showing 50 of 60 sessions/)).toBeInTheDocument()
   })
+
+  describe('feed cards (HUN-121)', () => {
+    const two = {
+      ...sessions,
+      sessions: [
+        { ...sessions.sessions[0], input_tokens: 100, output_tokens: 100, cache_creation_input_tokens: 50, cache_read_input_tokens: 50 },
+        { ...sessions.sessions[1], project: 'kit-core', input_tokens: 25, output_tokens: 25, cache_creation_input_tokens: 25, cache_read_input_tokens: 25 },
+      ],
+    }
+
+    it('SC5: 300 and 100 tokens give two feed cards with token bars at 75 % and 25 %', () => {
+      render(<Timeline data={two} />)
+      const cards = screen.getAllByRole('article')
+      expect(cards).toHaveLength(2)
+      const bar = (i) => within(cards[i]).getByRole('progressbar')
+      expect(bar(0)).toHaveAttribute('aria-valuenow', '75')
+      expect(bar(1)).toHaveAttribute('aria-valuenow', '25')
+      expect(bar(0)).toHaveAccessibleName(/share of the period's tokens/i)
+    })
+
+    it('has an icon with the project initial, an accent title, a one-line summary and the local start time', () => {
+      render(<Timeline data={sessions} />)
+      const card = within(screen.getByTestId('session-abc12345-aaaa')).getByRole('article')
+      expect(card.querySelector('.feed-icon')).toHaveTextContent('D')
+      expect(within(card).getByRole('heading', { name: 'demo-app' })).toBeInTheDocument()
+      expect(within(card).getByText('2 models · 3 messages')).toBeInTheDocument()
+      expect(card.querySelector('.feed-time')).toHaveTextContent(new Date('2026-10-20T08:00:00.000000Z').toLocaleString())
+    })
+
+    it('footer counts messages, tokens and gaps; tool calls only when the data has them', () => {
+      render(<Timeline data={sessions} />)
+      const foot = within(screen.getByTestId('session-abc12345-aaaa')).getByRole('article').querySelector('footer')
+      expect(foot).toHaveTextContent('3 messages')
+      expect(foot).toHaveTextContent('300 tokens')
+      expect(foot).toHaveTextContent('1 gap')
+      expect(foot).not.toHaveTextContent(/tool call/)
+    })
+
+    it('shows the tool-call count when the session carries one', () => {
+      const withTools = { ...sessions, sessions: [{ ...sessions.sessions[0], tool_calls: 7 }] }
+      render(<Timeline data={withTools} />)
+      expect(screen.getByRole('article').querySelector('footer')).toHaveTextContent('7 tool calls')
+    })
+
+    it('the section header carries the count: "Session timeline (2)"', () => {
+      render(<Timeline data={sessions} />)
+      expect(screen.getByRole('heading', { level: 2, name: 'Session timeline (2)' })).toBeInTheDocument()
+    })
+
+    it('shares are of all sessions of the period, also those beyond the 50 shown', () => {
+      const many = { ...sessions, sessions: Array.from({ length: 60 }, (_, i) => ({ ...sessions.sessions[1], session_id: `s${i}` })) }
+      render(<Timeline data={many} />)
+      expect(within(screen.getAllByRole('article')[0]).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1.67')
+    })
+  })
 })

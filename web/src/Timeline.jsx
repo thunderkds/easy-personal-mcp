@@ -1,4 +1,6 @@
+import FeedCard from './FeedCard.jsx'
 import { duration, fmt, localTime, totalTokens } from './format.js'
+import { Progress } from './Widgets.jsx'
 
 const MAX_SESSIONS = 50
 const W = 600
@@ -36,39 +38,63 @@ function SessionChart({ session, gapMinutes }) {
   )
 }
 
+const plural = (n, word) => `${fmt(n)} ${word}${n === 1 ? '' : 's'}`
+
+function Session({ s, data, share }) {
+  const id = `session-title-${s.session_id}`
+  const models = s.models.length === 0 ? 'unknown model' : s.models.length === 1 ? s.models[0] : plural(s.models.length, 'model')
+  const counts = [
+    plural(s.messages, 'message'),
+    typeof s.tool_calls === 'number' && plural(s.tool_calls, 'tool call'),
+    `${fmt(totalTokens(s))} tokens`,
+    plural(s.gaps.length, 'gap'),
+  ].filter(Boolean)
+  return (
+    <li data-session={s.session_id} data-testid={`session-${s.session_id}`}>
+      <FeedCard
+        id={id}
+        icon={s.project}
+        title={s.project}
+        summary={`${models} · ${plural(s.messages, 'message')}`}
+        time={localTime(s.start_utc)}
+        footer={counts.map((c) => (
+          <span key={c}>{c}</span>
+        ))}
+      >
+        <p className="muted session-line">
+          {s.models.join(', ') || 'unknown model'} · {s.session_id} · {`${localTime(s.start_utc)} to ${localTime(s.end_utc)}`} · {duration(s.start_utc, s.end_utc)}
+        </p>
+        <SessionChart session={s} gapMinutes={data.gap_minutes} />
+        <Progress ratio={share} label={`Share of the period's tokens: ${(share * 100).toFixed(1)}%`} />
+        {s.gaps.length > 0 && (
+          <ul className="gaps">
+            {s.gaps.map((g, i) => (
+              <li key={i}>{`Gap of ${g.minutes} min, ${localTime(g.start_utc)} to ${localTime(g.end_utc)}`}</li>
+            ))}
+          </ul>
+        )}
+      </FeedCard>
+    </li>
+  )
+}
+
 export default function Timeline({ data }) {
   const shown = data.sessions.slice(0, MAX_SESSIONS)
+  const periodTokens = data.sessions.reduce((sum, s) => sum + totalTokens(s), 0)
   return (
     <section aria-labelledby="h-timeline">
-      <h2 id="h-timeline">Session timeline</h2>
+      <h2 id="h-timeline">{`Session timeline (${data.sessions.length})`}</h2>
       <p className="muted">
         Each chart spans one session from start to end. Bars show tokens per message over time; shaded bands are
-        gaps, a pause of {data.gap_minutes} min or more.
+        gaps, a pause of {data.gap_minutes} min or more. The bar under a chart is the session's share of the
+        period's tokens.
       </p>
       {shown.length === 0 ? (
         <p className="muted">No sessions in this period.</p>
       ) : (
-        <ul className="timeline">
+        <ul className="timeline feed">
           {shown.map((s) => (
-            <li key={s.session_id} data-session={s.session_id} data-testid={`session-${s.session_id}`}>
-              <div className="session-head">
-                <strong>{s.project}</strong>
-                <span className="muted">{s.session_id}</span>
-                <span>{`${localTime(s.start_utc)} to ${localTime(s.end_utc)}`}</span>
-                <span>{duration(s.start_utc, s.end_utc)}</span>
-              </div>
-              <div className="muted">
-                {s.models.join(', ') || 'unknown model'} · {fmt(s.messages)} messages · {fmt(totalTokens(s))} tokens
-              </div>
-              <SessionChart session={s} gapMinutes={data.gap_minutes} />
-              {s.gaps.length > 0 && (
-                <ul className="gaps">
-                  {s.gaps.map((g, i) => (
-                    <li key={i}>{`Gap of ${g.minutes} min, ${localTime(g.start_utc)} to ${localTime(g.end_utc)}`}</li>
-                  ))}
-                </ul>
-              )}
-            </li>
+            <Session key={s.session_id} s={s} data={data} share={periodTokens > 0 ? totalTokens(s) / periodTokens : 0} />
           ))}
         </ul>
       )}
