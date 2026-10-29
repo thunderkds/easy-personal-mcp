@@ -67,6 +67,7 @@ def _row(row: tuple) -> dict:
     return {
         "id": id_, "provider": provider, "label": label, "folder": folder,
         "status": status, "config_dir_env": env,
+        "is_default": folder == str((config.agent_root() / ".claude").resolve()),
     }  # fmt: skip
 
 

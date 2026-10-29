@@ -4,9 +4,14 @@ import { useLoad } from './useLoad.js'
 
 const NOT_APPLIED = ['refused', 'skipped']
 
-/** A detected folder: name it (confirm) or ignore it. */
-function Detected({ account, onChanged }) {
-  const [label, setLabel] = useState('')
+/**
+ * Name and status actions of one account. Detected: name it or ignore it. Ignored: choose it again.
+ * Confirmed: rename it, or ignore it (not the default account: the server refuses that).
+ */
+function AccountActions({ account, onChanged }) {
+  const { status, is_default: isDefault } = account
+  const [editing, setEditing] = useState(status === 'detected')
+  const [label, setLabel] = useState(account.label ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   async function act(path, body) {
@@ -15,26 +20,55 @@ function Detected({ account, onChanged }) {
     setError(null)
     try {
       await sendJson('POST', `/api/accounts/${account.id}/${path}`, body)
-      onChanged()
+      onChanged(account, path)
     } catch (e) {
       setError(e.message)
       setBusy(false)
     }
   }
+  const ignore = (
+    <button type="button" disabled={busy} onClick={() => act('ignore', {})}>
+      Ignore
+    </button>
+  )
   return (
     <>
-      <div className="field">
-        <label htmlFor={`name-${account.id}`}>Name</label>
-        <input id={`name-${account.id}`} value={label} autoComplete="off" onChange={(e) => setLabel(e.target.value)} />
-      </div>
-      <div className="actions">
-        <button type="button" disabled={busy || !label.trim()} onClick={() => act('confirm', { label: label.trim() })}>
-          Confirm &amp; name
-        </button>
-        <button type="button" disabled={busy} onClick={() => act('ignore', {})}>
-          Ignore
-        </button>
-      </div>
+      {editing ? (
+        <>
+          <div className="field">
+            <label htmlFor={`name-${account.id}`}>Name</label>
+            <input id={`name-${account.id}`} value={label} autoComplete="off" onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <div className="actions">
+            <button type="button" disabled={busy || !label.trim()} onClick={() => act('confirm', { label: label.trim() })}>
+              {status === 'confirmed' ? 'Save name' : 'Confirm & name'}
+            </button>
+            {status === 'detected' ? (
+              ignore
+            ) : (
+              <button type="button" disabled={busy} onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="actions">
+          {status === 'ignored' && (
+            <button type="button" onClick={() => setEditing(true)}>
+              Use this account
+            </button>
+          )}
+          {status === 'confirmed' && (
+            <>
+              <button type="button" onClick={() => setEditing(true)}>
+                Rename
+              </button>
+              {!isDefault && ignore}
+            </>
+          )}
+        </div>
+      )}
       {error && (
         <p role="alert" className="error">
           Could not complete: {error}
@@ -170,7 +204,7 @@ function Picker({ account, workspaces }) {
   )
 }
 
-function AccountRow({ account, workspaces, onChanged }) {
+function AccountRow({ account, workspaces, onChanged, justConfirmed }) {
   const { provider, label, folder, status } = account
   const name = label || folder.split('/').filter(Boolean).pop() || folder
   return (
@@ -183,14 +217,19 @@ function AccountRow({ account, workspaces, onChanged }) {
         <span className="muted">{provider}</span>
       </div>
       <p className="muted">{folder}</p>
-      {status === 'detected' && <Detected account={account} onChanged={onChanged} />}
+      {['detected', 'ignored', 'confirmed'].includes(status) && <AccountActions account={account} onChanged={onChanged} />}
+      {status === 'confirmed' && justConfirmed && (
+        <p role="status" className="muted">
+          Usage from this account appears after the next ingest. Run <code>easy-personal ingest</code>.
+        </p>
+      )}
       {status === 'confirmed' && provider === 'codex' && <p className="muted">listed only</p>}
       {status === 'confirmed' && provider === 'claude' && <Picker account={account} workspaces={workspaces} />}
     </li>
   )
 }
 
-function Accounts({ by, workspaces, onChanged }) {
+function Accounts({ by, workspaces, onChanged, confirmedIds }) {
   const state = useLoad(() => getJson(`/api/accounts?by=${by}`))
   if (state.status === 'loading') return <p role="status">Loading agent accounts</p>
   if (state.status === 'error')
@@ -208,7 +247,7 @@ function Accounts({ by, workspaces, onChanged }) {
       {g.title && <h2>{g.title}</h2>}
       <ul className="entries">
         {g.accounts.map((a) => (
-          <AccountRow key={a.id} account={a} workspaces={workspaces} onChanged={onChanged} />
+          <AccountRow key={a.id} account={a} workspaces={workspaces} onChanged={onChanged} justConfirmed={confirmedIds.includes(a.id)} />
         ))}
       </ul>
     </section>
@@ -218,6 +257,7 @@ function Accounts({ by, workspaces, onChanged }) {
 export default function AgentsView() {
   const [by, setBy] = useState('account')
   const [version, setVersion] = useState(0)
+  const [confirmedIds, setConfirmedIds] = useState([]) // accounts the owner chose in this visit: the reload keeps the ingest hint
   const ws = useLoad(() => getJson('/api/workspaces'))
   const workspaces = ws.status === 'ready' ? ws.data.workspaces : []
   return (
@@ -240,7 +280,16 @@ export default function AgentsView() {
         </p>
       )}
       {ws.status !== 'loading' && (
-        <Accounts key={`${by}-${version}`} by={by} workspaces={workspaces} onChanged={() => setVersion((v) => v + 1)} />
+        <Accounts
+          key={`${by}-${version}`}
+          by={by}
+          workspaces={workspaces}
+          confirmedIds={confirmedIds}
+          onChanged={(account, action) => {
+            if (action === 'confirm' && account.status !== 'confirmed') setConfirmedIds((ids) => [...ids, account.id])
+            setVersion((v) => v + 1)
+          }}
+        />
       )}
     </main>
   )

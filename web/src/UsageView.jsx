@@ -35,6 +35,7 @@ async function loadOptions() {
   return {
     workspaces: ws.workspaces.filter((w) => !w.is_orphan),
     accounts: acc.accounts.filter((a) => a.provider === 'claude' && a.status === 'confirmed'),
+    ignored: acc.accounts.filter((a) => a.provider === 'claude' && a.status === 'ignored').length,
   }
 }
 
@@ -243,7 +244,7 @@ function Filters({ options, workspace, account, onWorkspace, onAccount }) {
   )
 }
 
-export default function UsageView({ slot = null }) {
+export default function UsageView({ slot = null, onOpenAgents = () => {} }) {
   const [period, setPeriod] = useState('7')
   const [workspace, setWorkspace] = useState('')
   const [account, setAccount] = useState('')
@@ -286,6 +287,18 @@ export default function UsageView({ slot = null }) {
       <p className="notice" role="note">
         Not included: cloud sessions and other machines. This view counts only Claude Code sessions stored on this machine.
       </p>
+      {options?.ignored > 0 && (
+        <div className="notice">
+          <p>
+            {options.ignored === 1
+              ? '1 agent account is ignored, so its usage is not counted.'
+              : `${options.ignored} agent accounts are ignored, so their usage is not counted.`}
+          </p>
+          <button type="button" onClick={onOpenAgents}>
+            Open Agents
+          </button>
+        </div>
+      )}
       {filters && (slot ? createPortal(filters, slot) : filters)}
       <p className="muted" data-testid="usage-scope">
         Workspace: {workspace || 'All'} · Account: {account ? accountLabel : 'All'} · {PERIODS.find((p) => p.id === period).label}
