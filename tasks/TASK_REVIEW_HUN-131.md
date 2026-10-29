@@ -61,8 +61,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-29T15:23:48Z in the HUN-131 worktree, before any implementation commit; the one `box-shadow` match is the existing KPI-strip divider):
+
+```
+2026-10-29T15:23:48Z
+$ grep -nE "accent|glow|link" src/tokens.css
+70:  --color-accent: #7eddb0;
+71:  --color-accent-hover: #b2edcf;
+72:  --color-accent-soft: #7eddb017;
+73:  --color-accent-bar: #7eddb066;
+$ grep -cE "text-shadow|box-shadow|drop-shadow" src/app.css
+1
+$ npm --prefix web test (tail)
+      Tests  248 passed (248)
+   Start at  22:23:48
+   Duration  4.34s (tests 57%, environment 31%, transform 5%, setup 5%, import 1%)
+
+Environment  jsdom was created 11 times · 7.91s total, 31% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
