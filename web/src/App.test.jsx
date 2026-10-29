@@ -20,7 +20,7 @@ it('opens on Usage and switches in-page between the views without changing the U
   expect(await screen.findByRole('heading', { name: 'Totals' })).toBeInTheDocument()
   expect(within(nav()).getByRole('button', { name: 'Usage' })).toHaveAttribute('aria-current', 'page')
   fireEvent.click(within(nav()).getByRole('button', { name: 'Warnings & plan' }))
-  expect(await screen.findByRole('heading', { name: 'Warnings' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Warnings and plan' })).toBeInTheDocument()
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(await screen.findByRole('heading', { name: 'Kit by project' })).toBeInTheDocument()
   expect(window.location.hash).toBe('#secret-token')
@@ -114,13 +114,12 @@ describe('global scope selector (HUN-118)', () => {
     const f = stub()
     render(<App />)
     go('Warnings & plan')
-    await screen.findByRole('heading', { name: 'Warnings' })
+    await screen.findByTestId('headline')
     await pick('Workspace', 'work')
     await waitFor(() => expect(f.calls.some((c) => c.url === '/api/warnings?workspace=work')).toBe(true))
-    expect(f.calls.some((c) => c.url === '/api/plan?workspace=work')).toBe(true)
+    expect(f.calls.some((c) => c.url.startsWith('/api/plan'))).toBe(false) // the cards come from warnings
     await pick('Account', '2')
     await waitFor(() => expect(f.calls.some((c) => c.url === '/api/warnings?workspace=work&account=2')).toBe(true))
-    expect(f.calls.some((c) => c.url === '/api/plan?workspace=work&account=2')).toBe(true)
   })
 
   it('AC3: Usage requests include workspace= and account=', async () => {
@@ -140,7 +139,7 @@ describe('global scope selector (HUN-118)', () => {
     expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
     await pick('Workspace', 'work')
     await pick('Account', '2')
-    for (const [tab, heading] of [['Usage', 'Totals'], ['Warnings & plan', 'Warnings'], ['Kit', 'Kit by project']]) {
+    for (const [tab, heading] of [['Usage', 'Totals'], ['Warnings & plan', 'Warnings and plan'], ['Kit', 'Kit by project']]) {
       go(tab)
       await screen.findByRole('heading', { name: heading })
       expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: work · Claude personal')

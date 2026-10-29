@@ -164,7 +164,7 @@ def test_fresh_index_does_not_fire(conn, repo):
 def test_rule_abstains_without_context_data(conn, repo):
     _known(conn, repo)
     out = rules.evaluate(conn, now=datetime.now(UTC))
-    assert {"rule_id": "context_index_stale",
+    assert {"rule_id": "context_index_stale", "title": "Code index is out of date",
             "reason": "no easy-context data (service down or no index for a known project)"} in out["abstained"]  # fmt: skip
 
 

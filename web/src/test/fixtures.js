@@ -149,19 +149,38 @@ export const emptySessions = { period, gap_minutes: 30, sessions: [] }
 export const warnings = {
   as_of_utc: '2026-10-22T04:00:00Z',
   hits: [
-    { rule_id: 'cache_hit_low', label: 'warning', priority: 1, measured: 0.31, threshold: 0.5, window_days: 7, fix: 'Keep prompts stable so the cache is reused.' },
-    { rule_id: 'context_index_stale', label: 'improve', priority: 2, measured: 1, threshold: 0, window_days: 7, fix: 'Re-run the easy-context index.', detail: { projects: ['alpha'] } },
-    { rule_id: 'top_project_share', label: 'aware', priority: 3, measured: 0.82, threshold: 0.8, window_days: 30, fix: 'One project uses most tokens.', detail: { project: 'alpha' } },
+    {
+      rule_id: 'cache_hit_low', label: 'warning', priority: 1, measured: 0.31, threshold: 0.5, window_days: 7,
+      title: 'Low cache reuse',
+      why: 'A prompt read from cache costs far less.',
+      steps: ['Keep the start of your prompts the same.', 'Avoid editing CLAUDE.md mid-session.'],
+      summary: '31% of prompt tokens came from cache; target 50% or more, last 7 days',
+      fix: 'Keep the start of your prompts the same. Avoid editing CLAUDE.md mid-session.',
+    },
+    {
+      rule_id: 'context_index_stale', label: 'improve', priority: 2, measured: 1, threshold: 0, window_days: 7,
+      title: 'Code index is out of date',
+      why: 'Search returns old results.',
+      steps: ['Call index_path for the listed projects.'],
+      summary: '1 project has a stale easy-context index; target none, last 7 days',
+      fix: 'Call index_path for the listed projects.',
+      detail: { projects: ['alpha'] },
+    },
+    {
+      rule_id: 'top_project_share', label: 'aware', priority: 3, measured: 0.82, threshold: 0.8, window_days: 7,
+      title: 'One project uses most of your tokens',
+      why: 'Your limit runs out sooner.',
+      steps: ['Confirm this project should take most of your effort.'],
+      summary: 'One project (alpha) used 82% of tokens; target 80% or less, last 7 days',
+      fix: 'Confirm this project should take most of your effort.',
+      detail: { project: 'alpha' },
+    },
   ],
-  abstained: [{ rule_id: 'kit_error_rate', reason: 'no kernel-trace tool calls in the window' }],
+  abstained: [{ rule_id: 'kit_error_rate', title: 'Many tool calls fail', reason: 'no kernel-trace tool calls in the window' }],
 }
 export const plan = {
   groups: [
-    { priority: 1, items: [{ rule_id: 'cache_hit_low', label: 'warning', measured: 0.31, threshold: 0.5, fix: 'Keep prompts stable so the cache is reused.' }] },
-    {
-      priority: 3,
-      items: [{ rule_id: 'top_project_share', label: 'aware', measured: 0.82, threshold: 0.8, fix: 'One project uses most tokens.', detail: { project: 'alpha' } }],
-    },
+    { priority: 1, items: [{ rule_id: 'cache_hit_low', label: 'warning', measured: 0.31, threshold: 0.5, fix: 'Keep the start of your prompts the same.', title: 'Low cache reuse' }] },
   ],
 }
 export const kit = {

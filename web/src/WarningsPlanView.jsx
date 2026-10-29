@@ -1,84 +1,95 @@
 import { getJson } from './api.js'
-import { fmt } from './format.js'
 import { NO_SCOPE, ScopeLine, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 
-const load = (scope) => Promise.all([getJson(scopedPath('/api/warnings', scope)), getJson(scopedPath('/api/plan', scope))])
+const load = (scope) => getJson(scopedPath('/api/warnings', scope))
 
-function Detail({ detail }) {
-  if (!detail) return null
-  const text = Object.entries(detail)
-    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-    .join('; ')
-  return <span className="muted">{text}</span>
+// Every rule looks back 7 days; the all-clear line needs a window when no hit names one.
+const WINDOW_DAYS = 7
+const CHIPS = { warning: 'Fix now', improve: 'Improve', aware: 'Watch' }
+const DETAIL_TITLES = { projects: 'Projects', project: 'Project', version: 'Claude Code version' }
+
+function headline(hits) {
+  const fix = hits.filter((h) => h.label !== 'aware').length
+  const watch = hits.length - fix
+  if (hits.length === 0) return `All clear — nothing to fix in the last ${WINDOW_DAYS} days`
+  const parts = []
+  if (fix) parts.push(`${fix} ${fix === 1 ? 'thing' : 'things'} to fix`)
+  if (watch) parts.push(`${watch} to watch`)
+  return parts.join(', ')
 }
 
-function Entry({ item, window_days }) {
+const steps = (hit) => hit.steps ?? (hit.fix ? [hit.fix] : [])
+const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1)
+// "no stored history", "no sessions in the window" ... : the rule found nothing to read.
+const isNoData = (reason) => /^no\b/i.test(reason)
+
+function Card({ hit }) {
+  const list = steps(hit)
   return (
     <li>
-      <div className="entry-head">
-        <span className={`label label-${item.label}`}>{item.label}</span>
-        <strong>{item.rule_id}</strong>
-        <span>
-          Measured {fmt(item.measured)} (threshold {fmt(item.threshold)}
-          {window_days ? `, last ${window_days} days` : ''})
-        </span>
-      </div>
-      <p className="fix">{item.fix}</p>
-      <Detail detail={item.detail} />
+      <article className="action-card" data-rule={hit.rule_id}>
+        <header>
+          <span className={`chip chip-${hit.label}`}>{CHIPS[hit.label] ?? hit.label}</span>
+          <h3>{hit.title ?? hit.rule_id}</h3>
+        </header>
+        {hit.summary && <p className="card-summary">{hit.summary}</p>}
+        {hit.why && (
+          <p className="card-why">
+            <strong>Why it matters</strong> {hit.why}
+          </p>
+        )}
+        {list.length > 0 && (
+          <ol className="steps">
+            {list.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+        )}
+        {hit.detail &&
+          Object.entries(hit.detail).map(([key, value]) => (
+            <div key={key} className="card-detail">
+              <span className="muted">{DETAIL_TITLES[key] ?? key}</span>
+              <ul>
+                {[].concat(value).map((v) => (
+                  <li key={v}>{v}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+      </article>
     </li>
   )
 }
 
-function Warnings({ data }) {
+function NotChecked({ abstained, onOpenAgents }) {
+  if (abstained.length === 0) return null
   return (
-    <section aria-labelledby="h-warnings">
-      <h2 id="h-warnings">Warnings</h2>
-      {data.hits.length === 0 ? (
-        <p className="muted">No warnings fired.</p>
-      ) : (
+    <section aria-labelledby="h-not-checked">
+      <details className="not-checked">
+        <summary id="h-not-checked">Not checked ({abstained.length})</summary>
+        {onOpenAgents && abstained.some((a) => isNoData(a.reason)) && (
+          <p>
+            Some checks found no data to read.{' '}
+            <button type="button" onClick={onOpenAgents}>
+              Confirm the accounts you use
+            </button>
+          </p>
+        )}
         <ul className="entries">
-          {data.hits.map((h) => (
-            <Entry key={h.rule_id} item={h} window_days={h.window_days} />
+          {abstained.map((a) => (
+            <li key={a.rule_id}>
+              <strong>{a.title ?? a.rule_id}</strong>
+              <span className="muted"> {capital(a.reason)}</span>
+            </li>
           ))}
         </ul>
-      )}
-      {data.abstained.length > 0 && (
-        <>
-          <h3>Could not be measured</h3>
-          <ul className="entries">
-            {data.abstained.map((a) => (
-              <li key={a.rule_id}>
-                <strong>{a.rule_id}</strong>: {a.reason}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      </details>
     </section>
   )
 }
 
-function Plan({ data }) {
-  return (
-    <section aria-labelledby="h-plan">
-      <h2 id="h-plan">Improvement plan</h2>
-      {data.groups.length === 0 && <p className="muted">No actions in the plan. No warning fired.</p>}
-      {data.groups.map((g) => (
-        <section key={g.priority} aria-labelledby={`h-prio-${g.priority}`} className="group">
-          <h3 id={`h-prio-${g.priority}`}>{`Priority ${g.priority}`}</h3>
-          <ul className="entries">
-            {g.items.map((item) => (
-              <Entry key={item.rule_id} item={item} />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </section>
-  )
-}
-
-export default function WarningsPlanView({ scope = NO_SCOPE, options = null }) {
+export default function WarningsPlanView({ scope = NO_SCOPE, options = null, onOpenAgents }) {
   const state = useLoad(() => load(scope), [scope.workspace, scope.account])
   return (
     <main>
@@ -92,8 +103,17 @@ export default function WarningsPlanView({ scope = NO_SCOPE, options = null }) {
       )}
       {state.status === 'ready' && (
         <>
-          <Warnings data={state.data[0]} />
-          <Plan data={state.data[1]} />
+          <p className="headline" data-testid="headline">
+            {headline(state.data.hits)}
+          </p>
+          {state.data.hits.length > 0 && (
+            <ol className="actions" aria-label="Things to do, first one first">
+              {state.data.hits.map((h) => (
+                <Card key={h.rule_id} hit={h} />
+              ))}
+            </ol>
+          )}
+          <NotChecked abstained={state.data.abstained} onOpenAgents={onOpenAgents} />
         </>
       )}
     </main>

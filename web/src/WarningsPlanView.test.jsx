@@ -1,13 +1,13 @@
-import { render, screen, within, waitFor } from '@testing-library/react'
+import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WarningsPlanView from './WarningsPlanView.jsx'
-import { fakeFetch } from './test/fixtures.js'
+import { fakeFetch, warnings } from './test/fixtures.js'
 
 async function renderView(overrides) {
   const f = fakeFetch(overrides)
   vi.stubGlobal('fetch', f)
   render(<WarningsPlanView />)
-  await screen.findByRole('heading', { name: 'Warnings' })
+  await screen.findByTestId('headline')
   return f
 }
 
@@ -18,39 +18,101 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('warnings (AC1)', () => {
-  it('shows label, rule id, measured value, threshold and fix line for each warning', async () => {
-    await renderView()
-    const sec = screen.getByRole('region', { name: 'Warnings' })
-    const item = within(sec).getByText('cache_hit_low').closest('li')
-    expect(within(item).getByText('warning')).toBeInTheDocument()
-    expect(item).toHaveTextContent('Measured 0.31')
-    expect(item).toHaveTextContent('threshold 0.5')
-    expect(item).toHaveTextContent('Keep prompts stable so the cache is reused.')
-    expect(within(sec).getAllByRole('listitem').length).toBeGreaterThanOrEqual(3)
+const hit = (over) => ({ ...warnings.hits[0], ...over })
+const abstainedFive = ['a', 'b', 'c', 'd', 'e'].map((k) => ({ rule_id: `rule_${k}`, title: `Title ${k}`, reason: k === 'a' ? 'no stored history' : 'less than 7 days of stored history' }))
+
+describe('header line (AC4)', () => {
+  it('counts what to fix and what to watch', async () => {
+    await renderView({ warnings: { ...warnings, hits: [warnings.hits[0], warnings.hits[2]] } })
+    expect(screen.getByTestId('headline')).toHaveTextContent('1 thing to fix, 1 to watch')
+    expect(screen.getAllByRole('article')).toHaveLength(2)
   })
 
-  it('names rules that could not be measured instead of hiding them', async () => {
+  it('counts warning and improve as things to fix', async () => {
     await renderView()
-    expect(screen.getByText('kit_error_rate').closest('li')).toHaveTextContent('no kernel-trace tool calls in the window')
+    expect(screen.getByTestId('headline')).toHaveTextContent('2 things to fix, 1 to watch')
   })
 
-  it('says so when nothing fired', async () => {
-    await renderView({ warnings: { as_of_utc: 'x', hits: [], abstained: [] }, plan: { groups: [] } })
-    expect(screen.getAllByText(/No warnings/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/No actions in the plan/)).toBeInTheDocument()
+  it('says all clear when nothing fired', async () => {
+    await renderView({ warnings: { as_of_utc: 'x', hits: [], abstained: abstainedFive } })
+    expect(screen.getByTestId('headline')).toHaveTextContent('All clear — nothing to fix in the last 7 days')
+    expect(screen.queryAllByRole('article')).toHaveLength(0)
   })
 })
 
-describe('plan (AC2)', () => {
-  it('groups items by priority in the order given', async () => {
+describe('action cards (AC5)', () => {
+  it('shows chip, title, summary, why it matters and numbered steps in priority order', async () => {
     await renderView()
-    const plan = screen.getByRole('region', { name: 'Improvement plan' })
-    const heads = within(plan).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(heads).toEqual(['Priority 1', 'Priority 3'])
-    const first = within(plan).getByRole('region', { name: 'Priority 1' })
-    expect(first).toHaveTextContent('cache_hit_low')
-    expect(first).not.toHaveTextContent('top_project_share')
+    const cards = screen.getAllByRole('article')
+    expect(cards.map((c) => c.dataset.rule)).toEqual(['cache_hit_low', 'context_index_stale', 'top_project_share'])
+    const first = cards[0]
+    expect(within(first).getByText('Fix now')).toBeInTheDocument()
+    expect(within(first).getByRole('heading', { name: 'Low cache reuse' })).toBeInTheDocument()
+    expect(first).toHaveTextContent('31% of prompt tokens came from cache; target 50% or more, last 7 days')
+    expect(first).toHaveTextContent('Why it matters')
+    expect(first).toHaveTextContent('A prompt read from cache costs far less.')
+    const steps = within(first).getAllByRole('listitem').map((li) => li.textContent)
+    expect(steps).toEqual(['Keep the start of your prompts the same.', 'Avoid editing CLAUDE.md mid-session.'])
+    expect(first.querySelector('ol.steps')).not.toBeNull()
+    expect(within(cards[1]).getByText('Improve')).toBeInTheDocument()
+    expect(within(cards[2]).getByText('Watch')).toBeInTheDocument()
+  })
+
+  it('lists the detail names as a plain list under the steps', async () => {
+    await renderView()
+    const card = screen.getAllByRole('article')[1]
+    expect(within(card).getByText('alpha').closest('ul')).not.toBeNull()
+  })
+
+  it('shows no raw rule id anywhere on the page (AC5)', async () => {
+    const data = { ...warnings, abstained: [...warnings.abstained, ...abstainedFive] }
+    await renderView({ warnings: data })
+    const ids = [...data.hits, ...data.abstained].map((i) => i.rule_id)
+    for (const id of ids) expect(document.body.textContent).not.toContain(id)
+    expect(screen.getAllByRole('article')[0]).toHaveAttribute('data-rule', 'cache_hit_low')
+  })
+
+  it('does not break when an old server sends no steps or summary', async () => {
+    await renderView({ warnings: { as_of_utc: 'x', hits: [hit({ steps: undefined, summary: undefined, why: undefined })], abstained: [] } })
+    expect(screen.getAllByRole('article')).toHaveLength(1)
+  })
+})
+
+describe('not checked (AC6)', () => {
+  it('collapses abstained rules into a closed details with plain reasons and the Agents hint', async () => {
+    const onOpenAgents = vi.fn()
+    vi.stubGlobal('fetch', fakeFetch({ warnings: { as_of_utc: 'x', hits: [], abstained: abstainedFive } }))
+    render(<WarningsPlanView onOpenAgents={onOpenAgents} />)
+    const summary = await screen.findByText('Not checked (5)')
+    const details = summary.closest('details')
+    expect(details).not.toBeNull()
+    expect(details.open).toBe(false)
+    expect(details).toHaveTextContent('Title a')
+    expect(details).toHaveTextContent('No stored history')
+    fireEvent.click(within(details).getByRole('button', { name: 'Confirm the accounts you use' }))
+    expect(onOpenAgents).toHaveBeenCalledTimes(1)
+  })
+
+  it('omits the Agents hint when no reason is about missing data', async () => {
+    const warn = { as_of_utc: 'x', hits: [], abstained: [{ rule_id: 'r_x', title: 'T', reason: 'less than 7 days of stored history' }] }
+    vi.stubGlobal('fetch', fakeFetch({ warnings: warn }))
+    render(<WarningsPlanView onOpenAgents={() => {}} />)
+    await screen.findByText('Not checked (1)')
+    expect(screen.queryByRole('button', { name: 'Confirm the accounts you use' })).toBeNull()
+  })
+
+  it('shows no Not checked block when everything was checked', async () => {
+    await renderView({ warnings: { ...warnings, abstained: [] } })
+    expect(screen.queryByText(/Not checked/)).toBeNull()
+  })
+})
+
+describe('one list (AC7)', () => {
+  it('has no separate Improvement plan section and no duplicate cards', async () => {
+    await renderView()
+    expect(screen.queryByRole('region', { name: 'Improvement plan' })).toBeNull()
+    expect(screen.queryByText('Improvement plan')).toBeNull()
+    expect(screen.getAllByText('Low cache reuse')).toHaveLength(1)
   })
 })
 
@@ -67,7 +129,7 @@ describe('errors and token', () => {
 describe('scope (HUN-118)', () => {
   it('sends no params without a scope and says All', async () => {
     const f = await renderView()
-    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/plan', '/api/warnings'])
+    expect(f.calls.map((c) => c.url)).toEqual(['/api/warnings'])
     expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
   })
 
@@ -76,12 +138,12 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     const options = { workspaces: [], accounts: [{ id: 2, label: 'Claude personal' }] }
     const view = render(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '' }} options={options} />)
-    await screen.findByRole('heading', { name: 'Warnings' })
-    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/plan?workspace=Acme%20Co', '/api/warnings?workspace=Acme%20Co'])
+    await screen.findByTestId('headline')
+    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/warnings?workspace=Acme%20Co'])
     f.calls.length = 0
     view.rerender(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '2' }} options={options} />)
-    await waitFor(() => expect(f.calls.length).toBe(2))
-    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/plan?workspace=Acme%20Co&account=2', '/api/warnings?workspace=Acme%20Co&account=2'])
+    await waitFor(() => expect(f.calls.length).toBe(1))
+    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/warnings?workspace=Acme%20Co&account=2'])
     expect(await screen.findByTestId('scope-line')).toHaveTextContent('Showing: Acme Co · Claude personal')
   })
 })
