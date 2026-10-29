@@ -21,12 +21,16 @@ STATIC_REL = Path("src/easy_personal/dashboard/static")
 STAMP = ".web-stamp"
 SOURCE_FILES = ("index.html", "package.json", "package-lock.json", "vite.config.js")
 URL_RE = re.compile(r"(?:https?:)?//[A-Za-z0-9][A-Za-z0-9.\-]*\.[A-Za-z]{2,}[^\s\"'`)<>]*|https?://[^\s\"'`)<>]+")
-# Strings that appear in bundles but are never fetched: XML namespace ids, React's error-doc text.
+# Strings that appear in bundles but are never fetched: XML namespace ids, React's error-doc text,
+# and the three "// family" links of the sidebar (HUN-126: plain <a href>, the page loads nothing from them).
 ALLOWED_URL_PREFIXES = (
     "http://www.w3.org/",
     "https://www.w3.org/",
     "https://react.dev/errors",
     "https://react.dev/link/",
+    "https://personal-agentic-claude.vercel.app/",
+    "https://easy-memory.vercel.app/",
+    "https://easy-verifier.vercel.app/",
 )
 TELEMETRY_RE = re.compile(
     r"(^|/)(@?(sentry|posthog|mixpanel|segment|amplitude|datadog|newrelic|bugsnag|rollbar|"

@@ -1,11 +1,10 @@
-import { useId } from 'react'
 import { percent } from './format.js'
 
 const W = 200
-const H = 64
+const H = 40
 const PAD = 4
 
-/** % change badge. "no previous data" when there is nothing to compare against. */
+/** % change, as plain text. "no previous data" when there is nothing to compare against. */
 export function Trend({ current, previous }) {
   if (current === null || current === undefined || !previous) {
     return <span className="trend trend-none">no previous data</span>
@@ -19,9 +18,8 @@ export function Trend({ current, previous }) {
   )
 }
 
-/** Area + line of one value per day. `tone` picks a chart color token. */
-export function Sparkline({ values, label, tone }) {
-  const gradient = useId()
+/** Line of one value per day, in the accent color. */
+export function Sparkline({ values, label }) {
   if (values.length === 0) return null
   const max = Math.max(...values, 0)
   const x = (i) => (i / (values.length - 1)) * W
@@ -29,16 +27,8 @@ export function Sparkline({ values, label, tone }) {
   // One value: draw a flat line across the whole width.
   const points = values.length === 1 ? [[0, y(values[0])], [W, y(values[0])]] : values.map((v, i) => [x(i), y(v)])
   const line = `M${points.map(([px, py]) => `${px} ${py}`).join(' L')}`
-  const area = `${line} L${points[points.length - 1][0]} ${H} L${points[0][0]} ${H} Z`
   return (
-    <svg className={`spark tone-${tone}`} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
-      <defs>
-        <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-          <stop className="spark-top" offset="0%" />
-          <stop className="spark-bottom" offset="100%" />
-        </linearGradient>
-      </defs>
-      <path className="spark-area" d={area} fill={`url(#${gradient})`} />
+    <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
       <path className="spark-line" d={line} fill="none" vectorEffect="non-scaling-stroke" />
     </svg>
   )
@@ -49,16 +39,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 /** Ring gauge of a 0..1 ratio. `null` is "no data", never 0%. */
 export function Ring({ ratio, label }) {
-  const gradient = useId()
   const known = ratio !== null && ratio !== undefined
   return (
     <svg className="ring" viewBox="0 0 100 100" role="img" aria-label={label}>
-      <defs>
-        <linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
-          <stop className="ring-start" offset="0%" />
-          <stop className="ring-end" offset="100%" />
-        </linearGradient>
-      </defs>
       <circle className="ring-track" cx="50" cy="50" r={RADIUS} fill="none" />
       {known && (
         <circle
@@ -67,7 +50,6 @@ export function Ring({ ratio, label }) {
           cy="50"
           r={RADIUS}
           fill="none"
-          stroke={`url(#${gradient})`}
           strokeLinecap="round"
           strokeDasharray={`${Math.min(Math.max(ratio, 0), 1) * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
           transform="rotate(-90 50 50)"

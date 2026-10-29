@@ -36,7 +36,7 @@ function CacheReuse({ scope }) {
   )
 }
 
-function NextActions({ scope }) {
+function NextActions({ scope, onOpenPlan }) {
   const state = useLoad(() => getJson(`/api/warnings${scopeQuery(scope) ? `?${scopeQuery(scope)}` : ''}`), [scope.workspace, scope.account])
   const hits = state.status === 'ready' ? state.data.hits : []
   return (
@@ -50,6 +50,11 @@ function NextActions({ scope }) {
           ))}
         </ol>
       )}
+      {onOpenPlan && (
+        <button type="button" className="link-button" onClick={onOpenPlan}>
+          Open the plan →
+        </button>
+      )}
     </Card>
   )
 }
@@ -60,7 +65,10 @@ function Window({ name, label, window }) {
   const reset = until(window.resets_at)
   return (
     <div className={`limit limit-${limitTone(pct)}`}>
-      <p>{`${name} ${pct}% · resets ${reset === 'soon' ? 'soon' : `in ${reset}`}`}</p>
+      <p>
+        <span>{`${name} · ${pct}%`}</span>
+        <span className="rail-reset">{`resets ${reset === 'soon' ? 'soon' : `in ${reset}`}`}</span>
+      </p>
       <Progress ratio={window.used_percentage / 100} label={`${label} ${name} limit ${pct}%`} />
     </div>
   )
@@ -92,16 +100,17 @@ function PlanLimits({ refresh }) {
           })}
         </ul>
       )}
+      <p className="muted">Bars turn amber at 70%.</p>
     </Card>
   )
 }
 
 /** `refresh` changes when the accounts changed (App reloads its scope options), so the limits are read again. */
-export default function Rail({ scope, refresh }) {
+export default function Rail({ scope, refresh, onOpenPlan }) {
   return (
     <div className="rail">
       <CacheReuse scope={scope} />
-      <NextActions scope={scope} />
+      <NextActions scope={scope} onOpenPlan={onOpenPlan} />
       <PlanLimits refresh={refresh} />
     </div>
   )

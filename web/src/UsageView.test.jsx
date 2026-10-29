@@ -96,6 +96,57 @@ describe('breakdowns (AC1, AC6)', () => {
   })
 })
 
+describe('layout (HUN-126)', () => {
+  it('By day: one bar per day, the latest day is the full-color bar, with day labels', async () => {
+    await renderView()
+    const chart = within(screen.getByRole('region', { name: 'By day' })).getByRole('img', { name: /Tokens per day/ })
+    const bars = chart.querySelectorAll('.bar')
+    expect(bars).toHaveLength(breakdowns.day.groups.length)
+    expect(bars[bars.length - 1]).toHaveClass('bar-latest')
+    expect(chart.querySelectorAll('.bar-latest')).toHaveLength(1)
+    expect(bars[0]).toHaveAttribute('title', expect.stringMatching(/^2026-10-\d\d: [\d,]+ tokens$/))
+  })
+
+  it('By model: a compact table of model, total tokens, output and API-equivalent cost', async () => {
+    await renderView()
+    const sec = screen.getByRole('region', { name: 'By model' })
+    expect(within(sec).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Model', 'Total tokens', 'Output', 'API-equivalent cost'])
+  })
+
+  it('By project: one bar row per project (same names allowed), the top project in full color', async () => {
+    await renderView()
+    const rows = within(screen.getByRole('region', { name: 'By project' })).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveClass('bar-row-top')
+    expect(rows[1]).not.toHaveClass('bar-row-top')
+    expect(within(rows[0]).getByText('app')).toBeInTheDocument()
+    expect(within(rows[0]).getByText(fmt(600 + 1700 + 2800 + 39000))).toBeInTheDocument()
+  })
+
+  it('the full tables stay available behind a disclosure for By day and By project', async () => {
+    await renderView()
+    for (const name of ['By day', 'By project']) {
+      const sec = screen.getByRole('region', { name })
+      expect(within(sec).getByText('Show table').closest('details')).not.toHaveAttribute('open')
+      expect(within(sec).getAllByRole('columnheader').map((h) => h.textContent)).toContain('Total tokens')
+    }
+  })
+
+  it('Outlier sessions: a count and a raised row with the context value in amber', async () => {
+    await renderView()
+    const sec = screen.getByRole('region', { name: 'Outlier sessions' })
+    expect(within(sec).getByTestId('outlier-count')).toHaveTextContent('1')
+    expect(within(sec).getByText(fmt(180000))).toHaveClass('outlier-context')
+  })
+
+  it('the session timeline sits below the grids', async () => {
+    await renderView()
+    const timeline = screen.getByRole('region', { name: /^Session timeline/ })
+    const outliers = screen.getByRole('region', { name: 'Outlier sessions' })
+    expect(outliers.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
 describe('cost label (AC3)', () => {
   it('always says API-equivalent cost and dates the price table', async () => {
     await renderView()
@@ -103,7 +154,9 @@ describe('cost label (AC3)', () => {
     expect(screen.getAllByText('API-equivalent cost').length).toBeGreaterThanOrEqual(5)
     const totals = screen.getByRole('region', { name: 'Totals' })
     expect(within(totals).getByText(/\$12\.50/)).toBeInTheDocument()
-    expect(within(totals).getByText(/price table 2026-10-01/)).toBeInTheDocument()
+    const footnote = screen.getByTestId('cost-footnote')
+    expect(footnote).toHaveTextContent(/price table 2026-10-01/)
+    expect(footnote).toHaveTextContent('It is not what a subscription pays.')
   })
 
   it('shows abstained cost as abstained, not $0', async () => {
@@ -184,16 +237,6 @@ describe('workspace and account scope (HUN-70, HUN-118)', () => {
     f.rerender({ workspace: 'Acme', account: '1' })
     await waitFor(() => expect(usageCalls(f).length).toBe(8))
     expect(usageCalls(f).every((c) => c.url.includes('workspace=Acme') && c.url.includes('account=1'))).toBe(true)
-  })
-
-  it('shows what it shows, All when empty (AC4)', async () => {
-    await renderView()
-    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
-  })
-
-  it('names the chosen workspace and account label', async () => {
-    await renderView(undefined, { workspace: 'Acme', account: '1' })
-    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: Acme · Claude company')
   })
 
   it('has no filter selects of its own any more (AC7)', async () => {
@@ -313,18 +356,24 @@ describe('widgets (HUN-83)', () => {
     expect(within(kpi('Total tokens')).getByText(fmt(89100))).toBeInTheDocument()
   })
 
-  it('cache hit ratio: progress and ring show the same ratio', async () => {
-    await renderView()
+  it('SC3: cache_hit_ratio 0.79 shows 79.0% with a bar at 79 and the cache read count', async () => {
+    await renderView({ summary: { ...summary, cache_hit_ratio: 0.79 } })
     const card = kpi('Cache hit ratio')
-    expect(within(card).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '91.84')
-    const gauge = kpi('Cache hit gauge')
-    expect(within(gauge).getByRole('img', { name: /91\.8%/ })).toBeInTheDocument()
+    expect(within(card).getByText('79.0%')).toBeInTheDocument()
+    expect(within(card).getByRole('progressbar', { name: 'Cache hit ratio' })).toHaveAttribute('aria-valuenow', '79')
+    expect(within(card).getByText(`cache read ${fmt(summary.cache_read_input_tokens)}`)).toBeInTheDocument()
   })
 
-  it('null cache hit ratio says no data in both widgets, never 0%', async () => {
+  it('the KPI strip has 4 cells; the ring gauge is only in the right rail', async () => {
+    await renderView()
+    const strip = screen.getByTestId('kpi-strip')
+    expect(within(strip).getAllByRole('region').map((r) => r.getAttribute('aria-labelledby'))).toHaveLength(4)
+    expect(screen.queryByRole('region', { name: 'Cache hit gauge' })).toBeNull()
+  })
+
+  it('null cache hit ratio says no data, never 0%', async () => {
     await renderView({ summary: { ...summary, cache_hit_ratio: null } })
     expect(within(kpi('Cache hit ratio')).getByText('no data')).toBeInTheDocument()
-    expect(within(kpi('Cache hit gauge')).getByText('no data')).toBeInTheDocument()
     expect(within(kpi('Cache hit ratio')).queryByRole('progressbar')).toBeNull()
   })
 

@@ -113,6 +113,20 @@ def test_xml_namespace_and_react_error_urls_are_allowed(tree):
     assert run_check(tree).returncode == 0
 
 
+def test_family_links_are_allowed_but_other_hosts_still_fail(tree):
+    """HUN-126: the sidebar links to three Easy sites; any other remote URL in the build still fails."""
+    js = tree / STATIC_REL / "assets" / "app.js"
+    js.write_text('a("https://easy-memory.vercel.app/");b("https://personal-agentic-claude.vercel.app/");c("https://easy-verifier.vercel.app/")\n')
+    assert run_check(tree, "--write-stamp").returncode == 0
+    r = run_check(tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    js.write_text('a("https://easy-memory.vercel.app/");b("https://cdn.example.com/x.js")\n')
+    r = run_check(tree)
+    assert r.returncode == 1
+    assert "cdn.example.com" in r.stderr
+    assert "easy-memory" not in r.stderr
+
+
 def test_sourcemap_reference_fails(tree):
     (tree / STATIC_REL / "assets" / "app.js").write_text("x\n//# sourceMappingURL=app.js.map\n")
     run_check(tree, "--write-stamp")

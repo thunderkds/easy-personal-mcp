@@ -127,24 +127,21 @@ describe('errors and token', () => {
 })
 
 describe('scope (HUN-118)', () => {
-  it('sends no params without a scope and says All', async () => {
+  it('sends no params without a scope (the header names the scope, see App.test.jsx)', async () => {
     const f = await renderView()
     expect(f.calls.map((c) => c.url)).toEqual(['/api/warnings'])
-    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
   })
 
-  it('sends workspace= and account= to warnings and plan, refetches on change, names the scope', async () => {
+  it('sends workspace= and account= to warnings and plan, and refetches on change', async () => {
     const f = fakeFetch()
     vi.stubGlobal('fetch', f)
-    const options = { workspaces: [], accounts: [{ id: 2, label: 'Claude personal' }] }
-    const view = render(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '' }} options={options} />)
+    const view = render(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '' }} />)
     await screen.findByTestId('headline')
     expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/warnings?workspace=Acme%20Co'])
     f.calls.length = 0
-    view.rerender(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '2' }} options={options} />)
+    view.rerender(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '2' }} />)
     await waitFor(() => expect(f.calls.length).toBe(1))
     expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/warnings?workspace=Acme%20Co&account=2'])
-    expect(await screen.findByTestId('scope-line')).toHaveTextContent('Showing: Acme Co · Claude personal')
   })
 })
 
@@ -158,5 +155,14 @@ describe('feed cards (HUN-121 AC8)', () => {
     expect(first.querySelector('.feed-time')).toHaveTextContent('last 7 days')
     expect(first.querySelector('footer.feed-foot')).toHaveTextContent('2 steps')
     expect(second.querySelector('footer.feed-foot')).toHaveTextContent('1 step')
+  })
+
+  it('HUN-126 AC5: a "Fix now" card has the amber icon tile, no raw rule id is visible', async () => {
+    await renderView()
+    const cards = screen.getAllByRole('article')
+    const tones = cards.map((c) => [c.querySelector('.chip').textContent, c.querySelector('.feed-icon').classList.contains('tone-amber')])
+    for (const [chip, amber] of tones) expect(amber).toBe(chip === 'Fix now')
+    expect(cards.some((c) => c.querySelector('.chip').textContent === 'Fix now')).toBe(true)
+    for (const c of cards) expect(c.textContent).not.toContain(c.getAttribute('data-rule'))
   })
 })

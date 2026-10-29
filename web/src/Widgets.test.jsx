@@ -24,20 +24,20 @@ describe('Trend', () => {
 
 describe('Sparkline', () => {
   it('is an image with the label and a finite path', () => {
-    render(<Sparkline values={[1, 5, 3]} label="Tokens per day, 3 days, peak 5" tone="green" />)
+    render(<Sparkline values={[1, 5, 3]} label="Tokens per day, 3 days, peak 5" />)
     const svg = screen.getByRole('img', { name: 'Tokens per day, 3 days, peak 5' })
     for (const p of svg.querySelectorAll('path')) expect(p.getAttribute('d')).not.toMatch(/NaN|Infinity/)
   })
   it('draws a flat line for one value', () => {
-    const { container } = render(<Sparkline values={[7]} label="one day" tone="cyan" />)
+    const { container } = render(<Sparkline values={[7]} label="one day" />)
     expect(container.querySelector('path').getAttribute('d')).not.toMatch(/NaN|Infinity/)
   })
   it('draws a flat line for all-zero values', () => {
-    const { container } = render(<Sparkline values={[0, 0]} label="zeros" tone="amber" />)
+    const { container } = render(<Sparkline values={[0, 0]} label="zeros" />)
     expect(container.querySelector('path').getAttribute('d')).not.toMatch(/NaN|Infinity/)
   })
   it('renders nothing for no values', () => {
-    const { container } = render(<Sparkline values={[]} label="none" tone="pink" />)
+    const { container } = render(<Sparkline values={[]} label="none" />)
     expect(container).toBeEmptyDOMElement()
   })
 })
