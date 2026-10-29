@@ -34,6 +34,7 @@
 - [HUN-46 servers: Gmail, SendGrid, Teams, Discord](decisions.md#2026-10-22--hun-46-catalog-servers-gmail-sendgrid-teams-discord) — pinned community servers; `claude_ai_link` required with yes.
 - [Workspaces; agent account picks workspace](decisions.md#2026-10-26--workspaces-group-connectors-the-agent-account-picks-its-workspace) — workspace = email/repos/connectors, no agent settings; Codex listed only (DDR-0001 stands); not yet planned.
 ### Learnings
+- [Nine-branch integration](learnings.md#2026-10-29--nine-branch-dashboard-integration-hun-113121-auto-verify-stacked-merges) — headless verify rows read blocked (no verdict line); Done before merge; cherry-picked stacks auto-merge duplicates; regen goldens; `uv tool install --reinstall`; `test_launch` timing flakes under load.
 - [Static build gitignored](learnings.md#2026-10-21--dashboard-static-build-is-gitignored-build-before-uv-build) — `npm --prefix web run build` before `uv build`; 2 web tests skip unbuilt.
 - [Verify against fixtures](learnings.md#2026-10-21--runtime-verify-against-fixtures-never-the-real-transcripts) — temp `EASY_PERSONAL_CLAUDE_PROJECTS` + `EASY_PERSONAL_HOME`; grep outputs for `INVENTED_`.
 - [FastMCP typed dict output](learnings.md#2026-10-21--fastmcp-returns-structured-output-only-for-typed-dicts) — `-> dict[str, Any]`; version via private `_mcp_server.version`.
