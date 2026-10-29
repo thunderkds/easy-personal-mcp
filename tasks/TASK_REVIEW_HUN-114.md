@@ -26,16 +26,16 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/AgentsView.test.jsx` (9 new: AC1 ignored → Use this account → confirm POST with label; AC2 Rename / Ignore; AC3 default has no Ignore, By provider same buttons; AC5 ingest hint with `easy-personal ingest`; AC7 row alert), `web/src/UsageView.test.jsx` (3 new: AC6 plural note + Open Agents callback, singular, no note), `tests/core/test_accounts.py` (2 new: `is_default`, ignored → confirmed). Output: `Test Files 8 passed (8) / Tests 134 passed (134)`; `tests/core/test_accounts.py` `23 passed in 0.31s`. Red first: 11 vitest + 2 pytest failed before the change. |
+| Verification command run | ☑ pass | 2026-10-29T08:18:49Z `npm --prefix web test && npm --prefix web run build && uv run pytest -q`: vitest `Tests 134 passed (134)`; build `✓ built in 477ms`; pytest `750 passed, 4 deselected, 1 xfailed, 1 warning in 154.78s (0:02:34)` |
+| Negative cases hold | ☑ pass | Default account: no Ignore button (vitest) and API still refuses (`test_default_account_cannot_be_ignored` passes). Missing folder: no Use / Rename / Ignore. Empty rename label: Save name disabled, Cancel sends no request. Codex ignored account does not trigger the Usage note. Refused action: server text in `role="alert"` on that row only. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green | ☑ pass | `uv run pytest -q` → `750 passed, 4 deselected, 1 xfailed` (includes leak harness); `npm --prefix web test` → 134 passed |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Headless Chrome 155 on a fixture dashboard (temp `EASY_PERSONAL_HOME`/`AGENT_ROOT`; default + confirmed + 2 ignored Claude + 1 ignored Codex). Screenshots in `reports/HUN-114/`: `agents-{1280,768,375}.png`, `agents-use-form-1280.png`, `usage-ignored-note-{1280,768,375}.png` (gitignored folder). Verdict: ignored rows show "Use this account"; the form shows Name + Confirm & name + Cancel; default row shows Rename only; confirmed row shows Rename + Ignore; Usage shows "2 agent accounts are ignored, so their usage is not counted." with an Open Agents button, above the period buttons; the button opens Agents. Readable at all sizes. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `grep -nE '#[0-9a-fA-F]{3,8}\b|rgb\(' web/src/AgentsView.jsx web/src/UsageView.jsx web/src/App.jsx web/src/app.css` → no output. The only CSS change extends an existing button rule to `.notice button` and adds `.notice p` spacing with `var(--space-2)`. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280 / 768 / 375 px: `scrollWidth == clientWidth` on every screenshot (1265/1265, 753/753, 375/375), so no horizontal scroll; the action buttons wrap. |
 
 ---
 
@@ -46,12 +46,26 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-29T08:12:26Z on fixtures (temp `EASY_PERSONAL_HOME`, `EASY_PERSONAL_CLAUDE_PROJECTS`, `EASY_PERSONAL_AGENT_ROOT`), branch `HUN-114`, before any implementation commit. Command: detect two accounts, ignore id 2, list. No `is_default` key exists, so the UI cannot tell which account is the default:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ uv run python /tmp/claude-1000/demo114/demo.py
+[{"id": 1, "folder": ".../root/.claude",   "status": "confirmed", "is_default": null},
+ {"id": 2, "folder": ".../root/.claude-b", "status": "ignored",   "is_default": null}]
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+UI before (verbatim from `web/src/AgentsView.jsx` `AccountRow`): the Name + Confirm form shows only for `detected`, so an `ignored` row has no action and a confirmed row has no Rename or Ignore:
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+```
+      {status === 'detected' && <Detected account={account} onChanged={onChanged} />}
+      {status === 'confirmed' && provider === 'codex' && <p className="muted">listed only</p>}
+      {status === 'confirmed' && provider === 'claude' && <Picker account={account} workspaces={workspaces} />}
+```
+
+`UsageView.jsx` has no note about ignored accounts.
+
+**AFTER**: same command, 2026-10-29T08:21:38Z, after the change: `[{"id":1,...,"status":"confirmed","is_default":true},{"id":2,...,"status":"ignored","is_default":false}]`. The Agents page on a fixture dashboard now shows "Use this account" on the ignored rows, "Rename" + "Ignore" on the confirmed non-default row, "Rename" only on the default row (`reports/HUN-114/agents-1280.png`); the Usage page shows "2 agent accounts are ignored, so their usage is not counted." with an Open Agents button (`reports/HUN-114/usage-ignored-note-1280.png`).
+
+**DELTA**: The owner can now choose an ignored account again, rename or ignore a confirmed one, and sees on Usage why ignored accounts leave the last 7 days empty.
+
+**WITNESS**: frontend-developer agent, 2026-10-29 (BEFORE 08:12:26Z, final verification 08:18:49Z, AFTER 08:21:38Z); Bash calls attributed to HUN-114 via the active-task state file for the trace hook.

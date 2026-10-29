@@ -357,3 +357,30 @@ describe('widgets (HUN-83)', () => {
 function pickFilter(name, value) {
   fireEvent.change(screen.getByLabelText(name), { target: { value } })
 }
+
+describe('ignored accounts note (HUN-114)', () => {
+  const ignored = (id) => ({ id, provider: 'claude', label: `Claude ${id}`, status: 'ignored' })
+  const confirmedOne = usageAccounts.accounts[0]
+
+  it('AC6: says how many Claude accounts are ignored and opens the Agents view from a button', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ accounts: { accounts: [confirmedOne, ignored(8), ignored(9)] } }))
+    const onOpenAgents = vi.fn()
+    render(<UsageView onOpenAgents={onOpenAgents} />)
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(await screen.findByText('2 agent accounts are ignored, so their usage is not counted.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Agents' }))
+    expect(onOpenAgents).toHaveBeenCalledTimes(1)
+  })
+
+  it('one ignored account reads in the singular', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ accounts: { accounts: [confirmedOne, ignored(8)] } }))
+    render(<UsageView onOpenAgents={() => {}} />)
+    expect(await screen.findByText('1 agent account is ignored, so its usage is not counted.')).toBeInTheDocument()
+  })
+
+  it('no note when no Claude account is ignored (a Codex account does not count)', async () => {
+    const codexIgnored = { id: 5, provider: 'codex', label: 'Codex', status: 'ignored' }
+    await renderView({ accounts: { accounts: [confirmedOne, codexIgnored] } })
+    expect(screen.queryByText(/ignored, so/)).toBeNull()
+  })
+})

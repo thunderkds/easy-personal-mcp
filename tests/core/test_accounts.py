@@ -217,3 +217,22 @@ def test_default_account_cannot_be_ignored(conn, root):
         with pytest.raises(accounts.AccountError, match="default account cannot be ignored"):
             accounts.ignore(conn, ref)
     assert by_folder(conn)[default["folder"]]["status"] == "confirmed"
+
+
+def test_only_the_default_account_is_marked_is_default(conn, root):
+    make_home(root)
+    accounts.detect(conn)
+    found = by_folder(conn)
+    assert found[str(root / ".claude")]["is_default"] is True
+    others = [a for f, a in found.items() if f != str(root / ".claude")]
+    assert others and all(a["is_default"] is False for a in others)
+
+
+def test_ignored_account_can_be_confirmed_again(conn, root):
+    make_home(root)
+    accounts.detect(conn)
+    acc = by_folder(conn)[str(root / ".claude-work")]
+    accounts.ignore(conn, str(acc["id"]))
+    assert accounts.list_accounts(conn)[acc["id"] - 1]["status"] == "ignored"
+    back = accounts.confirm(conn, str(acc["id"]), "Claude work")
+    assert (back["status"], back["label"], back["is_default"]) == ("confirmed", "Claude work", False)

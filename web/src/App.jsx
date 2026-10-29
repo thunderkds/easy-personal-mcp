@@ -53,7 +53,7 @@ export default function App() {
           <div className="topbar-slot" ref={setSlot} />
         </header>
         <div id="view">
-          <View slot={slot} />
+          <View slot={slot} onOpenAgents={() => setActive('agents')} />
         </div>
       </div>
     </div>
