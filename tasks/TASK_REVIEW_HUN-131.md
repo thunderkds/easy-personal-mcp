@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/neon.test.jsx` (8 tests: accent + tints, link tokens, 4 glow values, `prefers-contrast: more` override, glow on each listed class with the matching token, active period button style, no glow on shared widgets, active nav/period at default load + `kpi-cache` class). Written first: `7 failed | 1 passed` before the change. After: `Test Files 12 passed (12) / Tests 256 passed (256)`. |
+| Verification command run | ☑ pass | `npm --prefix web test` -> `Test Files 12 passed (12), Tests 256 passed (256)` (BEFORE: 248). `npm --prefix web run build` -> `✓ built in 205ms` (css `index-DQ6CI46t.css` 21.19 kB). `uv run pytest -q` -> `815 passed, 5 deselected, 1 xfailed, 1 warning in 105.45s`. |
+| Negative cases hold | ☑ pass | grep `#[0-9a-fA-F]{3,8}\b\|rgba?\(` in `web/src/app.css` + non-test `web/src/*.jsx` -> no match (exit 1). Computed styles at 1440 px: `.rail-card .progress-fill` not rendered (no limit data), `.bar:not(.bar-latest)` `box-shadow: none`; test asserts `.progress-fill`, `.bar`, `.bar-fill` carry no shadow/filter. `prefers-contrast: more` (Playwright `contrast:'more'`): nav `text-shadow: none`, `.bar-latest` `box-shadow: none`, `.kpi .spark-line` `filter: none`, `.ring-value` `filter: none`. Empty states: ring/progress/value elements are not rendered without data, so no glow. |
+| verify | ☐ N/A | Supervisor/hook runs `/verify`. Implementer's real run on fixtures (synthetic 7-day sessions, temp `EASY_PERSONAL_HOME`/`CLAUDE_PROJECTS`/`AGENT_ROOT`): easy-ui session `5b49d141-e64a-4ed3-b8cd-4d5782e4d0f5` ended (passed), `ui_check` "Check passed" (active nav colour `rgb(60, 245, 168)`, `.bar-latest` 18px glow, ring + KPI sparkline drop-shadow) — pass. Reports: `~/workspace/pets/hungnguyen111/easy-ui-mcp/reports/session-5b49d141-e64a-4ed3-b8cd-4d5782e4d0f5.{html,json}`. |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pending Stage 4 | Changed: `web/src/tokens.css`, `web/src/app.css`, `web/src/UsageView.jsx` (one class `kpi-cache`), `web/src/neon.test.jsx`. No other JSX, no Python, no `site/`. |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` -> `815 passed, 5 deselected, 1 xfailed`; Vitest 256 passed. |
+| **Companion score (easy-verifier)** | ☑ N/A | not run by the implementer; Stage 4/5 owns it. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Host Playwright (real viewports) screenshots on the fixture dashboard, read with vision: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/5a654c3b-f981-4de5-b6fd-f21813c8d2f1/scratchpad/shot-top-usage-1440.png` shows neon `#3CF5A8` active nav with inset ring and dot glow, active "Last 7 days" soft-bg + accent text + ring, glowing sparklines, Cache hit ratio value + bar, glowing latest By-day bar, glowing Cache reuse ring with accent centre text; layout as in HUN-129. Also `shot-top-warnings-1440.png`, `shot-top-kit-1440.png`. easy-ui shots (1280x720, fixed viewport): `~/workspace/pets/hungnguyen111/easy-ui-mcp/reports/screenshot-1793287765842.png`. Computed at 1440 px: nav `text-shadow rgba(60,245,168,.35) 0 0 12px` + inset ring; dot `0 0 8px rgb(60,245,168)`; `.bar-latest` `0 0 0 1px …/.25, 0 0 18px …/.25`; spark/ring `drop-shadow(rgba(60,245,168,.6) 0 0 3px)` — equal to `renderVals()`. Not shown in the fixture (no data, so not exercised in a browser): Warnings rail step numbers (CSS asserted by Vitest) and the Kit "checks passed" element, which the app does not have (not added; layout/copy out of scope). Top-project bar glow is computed (`0 0 8px`) but sits below the fold in the top shots. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | grep for hex/`rgb(` outside `tokens.css` -> no match. Contrast computed (WCAG): accent `#3CF5A8` on page `#121413` 13.05:1; on soft bg 11.15:1; link `#7EDDB0` on page 11.33:1 (all >= 4.5:1). No text sits on an accent fill. Link rendered colour at 1440 px: `.family a` `rgb(171,179,174)` (secondary, as before); `a` uses `--color-link`. |
+| **UI: Responsiveness at target viewports** | ☑ pass | Host Playwright at 375 / 1024 / 1440 px, `scrollWidth` vs `clientWidth`: 375/375, 1024/1024, 1440/1440 (no horizontal scroll). Shots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/5a654c3b-f981-4de5-b6fd-f21813c8d2f1/scratchpad/shot-top-usage-375.png`, `shot-top-usage-1024.png`, `shot-top-usage-1440.png` (+ `shot-after-*` full-page). Sparkline glow not clipped at 375 px (`.kpi .spark { overflow: visible }`). Note: easy-ui's viewport is fixed at 1280x720, so the 3 widths come from host Playwright (learnings HUN-128/129). |
 
 ---
 
@@ -82,9 +82,18 @@ Environment  jsdom was created 11 times · 7.91s total, 31% of tracked time
              learn more: https://vitest.dev/guide/improving-performance#test-environments
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same commands, 2026-10-29, after the change):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ grep -nE "accent|glow|link" web/src/tokens.css
+--color-accent: #3cf5a8;  --color-accent-soft: #3cf5a814;  --color-accent-line: #3cf5a859;  --color-accent-bar: #3cf5a84d;
+--color-link: #7eddb0;  --color-link-hover: #b2edcf;
+--glow-text: 0 0 12px #3cf5a859;  --glow-box: 0 0 0 1px #3cf5a840, 0 0 18px #3cf5a840;
+--glow-dot: 0 0 8px #3cf5a8;  --glow-line: drop-shadow(0 0 3px #3cf5a899);
+$ npm --prefix web test   ->  Test Files 12 passed (12), Tests 256 passed (256)
+```
+
+**DELTA**: The dashboard shows the neon mint look with glow on the active nav and period button, KPI sparklines, Cache hit ratio, latest day bar, top project bar, Cache reuse ring and Next actions numbers, and the glow turns off under `prefers-contrast: more`.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-131.jsonl`, never the
 implementing agent alone]
