@@ -421,6 +421,48 @@ describe('legacy connectors banner (AC6)', () => {
     expect(screen.queryByRole('region', { name: 'Legacy connectors' })).toBeNull()
   })
 
+  it('does not block the page: workspaces show while the legacy call is still pending (HUN-113)', async () => {
+    const read = fakeFetch(workspaceOverrides({ legacy: legacyOne }))
+    vi.stubGlobal('fetch', (url, init = {}) => (String(url) === '/api/connectors/legacy' ? new Promise(() => {}) : read(url, init)))
+    render(<WorkspacesView />)
+    expect(await card('company')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Legacy connectors' })).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows the banner when the late legacy answer arrives (HUN-113)', async () => {
+    const read = fakeFetch(workspaceOverrides({ legacy: legacyOne }))
+    let release
+    const hold = new Promise((r) => (release = r))
+    vi.stubGlobal('fetch', async (url, init = {}) => {
+      if (String(url) === '/api/connectors/legacy') await hold
+      return read(url, init)
+    })
+    render(<WorkspacesView />)
+    await card('company')
+    expect(screen.queryByRole('region', { name: 'Legacy connectors' })).toBeNull()
+    release()
+    expect(await screen.findByRole('region', { name: 'Legacy connectors' })).toHaveTextContent('slack')
+  })
+
+  it('does not update state when the late legacy answer arrives after unmount (HUN-113)', async () => {
+    const read = fakeFetch(workspaceOverrides({ legacy: legacyOne }))
+    let release
+    const hold = new Promise((r) => (release = r))
+    vi.stubGlobal('fetch', async (url, init = {}) => {
+      if (String(url) === '/api/connectors/legacy') await hold
+      return read(url, init)
+    })
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { unmount } = render(<WorkspacesView />)
+    await card('company')
+    unmount()
+    release()
+    await new Promise((r) => setTimeout(r, 10))
+    expect(errors).not.toHaveBeenCalled()
+    errors.mockRestore()
+  })
+
   it('offers adoption, shows the plan, then adopts only after Confirm', async () => {
     const fn = stub({
       overrides: workspaceOverrides({ legacy: legacyOne }),

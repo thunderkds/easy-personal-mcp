@@ -5,18 +5,26 @@ const optional = (promise, fallback) => promise.catch(() => fallback)
 const emptyToNull = (text) => (text.trim() === '' ? null : text.trim())
 const accountName = (a) => a.label || a.folder.split('/').filter(Boolean).pop() || a.folder
 
-/** The four lists the page shows. Workspaces and the catalog are required; accounts and legacy are optional. */
+/**
+ * The lists the page shows. Workspaces and the catalog are required; accounts are optional. The legacy scan is slow
+ * (it asks `claude` once per connector), so it loads on its own: the page renders without it and the banner follows.
+ */
 function useWorkspaceData() {
   const [state, setState] = useState({ status: 'loading' })
+  const [legacy, setLegacy] = useState([])
   const alive = useRef(true)
+  const legacyRun = useRef(0)
   function reload() {
+    const run = ++legacyRun.current
+    optional(getJson('/api/connectors/legacy'), { legacy: [] }).then((l) => {
+      if (alive.current && run === legacyRun.current) setLegacy(l.legacy ?? [])
+    })
     return Promise.all([
       getJson('/api/workspaces'),
       getJson('/api/connectors'),
       optional(getJson('/api/accounts'), { accounts: [] }),
-      optional(getJson('/api/connectors/legacy'), { legacy: [] }),
     ]).then(
-      ([w, c, a, l]) =>
+      ([w, c, a]) =>
         alive.current &&
         setState({
           status: 'ready',
@@ -25,7 +33,6 @@ function useWorkspaceData() {
             catalog: c.connectors,
             connectors: c.workspace_connectors ?? [],
             accounts: a.accounts ?? [],
-            legacy: l.legacy ?? [],
           },
         }),
       (e) => alive.current && setState((s) => (s.status === 'ready' ? s : { status: 'error', message: e.message })),
@@ -38,7 +45,7 @@ function useWorkspaceData() {
       alive.current = false
     }
   }, [])
-  return [state, reload]
+  return [state.status === 'ready' ? { ...state, data: { ...state.data, legacy } } : state, reload]
 }
 
 /**

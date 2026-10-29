@@ -161,3 +161,30 @@ def test_hand_made_entry_without_keychain_item_is_not_legacy(world, capsys):
     rc, out, _ = run(capsys, "connector", "adopt-legacy", "--yes")
     assert rc == 0 and "nothing to adopt" in out and connectors() == []
     assert world["fake"].write_records() == []
+
+
+def test_detect_runs_claude_checks_concurrently_in_catalog_order(tmp_path, monkeypatch, mem_keyring):
+    """HUN-113: a fake `claude` that sleeps 0.5 s per call; the scan takes about one call, not one per id."""
+    import sys
+    import time
+
+    from easy_personal.connectors import catalog
+
+    bindir = tmp_path / "slowbin"
+    bindir.mkdir()
+    exe = bindir / "claude"
+    exe.write_text(f"#!{sys.executable}\nimport sys, time\ntime.sleep(0.5)\nsys.exit(1)\n")
+    exe.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bindir))
+    monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path / "home"))
+    ids = catalog.ids()
+    assert len(ids) >= 5
+    for name in ids:
+        mem_keyring.items[(f"easy-personal/{name}", "connector")] = json.dumps({"env": {"T": "s3cret"}})
+    with store.opened(config.store_path()) as conn:
+        started = time.monotonic()
+        found = legacy.detect(conn)
+        took = time.monotonic() - started
+    assert [i.id for i in found] == list(ids)  # catalog order, same items as a sequential scan
+    assert all(i.keychain and not i.claude and not i.foreign for i in found)
+    assert took < 1.5, f"{len(ids)} checks took {took:.2f}s"
