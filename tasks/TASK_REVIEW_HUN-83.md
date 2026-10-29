@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/Widgets.test.jsx` (new, 11 tests: trend, sparkline 1/0/zero values, ring/progress null), `web/src/App.test.jsx` (sidebar, aria-current, top-bar title, menu aria-expanded, filters in top bar), `web/src/UsageView.test.jsx` (+12: 3 KPIs, 1,500 vs 1,000 → ↑ 50.0%, previous 0 → no previous data, All time no previous request, since/until window + filters, failed previous fetch, sparkline label, cache null, abstained cost). Supervisor run 2026-10-29T07:06:52Z: `Test Files  8 passed (8)` / `Tests  122 passed (122)` |
+| Verification command run | ☑ pass | `npm --prefix web test && npm --prefix web run build && uv run pytest -q` (Supervisor, worktree, 2026-10-29T07:06:52Z): `Tests  122 passed (122)`; `✓ built in 134ms`; `748 passed, 4 deselected, 1 xfailed, 1 warning in 210.93s` |
+| Negative cases hold | ☑ pass | previous 0 → `no previous data` (no Infinity/NaN); null cache ratio → `no data` in progress + ring, never 0%; failed previous fetch → view renders; no day groups → no sparkline; abstained cost named, never $0 |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review on `main..HUN-83`: App.jsx, UsageView.jsx, Widgets.jsx, tokens.css, app.css + their tests; other views only for the selector edits and screenshots. lane_check: `C2, 11 files, 770 lines, EXCEEDS (lines 770 > 500)` — 600+ of those lines are tests + CSS; C2 kept. Findings: 0 P0, 0 P1, 1 P2 (agent report named `-top.png` crops that were never written — process), 1 P3 (cost ↑ shown green like the other KPIs). security-review: not required (Risk Low, no API/input/secret change) |
+| Full smoke suite still green (no regression) | ☑ pass | full pytest `748 passed, 4 deselected, 1 xfailed`; all 8 Vitest files pass |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP is not registered in this session's profile (local scope `~/.claude-personal` only); not run |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Supervisor LLM-vision review of `reports/HUN-83/after-usage-1280.png`, `after-usage-375.png`, `after-kit-768.png` vs the reference image and AC 1–7: dark gradient shell, sidebar with active marker, 3 KPI cards with sparklines + ↑/↓ badges, cache progress + ring card, existing tables below as dark cards; no light leftovers. Agent viewed Usage 375/768/1280, Workspaces 1280, Agents 768, Warnings 375, Kit 1280, menu-open 375. BEFORE: `reports/HUN-83/before-usage-1280.png` |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `grep -rnE "#[0-9a-fA-F]{3,6}|rgba?\(" web/src/app.css web/src/*.jsx` (non-test) → no output: every color is a `tokens.css` token; one font token `--font`; contrast from tokens: text on surface 15.86:1, muted 8.15:1, badge text 5.65–7.73:1, white on accent 5.17:1 (all ≥ 4.5:1) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 / 768 / 1280 for all 5 views (15 captures, `reports/HUN-83/after-*-{375,768,1280}.png`): `scrollWidth == clientWidth` at all 15; 375 one column + sidebar behind menu button; 768 two columns; 1280 sidebar visible, KPIs 3 across |
 
 ---
 
