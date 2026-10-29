@@ -141,7 +141,6 @@ h3 { font-size: var(--fs-card-title); font-weight: 600; color: var(--color-headi
 .card > h2, .rail-card > h2, main.workspaces section > h2 { font-size: var(--fs-section); }
 .notice {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-start;
   gap: 10px;
   padding: var(--space-3) var(--space-4);
@@ -151,6 +150,7 @@ h3 { font-size: var(--fs-card-title); font-weight: 600; color: var(--color-headi
   font-size: var(--fs-control);
   line-height: 1.5;
 }
+div.notice { flex-wrap: wrap; align-items: center; }
 .notice svg { flex: none; margin-top: 2px; color: var(--color-muted); }
 .notice p { margin: 0; }
 main section.notice { flex-direction: column; }
@@ -273,6 +273,7 @@ main .kpi { display: flex; flex-direction: column; gap: var(--space-2); padding:
 
 /* Feed cards: session timeline, warnings, kit */
 ul.feed, ol.actions, ul.project-cards { display: flex; flex-direction: column; gap: var(--space-3); }
+ol.actions { flex-wrap: nowrap; align-items: stretch; }
 ul.feed > li, ol.actions > li, ul.project-cards > li { min-width: 0; }
 .feed-card { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius); overflow-wrap: anywhere; }
 .feed-head { display: flex; align-items: flex-start; gap: 14px; padding: var(--space-4) 18px; }
