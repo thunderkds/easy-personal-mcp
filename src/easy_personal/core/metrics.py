@@ -426,7 +426,11 @@ def history_start(conn: sqlite3.Connection) -> str | None:
 
 
 def session_contexts(
-    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
 ) -> list[dict]:
     """Per session: peak context (prompt tokens of one message) and whether it was compacted.
 
@@ -436,16 +440,17 @@ def session_contexts(
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     sessions: dict[str, dict] = {}
     inner, inner_params = _inner_window(since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
     rows = conn.execute(
         "SELECT session_id, ts, ctx FROM ("
         "  SELECT MAX(session_id) AS session_id, MIN(ts_utc) AS ts,"
         "         MAX(COALESCE(input_tokens, 0) + COALESCE(cache_creation_input_tokens, 0)"
         "             + COALESCE(cache_read_input_tokens, 0)) AS ctx"
         "  FROM events WHERE abstained = 0 AND session_id IS NOT NULL"
-        f"  AND message_id IS NOT NULL AND input_tokens IS NOT NULL AND {inner}"
+        f"  AND message_id IS NOT NULL AND input_tokens IS NOT NULL AND {inner} AND {scope}"
         "  GROUP BY message_id"
         f") WHERE {_period('ts', since_utc, until_utc)[0]} ORDER BY session_id, ts",
-        inner_params + _period("ts", since_utc, until_utc)[1],
+        inner_params + scope_params + _period("ts", since_utc, until_utc)[1],
     )
     for session, _, context in rows:
         state = sessions.setdefault(session, {"session_id": session, "peak": 0, "compacted": False})
@@ -463,16 +468,21 @@ def session_contexts(
 
 
 def record_readability(
-    conn: sqlite3.Connection, since: str | None = None, until: str | None = None
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
 ) -> dict[str, tuple[int, int]]:
     """Source version -> (abstained records, all records) with a timestamp in [since, until)."""
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     where, params = _period("ts_utc", since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
     return {
         version: (abstained, total)
         for version, abstained, total in conn.execute(
             "SELECT COALESCE(version, 'unknown'), SUM(abstained), COUNT(*) FROM events "
-            f"WHERE {where} GROUP BY 1 ORDER BY 1",
-            params,
+            f"WHERE {where} AND {scope} GROUP BY 1 ORDER BY 1",
+            params + scope_params,
         )
     }

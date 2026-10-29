@@ -91,6 +91,11 @@ def _period(q):
     return q.get("since"), q.get("until")
 
 
+def _who(q):
+    """The optional `workspace` name and `account` id or label (empty = no filter), as keyword arguments."""
+    return {"workspace": q.get("workspace") or None, "account": q.get("account") or None}
+
+
 def _scope(q):
     """`since`, `until` and the optional `workspace` name and `account` id or label (empty = no filter)."""
     return *_period(q), (q.get("workspace") or None), (q.get("account") or None)
@@ -507,9 +512,9 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/workspaces", workspaces_add, methods=["POST"]),
         Route("/api/workspaces/{id}", workspaces_edit, methods=["PATCH"]),
         Route("/api/workspaces/{id}", workspaces_delete, methods=["DELETE"]),
-        Route("/api/warnings", _query(lambda c, q: rules.evaluate(c))),
-        Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c))),
-        Route("/api/kit", _query(lambda c, q: kit.kit_summary(c))),
+        Route("/api/warnings", _query(lambda c, q: rules.evaluate(c, **_who(q)))),
+        Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c, **_who(q)))),
+        Route("/api/kit", _query(lambda c, q: kit.kit_summary(c, **_who(q)))),
         Route("/api/accounts", _query(lambda c, q: accounts.grouped(c, q.get("by", "account")))),
         Route("/api/accounts", _account_write(lambda c, _id, b: accounts.add(c, b.get("path")), 201), methods=["POST"]),
         Route("/api/accounts/{id}/confirm", _account_write(lambda c, i, b: accounts.confirm(c, i, b.get("label"))), methods=["POST"]),

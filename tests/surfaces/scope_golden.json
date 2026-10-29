@@ -1,0 +1,134 @@
+{
+ "kit": {
+  "projects": [
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.0,
+      "first_utc": "2026-10-16T12:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-10-16T12:00:09.000000Z",
+      "status": "ok",
+      "tool_calls": 10,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "a"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "b"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.5,
+      "first_utc": "2026-10-16T12:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-10-16T12:00:09.000000Z",
+      "status": "ok",
+      "tool_calls": 10,
+      "tool_errors": 5
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "c"
+   }
+  ],
+  "ui": {
+   "status": "no data"
+  }
+ },
+ "plan": {
+  "groups": [
+   {
+    "items": [
+     {
+      "fix": "Read the failing tool calls in memory/event-trace/ and fix the command or permission that keeps failing.",
+      "label": "warning",
+      "measured": 0.25,
+      "rule_id": "tool_errors_high",
+      "threshold": 0.1
+     }
+    ],
+    "priority": 2
+   },
+   {
+    "items": [
+     {
+      "fix": "Check which project or session drove the rise before it becomes the new baseline.",
+      "label": "aware",
+      "measured": 102.0,
+      "rule_id": "tokens_jump",
+      "threshold": 0.5
+     }
+    ],
+    "priority": 3
+   }
+  ]
+ },
+ "warnings": {
+  "abstained": [
+   {
+    "reason": "no easy-context data (service down or no index for a known project)",
+    "rule_id": "context_index_stale"
+   }
+  ],
+  "as_of_utc": "2026-10-20T00:00:00+00:00",
+  "hits": [
+   {
+    "fix": "Read the failing tool calls in memory/event-trace/ and fix the command or permission that keeps failing.",
+    "label": "warning",
+    "measured": 0.25,
+    "priority": 2,
+    "rule_id": "tool_errors_high",
+    "threshold": 0.1,
+    "window_days": 7
+   },
+   {
+    "fix": "Check which project or session drove the rise before it becomes the new baseline.",
+    "label": "aware",
+    "measured": 102.0,
+    "priority": 3,
+    "rule_id": "tokens_jump",
+    "threshold": 0.5,
+    "window_days": 7
+   }
+  ]
+ }
+}

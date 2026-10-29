@@ -51,25 +51,28 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
             return metrics.session_outliers(conn, since, until)
 
     @app.tool()
-    def warnings() -> dict[str, Any]:
+    def warnings(workspace: str | None = None, account: str | None = None) -> dict[str, Any]:
         """Declared usage rules over the last 7 days (or 14 for week-over-week). Each hit has the
         rule id, label (improve/aware/warning), measured value, threshold and fix line. Rules that
-        cannot be measured (too little history or data) are listed under `abstained`."""
+        cannot be measured (too little history or data) are listed under `abstained`. Optional
+        `workspace` (name) and `account` (id or label) limit every rule to that scope."""
         with store.opened(config.store_path()) as conn:
-            return rules.evaluate(conn)
+            return rules.evaluate(conn, workspace=workspace, account=account)
 
     @app.tool()
-    def improvement_plan() -> dict[str, Any]:
-        """The fired rules grouped by priority (1 first), each with its measured value and fix."""
+    def improvement_plan(workspace: str | None = None, account: str | None = None) -> dict[str, Any]:
+        """The fired rules grouped by priority (1 first), each with its measured value and fix.
+        Optional `workspace` (name) and `account` (id or label) limit every rule to that scope."""
         with store.opened(config.store_path()) as conn:
-            return plan.improvement_plan(conn)
+            return plan.improvement_plan(conn, workspace=workspace, account=account)
 
     @app.tool()
-    def kit_summary() -> dict[str, Any]:
+    def kit_summary(workspace: str | None = None, account: str | None = None) -> dict[str, Any]:
         """What the Easy Kit did per project (folder name): kernel-trace tool calls, errors, kit
-        tasks and last activity. A part with nothing to read says "no data"."""
+        tasks and last activity. A part with nothing to read says "no data". Optional `workspace`
+        (name) and `account` (id or label) keep only that scope's projects."""
         with store.opened(config.store_path()) as conn:
-            return kit.kit_summary(conn)
+            return kit.kit_summary(conn, workspace=workspace, account=account)
 
     @app.tool()
     def connector_catalog() -> dict[str, Any]:
