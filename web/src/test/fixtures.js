@@ -194,18 +194,28 @@ export const kit = {
       project: 'alpha',
       missing_on_disk: false,
       parts: {
-        kernel: { status: 'ok', tool_calls: 40, tool_errors: 0, error_rate: 0.0, kit_tasks: 2, first_utc: '2026-10-01T00:00:00Z', last_utc: '2026-10-20T00:00:00Z', abstained: 0 },
+        kernel: { status: 'ok', tool_calls: 40, tool_errors: 0, error_rate: 0.0, kit_tasks: 2, first_utc: '2026-10-01T12:00:00Z', last_utc: '2026-10-20T12:00:00Z', abstained: 0 },
         git: { status: 'ok', commits: 7, commits_by_day: { '2026-10-20': 7 } },
-        context: { status: 'ok', last_index_at: '2026-10-01T00:00:00Z', latest_commit_utc: '2026-10-20T00:00:00Z', stale: true },
+        context: { status: 'ok', last_index_at: '2026-10-01T12:00:00Z', latest_commit_utc: '2026-10-20T12:00:00Z', stale: true },
       },
     },
     {
       project: 'gamma',
       missing_on_disk: false,
       parts: {
-        kernel: { status: 'ok', tool_calls: 5, tool_errors: 2, error_rate: 0.4, kit_tasks: 1, first_utc: '2026-10-01T00:00:00Z', last_utc: '2026-10-02T00:00:00Z', abstained: 1 },
+        kernel: { status: 'ok', tool_calls: 5, tool_errors: 2, error_rate: 0.4, kit_tasks: 1, first_utc: '2026-10-01T12:00:00Z', last_utc: '2026-10-02T12:00:00Z', abstained: 1 },
         git: { status: 'ok', commits: 0, commits_by_day: {} },
-        context: { status: 'ok', last_index_at: '2026-10-21T00:00:00Z', latest_commit_utc: null, stale: null },
+        context: { status: 'ok', last_index_at: '2026-10-21T12:00:00Z', latest_commit_utc: null, stale: null },
+      },
+    },
+    {
+      project: 'delta',
+      missing_on_disk: false,
+      parts: {
+        kernel: { status: 'ok', tool_calls: 1200, tool_errors: 0, error_rate: 0.0, kit_tasks: 9, first_utc: '2026-09-01T12:00:00Z', last_utc: '2026-10-21T12:00:00Z', abstained: 0 },
+        git: { status: 'ok', commits: 342, commits_by_day: { '2026-10-21': 3, '2026-10-15': 2, '2025-10-21': 100 } },
+        context: { status: 'ok', last_index_at: '2026-10-19T12:00:00Z', latest_commit_utc: '2026-10-19T12:00:00Z', stale: false },
+        verifier: { status: 'ok', scope: 'repo', generated_at: '2026-10-20T12:00:00Z', overall: { value: 82, abstained: false, reason_code: null } },
       },
     },
   ],
