@@ -187,6 +187,7 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-119 | Kit tab: plain project cards with health, recent activity and a details toggle | Todo | Frontend-Implementer | C2 | Low | P1 |
 | HUN-120 | Warnings & plan: plain titles, why it matters, numbered steps, one ordered action list | Todo | Backend-Implementer | C2 | Low | P1 |
 | HUN-121 | Restyle dashboard to reference image 2: indigo + monospace, grouped sidebar, right rail, timeline feed cards (added mid-run 2026-10-29; wave 4, after HUN-116, 118, 119, 120) | Todo | Frontend-Implementer | C2 | Low | P1 |
+| HUN-126 | Restyle dashboard to the Graphite Mint design (owner canvas GGoKuwVrYPQAVGcT6e7Ptq); plain Warnings/Kit content kept (owner choice 2026-10-29); UI checked with easy-ui MCP | Todo | Frontend-Implementer | C2 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
