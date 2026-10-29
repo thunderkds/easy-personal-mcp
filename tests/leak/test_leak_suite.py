@@ -10,6 +10,7 @@ def test_fixture_plants_every_canary(canaries, tmp_path):
     canaries.render_kit_trace(tmp_path / "p" / "repo")
     canaries.render_verifier_report(tmp_path / "p" / "repo")
     canaries.render_ui_reports(tmp_path / "p" / "ui")
+    canaries.render_agent_files(tmp_path / "p" / "agents")
     raw = b"".join(p.read_bytes() for p in (tmp_path / "p").rglob("*.json*"))
     for name, value in canaries.values.items():
         escaped = json.dumps(value)[1:-1].encode()  # how a JSON line holds it
@@ -64,6 +65,15 @@ def test_api_routes_were_scanned(leak_run):
     labels = " | ".join(leak_run.outputs)
     for route in harness.API_CALLS:
         assert f"api {route}" in labels, route
+
+
+def test_account_status_line_really_ran(leak_run):
+    """Guards against a vacuous pass: the planted `.claude.json` and limits file were read, only their allowed keys shown."""
+    from leak.canaries import ACCOUNT_EMAIL
+
+    body = leak_run.outputs["api /api/accounts"]
+    assert ACCOUNT_EMAIL in body and "stripe_subscription" in body and "Leak Org" in body
+    assert '"used_percentage":42.5' in body and '"stale":false' in body
 
 
 def test_api_write_routes_were_scanned(leak_run, canaries):

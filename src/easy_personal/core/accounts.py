@@ -1,10 +1,14 @@
 """Agent accounts: `~/.claude*` and `~/.codex*` folders, detected, then confirmed and named by the owner.
 
-Reads folder names and the existence of marker entries only; never reads or writes inside an account.
-Core code: it must not import connectors.
+Detection reads folder names and the existence of marker entries only. The status line (HUN-115) reads
+exactly two files per Claude account, never writes: three keys of `.claude.json` (`oauthAccount`
+email, plan, organization) and `easy-personal-limits.json`. Core code: it must not import connectors.
 """
 
+import json
+import math
 import sqlite3
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
 from easy_personal.core import config
@@ -95,12 +99,145 @@ def group_by_provider(rows: list[dict]) -> dict[str, list[dict]]:
     return grouped
 
 
+_STORED_TS = "%Y-%m-%dT%H:%M:%S.%fZ"
+_MESSAGE_PAD = timedelta(days=1)  # keeps every event of a message that starts inside the window
+_MAX_CLAUDE_JSON = 32 * 1024 * 1024
+_MAX_LIMITS_JSON = 64 * 1024
+LIMITS_FILE = "easy-personal-limits.json"
+
+
+def _read_json(path: Path, max_bytes: int):
+    """Parsed JSON of a small file, or None when it is missing, too big, unreadable or not JSON."""
+    try:
+        if path.stat().st_size > max_bytes:
+            return None
+        return json.loads(path.read_text())
+    except (OSError, ValueError, RecursionError):  # ValueError covers bad JSON and bad UTF-8
+        return None
+
+
+def _text(value) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _number(value) -> float | int | None:
+    ok = isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+    return value if ok else None
+
+
+def _iso(epoch) -> str | None:
+    epoch = _number(epoch)
+    try:
+        return None if epoch is None else datetime.fromtimestamp(epoch, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def _identity(row: dict) -> dict:
+    """Email, plan and organization from `<folder>/.claude.json`; only `oauthAccount`'s three keys are read.
+
+    The default account's file lives beside its folder (`~/.claude.json`) when `CLAUDE_CONFIG_DIR` is unset.
+    """
+    empty = {"email": None, "plan": None, "organization": None}
+    if row["provider"] != "claude":
+        return empty
+    folder = Path(row["folder"])
+    data = _read_json(folder / ".claude.json", _MAX_CLAUDE_JSON)
+    if data is None and row["config_dir_env"] is None:
+        data = _read_json(folder.parent / ".claude.json", _MAX_CLAUDE_JSON)
+    oauth = data.get("oauthAccount") if isinstance(data, dict) else None
+    if not isinstance(oauth, dict):
+        return empty
+    return {
+        "email": _text(oauth.get("emailAddress")),
+        "plan": _text(oauth.get("billingType")),
+        "organization": _text(oauth.get("organizationName")),
+    }  # fmt: skip
+
+
+def _limits(row: dict, now: datetime) -> dict | None:
+    """The owner's status-line snapshot: five_hour / seven_day {used_percentage, resets_at, stale} + written_at."""
+    if row["provider"] != "claude":
+        return None
+    data = _read_json(Path(row["folder"]) / LIMITS_FILE, _MAX_LIMITS_JSON)
+    if not isinstance(data, dict):
+        return None
+
+    def window(raw) -> dict | None:
+        percent = _number(raw.get("used_percentage")) if isinstance(raw, dict) else None
+        if percent is None:
+            return None
+        resets = _number(raw.get("resets_at"))
+        return {"used_percentage": percent, "resets_at": _iso(resets), "stale": resets is not None and resets <= now.timestamp()}
+
+    five, seven = window(data.get("five_hour")), window(data.get("seven_day"))
+    if five is None and seven is None:
+        return None
+    stale = any(w["stale"] for w in (five, seven) if w)
+    return {"five_hour": five, "seven_day": seven, "written_at": _iso(data.get("written_at")), "stale": stale}
+
+
+def _token_sums(conn: sqlite3.Connection, now: datetime) -> dict[int | None, tuple[int, int]]:
+    """Tokens since local midnight and in the last 7 x 24 h per account id, in one grouped query.
+
+    Counts one row per message (the largest figures of its events), like the usage metrics.
+    """
+    local = now.astimezone()
+    today = datetime.combine(local.date(), time.min).astimezone().astimezone(UTC)  # local midnight, DST-aware
+    week = now.astimezone(UTC) - timedelta(days=7)
+    stamp = lambda moment: moment.strftime(_STORED_TS)
+    rows = conn.execute(
+        "SELECT account, SUM(CASE WHEN ts >= ? THEN t ELSE 0 END), SUM(t) FROM ("
+        "  SELECT agent_account_id AS account, MIN(ts_utc) AS ts,"
+        "         MAX(input_tokens) + MAX(output_tokens) + MAX(cache_creation_input_tokens)"
+        "         + MAX(cache_read_input_tokens) AS t"
+        "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL AND input_tokens IS NOT NULL"
+        "  AND ts_utc >= ? GROUP BY agent_account_id, message_id"
+        ") WHERE ts >= ? GROUP BY account",
+        (stamp(today), stamp(week - _MESSAGE_PAD), stamp(week)),
+    ).fetchall()
+    return {account: (day or 0, total or 0) for account, day, total in rows}
+
+
+def _newest(conn: sqlite3.Connection, account_id: int | None) -> tuple[str, str] | None:
+    """(ts_utc, model) of the account's newest event that carries a model; the index makes it a point lookup."""
+    return conn.execute(
+        "SELECT ts_utc, model FROM events WHERE agent_account_id IS ? AND abstained = 0 AND model IS NOT NULL "
+        "ORDER BY ts_utc DESC LIMIT 1",
+        (account_id,),
+    ).fetchone()
+
+
+def status_lines(conn: sqlite3.Connection, rows: list[dict], now: datetime | None = None) -> dict[int, dict]:
+    """Account id -> status line, read from disk and the store only. Missing files give null fields."""
+    now = now or datetime.now(UTC)
+    sums = _token_sums(conn, now)
+    default = default_id(conn)
+    out = {}
+    for row in rows:
+        own = [row["id"]] + ([None] if row["id"] == default else [])  # NULL-account events: default account
+        parts = [sums.get(a, (0, 0)) for a in own]
+        newest = max(filter(None, (_newest(conn, a) for a in own)), default=None)
+        out[row["id"]] = {
+            **_identity(row),
+            "last_model": newest[1] if newest else None,
+            "last_active_utc": newest[0] if newest else None,
+            "tokens_today": sum(day for day, _ in parts),
+            "tokens_7d": sum(total for _, total in parts),
+            "limits": _limits(row, now),
+        }  # fmt: skip
+    return out
+
+
 def grouped(conn: sqlite3.Connection, by: str) -> dict:
-    """Detect, then list: `by` is `account` (flat list) or `provider`."""
+    """Detect, then list with each account's status line: `by` is `account` (flat list) or `provider`."""
     if by not in ("account", "provider"):
         raise AccountError("by must be account or provider")
     detect(conn)
     rows = list_accounts(conn)
+    lines = status_lines(conn, rows)
+    for row in rows:
+        row["status_line"] = lines[row["id"]]
     if by == "provider":
         return {"by": by, "providers": group_by_provider(rows)}
     return {"by": by, "accounts": rows}

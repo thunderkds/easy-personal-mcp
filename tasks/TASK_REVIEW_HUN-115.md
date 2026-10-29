@@ -26,16 +26,16 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_account_status_line.py` (AC 1-5 + 8: keys in both groupings, email/plan/org and nothing else, default-account fallback file, unusable files -> nulls, Codex nulls, missing folder, tokens today/7d incl. NULL-account, message dedupe, local midnight, newest model/time, limits parse/stale/broken/percent types, API 200, `perf` 1M-event benchmark); `tests/leak/canaries.py`, `tests/leak/conftest.py`, `tests/leak/test_leak_suite.py` (AC 7: planted `.claude.json` env secret + userID + limits extra keys; `test_account_status_line_really_ran`). Output: `uv run pytest tests/core/test_account_status_line.py tests/leak -q` -> `53 passed, 1 deselected`. README snippet (AC 6) run with real `jq` in a temp dir: wrote `{"five_hour":{"used_percentage":42.5,"resets_at":1893456000},"seven_day":{...},"written_at":1793261691.78}`, and left no file when stdin had no `rate_limits`. |
+| Verification command run | ☑ pass | 2026-10-29T08:18:25Z `uv run pytest -q` -> `775 passed, 5 deselected, 1 xfailed, 1 warning in 159.43s (0:02:39)` (web built first with `npm --prefix web ci && npm --prefix web run build`). `uv run ruff check src tests` -> `All checks passed!`. Benchmark: `uv run pytest tests/core/test_account_status_line.py -m perf -q -s` -> `perf /api/accounts core over 1M events: [70.6, 86.6, 67.3, 67.1, 67.0] ms`, 1 passed (limit 100 ms). |
+| Negative cases hold | ☑ pass | Parametrized tests: missing / `not json` / `[]` / `{}` / `oauthAccount: 5` / non-string email -> null identity; limits `None` / `{broken` / `[]` / `{}` / window not a dict / percent as string -> `limits: null`; bool percent and string `resets_at` -> window dropped / `resets_at` null; Codex folder with `.claude.json` + limits file -> all null; missing folder -> nulls + `missing`; planted `INVENTED_SECRET_115` and leak canaries never in output (leak suite: 27 passed). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | Same run: `775 passed, 5 deselected, 1 xfailed` (the 5 deselected are `perf`-marked, run on their own above). |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Backend-only task; no UI change (card UI is the follow-up task). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Backend-only task; no UI change. |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Backend-only task; no UI change. |
 
 ---
 
@@ -46,12 +46,24 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-29T08:13:06Z, branch HUN-115 before any implementation commit, command `uv run python <scratchpad>/demo_115.py` (fixture agent root in a temp dir: `.claude-work` has a `.claude.json` with email + planted `INVENTED_SECRET` in `mcpServers`, an `easy-personal-limits.json`, and one stored event of 100 tokens; it then calls `GET /api/accounts`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+200
+{"id": 1, "provider": "claude", "label": "Claude default", "status": "confirmed", "status_line": "<absent>"}
+{"id": 2, "provider": "claude", "label": null, "status": "detected", "status_line": "<absent>"}
+secret in body: False
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: 2026-10-29T08:21:13Z, same command and fixture, branch HUN-115 with the change:
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+```
+200
+{"id": 1, "provider": "claude", "label": "Claude default", "status": "confirmed", "status_line": {"email": null, "plan": null, "organization": null, "last_model": null, "last_active_utc": null, "tokens_today": 0, "tokens_7d": 0, "limits": null}}
+{"id": 2, "provider": "claude", "label": null, "status": "detected", "status_line": {"email": "fixture@example.invalid", "plan": "stripe_subscription", "organization": "Fixture Org", "last_model": "claude-opus-5-5", "last_active_utc": "2026-10-29T08:21:13.283681Z", "tokens_today": 100, "tokens_7d": 100, "limits": {"five_hour": {"used_percentage": 42.5, "resets_at": "2026-10-29T09:21:13Z", "stale": false}, "seven_day": {"used_percentage": 10, "resets_at": "2026-10-30T08:21:13Z", "stale": false}, "written_at": "2026-10-29T08:21:13Z", "stale": false}}}
+secret in body: False
+```
+
+**DELTA**: `/api/accounts` now gives each account its email, plan, organization, last model, tokens today and in 7 days, and the plan-limit snapshot, so the Agents card can read like the status line; the planted `mcpServers` secret still does not appear.
+
+**WITNESS**: [left for the reviewer: derive from `memory/event-trace/HUN-115.jsonl`]

@@ -11,6 +11,7 @@ Status: v0.2.0. It runs natively on Linux. See `PRD.md` (what and why), `PROJECT
 easy-personal reads metadata only. It never stores message text, tool input or output, file contents or secrets.
 
 - Claude Code transcripts in `~/.claude/projects/`: token counts, model, time, project folder and tool names.
+- For the Agents page, from each Claude account folder: the account email, plan and organization (three keys of `<folder>/.claude.json`, no other key) and the plan-limit snapshot `<folder>/easy-personal-limits.json` that your status line writes. A missing file shows as empty.
 - Easy Kit parts, when you have them: kernel traces, easy-verifier score JSON, easy-ui reports and the easy-context index.
 - Local git history, for index freshness.
 
@@ -183,6 +184,16 @@ easy-personal account use 2 company personal
 - `account use` sets the workspaces that a confirmed Claude account uses. Give no workspace to clear the list. Codex accounts and the `orphan` workspace are refused. Then run `connector sync` to write the change into that account. The default account `~/.claude` writes to `~/.claude.json`; every other account writes to `<folder>/.claude.json`.
 
 `account ignore` refuses the default `~/.claude` account. The dashboard serves the same data at `/api/accounts`.
+
+### Plan limits on the Agents page
+
+Claude Code never saves your plan limits (5-hour and 7-day usage) to disk. They exist only in the JSON that Claude Code sends to your status-line script on stdin. To show them on the Agents page, add this one line to your status-line script. Put it after the line that reads stdin into `$input`:
+
+```bash
+f="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/easy-personal-limits.json"; printf '%s' "$input" | jq -c 'select(.rate_limits) | {five_hour: (.rate_limits.five_hour | {used_percentage, resets_at}), seven_day: (.rate_limits.seven_day | {used_percentage, resets_at}), written_at: now}' > "$f.tmp" && [ -s "$f.tmp" ] && mv "$f.tmp" "$f"; rm -f "$f.tmp"
+```
+
+The line needs `jq`. It writes to a temporary file, then moves it, so the dashboard never reads a half-written file. `/api/accounts` returns the snapshot as `limits` in each account's `status_line`: per window `used_percentage`, `resets_at` (UTC) and `stale`, plus `written_at`. A window is `stale` once its reset time has passed. A missing or broken file gives `limits: null`. The dashboard only reads this file; it never changes your status line.
 
 ## Configuration
 

@@ -35,6 +35,7 @@ def leak_run(tmp_path_factory, canaries):
     (agent_root / ".claude-work" / "projects").mkdir(parents=True)
     (agent_root / ".codex").mkdir()
     (agent_root / ".codex" / "config.toml").write_text("")
+    canaries.render_agent_files(agent_root)  # HUN-115: `.claude.json` and limits file with unread canaries
     env = harness.child_env(home, projects, ui_reports)
     mp = pytest.MonkeyPatch()
     mp.setenv("EASY_PERSONAL_HOME", str(home))
