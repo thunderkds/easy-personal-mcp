@@ -46,7 +46,11 @@ PATTERNS = {
     "ui_issue": "LEAKCANARY ui-issue {t}",
     "ui_action": "LEAKCANARY ui-action {t}",
     "verifier_evidence": "LEAKCANARY verifier-evidence {t}",
+    "claude_json_env_secret": "sk-LEAKCANARY-mcp-env-{t}",
+    "claude_json_user_id": "LEAKCANARY user-id {t}",
+    "limits_extra_key": "LEAKCANARY limits-extra {t}",
 }
+ACCOUNT_EMAIL = "owner@example.invalid"  # the one `.claude.json` value the Agents page shows on purpose
 
 
 def _b64_core(raw: bytes) -> list[str]:
@@ -110,6 +114,24 @@ class Canaries:
         for name in ("T001", "_untagged"):
             (trace / f"{name}.jsonl").write_text(json.dumps(line) + "\n")
         return repo
+
+    def render_agent_files(self, agent_root: Path) -> None:
+        """Plant `.claude.json` (default + `.claude-work`) and a limits file whose unread keys hold canaries."""
+        claude_json = json.dumps({
+            "oauthAccount": {"emailAddress": ACCOUNT_EMAIL, "billingType": "stripe_subscription", "organizationName": "Leak Org"},
+            "userID": self.values["claude_json_user_id"],
+            "mcpServers": {"slack": {"env": {"TOKEN": self.values["claude_json_env_secret"]}}},
+        })  # fmt: skip
+        work = agent_root / ".claude-work"
+        work.mkdir(parents=True, exist_ok=True)
+        (agent_root / ".claude.json").write_text(claude_json)
+        (work / ".claude.json").write_text(claude_json)
+        (work / "easy-personal-limits.json").write_text(json.dumps({
+            "five_hour": {"used_percentage": 42.5, "resets_at": 4102444800, "note": self.values["limits_extra_key"]},
+            "seven_day": {"used_percentage": 10, "resets_at": 4102444800},
+            "written_at": 1793261691,
+            "extra": self.values["limits_extra_key"],
+        }))  # fmt: skip
 
     def render_verifier_report(self, repo: Path) -> None:
         """Write a score JSON in `<repo>/reports/` whose extra keys and dimension reasons hold canaries."""
