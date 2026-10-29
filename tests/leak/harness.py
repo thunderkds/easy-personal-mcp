@@ -275,7 +275,7 @@ def collect_mcp(app, out: Collected, logs: "LogCapture") -> None:
             with contextlib.redirect_stdout(sink_out), contextlib.redirect_stderr(sink_err):
                 try:
                     result = asyncio.run(app.call_tool(tool, args))
-                except Exception as exc:  # e.g. a scope argument naming a workspace this store lacks; scan the error text too
+                except Exception as exc:  # noqa: BLE001 - e.g. a scope argument naming a workspace this store lacks; scan the error text too
                     result = f"tool error: {exc!r} cause: {exc.__cause__!r}"
             out.add(f"mcp {tool} {args}", result)
             out.add(f"mcp {tool} {args} stdout", sink_out.getvalue())
