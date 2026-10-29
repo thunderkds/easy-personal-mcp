@@ -52,23 +52,23 @@ function ProjectBars({ groups }) {
   )
 }
 
-/** The compact table of the artboard: model, total tokens, output, cost. */
+/** The compact table of the artboard: model, total tokens, output, cost. Short headers; aria-label keeps the full names. */
 function ModelTable({ groups }) {
   return (
     <div className="table-wrap">
-      <table>
+      <table className="model-table">
         <thead>
           <tr>
             <th scope="col">Model</th>
-            <th scope="col">Total tokens</th>
-            <th scope="col">Output</th>
-            <th scope="col">API-equivalent cost</th>
+            <th scope="col" aria-label="Total tokens" title="Total tokens">Total</th>
+            <th scope="col" aria-label="Output tokens" title="Output tokens">Output</th>
+            <th scope="col" aria-label="API-equivalent cost" title="API-equivalent cost">Cost</th>
           </tr>
         </thead>
         <tbody>
           {groups.map((g, i) => (
             <tr key={i}>
-              <th scope="row">{g.key}</th>
+              <th scope="row" title={g.key}>{g.key}</th>
               <td>{fmt(totalTokens(g))}</td>
               <td>{fmt(g.output_tokens)}</td>
               <td><Cost cost={g.api_equivalent_cost} /></td>
