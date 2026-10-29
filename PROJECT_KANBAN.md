@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-10-26
+**Last updated**: 2026-10-29
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -53,6 +53,7 @@
 - [x] **HUN-71** — QA end-to-end: several fake accounts + workspaces, no secret leaks, no real config touched | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-71.md`
 - [x] **HUN-72** — Fix workspace review defects (connector remove ownership, default-account env, doctor after adoption, plan abort line, add EOF) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-72.md`
 - [x] **HUN-73** — Release prep v0.2.0 (version bump, README for Workspaces/Agents tabs and remove rule) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-73.md`
+- [x] **HUN-83** — Dashboard dark theme, sidebar shell and Usage widget cards | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-83.md`
 
 ### Closed (will not do)
 
