@@ -51,7 +51,7 @@
 **Files**: `src/easy_personal/catalog/*.yaml`, `src/easy_personal/connectors/catalog.py`
 
 ### 2026-10-22 — Landing site: sibling pattern, one board
-**Decision**: README rewrite (HUN-56) and a static landing page in `site/` (HUN-57) deployed by Vercel's Git integration from `main` (`vercel.json` outputDirectory `site`, `.vercelignore` allowlist), Easy Kit dark neon theme, drift tests against README / `mcp.py` tools / catalog; screenshots from fixtures only. Site scope lives in `PROJECT_SPEC_SITE.md`; both tasks stay on the one Linear board — owner-approved exception to Hard-Stop Gate 4, same as easy-context-mcp.
+**Decision**: README rewrite (HUN-56) and a static landing page in `site/` (HUN-57) deployed by Vercel's Git integration from `main` (`vercel.json` outputDirectory `site`, `.vercelignore` allowlist), Easy Kit dark neon theme (superseded 2026-10-29 by HUN-132: Easy Kit family Graphite Mint layout — header with family nav, section aside, hero + install box with one inline Copy script, drift-tested stat strip, self-hosted Plex in `site/fonts/`; owner chose "follow the family layout"), drift tests against README / `mcp.py` tools / catalog; screenshots from fixtures only. Site scope lives in `PROJECT_SPEC_SITE.md`; both tasks stay on the one Linear board — owner-approved exception to Hard-Stop Gate 4, same as easy-context-mcp.
 **Why**: owner asked for the README and "the index page to deploy the guide" (2026-10-22); the sibling repos already ship this pattern.
 **Approved by**: owner, 2026-10-22 ("Yes, as described").
 **Files**: `README.md`, `site/`, `vercel.json`, `.vercelignore`, `PROJECT_SPEC_SITE.md`
