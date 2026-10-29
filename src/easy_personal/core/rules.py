@@ -27,7 +27,14 @@ class Rule:
     priority: int
     window_days: int
     min_history_days: int
-    fix: str
+    title: str
+    why: str
+    steps: tuple[str, ...]
+
+    @property
+    def fix(self) -> str:
+        """The steps as one line, for readers that predate `steps`."""
+        return " ".join(self.steps)
 
     def with_threshold(self, threshold: float) -> "Rule":
         return replace(self, threshold=threshold)
@@ -43,7 +50,16 @@ def _number(text: str) -> float:
 
 
 def _parse_rule(rule_id: str, text: str) -> Rule:
-    head, _, fix = text.partition(" fix=")
+    """`key=value` pairs, then ` title=`, ` why=` and ` steps=` (pipe-separated) whose text may hold `=`."""
+    head, _, plain = text.partition(" title=")
+    title, _, plain = plain.partition(" why=")
+    why, _, steps = plain.partition(" steps=")
+    steps = tuple(s.strip() for s in steps.split("|") if s.strip())
+    for name, value in (("title", title.strip()), ("why", why.strip()), ("steps", steps)):
+        if not value:
+            raise ValueError(f"rule {rule_id}: missing {name}")
+    if len(steps) > 3:
+        raise ValueError(f"rule {rule_id}: steps must be 1 to 3")
     fields = dict(item.split("=", 1) for item in head.split())
     if fields["op"] not in OPS or fields["label"] not in LABELS or fields["metric"] not in METRICS:
         raise ValueError(f"rule {rule_id}: bad op, label or metric")
@@ -56,7 +72,9 @@ def _parse_rule(rule_id: str, text: str) -> Rule:
         priority=int(fields["priority"]),
         window_days=int(fields["window_days"]),
         min_history_days=int(fields["min_history_days"]),
-        fix=fix.strip(),
+        title=title.strip(),
+        why=why.strip(),
+        steps=steps,
     )
 
 
@@ -95,6 +113,44 @@ def load_rules(config_file: Path | None = None) -> list[Rule]:
 
 def _iso(moment: datetime) -> str:
     return moment.astimezone(UTC).isoformat()
+
+
+def _percent(value: float) -> str:
+    return f"{value * 100:,.1f}".rstrip("0").rstrip(".") + "%"
+
+
+def _count(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def summary(rule: Rule, measured, detail: dict | None = None) -> str:
+    """One human sentence: what was measured, the target and the look-back window."""
+    detail = detail or {}
+    days = rule.window_days
+    target = f"{_percent(rule.threshold)} {'or more' if rule.op == 'lt' else 'or less'}"
+    if rule.metric == "cache_hit_ratio":
+        sentence = f"{_percent(measured)} of prompt tokens came from cache"
+    elif rule.metric == "median_session_context":
+        sentence = f"The median open session reached {measured:,.0f} tokens of context"
+        target = f"{rule.threshold:,.0f} or fewer"
+    elif rule.metric == "unreadable_share":
+        version = f" {detail['version']}" if "version" in detail else ""
+        sentence = f"{_percent(measured)} of records from Claude Code{version} could not be read"
+    elif rule.metric == "week_over_week_tokens":
+        way = "rose" if measured >= 0 else "fell"
+        return (
+            f"Token use {way} {_percent(abs(measured))} in the last {days} days against the {days} days "
+            f"before; target {target}"
+        )
+    elif rule.metric == "top_project_share":
+        sentence = f"One project ({detail.get('project', '?')}) used {_percent(measured)} of tokens"
+    elif rule.metric == "kit_error_rate":
+        sentence = f"{_percent(measured)} of kernel-trace tool calls failed"
+    else:  # context_stale_indexes: a count of projects
+        n = int(measured)
+        sentence = f"{n} project{' has' if n == 1 else 's have'} a stale easy-context index"
+        target = "none" if rule.threshold == 0 else f"{rule.threshold:,.0f} or fewer"
+    return f"{sentence}; target {target}, last {days} days"
 
 
 # Metric functions: (conn, since, until) -> (measured, detail). Raise Abstain when unmeasurable.
@@ -208,7 +264,7 @@ def evaluate(conn, now: datetime | None = None, rules: list[Rule] | None = None)
         try:
             measured, detail = _measure(rule, conn, now)
         except Abstain as why:
-            abstained.append({"rule_id": rule.id, "reason": str(why)})
+            abstained.append({"rule_id": rule.id, "title": rule.title, "reason": str(why)})
             continue
         if OPS[rule.op](measured, rule.threshold):
             hit = {
@@ -219,6 +275,10 @@ def evaluate(conn, now: datetime | None = None, rules: list[Rule] | None = None)
                 "threshold": rule.threshold,
                 "window_days": rule.window_days,
                 "fix": rule.fix,
+                "title": rule.title,
+                "why": rule.why,
+                "steps": list(rule.steps),
+                "summary": summary(rule, measured, detail),
             }
             if detail:
                 hit["detail"] = detail

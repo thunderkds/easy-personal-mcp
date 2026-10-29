@@ -8,7 +8,7 @@ from easy_personal.core import rules as rule_engine
 def improvement_plan(conn, now: datetime | None = None, rules=None) -> dict:
     groups: dict[int, list[dict]] = {}
     for hit in rule_engine.evaluate(conn, now, rules)["hits"]:
-        item = {k: hit[k] for k in ("rule_id", "label", "measured", "threshold", "fix")}
+        item = {k: hit[k] for k in ("rule_id", "label", "measured", "threshold", "fix", "title", "why", "steps", "summary")}
         if "detail" in hit:
             item["detail"] = hit["detail"]
         groups.setdefault(hit["priority"], []).append(item)

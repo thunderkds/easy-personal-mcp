@@ -169,6 +169,32 @@ ul.entries > li { border-top: 1px solid var(--color-border); padding: var(--spac
 .label-improve { color: var(--color-accent-text); border-color: var(--color-accent-text); }
 .label-aware { color: var(--color-muted); }
 .group { border: 0; padding: 0; margin: 0; }
+.headline { font-size: var(--text-lg); font-weight: 600; margin: var(--space-3) 0; }
+ol.actions { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; gap: var(--space-3); }
+.action-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-3);
+  overflow-wrap: anywhere;
+}
+.action-card header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); margin-bottom: var(--space-2); }
+.action-card h3 { margin: 0; font-size: var(--text-lg); }
+.action-card p { margin: var(--space-2) 0; }
+.card-summary { color: var(--color-text); }
+.card-why { color: var(--color-muted); }
+.card-why strong { color: var(--color-text); }
+ol.steps { margin: var(--space-2) 0; padding-left: var(--space-4); }
+ol.steps li { margin: var(--space-1) 0; }
+.card-detail ul { margin: var(--space-1) 0; padding-left: var(--space-4); }
+.chip { font-size: var(--text-sm); font-weight: 600; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius); }
+.chip-warning { color: var(--color-error); border-color: var(--color-error); }
+.chip-improve { color: var(--color-accent-text); border-color: var(--color-accent-text); }
+.chip-aware { color: var(--color-muted); }
+.not-checked summary { cursor: pointer; font-weight: 600; }
+.not-checked summary:focus-visible { outline: 2px solid var(--color-accent-text); outline-offset: 2px; }
+.not-checked ul.entries { margin-top: var(--space-2); }
 .stale { background: var(--color-gap-soft); color: var(--color-gap); border: 1px solid var(--color-gap); border-radius: var(--radius-sm); padding: 0 var(--space-2); font-weight: bold; }
 .sort { font: inherit; font-weight: bold; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
 .field { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-2); }

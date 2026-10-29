@@ -228,3 +228,129 @@ def test_plan_groups_by_priority_and_is_deterministic(conn, tmp_path):
 
 def test_plan_is_empty_when_nothing_fires(conn):
     assert plan.improvement_plan(conn, now=NOW) == {"groups": []}
+
+
+# --- HUN-120: plain title, why, numbered steps, human summary ---------------------------------
+
+
+def _by_id():
+    return {r.id: r for r in rules.load_rules()}
+
+
+def test_every_rule_has_title_why_and_one_to_three_steps():
+    pack = rules.load_rules()
+    assert len(pack) == 7
+    for r in pack:
+        assert r.title and r.why
+        assert 1 <= len(r.steps) <= 3
+        assert r.fix == " ".join(r.steps)  # old readers keep one fix line
+
+
+@pytest.mark.parametrize("missing", ["title", "why", "steps"])
+def test_load_rules_refuses_a_rule_without_title_why_or_steps(tmp_path, monkeypatch, missing):
+    parts = {"title": "title=Low cache", "why": "why=It costs more.", "steps": "steps=Do this|Then that"}
+    parts.pop(missing)
+    pack = tmp_path / "rules.yaml"
+    pack.write_text(
+        "rules:\n  cache_hit_low: metric=cache_hit_ratio op=lt threshold=0.5 label=warning priority=1 "
+        f"window_days=7 min_history_days=7 {' '.join(parts.values())}\n"
+    )
+    monkeypatch.setattr(rules, "PACKAGED", pack)
+    with pytest.raises(ValueError, match=missing):
+        rules.load_rules()
+
+
+def test_old_fix_only_rule_is_refused(tmp_path, monkeypatch):
+    pack = tmp_path / "rules.yaml"
+    pack.write_text(
+        "rules:\n  cache_hit_low: metric=cache_hit_ratio op=lt threshold=0.5 label=warning priority=1 "
+        "window_days=7 min_history_days=7 fix=Keep it stable.\n"
+    )
+    monkeypatch.setattr(rules, "PACKAGED", pack)
+    with pytest.raises(ValueError, match="cache_hit_low"):
+        rules.load_rules()
+
+
+def test_title_and_why_may_contain_equals_signs(tmp_path, monkeypatch):
+    pack = tmp_path / "rules.yaml"
+    pack.write_text(
+        "rules:\n  cache_hit_low: metric=cache_hit_ratio op=lt threshold=0.5 label=warning priority=1 "
+        "window_days=7 min_history_days=7 title=Low a=b reuse why=When x=y the bill grows. "
+        "steps=Set k=v first|Then retry\n"
+    )
+    monkeypatch.setattr(rules, "PACKAGED", pack)
+    (rule,) = rules.load_rules()
+    assert rule.title == "Low a=b reuse"
+    assert rule.why == "When x=y the bill grows."
+    assert rule.steps == ("Set k=v first", "Then retry")
+
+
+def test_hit_carries_title_why_steps_summary_and_keeps_old_keys(conn, tmp_path):
+    _load(conn, tmp_path, [_msg(1, DAY, i=69, cr=31)])  # cache hit 31%
+    hit = _result(conn, "cache_hit_low")[1]
+    assert hit["title"] == "Low cache reuse"
+    assert hit["why"] and 1 <= len(hit["steps"]) <= 3
+    assert hit["summary"] == "31% of prompt tokens came from cache; target 50% or more, last 7 days"
+    assert hit["fix"] == " ".join(hit["steps"])
+    assert {"rule_id", "label", "priority", "measured", "threshold", "window_days"} <= set(hit)
+
+
+def test_abstained_entry_carries_title(conn):
+    out = rules.evaluate(conn, now=NOW)
+    assert out["abstained"] and all(a["title"] for a in out["abstained"])
+    assert all(set(a) == {"rule_id", "title", "reason"} for a in out["abstained"])
+
+
+def test_plan_items_carry_title_why_steps_summary(conn, tmp_path):
+    _load(conn, tmp_path, [_msg(1, DAY, i=69, cr=31)])
+    item = plan.improvement_plan(conn, now=NOW)["groups"][0]["items"][0]
+    assert item["title"] == "Low cache reuse"
+    assert item["why"] and item["steps"] and item["summary"].startswith("31% of prompt tokens")
+    assert item["fix"]
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "measured", "detail", "expected"),
+    [
+        ("cache_hit_low", 0.31, None, "31% of prompt tokens came from cache; target 50% or more, last 7 days"),
+        (
+            "session_huge_no_compact",
+            210_500,
+            None,
+            "The median open session reached 210,500 tokens of context; target 150,000 or fewer, last 7 days",
+        ),
+        (
+            "records_unreadable",
+            0.025,
+            {"version": "2.1.295"},
+            "2.5% of records from Claude Code 2.1.295 could not be read; target 2% or less, last 7 days",
+        ),
+        ("tokens_jump", 0.62, None, "Token use rose 62% in the last 7 days against the 7 days before; target 50% or less"),
+        (
+            "project_dominates",
+            0.82,
+            {"project": "alpha"},
+            "One project (alpha) used 82% of tokens; target 60% or less, last 7 days",
+        ),
+        ("tool_errors_high", 0.105, None, "10.5% of kernel-trace tool calls failed; target 10% or less, last 7 days"),
+        (
+            "context_index_stale",
+            2,
+            {"projects": ["a", "b"]},
+            "2 projects have a stale easy-context index; target none, last 7 days",
+        ),
+        (
+            "context_index_stale",
+            1,
+            {"projects": ["a"]},
+            "1 project has a stale easy-context index; target none, last 7 days",
+        ),
+    ],
+)
+def test_summary_per_metric_kind(rule_id, measured, detail, expected):
+    assert rules.summary(_by_id()[rule_id], measured, detail) == expected
+
+
+def test_summary_uses_the_owner_threshold():
+    custom = _by_id()["cache_hit_low"].with_threshold(0.7)
+    assert rules.summary(custom, 0.6, None).endswith("target 70% or more, last 7 days")
