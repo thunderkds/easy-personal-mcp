@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 import AgentsView from './AgentsView.jsx'
-import { fakeFetch, accountList } from './test/fixtures.js'
+import { fakeFetch, accountList, accountsStatus, accountsStatusByProvider } from './test/fixtures.js'
 
 const PLAN = { steps: [{ account_id: 2, account: 'Claude personal', action: 'add', alias: 'work-slack', connector_id: 'c1', line: 'Claude personal: add work-slack -> exec c1' }] }
 
@@ -313,5 +313,103 @@ describe('re-choose and rename (HUN-114)', () => {
     fireEvent.click(within(r).getByRole('button', { name: 'Ignore' }))
     expect(await within(r).findByRole('alert')).toHaveTextContent('the default account cannot be ignored')
     expect(within(screen.getByRole('listitem', { name: 'Claude wife' })).queryByRole('alert')).toBeNull()
+  })
+})
+
+describe('Agents status card (HUN-116)', () => {
+  const NOW = '2026-10-29T10:00:00Z'
+  beforeEach(() => vi.useFakeTimers({ toFake: ['Date'], now: new Date(NOW) }))
+  afterEach(() => vi.useRealTimers())
+  async function open(by = 'account') {
+    stub({ overrides: { accounts: accountsStatus, accountsByProvider: accountsStatusByProvider } })
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    if (by === 'provider') {
+      fireEvent.click(screen.getByRole('button', { name: 'By provider' }))
+      await screen.findByRole('heading', { name: 'claude' })
+    }
+  }
+
+  it('AC1: shows email, readable plan and organization; omits the line when all are null', async () => {
+    await open()
+    expect(within(row('Claude default')).getByText('👤 a@b.c · subscription · Acme Org')).toBeInTheDocument()
+    expect(within(row('Claude personal')).getByText('👤 me@home.test')).toBeInTheDocument()
+    expect(within(row('Claude bare')).queryByText(/👤/)).toBeNull()
+  })
+
+  it('AC2: shows last model and relative last-active time, "never" when null', async () => {
+    await open()
+    expect(within(row('Claude default')).getByText('claude-opus-5-5 · last active 2 h ago')).toBeInTheDocument()
+    expect(within(row('Claude personal')).getByText('claude-sonnet-5-5 · last active just now')).toBeInTheDocument()
+    expect(within(row('Claude bare')).getByText('last active never')).toBeInTheDocument()
+  })
+
+  it('AC3: shows tokens today and last 7 days with thousands separators', async () => {
+    await open()
+    expect(within(row('Claude default')).getByText('Tokens: 1,234 today · 56,789 last 7 days')).toBeInTheDocument()
+  })
+
+  it('AC4: limit bars use Progress, tone by threshold, text with reset countdown, aria-label with numbers', async () => {
+    await open()
+    const r = row('Claude default')
+    expect(within(r).getByText('5h 43% · resets in 1h 20m')).toBeInTheDocument()
+    expect(within(r).getByText('7d 75% · resets in 3d 4h')).toBeInTheDocument()
+    const five = within(r).getByRole('progressbar', { name: '5h limit 43%, resets in 1h 20m' })
+    expect(five).toHaveAttribute('aria-valuenow', '42.5')
+    expect(five.closest('.limit')).toHaveClass('limit-green')
+    expect(within(r).getByRole('progressbar', { name: '7d limit 75%, resets in 3d 4h' }).closest('.limit')).toHaveClass('limit-amber')
+    const p = row('Claude personal')
+    expect(within(p).getByText('5h 92% · resets in 30m')).toBeInTheDocument()
+    expect(within(p).getByRole('progressbar', { name: '5h limit 92%, resets in 30m' }).closest('.limit')).toHaveClass('limit-red')
+    expect(within(p).getByRole('progressbar', { name: /^7d limit 10%/ }).closest('.limit')).toHaveClass('limit-green')
+  })
+
+  it('AC4: boundaries are 70 and 90', async () => {
+    const mk = (pct) => ({ ...accountsStatus.accounts[0], limits: undefined, status_line: { ...accountsStatus.accounts[0].status_line, limits: { five_hour: { used_percentage: pct, resets_at: '2026-10-29T11:00:00Z', stale: false }, seven_day: null, written_at: null, stale: false } } })
+    const tone = async (pct) => {
+      stub({ overrides: { accounts: { by: 'account', accounts: [mk(pct)] } } })
+      const { unmount } = render(<AgentsView />)
+      const bar = await screen.findByRole('progressbar')
+      const cls = bar.closest('.limit').className
+      unmount()
+      return cls
+    }
+    expect(await tone(69)).toContain('limit-green')
+    expect(await tone(70)).toContain('limit-amber')
+    expect(await tone(89)).toContain('limit-amber')
+    expect(await tone(90)).toContain('limit-red')
+  })
+
+  it('AC5: a stale snapshot says "as of <time>, reset since" and draws no bar for that window', async () => {
+    await open()
+    const r = row('Claude old')
+    expect(within(r).getByText(`5h · as of ${new Date('2026-10-29T08:00:00Z').toLocaleString()}, reset since`)).toBeInTheDocument()
+    expect(within(r).queryByRole('progressbar')).toBeNull()
+  })
+
+  it('AC5: no snapshot shows the muted README hint (Claude accounts only)', async () => {
+    await open()
+    expect(within(row('Claude bare')).getByText('Plan limits: add the status-line snippet (README)')).toHaveClass('muted')
+    expect(within(row('Codex')).queryByText(/Plan limits/)).toBeNull()
+  })
+
+  it('edge: a window without a percentage is hidden; a reset already passed says "resets soon"', async () => {
+    await open()
+    expect(within(row('Claude old')).queryByText(/^7d/)).toBeNull()
+    expect(within(row('Claude skew')).getByText('5h 30% · resets soon')).toBeInTheDocument()
+    expect(within(row('Claude skew')).queryByText(/^7d/)).toBeNull()
+  })
+
+  it('AC6: works in By provider', async () => {
+    await open('provider')
+    expect(within(row('Claude personal')).getByText('5h 92% · resets in 30m')).toBeInTheDocument()
+    expect(within(row('Codex')).getByText('Tokens: 5 today · 6 last 7 days')).toBeInTheDocument()
+  })
+
+  it('actions and workspace picker stay on the card', async () => {
+    await open()
+    const r = row('Claude default')
+    expect(within(r).getByRole('button', { name: 'Rename' })).toBeInTheDocument()
+    expect(within(r).getByRole('group', { name: 'Workspaces' })).toBeInTheDocument()
   })
 })

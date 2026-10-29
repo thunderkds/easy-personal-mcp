@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { getJson, sendJson } from './api.js'
 import { useLoad } from './useLoad.js'
+import { ago, fmt, localTime, until } from './format.js'
+import { Progress } from './Widgets.jsx'
 
 const NOT_APPLIED = ['refused', 'skipped']
 
@@ -204,6 +206,49 @@ function Picker({ account, workspaces }) {
   )
 }
 
+/** Same thresholds as the status line: green below 70 %, amber 70-89 %, red from 90 %. */
+const tone = (pct) => (pct >= 90 ? 'red' : pct >= 70 ? 'amber' : 'green')
+const readablePlan = (plan) => plan.replace(/^stripe_/, '').replace(/_/g, ' ')
+
+/** One limit window of the plan-limits snapshot: a bar with its numbers, or the stale note. Hidden without a percentage. */
+function LimitBar({ name, window, writtenAt }) {
+  if (!window || window.used_percentage === null || window.used_percentage === undefined) return null
+  if (window.stale) return <p className="muted">{`${name} · as of ${localTime(writtenAt)}, reset since`}</p>
+  const pct = Math.round(window.used_percentage)
+  const reset = until(window.resets_at)
+  const text = `${name} ${pct}% · resets ${reset === 'soon' ? 'soon' : `in ${reset}`}`
+  return (
+    <div className={`limit limit-${tone(pct)}`}>
+      <p>{text}</p>
+      <Progress ratio={window.used_percentage / 100} label={`${name} limit ${pct}%, resets ${reset === 'soon' ? 'soon' : `in ${reset}`}`} />
+    </div>
+  )
+}
+
+/** The account's status line: who, what model, how much used, plan limits. */
+function StatusLine({ account }) {
+  const s = account.status_line
+  if (!s) return null
+  const who = [s.email, s.plan && readablePlan(s.plan), s.organization].filter(Boolean).join(' · ')
+  const limits = s.limits
+  const windows = limits && [limits.five_hour, limits.seven_day].some((w) => w && w.used_percentage !== null && w.used_percentage !== undefined)
+  return (
+    <div className="status-line">
+      {who && <p className="who">{`👤 ${who}`}</p>}
+      <p>{`${s.last_model ? `${s.last_model} · ` : ''}last active ${ago(s.last_active_utc)}`}</p>
+      <p>{`Tokens: ${fmt(s.tokens_today)} today · ${fmt(s.tokens_7d)} last 7 days`}</p>
+      {windows ? (
+        <>
+          <LimitBar name="5h" window={limits.five_hour} writtenAt={limits.written_at} />
+          <LimitBar name="7d" window={limits.seven_day} writtenAt={limits.written_at} />
+        </>
+      ) : (
+        account.provider === 'claude' && <p className="muted">Plan limits: add the status-line snippet (README)</p>
+      )}
+    </div>
+  )
+}
+
 function AccountRow({ account, workspaces, onChanged, justConfirmed }) {
   const { provider, label, folder, status } = account
   const name = label || folder.split('/').filter(Boolean).pop() || folder
@@ -217,6 +262,7 @@ function AccountRow({ account, workspaces, onChanged, justConfirmed }) {
         <span className="muted">{provider}</span>
       </div>
       <p className="muted">{folder}</p>
+      <StatusLine account={account} />
       {['detected', 'ignored', 'confirmed'].includes(status) && <AccountActions account={account} onChanged={onChanged} />}
       {status === 'confirmed' && justConfirmed && (
         <p role="status" className="muted">
@@ -245,7 +291,7 @@ function Accounts({ by, workspaces, onChanged, confirmedIds }) {
   return groups.map((g) => (
     <section key={g.title ?? 'all'} aria-label={g.title ?? 'Agent accounts'}>
       {g.title && <h2>{g.title}</h2>}
-      <ul className="entries">
+      <ul className="entries agent-cards">
         {g.accounts.map((a) => (
           <AccountRow key={a.id} account={a} workspaces={workspaces} onChanged={onChanged} justConfirmed={confirmedIds.includes(a.id)} />
         ))}
