@@ -194,11 +194,16 @@ def context_part(conn: sqlite3.Connection, project: str) -> dict:
     return {"status": "no data"} if found is None else {"status": "ok", **found}
 
 
-def stale_projects(conn: sqlite3.Connection) -> tuple[int, list[str]] | None:
-    """(count, folder names) of projects with a stale index; None when no context data is stored."""
+def stale_projects(conn: sqlite3.Connection, within: set[str] | None = None) -> tuple[int, list[str]] | None:
+    """(count, folder names) of projects with a stale index; None when no context data is stored.
+
+    `within` (project paths) limits the check to those projects; None = every stored index.
+    """
     from pathlib import Path
 
     paths = [p for (p,) in conn.execute("SELECT project_path FROM context_index ORDER BY 1")]
+    if within is not None:
+        paths = [p for p in paths if p in within]
     if not paths:
         return None
     stale = [Path(p).name or p for p in paths if (freshness(conn, p) or {}).get("stale")]

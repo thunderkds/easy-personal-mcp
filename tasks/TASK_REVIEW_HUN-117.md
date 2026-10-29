@@ -26,16 +26,16 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/surfaces/test_scope_warnings.py` (18 tests; fixture `tests/surfaces/scope_fixture.py`, golden `tests/surfaces/scope_golden.json` captured from the pre-change code). `uv run pytest -q tests/surfaces/test_scope_warnings.py` -> `18 passed`. AC1 golden (`test_no_scope_equals_golden`, `test_api_without_scope_is_the_golden_shape`); AC2 `test_account_scopes_usage_rules`; AC3 `test_workspace_scopes_usage_rules`, `test_kit_summary_filters_projects`; AC4 same test (account); AC5 `test_unknown_scope_raises_even_on_an_empty_store`, `test_api_unknown_scope_is_400_like_the_usage_routes`, `test_cli_unknown_scope_exits_2`; AC6 `test_mcp_tools_accept_scope_and_match_cli`, `test_cli_scope_flags` + `tests/leak/harness.py` (`MCP_CALLS`, `CLI_CALLS`, `API_CALLS`); edge cases `test_tokens_jump_scopes_both_weeks`, `test_kernel_error_rate_follows_scope_projects`, project_dominates abstain in `test_workspace_scopes_usage_rules`. |
+| Verification command run | ☑ pass | `uv run pytest -q` (no `EASY_PERSONAL_*` vars set, built web) -> `766 passed, 4 deselected, 1 xfailed, 1 warning in 140.49s (0:02:20)`. `uv run ruff check src tests/surfaces/test_scope_warnings.py tests/surfaces/scope_fixture.py tests/leak` -> `All checks passed!` |
+| Negative cases hold | ☑ pass | Unknown workspace/account: API answers 400 with the same JSON as `/api/usage/summary` and never echoes the bad value; CLI exits 2 with stderr only, listing valid labels; core raises even on an empty store (before the history abstain). Empty `?workspace=` = no filter. Workspace with no matching projects selects nothing (`hits == []`, kit `projects == []`). Leak suite: `uv run pytest -q tests/leak` -> `26 passed`. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | Same run as above: `766 passed, 4 deselected, 1 xfailed`. |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression** | ☑ N/A | Pure backend task (API, MCP, CLI); no UI change. The selector UI is a follow-up task. |
+| **UI: Design-system compliance** | ☑ N/A | Pure backend task (API, MCP, CLI); no UI change. The selector UI is a follow-up task. |
+| **UI: Responsiveness** | ☑ N/A | Pure backend task (API, MCP, CLI); no UI change. The selector UI is a follow-up task. |
 
 ---
 
@@ -46,12 +46,36 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-29T08:12:43Z, before any implementation commit; fixture store in a temp `EASY_PERSONAL_HOME`: account 1 `Claude default` has cache reads, account 2 `Claude work` has none; workspace `wa` = repo `/work/a`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ easy-personal warnings            -> runs, hits = [project_dominates]
+$ easy-personal warnings --account 'Claude work'
+easy-personal: error: unrecognized arguments: --account Claude work
+$ easy-personal warnings --workspace wa
+easy-personal: error: unrecognized arguments: --workspace wa
+$ easy-personal kit --workspace wa
+easy-personal: error: unrecognized arguments: --workspace wa
+$ easy-personal plan --account 2
+easy-personal: error: unrecognized arguments: --account 2
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+(full capture incl. the usage line: scratchpad `demo117/before.txt`). The API routes `/api/warnings|plan|kit` ignore `workspace`/`account` (`lambda c, q: rules.evaluate(c)`); the MCP tools `warnings`, `improvement_plan`, `kit_summary` take no arguments.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER** (2026-10-29T08:19:58Z, same fixture store, same commands):
+
+```
+$ easy-personal warnings                          hits: [project_dominates 0.9854]      (unchanged from BEFORE)
+$ easy-personal warnings --account 'Claude work'  hits: [cache_hit_low 0.0]; project_dominates abstains
+$ easy-personal warnings --account 'Claude default'  hits: []
+$ easy-personal warnings --workspace wa           hits: []; project_dominates abstains (one project)
+$ easy-personal kit --workspace wa                kit projects: ['a']
+$ easy-personal plan --account 2                  plan: [cache_hit_low 0.0]
+$ easy-personal warnings --account nope           easy-personal: unknown account; valid labels: Claude default, Claude work   (exit 2)
+```
+
+(full capture: scratchpad `demo117/after.txt`). `/api/warnings|plan|kit` read `?workspace=&account=`; MCP `warnings`, `improvement_plan`, `kit_summary` take optional `workspace`, `account`.
+
+**DELTA**: The owner can now see warnings, the improvement plan and the kit panel for one account or one workspace (API query, MCP argument, CLI flag); with no argument the output is unchanged.
+
+**WITNESS**: Backend-Implementer agent ran both captures in the HUN-117 worktree on 2026-10-29 (BEFORE 08:12:43Z, before any implementation commit; AFTER 08:19:58Z); the pytest runs are attributed to HUN-117 by the trace hook (`memory/event-trace/HUN-117.jsonl`).

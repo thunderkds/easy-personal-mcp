@@ -37,9 +37,9 @@ MCP_CALLS: dict[str, list[dict]] = {
         {"by": "day", "since": "2026-01-01"},
     ],
     "session_outliers": [{}, {"since": "2026-01-01"}],
-    "warnings": [{}],
-    "improvement_plan": [{}],
-    "kit_summary": [{}],
+    "warnings": [{}, {"workspace": "acme"}, {"account": "1"}, {"workspace": "acme", "account": "1"}],
+    "improvement_plan": [{}, {"workspace": "acme"}, {"account": "1"}],
+    "kit_summary": [{}, {"workspace": "acme"}, {"account": "1"}, {"workspace": "acme", "account": "1"}],
     "connector_catalog": [{}],
     "connector_status": [{}],
     "connector_suggestions": [{}],
@@ -75,9 +75,9 @@ CLI_CALLS: dict[str, list[list[str]]] = {
         ["--by", "tool"],
     ],
     "outliers": [[], ["--since", "2026-01-01"], ["--workspace", "acme"], ["--account", "1"]],
-    "warnings": [[]],
-    "plan": [[]],
-    "kit": [[]],
+    "warnings": [[], ["--workspace", "acme"], ["--account", "1"], ["--account", "1", "--workspace", "acme"]],
+    "plan": [[], ["--workspace", "acme"], ["--account", "1"]],
+    "kit": [[], ["--workspace", "acme"], ["--account", "1"], ["--account", "1", "--workspace", "acme"]],
     "account": [
         ["list"], ["list", "--by", "provider"], ["list", "--by", "account"],
         # HUN-65: id 1 is the fake agent root's `.claude-work`; `acme` comes from "workspace" above.
@@ -100,9 +100,9 @@ API_CALLS: dict[str, list[str]] = {
     "/api/usage/outliers": ["", "?since=2026-01-01", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/workspaces": [""],
-    "/api/warnings": [""],
-    "/api/plan": [""],
-    "/api/kit": [""],
+    "/api/warnings": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
+    "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
+    "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
     "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
@@ -273,7 +273,10 @@ def collect_mcp(app, out: Collected, logs: "LogCapture") -> None:
         for args in variants:
             sink_out, sink_err = io.StringIO(), io.StringIO()
             with contextlib.redirect_stdout(sink_out), contextlib.redirect_stderr(sink_err):
-                result = asyncio.run(app.call_tool(tool, args))
+                try:
+                    result = asyncio.run(app.call_tool(tool, args))
+                except Exception as exc:  # e.g. a scope argument naming a workspace this store lacks; scan the error text too
+                    result = f"tool error: {exc!r} cause: {exc.__cause__!r}"
             out.add(f"mcp {tool} {args}", result)
             out.add(f"mcp {tool} {args} stdout", sink_out.getvalue())
             out.add(f"mcp {tool} {args} stderr", sink_err.getvalue())

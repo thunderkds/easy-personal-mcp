@@ -96,9 +96,14 @@ def build_parser() -> argparse.ArgumentParser:
     delete_p = workspace_sub.add_parser("delete", help="delete a workspace; its connectors move to orphan")
     delete_p.add_argument("name")
     delete_p.add_argument("--yes", action="store_true", help="skip the confirmation question")
-    sub.add_parser("warnings", help="declared usage rules that fired (same as MCP warnings)")
-    sub.add_parser("kit", help="what the Easy Kit did per project (same as MCP kit_summary)")
-    sub.add_parser("plan", help="improvement plan by priority (same as MCP improvement_plan)")
+    for name, text in (
+        ("warnings", "declared usage rules that fired (same as MCP warnings)"),
+        ("kit", "what the Easy Kit did per project (same as MCP kit_summary)"),
+        ("plan", "improvement plan by priority (same as MCP improvement_plan)"),
+    ):
+        scoped_p = sub.add_parser(name, help=text)
+        scoped_p.add_argument("--workspace", help="only this workspace's repo paths")
+        scoped_p.add_argument("--account", help="only this agent account (id or label)")
     sub.add_parser("dashboard", help="ingest, then serve the local dashboard until Ctrl-C")
     for name, text in (("exec", "run a connector's provider server with keychain secrets"),
                        ("headers", "print a connector's JSON headers from the keychain")):
@@ -402,17 +407,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"easy-personal: {exc}", file=sys.stderr)
             return 2
         return 0
-    if args.command == "kit":
-        with store.opened(config.store_path()) as conn:
-            _print_json(kit.kit_summary(conn))
-        return 0
-    if args.command in ("warnings", "plan"):
+    if args.command in ("warnings", "plan", "kit"):
+        scope = {"workspace": args.workspace, "account": args.account}
         try:
             with store.opened(config.store_path()) as conn:
-                _print_json(
-                    rules.evaluate(conn) if args.command == "warnings" else plan.improvement_plan(conn)
-                )
-        except ValueError as exc:  # bad thresholds in config.yaml
+                if args.command == "kit":
+                    _print_json(kit.kit_summary(conn, **scope))
+                else:
+                    _print_json(
+                        rules.evaluate(conn, **scope)
+                        if args.command == "warnings"
+                        else plan.improvement_plan(conn, **scope)
+                    )
+        except ValueError as exc:  # bad thresholds in config.yaml, unknown workspace or account
             print(f"easy-personal: {exc}", file=sys.stderr)
             return 2
         return 0

@@ -97,26 +97,27 @@ def _iso(moment: datetime) -> str:
     return moment.astimezone(UTC).isoformat()
 
 
-# Metric functions: (conn, since, until) -> (measured, detail). Raise Abstain when unmeasurable.
-def _cache_hit_ratio(conn, since, until):
-    ratio = metrics.usage_summary(conn, since, until)["cache_hit_ratio"]
+# Metric functions: (conn, since, until, **scope) -> (measured, detail); `scope` is the optional
+# `workspace` and `account` of `metrics._scope`. Raise Abstain when unmeasurable.
+def _cache_hit_ratio(conn, since, until, **scope):
+    ratio = metrics.usage_summary(conn, since, until, **scope)["cache_hit_ratio"]
     if ratio is None:
         raise Abstain("no prompt tokens in the window")
     return ratio, None
 
 
-def _median_session_context(conn, since, until):
-    sessions = metrics.session_contexts(conn, since, until)
+def _median_session_context(conn, since, until, **scope):
+    sessions = metrics.session_contexts(conn, since, until, **scope)
     if not sessions:
         raise Abstain("no sessions in the window")
     open_sessions = [s["max_context_tokens"] for s in sessions if not s["compacted"]]
     return (statistics.median(open_sessions) if open_sessions else 0), None
 
 
-def _unreadable_share(conn, since, until):
+def _unreadable_share(conn, since, until, **scope):
     shares = {
         version: round(bad / total, 4)
-        for version, (bad, total) in metrics.record_readability(conn, since, until).items()
+        for version, (bad, total) in metrics.record_readability(conn, since, until, **scope).items()
         if total
     }
     if not shares:
@@ -125,8 +126,8 @@ def _unreadable_share(conn, since, until):
     return shares[worst], {"version": worst}
 
 
-def _top_project_share(conn, since, until):
-    groups = metrics.usage_breakdown(conn, "project", since, until)["groups"]
+def _top_project_share(conn, since, until, **scope):
+    groups = metrics.usage_breakdown(conn, "project", since, until, **scope)["groups"]
     totals = {
         g["key"]: g["input_tokens"]
         + g["output_tokens"]
@@ -141,12 +142,12 @@ def _top_project_share(conn, since, until):
     return round(totals[top] / whole, 4), {"project": top}
 
 
-def _week_over_week_tokens(conn, since, until):
+def _week_over_week_tokens(conn, since, until, **scope):
     """Tokens of [since, until) against the equally long window before it: +0.5 means +50%."""
     start, end = datetime.fromisoformat(since), datetime.fromisoformat(until)
 
     def tokens(lo, hi):
-        total = metrics.usage_breakdown(conn, "day", _iso(lo), _iso(hi))["total"]
+        total = metrics.usage_breakdown(conn, "day", _iso(lo), _iso(hi), **scope)["total"]
         return (
             total["input_tokens"]
             + total["output_tokens"]
@@ -160,15 +161,16 @@ def _week_over_week_tokens(conn, since, until):
     return round(tokens(start, end) / previous - 1, 4), None
 
 
-def _kit_error_rate(conn, since, until):
-    rate, calls = kit.kernel_error_rate(conn, since, until)
+def _kit_error_rate(conn, since, until, **scope):
+    rate, calls = kit.kernel_error_rate(conn, since, until, **scope)
     if not calls:
         raise Abstain("no kernel-trace tool calls in the window")
     return round(rate, 4), None
 
 
-def _context_stale_indexes(conn, since, until):
-    found = context.stale_projects(conn)
+def _context_stale_indexes(conn, since, until, **scope):
+    within = set(kit.scoped_projects(conn, **scope)) if any(v is not None for v in scope.values()) else None
+    found = context.stale_projects(conn, within)
     if found is None:
         raise Abstain("no easy-context data (service down or no index for a known project)")
     count, names = found
@@ -186,7 +188,7 @@ METRICS = {
 }
 
 
-def _measure(rule: Rule, conn, now):
+def _measure(rule: Rule, conn, now, scope: dict):
     start = metrics.history_start(conn)
     needed = now - timedelta(days=rule.min_history_days)
     if start is None:
@@ -194,19 +196,30 @@ def _measure(rule: Rule, conn, now):
     if datetime.fromisoformat(start) > needed:
         raise Abstain(f"less than {rule.min_history_days} days of stored history")
     since = _iso(now - timedelta(days=rule.window_days))
-    return METRICS[rule.metric](conn, since, _iso(now))
+    return METRICS[rule.metric](conn, since, _iso(now), **scope)
 
 
-def evaluate(conn, now: datetime | None = None, rules: list[Rule] | None = None) -> dict:
+def evaluate(
+    conn,
+    now: datetime | None = None,
+    rules: list[Rule] | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
+) -> dict:
     """Run every rule; `hits` are the fired rules, `abstained` the ones that could not be measured.
 
     Hits are ordered by priority, then rule id, so the same store gives the same output.
+    `workspace` (a name) and `account` (id or label) limit every metric to that scope; an unknown
+    one raises ValueError, even when the store has too little history to measure anything.
     """
     now = now or datetime.now(UTC)
+    scope = {"workspace": workspace, "account": account}
+    if workspace is not None or account is not None:
+        metrics._scope(conn, workspace, None, None, account)
     hits, abstained = [], []
     for rule in rules if rules is not None else load_rules(config.config_path()):
         try:
-            measured, detail = _measure(rule, conn, now)
+            measured, detail = _measure(rule, conn, now, scope)
         except Abstain as why:
             abstained.append({"rule_id": rule.id, "reason": str(why)})
             continue
