@@ -49,9 +49,16 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 /** Ring gauge of a 0..1 ratio. `null` is "no data", never 0%. */
 export function Ring({ ratio, label }) {
+  const gradient = useId()
   const known = ratio !== null && ratio !== undefined
   return (
     <svg className="ring" viewBox="0 0 100 100" role="img" aria-label={label}>
+      <defs>
+        <linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
+          <stop className="ring-start" offset="0%" />
+          <stop className="ring-end" offset="100%" />
+        </linearGradient>
+      </defs>
       <circle className="ring-track" cx="50" cy="50" r={RADIUS} fill="none" />
       {known && (
         <circle
@@ -60,6 +67,7 @@ export function Ring({ ratio, label }) {
           cy="50"
           r={RADIUS}
           fill="none"
+          stroke={`url(#${gradient})`}
           strokeLinecap="round"
           strokeDasharray={`${Math.min(Math.max(ratio, 0), 1) * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
           transform="rotate(-90 50 50)"

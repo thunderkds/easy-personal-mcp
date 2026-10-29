@@ -1,4 +1,5 @@
 import { getJson } from './api.js'
+import FeedCard from './FeedCard.jsx'
 import { NO_SCOPE, ScopeLine, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 
@@ -24,15 +25,21 @@ const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1)
 // "no stored history", "no sessions in the window" ... : the rule found nothing to read.
 const isNoData = (reason) => /^no\b/i.test(reason)
 
-function Card({ hit }) {
+function Card({ hit, rank }) {
   const list = steps(hit)
+  const title = hit.title ?? hit.rule_id
   return (
     <li>
-      <article className="action-card" data-rule={hit.rule_id}>
-        <header>
-          <span className={`chip chip-${hit.label}`}>{CHIPS[hit.label] ?? hit.label}</span>
-          <h3>{hit.title ?? hit.rule_id}</h3>
-        </header>
+      <FeedCard
+        id={`action-${rank}`}
+        className="action-card"
+        data-rule={hit.rule_id}
+        icon={String(rank)}
+        title={title}
+        summary={<span className={`chip chip-${hit.label}`}>{CHIPS[hit.label] ?? hit.label}</span>}
+        time={hit.window_days ? `last ${hit.window_days} days` : undefined}
+        footer={list.length > 0 && <span>{`${list.length} ${list.length === 1 ? 'step' : 'steps'}`}</span>}
+      >
         {hit.summary && <p className="card-summary">{hit.summary}</p>}
         {hit.why && (
           <p className="card-why">
@@ -57,7 +64,7 @@ function Card({ hit }) {
               </ul>
             </div>
           ))}
-      </article>
+      </FeedCard>
     </li>
   )
 }
@@ -108,8 +115,8 @@ export default function WarningsPlanView({ scope = NO_SCOPE, options = null, onO
           </p>
           {state.data.hits.length > 0 && (
             <ol className="actions" aria-label="Things to do, first one first">
-              {state.data.hits.map((h) => (
-                <Card key={h.rule_id} hit={h} />
+              {state.data.hits.map((h, i) => (
+                <Card key={h.rule_id} hit={h} rank={i + 1} />
               ))}
             </ol>
           )}

@@ -9,7 +9,7 @@ const NOW = new Date(2026, 9, 21, 12, 0, 0)
 async function renderView(overrides) {
   vi.stubGlobal('fetch', fakeFetch(overrides))
   render(<KitView />)
-  await screen.findByRole('heading', { name: 'Kit by project' })
+  await screen.findByRole('heading', { name: /^Kit by project/ })
 }
 const card = (name) => screen.getByRole('article', { name })
 const project = (name) => structuredClone(kit.projects.find((p) => p.project === name))
@@ -302,7 +302,7 @@ describe('scope (HUN-118)', () => {
     const f = fakeFetch()
     vi.stubGlobal('fetch', f)
     render(<KitView />)
-    await screen.findByRole('heading', { name: 'Kit by project' })
+    await screen.findByRole('heading', { name: /^Kit by project/ })
     expect(f.calls.map((c) => c.url)).toEqual(['/api/kit'])
     expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
   })
@@ -312,7 +312,7 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     const options = { workspaces: [], accounts: [{ id: 1, label: 'Claude company' }] }
     const view = render(<KitView scope={{ workspace: 'Acme', account: '' }} options={options} />)
-    await screen.findByRole('heading', { name: 'Kit by project' })
+    await screen.findByRole('heading', { name: /^Kit by project/ })
     expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme'])
     view.rerender(<KitView scope={{ workspace: 'Acme', account: '1' }} options={options} />)
     await waitFor(() => expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme', '/api/kit?workspace=Acme&account=1']))
@@ -330,5 +330,22 @@ describe('scope (HUN-118)', () => {
     releaseOld()
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.queryByText('old-scope', { exact: false })).toBeNull()
+  })
+})
+
+describe('feed cards (HUN-121 AC4, AC8)', () => {
+  it('the section header carries the project count', async () => {
+    await renderView()
+    expect(screen.getByRole('heading', { level: 2, name: 'Kit by project (4)' })).toBeInTheDocument()
+  })
+
+  it('each project is a feed card: icon with the initial, title, last-active time at the right, footer', async () => {
+    await renderView()
+    const delta = card('delta')
+    expect(delta).toHaveClass('feed-card')
+    expect(delta.querySelector('.feed-icon')).toHaveTextContent('D')
+    expect(delta.querySelector('.feed-time')).toHaveTextContent('today')
+    expect(card('alpha').querySelector('footer.feed-foot')).toHaveTextContent('Not set up here: Verifier')
+    expect(card('beta').querySelector('.feed-time')).toBeNull()
   })
 })

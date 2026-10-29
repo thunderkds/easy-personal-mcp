@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getJson } from './api.js'
+import FeedCard from './FeedCard.jsx'
 import { fmt, localTime, percent } from './format.js'
 import { NO_SCOPE, ScopeLine, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
@@ -186,12 +187,20 @@ function ProjectCard({ project, active, health, now }) {
   const label = stats && `Commits per day, last ${DAYS} days: ${fmt(stats.last30)} in total, peak ${fmt(stats.peak)} in one day`
   return (
     <li>
-      <article className="project-card" aria-labelledby={id}>
-        <header className="card-head">
-          <h3 id={id}>{project.project}</h3>
-          {project.missing_on_disk && <span className="muted">(folder missing)</span>}
-          <span className={`chip ${statusClass[health.level]}`}>{health.text}</span>
-        </header>
+      <FeedCard
+        id={id}
+        className="project-card"
+        icon={project.project}
+        title={project.project}
+        summary={
+          <>
+            {project.missing_on_disk && <span className="muted">(folder missing) </span>}
+            <span className={`chip ${statusClass[health.level]}`}>{health.text}</span>
+          </>
+        }
+        time={active ? ago(daysBefore(active.day, now)) : undefined}
+        footer={missing.length > 0 && <span>Not set up here: {missing.join(', ')}</span>}
+      >
         <p className="card-summary">{summarize(project, active, stats, now)}</p>
         {stats && <Sparkline values={stats.series} label={label} tone="cyan" />}
         {present.length > 0 && (
@@ -201,8 +210,7 @@ function ProjectCard({ project, active, health, now }) {
             ))}
           </ul>
         )}
-        {missing.length > 0 && <p className="muted">Not set up here: {missing.join(', ')}</p>}
-      </article>
+      </FeedCard>
     </li>
   )
 }
@@ -320,7 +328,7 @@ export default function KitView({ scope = NO_SCOPE, options = null }) {
       {state.status === 'ready' && (
         <>
           <section aria-labelledby="h-kit">
-            <h2 id="h-kit">Kit by project</h2>
+            <h2 id="h-kit">{`Kit by project (${state.data.projects.length})`}</h2>
             <p className="muted">How the agent kit, code index and verifier are doing in each project.</p>
             <Projects projects={state.data.projects} />
           </section>

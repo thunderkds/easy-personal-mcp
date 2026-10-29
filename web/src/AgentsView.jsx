@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { getJson, sendJson } from './api.js'
 import { useLoad } from './useLoad.js'
-import { ago, fmt, localTime, until } from './format.js'
+import { ago, fmt, limitTone, localTime, until } from './format.js'
 import { Progress } from './Widgets.jsx'
 
 const NOT_APPLIED = ['refused', 'skipped']
@@ -206,8 +206,6 @@ function Picker({ account, workspaces }) {
   )
 }
 
-/** Same thresholds as the status line: green below 70 %, amber 70-89 %, red from 90 %. */
-const tone = (pct) => (pct >= 90 ? 'red' : pct >= 70 ? 'amber' : 'green')
 const readablePlan = (plan) => plan.replace(/^stripe_/, '').replace(/_/g, ' ')
 
 /** One limit window of the plan-limits snapshot: a bar with its numbers, or the stale note. Hidden without a percentage. */
@@ -218,7 +216,7 @@ function LimitBar({ name, window, writtenAt }) {
   const reset = until(window.resets_at)
   const text = `${name} ${pct}% · resets ${reset === 'soon' ? 'soon' : `in ${reset}`}`
   return (
-    <div className={`limit limit-${tone(pct)}`}>
+    <div className={`limit limit-${limitTone(pct)}`}>
       <p>{text}</p>
       <Progress ratio={window.used_percentage / 100} label={`${name} limit ${pct}%, resets ${reset === 'soon' ? 'soon' : `in ${reset}`}`} />
     </div>
@@ -300,7 +298,7 @@ function Accounts({ by, workspaces, onChanged, confirmedIds }) {
   ))
 }
 
-export default function AgentsView() {
+export default function AgentsView({ onAccountsChanged }) {
   const [by, setBy] = useState('account')
   const [version, setVersion] = useState(0)
   const [confirmedIds, setConfirmedIds] = useState([]) // accounts the owner chose in this visit: the reload keeps the ingest hint
@@ -334,6 +332,7 @@ export default function AgentsView() {
           onChanged={(account, action) => {
             if (action === 'confirm' && account.status !== 'confirmed') setConfirmedIds((ids) => [...ids, account.id])
             setVersion((v) => v + 1)
+            onAccountsChanged?.()
           }}
         />
       )}

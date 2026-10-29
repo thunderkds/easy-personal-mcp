@@ -147,3 +147,16 @@ describe('scope (HUN-118)', () => {
     expect(await screen.findByTestId('scope-line')).toHaveTextContent('Showing: Acme Co · Claude personal')
   })
 })
+
+describe('feed cards (HUN-121 AC8)', () => {
+  it('each action is a feed card with its rank as icon, the window at the right and a step count in the footer', async () => {
+    await renderView()
+    const [first, second] = screen.getAllByRole('article')
+    expect(first).toHaveClass('feed-card')
+    expect(first.querySelector('.feed-icon')).toHaveTextContent('1')
+    expect(second.querySelector('.feed-icon')).toHaveTextContent('2')
+    expect(first.querySelector('.feed-time')).toHaveTextContent('last 7 days')
+    expect(first.querySelector('footer.feed-foot')).toHaveTextContent('2 steps')
+    expect(second.querySelector('footer.feed-foot')).toHaveTextContent('1 step')
+  })
+})
