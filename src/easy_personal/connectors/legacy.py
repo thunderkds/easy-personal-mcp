@@ -11,6 +11,7 @@ No other account and no other name is touched. No line holds a secret.
 import shlex
 import shutil
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from easy_personal.connectors import catalog, writer
@@ -32,16 +33,21 @@ def detect(conn: sqlite3.Connection) -> list[Legacy]:
     stored = {r[0] for r in conn.execute("SELECT id FROM connectors")}
     has_claude = shutil.which("claude") is not None
     env = writer.account_env(None)  # the default account only: CLAUDE_CONFIG_DIR unset
-    found = []
-    for name in catalog.ids():
-        if name in stored:
-            continue
+
+    def check(name: str) -> Legacy | None:
         in_keychain = writer._keychain_item(name)
         got = writer._entry_exists(name, env) if has_claude else None
         ours = got is not None and writer.points_at_launcher(got, name)
         if in_keychain or ours:
-            found.append(Legacy(name, in_keychain, ours, got is not None and not ours))
-    return found
+            return Legacy(name, in_keychain, ours, got is not None and not ours)
+        return None
+
+    names = [name for name in catalog.ids() if name not in stored]
+    if not names:
+        return []
+    with ThreadPoolExecutor(max_workers=min(8, len(names))) as pool:  # each `claude mcp get` waits ~0.7 s
+        results = list(pool.map(check, names))  # catalog order; a LaunchError re-raises here
+    return [item for item in results if item is not None]
 
 
 def _pending(name: str) -> str:
