@@ -239,6 +239,40 @@ export const accountsByProvider = {
     codex: accountList.filter((a) => a.provider === 'codex'),
   },
 }
+// HUN-116: /api/accounts `status_line` (shape from the status-line data task). "Now" in tests: 2026-10-29T10:00:00Z.
+export const statusLine = (over = {}) => ({
+  email: null, plan: null, organization: null, last_model: null, last_active_utc: null,
+  tokens_today: 0, tokens_7d: 0, limits: null, ...over,
+})
+const win = (used_percentage, resets_at, stale = false) => ({ used_percentage, resets_at, stale })
+const withStatus = (a, status_line) => ({ ...a, status_line })
+const statusAccounts = [
+  withStatus(acct(1, 'claude', 'Claude default', '/home/o/.claude', 'confirmed', ['work']), statusLine({
+    email: 'a@b.c', plan: 'stripe_subscription', organization: 'Acme Org', last_model: 'claude-opus-5-5',
+    last_active_utc: '2026-10-29T08:00:00.000000Z', tokens_today: 1234, tokens_7d: 56789,
+    limits: { five_hour: win(42.5, '2026-10-29T11:20:00Z'), seven_day: win(75, '2026-11-01T14:00:00Z'), written_at: '2026-10-29T09:55:00Z', stale: false },
+  })),
+  withStatus(acct(2, 'claude', 'Claude personal', '/home/o/.claude-personal', 'confirmed'), statusLine({
+    email: 'me@home.test', last_model: 'claude-sonnet-5-5', last_active_utc: '2026-10-29T09:59:30Z', tokens_today: 10, tokens_7d: 20,
+    limits: { five_hour: win(92, '2026-10-29T10:30:00Z'), seven_day: win(10, '2026-11-02T10:00:00Z'), written_at: '2026-10-29T09:55:00Z', stale: false },
+  })),
+  withStatus(acct(3, 'claude', 'Claude bare', '/home/o/.claude-bare', 'confirmed'), statusLine()),
+  withStatus(acct(4, 'codex', 'Codex', '/home/o/.codex', 'confirmed'), statusLine({ tokens_today: 5, tokens_7d: 6 })),
+  withStatus(acct(6, 'claude', 'Claude old', '/home/o/.claude-old', 'confirmed'), statusLine({
+    limits: { five_hour: win(88, '2026-10-29T09:00:00Z', true), seven_day: win(null, null), written_at: '2026-10-29T08:00:00Z', stale: true },
+  })),
+  withStatus(acct(7, 'claude', 'Claude skew', '/home/o/.claude-skew', 'confirmed'), statusLine({
+    limits: { five_hour: win(30, '2026-10-29T09:59:00Z'), seven_day: null, written_at: '2026-10-29T09:50:00Z', stale: false },
+  })),
+]
+export const accountsStatus = { by: 'account', accounts: statusAccounts }
+export const accountsStatusByProvider = {
+  by: 'provider',
+  providers: {
+    claude: statusAccounts.filter((a) => a.provider === 'claude'),
+    codex: statusAccounts.filter((a) => a.provider === 'codex'),
+  },
+}
 export const workspaceList = {
   workspaces: [
     { id: 1, name: 'orphan', is_orphan: true },
@@ -313,7 +347,7 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
     else if (path === '/api/accounts' && !init.method)
-      body = overrides.accounts ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
+      body = (u.searchParams.get('by') === 'provider' ? overrides.accountsByProvider : overrides.accounts) ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
     else if (path === '/api/workspaces' && !init.method) body = overrides.workspaces ?? workspaceList
     else if (path === '/api/connectors/legacy' && !init.method) body = overrides.legacy ?? { legacy: [] }
     else if (path === '/api/connectors' && !init.method) body = overrides.connectors ?? connectors
