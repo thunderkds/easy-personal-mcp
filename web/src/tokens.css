@@ -66,12 +66,25 @@
   --color-muted: #8c9590;
   --color-faint: #6e7772;
 
-  /* Accent (mint) and amber; red is for limits of 90 % and more and for errors (6.9:1 on the page) */
-  --color-accent: #7eddb0;
-  --color-accent-hover: #b2edcf;
-  --color-accent-soft: #7eddb017;
-  --color-accent-bar: #7eddb066;
+  /* Accent (neon mint) and its tints (alpha 14, 59, 4d); links keep the softer mint; amber; red is for limits of 90 % and more and for errors (6.9:1 on the page) */
+  --color-accent: #3cf5a8;
+  --color-accent-soft: #3cf5a814;
+  --color-accent-line: #3cf5a859;
+  --color-accent-bar: #3cf5a84d;
+  --color-link: #7eddb0;
+  --color-link-hover: #b2edcf;
   --color-amber: #e3b66b;
   --color-amber-soft: #e3b66b1f;
   --color-red: #ef7b7b;
+
+  /* Glow (neon pass): text, box, dot and line; each is a full value of text-shadow / box-shadow / filter */
+  --glow-text: 0 0 12px #3cf5a859;
+  --glow-box: 0 0 0 1px #3cf5a840, 0 0 18px #3cf5a840;
+  --glow-dot: 0 0 8px #3cf5a8;
+  --glow-line: drop-shadow(0 0 3px #3cf5a899);
+}
+
+/* Readability: no glow when the reader asks for more contrast */
+@media (prefers-contrast: more) {
+  :root { --glow-text: none; --glow-box: none; --glow-dot: none; --glow-line: none; }
 }
