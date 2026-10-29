@@ -12,29 +12,20 @@ export function scopeQuery({ workspace, account }) {
 /** `path` with the scope query appended. */
 export const scopedPath = (path, scope) => [path, scopeQuery(scope)].filter(Boolean).join('?')
 
-/** The chosen names: the workspace name, the account label (id until the options are known), All when empty. */
+/** The chosen names: the workspace name, the account label (id until the options are known), "All ..." when empty. */
 export function scopeNames({ workspace, account }, options) {
   const label = options?.accounts.find((a) => String(a.id) === account)?.label ?? account
-  return [workspace || 'All', account ? label : 'All']
-}
-
-export function ScopeLine({ scope, options }) {
-  return (
-    <p className="muted" data-testid="scope-line">
-      Showing: {scopeNames(scope, options).join(' · ')}
-    </p>
-  )
+  return [workspace || 'All workspaces', account ? label : 'All accounts']
 }
 
 /** The sidebar block: two labelled selects. */
 export function ScopeSelects({ options, scope, onChange }) {
   return (
     <section className="scope" aria-label="Scope">
-      <p className="scope-title" aria-hidden="true">Scope</p>
       <label>
-        Workspace
+        workspace
         <select value={scope.workspace} onChange={(e) => onChange({ ...scope, workspace: e.target.value })}>
-          <option value="">All</option>
+          <option value="">All workspaces</option>
           {options.workspaces.map((w) => (
             <option key={w.id} value={w.name}>
               {w.name}
@@ -43,9 +34,9 @@ export function ScopeSelects({ options, scope, onChange }) {
         </select>
       </label>
       <label>
-        Account
+        account
         <select value={scope.account} onChange={(e) => onChange({ ...scope, account: e.target.value })}>
-          <option value="">All</option>
+          <option value="">All accounts</option>
           {options.accounts.map((a) => (
             <option key={a.id} value={String(a.id)}>
               {a.label}

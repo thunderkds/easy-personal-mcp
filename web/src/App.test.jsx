@@ -81,31 +81,31 @@ describe('global scope selector (HUN-118)', () => {
     return f
   }
 
-  it('AC1: the sidebar has a Scope block with labelled Workspace and Account selects on every tab', async () => {
+  it('AC1: the sidebar has a Scope block with the selects labelled workspace and account on every tab', async () => {
     stub(workspaceOverrides())
     render(<App />)
     expect(await within(screen.getByRole('complementary')).findByRole('region', { name: 'Scope' })).toBeInTheDocument()
     for (const tab of ['Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents']) {
       go(tab)
-      expect(await select('Workspace')).toBeInTheDocument()
-      expect(within(scope()).getByLabelText('Account')).toBeInTheDocument()
+      expect(await select('workspace')).toBeInTheDocument()
+      expect(within(scope()).getByLabelText('account')).toBeInTheDocument()
     }
   })
 
   it('lists All plus non-orphan workspaces and confirmed Claude accounts', async () => {
     render(<App />)
-    expect(within(await select('Workspace')).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'work', 'personal'])
-    expect(within(await select('Account')).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Claude default', 'Claude personal'])
+    expect(within(await select('workspace')).getAllByRole('option').map((o) => o.textContent)).toEqual(['All workspaces', 'work', 'personal'])
+    expect(within(await select('account')).getAllByRole('option').map((o) => o.textContent)).toEqual(['All accounts', 'Claude default', 'Claude personal'])
   })
 
   it('AC2/AC3: a choice made on Usage is kept on Kit, and Kit sends it', async () => {
     const f = stub()
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    await pick('Workspace', 'personal')
+    await pick('workspace', 'personal')
     go('Kit')
     expect(await screen.findByRole('heading', { name: /^Kit by project/ })).toBeInTheDocument()
-    expect(await select('Workspace')).toHaveValue('personal')
+    expect(await select('workspace')).toHaveValue('personal')
     const kitCalls = f.calls.filter((c) => c.url.startsWith('/api/kit'))
     expect(kitCalls.at(-1).url).toBe('/api/kit?workspace=personal')
   })
@@ -115,10 +115,10 @@ describe('global scope selector (HUN-118)', () => {
     render(<App />)
     go('Warnings & plan')
     await screen.findByTestId('headline')
-    await pick('Workspace', 'work')
+    await pick('workspace', 'work')
     await waitFor(() => expect(f.calls.some((c) => c.url === '/api/warnings?workspace=work')).toBe(true))
     expect(f.calls.some((c) => c.url.startsWith('/api/plan'))).toBe(false) // the cards come from warnings
-    await pick('Account', '2')
+    await pick('account', '2')
     await waitFor(() => expect(f.calls.some((c) => c.url === '/api/warnings?workspace=work&account=2')).toBe(true))
   })
 
@@ -126,36 +126,36 @@ describe('global scope selector (HUN-118)', () => {
     const f = stub()
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    await pick('Workspace', 'work')
-    await pick('Account', '1')
+    await pick('workspace', 'work')
+    await pick('account', '1')
     await waitFor(() =>
       expect(f.calls.filter((c) => c.url.startsWith('/api/usage/') && c.url.includes('workspace=work') && c.url.includes('account=1')).length).toBeGreaterThanOrEqual(7),
     )
   })
 
-  it('AC4: each of the three views says what it shows, All when empty', async () => {
+  it('AC4: the header of each of the three views names the scope, All workspaces / All accounts when empty', async () => {
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
-    await pick('Workspace', 'work')
-    await pick('Account', '2')
+    expect(await within(screen.getByRole('banner')).findByText('scope: All workspaces · All accounts')).toBeInTheDocument()
+    await pick('workspace', 'work')
+    await pick('account', '2')
     for (const [tab, heading] of [['Usage', 'Totals'], ['Warnings & plan', 'Warnings and plan'], ['Kit', /^Kit by project/]]) {
       go(tab)
       await screen.findByRole('heading', { name: heading })
-      expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: work · Claude personal')
+      expect(within(screen.getByRole('banner')).getByText('scope: work · Claude personal')).toBeInTheDocument()
     }
   })
 
   it('AC5: remembers the choice in localStorage and restores it on the next load', async () => {
     const first = render(<App />)
-    await pick('Workspace', 'personal')
-    await pick('Account', '1')
+    await pick('workspace', 'personal')
+    await pick('account', '1')
     expect(JSON.parse(window.localStorage.getItem('easy-personal-scope'))).toEqual({ workspace: 'personal', account: '1' })
     first.unmount()
     const f = stub()
     render(<App />)
-    expect(await select('Workspace')).toHaveValue('personal')
-    expect(await select('Account')).toHaveValue('1')
+    expect(await select('workspace')).toHaveValue('personal')
+    expect(await select('account')).toHaveValue('1')
     await screen.findByRole('heading', { name: 'Totals' })
     expect(f.calls.filter((c) => c.url.startsWith('/api/usage/')).every((c) => c.url.includes('workspace=personal') && c.url.includes('account=1'))).toBe(true)
   })
@@ -164,10 +164,10 @@ describe('global scope selector (HUN-118)', () => {
     window.localStorage.setItem('easy-personal-scope', JSON.stringify({ workspace: 'gone', account: '99' }))
     const f = stub()
     render(<App />)
-    expect(await select('Workspace')).toHaveValue('')
-    expect(await select('Account')).toHaveValue('')
+    expect(await select('workspace')).toHaveValue('')
+    expect(await select('account')).toHaveValue('')
     await screen.findByRole('heading', { name: 'Totals' })
-    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
+    expect(within(screen.getByRole('banner')).getByText('scope: All workspaces · All accounts')).toBeInTheDocument()
     expect(f.calls.every((c) => !/workspace=|account=/.test(c.url.replace('/api/workspaces', '').replace('/api/accounts', '')))).toBe(true)
   })
 
@@ -180,15 +180,15 @@ describe('global scope selector (HUN-118)', () => {
     })
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    await pick('Workspace', 'work')
-    expect(await select('Workspace')).toHaveValue('work')
+    await pick('workspace', 'work')
+    expect(await select('workspace')).toHaveValue('work')
   })
 
-  it('AC6: the top bar shows the scope as text, and the block lives in the sidebar menu', async () => {
+  it('AC6: the header shows the scope as text, and the block lives in the sidebar menu', async () => {
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    await pick('Workspace', 'work')
-    expect(within(screen.getByRole('banner')).getByText('Scope: work · All')).toBeInTheDocument()
+    await pick('workspace', 'work')
+    expect(within(screen.getByRole('banner')).getByText('scope: work · All accounts')).toBeInTheDocument()
     expect(screen.getByRole('complementary')).toContainElement(await screen.findByRole('region', { name: 'Scope' }))
     fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
     expect(screen.getByRole('complementary')).toHaveAttribute('data-open', 'true')
@@ -197,8 +197,8 @@ describe('global scope selector (HUN-118)', () => {
   it('AC7: no select lives in the top bar any more', async () => {
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    expect(within(screen.getByRole('banner')).queryByLabelText('Workspace')).toBeNull()
-    expect(screen.getAllByLabelText('Workspace')).toHaveLength(1)
+    expect(within(screen.getByRole('banner')).queryByLabelText('workspace')).toBeNull()
+    expect(screen.getAllByLabelText('workspace')).toHaveLength(1)
   })
 
   it('options request fails: the selects are hidden and the views load unscoped', async () => {
@@ -209,7 +209,7 @@ describe('global scope selector (HUN-118)', () => {
     window.localStorage.setItem('easy-personal-scope', JSON.stringify({ workspace: 'work', account: '1' }))
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    expect(screen.queryByLabelText('Workspace')).toBeNull()
+    expect(screen.queryByLabelText('workspace')).toBeNull()
     expect(base.calls.every((c) => !/workspace=|account=/.test(c.url))).toBe(true)
   })
 
@@ -222,28 +222,66 @@ describe('global scope selector (HUN-118)', () => {
   })
 })
 
-describe('grouped sidebar and right rail (HUN-121)', () => {
+describe('grouped sidebar and right rail (HUN-121, HUN-126)', () => {
   const groupButton = (name) => within(nav()).getByRole('button', { name })
 
-  it('AC3: "Insights" and "Setup" are aria-expanded toggles that hold the five views', () => {
+  it('AC3: "// insights" and "// setup" are aria-expanded toggles that hold the five views', () => {
     render(<App />)
-    expect(groupButton('Insights')).toHaveAttribute('aria-expanded', 'true')
-    expect(groupButton('Setup')).toHaveAttribute('aria-expanded', 'true')
-    const insights = document.getElementById(groupButton('Insights').getAttribute('aria-controls'))
-    const setup = document.getElementById(groupButton('Setup').getAttribute('aria-controls'))
+    expect(groupButton('// insights')).toHaveAttribute('aria-expanded', 'true')
+    expect(groupButton('// setup')).toHaveAttribute('aria-expanded', 'true')
+    const insights = document.getElementById(groupButton('// insights').getAttribute('aria-controls'))
+    const setup = document.getElementById(groupButton('// setup').getAttribute('aria-controls'))
     expect([...insights.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Usage', 'Warnings & plan', 'Kit'])
     expect([...setup.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Workspaces', 'Agents'])
   })
 
-  it('SC1: collapsing "Setup" hides Workspaces and Agents; opening it shows them again', () => {
+  it('SC2: collapsing "// setup" hides Workspaces and Agents; opening it shows them again', () => {
     render(<App />)
-    fireEvent.click(groupButton('Setup'))
-    expect(groupButton('Setup')).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(groupButton('// setup'))
+    expect(groupButton('// setup')).toHaveAttribute('aria-expanded', 'false')
     expect(within(nav()).queryByRole('button', { name: 'Workspaces' })).toBeNull()
     expect(within(nav()).queryByRole('button', { name: 'Agents' })).toBeNull()
     expect(within(nav()).getByRole('button', { name: 'Usage' })).toBeInTheDocument()
-    fireEvent.click(groupButton('Setup'))
+    fireEvent.click(groupButton('// setup'))
     expect(within(nav()).getByRole('button', { name: 'Agents' })).toBeInTheDocument()
+  })
+
+  it('SC1: on default load the header reads "scope: All workspaces · All accounts"', async () => {
+    render(<App />)
+    expect(await within(screen.getByRole('banner')).findByText('scope: All workspaces · All accounts')).toBeInTheDocument()
+  })
+
+  it('AC3: the sidebar has the brand, the scope selects labelled in lowercase, and the "// family" links', async () => {
+    render(<App />)
+    const side = screen.getByRole('complementary')
+    expect(within(side).getByText('Easy Personal')).toBeInTheDocument()
+    const scope = await within(side).findByRole('region', { name: 'Scope' })
+    expect(within(scope).getByLabelText('workspace')).toBeInTheDocument()
+    expect(within(scope).getByLabelText('account')).toBeInTheDocument()
+    expect(within(side).getByText('// family')).toBeInTheDocument()
+    const links = within(side).getAllByRole('link')
+    expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['Easy Kit', 'https://personal-agentic-claude.vercel.app/'],
+      ['Easy Memory', 'https://easy-memory.vercel.app/'],
+      ['Easy Verifier', 'https://easy-verifier.vercel.app/'],
+    ])
+    for (const a of links) expect(a).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('AC3: the header holds the menu button, the view title and the scope line, and has no view h1 hidden away', async () => {
+    render(<App />)
+    const bar = screen.getByRole('banner')
+    expect(within(bar).getByRole('button', { name: 'Menu' })).toBeInTheDocument()
+    expect(within(bar).getByText('Usage')).toBeInTheDocument()
+    expect(await within(bar).findByText(/^scope: /)).toBeInTheDocument()
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Workspaces' }))
+    expect(within(bar).queryByText(/^scope: /)).toBeNull() // Workspaces and Agents ignore the scope
+  })
+
+  it('AC3: "Open the plan →" in the rail opens Warnings & plan', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Open the plan →' }))
+    expect(within(nav()).getByRole('button', { name: 'Warnings & plan' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('AC3: each view item has a colored dot, hidden from screen readers', () => {
@@ -298,11 +336,11 @@ describe('grouped sidebar and right rail (HUN-121)', () => {
       render(<App />)
       fireEvent.click(within(nav()).getByRole('button', { name: 'Agents' }))
       const row = await screen.findByRole('listitem', { name: '.c5' })
-      const accountSelect = await within(await screen.findByRole('region', { name: 'Scope' })).findByLabelText('Account')
-      expect(within(accountSelect).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Claude default'])
+      const accountSelect = await within(await screen.findByRole('region', { name: 'Scope' })).findByLabelText('account')
+      expect(within(accountSelect).getAllByRole('option').map((o) => o.textContent)).toEqual(['All accounts', 'Claude default'])
       fireEvent.change(within(row).getByLabelText('Name'), { target: { value: 'Claude side' } })
       fireEvent.click(within(row).getByRole('button', { name: 'Confirm & name' }))
-      await waitFor(() => expect(within(accountSelect).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Claude default', 'Claude side']))
+      await waitFor(() => expect(within(accountSelect).getAllByRole('option').map((o) => o.textContent)).toEqual(['All accounts', 'Claude default', 'Claude side']))
     })
 
     it('ignoring an account updates the sidebar list and the ignored-accounts note without a reload', async () => {

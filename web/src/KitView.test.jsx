@@ -298,25 +298,22 @@ describe('errors', () => {
 })
 
 describe('scope (HUN-118)', () => {
-  it('sends no params without a scope and says All', async () => {
+  it('sends no params without a scope (the header names the scope, see App.test.jsx)', async () => {
     const f = fakeFetch()
     vi.stubGlobal('fetch', f)
     render(<KitView />)
     await screen.findByRole('heading', { name: /^Kit by project/ })
     expect(f.calls.map((c) => c.url)).toEqual(['/api/kit'])
-    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
   })
 
-  it('sends workspace= and account=, refetches on change, names the scope', async () => {
+  it('sends workspace= and account= and refetches on change', async () => {
     const f = fakeFetch()
     vi.stubGlobal('fetch', f)
-    const options = { workspaces: [], accounts: [{ id: 1, label: 'Claude company' }] }
-    const view = render(<KitView scope={{ workspace: 'Acme', account: '' }} options={options} />)
+    const view = render(<KitView scope={{ workspace: 'Acme', account: '' }} />)
     await screen.findByRole('heading', { name: /^Kit by project/ })
     expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme'])
-    view.rerender(<KitView scope={{ workspace: 'Acme', account: '1' }} options={options} />)
+    view.rerender(<KitView scope={{ workspace: 'Acme', account: '1' }} />)
     await waitFor(() => expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme', '/api/kit?workspace=Acme&account=1']))
-    expect(await screen.findByTestId('scope-line')).toHaveTextContent('Showing: Acme · Claude company')
   })
 
   it('ignores a slow answer for an older scope', async () => {

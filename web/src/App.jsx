@@ -9,27 +9,33 @@ import WarningsPlanView from './WarningsPlanView.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
 
 // `scoped` views filter by the global Workspace/Account scope; the others ignore it.
-// `dot` picks one of the five dot colors in tokens.css.
 const GROUPS = [
   {
     id: 'insights',
-    label: 'Insights',
+    label: '// insights',
     tabs: [
-      { id: 'usage', label: 'Usage', View: UsageView, scoped: true, dot: 1 },
-      { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView, scoped: true, dot: 2 },
-      { id: 'kit', label: 'Kit', View: KitView, scoped: true, dot: 3 },
+      { id: 'usage', label: 'Usage', View: UsageView, scoped: true },
+      { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView, scoped: true },
+      { id: 'kit', label: 'Kit', View: KitView, scoped: true },
     ],
   },
   {
     id: 'setup',
-    label: 'Setup',
+    label: '// setup',
     tabs: [
-      { id: 'workspaces', label: 'Workspaces', View: WorkspacesView, dot: 4 },
-      { id: 'agents', label: 'Agents', View: AgentsView, dot: 5 },
+      { id: 'workspaces', label: 'Workspaces', View: WorkspacesView },
+      { id: 'agents', label: 'Agents', View: AgentsView },
     ],
   },
 ]
 const TABS = GROUPS.flatMap((g) => g.tabs)
+
+// The rest of the Easy family. Plain links: the page loads nothing from them.
+const FAMILY = [
+  { name: 'Easy Kit', href: 'https://personal-agentic-claude.vercel.app/' },
+  { name: 'Easy Memory', href: 'https://easy-memory.vercel.app/' },
+  { name: 'Easy Verifier', href: 'https://easy-verifier.vercel.app/' },
+]
 
 const STORAGE_KEY = 'easy-personal-scope'
 
@@ -105,7 +111,14 @@ export default function App() {
   return (
     <div className="shell">
       <aside id="sidebar" className="sidebar" data-open={menuOpen}>
-        <p className="brand">Easy Personal</p>
+        <div className="brand">
+          <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true" focusable="false">
+            <rect x="1.5" y="1.5" width="23" height="23" rx="5" stroke="currentColor" strokeWidth="1.5" />
+            <circle cx="13" cy="10" r="3.2" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M7 19.5c1.2-3 3.4-4.4 6-4.4s4.8 1.4 6 4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <span>Easy Personal</span>
+        </div>
         {options && <ScopeSelects options={options} scope={scope} onChange={choose} />}
         <nav aria-label="Views">
           {GROUPS.map((g) => (
@@ -117,9 +130,9 @@ export default function App() {
                 aria-controls={`group-${g.id}`}
                 onClick={() => setClosed((c) => ({ ...c, [g.id]: !c[g.id] }))}
               >
-                <span className="chevron" aria-hidden="true">
-                  {closed[g.id] ? '▸' : '▾'}
-                </span>
+                <svg className="chevron" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                  <path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                </svg>
                 {g.label}
               </button>
               <div id={`group-${g.id}`} className="group-items">
@@ -134,7 +147,7 @@ export default function App() {
                         setMenuOpen(false)
                       }}
                     >
-                      <span className={`dot dot-${t.dot}`} aria-hidden="true" />
+                      <span className="dot" aria-hidden="true" />
                       {t.label}
                     </button>
                   ))}
@@ -142,16 +155,24 @@ export default function App() {
             </div>
           ))}
         </nav>
+        <div className="family">
+          <span className="family-label">// family</span>
+          {FAMILY.map((f) => (
+            <a key={f.name} href={f.href} target="_blank" rel="noopener noreferrer">
+              {f.name}
+            </a>
+          ))}
+        </div>
       </aside>
       <div className="content">
         <header className="topbar">
           <button type="button" className="menu-button" aria-label="Menu" aria-controls="sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
-              <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+              <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </button>
           <p className="topbar-title">{label}</p>
-          {scoped && options && <p className="topbar-scope">Scope: {scopeNames(scope, options).join(' · ')}</p>}
+          {scoped && options && <p className="topbar-scope">scope: {scopeNames(scope, options).join(' · ')}</p>}
         </header>
         <div className="body">
           <div id="view">
@@ -163,7 +184,7 @@ export default function App() {
               <View scope={scope} options={options ?? null} onOpenAgents={() => setActive('agents')} onAccountsChanged={reloadOptions} />
             )}
           </div>
-          {options !== undefined && <Rail scope={scope} refresh={options} />}
+          {options !== undefined && <Rail scope={scope} refresh={options} onOpenPlan={() => setActive('warnings')} />}
         </div>
       </div>
     </div>

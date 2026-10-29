@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { getJson } from './api.js'
 import FeedCard from './FeedCard.jsx'
 import { fmt, localTime, percent } from './format.js'
-import { NO_SCOPE, ScopeLine, scopedPath } from './Scope.jsx'
+import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 import { Sparkline } from './Widgets.jsx'
 
@@ -202,7 +202,7 @@ function ProjectCard({ project, active, health, now }) {
         footer={missing.length > 0 && <span>Not set up here: {missing.join(', ')}</span>}
       >
         <p className="card-summary">{summarize(project, active, stats, now)}</p>
-        {stats && <Sparkline values={stats.series} label={label} tone="cyan" />}
+        {stats && <Sparkline values={stats.series} label={label} />}
         {present.length > 0 && (
           <ul className="part-lines">
             {present.map((k) => (
@@ -233,7 +233,7 @@ function DetailsTable({ projects }) {
   const columns = [...COLUMNS, ...extra.map((k) => [k, k])]
   const sorted = [...projects].sort((a, b) => a.project.localeCompare(b.project) * (descending ? -1 : 1))
   return (
-    <div className="table-wrap">
+    <div className="table-wrap table-frame">
       <table>
         <thead>
           <tr>
@@ -313,12 +313,11 @@ function Ui({ ui }) {
   )
 }
 
-export default function KitView({ scope = NO_SCOPE, options = null }) {
+export default function KitView({ scope = NO_SCOPE }) {
   const state = useLoad(() => load(scope), [scope.workspace, scope.account])
   return (
     <main>
       <h1>Easy Kit</h1>
-      <ScopeLine scope={scope} options={options} />
       {state.status === 'loading' && <p role="status">Loading kit</p>}
       {state.status === 'error' && (
         <p role="alert" className="error">
@@ -328,7 +327,9 @@ export default function KitView({ scope = NO_SCOPE, options = null }) {
       {state.status === 'ready' && (
         <>
           <section aria-labelledby="h-kit">
-            <h2 id="h-kit">{`Kit by project (${state.data.projects.length})`}</h2>
+            <h2 id="h-kit">
+              Kit by project <span className="count">{`(${state.data.projects.length})`}</span>
+            </h2>
             <p className="muted">How the agent kit, code index and verifier are doing in each project.</p>
             <Projects projects={state.data.projects} />
           </section>

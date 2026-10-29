@@ -1,19 +1,14 @@
-const DOTS = 5
-
-/** One of the five dot colors, the same for the same text. */
-const dotOf = (text) => ([...text].reduce((sum, ch) => sum + ch.codePointAt(0), 0) % DOTS) + 1
-
 /**
- * A card of the feed: round icon with the first character of `icon`, title and one-line summary,
- * `time` right-aligned after a thin divider, the body (`children`) and an optional footer row.
+ * A card of the feed: an icon tile with the first character of `icon` (mint, or amber with `tone="amber"`),
+ * title and one-line summary, `time` right-aligned, the body (`children`) and an optional footer row.
  * `id` names the heading, so the article is labelled by its title. Other props (data-*) go to the article.
  */
-export default function FeedCard({ id, icon, title, summary, time, footer, className = '', children, ...rest }) {
+export default function FeedCard({ id, icon, title, summary, time, footer, tone, className = '', children, ...rest }) {
   const initial = [...String(icon)][0]?.toUpperCase() ?? ''
   return (
     <article className={`feed-card ${className}`.trim()} aria-labelledby={id} {...rest}>
       <div className="feed-head">
-        <span className={`feed-icon dot-${dotOf(String(icon))}`} aria-hidden="true">
+        <span className={`feed-icon${tone === 'amber' ? ' tone-amber' : ''}`} aria-hidden="true">
           {initial}
         </span>
         <div className="feed-title">

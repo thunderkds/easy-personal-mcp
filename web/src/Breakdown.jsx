@@ -3,76 +3,134 @@ import { fmt, totalTokens } from './format.js'
 
 const LABELS = { day: 'Day', model: 'Model', project: 'Project', tool: 'Tool' }
 const TITLES = { day: 'By day', model: 'By model', project: 'By project', tool: 'By tool' }
+const DENSE_DAYS = 14
 
-const W = 600
-const H = 160
-const PAD = 24
-
+/** One bar per day, tallest = 100 %; the latest day is the full-color bar. Labels only while they fit. */
 function DayChart({ groups }) {
   const max = Math.max(...groups.map(totalTokens), 1)
-  const slot = (W - PAD) / groups.length
-  const barW = Math.max(slot * 0.7, 1)
+  const dense = groups.length > DENSE_DAYS
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Tokens per day, ${groups.length} days, peak ${fmt(max)} tokens`}>
-      {groups.map((g, i) => {
-        const h = (totalTokens(g) / max) * (H - PAD - 8)
-        const x = PAD + i * slot + (slot - barW) / 2
-        return (
-          <g key={i}>
-            <rect className="bar" x={x} y={H - PAD - h} width={barW} height={h}>
-              <title>{`${g.key}: ${fmt(totalTokens(g))} tokens`}</title>
-            </rect>
-            {groups.length <= 14 && (
-              <text className="axis" x={x + barW / 2} y={H - 8} textAnchor="middle">{g.key.slice(5)}</text>
-            )}
-          </g>
-        )
-      })}
-    </svg>
+    <div className={`day-chart${dense ? ' dense' : ''}`} role="img" aria-label={`Tokens per day, ${groups.length} days, peak ${fmt(max)} tokens`}>
+      <div className="day-bars">
+        {groups.map((g, i) => (
+          <div
+            key={i}
+            className={`bar${i === groups.length - 1 ? ' bar-latest' : ''}`}
+            style={{ height: `${Math.max((totalTokens(g) / max) * 100, 1)}%` }}
+            title={`${g.key}: ${fmt(totalTokens(g))} tokens`}
+          />
+        ))}
+      </div>
+      {!dense && (
+        <div className="day-labels">
+          {groups.map((g, i) => (
+            <span key={i}>{g.key.slice(5)}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** One row per project: name, tokens and a bar of its share of the period. Two projects may share a name. */
+function ProjectBars({ groups }) {
+  const total = groups.reduce((sum, g) => sum + totalTokens(g), 0)
+  return (
+    <ul className="bar-rows">
+      {groups.map((g, i) => (
+        <li key={i} className={i === 0 ? 'bar-row bar-row-top' : 'bar-row'}>
+          <div className="bar-row-head">
+            <span className="mono-ellipsis" title={g.key}>{g.key}</span>
+            <span className="bar-row-value">{fmt(totalTokens(g))}</span>
+          </div>
+          <div className="bar-track" aria-hidden="true">
+            <div className="bar-fill" style={{ width: `${total > 0 ? (totalTokens(g) / total) * 100 : 0}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** The compact table of the artboard: model, total tokens, output, cost. */
+function ModelTable({ groups }) {
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Model</th>
+            <th scope="col">Total tokens</th>
+            <th scope="col">Output</th>
+            <th scope="col">API-equivalent cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((g, i) => (
+            <tr key={i}>
+              <th scope="row">{g.key}</th>
+              <td>{fmt(totalTokens(g))}</td>
+              <td>{fmt(g.output_tokens)}</td>
+              <td><Cost cost={g.api_equivalent_cost} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Every counter of the dimension, tokens first and cost last. */
+function FullTable({ by, groups }) {
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{LABELS[by]}</th>
+            <th scope="col">Total tokens</th>
+            <th scope="col">Input</th>
+            <th scope="col">Output</th>
+            <th scope="col">Cache write</th>
+            <th scope="col">Cache read</th>
+            <th scope="col">Messages</th>
+            <th scope="col">API-equivalent cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((g, i) => (
+            <tr key={i}>
+              <th scope="row">{g.key}</th>
+              <td>{fmt(totalTokens(g))}</td>
+              <td>{fmt(g.input_tokens)}</td>
+              <td>{fmt(g.output_tokens)}</td>
+              <td>{fmt(g.cache_creation_input_tokens)}</td>
+              <td>{fmt(g.cache_read_input_tokens)}</td>
+              <td>{fmt(g.messages)}</td>
+              <td><Cost cost={g.api_equivalent_cost} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
 export default function Breakdown({ by, data }) {
-  const title = TITLES[by]
+  const empty = data.groups.length === 0
   return (
-    <section aria-labelledby={`h-${by}`}>
-      <h2 id={`h-${by}`}>{title}</h2>
-      {data.groups.length === 0 ? (
-        <p className="muted">No usage recorded in this period.</p>
-      ) : (
-        <>
-          {by === 'day' && <DayChart groups={data.groups} />}
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">{LABELS[by]}</th>
-                  <th scope="col">Total tokens</th>
-                  <th scope="col">Input</th>
-                  <th scope="col">Output</th>
-                  <th scope="col">Cache write</th>
-                  <th scope="col">Cache read</th>
-                  <th scope="col">Messages</th>
-                  <th scope="col">API-equivalent cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.groups.map((g, i) => (
-                  <tr key={i}>
-                    <th scope="row">{g.key}</th>
-                    <td>{fmt(totalTokens(g))}</td>
-                    <td>{fmt(g.input_tokens)}</td>
-                    <td>{fmt(g.output_tokens)}</td>
-                    <td>{fmt(g.cache_creation_input_tokens)}</td>
-                    <td>{fmt(g.cache_read_input_tokens)}</td>
-                    <td>{fmt(g.messages)}</td>
-                    <td><Cost cost={g.api_equivalent_cost} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+    <section className="card" aria-labelledby={`h-${by}`}>
+      <h2 id={`h-${by}`}>{TITLES[by]}</h2>
+      {empty && <p className="muted">No usage recorded in this period.</p>}
+      {!empty && by === 'day' && <DayChart groups={data.groups} />}
+      {!empty && by === 'project' && <ProjectBars groups={data.groups} />}
+      {!empty && by === 'model' && <ModelTable groups={data.groups} />}
+      {!empty && by === 'tool' && <FullTable by={by} groups={data.groups} />}
+      {!empty && (by === 'day' || by === 'project') && (
+        <details className="full-table">
+          <summary>Show table</summary>
+          <FullTable by={by} groups={data.groups} />
+        </details>
       )}
       {by === 'tool' && <p className="muted">A message that used several tools appears in each tool it used, so rows overlap.</p>}
     </section>

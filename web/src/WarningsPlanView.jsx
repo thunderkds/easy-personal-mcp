@@ -1,6 +1,6 @@
 import { getJson } from './api.js'
 import FeedCard from './FeedCard.jsx'
-import { NO_SCOPE, ScopeLine, scopedPath } from './Scope.jsx'
+import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 
 const load = (scope) => getJson(scopedPath('/api/warnings', scope))
@@ -35,6 +35,7 @@ function Card({ hit, rank }) {
         className="action-card"
         data-rule={hit.rule_id}
         icon={String(rank)}
+        tone={hit.label === 'warning' ? 'amber' : undefined}
         title={title}
         summary={<span className={`chip chip-${hit.label}`}>{CHIPS[hit.label] ?? hit.label}</span>}
         time={hit.window_days ? `last ${hit.window_days} days` : undefined}
@@ -96,12 +97,11 @@ function NotChecked({ abstained, onOpenAgents }) {
   )
 }
 
-export default function WarningsPlanView({ scope = NO_SCOPE, options = null, onOpenAgents }) {
+export default function WarningsPlanView({ scope = NO_SCOPE, onOpenAgents }) {
   const state = useLoad(() => load(scope), [scope.workspace, scope.account])
   return (
-    <main>
+    <main className="warnings">
       <h1>Warnings and plan</h1>
-      <ScopeLine scope={scope} options={options} />
       {state.status === 'loading' && <p role="status">Loading warnings</p>}
       {state.status === 'error' && (
         <p role="alert" className="error">

@@ -74,6 +74,41 @@ describe('right rail (HUN-121)', () => {
     expect(green).toHaveAttribute('aria-valuenow', '42.5')
   })
 
+  it('SC4: a 7d limit at 78 % uses the amber tone, 92 % the red tone, 42.5 % the green tone', async () => {
+    const limits = (five, seven) => ({ five_hour: { used_percentage: five, resets_at: '2099-01-01T00:00:00Z', stale: false }, seven_day: { used_percentage: seven, resets_at: '2099-01-04T00:00:00Z', stale: false }, written_at: '2026-10-29T09:55:00Z', stale: false })
+    stub({ accounts: { by: 'account', accounts: [{ id: 1, provider: 'claude', label: 'Work', status: 'confirmed', status_line: statusLine({ limits: limits(42.5, 78) }) }, { id: 2, provider: 'claude', label: 'Home', status: 'confirmed', status_line: statusLine({ limits: limits(92, 8) }) }] } })
+    render(<Rail scope={NO_SCOPE} />)
+    const panel = await screen.findByRole('region', { name: 'Plan limits' })
+    await within(panel).findByText('Work')
+    const tone = (label) => within(panel).getByRole('progressbar', { name: label }).closest('.limit')
+    expect(tone('Work 7d limit 78%')).toHaveClass('limit-amber')
+    expect(tone('Home 5h limit 92%')).toHaveClass('limit-red')
+    expect(tone('Work 5h limit 43%')).toHaveClass('limit-green')
+    expect(within(panel).getByText('Bars turn amber at 70%.')).toBeInTheDocument()
+  })
+
+  it('shows the window and the reset time on two sides of one line', async () => {
+    stub({ accounts: accountsStatus })
+    render(<Rail scope={NO_SCOPE} />)
+    const limits = await screen.findByRole('region', { name: 'Plan limits' })
+    await within(limits).findByText('Claude default')
+    expect(within(limits).getByText('5h · 43%')).toBeInTheDocument()
+    expect(within(limits).getAllByText(/^resets (soon|in )/).length).toBeGreaterThan(0)
+  })
+
+  it('"Open the plan →" calls onOpenPlan; it is absent when nothing handles it', async () => {
+    stub()
+    const open = vi.fn()
+    const { unmount } = render(<Rail scope={NO_SCOPE} onOpenPlan={open} />)
+    const link = await screen.findByRole('button', { name: 'Open the plan →' })
+    link.click()
+    expect(open).toHaveBeenCalledTimes(1)
+    unmount()
+    render(<Rail scope={NO_SCOPE} />)
+    await screen.findByRole('heading', { name: 'Next actions (3)' })
+    expect(screen.queryByRole('button', { name: 'Open the plan →' })).toBeNull()
+  })
+
   it('shows 5h and 7d for each confirmed Claude account with data; skips codex, stale and empty ones', async () => {
     stub({ accounts: accountsStatus })
     render(<Rail scope={NO_SCOPE} />)
