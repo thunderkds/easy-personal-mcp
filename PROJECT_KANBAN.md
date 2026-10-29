@@ -9,6 +9,14 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-113** — Workspaces page renders without waiting for the legacy scan; legacy checks run in parallel | Backend-Implementer | C1 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-113.md`
+- [ ] **HUN-114** — Agents: re-choose ignored accounts, rename/ignore confirmed ones; Usage explains ignored accounts | Frontend-Implementer | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-114.md`
+- [ ] **HUN-115** — Account status-line data in /api/accounts: email, plan, last model, tokens, plan-limit snapshot | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-115.md`
+- [ ] **HUN-116** — Agents account cards read like the status line (email, model, tokens, 5h/7d limit bars) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-116.md`
+- [ ] **HUN-117** — Warnings, plan and kit accept workspace/account scope (API, MCP, CLI) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-117.md`
+- [ ] **HUN-118** — Global Workspace/Account selector in the sidebar for Usage, Warnings and Kit | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-118.md`
+- [ ] **HUN-119** — Kit tab: plain project cards with health, recent activity and a details toggle | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-119.md`
+- [ ] **HUN-120** — Warnings & plan: plain titles, why it matters, numbered steps, one ordered action list | Backend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-120.md`
 
 ### In Progress
 

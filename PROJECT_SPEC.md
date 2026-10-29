@@ -172,6 +172,19 @@ The first plan's HUN-21…HUN-29 are archived with the trashed project and do no
 | HUN-70 | Usage page Workspace / Account filters | Todo | Frontend-Implementer | C1 | Low | P2 |
 | HUN-71 | QA end-to-end across fake accounts | Todo | QA-Automation-Agent | C2 | Medium | P1 |
 
+**Dashboard fixes** (Stage 2, 2026-10-29, owner issues #1–#7; owner decisions: global scope selector, status-line card with plan-limit snapshot, no change to the owner's store now). Waves: 1 = HUN-113, 114, 115, 117 (parallel); 2 = HUN-116 (after 114+115), HUN-118 (after 114+117); 3 = HUN-119, HUN-120 (after 118).
+
+| ID | Title | Status | Assigned Agent | Complexity | Risk | Priority |
+|----|-------|--------|---------------|-----------|------|----------|
+| HUN-113 | Workspaces page renders without waiting for the legacy scan; legacy checks run in parallel | Todo | Backend-Implementer | C1 | Low | P0 |
+| HUN-114 | Agents: re-choose ignored accounts, rename/ignore confirmed ones; Usage explains ignored accounts | Todo | Frontend-Implementer | C1 | Medium | P0 |
+| HUN-115 | Account status-line data in /api/accounts: email, plan, last model, tokens, plan-limit snapshot | Todo | Backend-Implementer | C2 | Medium | P1 |
+| HUN-116 | Agents account cards read like the status line (email, model, tokens, 5h/7d limit bars) | Todo | Frontend-Implementer | C1 | Low | P1 |
+| HUN-117 | Warnings, plan and kit accept workspace/account scope (API, MCP, CLI) | Todo | Backend-Implementer | C2 | Medium | P1 |
+| HUN-118 | Global Workspace/Account selector in the sidebar for Usage, Warnings and Kit | Todo | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-119 | Kit tab: plain project cards with health, recent activity and a details toggle | Todo | Frontend-Implementer | C2 | Low | P1 |
+| HUN-120 | Warnings & plan: plain titles, why it matters, numbered steps, one ordered action list | Todo | Backend-Implementer | C2 | Low | P1 |
+
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
 ---
