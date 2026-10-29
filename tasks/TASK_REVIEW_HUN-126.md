@@ -61,8 +61,11 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-29T11:04:06Z on branch `HUN-126` at `aba05a0`, before any implementation commit; fixture-backed dashboard, temp `EASY_PERSONAL_HOME` / `EASY_PERSONAL_AGENT_ROOT`):
+
+- easy-ui screenshot of the current Usage view at 1440 px (HUN-121 indigo, all-monospace look; easy-ui's viewport is fixed at 1280x720, so the 1440 px page is an iframe of width 1440 scaled by 0.8889 inside a same-origin test proxy): `reports/HUN-126/before-usage-1440.png` (copy of `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-ui-mcp/reports/screenshot-1793271837904.png`); easy-ui session report: `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-ui-mcp/reports/session-a7b456b8-eb23-45d9-af96-e3a66847ccba.html`.
+- `grep -c -- '--font' web/src/tokens.css` -> `1`; the line is `--font: ui-monospace, 'SF Mono', 'Cascadia Mono', 'DejaVu Sans Mono', Menlo, Consolas, 'Liberation Mono', monospace;` (one system monospace stack, no webfont).
+- Accent tokens in `web/src/tokens.css`: `--accent-start: #3b6be0;` `--accent-end: #9140dc;` `--color-accent: #3b6be0;` `--color-accent-text: #a9c0ff;` `--color-accent-soft: #3a3382;` (blue-to-purple gradient accent; page background `--color-bg: #1a1540`).
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
