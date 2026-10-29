@@ -18,6 +18,7 @@ Mode: auto
 3. Spawn model from the CLI Model Table — RULE: `PROJECT_SPEC.md` § CLI Model Table
 4. Waves (stacked branches) instead of all 8 from main: tasks that edit the same files start from their predecessor's branch — RULE: `PROJECT_SPEC.md` § Tasks ("Waves: 1 = HUN-113, 114, 115, 117 …")
 5. Merge to main and push after `/verify` passes (the owner's explicit ask overrides the auto-mode no-merge rule for this one step) — FACT: docs/claude-md/tracks.md:365 "the explicit ask wins for X"
+6. security-review done inline by the Supervisor; the built-in command failed with `fatal: ambiguous argument 'origin/HEAD...'` (this repo's remote is `github`, there is no `origin`) — FACT: memory/MEMORY.md:41 "security-review inline"
 Checks: tests `uv run pytest -q` — 775 passed; perf 1M events 67–87 ms (<100 ms); reviews code-review — 0 findings, security-review (inline) — 0, blast-radius — low (local household data); real run README jq snippet run in a temp dir: writes the file, nothing without rate_limits (auto-checked, not /verify)
 Not done: merge (owner asked for it; runs after verify); auto verify: running (T182)
 
