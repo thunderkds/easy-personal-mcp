@@ -1,7 +1,7 @@
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import UsageView from './UsageView.jsx'
-import { fakeFetch as baseFakeFetch, usageWorkspaces, usageAccounts, emptySummary, emptyBreakdown, emptyOutliers, emptySessions, breakdowns, summary } from './test/fixtures.js'
+import { fakeFetch as baseFakeFetch, usageWorkspaces, usageAccounts, emptySummary, emptyBreakdown, emptyOutliers, emptySessions, breakdowns, summary, previousDay } from './test/fixtures.js'
 
 const fakeFetch = (overrides = {}) =>
   baseFakeFetch({ workspaces: usageWorkspaces, accounts: usageAccounts, ...overrides })
@@ -38,7 +38,7 @@ describe('totals (AC1)', () => {
 
   it('sends the dashboard token from the URL fragment on every request', async () => {
     const f = await renderView()
-    expect(usageCalls(f).length).toBe(7)
+    expect(usageCalls(f).length).toBe(8)
     for (const c of f.calls) {
       expect(c.init.headers['X-Dashboard-Token']).toBe('secret-token')
       expect(c.url.startsWith('/api/')).toBe(true)
@@ -179,7 +179,7 @@ describe('workspace and account filters (HUN-70)', () => {
     const f = await renderView()
     f.calls.length = 0
     pick('Workspace', 'Acme')
-    await waitFor(() => expect(usageCalls(f).length).toBe(7))
+    await waitFor(() => expect(usageCalls(f).length).toBe(8))
     expect(usageCalls(f).every((c) => c.url.includes('workspace=Acme') && !c.url.includes('account='))).toBe(true)
   })
 
@@ -189,7 +189,7 @@ describe('workspace and account filters (HUN-70)', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Totals' }))
     f.calls.length = 0
     pick('Account', '1')
-    await waitFor(() => expect(usageCalls(f).length).toBe(7))
+    await waitFor(() => expect(usageCalls(f).length).toBe(8))
     expect(usageCalls(f).every((c) => c.url.includes('workspace=Acme') && c.url.includes('account=1'))).toBe(true)
   })
 
@@ -228,3 +228,132 @@ describe('workspace and account filters (HUN-70)', () => {
     expect(base.calls.every((c) => !/workspace=|account=/.test(c.url))).toBe(true)
   })
 })
+
+describe('widgets (HUN-83)', () => {
+  const kpi = (name) => screen.getByRole('region', { name })
+  const day = (total, groups = []) => ({ ...breakdowns, day: { ...breakdowns.day, groups, total } })
+  const sevenDays = Array.from({ length: 7 }, (_, i) => ({
+    ...breakdowns.day.groups[0],
+    key: `2026-10-${String(20 + i)}`,
+    input_tokens: 100 * (i + 1),
+  }))
+  const tok = (n) => ({ input_tokens: n, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 })
+
+  it('shows 3 KPI cards with the period value from the existing responses', async () => {
+    await renderView()
+    expect(within(kpi('Total tokens')).getByText(fmt(89100))).toBeInTheDocument()
+    expect(within(kpi('Messages')).getByText('20')).toBeInTheDocument()
+    expect(within(kpi('API-equivalent cost')).getByText('$12.50')).toBeInTheDocument()
+  })
+
+  it('badges the change against the previous equal period', async () => {
+    await renderView()
+    expect(within(kpi('Total tokens')).getByText('↑ 100.0%')).toBeInTheDocument() // 89,100 vs 44,550
+    expect(within(kpi('Messages')).getByText('↑ 25.0%')).toBeInTheDocument() // 20 vs 16
+    expect(within(kpi('API-equivalent cost')).getByText('↓ 37.5%')).toBeInTheDocument() // 12.5 vs 20
+  })
+
+  it('Last 7 days: total tokens 1,500 vs 1,000 gives up 50.0%', async () => {
+    await renderView({
+      summary: { ...summary, ...tok(1500) },
+      previousDay: { ...previousDay, total: { ...previousDay.total, ...tok(1000) } },
+    })
+    expect(within(kpi('Total tokens')).getByText('↑ 50.0%')).toBeInTheDocument()
+  })
+
+  it('previous period with 0 tokens says no previous data, no Infinity or NaN', async () => {
+    await renderView({ previousDay: emptyBreakdown('day') })
+    for (const name of ['Total tokens', 'Messages', 'API-equivalent cost']) {
+      expect(within(kpi(name)).getByText('no previous data')).toBeInTheDocument()
+    }
+    expect(document.body.textContent).not.toMatch(/Infinity|NaN/)
+  })
+
+  it('All time sends no previous-period request and shows no previous data', async () => {
+    const f = await renderView()
+    f.calls.length = 0
+    screen.getByRole('button', { name: 'All time' }).click()
+    await waitFor(() => expect(usageCalls(f).length).toBe(7))
+    expect(usageCalls(f).every((c) => !c.url.includes('until='))).toBe(true)
+    expect(within(kpi('Total tokens')).getByText('no previous data')).toBeInTheDocument()
+  })
+
+  it('previous period is [now - 2 days, now - days) with the same workspace and account', async () => {
+    const f = await renderView()
+    f.calls.length = 0
+    pickFilter('Workspace', 'Acme')
+    await waitFor(() => expect(usageCalls(f).length).toBe(8))
+    pickFilter('Account', '1')
+    await waitFor(() => expect(usageCalls(f).filter((c) => c.url.includes('until=')).length).toBe(2))
+    const prev = usageCalls(f).filter((c) => c.url.includes('until=')).at(-1)
+    const params = new URL(prev.url, 'http://x').searchParams
+    expect(prev.url).toMatch(/^\/api\/usage\/breakdown\?/)
+    expect(params.get('by')).toBe('day')
+    expect(params.get('workspace')).toBe('Acme')
+    expect(params.get('account')).toBe('1')
+    const week = 7 * 86400000
+    expect(Math.abs(Date.parse(params.get('since')) - (Date.now() - 2 * week))).toBeLessThan(5000)
+    expect(Math.abs(Date.parse(params.get('until')) - (Date.now() - week))).toBeLessThan(5000)
+    // the current period's own requests keep their `since` equal to the previous `until`
+    const cur = usageCalls(f).filter((c) => !c.url.includes('until=')).at(-1)
+    expect(Math.abs(Date.parse(new URL(cur.url, 'http://x').searchParams.get('since')) - Date.parse(params.get('until')))).toBeLessThan(5000)
+  })
+
+  it('a failing previous-period request still renders the view with no previous data', async () => {
+    const base = fakeFetch()
+    vi.stubGlobal('fetch', async (url, init) =>
+      String(url).includes('until=') ? { ok: false, status: 500, json: async () => ({}) } : base(url, init),
+    )
+    render(<UsageView />)
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(within(kpi('Total tokens')).getByText('no previous data')).toBeInTheDocument()
+  })
+
+  it('sparkline names the days and the peak', async () => {
+    await renderView({ breakdowns: day(breakdowns.day.total, sevenDays) })
+    const svg = within(kpi('Total tokens')).getByRole('img')
+    expect(svg).toHaveAttribute('aria-label', expect.stringMatching(/7 days/))
+    expect(svg.getAttribute('aria-label')).toContain('peak 1,600') // day 7: 700 + 200 + 300 + 400
+  })
+
+  it('no day groups: values shown, no sparkline', async () => {
+    await renderView({ breakdowns: day(breakdowns.day.total, []) })
+    expect(within(kpi('Total tokens')).queryByRole('img')).toBeNull()
+    expect(within(kpi('Total tokens')).getByText(fmt(89100))).toBeInTheDocument()
+  })
+
+  it('cache hit ratio: progress and ring show the same ratio', async () => {
+    await renderView()
+    const card = kpi('Cache hit ratio')
+    expect(within(card).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '91.84')
+    const gauge = kpi('Cache hit gauge')
+    expect(within(gauge).getByRole('img', { name: /91\.8%/ })).toBeInTheDocument()
+  })
+
+  it('null cache hit ratio says no data in both widgets, never 0%', async () => {
+    await renderView({ summary: { ...summary, cache_hit_ratio: null } })
+    expect(within(kpi('Cache hit ratio')).getByText('no data')).toBeInTheDocument()
+    expect(within(kpi('Cache hit gauge')).getByText('no data')).toBeInTheDocument()
+    expect(within(kpi('Cache hit ratio')).queryByRole('progressbar')).toBeNull()
+  })
+
+  it('cost KPI names abstained models and never shows $0', async () => {
+    const abstainedCost = { usd: null, price_table_date: '2026-10-01', abstained_models: ['mystery-model'] }
+    await renderView({
+      breakdowns: day({ ...breakdowns.day.total, api_equivalent_cost: abstainedCost }, [
+        { ...breakdowns.day.groups[0], api_equivalent_cost: abstainedCost },
+        breakdowns.day.groups[1],
+      ]),
+    })
+    const card = kpi('API-equivalent cost')
+    expect(within(card).getByText(/abstained: mystery-model/)).toBeInTheDocument()
+    expect(card.textContent).not.toMatch(/\$0/)
+    expect(within(card).getByText('no previous data')).toBeInTheDocument()
+    expect(within(card).getByRole('img').getAttribute('aria-label')).toContain('mystery-model')
+  })
+})
+
+function pickFilter(name, value) {
+  fireEvent.change(screen.getByLabelText(name), { target: { value } })
+}

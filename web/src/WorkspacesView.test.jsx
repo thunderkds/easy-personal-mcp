@@ -76,8 +76,8 @@ describe('cards (AC1)', () => {
   it('replaces the Connectors tab with a Workspaces tab', async () => {
     stub()
     render(<App />)
-    expect(screen.queryByRole('tab', { name: 'Connectors' })).toBeNull()
-    click(screen.getByRole('tab', { name: 'Workspaces' }))
+    expect(screen.queryByRole('button', { name: 'Connectors' })).toBeNull()
+    click(screen.getByRole('button', { name: 'Workspaces' }))
     expect(await screen.findByRole('heading', { name: 'Workspaces' })).toBeInTheDocument()
     expect(window.location.hash).toBe('#secret-token')
   })

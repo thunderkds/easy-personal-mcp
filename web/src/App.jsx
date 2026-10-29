@@ -13,30 +13,49 @@ const TABS = [
   { id: 'agents', label: 'Agents', View: AgentsView },
 ]
 
-/** In-page tabs only: the URL fragment holds the dashboard token, so there is no routing. */
+/**
+ * Sidebar shell. In-page views only: the URL fragment holds the dashboard token, so there is no routing.
+ * `slot` is the top bar's filter area: a view may portal its filters into it.
+ */
 export default function App() {
   const [active, setActive] = useState('usage')
-  const { View } = TABS.find((t) => t.id === active)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [slot, setSlot] = useState(null)
+  const { label, View } = TABS.find((t) => t.id === active)
   return (
-    <>
-      <div className="tabs" role="tablist" aria-label="Views">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`tab-${t.id}`}
-            aria-selected={t.id === active}
-            aria-controls="view"
-            onClick={() => setActive(t.id)}
-          >
-            {t.label}
+    <div className="shell">
+      <aside id="sidebar" className="sidebar" data-open={menuOpen}>
+        <p className="brand">Easy Personal</p>
+        <nav aria-label="Views">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-current={t.id === active ? 'page' : undefined}
+              onClick={() => {
+                setActive(t.id)
+                setMenuOpen(false)
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+      <div className="content">
+        <header className="topbar">
+          <button type="button" className="menu-button" aria-label="Menu" aria-controls="sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+              <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </button>
-        ))}
+          <p className="topbar-title">{label}</p>
+          <div className="topbar-slot" ref={setSlot} />
+        </header>
+        <div id="view">
+          <View slot={slot} />
+        </div>
       </div>
-      <div id="view" role="tabpanel" aria-labelledby={`tab-${active}`}>
-        <View />
-      </div>
-    </>
+    </div>
   )
 }

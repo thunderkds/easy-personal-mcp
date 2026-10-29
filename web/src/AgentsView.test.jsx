@@ -34,7 +34,7 @@ describe('Agents view', () => {
   it('is reachable from the nav as an Agents tab', async () => {
     stub()
     render(<App />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Agents' }))
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('button', { name: 'Agents' }))
     expect(await screen.findByRole('heading', { name: 'Agents' })).toBeInTheDocument()
   })
 
