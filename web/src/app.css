@@ -211,6 +211,9 @@ thead th { padding: var(--space-2) 10px; font-size: var(--fs-label); font-weight
 .card table { font-size: var(--fs-note); }
 .card th, .card td { padding-inline: 6px; }
 th:first-child, td:first-child { text-align: left; }
+/* By model: the id column takes the room left and ellipsizes (full id in the title); below its min-width the .table-wrap scrolls. */
+.model-table th, .model-table td { padding-inline: 4px; }
+.model-table th:first-child { width: 100%; max-width: 0; min-width: 6rem; overflow: hidden; text-overflow: ellipsis; }
 tbody th { font-weight: 400; color: var(--color-text); }
 tbody tr:last-child > * { border-bottom: 0; }
 .table-frame { border: 1px solid var(--color-border); border-radius: var(--radius); }

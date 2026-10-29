@@ -64,7 +64,8 @@ describe('breakdowns (AC1, AC6)', () => {
     await renderView()
     for (const name of ['By day', 'By model', 'By project', 'By tool']) {
       const sec = screen.getByRole('region', { name })
-      const headers = within(sec).getAllByRole('columnheader').map((h) => h.textContent)
+      // By model shows short headers; its full names are the aria-label (asserted in its own test)
+      const headers = within(sec).getAllByRole('columnheader').map((h) => h.getAttribute('aria-label') ?? h.textContent)
       expect(headers[0]).toMatch(/^(Day|Model|Project|Tool)$/)
       expect(headers[1]).toBe('Total tokens')
       expect(headers.indexOf('API-equivalent cost')).toBe(headers.length - 1)
@@ -107,10 +108,15 @@ describe('layout (HUN-126)', () => {
     expect(bars[0]).toHaveAttribute('title', expect.stringMatching(/^2026-10-\d\d: [\d,]+ tokens$/))
   })
 
-  it('By model: a compact table of model, total tokens, output and API-equivalent cost', async () => {
+  it('By model: short visible headers, full names for assistive tech, in a compact table', async () => {
     await renderView()
     const sec = screen.getByRole('region', { name: 'By model' })
-    expect(within(sec).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Model', 'Total tokens', 'Output', 'API-equivalent cost'])
+    const headers = within(sec).getAllByRole('columnheader')
+    expect(headers.map((h) => h.textContent)).toEqual(['Model', 'Total', 'Output', 'Cost'])
+    expect(headers.map((h) => h.getAttribute('aria-label') ?? h.textContent)).toEqual(['Model', 'Total tokens', 'Output tokens', 'API-equivalent cost'])
+    expect(within(sec).getByRole('columnheader', { name: 'API-equivalent cost' })).toHaveTextContent('Cost')
+    expect(within(sec).getByRole('columnheader', { name: 'Total tokens' })).toHaveTextContent('Total')
+    expect(within(sec).getByRole('columnheader', { name: 'Output tokens' })).toHaveTextContent('Output')
   })
 
   it('By project: one bar row per project (same names allowed), the top project in full color', async () => {
@@ -150,7 +156,8 @@ describe('layout (HUN-126)', () => {
 describe('cost label (AC3)', () => {
   it('always says API-equivalent cost and dates the price table', async () => {
     await renderView()
-    expect(screen.queryByText(/^cost$/i)).toBeNull()
+    // only the By model column header may read "Cost" (its aria-label is the full name)
+    expect(screen.queryAllByText(/^cost$/i).filter((el) => el.tagName !== 'TH')).toEqual([])
     expect(screen.getAllByText('API-equivalent cost').length).toBeGreaterThanOrEqual(5)
     const totals = screen.getByRole('region', { name: 'Totals' })
     expect(within(totals).getByText(/\$12\.50/)).toBeInTheDocument()
