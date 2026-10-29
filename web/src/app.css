@@ -160,6 +160,13 @@ ul.timeline > li { border-top: 1px solid var(--color-border); padding: var(--spa
 .gaps { margin: var(--space-1) 0 0; padding-left: var(--space-3); color: var(--color-gap); font-size: var(--text-sm); }
 ul.entries { list-style: none; margin: 0; padding: 0; }
 ul.entries > li { border-top: 1px solid var(--color-border); padding: var(--space-2) 0; overflow-wrap: anywhere; }
+ul.agent-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: var(--space-3); }
+ul.agent-cards > li { border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); padding: var(--space-3); }
+.status-line p { margin: var(--space-1) 0; }
+.status-line .limit .progress { margin: var(--space-1) 0 var(--space-2); }
+.limit-green .progress-fill { background: var(--chart-green); }
+.limit-amber .progress-fill { background: var(--chart-amber); }
+.limit-red .progress-fill { background: var(--color-error); }
 .entry-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: baseline; }
 .entry-head h3 { margin: 0 0 var(--space-2); }
 .fix { margin: var(--space-1) 0; }
