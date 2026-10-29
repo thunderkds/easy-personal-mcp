@@ -65,6 +65,10 @@ export const breakdowns = {
   },
 }
 
+// HUN-83: previous equal period (request carries `until`). Current day total: 89,100 tokens, 20 messages, $12.50.
+const prevTotal = { ...totalRow, input_tokens: 600, output_tokens: 1700, cache_creation_input_tokens: 2800, cache_read_input_tokens: 39450, messages: 16, api_equivalent_cost: cost(20) }
+export const previousDay = { by: 'day', period, groups: [], total: prevTotal }
+
 export const outliers = {
   period,
   thresholds: { tool_calls: 100, context_tokens: 150000 },
@@ -300,6 +304,8 @@ export function fakeFetch(overrides = {}) {
     const path = u.pathname
     let body
     if (path === '/api/usage/summary') body = overrides.summary ?? summary
+    else if (path === '/api/usage/breakdown' && u.searchParams.has('until'))
+      body = overrides.previousDay ?? previousDay
     else if (path === '/api/usage/breakdown') body = (overrides.breakdowns ?? breakdowns)[u.searchParams.get('by')]
     else if (path === '/api/usage/outliers') body = overrides.outliers ?? outliers
     else if (path === '/api/usage/sessions') body = overrides.sessions ?? sessions

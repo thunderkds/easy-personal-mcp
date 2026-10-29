@@ -1,10 +1,12 @@
-/* Design tokens: every color, size and space in the page comes from here. */
+/* Design tokens (dark only): every color, size and space in the page comes from here. */
 :root {
+  color-scheme: dark;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.25rem;
   --text-xl: 1.5rem;
+  --text-kpi: 1.875rem;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -12,17 +14,39 @@
   --space-4: 1.5rem;
   --space-5: 2rem;
 
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-text: #1b1f24;
-  --color-muted: #57606a;
-  --color-border: #d0d7de;
-  --color-accent: #0b5fd6;
-  --color-accent-soft: #b6d0f7;
-  --color-gap: #b35900;
-  --color-gap-soft: #ffe2c2;
-  --color-notice-bg: #fff4d6;
-  --color-notice-border: #b08400;
-  --color-error: #b3261e;
-  --radius: 6px;
+  --sidebar-width: 15rem;
+
+  --color-bg: #080b22;
+  --color-bg-glow: #2a2192;
+  --color-bg-gradient: radial-gradient(ellipse at 85% 100%, var(--color-bg-glow) 0%, transparent 55%), linear-gradient(180deg, #0a0e2c 0%, var(--color-bg) 100%);
+  --color-sidebar: #0b0f2e;
+  --color-topbar: rgba(8, 11, 34, 0.85);
+  --color-surface: #0e1338;
+  --color-surface-2: #182052;
+  --color-text: #eef0ff;
+  --color-muted: #a6acd9;
+  --color-border: #2a3272;
+  --color-accent: #2563eb;
+  --color-accent-text: #8cb0ff;
+  --color-on-accent: #ffffff;
+  --color-accent-soft: #29327a;
+  --color-gap: #ffb454;
+  --color-gap-soft: #4a3512;
+  --color-notice-bg: #3a2f10;
+  --color-notice-border: #b08a1c;
+  --color-error: #ff7c93;
+  --color-up: #2ee6a0;
+  --color-up-bg: #0f3a33;
+  --color-down: #ff6b9d;
+  --color-down-bg: #43152f;
+  --color-shadow: rgba(2, 3, 20, 0.6);
+  --shadow-card: 0 8px 24px var(--color-shadow);
+  --radius: 14px;
+  --radius-sm: 8px;
+
+  /* Chart accents */
+  --chart-green: #19d38a;
+  --chart-amber: #ffc531;
+  --chart-cyan: #22c5f2;
+  --chart-pink: #ff3d8b;
 }

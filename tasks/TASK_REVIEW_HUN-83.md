@@ -74,7 +74,18 @@ Thu Oct 29 04:56:09 AM UTC 2026
 
 Screenshot of the current light, tab-based Usage view at 1280px on synthetic fixture data (temp `EASY_PERSONAL_HOME` + `EASY_PERSONAL_CLAUDE_PROJECTS`, 2 projects x 16 days): `reports/HUN-83/before-usage-1280.png` (gitignored). It shows a light page, pill tabs at the top, no sidebar, no widget cards, no sparklines.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-10-29, implementing agent; Supervisor/reviewer re-runs for Evidence):
+
+```
+$ npm --prefix web test
+ Test Files  8 passed (8)
+      Tests  122 passed (122)
+$ npm --prefix web run build && uv run pytest -q
+ built in 136ms
+ 748 passed, 4 deselected, 1 xfailed, 1 warning in 154.66s (0:02:34)
+```
+
+Screenshots on synthetic fixture data, `reports/HUN-83/after-<view>-<375|768|1280>.png` for usage, warningsplan, kit, workspaces, agents (+ `menuopen-usage-375.png`). No horizontal overflow (scrollWidth == clientWidth) at any of the 15 captures. 0 off-origin requests.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 
