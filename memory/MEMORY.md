@@ -34,6 +34,7 @@
 - [HUN-46 servers: Gmail, SendGrid, Teams, Discord](decisions.md#2026-10-22--hun-46-catalog-servers-gmail-sendgrid-teams-discord) — pinned community servers; `claude_ai_link` required with yes.
 - [Workspaces; agent account picks workspace](decisions.md#2026-10-26--workspaces-group-connectors-the-agent-account-picks-its-workspace) — workspace = email/repos/connectors, no agent settings; Codex listed only (DDR-0001 stands); not yet planned.
 ### Learnings
+- [easy-ui + Graphite Mint](learnings.md#2026-10-29--easy-ui-mcp-is-reachable-graphite-mint-look-landed-hun-126) — easy-ui at localhost:8765 via curl JSON-RPC, fixed 1280×720 viewport, batch checks (90-call limit); Plex self-hosted; family links allowlisted in check_static; `[auto]` false alarm on later tasks.
 - [Nine-branch integration](learnings.md#2026-10-29--nine-branch-dashboard-integration-hun-113121-auto-verify-stacked-merges) — headless verify rows read blocked (no verdict line); Done before merge; cherry-picked stacks auto-merge duplicates; regen goldens; `uv tool install --reinstall`; `test_launch` timing flakes under load.
 - [Static build gitignored](learnings.md#2026-10-21--dashboard-static-build-is-gitignored-build-before-uv-build) — `npm --prefix web run build` before `uv build`; 2 web tests skip unbuilt.
 - [Verify against fixtures](learnings.md#2026-10-21--runtime-verify-against-fixtures-never-the-real-transcripts) — temp `EASY_PERSONAL_CLAUDE_PROJECTS` + `EASY_PERSONAL_HOME`; grep outputs for `INVENTED_`.
@@ -59,7 +60,7 @@
 - [Scheduled ingest lock + systemd](learnings.md#2026-10-21--scheduled-ingest-lock-exit-75-systemd-only-via---dry-run-in-tests) — flock, exit 75; tests stub systemctl, leak suite dry-run only; timer has no shell env → settings go in `config.yaml`.
 - [No `rm` in `bash -c`](learnings.md#2026-10-21--rm-inside-bash--c-is-blocked-by-the-harness-safety-check) — use a fresh temp dir per verify case.
 - [Verify dashboard/kit_trace/launcher](learnings.md#2026-10-22--verify-recipes-for-the-dashboard-kit_trace-and-the-launcher) — `X-Dashboard-Token`; rewrite fixture `cwd`; throwaway `PYTHON_KEYRING_BACKEND`, never the real keychain.
-- [UI evidence via headless Chrome](learnings.md#2026-10-22--ui-evidence-without-easy-ui-headless-chrome-on-a-combined-checkout) — no easy-ui MCP here; screenshots + net log at 375/768/1280; throwaway cherry-pick checkout for cross-branch UI; CDP via Node `WebSocket` for tab clicks.
+- [UI evidence via headless Chrome](learnings.md#2026-10-22--ui-evidence-without-easy-ui-headless-chrome-on-a-combined-checkout) — (2026-10-22; easy-ui now reachable, see below) screenshots + net log at 375/768/1280; throwaway cherry-pick checkout for cross-branch UI; CDP via Node `WebSocket` for tab clicks.
 - [Grid tracks `minmax(0, 1fr)`](learnings.md#2026-10-22--css-grid-tracks-need-minmax0-1fr-for-scrolling-tables) — nowrap tables overflow `.panels` otherwise; jsdom can't see it.
 - [Owner check: 30-min timeline gap](learnings.md#2026-10-22--open-owner-check-from-hun-53-timeline-gap-threshold) — `TIMELINE_GAP_MINUTES` is the Supervisor's choice; sessions API dashboard-only.
 - [PROJECT_SPEC Status column stale](learnings.md#2026-10-22--project_specmd-tasks-status-column-is-not-maintained) — all `Todo`; board is the truth; don't patch single rows.
