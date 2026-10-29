@@ -172,6 +172,8 @@ The first plan's HUN-21…HUN-29 are archived with the trashed project and do no
 | HUN-70 | Usage page Workspace / Account filters | Todo | Frontend-Implementer | C1 | Low | P2 |
 | HUN-71 | QA end-to-end across fake accounts | Todo | QA-Automation-Agent | C2 | Medium | P1 |
 
+Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main and push".
+
 **Dashboard fixes** (Stage 2, 2026-10-29, owner issues #1–#7; owner decisions: global scope selector, status-line card with plan-limit snapshot, no change to the owner's store now). Waves: 1 = HUN-113, 114, 115, 117 (parallel); 2 = HUN-116 (after 114+115), HUN-118 (after 114+117); 3 = HUN-119, HUN-120 (after 118).
 
 | ID | Title | Status | Assigned Agent | Complexity | Risk | Priority |
