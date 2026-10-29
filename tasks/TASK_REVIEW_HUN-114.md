@@ -13,12 +13,12 @@
 ## Auto decisions
 
 Mode: auto
-1. Task breakdown and labels approved — FACT: owner message 2026-10-29 "do all by parallel with tag [auto], merge to main and push" after the Stage 2 plan in `PROJECT_SPEC.md` § Tasks
+1. Task breakdown and labels approved; run all tasks in auto mode — FACT: PROJECT_SPEC.md:175 "do all by parallel with tag [auto], merge to main and push"
 2. Requirement Fidelity Gate signed auto (Supervisor) — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule` (row 13)
 3. Spawn model from the CLI Model Table — RULE: `PROJECT_SPEC.md` § CLI Model Table
 4. Waves (stacked branches) instead of all 8 from main: tasks that edit the same files start from their predecessor's branch — RULE: `PROJECT_SPEC.md` § Tasks ("Waves: 1 = HUN-113, 114, 115, 117 …")
-5. Merge to main and push after `/verify` passes — FACT: owner message 2026-10-29 "merge to main and push"; `docs/claude-md/tracks.md` `### Edge cases` "the explicit ask wins for X"
-Checks: pending
+5. Merge to main and push after `/verify` passes (the owner's explicit ask overrides the auto-mode no-merge rule for this one step) — FACT: docs/claude-md/tracks.md:365 "the explicit ask wins for X"
+Checks: tests `npm --prefix web test && npm --prefix web run build && uv run pytest -q` — 134 Vitest passed, 750 pytest passed; reviews code-review — 0 findings, security-review (inline) — 0 findings; real run fixture dashboard screenshots at 1280/768/375 in reports/HUN-114/ (auto-checked, not /verify)
 Not done: merge (owner asked for it; runs after verify); auto verify: running (T182)
 
 
@@ -30,7 +30,7 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 | Verification command run | ☑ pass | 2026-10-29T08:18:49Z `npm --prefix web test && npm --prefix web run build && uv run pytest -q`: vitest `Tests 134 passed (134)`; build `✓ built in 477ms`; pytest `750 passed, 4 deselected, 1 xfailed, 1 warning in 154.78s (0:02:34)` |
 | Negative cases hold | ☑ pass | Default account: no Ignore button (vitest) and API still refuses (`test_default_account_cannot_be_ignored` passes). Missing folder: no Use / Rename / Ignore. Empty rename label: Save name disabled, Cancel sends no request. Codex ignored account does not trigger the Usage note. Refused action: server text in `role="alert"` on that row only. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review (Supervisor, 2026-10-29): accounts._row + callers (grouped, CLI account list), AgentsView, UsageView, App, app.css + tests. lane: C1, 8 files, 300 lines, EXCEEDS (mostly tests; label note only). Findings after gate: P0 0, P1 0, P2 0, P3 0. security-review inline (built-in command needs origin/HEAD; remote is `github`): no findings — pass |
 | Full smoke suite still green | ☑ pass | `uv run pytest -q` → `750 passed, 4 deselected, 1 xfailed` (includes leak harness); `npm --prefix web test` → 134 passed |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Headless Chrome 155 on a fixture dashboard (temp `EASY_PERSONAL_HOME`/`AGENT_ROOT`; default + confirmed + 2 ignored Claude + 1 ignored Codex). Screenshots in `reports/HUN-114/`: `agents-{1280,768,375}.png`, `agents-use-form-1280.png`, `usage-ignored-note-{1280,768,375}.png` (gitignored folder). Verdict: ignored rows show "Use this account"; the form shows Name + Confirm & name + Cancel; default row shows Rename only; confirmed row shows Rename + Ignore; Usage shows "2 agent accounts are ignored, so their usage is not counted." with an Open Agents button, above the period buttons; the button opens Agents. Readable at all sizes. |
