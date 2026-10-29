@@ -26,16 +26,16 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/App.test.jsx` (new `global scope selector (HUN-118)` block, 13 tests, AC1-AC7 + failing options + localStorage throws + stale scope), `web/src/UsageView.test.jsx` (scope props, no own filters), `web/src/WarningsPlanView.test.jsx`, `web/src/KitView.test.jsx` (request params, refetch, "Showing:", stale answer ignored). `npm --prefix web test` 2026-10-29T08:32:48Z: `Test Files  8 passed (8)` / `Tests  152 passed (152)` (was 134 before) |
+| Verification command run | ☑ pass | `npm --prefix web test && npm --prefix web run build && uv run pytest -q`: vitest `152 passed (152)`; build `✓ built in 201ms`; pytest `750 passed, 4 deselected, 1 xfailed, 1 warning in 160.32s` |
+| Negative cases hold | ☑ pass | Tests: stored workspace `gone` / account `99` fall back to All and no `workspace=`/`account=` is sent; `localStorage.getItem`/`setItem` throw: page works and the choice still applies; options request fails: selects hidden, views load unscoped even with a stored scope; slow answer for an older scope is ignored (KitView); orphan workspace and detected/Codex accounts not listed |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q`: `750 passed, 4 deselected, 1 xfailed, 1 warning in 160.32s (0:02:40)` (built static present); vitest 152 passed |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Headless Chrome 155 against a fixture dashboard (temp `EASY_PERSONAL_HOME`/`EASY_PERSONAL_AGENT_ROOT`/`EASY_PERSONAL_CLAUDE_PROJECTS`, workspaces acme/personal, accounts Claude company/Claude personal). Shots (not committed: `reports/` is gitignored): `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-118/reports/HUN-118/usage-1280.png`, `warnings-1280.png`, `kit-1280.png`. Verdict: the Scope card (Workspace and Account labelled selects) sits right under the brand on every tab, and each view says `Showing: acme · Claude company`; the owner sees where to choose at first glance. Warnings shot also read: same card, `Showing: acme · All`. (Note: this branch's backend ignores the params until HUN-117 merges, so the fixture shows unscoped data.) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `grep -nE "#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(" web/src/app.css web/src/Scope.jsx web/src/App.jsx` finds nothing (exit 1); all colors are `var(--...)` tokens. Contrast from `tokens.css` values: `--color-text` on `--color-surface-2` 13.56:1, `--color-muted` on `--color-surface-2` 6.97:1, `--color-muted` on `--color-bg` 8.81:1 (all >= 4.5:1) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280 px `usage-1280.png`: scope block in the sidebar, no top-bar text. 768 px `usage-768.png` and 375 px `closed-375.png`: menu closed, top bar shows `Scope: acme · All` under the title, no horizontal overflow. 375 px `menu-open-375.png`: Scope block is at the top of the opened sidebar menu above the nav. All under `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-118/reports/HUN-118/` |
 
 ---
 
@@ -46,12 +46,30 @@ Not done: merge (owner asked for it; runs after verify); auto verify: running (T
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-29T08:25:44Z in the worktree (branch HUN-118, HEAD 49f845b, no implementation commit yet):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ grep -c "Scope\|scope" web/src/App.jsx
+0
+$ grep -n "Filters\|createPortal\|slot" web/src/UsageView.jsx | head
+(Filters component, createPortal into the top-bar slot; WarningsPlanView.jsx and KitView.jsx take no scope)
+$ npm --prefix web test
+ Test Files  8 passed (8)
+      Tests  134 passed (134)
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+The sidebar has no Scope block. The Workspace/Account selects exist only on the Usage tab, portaled into the top bar. Warnings & plan and Kit send no `workspace=` / `account=`.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: captured 2026-10-29T08:32:48Z, same worktree after the change:
+
+```
+$ npm --prefix web test
+ Test Files  8 passed (8)
+      Tests  152 passed (152)
+```
+
+Screenshot `reports/HUN-118/usage-1280.png`: the sidebar shows a Scope card with "Workspace: acme" and "Account: Claude company" selects, and Usage says "Showing: acme · Claude company". `kit-1280.png` shows the same card kept on the Kit tab with "Showing: personal · Claude personal". `closed-375.png` shows "Scope: acme · All" in the top bar; `menu-open-375.png` shows the card at the top of the opened menu.
+
+**DELTA**: The owner can choose Workspace and Account in one sidebar block on any tab, the choice stays across tabs and reloads, and Usage, Warnings & plan and Kit filter by it and say what they show.
+
+**WITNESS**: frontend-developer agent, HUN-118 run, 2026-10-29T08:25Z to 08:33Z (vitest, build, pytest and Chrome screenshots on a fixture dashboard). The Supervisor's trace `memory/event-trace/HUN-118.jsonl` is the independent record.

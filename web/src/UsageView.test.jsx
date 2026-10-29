@@ -8,12 +8,20 @@ const fakeFetch = (overrides = {}) =>
 const usageCalls = (f) => f.calls.filter((c) => c.url.startsWith('/api/usage/'))
 const fmt = (n) => n.toLocaleString('en-US')
 
-async function renderView(overrides) {
+const options = {
+  workspaces: usageWorkspaces.workspaces.filter((w) => !w.is_orphan),
+  accounts: usageAccounts.accounts.filter((a) => a.provider === 'claude' && a.status === 'confirmed'),
+  ignored: 0,
+}
+const NONE = { workspace: '', account: '' }
+
+/** The scope now lives in App (HUN-118): the view takes `scope` + `options` and refetches when they change. */
+async function renderView(overrides, scope = NONE) {
   const fetchStub = fakeFetch(overrides)
   vi.stubGlobal('fetch', fetchStub)
-  render(<UsageView />)
+  const view = render(<UsageView scope={scope} options={options} />)
   await screen.findByRole('heading', { name: 'Totals' })
-  await screen.findByLabelText('Workspace')
+  fetchStub.rerender = (next) => view.rerender(<UsageView scope={next} options={options} />)
   return fetchStub
 }
 
@@ -158,74 +166,58 @@ describe('period', () => {
   })
 })
 
-describe('workspace and account filters (HUN-70)', () => {
-  const pick = (name, value) => fireEvent.change(screen.getByLabelText(name), { target: { value } })
-
-  it('lists workspaces without orphan and confirmed Claude accounts, All by default', async () => {
-    await renderView()
-    const ws = screen.getByLabelText('Workspace')
-    expect(ws).toHaveValue('')
-    expect(within(ws).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Acme', 'Empty'])
-    const acc = screen.getByLabelText('Account')
-    expect(within(acc).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Claude company'])
-  })
-
-  it('sends no filter params by default', async () => {
+describe('workspace and account scope (HUN-70, HUN-118)', () => {
+  it('sends no scope params by default', async () => {
     const f = await renderView()
     expect(usageCalls(f).every((c) => !/workspace=|account=/.test(c.url))).toBe(true)
   })
 
-  it('a workspace pick adds workspace= to every usage call', async () => {
-    const f = await renderView()
-    f.calls.length = 0
-    pick('Workspace', 'Acme')
-    await waitFor(() => expect(usageCalls(f).length).toBe(8))
+  it('a workspace in the scope adds workspace= to every usage call', async () => {
+    const f = await renderView(undefined, { workspace: 'Acme', account: '' })
+    await waitFor(() => expect(usageCalls(f).filter((c) => c.url.includes('workspace=Acme')).length).toBe(8))
     expect(usageCalls(f).every((c) => c.url.includes('workspace=Acme') && !c.url.includes('account='))).toBe(true)
   })
 
-  it('workspace plus account sends both params', async () => {
-    const f = await renderView()
-    pick('Workspace', 'Acme')
-    await waitFor(() => screen.getByRole('heading', { name: 'Totals' }))
+  it('refetches with both params when the scope changes', async () => {
+    const f = await renderView(undefined, { workspace: 'Acme', account: '' })
     f.calls.length = 0
-    pick('Account', '1')
+    f.rerender({ workspace: 'Acme', account: '1' })
     await waitFor(() => expect(usageCalls(f).length).toBe(8))
     expect(usageCalls(f).every((c) => c.url.includes('workspace=Acme') && c.url.includes('account=1'))).toBe(true)
   })
 
-  it('shows the selected filters and period in the header', async () => {
+  it('shows what it shows, All when empty (AC4)', async () => {
     await renderView()
-    expect(screen.getByTestId('usage-scope')).toHaveTextContent('Workspace: All · Account: All · Last 7 days')
-    pick('Workspace', 'Acme')
-    pick('Account', '1')
-    await waitFor(() =>
-      expect(screen.getByTestId('usage-scope')).toHaveTextContent('Workspace: Acme · Account: Claude company · Last 7 days'),
-    )
+    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
   })
 
-  it('keeps the not-included notice with filters', async () => {
+  it('names the chosen workspace and account label', async () => {
+    await renderView(undefined, { workspace: 'Acme', account: '1' })
+    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: Acme · Claude company')
+  })
+
+  it('has no filter selects of its own any more (AC7)', async () => {
+    await renderView()
+    expect(screen.queryByLabelText('Workspace')).toBeNull()
+    expect(screen.queryByLabelText('Account')).toBeNull()
+  })
+
+  it('keeps the not-included notice', async () => {
     await renderView()
     expect(screen.getByRole('note')).toHaveTextContent(/not included/i)
   })
 
   it('hints when the chosen workspace has no repos', async () => {
-    await renderView()
-    pick('Workspace', 'Empty')
+    await renderView(undefined, { workspace: 'Empty', account: '' })
     expect(await screen.findByText(/No repos in this workspace/)).toBeInTheDocument()
   })
 
-  it('hides the dropdowns when the options request fails, usage still loads unfiltered', async () => {
-    const base = fakeFetch()
-    const f = async (url, init) =>
-      String(url).startsWith('/api/workspaces') || String(url).startsWith('/api/accounts')
-        ? { ok: false, status: 500, json: async () => ({}) }
-        : base(url, init)
+  it('without options the view still loads unscoped', async () => {
+    const f = fakeFetch()
     vi.stubGlobal('fetch', f)
     render(<UsageView />)
     await screen.findByRole('heading', { name: 'Totals' })
-    expect(screen.queryByLabelText('Workspace')).toBeNull()
-    expect(screen.queryByLabelText('Account')).toBeNull()
-    expect(base.calls.every((c) => !/workspace=|account=/.test(c.url))).toBe(true)
+    expect(f.calls.every((c) => !/workspace=|account=/.test(c.url))).toBe(true)
   })
 })
 
@@ -279,12 +271,10 @@ describe('widgets (HUN-83)', () => {
   })
 
   it('previous period is [now - 2 days, now - days) with the same workspace and account', async () => {
-    const f = await renderView()
+    const f = await renderView(undefined, { workspace: 'Acme', account: '' })
     f.calls.length = 0
-    pickFilter('Workspace', 'Acme')
-    await waitFor(() => expect(usageCalls(f).length).toBe(8))
-    pickFilter('Account', '1')
-    await waitFor(() => expect(usageCalls(f).filter((c) => c.url.includes('until=')).length).toBe(2))
+    f.rerender({ workspace: 'Acme', account: '1' })
+    await waitFor(() => expect(usageCalls(f).filter((c) => c.url.includes('until=')).length).toBe(1))
     const prev = usageCalls(f).filter((c) => c.url.includes('until=')).at(-1)
     const params = new URL(prev.url, 'http://x').searchParams
     expect(prev.url).toMatch(/^\/api\/usage\/breakdown\?/)
@@ -354,18 +344,11 @@ describe('widgets (HUN-83)', () => {
   })
 })
 
-function pickFilter(name, value) {
-  fireEvent.change(screen.getByLabelText(name), { target: { value } })
-}
-
 describe('ignored accounts note (HUN-114)', () => {
-  const ignored = (id) => ({ id, provider: 'claude', label: `Claude ${id}`, status: 'ignored' })
-  const confirmedOne = usageAccounts.accounts[0]
-
   it('AC6: says how many Claude accounts are ignored and opens the Agents view from a button', async () => {
-    vi.stubGlobal('fetch', fakeFetch({ accounts: { accounts: [confirmedOne, ignored(8), ignored(9)] } }))
+    vi.stubGlobal('fetch', fakeFetch())
     const onOpenAgents = vi.fn()
-    render(<UsageView onOpenAgents={onOpenAgents} />)
+    render(<UsageView options={{ ...options, ignored: 2 }} onOpenAgents={onOpenAgents} />)
     await screen.findByRole('heading', { name: 'Totals' })
     expect(await screen.findByText('2 agent accounts are ignored, so their usage is not counted.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Open Agents' }))
@@ -373,14 +356,13 @@ describe('ignored accounts note (HUN-114)', () => {
   })
 
   it('one ignored account reads in the singular', async () => {
-    vi.stubGlobal('fetch', fakeFetch({ accounts: { accounts: [confirmedOne, ignored(8)] } }))
-    render(<UsageView onOpenAgents={() => {}} />)
+    vi.stubGlobal('fetch', fakeFetch())
+    render(<UsageView options={{ ...options, ignored: 1 }} onOpenAgents={() => {}} />)
     expect(await screen.findByText('1 agent account is ignored, so its usage is not counted.')).toBeInTheDocument()
   })
 
-  it('no note when no Claude account is ignored (a Codex account does not count)', async () => {
-    const codexIgnored = { id: 5, provider: 'codex', label: 'Codex', status: 'ignored' }
-    await renderView({ accounts: { accounts: [confirmedOne, codexIgnored] } })
+  it('no note when no Claude account is ignored (App counts only Claude accounts, see App.test.jsx)', async () => {
+    await renderView()
     expect(screen.queryByText(/ignored, so/)).toBeNull()
   })
 })
