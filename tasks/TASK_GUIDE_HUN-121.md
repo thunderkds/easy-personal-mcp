@@ -61,6 +61,7 @@ Owner follow-up 2026-10-29: "looks like the timeline" — the center column shou
 | 5 | Right rail at ≥ 80rem with 3 cards (Cache reuse ring, Next actions (N), Plan limits); each card renders its empty state ("no data") without errors; each SVG has `role="img"` + `aria-label` | right rail |
 | 6 | Right rail makes no new API route; it reuses `/api/usage/summary`, `/api/warnings`, `/api/accounts` with the current scope | no new API |
 | 8 | Usage session timeline renders as feed cards (icon with project initial, title + summary, right-aligned local time, chart body, gradient token-share bar, footer counts); Warnings and Kit cards use the same `FeedCard` component | timeline look |
+| 9 | After an account is confirmed, renamed or ignored on Agents, App reloads the scope options, so the sidebar Account list and the ignored-accounts note update without a page reload (HUN-118 review P2) | review carry-over |
 | 7 | All existing Vitest tests pass (selectors updated only where the nav markup changes); no new npm dependency | no regression |
 
 ---
