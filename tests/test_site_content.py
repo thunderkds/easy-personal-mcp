@@ -1,14 +1,17 @@
-"""HUN-57 drift + safety test for site/index.html (scope: PROJECT_SPEC_SITE.md).
+"""HUN-57 / HUN-132 drift + safety test for site/index.html (scope: PROJECT_SPEC_SITE.md).
 
 Every fact on the page is asserted against its source of truth at test time: the README
 (pitch line, install commands), the tools the MCP server registers and the packaged
-connector catalog. Nothing here is a hard-coded copy of those lists.
+connector catalog. The stat strip and the header version come from the same sources (server
+registration, catalog, dashboard views in web/src/App.jsx, pyproject.toml). Nothing here is a
+hard-coded copy of those lists.
 """
 
 from __future__ import annotations
 
 import asyncio
 import re
+import tomllib
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
@@ -27,8 +30,12 @@ _VOID = {"meta", "link", "br", "img", "hr", "input"}
 ALLOWED_HOSTS = {
     "github.com": "/thunderkds/easy-personal-mcp",
     "personal-agentic-claude.vercel.app": "",
+    "easy-memory.vercel.app": "",
     "easy-verifier.vercel.app": "",
 }
+APP_JSX = ROOT / "web" / "src" / "App.jsx"
+GITHUB = "https://github.com/thunderkds/easy-personal-mcp"
+ASIDE_GROUPS = ["// overview", "// getting started", "// reference"]
 READ_STEPS = ["transcripts + kit reports", "ingest", "local store", "MCP / CLI / dashboard"]
 CONNECT_STEPS = ["catalog form", "OS keychain", "claude mcp add-json", "launcher"]
 REQUIRED_COMMANDS = [
@@ -50,6 +57,7 @@ class Element:
     def __init__(self, tag: str, attrs: dict[str, str | None], section: str | None):
         self.tag, self.attrs, self.section = tag, attrs, section
         self.parts: list[str] = []
+        self.anchors: list[Element] = []
 
     @property
     def text(self) -> str:
@@ -71,6 +79,9 @@ class _Parser(HTMLParser):
             self.section_depth = len(self.stack)
         el = Element(tag, attrs, self.section)
         self.elements.append(el)
+        if tag == "a":
+            for parent in self.stack:
+                parent.anchors.append(el)
         if tag not in _VOID:
             self.stack.append(el)
 
@@ -128,7 +139,7 @@ def readme_pitch(readme: str) -> str:
 
 
 def check_tools(parser: _Parser, registered: set[str]) -> None:
-    shown = {e.attrs["data-tool"] for e in _in(parser, "tools", "li", "data-tool")}
+    shown = {e.attrs["data-tool"] for e in _in(parser, "tools", "tr", "data-tool")}
     assert len(registered) >= 10, f"server registers {sorted(registered)}"
     assert not registered - shown, f"tool(s) missing from #tools: {sorted(registered - shown)}"
     assert not shown - registered, f"unknown tool(s) in #tools: {sorted(shown - registered)}"
@@ -165,6 +176,46 @@ def check_install(parser: _Parser, readme: str) -> None:
         assert command in shown, f"command missing from #install: {command!r}"
 
 
+def dashboard_views() -> list[str]:
+    """The dashboard's views: one `{ id, label, View }` entry per view in web/src/App.jsx."""
+    return re.findall(r"\{ id: '(\w+)', label: '[^']+', View:", APP_JSX.read_text(encoding="utf-8"))
+
+
+def family_links() -> dict[str, str]:
+    """The dashboard's `// family` footer links, name -> URL."""
+    block = re.search(r"const FAMILY = \[(.*?)\]", APP_JSX.read_text(encoding="utf-8"), re.DOTALL)
+    assert block, "no FAMILY list in web/src/App.jsx"
+    return dict(re.findall(r"name: '([^']+)', href: '([^']+)'", block.group(1)))
+
+
+def project_version() -> str:
+    return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+
+
+def _all(parser: _Parser, tag: str, attr: str | None = None) -> list[Element]:
+    return [e for e in parser.elements if e.tag == tag and (attr is None or attr in e.attrs)]
+
+
+def _nav(parser: _Parser, label: str) -> Element:
+    return next(e for e in _all(parser, "nav", "aria-label") if e.attrs["aria-label"] == label)
+
+
+def stat_values(parser: _Parser) -> dict[str, int]:
+    return {
+        e.attrs["data-stat"]: int(re.match(r"\d+", _norm(e.text)).group())
+        for e in _in(parser, "hero", "li", "data-stat")
+    }
+
+
+def check_stats(parser: _Parser, tools: int, connectors: int, views: int) -> None:
+    assert stat_values(parser) == {"tools": tools, "connectors": connectors, "views": views}
+
+
+def check_version_pill(parser: _Parser, version: str) -> None:
+    pills = [e for e in _all(parser, "span", "class") if "pill" in e.attrs["class"].split()]
+    assert [_norm(p.text) for p in pills] == [f"usage dashboard \u00b7 v{version}"]
+
+
 def check_pitch(parser: _Parser, readme: str) -> None:
     assert readme_pitch(readme) in _norm(" ".join(e.text for e in _in(parser, "hero", "p")))
 
@@ -193,6 +244,94 @@ def test_hero_links_to_github():
 def test_terms_are_defined_on_the_page():
     terms = {_norm(e.text).lower() for e in _page().elements if "term" in (e.attrs.get("class") or "").split()}
     assert set(DEFINED_TERMS) <= terms, sorted(set(DEFINED_TERMS) - terms)
+
+
+# ---- HUN-132: family layout ----
+
+
+def test_header_has_brand_version_pill_and_github_button():
+    parser = _page()
+    header = next(e for e in _all(parser, "header") if "site-header" in (e.attrs.get("class") or "").split())
+    assert "Easy Personal" in _norm(header.text)
+    check_version_pill(parser, project_version())
+    nav = _nav(parser, "Family")
+    hrefs = {a.attrs["href"] for a in nav.anchors}
+    assert GITHUB in hrefs
+
+
+def test_family_nav_marks_this_site_and_links_the_other_three():
+    parser = _page()
+    links = _nav(parser, "Family").anchors
+    current = [a for a in links if a.attrs.get("aria-current") == "page"]
+    assert [_norm(a.text) for a in current] == ["Easy Personal"]
+    shown = {_norm(a.text): a.attrs["href"] for a in links if a not in current and _norm(a.text) != "GitHub"}
+    assert shown == family_links()
+
+
+def test_aside_groups_link_to_the_pages_own_sections():
+    parser = _page()
+    assert len(_all(parser, "aside")) == 1
+    labels = [_norm(e.text) for e in _all(parser, "div", "class") if "group-label" in e.attrs["class"].split()]
+    assert labels == ASIDE_GROUPS
+    links = _nav(parser, "Sections").anchors
+    targets = [a.attrs["href"] for a in links]
+    assert targets and all(t.startswith("#") for t in targets), targets
+    ids = {e.attrs["id"] for e in parser.elements if e.attrs.get("id")}
+    assert {t[1:] for t in targets} <= ids, sorted({t[1:] for t in targets} - ids)
+    assert len([a for a in links if "aria-current" in a.attrs]) == 1, "exactly one current section"
+
+
+def test_hero_has_eyebrow_h1_and_primary_github_button():
+    parser = _page()
+    h1 = _in(parser, "hero", "h1")
+    assert [_norm(e.text) for e in h1] == ["Easy Personal"]
+    eyebrow = [e for e in _in(parser, "hero", "p", "class") if "eyebrow" in e.attrs["class"].split()]
+    assert len(eyebrow) == 1 and _norm(eyebrow[0].text).startswith("> ")
+    primary = [e for e in _in(parser, "hero", "a", "class") if "btn-primary" in e.attrs["class"].split()]
+    assert [e.attrs["href"] for e in primary] == [GITHUB]
+
+
+def test_stat_strip_numbers_come_from_real_sources():
+    check_stats(_page(), len(registered_tools()), len(catalog.ids()), len(dashboard_views()))
+
+
+def test_dashboard_view_count_is_read_from_the_app():
+    views = dashboard_views()
+    assert len(views) >= 5 and {"usage", "workspaces", "agents"} <= set(views)
+
+
+def test_install_box_commands_are_readme_lines_and_copy_button_works():
+    html = PAGE.read_text(encoding="utf-8")
+    parser = _page()
+    box = [e for e in _in(parser, "hero", "pre", "id") if e.attrs["id"] == "install-cmd"]
+    assert len(box) == 1
+    readme_lines = {ln.strip() for ln in README.read_text(encoding="utf-8").splitlines()}
+    lines = [ln.strip() for ln in box[0].text.splitlines() if ln.strip()]
+    assert lines and all(ln in readme_lines for ln in lines), lines
+    buttons = [e for e in _in(parser, "hero", "button")]
+    assert len(buttons) == 1 and buttons[0].attrs.get("type") == "button"
+    assert buttons[0].attrs.get("data-copy") == "install-cmd"
+    scripts = re.findall(r"<script>(.*?)</script>", html, re.DOTALL)
+    assert len(scripts) == 1 and "navigator.clipboard.writeText(" in scripts[0]
+    assert "Copied" in scripts[0] and "2000" in scripts[0]
+
+
+# ---- negatives for the HUN-132 checks ----
+
+
+def test_drifted_stat_numbers_fail():
+    n_tools, n_conn, n_views = len(registered_tools()), len(catalog.ids()), len(dashboard_views())
+    with pytest.raises(AssertionError):
+        check_stats(_page(), n_tools + 1, n_conn, n_views)
+    with pytest.raises(AssertionError):
+        check_stats(_page(), n_tools, n_conn - 1, n_views)
+    with pytest.raises(AssertionError):
+        check_stats(_page(), n_tools, n_conn, n_views + 1)
+
+
+def test_wrong_version_fails():
+    with pytest.raises(AssertionError):
+        check_version_pill(_page(), "9.9.9")
 
 
 # ---- AC 2: flow diagram ----
