@@ -1,4 +1,4 @@
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import KitView from './KitView.jsx'
 import { fakeFetch, kit } from './test/fixtures.js'
@@ -92,5 +92,41 @@ describe('errors', () => {
     vi.stubGlobal('fetch', fakeFetch({ status: 403 }))
     render(<KitView />)
     expect(await screen.findByRole('alert')).toHaveTextContent('403')
+  })
+})
+
+describe('scope (HUN-118)', () => {
+  it('sends no params without a scope and says All', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    render(<KitView />)
+    await screen.findByRole('heading', { name: 'Kit by project' })
+    expect(f.calls.map((c) => c.url)).toEqual(['/api/kit'])
+    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
+  })
+
+  it('sends workspace= and account=, refetches on change, names the scope', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    const options = { workspaces: [], accounts: [{ id: 1, label: 'Claude company' }] }
+    const view = render(<KitView scope={{ workspace: 'Acme', account: '' }} options={options} />)
+    await screen.findByRole('heading', { name: 'Kit by project' })
+    expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme'])
+    view.rerender(<KitView scope={{ workspace: 'Acme', account: '1' }} options={options} />)
+    await waitFor(() => expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme', '/api/kit?workspace=Acme&account=1']))
+    expect(await screen.findByTestId('scope-line')).toHaveTextContent('Showing: Acme · Claude company')
+  })
+
+  it('ignores a slow answer for an older scope', async () => {
+    const answer = (name) => ({ ok: true, status: 200, json: async () => ({ projects: [{ project: name, missing_on_disk: false, parts: {} }], ui: { status: 'no data' } }) })
+    let releaseOld
+    const f = vi.fn((url) => (String(url).includes('account') ? Promise.resolve(answer('new-scope')) : new Promise((resolve) => (releaseOld = () => resolve(answer('old-scope'))))))
+    vi.stubGlobal('fetch', f)
+    const view = render(<KitView scope={{ workspace: 'Acme', account: '' }} />)
+    view.rerender(<KitView scope={{ workspace: 'Acme', account: '1' }} />)
+    expect(await screen.findByText('new-scope', { exact: false })).toBeInTheDocument()
+    releaseOld()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByText('old-scope', { exact: false })).toBeNull()
   })
 })

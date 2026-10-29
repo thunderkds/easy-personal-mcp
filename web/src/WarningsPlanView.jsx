@@ -1,8 +1,9 @@
 import { getJson } from './api.js'
 import { fmt } from './format.js'
+import { NO_SCOPE, ScopeLine, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 
-const load = () => Promise.all([getJson('/api/warnings'), getJson('/api/plan')])
+const load = (scope) => Promise.all([getJson(scopedPath('/api/warnings', scope)), getJson(scopedPath('/api/plan', scope))])
 
 function Detail({ detail }) {
   if (!detail) return null
@@ -77,11 +78,12 @@ function Plan({ data }) {
   )
 }
 
-export default function WarningsPlanView() {
-  const state = useLoad(load)
+export default function WarningsPlanView({ scope = NO_SCOPE, options = null }) {
+  const state = useLoad(() => load(scope), [scope.workspace, scope.account])
   return (
     <main>
       <h1>Warnings and plan</h1>
+      <ScopeLine scope={scope} options={options} />
       {state.status === 'loading' && <p role="status">Loading warnings</p>}
       {state.status === 'error' && (
         <p role="alert" className="error">

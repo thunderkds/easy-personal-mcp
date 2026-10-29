@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import { fakeFetch } from './test/fixtures.js'
@@ -61,5 +61,27 @@ describe('errors and token', () => {
     render(<WarningsPlanView />)
     expect(await screen.findByRole('alert')).toHaveTextContent('403')
     expect(f.calls[0].init.headers['X-Dashboard-Token']).toBe('secret-token')
+  })
+})
+
+describe('scope (HUN-118)', () => {
+  it('sends no params without a scope and says All', async () => {
+    const f = await renderView()
+    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/plan', '/api/warnings'])
+    expect(screen.getByTestId('scope-line')).toHaveTextContent('Showing: All · All')
+  })
+
+  it('sends workspace= and account= to warnings and plan, refetches on change, names the scope', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    const options = { workspaces: [], accounts: [{ id: 2, label: 'Claude personal' }] }
+    const view = render(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '' }} options={options} />)
+    await screen.findByRole('heading', { name: 'Warnings' })
+    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/plan?workspace=Acme%20Co', '/api/warnings?workspace=Acme%20Co'])
+    f.calls.length = 0
+    view.rerender(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '2' }} options={options} />)
+    await waitFor(() => expect(f.calls.length).toBe(2))
+    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/plan?workspace=Acme%20Co&account=2', '/api/warnings?workspace=Acme%20Co&account=2'])
+    expect(await screen.findByTestId('scope-line')).toHaveTextContent('Showing: Acme Co · Claude personal')
   })
 })

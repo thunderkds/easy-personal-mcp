@@ -24,6 +24,10 @@ body {
   border-right: 1px solid var(--color-border);
 }
 .brand { margin: 0 0 var(--space-4); padding: var(--space-2); font-size: var(--text-lg); font-weight: bold; }
+.sidebar { overflow-y: auto; }
+.sidebar section.scope { display: flex; flex-direction: column; gap: var(--space-2); margin: 0 0 var(--space-4); padding: var(--space-3); background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: none; }
+.scope-title { margin: 0; font-size: var(--text-sm); font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+.scope label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); color: var(--color-text); }
 .sidebar nav { display: flex; flex-direction: column; gap: var(--space-1); }
 .sidebar nav button {
   font: inherit;
@@ -50,8 +54,7 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 .topbar-title { margin: 0; font-size: var(--text-xl); font-weight: bold; }
-.topbar-slot { margin-left: auto; }
-.topbar-slot .filters { margin: 0; flex-direction: row; gap: var(--space-3); }
+.topbar-scope { display: none; margin: 0; flex-basis: 100%; color: var(--color-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
 .menu-button {
   display: none;
   padding: var(--space-1);
@@ -67,7 +70,7 @@ body {
   .sidebar { display: none; position: fixed; z-index: 3; inset: 0 auto 0 0; width: min(var(--sidebar-width), 85vw); box-shadow: var(--shadow-card); }
   .sidebar[data-open='true'] { display: block; }
   .topbar { padding: var(--space-3); }
-  .topbar-slot { margin-left: 0; flex-basis: 100%; }
+  .topbar-scope { display: block; }
 }
 
 main { max-width: 80rem; margin: 0 auto; padding: var(--space-4); }
@@ -106,9 +109,7 @@ section {
 .error { color: var(--color-error); }
 
 /* Controls */
-.filters { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3); }
-.filters label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); color: var(--color-muted); }
-.filters select, .actions select, .field input, .field select, .field textarea, .repo-row input {
+.scope select, .actions select, .field input, .field select, .field textarea, .repo-row input {
   font: inherit;
   max-width: 100%;
   padding: var(--space-1) var(--space-2);
@@ -130,7 +131,7 @@ section {
 }
 .periods button[aria-pressed='true'] { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
 main section button:disabled, main.workspaces button:disabled { cursor: not-allowed; color: var(--color-muted); }
-.sidebar nav button:focus-visible, .menu-button:focus-visible, .sort:focus-visible, .periods button:focus-visible, .filters select:focus-visible,
+.sidebar nav button:focus-visible, .menu-button:focus-visible, .sort:focus-visible, .periods button:focus-visible, .scope select:focus-visible,
 .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .actions select:focus-visible, main button:focus-visible, main a:focus-visible {
   outline: 2px solid var(--color-accent-text);
   outline-offset: 2px;

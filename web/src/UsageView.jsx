@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { getJson } from './api.js'
 import Breakdown from './Breakdown.jsx'
 import Cost from './Cost.jsx'
+import { NO_SCOPE, ScopeLine } from './Scope.jsx'
 import Timeline from './Timeline.jsx'
 import { fmt, percent, totalTokens } from './format.js'
 import { Progress, Ring, Sparkline, Trend } from './Widgets.jsx'
@@ -28,15 +28,6 @@ function query(days, workspace, account, previous = false) {
   if (workspace) parts.push(`workspace=${encodeURIComponent(workspace)}`)
   if (account) parts.push(`account=${encodeURIComponent(account)}`)
   return parts.join('&')
-}
-
-async function loadOptions() {
-  const [ws, acc] = await Promise.all([getJson('/api/workspaces'), getJson('/api/accounts?by=account')])
-  return {
-    workspaces: ws.workspaces.filter((w) => !w.is_orphan),
-    accounts: acc.accounts.filter((a) => a.provider === 'claude' && a.status === 'confirmed'),
-    ignored: acc.accounts.filter((a) => a.provider === 'claude' && a.status === 'ignored').length,
-  }
 }
 
 async function load(days, workspace, account) {
@@ -215,52 +206,10 @@ function Outliers({ data }) {
   )
 }
 
-function Filters({ options, workspace, account, onWorkspace, onAccount }) {
-  return (
-    <div className="filters">
-      <label>
-        Workspace
-        <select value={workspace} onChange={(e) => onWorkspace(e.target.value)}>
-          <option value="">All</option>
-          {options.workspaces.map((w) => (
-            <option key={w.id} value={w.name}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Account
-        <select value={account} onChange={(e) => onAccount(e.target.value)}>
-          <option value="">All</option>
-          {options.accounts.map((a) => (
-            <option key={a.id} value={String(a.id)}>
-              {a.label}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
-  )
-}
-
-export default function UsageView({ slot = null, onOpenAgents = () => {} }) {
+export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgents = () => {} }) {
+  const { workspace, account } = scope
   const [period, setPeriod] = useState('7')
-  const [workspace, setWorkspace] = useState('')
-  const [account, setAccount] = useState('')
-  const [options, setOptions] = useState(null)
   const [state, setState] = useState({ status: 'loading' })
-
-  useEffect(() => {
-    let current = true
-    loadOptions().then(
-      (data) => current && setOptions(data),
-      () => {}, // options are optional: without them the dropdowns stay hidden
-    )
-    return () => {
-      current = false
-    }
-  }, [])
 
   useEffect(() => {
     let current = true
@@ -274,12 +223,7 @@ export default function UsageView({ slot = null, onOpenAgents = () => {} }) {
     }
   }, [period, workspace, account])
 
-  const accountLabel = options?.accounts.find((a) => String(a.id) === account)?.label ?? account
   const selectedWorkspace = options?.workspaces.find((w) => w.name === workspace)
-
-  const filters = options && (
-    <Filters options={options} workspace={workspace} account={account} onWorkspace={setWorkspace} onAccount={setAccount} />
-  )
 
   return (
     <main>
@@ -299,10 +243,7 @@ export default function UsageView({ slot = null, onOpenAgents = () => {} }) {
           </button>
         </div>
       )}
-      {filters && (slot ? createPortal(filters, slot) : filters)}
-      <p className="muted" data-testid="usage-scope">
-        Workspace: {workspace || 'All'} · Account: {account ? accountLabel : 'All'} · {PERIODS.find((p) => p.id === period).label}
-      </p>
+      <ScopeLine scope={scope} options={options} />
       {selectedWorkspace && selectedWorkspace.repos.length === 0 && (
         <p className="muted">No repos in this workspace, so there is no usage to show. Add repos on the Workspaces page.</p>
       )}

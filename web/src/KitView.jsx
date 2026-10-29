@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { getJson } from './api.js'
 import { fmt, localTime, percent } from './format.js'
+import { NO_SCOPE, ScopeLine, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 
-const load = () => getJson('/api/kit')
+const load = (scope) => getJson(scopedPath('/api/kit', scope))
 const COLUMNS = [
   ['kernel', 'Kernel'],
   ['verifier', 'Verifier'],
@@ -118,11 +119,12 @@ function Ui({ ui }) {
   )
 }
 
-export default function KitView() {
-  const state = useLoad(load)
+export default function KitView({ scope = NO_SCOPE, options = null }) {
+  const state = useLoad(() => load(scope), [scope.workspace, scope.account])
   return (
     <main>
       <h1>Easy Kit</h1>
+      <ScopeLine scope={scope} options={options} />
       {state.status === 'loading' && <p role="status">Loading kit</p>}
       {state.status === 'error' && (
         <p role="alert" className="error">
