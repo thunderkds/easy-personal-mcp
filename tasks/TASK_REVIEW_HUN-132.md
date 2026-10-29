@@ -61,8 +61,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-29T15:40:03Z on branch HUN-132 at 7107301, before any implementation commit):
+
+```
+$ uv run pytest -q tests/test_site_content.py tests/test_site_theme.py tests/test_site_deploy_config.py
+.........................................                                [100%]
+41 passed in 1.46s
+```
+
+Current page facts at that commit (from `site/index.html`): old Kit cyan/purple palette (`--bg: #0a0a12`, `--cyan: #00d4ff`, `--green: #00ff88`), system font stack only (`font: 1rem/1.6 system-ui ...`, no `@font-face`), no `site/fonts/` directory (`ls site/fonts` -> `No such file or directory`), single centered `.wrap` column with no header bar, no left section nav, no stat strip and no `<script>` (`grep -c "fonts/\|Plex" site/index.html` -> `0`). The theme test pins the old tokens (`"--bg": "#0a0a12"`, `"--cyan": "#00d4ff"`) and asserts `"system-ui" in style and "@font-face" not in style`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
