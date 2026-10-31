@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import AgentsView from './AgentsView.jsx'
+import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import KitView from './KitView.jsx'
 import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
@@ -9,24 +10,27 @@ import WarningsPlanView from './WarningsPlanView.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
 
 // `scoped` views filter by the global Workspace/Account scope; the others ignore it.
+// `work` has no views yet: it stays here, hidden while empty, so later tasks only append tabs.
 const GROUPS = [
+  { id: 'work', label: '// work', tabs: [] },
   {
-    id: 'insights',
-    label: '// insights',
+    id: 'usage',
+    label: '// usage',
     tabs: [
       { id: 'usage', label: 'Usage', View: UsageView, scoped: true },
       { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView, scoped: true },
-      { id: 'kit', label: 'Kit', View: KitView, scoped: true },
     ],
   },
+  { id: 'kit', label: '// kit', tabs: [{ id: 'kit', label: 'Kit', View: KitView, scoped: true }] },
   {
-    id: 'setup',
-    label: '// setup',
+    id: 'connect',
+    label: '// connect',
     tabs: [
       { id: 'workspaces', label: 'Workspaces', View: WorkspacesView },
       { id: 'agents', label: 'Agents', View: AgentsView },
     ],
   },
+  { id: 'system', label: '// system', tabs: [{ id: 'first-run', label: 'First run', View: FirstRun }] },
 ]
 const TABS = GROUPS.flatMap((g) => g.tabs)
 
@@ -85,6 +89,7 @@ export default function App() {
   const [chosen, setChosen] = useState(readScope)
   const [options, setOptions] = useState(undefined)
   const [closed, setClosed] = useState({}) // group id -> collapsed
+  const [firstRun, setFirstRun] = useState(undefined) // checklist steps; null when the request failed
 
   useEffect(() => {
     let current = true
@@ -97,6 +102,18 @@ export default function App() {
     }
   }, [])
 
+  // The checklist is read on start and again on every view change, so the badge follows what you just did.
+  useEffect(() => {
+    let current = true
+    getJson('/api/first-run').then(
+      (data) => current && setFirstRun(data.steps),
+      () => current && setFirstRun(null),
+    )
+    return () => {
+      current = false
+    }
+  }, [active])
+
   // After Agents changes an account: read the options again. A failed reload keeps the old ones.
   const reloadOptions = useCallback(() => {
     loadOptions().then(setOptions, () => {})
@@ -108,6 +125,7 @@ export default function App() {
     writeScope(next)
   }
   const { label, View, scoped } = TABS.find((t) => t.id === active)
+  const left = stepsLeft(firstRun)
   return (
     <div className="shell">
       <aside id="sidebar" className="sidebar" data-open={menuOpen}>
@@ -122,7 +140,7 @@ export default function App() {
         {options && <ScopeSelects options={options} scope={scope} onChange={choose} />}
         <nav aria-label="Views">
           {GROUPS.map((g) => (
-            <div key={g.id} className="nav-group">
+            <div key={g.id} className="nav-group" data-group={g.id} hidden={g.tabs.length === 0}>
               <button
                 type="button"
                 className="group-toggle"
@@ -149,6 +167,7 @@ export default function App() {
                     >
                       <span className="dot" aria-hidden="true" />
                       {t.label}
+                      {t.id === 'first-run' && left > 0 && <span className="badge">{left} left</span>}
                     </button>
                   ))}
               </div>
@@ -181,7 +200,14 @@ export default function App() {
                 <p role="status">Loading</p>
               </main>
             ) : (
-              <View scope={scope} options={options ?? null} onOpenAgents={() => setActive('agents')} onAccountsChanged={reloadOptions} />
+              <View
+                scope={scope}
+                options={options ?? null}
+                steps={firstRun}
+                onOpenAgents={() => setActive('agents')}
+                onOpenWorkspaces={() => setActive('workspaces')}
+                onAccountsChanged={reloadOptions}
+              />
             )}
           </div>
           {options !== undefined && <Rail scope={scope} refresh={options} onOpenPlan={() => setActive('warnings')} />}

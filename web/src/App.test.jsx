@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
-import { fakeFetch, workspaceOverrides } from './test/fixtures.js'
+import { fakeFetch, firstRun, workspaceOverrides } from './test/fixtures.js'
 
 beforeEach(() => {
   window.location.hash = '#secret-token'
@@ -26,13 +26,96 @@ it('opens on Usage and switches in-page between the views without changing the U
   expect(window.location.hash).toBe('#secret-token')
 })
 
-it('lists the 5 views in the sidebar and marks only the active one', () => {
+it('lists the 6 views in the sidebar and marks only the active one', () => {
   render(<App />)
   const buttons = within(nav()).getAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'))
-  expect(buttons.map((b) => b.textContent)).toEqual(['Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents'])
+  expect(buttons.map((b) => b.textContent)).toEqual(['Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run'])
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(within(nav()).getByRole('button', { name: 'Kit' })).toHaveAttribute('aria-current', 'page')
   expect(within(nav()).getByRole('button', { name: 'Usage' })).not.toHaveAttribute('aria-current')
+})
+
+describe('rail groups and First run (HUN-160)', () => {
+  const groupLabels = () => within(nav()).getAllByRole('button').filter((b) => b.hasAttribute('aria-expanded')).map((b) => b.textContent)
+  const allDone = { steps: firstRun.steps.map((s) => ({ ...s, done: true })) }
+
+  it('shows the groups usage, kit, connect, system in that order, with work kept for later and hidden while empty', () => {
+    render(<App />)
+    expect(groupLabels()).toEqual(['// usage', '// kit', '// connect', '// system'])
+    const groups = [...nav().querySelectorAll('.nav-group')]
+    expect(groups.map((g) => g.dataset.group)).toEqual(['work', 'usage', 'kit', 'connect', 'system'])
+    expect(groups[0]).toHaveAttribute('hidden')
+    expect(groups[1]).not.toHaveAttribute('hidden')
+  })
+
+  it('puts each view in its group', () => {
+    render(<App />)
+    const inGroup = (id) => [...nav().querySelectorAll(`[data-group="${id}"] [aria-expanded] ~ .group-items button`)].map((b) => b.textContent)
+    expect(inGroup('usage')).toEqual(['Usage', 'Warnings & plan'])
+    expect(inGroup('kit')).toEqual(['Kit'])
+    expect(inGroup('connect')).toEqual(['Workspaces', 'Agents'])
+    expect(inGroup('system')).toEqual(['First run'])
+  })
+
+  it('shows the "N left" badge on First run', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ firstRun: { steps: firstRun.steps.map((s, i) => ({ ...s, done: i === 0 })) } }))
+    render(<App />)
+    expect(await within(nav()).findByText('3 left')).toBeInTheDocument()
+  })
+
+  it('shows 4 left on a fresh home', async () => {
+    render(<App />)
+    expect(await within(nav()).findByText('4 left')).toBeInTheDocument()
+  })
+
+  it('hides the badge when all four are done', async () => {
+    const f = fakeFetch({ firstRun: allDone })
+    vi.stubGlobal('fetch', f)
+    render(<App />)
+    await waitFor(() => expect(f.calls.some((c) => c.url === '/api/first-run')).toBe(true))
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(within(nav()).queryByText(/left$/)).not.toBeInTheDocument()
+    expect(within(nav()).getByRole('button', { name: 'First run' })).toBeInTheDocument()
+  })
+
+  it('hides the badge when the checklist cannot be read', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', async (url, init) => (String(url) === '/api/first-run' ? { ok: false, status: 500, json: async () => ({}) } : f(url, init)))
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(within(nav()).queryByText(/left$/)).not.toBeInTheDocument()
+  })
+
+  it('opens the checklist, whose buttons switch to the Agents and Workspaces views', async () => {
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: /^First run/ }))
+    expect(within(nav()).getByRole('button', { name: /^First run/ })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByText('easy-personal ingest')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Agents' }))
+    expect(within(nav()).getByRole('button', { name: 'Agents' })).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(within(nav()).getByRole('button', { name: /^First run/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Workspaces' }))
+    expect(within(nav()).getByRole('button', { name: 'Workspaces' })).toHaveAttribute('aria-current', 'page')
+    expect(window.location.hash).toBe('#secret-token')
+  })
+
+  it('reads the checklist again when you come back to it', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    render(<App />)
+    await within(nav()).findByText('4 left')
+    const before = f.calls.filter((c) => c.url === '/api/first-run').length
+    fireEvent.click(within(nav()).getByRole('button', { name: /^First run/ }))
+    await waitFor(() => expect(f.calls.filter((c) => c.url === '/api/first-run').length).toBeGreaterThan(before))
+  })
+
+  it('only ever reads /api/first-run with GET', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    render(<App />)
+    await within(nav()).findByText('4 left')
+    expect(f.calls.filter((c) => c.url === '/api/first-run').every((c) => !c.init.method)).toBe(true)
+  })
 })
 
 it('shows the active view title in the top bar', async () => {
@@ -225,24 +308,24 @@ describe('global scope selector (HUN-118)', () => {
 describe('grouped sidebar and right rail (HUN-121, HUN-126)', () => {
   const groupButton = (name) => within(nav()).getByRole('button', { name })
 
-  it('AC3: "// insights" and "// setup" are aria-expanded toggles that hold the five views', () => {
+  it('AC3: "// usage" and "// connect" are aria-expanded toggles that hold their views', () => {
     render(<App />)
-    expect(groupButton('// insights')).toHaveAttribute('aria-expanded', 'true')
-    expect(groupButton('// setup')).toHaveAttribute('aria-expanded', 'true')
-    const insights = document.getElementById(groupButton('// insights').getAttribute('aria-controls'))
-    const setup = document.getElementById(groupButton('// setup').getAttribute('aria-controls'))
-    expect([...insights.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Usage', 'Warnings & plan', 'Kit'])
-    expect([...setup.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Workspaces', 'Agents'])
+    expect(groupButton('// usage')).toHaveAttribute('aria-expanded', 'true')
+    expect(groupButton('// connect')).toHaveAttribute('aria-expanded', 'true')
+    const usage = document.getElementById(groupButton('// usage').getAttribute('aria-controls'))
+    const connect = document.getElementById(groupButton('// connect').getAttribute('aria-controls'))
+    expect([...usage.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Usage', 'Warnings & plan'])
+    expect([...connect.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Workspaces', 'Agents'])
   })
 
-  it('SC2: collapsing "// setup" hides Workspaces and Agents; opening it shows them again', () => {
+  it('SC2: collapsing "// connect" hides Workspaces and Agents; opening it shows them again', () => {
     render(<App />)
-    fireEvent.click(groupButton('// setup'))
-    expect(groupButton('// setup')).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(groupButton('// connect'))
+    expect(groupButton('// connect')).toHaveAttribute('aria-expanded', 'false')
     expect(within(nav()).queryByRole('button', { name: 'Workspaces' })).toBeNull()
     expect(within(nav()).queryByRole('button', { name: 'Agents' })).toBeNull()
     expect(within(nav()).getByRole('button', { name: 'Usage' })).toBeInTheDocument()
-    fireEvent.click(groupButton('// setup'))
+    fireEvent.click(groupButton('// connect'))
     expect(within(nav()).getByRole('button', { name: 'Agents' })).toBeInTheDocument()
   })
 
