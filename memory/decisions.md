@@ -76,3 +76,8 @@
 
 **Decision**: The owner's "Claude Live Trace — Experimental Plan" (claude.ai doc) runs as a spike in `experiments/live-trace/` (HUN-165..170), not a fresh repo: the repo already has the transcript reader, a PostToolUse trace hook, the metadata-only rule and the dashboard. FR-002 holds for the spike, so the plan's `--capture-content` flag is dropped. Plan items below Phase 0 are hypotheses to measure, not requirements. E5 (Admin usage API) is docs-only: no Admin key exists and the owner said not to test a service without its key. The prototype (collector + live dashboard) waits for the owner's review after HUN-170.
 **Files**: `tasks/TASK_GUIDE_HUN-165.md`..`HUN-170.md`, `PROJECT_SPEC.md` Tasks rows.
+
+## 2026-10-31 — v0.3.0 live view = transcript tail only (Option A)
+
+**Decision**: The live view for v0.3.0 reads only Claude Code transcripts: a ~100 ms tail runs inside `easy-personal dashboard`, writes through the normal store path, and streams to a new Live view over `GET /api/live` (SSE). No hooks and no OpenTelemetry, so nothing is written to any Claude config. Why: the spike (HUN-165..170) showed OTel tokens equal the transcript's to 0.000% and the product already prices tokens; the tail is under 2 s for 95.7% of tool calls with zero setup; hooks/OTel need settings writes outside DDR-0001 and a slow collector blocks sessions (`async` is ignored on http hooks). Rejected: B (tail + hooks + OTel), C (tail + hooks). Hooks stay a possible later opt-in. Also in scope: FR-046 (8 record types new in 2.1.316).
+**Files**: `BRAINSTORMING_LOG_LIVE.md`, `PRD.md` US-022, FR-043..046, NFR-011

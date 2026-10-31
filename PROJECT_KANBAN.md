@@ -9,6 +9,11 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-175** — Transcript reader recognises the record types new in Claude Code 2.1.316 (FR-046) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-175.md`
+- [ ] **HUN-176** — Live tail: follow every account's transcripts while the dashboard runs (FR-043) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-176.md`
+- [ ] **HUN-177** — GET /api/live: stream live events to the page as Server-Sent Events (FR-044) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-177.md`
+- [ ] **HUN-178** — Live view: active sessions, per-session tool feed, running token and cost totals (FR-045) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-178.md`
+- [ ] **HUN-179** — Release 0.3.0: version bump, README and site updates, release plan | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-179.md`
 
 ### In Progress
 
