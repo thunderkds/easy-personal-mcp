@@ -32,7 +32,16 @@ ALLOWED_HOSTS = {
     "personal-agentic-claude.vercel.app": "",
     "easy-memory.vercel.app": "",
     "easy-verifier.vercel.app": "",
+    "easy-ui-mcp.vercel.app": "",
 }
+# The five Easy Kit family members, in the order every family list on the site shows them.
+FAMILY_ORDER = [
+    ("Easy Kit", "https://personal-agentic-claude.vercel.app/"),
+    ("Easy Verifier", "https://easy-verifier.vercel.app/"),
+    ("Easy UI", "https://easy-ui-mcp.vercel.app/"),
+    ("Easy Memory", "https://easy-memory.vercel.app/"),
+    ("Easy Personal", "#hero"),
+]
 APP_JSX = ROOT / "web" / "src" / "App.jsx"
 GITHUB = "https://github.com/thunderkds/easy-personal-mcp"
 ASIDE_GROUPS = ["// overview", "// getting started", "// reference"]
@@ -259,13 +268,27 @@ def test_header_has_brand_version_pill_and_github_button():
     assert GITHUB in hrefs
 
 
-def test_family_nav_marks_this_site_and_links_the_other_three():
+def test_family_nav_marks_this_site_and_links_the_other_four():
     parser = _page()
     links = _nav(parser, "Family").anchors
     current = [a for a in links if a.attrs.get("aria-current") == "page"]
     assert [_norm(a.text) for a in current] == ["Easy Personal"]
     shown = {_norm(a.text): a.attrs["href"] for a in links if a not in current and _norm(a.text) != "GitHub"}
-    assert shown == family_links()
+    # every sibling the dashboard footer links is also in the site nav
+    assert family_links().items() <= shown.items()
+
+
+def test_family_nav_lists_all_five_in_order_then_github():
+    links = _nav(_page(), "Family").anchors
+    assert [(_norm(a.text), a.attrs["href"]) for a in links] == FAMILY_ORDER + [("GitHub", GITHUB)]
+    nav_html = re.search(r'<nav class="family"[^>]*>(.*?)</nav>', PAGE.read_text(encoding="utf-8"), re.DOTALL).group(1)
+    assert len(re.findall(r'<a [^>]*><span class="dot"></span>Easy ', nav_html)) == 5
+
+
+def test_footer_lists_all_five_family_members_in_order():
+    footer_links = [(_norm(e.text), e.attrs["href"]) for e in _in(_page(), "footer", "a", "href")]
+    family = [pair for pair in footer_links if pair[1] in {href for _, href in FAMILY_ORDER}]
+    assert family == FAMILY_ORDER
 
 
 def test_aside_groups_link_to_the_pages_own_sections():

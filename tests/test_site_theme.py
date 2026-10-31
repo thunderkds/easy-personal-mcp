@@ -169,6 +169,17 @@ def test_responsive_and_accessible_details():
     assert 'aria-label="Family"' in html and 'aria-label="Sections"' in html
 
 
+def test_five_link_family_nav_never_breaks_labels_and_drops_under_the_brand():
+    """Five family links plus GitHub do not fit beside the brand under ~1100px: labels stay on
+    one line and the header wraps so the nav moves under the brand instead of squeezing."""
+    style = _style(_html())
+    assert re.search(r"\.family a\s*\{[^}]*white-space:\s*nowrap", style)
+    block = re.search(r"@media\s*\(max-width:\s*1100px\)\s*\{(.*?)\n  \}", style, re.DOTALL)
+    assert block, "no 1100px header-wrap rule"
+    assert re.search(r"\.site-header\s*\{[^}]*flex-wrap:\s*wrap", block.group(1))
+    assert re.search(r"\.family\s*\{[^}]*flex-wrap:\s*wrap", block.group(1))
+
+
 def test_header_and_aside_sizes():
     tokens = _tokens(_html())
     assert tokens["--header-height"] == "4rem"  # 64 px
