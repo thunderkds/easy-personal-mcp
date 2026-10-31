@@ -1,0 +1,36 @@
+{
+ "label": "edge-killed-mid-tool-0",
+ "model": "haiku",
+ "scratch": "/tmp/live-trace-tul1zoud",
+ "start_utc": "2026-10-31T16:03:18.364+00:00",
+ "end_utc": "2026-10-31T16:03:43.382+00:00",
+ "start_epoch_ms": 1793462598364.3,
+ "end_epoch_ms": 1793462623382.2,
+ "wall_ms": 25017.9,
+ "exit_code": -9,
+ "timed_out": true,
+ "extra_env_names": [],
+ "settings_file": null,
+ "session_id": "bc938f98-99b0-46e5-bdc7-9e6da476e9db",
+ "tool_use_by_name": {
+  "Bash": 2
+ },
+ "subagent_tool_use_by_name": {},
+ "tool_use_total": 2,
+ "bash_total": 2,
+ "bash_failed": 1,
+ "unparsed_lines": 0,
+ "result_subtype": "success",
+ "result_is_error": false,
+ "num_turns": 3,
+ "cc_duration_ms": 8584,
+ "total_cost_usd": 0.00394519,
+ "steps": {
+  "read_3": false,
+  "bash_2_one_failing": true,
+  "edit_1": false,
+  "subagent_1": false,
+  "normal_end": false
+ },
+ "run_file": "/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-166/experiments/live-trace/e1/runs/sessions/edge-killed-mid-tool-0-20261031T160318-bc938f98.json"
+}

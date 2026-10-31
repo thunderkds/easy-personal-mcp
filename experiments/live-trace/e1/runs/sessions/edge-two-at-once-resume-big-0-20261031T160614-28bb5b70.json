@@ -1,0 +1,36 @@
+{
+ "label": "edge-two-at-once-resume-big-0",
+ "model": "haiku",
+ "scratch": "/tmp/live-trace-btidwj0u",
+ "start_utc": "2026-10-31T16:06:14.036+00:00",
+ "end_utc": "2026-10-31T16:06:20.721+00:00",
+ "start_epoch_ms": 1793462774036.2,
+ "end_epoch_ms": 1793462780721.5,
+ "wall_ms": 6685.4,
+ "exit_code": 0,
+ "timed_out": false,
+ "extra_env_names": [],
+ "settings_file": null,
+ "session_id": "28bb5b70-4aa9-4d97-b7c1-e2432f5b5baf",
+ "tool_use_by_name": {
+  "Read": 1
+ },
+ "subagent_tool_use_by_name": {},
+ "tool_use_total": 1,
+ "bash_total": 0,
+ "bash_failed": 0,
+ "unparsed_lines": 0,
+ "result_subtype": "success",
+ "result_is_error": false,
+ "num_turns": 2,
+ "cc_duration_ms": 4024,
+ "total_cost_usd": 0.0013783,
+ "steps": {
+  "read_3": false,
+  "bash_2_one_failing": false,
+  "edit_1": false,
+  "subagent_1": false,
+  "normal_end": true
+ },
+ "run_file": "/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-166/experiments/live-trace/e1/runs/sessions/edge-two-at-once-resume-big-0-20261031T160614-28bb5b70.json"
+}
