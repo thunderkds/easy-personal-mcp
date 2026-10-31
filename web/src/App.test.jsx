@@ -26,10 +26,10 @@ it('opens on Usage and switches in-page between the views without changing the U
   expect(window.location.hash).toBe('#secret-token')
 })
 
-it('lists the 6 views in the sidebar and marks only the active one', () => {
+it('lists the 7 views in the sidebar and marks only the active one', () => {
   render(<App />)
   const buttons = within(nav()).getAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'))
-  expect(buttons.map((b) => b.textContent)).toEqual(['Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run'])
+  expect(buttons.map((b) => b.textContent)).toEqual(['Board', 'Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run'])
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(within(nav()).getByRole('button', { name: 'Kit' })).toHaveAttribute('aria-current', 'page')
   expect(within(nav()).getByRole('button', { name: 'Usage' })).not.toHaveAttribute('aria-current')
@@ -39,18 +39,31 @@ describe('rail groups and First run (HUN-160)', () => {
   const groupLabels = () => within(nav()).getAllByRole('button').filter((b) => b.hasAttribute('aria-expanded')).map((b) => b.textContent)
   const allDone = { steps: firstRun.steps.map((s) => ({ ...s, done: true })) }
 
-  it('shows the groups usage, kit, connect, system in that order, with work kept for later and hidden while empty', () => {
+  it('shows the groups work, usage, kit, connect, system in that order', () => {
     render(<App />)
-    expect(groupLabels()).toEqual(['// usage', '// kit', '// connect', '// system'])
+    expect(groupLabels()).toEqual(['// work', '// usage', '// kit', '// connect', '// system'])
     const groups = [...nav().querySelectorAll('.nav-group')]
     expect(groups.map((g) => g.dataset.group)).toEqual(['work', 'usage', 'kit', 'connect', 'system'])
-    expect(groups[0]).toHaveAttribute('hidden')
-    expect(groups[1]).not.toHaveAttribute('hidden')
+    expect(groups.every((g) => !g.hasAttribute('hidden'))).toBe(true)
+  })
+
+  it('opens the Board from the work group and asks /api/board with the global scope (HUN-162)', async () => {
+    const base = fakeFetch(workspaceOverrides())
+    const f = vi.fn(async (url, init) =>
+      String(url).startsWith('/api/board') ? { ok: true, status: 200, json: async () => ({ projects: [] }) } : base(url, init),
+    )
+    vi.stubGlobal('fetch', f)
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Board' }))
+    expect(await screen.findByRole('heading', { name: 'Board' })).toBeInTheDocument()
+    expect(within(nav()).getByRole('button', { name: 'Board' })).toHaveAttribute('aria-current', 'page')
+    await waitFor(() => expect(f.mock.calls.some(([u]) => u === '/api/board')).toBe(true))
   })
 
   it('puts each view in its group', () => {
     render(<App />)
     const inGroup = (id) => [...nav().querySelectorAll(`[data-group="${id}"] [aria-expanded] ~ .group-items button`)].map((b) => b.textContent)
+    expect(inGroup('work')).toEqual(['Board'])
     expect(inGroup('usage')).toEqual(['Usage', 'Warnings & plan'])
     expect(inGroup('kit')).toEqual(['Kit'])
     expect(inGroup('connect')).toEqual(['Workspaces', 'Agents'])
