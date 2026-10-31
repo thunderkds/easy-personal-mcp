@@ -104,6 +104,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
+    "/api/first-run": [""],  # HUN-160: four done / not-done flags and fixed hints
     "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
 # Dashboard write routes (HUN-52): route path -> [(method, concrete path, body)]. `{secret}` in a

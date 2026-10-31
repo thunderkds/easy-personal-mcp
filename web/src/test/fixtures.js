@@ -359,6 +359,17 @@ export const usageAccounts = {
   ],
 }
 
+const firstRunStep = (id, done, hint) => ({ id, done, hint })
+/** GET /api/first-run on a fresh home: all four steps not done. */
+export const firstRun = {
+  steps: [
+    firstRunStep('first_ingest', false, 'easy-personal ingest'),
+    firstRunStep('ingest_timer', false, 'easy-personal schedule install'),
+    firstRunStep('accounts_confirmed', false, 'Open Agents and confirm an account'),
+    firstRunStep('first_workspace', false, 'Open Workspaces and create one'),
+  ],
+}
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -375,6 +386,7 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/warnings') body = overrides.warnings ?? warnings
     else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
+    else if (path === '/api/first-run') body = overrides.firstRun ?? firstRun
     else if (path === '/api/accounts' && !init.method)
       body = (u.searchParams.get('by') === 'provider' ? overrides.accountsByProvider : overrides.accounts) ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
     else if (path === '/api/workspaces' && !init.method) body = overrides.workspaces ?? workspaceList

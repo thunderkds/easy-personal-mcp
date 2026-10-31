@@ -23,7 +23,17 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from easy_personal.core import accounts, config, kit, metrics, plan, rules, store, workspaces
+from easy_personal.core import (
+    accounts,
+    config,
+    first_run,
+    kit,
+    metrics,
+    plan,
+    rules,
+    store,
+    workspaces,
+)
 from easy_personal.surfaces.mcp import LOOPBACK
 
 TOKEN_HEADER = "x-dashboard-token"
@@ -520,6 +530,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/accounts/{id}/confirm", _account_write(lambda c, i, b: accounts.confirm(c, i, b.get("label"))), methods=["POST"]),
         Route("/api/accounts/{id}/ignore", _account_write(lambda c, i, b: accounts.ignore(c, i)), methods=["POST"]),
         Route("/api/accounts/{id}/workspaces", _account_write(lambda c, i, b: accounts.use(c, i, b.get("workspaces"))), methods=["PUT"]),
+        Route("/api/first-run", _query(lambda c, q: {"steps": first_run.steps(c)})),
         Route("/api/sync", sync_plan),
         Route("/api/sync", sync_apply, methods=["POST"]),
         Route("/api/connectors", connectors_list),
