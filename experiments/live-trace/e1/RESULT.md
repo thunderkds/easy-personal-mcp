@@ -16,7 +16,7 @@ Sessions used: 9 of the cap 9 (5 measured + 4 edge: 1 spoiled kill run, 1 kill r
 * Capture: 45 of 45 tool_use ids seen (9 of 9 in each of 5 runs); 0 duplicate tool_use events; 0 bad JSON lines. Subagent files were found while tailing: runs 2 to 5 counted 2, 1, 1, 1 new files (run 2's second file is not explained, open question; run 1's counter was taken before the counter was fixed, but its events include subagent-file lines), and the subagent's `Read` and `SubagentHandback` calls are among the 45.
 * Latency over the 45 tool_use records: median 196.5 ms, p95 1352.8 ms, min 115.2 ms, max 1527.3 ms.
 * Overhead on the session: whole-session wall-clock of the 5 runs 27391, 27465, 28104, 26151, 25007 ms; median 27391 ms vs the HUN-165 baseline 28264 ms = -873 ms, inside the baseline spread (5768 ms), so no measurable overhead. Tail CPU 0.67 to 0.89 s per ~27 s run (about 3%); one scan of the whole account tree (about 410 files) mean 2.2 to 3.1 ms, max 14.1 ms.
-* Metadata only: 0 occurrences of the planted `sk-ant-FAKE-SECRET-123` or the fake prompt sentence in the events, stats, runs and this file (unit test `test_e1_planted_secret_never_in_output_or_stats`; grep of `experiments/` finds them only in the two test files).
+* Metadata only: 0 occurrences of the planted fake API-key string or the fake prompt sentence in the events, stats, runs and this file (unit test `test_e1_planted_secret_never_in_output_or_stats`; grep of `experiments/` finds them only in the two test files).
 
 ## Failed
 
