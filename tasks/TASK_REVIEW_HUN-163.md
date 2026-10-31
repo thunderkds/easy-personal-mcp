@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_jobs.py` (first word only, allow-list, own timer, no data per kind, read-only subcommands, timeouts, cron next run), `tests/surfaces/test_api_jobs.py` (secret in cron line + ExecStart nowhere in response; token), `tests/leak/{conftest,harness,test_leak_suite}.py` (canary in fake argv; route scanned), `tests/fakes/jobs_fakes.py`, `web/src/JobsView.test.jsx` (8), `web/src/App.test.jsx`. Supervisor run 2026-10-31T15:31:45+07:00 on 2ed8192: `Tests  285 passed (285)`; `899 passed, 5 deselected, 1 xfailed, 1 warning in 216.52s (0:03:36)` |
+| Verification command run | ☑ pass | `npm --prefix web test -- --run` → `Test Files  14 passed (14)` / `Tests  285 passed (285)`; build `✓ built in 519ms`; `uv run pytest -q` → `899 passed, 5 deselected, 1 xfailed, 1 warning in 216.52s (0:03:36)`; ruff `All checks passed!` |
+| Negative cases hold | ☑ pass | runtime: planted `SECRET_X_PLANTED` in a fake cron line → `SECRET in response: 0`, not in screenshots; unrelated timer → `hidden: 1`; fake argv log shows only `crontab -l`, `systemctl --user list-timers …`, `systemctl --user show -p …` |
+| verify | ☑ pass | Supervisor runtime check 2026-10-31 on 2ed8192: `easy-personal dashboard` (temp home, fake `systemctl`/`crontab` first on PATH), `GET /api/jobs` → `easy-personal-ingest.timer` (systemd, `easy-personal`, `*-*-* 03:17:00`, last_exit 0) + `(crontab) claude` (`0 7 * * 1-5`, next `2026-11-02T00:00:00Z` = Mon 07:00 local), `hidden: 1`, sources ok/ok; bound 127.0.0.1 — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor code-review + inline security-review 2026-10-31 on `1c456d9...HUN-163` (2ed8192): 14 files + callers (`api.Guard`, `config.config_path`, `rules._read_flat`). Branch holds only HUN-163 files after the agent's stash repair (verified `--stat`). lane_check: `lane: C2, 14 files, 1033 lines, EXCEEDS (lines 1033 > 500)` — ~580 lines are tests/fakes. Findings: P0 0, P1 0. P2 1: default allow-list adds `easy-verifier`, `easy-context`, `easy-ui`, `easy-memory` (guide said 'kit tools', not enumerated) — owner to confirm. P3 2: `config.jobs_allow` imports private `rules._read_flat`; `sh -c "cd x && claude"` counts as hidden (documented cut). Security (Medium): single `_run` gate allows only `systemctl --user list-timers|show` and `crontab -l`, 3 s timeout, stdin DEVNULL, unit names validated against an option-safe regex; only the command basename leaves the module; route behind `Guard` (token test 403). |
+| Full smoke suite still green (no regression) | ☑ pass | baseline 839 → 899 passed; web 276 → 285 |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not run for this task (advisory, no hook); no report path. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | `reports/HUN-163/Scheduled_{1280,768,375}.png` (CDP, fake tools). Verdict vs sketch: pass — `// work › Scheduled`, table Job / Kind / Schedule / Next run / Last run / Last exit, `✓ 0`, cron `not recorded`, footer `1 other job hidden · /loop jobs and cloud routines are not included`. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | no new CSS (reuses `table-wrap table-frame`, `muted`, `error`); Plex Sans / Plex Mono computed; console errors `[]`; request hosts only `127.0.0.1` |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280/768/375: no horizontal page scroll; at 375 the table scrolls inside its frame (guide: wide content scrolls in its box) |
 
 ---
 
@@ -71,9 +71,14 @@ $ ls web/src | grep -E "Board|Jobs|Memory"
 (no output — no JobsView)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (Supervisor, 2026-10-31, HUN-163 2ed8192):
+```
+$ ls src/easy_personal/core/jobs.py
+src/easy_personal/core/jobs.py
+$ curl -H 'X-Dashboard-Token: …' $BASE/api/jobs   (fake systemctl/crontab)
+{"jobs": [{"name": "easy-personal-ingest.timer", "kind": "systemd", "command": "easy-personal", ...}, {"name": "(crontab) claude", "kind": "cron", ...}], "hidden": 1, "sources": {"systemd": "ok", "cron": "ok"}}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner sees their agent-related timers and cron jobs with next run, last run and last result, without any command arguments shown.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-31 (runtime check + full suites with `active_task` = HUN-163).
