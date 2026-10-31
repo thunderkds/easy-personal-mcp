@@ -27,6 +27,7 @@ from easy_personal.core import (
     accounts,
     config,
     first_run,
+    jobs,
     kit,
     metrics,
     plan,
@@ -530,6 +531,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/accounts/{id}/confirm", _account_write(lambda c, i, b: accounts.confirm(c, i, b.get("label"))), methods=["POST"]),
         Route("/api/accounts/{id}/ignore", _account_write(lambda c, i, b: accounts.ignore(c, i)), methods=["POST"]),
         Route("/api/accounts/{id}/workspaces", _account_write(lambda c, i, b: accounts.use(c, i, b.get("workspaces"))), methods=["PUT"]),
+        Route("/api/jobs", lambda request: JSONResponse(jobs.list_jobs())),  # sync: runs in a worker thread
         Route("/api/first-run", _query(lambda c, q: {"steps": first_run.steps(c)})),
         Route("/api/sync", sync_plan),
         Route("/api/sync", sync_apply, methods=["POST"]),

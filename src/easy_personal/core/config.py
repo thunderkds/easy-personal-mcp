@@ -74,3 +74,31 @@ def verifier_reports_dir() -> Path:
         except (OSError, UnicodeDecodeError):
             value = None
     return Path(value).expanduser() if value else Path.home() / ".easy-verifier-reports"
+
+
+JOBS_ALLOW_DEFAULT = (
+    "claude",
+    "easy-personal",
+    "easy-personal-launch",
+    "easy-verifier",
+    "easy-context",
+    "easy-ui",
+    "easy-memory",
+)
+
+
+def jobs_allow() -> tuple[str, ...]:
+    """Command names (first word, basename) whose scheduled jobs the Work view lists.
+
+    `allow:` under `jobs:` in config.yaml (comma-separated) replaces the default list.
+    """
+    names: tuple[str, ...] = ()
+    if config_path().exists():
+        from easy_personal.core.rules import _read_flat  # late: import cycle
+
+        try:
+            raw = _read_flat(config_path(), "jobs").get("allow", "")
+        except (OSError, UnicodeDecodeError):
+            raw = ""
+        names = tuple(n.strip() for n in raw.split(",") if n.strip())
+    return names or JOBS_ALLOW_DEFAULT
