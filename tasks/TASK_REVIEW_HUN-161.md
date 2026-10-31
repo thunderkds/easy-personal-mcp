@@ -37,6 +37,25 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Migration-safety (Supervisor, 2026-10-31, `m0007_entrypoint.py` at HUN-161 954ffc4)
+
+Verdict: **GO**. Reversible: yes (restore `<store>.bak-v6`, or `ALTER TABLE events DROP COLUMN entrypoint` + `PRAGMA user_version = 6`; tested). Downtime: none. Data-loss risk: none.
+
+- [x] Managed migration (`store.migrate`, numbered `MIGRATIONS`, own `BEGIN IMMEDIATE` + `user_version` bump); no ad-hoc SQL.
+- [x] In scope (FR-039, NFR-009). Guide said "every source file"; reset limited to `source = 'claude_code'` — accepted (only Claude carries `entrypoint`; kit_trace re-read gains nothing).
+- [x] Destructive ops: none (nullable `ADD COLUMN`; offset reset only).
+- [x] Rollback tested up → down → up on a copy of the owner's store: v6 → v7 → v6 (column gone, 267,708 events) → v7 (267,708 events).
+- [x] Expand-only; single local process, no multi-version deploy; old program refuses v7 store with a clear message.
+- [x] Zero-downtime: additive only.
+- [x] Locks: SQLite `ADD COLUMN` is metadata-only — migrate took **147 ms** on the 236 MB copy (267,708 events, 688 Claude files).
+- [x] Backfill separate from the schema change (next ingest), per-file commits, idempotent, resumable (`test_interrupted_backfill_resumes_without_duplicates`, `test_backfill_twice_gives_the_same_rows`).
+- [x] Dry run on a production-like copy: migrate 147 ms; backfill ingest **16.94 s, maxrss 69,684 KB**; `integrity_check` ok; `foreign_key_check` 0 rows; `.bak-v6` written; kit/other file offsets unchanged (445 files, sum 15,040,956). After backfill (copy also took in 2 days of new sessions): 314,096 events; entrypoint `cli` 291,164 · `sdk-cli` 18,546 · `claude-desktop` 521 · NULL 3,865.
+- [x] No silent data loss. Note (P3): with `--retention-days` set, a re-read can bring back rows pruned earlier until the next pruning ingest; default retention is forever, and Claude deletes transcripts after 30 days, so the window is small.
+
+Finding from the dry run → owner decision 2026-10-31: `claude-desktop` is interactive; classification changed to *agent = sidechain or entrypoint starting with `sdk`*. Sent back to the implementer.
+
+---
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
