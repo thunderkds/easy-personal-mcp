@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_memgraph.py` (nodes/edges, link forms, self-links, Claude folder mapping, unmapped/ignored accounts, no bodies, truncation, abstained files, symlinks, duplicates, nothing written, 50×40 < 1 s), `tests/surfaces/test_api_memory_graph.py`, `tests/leak/{canaries,conftest,harness,test_leak_suite}.py` (memory_body canary), `web/src/MemoryView.test.jsx` (golden SVG `web/src/test/memory-graph.golden.svg`, order-independent, panel, keyboard, cap, tokens). Supervisor run 2026-10-31T15:37:11+07:00 on 5b954d9: `Tests  292 passed (292)`; `865 passed, 5 deselected, 1 xfailed, 1 warning in 146.10s (0:02:26)` |
+| Verification command run | ☑ pass | `npm --prefix web test -- --run` → `Test Files  14 passed (14)` / `Tests  292 passed (292)`; build `✓ built in 441ms`; `uv run pytest -q` → `865 passed, 5 deselected, 1 xfailed, 1 warning in 146.10s (0:02:26)`; ruff `All checks passed!` |
+| Negative cases hold | ☑ pass | runtime: `SECRET_Y_PLANTED` in a note body → `SECRET in response: 0`, not on the page; unknown project `/nope<script>` → `{"error":"unknown project"} 400` (input not echoed); dangling `[[ghost-note]]` → dangling node, path null |
+| verify | ☑ pass | Supervisor runtime check 2026-10-31 on 5b954d9: dashboard on a temp git repo with 5 kit notes + fixture transcript (cwd mapped): `GET /api/memory-graph` → 1 project `demo-app`, `kit_notes 5`; `?project=` → `counts {'notes': 5, 'links': 10, 'dangling': 1, 'abstained': 0, 'duplicates': 0, 'capped': False}`, rings memory-index 0 · decisions/glossary/learnings 1 · lr-0001 2 · ghost-note 3 — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor code-review + inline security-review 2026-10-31 on `1c456d9...HUN-164` (5b954d9): 15 files + callers (`kit.scoped_projects`, `accounts.list_accounts`, `discovery.resolve_project`, `api._query`). lane_check: `lane: C2, 15 files, 1033 lines, EXCEEDS (files 15 > 14; lines 1033 > 500)` — ~600 lines tests + golden SVG. Findings: P0 0, P1 0. P2 2: (a) Memory tab is `scoped: true` (Supervisor's spawn instruction) but the view ignores Workspace/Account scope — either filter the project list by workspace or set `scoped: false` (follow-up); (b) `[[link]]` targets are body-derived and not length-capped (descriptions are capped at 200) — cap targets with `_clean`. P3 1: link resolution falls back to file stem (beyond glossary wording) — accepted, documented in API contract. Security/privacy (Medium): bodies never leave `_read_note` (only name/description/links), files > 1 MB / non-UTF-8 abstained, symlinks outside the memory folder skipped, no subfolder link-follow, unknown project 400 without echo, route behind `Guard`; leak suite green |
+| Full smoke suite still green (no regression) | ☑ pass | baseline 839 → 865 passed; web 276 → 292 |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not run for this task (advisory, no hook); no report path. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | `reports/HUN-164/Memory_{1280,768,375}.png` (CDP, temp repo). Verdict vs sketch: pass — `// work › Memory`, project picker, rings SVG (memory-index centre, cold files ring 1, LR ring 2, dashed ghost-note outer), side panel prompt, legend `kit memory · Claude memory · unresolved link · 5 notes · 10 links · 1 unresolved` |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `MemoryView.test.jsx` 'styles the memory view with tokens only'; Plex Mono labels / Plex Sans body computed; console errors `[]`; request hosts only `127.0.0.1` |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280/768/375: no horizontal page scroll; graph scrolls inside its box |
 
 ---
 
@@ -71,9 +71,14 @@ $ ls web/src | grep -E "Board|Jobs|Memory"
 (no output — no MemoryView)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (Supervisor, 2026-10-31, HUN-164 5b954d9):
+```
+$ ls src/easy_personal/core/memgraph.py
+src/easy_personal/core/memgraph.py
+$ curl -G -H 'X-Dashboard-Token: …' --data-urlencode project=<repo> $BASE/api/memory-graph
+counts {'notes': 5, 'links': 10, 'dangling': 1, 'abstained': 0, 'duplicates': 0, 'capped': False}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner sees each project's memory notes as a graph of names and links, including unresolved links, without any note body leaving disk.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-31 (runtime check + full suites with `active_task` = HUN-164).
