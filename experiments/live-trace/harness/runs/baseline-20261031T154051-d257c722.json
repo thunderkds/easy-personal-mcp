@@ -1,0 +1,42 @@
+{
+ "label": "baseline",
+ "model": "haiku",
+ "scratch": "/tmp/live-trace-d82qpjt0",
+ "start_utc": "2026-10-31T15:40:51.373+00:00",
+ "end_utc": "2026-10-31T15:41:19.128+00:00",
+ "start_epoch_ms": 1793461251373.5,
+ "end_epoch_ms": 1793461279128.8,
+ "wall_ms": 27755.3,
+ "exit_code": 0,
+ "timed_out": false,
+ "extra_env_names": [],
+ "settings_file": null,
+ "session_id": "d257c722-f729-4a57-9477-79f54649b80f",
+ "tool_use_by_name": {
+  "Read": 3,
+  "Bash": 2,
+  "Edit": 1,
+  "Agent": 1
+ },
+ "subagent_tool_use_by_name": {
+  "Read": 1,
+  "SubagentHandback": 1
+ },
+ "tool_use_total": 9,
+ "bash_total": 2,
+ "bash_failed": 1,
+ "unparsed_lines": 0,
+ "result_subtype": "success",
+ "result_is_error": false,
+ "num_turns": 0,
+ "cc_duration_ms": 7,
+ "total_cost_usd": 0.008258090000000001,
+ "steps": {
+  "read_3": true,
+  "bash_2_one_failing": true,
+  "edit_1": true,
+  "subagent_1": true,
+  "normal_end": true
+ },
+ "run_file": "/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-165/experiments/live-trace/harness/runs/baseline-20261031T154051-d257c722.json"
+}
