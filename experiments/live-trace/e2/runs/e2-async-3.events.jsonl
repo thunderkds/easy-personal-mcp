@@ -1,0 +1,25 @@
+{"hook_event_name": "UserPromptSubmit", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "recv_ms": 1793462011726.204}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01KYnTpae6XU3d4gwbkSX26L", "tool_name": "Read", "recv_ms": 1793462013931.962}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01KYnTpae6XU3d4gwbkSX26L", "tool_name": "Read", "recv_ms": 1793462013967.185}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_011KgmBeuxAVS4WZBmvbjfXR", "tool_name": "Read", "recv_ms": 1793462015778.06}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_011KgmBeuxAVS4WZBmvbjfXR", "tool_name": "Read", "recv_ms": 1793462015793.878}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01H6oNBxqMLBtVfdQE72wmcQ", "tool_name": "Read", "recv_ms": 1793462017680.935}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01H6oNBxqMLBtVfdQE72wmcQ", "tool_name": "Read", "recv_ms": 1793462017700.344}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01WzTd8fCWDezUHBGyqgZXEi", "tool_name": "Bash", "recv_ms": 1793462019223.745}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01WzTd8fCWDezUHBGyqgZXEi", "tool_name": "Bash", "recv_ms": 1793462021491.377}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01NGUqsXjzhyzTXE939o68rd", "tool_name": "Bash", "recv_ms": 1793462022967.927}
+{"hook_event_name": "PostToolUseFailure", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01NGUqsXjzhyzTXE939o68rd", "tool_name": "Bash", "recv_ms": 1793462023894.209}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_016MU9faamxf2vHYpJmWg3XA", "tool_name": "Edit", "recv_ms": 1793462025549.658}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_016MU9faamxf2vHYpJmWg3XA", "tool_name": "Edit", "recv_ms": 1793462025565.964}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01PK9rVwKt7WTwnd2eUuuXK2", "tool_name": "Agent", "recv_ms": 1793462027439.89}
+{"hook_event_name": "SubagentStart", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "agent_id": "aa50e527ed970cda8", "recv_ms": 1793462027962.358}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01PK9rVwKt7WTwnd2eUuuXK2", "tool_name": "Agent", "recv_ms": 1793462027965.604}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01R6sNdLGYdiAvQNaQMCvuxq", "tool_name": "Read", "agent_id": "aa50e527ed970cda8", "recv_ms": 1793462029724.91}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01R6sNdLGYdiAvQNaQMCvuxq", "tool_name": "Read", "agent_id": "aa50e527ed970cda8", "recv_ms": 1793462029741.178}
+{"hook_event_name": "Stop", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "recv_ms": 1793462030930.693}
+{"hook_event_name": "PreToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01Sq1armz1pnhWkUuhmZBEPi", "tool_name": "SubagentHandback", "agent_id": "aa50e527ed970cda8", "recv_ms": 1793462032036.027}
+{"hook_event_name": "PostToolUse", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "tool_use_id": "toolu_01Sq1armz1pnhWkUuhmZBEPi", "tool_name": "SubagentHandback", "agent_id": "aa50e527ed970cda8", "recv_ms": 1793462032675.048}
+{"hook_event_name": "SubagentStop", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "agent_id": "aa50e527ed970cda8", "recv_ms": 1793462032688.787}
+{"hook_event_name": "UserPromptSubmit", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "recv_ms": 1793462032723.825}
+{"hook_event_name": "Stop", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "recv_ms": 1793462034686.194}
+{"hook_event_name": "SessionEnd", "session_id": "2c4eb308-6cd3-45ae-8f5d-f2f613807950", "recv_ms": 1793462034929.458}

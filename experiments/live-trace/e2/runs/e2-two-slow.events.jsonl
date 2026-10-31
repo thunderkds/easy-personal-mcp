@@ -1,0 +1,50 @@
+{"hook_event_name": "UserPromptSubmit", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "recv_ms": 1793462626351.921}
+{"hook_event_name": "UserPromptSubmit", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "recv_ms": 1793462626445.195}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01ED9MhLpr1GqEnT7C4Atc5v", "tool_name": "Read", "recv_ms": 1793462630320.307}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01F6sLTx8ME62Re8TgBcTmSS", "tool_name": "Read", "recv_ms": 1793462630568.553}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01ED9MhLpr1GqEnT7C4Atc5v", "tool_name": "Read", "recv_ms": 1793462632335.514}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01F6sLTx8ME62Re8TgBcTmSS", "tool_name": "Read", "recv_ms": 1793462632585.104}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01XGfod37xPEgzQkxckVyJMU", "tool_name": "Read", "recv_ms": 1793462635967.172}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01SKgjRUTydYCmK2oWFrqN56", "tool_name": "Read", "recv_ms": 1793462636206.511}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01XGfod37xPEgzQkxckVyJMU", "tool_name": "Read", "recv_ms": 1793462637977.845}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01SKgjRUTydYCmK2oWFrqN56", "tool_name": "Read", "recv_ms": 1793462638216.616}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01QaefT32fdj8y89kNa1zUxL", "tool_name": "Read", "recv_ms": 1793462641432.608}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01TwNbRAyokifjXgebbt4hrm", "tool_name": "Read", "recv_ms": 1793462641576.065}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01QaefT32fdj8y89kNa1zUxL", "tool_name": "Read", "recv_ms": 1793462643442.376}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01TwNbRAyokifjXgebbt4hrm", "tool_name": "Read", "recv_ms": 1793462643585.757}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_019Pv8mvKcCLB3bXE5ZbkSXK", "tool_name": "Bash", "recv_ms": 1793462647284.013}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01LZnqsDQzrY4wAQS6aG2Nn4", "tool_name": "Bash", "recv_ms": 1793462647465.562}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_019Pv8mvKcCLB3bXE5ZbkSXK", "tool_name": "Bash", "recv_ms": 1793462650271.171}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01LZnqsDQzrY4wAQS6aG2Nn4", "tool_name": "Bash", "recv_ms": 1793462650467.392}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_014kuXCqPMFwjNZ4g9ZKB4BU", "tool_name": "Bash", "recv_ms": 1793462654094.682}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01L9ZQ4XF8nHkPmXTFMHJpnZ", "tool_name": "Bash", "recv_ms": 1793462654482.937}
+{"hook_event_name": "PostToolUseFailure", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_014kuXCqPMFwjNZ4g9ZKB4BU", "tool_name": "Bash", "recv_ms": 1793462656125.265}
+{"hook_event_name": "PostToolUseFailure", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01L9ZQ4XF8nHkPmXTFMHJpnZ", "tool_name": "Bash", "recv_ms": 1793462656515.073}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_014P4ADBqU4UNVfRiFdh2aMe", "tool_name": "Edit", "recv_ms": 1793462660181.691}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01KFtasFrYaFXitazZkrD3gW", "tool_name": "Edit", "recv_ms": 1793462660250.852}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_014P4ADBqU4UNVfRiFdh2aMe", "tool_name": "Edit", "recv_ms": 1793462662199.505}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01KFtasFrYaFXitazZkrD3gW", "tool_name": "Edit", "recv_ms": 1793462662262.76}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01P7Q6pWimm4d2mWo26Nhzk4", "tool_name": "Agent", "recv_ms": 1793462666002.368}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01Wiiju98zQjGNJjPoRebMtJ", "tool_name": "Agent", "recv_ms": 1793462666027.992}
+{"hook_event_name": "SubagentStart", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "agent_id": "ad0b228f21a726e61", "recv_ms": 1793462668018.13}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01P7Q6pWimm4d2mWo26Nhzk4", "tool_name": "Agent", "recv_ms": 1793462668020.819}
+{"hook_event_name": "SubagentStart", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "agent_id": "adede891038512464", "recv_ms": 1793462668048.402}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01Wiiju98zQjGNJjPoRebMtJ", "tool_name": "Agent", "recv_ms": 1793462668051.988}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01EHxvQaVDjhmYdxeq4ytqhp", "tool_name": "Read", "agent_id": "ad0b228f21a726e61", "recv_ms": 1793462672241.569}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01MP1QC9enKJdYAgqFbRsJRY", "tool_name": "Read", "agent_id": "adede891038512464", "recv_ms": 1793462672251.49}
+{"hook_event_name": "Stop", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "recv_ms": 1793462672551.93}
+{"hook_event_name": "Stop", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "recv_ms": 1793462673364.146}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01EHxvQaVDjhmYdxeq4ytqhp", "tool_name": "Read", "agent_id": "ad0b228f21a726e61", "recv_ms": 1793462674250.294}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01MP1QC9enKJdYAgqFbRsJRY", "tool_name": "Read", "agent_id": "adede891038512464", "recv_ms": 1793462674260.409}
+{"hook_event_name": "PreToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01Eh8c9ofGXGGekx8NCutPPY", "tool_name": "SubagentHandback", "agent_id": "ad0b228f21a726e61", "recv_ms": 1793462677793.551}
+{"hook_event_name": "PreToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01QLygKGsZePJffJyTVGujAa", "tool_name": "SubagentHandback", "agent_id": "adede891038512464", "recv_ms": 1793462679119.465}
+{"hook_event_name": "PostToolUse", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "tool_use_id": "toolu_01Eh8c9ofGXGGekx8NCutPPY", "tool_name": "SubagentHandback", "agent_id": "ad0b228f21a726e61", "recv_ms": 1793462679820.643}
+{"hook_event_name": "UserPromptSubmit", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "recv_ms": 1793462679825.635}
+{"hook_event_name": "PostToolUse", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "tool_use_id": "toolu_01QLygKGsZePJffJyTVGujAa", "tool_name": "SubagentHandback", "agent_id": "adede891038512464", "recv_ms": 1793462681147.001}
+{"hook_event_name": "UserPromptSubmit", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "recv_ms": 1793462681193.92}
+{"hook_event_name": "SubagentStop", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "agent_id": "ad0b228f21a726e61", "recv_ms": 1793462681825.343}
+{"hook_event_name": "SubagentStop", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "agent_id": "adede891038512464", "recv_ms": 1793462683151.604}
+{"hook_event_name": "Stop", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "recv_ms": 1793462684148.349}
+{"hook_event_name": "Stop", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "recv_ms": 1793462685372.902}
+{"hook_event_name": "SessionEnd", "session_id": "4fc9f3ca-6356-4a17-a5b5-9e0a0b5e6c0a", "recv_ms": 1793462686316.575}
+{"hook_event_name": "SessionEnd", "session_id": "03185ae0-2b6f-4920-a8e6-09cd4d288542", "recv_ms": 1793462687540.365}

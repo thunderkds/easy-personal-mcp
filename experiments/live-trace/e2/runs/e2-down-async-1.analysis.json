@@ -1,0 +1,60 @@
+{
+ "all": {
+  "ref_ids": 9,
+  "pre_captured": 0,
+  "post_captured": 0,
+  "pre_capture_pct": 0.0,
+  "post_capture_pct": 0.0
+ },
+ "no_handback": {
+  "ref_ids": 8,
+  "pre_captured": 0,
+  "post_captured": 0,
+  "pre_capture_pct": 0.0,
+  "post_capture_pct": 0.0
+ },
+ "post_latency_excl_subagent_tool": {
+  "n": 0,
+  "median_ms": null,
+  "p95_ms": null,
+  "min_ms": null,
+  "max_ms": null
+ },
+ "post_minus_pre": {
+  "n": 0,
+  "median_ms": null,
+  "p95_ms": null,
+  "min_ms": null,
+  "max_ms": null
+ },
+ "pre_latency": {
+  "n": 0,
+  "median_ms": null,
+  "p95_ms": null,
+  "min_ms": null,
+  "max_ms": null
+ },
+ "post_latency": {
+  "n": 0,
+  "median_ms": null,
+  "p95_ms": null,
+  "min_ms": null,
+  "max_ms": null
+ },
+ "pre_latency_values": [],
+ "post_latency_values": [],
+ "events_by_name": {},
+ "subagent_events_with_agent_id": 0,
+ "pre_post_extra_ids": [],
+ "wall_ms": 25059.8,
+ "session_steps": {
+  "read_3": true,
+  "bash_2_one_failing": true,
+  "edit_1": true,
+  "subagent_1": true,
+  "normal_end": true
+ },
+ "exit_code": 0,
+ "label": "e2-down-async-1",
+ "session_id": "49731a5b-c6cc-409a-8845-c4d6c5cb6779"
+}
