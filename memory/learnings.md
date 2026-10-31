@@ -43,6 +43,10 @@
 **Learning**: First run (HUN-34 merge, `ref="bfd9c86...3f4aceb"`) returned 780,505 chars despite `budget_bytes=120000`; the harness saves it to a file, so extract `.overall`, `.ratings[]`, `.warnings` with jq. Overall 75 (7 of 13 dimensions rated). Security 18 is false positives: `sink_hits_observed` flags `core/metrics.py` f-string SQL (only a fixed column name is interpolated, values are `?` params); `redaction_hits_observed` 123 comes from a pack that reads `uv.lock` and `web/package-lock.json` plus planted test secrets. `score` writes no report; call `write_report` (findings `[]`) for the path.
 **Files**: `src/easy_personal/core/metrics.py`, `docs/claude-md/pipeline-stages.md`
 
+### 2026-10-21 — The register hook catches guides written in other repos
+**Learning**: `.claude/hooks/post_write_register_task.py` matches any written path ending `TASK_GUIDE_<id>.md`, even outside this repo. Writing `../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md` added a T120 row to this repo's `PROJECT_KANBAN.md`, and it was committed (removed by the next board pull). Write cross-repo guides with Bash (no PostToolUse Write hook), or re-pull the board before committing.
+**Files**: `.claude/hooks/post_write_register_task.py`, `PROJECT_KANBAN.md`
+
 ### 2026-10-21 — `board_sync.py pull` overwrites the `## Blocked` table
 **Learning**: The Blocked section of `PROJECT_KANBAN.md` is a fixed footer rendered on every pull; manual rows vanish. Record external blockers in the task's guide (`Depends on` external note) and in `PROJECT_SPEC.md` § Tasks instead (e.g. XR-1 → easy-verifier T120 in `tasks/TASK_GUIDE_HUN-42.md`).
 **Files**: `PROJECT_KANBAN.md`, `scripts/board_sync.py`, `tasks/TASK_GUIDE_HUN-42.md`
