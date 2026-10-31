@@ -199,8 +199,8 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-126 | Restyle dashboard to the Graphite Mint design (owner canvas GGoKuwVrYPQAVGcT6e7Ptq); plain Warnings/Kit content kept (owner choice 2026-10-29); UI checked with easy-ui MCP | Todo | Frontend-Implementer | C2 | Low | P1 |
 | HUN-128 | Dashboard shell in a centered max-width container (1440 px, owner request 2026-10-29) | Todo | Frontend-Implementer | C1 | Low | P1 |
 | HUN-129 | Usage "By model" card: short headers, no clipped cost column (owner "fix", 2026-10-29) | Todo | Frontend-Implementer | C1 | Low | P1 |
-| HUN-160 | Work view rail regroup (`// work` `// usage` `// kit` `// connect` `// system`) + first-run checklist (FR-042) | Todo | Frontend-Implementer | C2 | Low | P0 |
-| HUN-161 | Typed vs agent usage split: `entrypoint` migration + backfill, MCP split fields (FR-039; migration-safety) | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-160 | Work view rail regroup (`// work` `// usage` `// kit` `// connect` `// system`) + first-run checklist (FR-042) | Done (2026-10-31; merge pending) | Frontend-Implementer | C2 | Low | P0 |
+| HUN-161 | Typed vs agent usage split: `entrypoint` migration + backfill, MCP split fields (FR-039; migration-safety) | Done (2026-10-31; merge pending) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-162 | Work view: read-only cross-project board from `PROJECT_KANBAN.md` (FR-037/038, NFR-010; after HUN-160) | Todo | Frontend-Implementer | C2 | Low | P0 |
 | HUN-163 | Work view: scheduled jobs, systemd timers + cron, first word only (FR-040; after HUN-160) | Todo | Frontend-Implementer | C2 | Medium | P1 |
 | HUN-164 | Work view: memory graph, names + links read live, rings layout (FR-041, NFR-010; after HUN-160) | Todo | Frontend-Implementer | C2 | Medium | P1 |
