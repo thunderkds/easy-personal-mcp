@@ -11,9 +11,6 @@
 ### Todo
 
 ### In Progress
-- [ ] **HUN-162** — Work view: read-only cross-project board | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-162.md`
-- [ ] **HUN-163** — Work view: scheduled jobs (systemd timers + cron) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-163.md`
-- [ ] **HUN-164** — Work view: memory graph (names + links, read live) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-164.md`
 
 ### Ready for Review
 
@@ -73,6 +70,9 @@
 - [x] **HUN-132** — Landing page (site/index.html) in the Easy Kit family Graphite Mint layout | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-132.md`
 - [x] **HUN-160** — Work view rail regroup and first-run checklist | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-160.md`
 - [x] **HUN-161** — Typed vs agent usage split (entrypoint migration) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-161.md`
+- [x] **HUN-162** — Work view: read-only cross-project board | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-162.md`
+- [x] **HUN-163** — Work view: scheduled jobs (systemd timers + cron) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-163.md`
+- [x] **HUN-164** — Work view: memory graph (names + links, read live) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-164.md`
 
 ### Closed (will not do)
 
