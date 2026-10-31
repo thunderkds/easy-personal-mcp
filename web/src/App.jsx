@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import AgentsView from './AgentsView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
+import JobsView from './JobsView.jsx'
 import KitView from './KitView.jsx'
 import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
@@ -12,7 +13,7 @@ import WorkspacesView from './WorkspacesView.jsx'
 // `scoped` views filter by the global Workspace/Account scope; the others ignore it.
 // `work` has no views yet: it stays here, hidden while empty, so later tasks only append tabs.
 const GROUPS = [
-  { id: 'work', label: '// work', tabs: [] },
+  { id: 'work', label: '// work', tabs: [{ id: 'scheduled', label: 'Scheduled', View: JobsView }] },
   {
     id: 'usage',
     label: '// usage',
