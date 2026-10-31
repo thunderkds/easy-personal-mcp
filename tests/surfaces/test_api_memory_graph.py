@@ -2,10 +2,10 @@
 
 import pytest
 from starlette.testclient import TestClient
-from tests_helpers import add_event
 
 from easy_personal.core import store
 from easy_personal.surfaces import api
+from tests_helpers import add_event
 
 TOKEN, PORT = "tok-123", 5555
 HOST = f"127.0.0.1:{PORT}"
