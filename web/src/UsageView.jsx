@@ -208,7 +208,7 @@ function WorkSplit({ day }) {
         ))}
       </ul>
       <p className="muted">
-        You: typed in the terminal. Agents: sub-agents and sessions started by a program.
+        You: sessions you typed in. Agents: sub-agents and sessions started by a program (SDK).
         {total.split.unknown > 0 && ' Unknown: stored before the entrypoint was recorded; the next ingest fills it in. These rows are not yet backfilled.'}
       </p>
       <details className="full-table">

@@ -91,7 +91,9 @@ def test_backfill_twice_gives_the_same_rows(tmp_path):
     [
         ([rec(1, "s", entry="cli")], "typed"),
         ([rec(1, "s", entry="sdk-cli")], "agent"),
-        ([rec(1, "s", entry="ide")], "agent"),  # any known value other than cli is agent work
+        ([rec(1, "s", entry="ide")], "typed"),  # only sidechain and sdk* are agent work (owner rule 2026-10-31)
+        ([rec(1, "s", entry="claude-desktop")], "typed"),
+        ([rec(1, "s", entry="sdk-py")], "agent"),
         ([rec(1, "s", entry="cli", sidechain=True)], "agent"),
         ([rec(1, "s", entry=None, sidechain=True)], "agent"),  # sidechain wins over a missing entrypoint
         ([rec(1, "s", entry=None)], "unknown"),

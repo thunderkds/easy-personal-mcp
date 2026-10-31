@@ -29,7 +29,7 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
     def usage_summary(since: str | None = None, until: str | None = None) -> dict[str, Any]:
         """Claude Code usage for [since, until): sessions, messages, input/output and cache
         tokens, cache-hit ratio, records abstained per version, and `split`: tokens by typed (you),
-        agent (sidechain, or an entrypoint other than cli) and unknown (not yet backfilled) work.
+        agent (sidechain, or an sdk* entrypoint) and unknown (not yet backfilled) work.
         Bounds are ISO 8601 dates or datetimes; without an offset they are local time; omitted means all stored history."""
         with store.opened(config.store_path()) as conn:
             return metrics.usage_summary(conn, since, until)

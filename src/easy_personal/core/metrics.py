@@ -158,14 +158,15 @@ def usage_summary(
 def work_kind(is_sidechain, entrypoint) -> str:
     """`typed` / `agent` / `unknown` work of one message (FR-039).
 
-    A sidechain record is agent work. Otherwise the session entrypoint decides: `cli` is typed, any
-    other value is agent work, and a missing one is unknown (abstained, counted, never guessed).
+    A sidechain record is agent work. Otherwise the session entrypoint decides: a missing one is
+    unknown (abstained, counted, never guessed), one starting with `sdk` (`sdk-cli`, `sdk-py`, ...)
+    is agent work, and any other value (`cli`, `claude-desktop`, `ide`, ...) is typed.
     """
     if is_sidechain == 1:
         return "agent"
     if entrypoint is None:
         return "unknown"
-    return "typed" if entrypoint == "cli" else "agent"
+    return "agent" if entrypoint.startswith("sdk") else "typed"
 
 
 def _folder(project_path: str | None) -> str:
