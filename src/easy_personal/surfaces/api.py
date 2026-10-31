@@ -25,6 +25,7 @@ from starlette.staticfiles import StaticFiles
 
 from easy_personal.core import (
     accounts,
+    board,
     config,
     first_run,
     kit,
@@ -525,6 +526,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c, **_who(q)))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c, **_who(q)))),
         Route("/api/kit", _query(lambda c, q: kit.kit_summary(c, **_who(q)))),
+        Route("/api/board", _query(lambda c, q: board.board(c, **_who(q)))),
         Route("/api/accounts", _query(lambda c, q: accounts.grouped(c, q.get("by", "account")))),
         Route("/api/accounts", _account_write(lambda c, _id, b: accounts.add(c, b.get("path")), 201), methods=["POST"]),
         Route("/api/accounts/{id}/confirm", _account_write(lambda c, i, b: accounts.confirm(c, i, b.get("label"))), methods=["POST"]),
