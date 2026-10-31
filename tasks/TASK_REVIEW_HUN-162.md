@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_board.py` (sections + Blocked table, unknown subsection abstained, table rows, plain bullets, id-less rows, struck-through Blocked, plain titles, huge Done, projects from usage, missing/unparsable/oversized/dir file → no data, worktrees skipped, same id in two projects, workspace scope, board kind + pull time, only allowed keys, nothing written, 50×60 < 1 s), `tests/surfaces/test_api_board.py`, `tests/leak/harness.py`, `web/src/BoardView.test.jsx`, `web/src/App.test.jsx`. Supervisor run 2026-10-31T15:41:07+07:00 on 2c504c8: `Tests  293 passed (293)`; `876 passed, 5 deselected, 1 xfailed, 1 warning in 136.80s (0:02:16)` |
+| Verification command run | ☑ pass | `npm --prefix web test -- --run` → `Test Files  14 passed (14)` / `Tests  293 passed (293)`; build `✓ built in 176ms`; `uv run pytest -q` → `876 passed, 5 deselected, 1 xfailed, 1 warning in 136.80s (0:02:16)`; ruff `All checks passed!` |
+| Negative cases hold | ☑ pass | runtime: project with no `PROJECT_KANBAN.md` → `no data`; repo without `.claude/board.json` → board None, no pull time; `find <repos> -newer <dash.log>` after the run → no file changed (read-only); token-less request 403 (test) |
+| verify | ☑ pass | Supervisor runtime check 2026-10-31 on 2c504c8: dashboard on 3 temp git repos mapped from fixture transcripts: `GET /api/board` → alpha-app ok linear `2026-10-31T06:40:48Z` [HUN-201 Todo, HUN-202 Todo, HUN-198 In Progress, HUN-197 Ready for Review, HUN-190/191 Done, HUN-199 Blocked]; beta-api ok None [T014 Todo, T012 In Progress, T010 Done]; gamma-site no data — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor code-review + inline security-review 2026-10-31 on `1c456d9...HUN-162` (2c504c8): 11 files + callers (`kit.scoped_projects`, `api._query/_who`). No HUN-163/164 files on the branch after the stash incident (verified name-only diff). lane_check: `lane: C2, 11 files, 910 lines, EXCEEDS (lines 910 > 500)` — ~550 lines tests. Findings: P0 0, P1 0. P2 2: (a) at 1280 px only ~3.5 of 6 columns fit; Done / Closed / Blocked sit behind a horizontal scroll — narrower columns or a wrap layout (follow-up); (b) project dot colour cycles by order, not workspace colour (cut, documented). P3: NFR-010 timing test times `board.board()`, not the HTTP round trip. Security (Low): title only (text before the first ` | `), links reduced to labels, 300-char cap, 5 MB file cap, non-UTF-8 → no data, `board.json` read for `board` only (team id never returned — tested), route behind `Guard` |
+| Full smoke suite still green (no regression) | ☑ pass | baseline 839 → 876 passed; web 276 → 293 |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not run for this task (advisory, no hook); no report path. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | `reports/HUN-162/Board_{1280,768,375}.png` (CDP, temp repos). Verdict vs sketch: pass with P2 — header `3 projects · 1 synced (last pull 2 h ago) · 1 no data`, project list with `linear` tag / `not synced` / `no data`, project filter, columns with counts, cards id · title · project dot · board tag; only the first 3.5 columns visible at 1280 (P2 above) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `BoardView.test.jsx` 'styles the board with tokens only'; Plex Sans / Plex Mono computed; console errors `[]`; request hosts only `127.0.0.1` |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280/768/375: no horizontal page scroll; the board scrolls inside its box |
 
 ---
 
@@ -71,9 +71,16 @@ $ ls web/src | grep -E "Board|Jobs|Memory"
 (no output — no BoardView)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (Supervisor, 2026-10-31, HUN-162 2c504c8):
+```
+$ ls src/easy_personal/core/board.py
+src/easy_personal/core/board.py
+$ curl -H 'X-Dashboard-Token: …' $BASE/api/board
+alpha-app ok linear 2026-10-31T06:40:48Z [('HUN-201', 'Todo'), …, ('HUN-199', 'Blocked')]
+beta-api ok None None [('T014', 'Todo'), ('T012', 'In Progress'), ('T010', 'Done')]
+gamma-site no data
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner sees the tasks of every kit project on one read-only board, grouped by status, with how fresh each Linear pull is.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-31 (runtime check + full suites with `active_task` = HUN-162).
