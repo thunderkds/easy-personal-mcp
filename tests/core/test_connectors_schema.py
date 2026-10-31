@@ -132,18 +132,21 @@ def test_v5_store_with_rows_upgrades_keeping_every_row(tmp_path, fixtures_root):
     conn.execute("PRAGMA foreign_keys=ON")
     store.migrate(conn, path, [m for m in MIGRATIONS if m[0] <= 5])  # schema before m0006
     conn.execute("INSERT INTO meta VALUES ('machine_id', 'm1')")
+    conn.execute("ALTER TABLE events ADD COLUMN entrypoint TEXT")  # today's ingest writes it (m0007 then keeps it)
     conn.commit()
     claude_code.ingest(conn, fixtures_root)
     conn.execute("INSERT INTO agent_accounts (provider, folder, label, status) VALUES ('claude', '/h/.claude', 'd', 'confirmed')")
     conn.execute("INSERT INTO workspaces (name) VALUES ('company')")
     conn.execute("INSERT INTO workspace_repos VALUES (2, '/work/repo')")
     conn.commit()
-    tables = ("events", "agent_accounts", "workspaces", "workspace_repos", "source_files")
+    tables = ("events", "agent_accounts", "workspaces", "workspace_repos")  # m0007 resets source_files offsets
     before = {t: conn.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in tables}
+    files = conn.execute("SELECT path, inode FROM source_files ORDER BY 1").fetchall()
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 5 and before["events"]
     conn.close()
     upgraded = store.connect(path)
     assert upgraded.execute("PRAGMA user_version").fetchone()[0] == max(n for n, _ in MIGRATIONS)
     assert {t: upgraded.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in tables} == before
+    assert upgraded.execute("SELECT path, inode FROM source_files ORDER BY 1").fetchall() == files
     assert (tmp_path / "store.sqlite.bak-v5").exists()
     upgraded.close()

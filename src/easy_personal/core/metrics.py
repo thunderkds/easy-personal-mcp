@@ -9,6 +9,7 @@ from easy_personal.core import accounts, workspaces
 from easy_personal.core import prices as price_table
 
 DIMENSIONS = ("day", "model", "project", "tool")
+WORK_KINDS = ("typed", "agent", "unknown")
 OUTLIER_TOOL_CALLS = 90
 OUTLIER_CONTEXT_TOKENS = 200_000
 TIMELINE_GAP_MINUTES = 30
@@ -92,6 +93,10 @@ def usage_summary(
 
     Usage is counted once per `message.id` (one API message spans several records), at the
     message's earliest record time. Abstained records never feed a metric; they are counted.
+
+    `split` divides all tokens (input + output + cache) into typed / agent / unknown work
+    (`work_kind`); the three sum to the total. `entrypoints` lists the tokens per stored entrypoint
+    value, so a wrong typed-or-agent call for a new value is visible.
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
@@ -105,16 +110,25 @@ def usage_summary(
 
     inner, inner_params = _inner_window(since_utc, until_utc)
     where, params = _period("ts", since_utc, until_utc)
-    messages, inp, out, cache_create, cache_read = conn.execute(
-        "SELECT COUNT(*), COALESCE(SUM(i), 0), COALESCE(SUM(o), 0), COALESCE(SUM(cc), 0), "
+    messages = inp = out = cache_create = cache_read = 0
+    split = dict.fromkeys(WORK_KINDS, 0)
+    entrypoints: dict[str, int] = {}
+    for sidechain, entry, n, i, o, cc, cr in conn.execute(
+        "SELECT sc, ep, COUNT(*), COALESCE(SUM(i), 0), COALESCE(SUM(o), 0), COALESCE(SUM(cc), 0), "
         "COALESCE(SUM(cr), 0) FROM ("
         "  SELECT MIN(ts_utc) AS ts, MAX(input_tokens) AS i, MAX(output_tokens) AS o,"
-        "         MAX(cache_creation_input_tokens) AS cc, MAX(cache_read_input_tokens) AS cr"
+        "         MAX(cache_creation_input_tokens) AS cc, MAX(cache_read_input_tokens) AS cr,"
+        "         MAX(is_sidechain) AS sc, MAX(entrypoint) AS ep"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
         f"  AND input_tokens IS NOT NULL AND {inner} AND {scope} GROUP BY message_id"
-        f") WHERE {where}",
+        f") WHERE {where} GROUP BY sc, ep",
         inner_params + scope_params + params,
-    ).fetchone()
+    ):
+        messages, inp, out = messages + n, inp + i, out + o
+        cache_create, cache_read = cache_create + cc, cache_read + cr
+        split[work_kind(sidechain, entry)] += i + o + cc + cr
+        if entry is not None:
+            entrypoints[entry] = entrypoints.get(entry, 0) + i + o + cc + cr
 
     where, params = _period("ts_utc", since_utc, until_utc)
     by_version = dict(
@@ -135,8 +149,23 @@ def usage_summary(
         "cache_creation_input_tokens": cache_create,
         "cache_read_input_tokens": cache_read,
         "cache_hit_ratio": round(cache_read / prompt_tokens, 4) if prompt_tokens else None,
+        "split": split,
+        "entrypoints": dict(sorted(entrypoints.items())),
         "abstained": {"total": sum(by_version.values()), "by_version": by_version},
     }
+
+
+def work_kind(is_sidechain, entrypoint) -> str:
+    """`typed` / `agent` / `unknown` work of one message (FR-039).
+
+    A sidechain record is agent work. Otherwise the session entrypoint decides: `cli` is typed, any
+    other value is agent work, and a missing one is unknown (abstained, counted, never guessed).
+    """
+    if is_sidechain == 1:
+        return "agent"
+    if entrypoint is None:
+        return "unknown"
+    return "typed" if entrypoint == "cli" else "agent"
 
 
 def _folder(project_path: str | None) -> str:
@@ -155,11 +184,12 @@ def _messages(
     scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
     where, params = _period("ts", since_utc, until_utc)
     return conn.execute(
-        "SELECT ts, model, project_path, tools, i, o, cc, cr FROM ("
+        "SELECT ts, model, project_path, tools, i, o, cc, cr, sc, ep FROM ("
         "  SELECT MIN(ts_utc) AS ts, MAX(model) AS model, MAX(project_path) AS project_path,"
         "         GROUP_CONCAT(tool_names) AS tools, MAX(input_tokens) AS i,"
         "         MAX(output_tokens) AS o, MAX(cache_creation_input_tokens) AS cc,"
-        "         MAX(cache_read_input_tokens) AS cr"
+        "         MAX(cache_read_input_tokens) AS cr, MAX(is_sidechain) AS sc,"
+        "         MAX(entrypoint) AS ep"
         "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
         f"  AND input_tokens IS NOT NULL AND {inner} AND {scope} GROUP BY message_id"
         f") WHERE {where} ORDER BY ts",
@@ -185,14 +215,16 @@ def _new_group() -> dict:
         "output_tokens": 0,
         "cache_creation_input_tokens": 0,
         "cache_read_input_tokens": 0,
+        "split": dict.fromkeys(WORK_KINDS, 0),
         "_usd": 0.0,
         "_priced": 0,
         "_abstained": set(),
     }
 
 
-def _add(group: dict, model, i, o, cc, cr, usd) -> None:
+def _add(group: dict, model, i, o, cc, cr, usd, kind) -> None:
     group["messages"] += 1
+    group["split"][kind] += i + o + cc + cr
     group["input_tokens"] += i
     group["output_tokens"] += o
     group["cache_creation_input_tokens"] += cc
@@ -228,7 +260,8 @@ def usage_breakdown(
 
     `total` counts each message once, so it equals `usage_summary`. Tool groups overlap: a
     message that used several tools appears in each. Cost is API-equivalent, never a bill; a
-    model missing from the price table abstains.
+    model missing from the price table abstains. Each group's `split` divides its tokens into
+    typed / agent / unknown work, as in `usage_summary`.
     """
     if by not in DIMENSIONS:
         raise ValueError(f"by must be one of {', '.join(DIMENSIONS)}")
@@ -236,11 +269,13 @@ def usage_breakdown(
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     groups: dict[str, dict] = {}
     total = _new_group()
-    for ts, model, project_path, tools, i, o, cc, cr in _messages(conn, since_utc, until_utc, workspace, account):
-        usd = prices.cost(model, i, o, cc, cr)
-        _add(total, model, i, o, cc, cr, usd)
+    for ts, model, project_path, tools, i, o, cc, cr, sc, ep in _messages(
+        conn, since_utc, until_utc, workspace, account
+    ):
+        usd, kind = prices.cost(model, i, o, cc, cr), work_kind(sc, ep)
+        _add(total, model, i, o, cc, cr, usd, kind)
         for key in _keys(by, ts, model, project_path, tools):
-            _add(groups.setdefault(key, _new_group()), model, i, o, cc, cr, usd)
+            _add(groups.setdefault(key, _new_group()), model, i, o, cc, cr, usd, kind)
     rows = [{"key": key, **_finish(group, prices.as_of)} for key, group in groups.items()]
     if by == "day":
         rows.sort(key=lambda r: r["key"])

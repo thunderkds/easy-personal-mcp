@@ -4,7 +4,7 @@ const cost = (usd, abstained = []) => ({
   price_table_date: '2026-10-01',
   abstained_models: abstained,
 })
-const group = (key, i, o, cc, cr, messages, usd, abstained) => ({
+const group = (key, i, o, cc, cr, messages, usd, abstained, split) => ({
   key,
   messages,
   input_tokens: i,
@@ -12,6 +12,7 @@ const group = (key, i, o, cc, cr, messages, usd, abstained) => ({
   cache_creation_input_tokens: cc,
   cache_read_input_tokens: cr,
   api_equivalent_cost: cost(usd, abstained),
+  ...(split && { split }),
 })
 const period = { since_utc: null, until_utc: null }
 
@@ -24,6 +25,8 @@ export const summary = {
   cache_creation_input_tokens: 5600,
   cache_read_input_tokens: 78900,
   cache_hit_ratio: 0.9184,
+  split: { typed: 50600, agent: 38500, unknown: 0 },
+  entrypoints: { cli: 50600, 'sdk-cli': 38500 },
   abstained: { total: 4, by_version: { '9.9.9': 4 } },
 }
 
@@ -34,10 +37,10 @@ export const breakdowns = {
     by: 'day',
     period,
     groups: [
-      group('2026-10-19', 100, 200, 300, 400, 5, 1.25, []),
-      group('2026-10-20', 1100, 3200, 5300, 78500, 15, 11.25, []),
+      group('2026-10-19', 100, 200, 300, 400, 5, 1.25, [], { typed: 600, agent: 400, unknown: 0 }),
+      group('2026-10-20', 1100, 3200, 5300, 78500, 15, 11.25, [], { typed: 50000, agent: 38100, unknown: 0 }),
     ],
-    total: totalRow,
+    total: { ...totalRow, split: { typed: 50600, agent: 38500, unknown: 0 } },
   },
   model: {
     by: 'model',

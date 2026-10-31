@@ -23,6 +23,7 @@ EVENT_COLUMNS = (
     "git_branch",
     "is_sidechain",
     "is_api_error",
+    "entrypoint",
     "model",
     "message_id",
     "tool_names",
@@ -130,6 +131,8 @@ def save_file(
     mid = machine_id(conn)
     end = [offset]
     signals: list[tuple] = []
+    first_entry: dict[str, str] = {}  # session -> its first entrypoint seen in this batch
+    sessions: set[str] = set()
 
     def values():
         for line_offset, next_offset, event in rows:
@@ -139,17 +142,42 @@ def save_file(
                     (mid, path, inode, line_offset, kind, value, event["ts_utc"])
                     for kind, value in event.get("signals", ())
                 )
+                if event["session_id"] is not None:
+                    sessions.add(event["session_id"])
+                    if event["entrypoint"] is not None:
+                        first_entry.setdefault(event["session_id"], event["entrypoint"])
                 yield (mid, source, path, inode, line_offset, account_id, *(event[c] for c in EVENT_COLUMNS))
 
     placeholders = ", ".join("?" * (6 + len(EVENT_COLUMNS)))
+    # A re-read (offsets reset by migration 7) finds its rows: only `entrypoint` may change, never a row added.
     sql = (
-        "INSERT OR IGNORE INTO events (machine_id, source, source_path, inode, byte_offset, "
-        f"agent_account_id, {', '.join(EVENT_COLUMNS)}) VALUES ({placeholders})"
+        "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, "
+        f"agent_account_id, {', '.join(EVENT_COLUMNS)}) VALUES ({placeholders}) "
+        "ON CONFLICT (machine_id, source, source_path, inode, byte_offset) DO UPDATE "
+        "SET entrypoint = excluded.entrypoint "
+        "WHERE excluded.entrypoint IS NOT NULL AND events.entrypoint IS NOT excluded.entrypoint"
     )
+    in_file = "machine_id = ? AND source = ? AND source_path = ? AND inode = ?"
     with conn:
-        before = conn.total_changes
+        last_id = conn.execute("SELECT COALESCE(MAX(id), 0) FROM events").fetchone()[0]
         conn.executemany(sql, values())
-        added = conn.total_changes - before
+        added = conn.execute("SELECT COUNT(*) FROM events WHERE id > ?", (last_id,)).fetchone()[0]
+        # A session's rows before its first entrypoint, or in an earlier run, take that entrypoint.
+        for session in sessions:
+            entry = first_entry.get(session)
+            if entry is None:
+                found = conn.execute(
+                    f"SELECT entrypoint FROM events WHERE {in_file} AND session_id = ? "
+                    "AND entrypoint IS NOT NULL LIMIT 1",
+                    (mid, source, path, inode, session),
+                ).fetchone()
+                entry = found[0] if found else None
+            if entry is not None:
+                conn.execute(
+                    f"UPDATE events SET entrypoint = ? WHERE {in_file} AND session_id = ? "
+                    "AND entrypoint IS NULL",
+                    (entry, mid, source, path, inode, session),
+                )
         conn.executemany(
             "INSERT OR IGNORE INTO tool_signals (machine_id, source_path, inode, byte_offset, "
             "kind, value, ts_utc) VALUES (?, ?, ?, ?, ?, ?, ?)",

@@ -162,6 +162,84 @@ function Totals({ summary, total }) {
   )
 }
 
+const SPLIT_KINDS = [
+  { id: 'typed', label: 'You' },
+  { id: 'agent', label: 'Agents' },
+  { id: 'unknown', label: 'Unknown' },
+]
+const DENSE_DAYS = 14
+
+/** You / Agents tokens per day (FR-039): a stacked column per day. Unknown only shows while the period has some. */
+function WorkSplit({ day }) {
+  const { groups, total } = day
+  if (groups.length === 0 || !total.split || groups.some((g) => !g.split)) return null
+  const kinds = SPLIT_KINDS.filter((k) => k.id !== 'unknown' || total.split.unknown > 0)
+  const max = Math.max(...groups.map(totalTokens), 1)
+  const sum = kinds.reduce((n, k) => n + total.split[k.id], 0)
+  const dense = groups.length > DENSE_DAYS
+  const label = `You and agents tokens per day, ${groups.length} days: ${kinds.map((k) => `${k.label} ${fmt(total.split[k.id])}`).join(', ')}`
+  return (
+    <section className="card" aria-labelledby="h-split">
+      <h2 id="h-split">You and agents</h2>
+      <div className={`day-chart${dense ? ' dense' : ''}`} role="img" aria-label={label}>
+        <div className="day-bars">
+          {groups.map((g) => (
+            <div key={g.key} className="split-col" title={`${g.key}: ${kinds.map((k) => `${k.label} ${fmt(g.split[k.id])}`).join(', ')}`}>
+              {kinds.map((k) => (
+                <div key={k.id} className={`split-seg split-${k.id}`} style={{ height: `${(g.split[k.id] / max) * 100}%` }} />
+              ))}
+            </div>
+          ))}
+        </div>
+        {!dense && (
+          <div className="day-labels">
+            {groups.map((g) => (
+              <span key={g.key}>{g.key.slice(5)}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      <ul className="split-legend" aria-label="Legend">
+        {kinds.map((k) => (
+          <li key={k.id}>
+            <span className={`split-swatch split-${k.id}`} aria-hidden="true" />
+            {`${k.label} ${fmt(total.split[k.id])} (${percent(sum > 0 ? total.split[k.id] / sum : null)})`}
+          </li>
+        ))}
+      </ul>
+      <p className="muted">
+        You: typed in the terminal. Agents: sub-agents and sessions started by a program.
+        {total.split.unknown > 0 && ' Unknown: stored before the entrypoint was recorded; the next ingest fills it in. These rows are not yet backfilled.'}
+      </p>
+      <details className="full-table">
+        <summary>Show table</summary>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Day</th>
+                {kinds.map((k) => (
+                  <th key={k.id} scope="col">{k.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((g) => (
+                <tr key={g.key}>
+                  <th scope="row">{g.key}</th>
+                  {kinds.map((k) => (
+                    <td key={k.id}>{fmt(g.split[k.id])}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  )
+}
+
 function Outliers({ data }) {
   return (
     <section className="card" aria-labelledby="h-outliers">
@@ -260,6 +338,7 @@ export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgen
             <Breakdown by="day" data={state.data.breakdowns.day} />
             <Breakdown by="model" data={state.data.breakdowns.model} />
           </div>
+          <WorkSplit day={state.data.breakdowns.day} />
           <div className="grid-2">
             <Breakdown by="project" data={state.data.breakdowns.project} />
             <Outliers data={state.data.outliers} />

@@ -24,6 +24,7 @@ ALLOWED_EVENT_COLUMNS = {
     "model",
     "message_id",
     "agent_account_id",
+    "entrypoint",
     "tool_names",
     "input_tokens",
     "output_tokens",
