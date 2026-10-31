@@ -1,6 +1,6 @@
 // Guarded API client: the per-launch token comes from the URL fragment (#<token>) and is
 // sent as X-Dashboard-Token. Only same-origin /api/ paths are requested.
-function readToken() {
+export function readToken() {
   const token = window.location.hash.replace(/^#/, '')
   return token
 }

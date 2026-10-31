@@ -61,8 +61,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-31T16:35:19Z in the HUN-178 worktree, before any implementation commit:
+
+```
+$ grep -n "live" web/src/App.jsx; ls web/src/LiveView.jsx 2>&1; grep -n "views" site/index.html | head -3
+ls: cannot access 'web/src/LiveView.jsx': No such file or directory
+260:    <li data-stat="views"><span class="stat-num">8</span><span class="stat-label">dashboard views</span></li>
+```
+
+(no `live` match in App.jsx, no LiveView.jsx, views stat = 8)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

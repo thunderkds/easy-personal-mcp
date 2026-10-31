@@ -5,6 +5,7 @@ import BoardView from './BoardView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
 import KitView from './KitView.jsx'
+import LiveView from './LiveView.jsx'
 import MemoryView from './MemoryView.jsx'
 import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
@@ -13,12 +14,13 @@ import WarningsPlanView from './WarningsPlanView.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
 
 // `scoped` views filter by the global Workspace/Account scope; the others ignore it.
-// `work` holds the Work view (HUN-162..164); a group with no views is hidden.
+// `work` holds the Work view (HUN-162..164, Live HUN-178); a group with no views is hidden.
 const GROUPS = [
   {
     id: 'work',
     label: '// work',
     tabs: [
+      { id: 'live', label: 'Live', View: LiveView },
       { id: 'board', label: 'Board', View: BoardView, scoped: true },
       { id: 'scheduled', label: 'Scheduled', View: JobsView },
       { id: 'memory', label: 'Memory', View: MemoryView, scoped: true },
