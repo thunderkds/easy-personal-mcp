@@ -6,6 +6,7 @@ import keyring
 import pytest
 
 from connectors.fake_backend import MemoryKeyring
+from fakes import jobs_fakes
 from leak import harness
 from leak.canaries import Canaries
 
@@ -50,6 +51,17 @@ def leak_run(tmp_path_factory, canaries):
     fake = fake_bin / "claude"
     fake.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(0 if sys.argv[1:] == ['mcp', 'get', 'slack'] else 1)\n")
     fake.chmod(0o755)
+    # HUN-163: fake `systemctl` / `crontab` (the real ones never run); the secret canary sits in their arguments
+    key = canaries.values["api_key"]
+    jobs_fakes.install(
+        fake_bin,
+        timers=[{"unit": "easy-personal-ingest.timer", "activates": "easy-personal-ingest.service", "next": 1_793_444_400_000_000, "last": 1_793_433_606_000_000},
+                {"unit": "tidy.timer", "activates": "tidy.service", "next": 1_793_444_400_000_000, "last": 0}],
+        props={"easy-personal-ingest.timer": {"TimersCalendar": "{ OnCalendar=daily ; next_elapse=n/a }"},
+               "easy-personal-ingest.service": {"ExecStart": jobs_fakes.exec_start(f"/usr/bin/easy-personal ingest --token {key}"), "ExecMainStatus": "0"},
+               "tidy.service": {"ExecStart": jobs_fakes.exec_start(f"/usr/bin/rm -rf /tmp/{key}"), "ExecMainStatus": "0"}},
+        crontab=f'0 7 * * 1-5 claude -p "{key}"\n5 4 * * * /usr/bin/backup --key {key}\n',
+    )  # fmt: skip
     mp.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
     old_keyring = keyring.get_keyring()
     memory = MemoryKeyring()

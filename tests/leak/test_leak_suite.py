@@ -76,6 +76,12 @@ def test_account_status_line_really_ran(leak_run):
     assert '"used_percentage":42.5' in body and '"stale":false' in body
 
 
+def test_jobs_reader_really_ran(leak_run):
+    """Guards against a vacuous pass: both kinds were read and the planted key sat in their arguments."""
+    body = leak_run.outputs["api /api/jobs"]
+    assert "easy-personal-ingest.timer" in body and "(crontab) claude" in body and '"hidden":2' in body
+
+
 def test_api_write_routes_were_scanned(leak_run, canaries):
     labels = " | ".join(leak_run.outputs)
     for route in harness.API_WRITE_CALLS:

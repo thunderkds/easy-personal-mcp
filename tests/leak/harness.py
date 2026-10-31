@@ -105,6 +105,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
     "/api/board": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],  # HUN-162: titles are shown, never stored
+    "/api/jobs": [""],  # HUN-163: fake systemctl/crontab with a planted canary in arguments (see leak conftest)
     "/api/first-run": [""],  # HUN-160: four done / not-done flags and fixed hints
     "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
