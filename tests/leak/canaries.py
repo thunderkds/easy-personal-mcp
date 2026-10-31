@@ -7,6 +7,7 @@ output, a log or the store, the content boundary (PRD NFR-002 / FR-002) is broke
 
 import base64
 import json
+import re
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -49,6 +50,7 @@ PATTERNS = {
     "claude_json_env_secret": "sk-LEAKCANARY-mcp-env-{t}",
     "claude_json_user_id": "LEAKCANARY user-id {t}",
     "limits_extra_key": "LEAKCANARY limits-extra {t}",
+    "memory_body": "LEAKCANARY memory-body {t}",
 }
 ACCOUNT_EMAIL = "owner@example.invalid"  # the one `.claude.json` value the Agents page shows on purpose
 
@@ -114,6 +116,17 @@ class Canaries:
         for name in ("T001", "_untagged"):
             (trace / f"{name}.jsonl").write_text(json.dumps(line) + "\n")
         return repo
+
+    def render_memory_notes(self, repo: Path, claude_folder: Path) -> None:
+        """Write kit and Claude memory notes: names and links are allowed out, the bodies (canary) are not."""
+        memory = repo / "memory"
+        memory.mkdir(parents=True, exist_ok=True)
+        body = self.values["memory_body"]
+        (memory / "MEMORY.md").write_text(f"---\nname: leak-index\ndescription: plain one-line\n---\n{body}\n[[leak-note]] [[leak-ghost]]\n")
+        (memory / "plain.md").write_text(f"{body}\n")
+        notes = claude_folder / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(repo)) / "memory"
+        notes.mkdir(parents=True)
+        (notes / "leak-note.md").write_text(f"---\nname: leak-note\ndescription: claude note\n---\n{body}\n[[leak-index]]\n")
 
     def render_agent_files(self, agent_root: Path) -> None:
         """Plant `.claude.json` (default + `.claude-work`) and a limits file whose unread keys hold canaries."""

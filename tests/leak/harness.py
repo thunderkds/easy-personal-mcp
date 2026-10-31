@@ -104,6 +104,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
+    "/api/memory-graph": ["", "?project=%2Fnope", "?project="],  # HUN-164; each listed project is also called by collect_api
     "/api/first-run": [""],  # HUN-160: four done / not-done flags and fixed hints
     "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
@@ -312,6 +313,10 @@ def collect_api(out: Collected, logs: "LogCapture", secret: str = "", workdir: P
         for query in queries:
             res = client.get(path + query, headers=headers)
             out.add(f"api {path}{query}", f"{res.status_code} {dict(res.headers)} {res.text}")
+    listed = client.get("/api/memory-graph", headers=headers).json().get("projects", [])
+    for project in listed:  # HUN-164: the graph of every project with memory notes
+        res = client.get("/api/memory-graph", params={"project": project["project"]}, headers=headers)
+        out.add(f"api /api/memory-graph project={project['name']}", f"{res.status_code} {dict(res.headers)} {res.text}")
     if secret and workdir is not None:
         bindir = workdir / "fake-bin"
         bindir.mkdir(parents=True, exist_ok=True)

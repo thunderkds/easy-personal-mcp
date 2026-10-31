@@ -11,7 +11,8 @@ def test_fixture_plants_every_canary(canaries, tmp_path):
     canaries.render_verifier_report(tmp_path / "p" / "repo")
     canaries.render_ui_reports(tmp_path / "p" / "ui")
     canaries.render_agent_files(tmp_path / "p" / "agents")
-    raw = b"".join(p.read_bytes() for p in (tmp_path / "p").rglob("*.json*"))
+    canaries.render_memory_notes(tmp_path / "p" / "repo", tmp_path / "p" / "agents" / ".claude-work")
+    raw = b"".join(p.read_bytes() for p in (*(tmp_path / "p").rglob("*.json*"), *(tmp_path / "p").rglob("*.md")))
     for name, value in canaries.values.items():
         escaped = json.dumps(value)[1:-1].encode()  # how a JSON line holds it
         assert escaped in raw or value.encode() in raw, name
@@ -188,3 +189,10 @@ def test_workspace_surfaces_really_ran(leak_run):
     assert 'INSERT INTO "workspaces"' in leak_run.outputs["store .dump"]
     assert "201" in leak_run.outputs["api POST /api/workspaces"]
     assert "api-ws2" in " ".join(str(v) for k, v in leak_run.outputs.items() if "PATCH" in k)
+
+
+def test_memory_graph_really_ran_and_kept_bodies_out(leak_run, canaries):
+    """Guards against a vacuous pass: names and links were read, the planted note bodies never left."""
+    body = next(blob for label, blob in leak_run.outputs.items() if label.startswith("api /api/memory-graph project="))
+    assert "leak-index" in body and "leak-note" in body and "leak-ghost" in body and "dangling" in body
+    assert canaries.values["memory_body"] not in body

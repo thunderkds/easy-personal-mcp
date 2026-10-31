@@ -28,6 +28,7 @@ from easy_personal.core import (
     config,
     first_run,
     kit,
+    memgraph,
     metrics,
     plan,
     rules,
@@ -109,6 +110,12 @@ def _who(q):
 def _scope(q):
     """`since`, `until` and the optional `workspace` name and `account` id or label (empty = no filter)."""
     return *_period(q), (q.get("workspace") or None), (q.get("account") or None)
+
+
+def _memory_graph(conn, q):
+    """No `project`: the projects that have memory notes. With `project`: that project's nodes and edges."""
+    project = q.get("project")
+    return memgraph.project_graph(conn, project) if project else memgraph.project_list(conn)
 
 
 _WRITE_LOCK = threading.Lock()  # one connector write at a time (double submit, two tabs)
@@ -530,6 +537,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/accounts/{id}/confirm", _account_write(lambda c, i, b: accounts.confirm(c, i, b.get("label"))), methods=["POST"]),
         Route("/api/accounts/{id}/ignore", _account_write(lambda c, i, b: accounts.ignore(c, i)), methods=["POST"]),
         Route("/api/accounts/{id}/workspaces", _account_write(lambda c, i, b: accounts.use(c, i, b.get("workspaces"))), methods=["PUT"]),
+        Route("/api/memory-graph", _query(_memory_graph)),
         Route("/api/first-run", _query(lambda c, q: {"steps": first_run.steps(c)})),
         Route("/api/sync", sync_plan),
         Route("/api/sync", sync_apply, methods=["POST"]),
