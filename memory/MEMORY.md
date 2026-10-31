@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [Work view, read-only (Javis OS ideas)](decisions.md#2026-10-31--work-view-inspired-by-javis-os-read-only) — board from PROJECT_KANBAN.md, agent = sidechain or `sdk*`, timers+cron first word, memory graph names+links live; merged HUN-160..164 2026-10-31.
 - [Local merge to main, push in batches](decisions.md#2026-10-21--stage-35-git-flow-local-merge-to-main-push-in-batches) — no per-task PR; board goes In Progress → Done (no review status in Linear).
 - [v1 = Python core + React/Vite page, on demand](decisions.md#2026-10-21--v1--python-core--reactvite-page-on-demand) — Option B; page on 127.0.0.1 only while `easy-personal dashboard` runs; systemd timer ingests.
 - [Read-only MCP client of easy-context](decisions.md#2026-10-21--read-only-mcp-client-of-easy-context) — only list_indexes/get_stats on 127.0.0.1:8767; never index_path; DDR-0002; built in HUN-41 (allow-list + host guard, `context_index` table).
@@ -34,6 +35,7 @@
 - [HUN-46 servers: Gmail, SendGrid, Teams, Discord](decisions.md#2026-10-22--hun-46-catalog-servers-gmail-sendgrid-teams-discord) — pinned community servers; `claude_ai_link` required with yes.
 - [Workspaces; agent account picks workspace](decisions.md#2026-10-26--workspaces-group-connectors-the-agent-account-picks-its-workspace) — workspace = email/repos/connectors, no agent settings; Codex listed only (DDR-0001 stands); not yet planned.
 ### Learnings
+- [Work view parallel build](learnings.md#2026-10-31--work-view-hun-160164-parallel-worktree-hazards-new-route-and-new-view-checklists) — `git stash` is shared across worktrees (forbid it); shared scratchpad/active_task; new route → leak `API_CALLS`; new view → bump `site/index.html` views stat; real entrypoints cli/sdk-cli/claude-desktop; CDP `shoot.mjs` evidence; never `pkill -f "easy-personal dashboard"`.
 - [easy-ui + Graphite Mint](learnings.md#2026-10-29--easy-ui-mcp-is-reachable-graphite-mint-look-landed-hun-126) — easy-ui at localhost:8765 via curl JSON-RPC, fixed 1280×720 viewport, batch checks (90-call limit); Plex self-hosted; family links allowlisted in check_static; `[auto]` false alarm on later tasks.
 - [Nine-branch integration](learnings.md#2026-10-29--nine-branch-dashboard-integration-hun-113121-auto-verify-stacked-merges) — headless verify rows read blocked (no verdict line); Done before merge; cherry-picked stacks auto-merge duplicates; regen goldens; `uv tool install --reinstall`; `test_launch` timing flakes under load.
 - [Static build gitignored](learnings.md#2026-10-21--dashboard-static-build-is-gitignored-build-before-uv-build) — `npm --prefix web run build` before `uv build`; 2 web tests skip unbuilt.
