@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `experiments/live-trace/tests/test_report.py` (join/summary maths with a miss shown as n/N, aggregate, integrity check on the real RESULT.md/REPORT.md/e5.md, planted-secret grep). Script under test: `experiments/live-trace/report/check_report.py`. Live combined run: `experiments/live-trace/report/combined.py` (5 sessions, `report/runs/combined-1..5.json`). `uv run pytest experiments/live-trace/tests -q -k report` -> `23 passed, 58 deselected in 0.07s` (2026-10-31T16:23:35Z) |
+| Verification command run | ☑ pass | `uv run pytest experiments/live-trace/tests -q -k report 2>&1 | tail -3` -> `.......................  [100%]` / `23 passed, 58 deselected in 0.07s`. Also `uv run python experiments/live-trace/report/check_report.py` -> `report check: ok (0 problem(s))` |
+| Negative cases hold | ☑ pass | `test_report_check_fails_when_result_lacks_a_section[6 sections]`, `test_report_check_fails_when_comparison_lacks_a_source_row[E1..E5]`, `..._lacks_section_or_missing_file`, `..._e5_lacks_docs_only_marker`, `test_report_secret_grep_catches_a_leak_but_skips_tests_folder` all pass (check script fails when a section or a source row is removed). A source miss is kept in N: `test_report_summary_shows_n_of_N_and_never_hides_a_miss`; live run 5 shows 45/46 for E2 and E3 |
+| verify | ☑ pass | Supervisor 2026-10-31: verify recipe from the HUN-170 worktree — `easy-personal --version` → `0.2.0`, `ping` → `easy-personal core ok`, MCP stdio `tools/call ping` → `easy-personal core ok`; diff touches only `experiments/live-trace/` + review files (no `src/`), so product behaviour is unchanged; spike suite `81 passed in 11.41s` — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor code-review 2026-10-31 over git diff main..HUN-170 (only experiments/live-trace/ + this review file). Re-ran check_report.py → ok (0 problems); content scan of all stored files outside tests/ for emails, scratch text, planted key → 0 hits; raw per-source files stay in /tmp outside the repo (0 email hits). Findings: P0 0, P1 0; P3: combined.py monkey-patches capture.build_cmd to add --settings instead of extending E4's signature — acceptable for a spike; REPORT.md written by heredoc after the Write tool refused it in the subagent — content reviewed by Supervisor — pass |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest experiments/live-trace/tests -q` -> `81 passed in 11.93s` |
+| **Companion score (easy-verifier)** | ☑ N/A | spike code under `experiments/`, not product code; companion not run |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI: headless spike scripts |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI: headless spike scripts |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI: headless spike scripts |
 
 ---
 
@@ -61,12 +61,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-31T16:14:46Z by qa-expert, before any implementation commit:
+```
+$ ls experiments/live-trace/report experiments/live-trace/REPORT.md 2>&1
+ls: cannot access 'experiments/live-trace/report': No such file or directory
+ls: cannot access 'experiments/live-trace/REPORT.md': No such file or directory
+$ uv run pytest experiments/live-trace/tests -q -k report 2>&1 | tail -3
+Installed 43 packages in 7ms
+.                                                                        [100%]
+1 passed, 58 deselected in 0.15s
+```
+(the 1 passing test matched `report` by name from an earlier task; there is no report test file, report folder or REPORT.md.)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-10-31T16:23:35Z, same commands:
+```
+$ ls experiments/live-trace/report experiments/live-trace/REPORT.md 2>&1
+experiments/live-trace/REPORT.md
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+experiments/live-trace/report:
+__pycache__  check_report.py  combined.py  e5.md  runs
+$ uv run pytest experiments/live-trace/tests -q -k report 2>&1 | tail -3
+.......................                                                  [100%]
+23 passed, 58 deselected in 0.07s
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: The owner can read one recommendation for the live-collector source stack, backed by 5 combined sessions (E1+E2+E3+E4 on at once, 46 tool calls joined by tool_use_id), and a check script fails if a RESULT.md section or a REPORT.md source row goes missing.
+
+**WITNESS**: qa-expert (HUN-170 agent), 2026-10-31T16:14Z (BEFORE) and 16:23Z (AFTER); the Supervisor should re-derive from `memory/event-trace/HUN-170.jsonl`.
