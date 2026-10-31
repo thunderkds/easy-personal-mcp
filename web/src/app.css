@@ -257,6 +257,13 @@ main .kpi { display: flex; flex-direction: column; gap: var(--space-2); padding:
 .dense .day-bars { gap: 2px; }
 .bar { flex: 1; min-width: 0; background: var(--color-accent-bar); border-radius: var(--radius-bar) var(--radius-bar) 0 0; }
 .bar-latest { background: var(--color-accent); box-shadow: var(--glow-box); }
+.split-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column-reverse; }
+.split-seg { flex: none; }
+.split-typed { background: var(--color-accent); }
+.split-agent { background: var(--color-amber); }
+.split-unknown { background: var(--color-dot); }
+.split-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: var(--space-3) 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--color-secondary); }
+.split-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; }
 .day-labels { display: flex; gap: 10px; margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); }
 .day-labels span { flex: 1; min-width: 0; text-align: center; }
 .bar-rows { display: flex; flex-direction: column; gap: var(--space-3); font-size: var(--fs-cell); }

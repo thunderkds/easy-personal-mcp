@@ -145,6 +145,7 @@ def parse_record(record, project_of) -> dict:
         project_path=project_of(cwd) if cwd else None,
         git_branch=_label(record.get("gitBranch")),
         is_sidechain=int(record.get("isSidechain") is True),
+        entrypoint=_label(record.get("entrypoint")),
     )
     if rtype != "assistant":
         return event

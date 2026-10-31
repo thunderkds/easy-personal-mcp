@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import UsageView from './UsageView.jsx'
@@ -420,5 +422,89 @@ describe('ignored accounts note (HUN-114)', () => {
   it('no note when no Claude account is ignored (App counts only Claude accounts, see App.test.jsx)', async () => {
     await renderView()
     expect(screen.queryByText(/ignored, so/)).toBeNull()
+  })
+})
+
+describe('You / Agents series (HUN-161)', () => {
+  const section = () => screen.getByRole('region', { name: 'You and agents' })
+  const withUnknown = {
+    ...breakdowns,
+    day: {
+      ...breakdowns.day,
+      groups: [
+        { ...breakdowns.day.groups[0], split: { typed: 500, agent: 300, unknown: 200 } },
+        breakdowns.day.groups[1],
+      ],
+      total: { ...breakdowns.day.total, split: { typed: 50500, agent: 38400, unknown: 200 } },
+    },
+  }
+
+  it('AC5: one stacked column per day with a You and an Agents segment sized by tokens', async () => {
+    await renderView()
+    const chart = within(section()).getByRole('img', { name: /You and agents tokens per day, 2 days/ })
+    const columns = chart.querySelectorAll('.split-col')
+    expect(columns).toHaveLength(breakdowns.day.groups.length)
+    expect(columns[0]).toHaveAttribute('title', '2026-10-19: You 600, Agents 400')
+    const [you, agents] = columns[1].querySelectorAll('.split-seg')
+    expect(you).toHaveClass('split-typed')
+    expect(agents).toHaveClass('split-agent')
+    expect(you.style.height).toBe(`${(50000 / 88100) * 100}%`)
+    expect(agents.style.height).toBe(`${(38100 / 88100) * 100}%`)
+    expect(chart.getAttribute('aria-label')).toContain(`You ${fmt(50600)}`)
+    expect(chart.getAttribute('aria-label')).toContain(`Agents ${fmt(38500)}`)
+  })
+
+  it('AC5: a legend names each series with its total and share; Unknown is left out while it is 0', async () => {
+    await renderView()
+    const legend = within(section()).getByRole('list', { name: 'Legend' })
+    const items = within(legend).getAllByRole('listitem').map((li) => li.textContent)
+    expect(items).toEqual([`You ${fmt(50600)} (56.8%)`, `Agents ${fmt(38500)} (43.2%)`])
+    expect(within(section()).queryByText(/Unknown/)).toBeNull()
+  })
+
+  it('AC5: Unknown joins the chart, legend and table when the period has unknown tokens', async () => {
+    await renderView({ breakdowns: withUnknown })
+    const sec = section()
+    const items = within(within(sec).getByRole('list', { name: 'Legend' })).getAllByRole('listitem')
+    expect(items.map((li) => li.textContent)).toEqual([
+      `You ${fmt(50500)} (56.7%)`,
+      `Agents ${fmt(38400)} (43.1%)`,
+      `Unknown ${fmt(200)} (0.2%)`,
+    ])
+    const first = within(sec).getByRole('img').querySelectorAll('.split-col')[0]
+    expect(first.querySelectorAll('.split-seg')).toHaveLength(3)
+    expect(first.querySelector('.split-unknown')).not.toBeNull()
+    expect(within(sec).getByText(/not yet backfilled/)).toBeInTheDocument()
+  })
+
+  it('AC5: the table behind the chart lists the three numbers of each day', async () => {
+    await renderView({ breakdowns: withUnknown })
+    const table = within(section()).getByRole('table')
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Day', 'You', 'Agents', 'Unknown'])
+    const row = within(table).getByRole('row', { name: /2026-10-19/ })
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['500', '300', '200'])
+  })
+
+  it('AC5: workspace and account scope go to the same day breakdown the series reads', async () => {
+    const f = await renderView({}, { workspace: 'Acme', account: '2' })
+    const day = usageCalls(f).find((c) => c.url.includes('/breakdown') && c.url.includes('by=day') && !c.url.includes('until'))
+    expect(day.url).toContain('workspace=Acme')
+    expect(day.url).toContain('account=2')
+    expect(within(section()).getByRole('img')).toBeInTheDocument()
+  })
+
+  it('shows no series when the data has no split (nothing to compare) or no days', async () => {
+    const plain = { ...breakdowns, day: { ...breakdowns.day, groups: breakdowns.day.groups.map(({ split: _s, ...g }) => g), total: { ...breakdowns.day.total, split: undefined } } }
+    await renderView({ breakdowns: plain })
+    expect(screen.queryByRole('region', { name: 'You and agents' })).toBeNull()
+  })
+
+  it('colors come from design tokens only (no raw literal in the split rules)', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    const rules = css.split('\n').filter((line) => /\.split-/.test(line))
+    expect(rules.length).toBeGreaterThan(3)
+    for (const line of rules) expect(line).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/)
+    expect(rules.join('\n')).toContain('var(--color-accent)')
+    expect(rules.join('\n')).toContain('var(--color-amber)')
   })
 })
