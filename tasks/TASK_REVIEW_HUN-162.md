@@ -61,8 +61,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Supervisor, 2026-10-31T15:05:19+07:00, main a491d1d, before any implementation commit):
+```
+$ ls src/easy_personal/core/board.py
+ls: cannot access 'src/easy_personal/core/board.py': No such file or directory
+$ grep -nE "/api/(board|jobs|memory-graph)" src/easy_personal/surfaces/api.py
+(no output — no /api/board route)
+$ ls web/src | grep -E "Board|Jobs|Memory"
+(no output — no BoardView)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
