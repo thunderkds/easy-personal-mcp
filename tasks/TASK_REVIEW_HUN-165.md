@@ -45,12 +45,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Verification command run | ☑ pass | `uv run pytest experiments/live-trace/tests -q -k harness` -> `............ [100%]` / `12 passed in 0.08s` (2026-10-31T15:46:13Z) |
 | Negative cases hold | ☑ pass | skipped step recorded false; no failing bash -> step false; content-logging env refused (ValueError); scratch parent inside repo refused; unknown session -> empty; planted secret absent from runs/, RESULT.md, NOTES.md |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor code-review 2026-10-31 over `git diff b7a73b1..HEAD` (12 files, all under `experiments/live-trace/` + this review file); no callers outside the spike. Findings: P0 0, P1 0, P2 0 above gate, P3 1 (hard-coded `/home/hungnguyenhuu/.claude-hung2` default — acceptable for a local spike). Inline security pass (Medium risk): subprocess list args, no shell; `OTEL_LOG_*` content vars refused and stripped; no credential reads; scratch refused inside repo; run records metadata-only — pass. lane_check: `EXCEEDS (files 11 > 6; lines 797 > 250)` — 5 run-record JSONs + tests, not scope creep |
 | Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` -> `994 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 214.03s`; `uv run ruff check experiments/live-trace` -> `All checks passed!` |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **Companion score (easy-verifier)** | ☑ N/A | spike code under `experiments/`, not product code; companion not run |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI: headless spike scripts |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI: headless spike scripts |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI: headless spike scripts |
 
 ---
 
@@ -88,5 +88,4 @@ Baseline (5 real Haiku sessions, no tracing): wall-clock ms 31291, 32094, 26326,
 
 **DELTA**: E1-E4 can now run the standard Haiku session headless in a scratch repo, read transcript tool_use timestamps, and compare against a 28264 ms median baseline.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor re-ran `uv run pytest experiments/live-trace/tests -q` in the HUN-165 worktree on 2026-10-31 → `12 passed in 0.08s`, and read one run record (metadata only, `steps` all true).
