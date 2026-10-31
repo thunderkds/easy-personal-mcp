@@ -41,12 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `experiments/live-trace/tests/test_e3.py` (15 tests: logs/metrics/traces parsing, allow-list, planted-secret, bad requests, loopback bind, latency, token/cost vs transcript, attribute inventory, runner env, fake-claude end-to-end under flock, grep over `e3/`). Output: `15 passed, 12 deselected in 5.15s` (pass) |
+| Verification command run | ☑ pass | `uv run pytest experiments/live-trace/tests -q -k e3` at 2026-10-31T16:08:36Z -> `15 passed, 12 deselected in 5.20s` (pass) |
+| Negative cases hold | ☑ pass | invalid JSON -> 400, unknown path -> 404, nothing stored; non-loopback host -> ValueError; sentence in an allow-listed key dropped; prompt-text body gives event_name None; planted secret/sentence/email absent from `e3/` files (pass) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest experiments/live-trace/tests -q` -> `27 passed in 5.20s` (12 harness + 15 e3) (pass) |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -72,9 +72,16 @@ Installed 43 packages in 20ms
 12 deselected in 0.04s
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured 2026-10-31T16:08:36Z by qa-expert:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ ls experiments/live-trace/e3
+RESULT.md  aggregate.py  analyze.py  receiver.py  run_e3.py  runs
+$ uv run pytest experiments/live-trace/tests -q -k e3 2>&1 | tail -3
+...............                                                          [100%]
+15 passed, 12 deselected in 5.20s
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: The spike can now receive Claude Code OpenTelemetry on 127.0.0.1:4318 and measure its freshness (median 1007 ms at the lowered interval), token and cost accuracy (0.000% diff) and attributes.
+
+**WITNESS**: qa-expert agent, 2026-10-31 15:48-16:08 UTC; 9 headless Haiku sessions recorded in `experiments/live-trace/e3/runs/*.json` (Supervisor to confirm from `memory/event-trace/HUN-168.jsonl`).
