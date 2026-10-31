@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `experiments/live-trace/tests/test_e3.py` (15 tests: logs/metrics/traces parsing, allow-list, planted-secret, bad requests, loopback bind, latency, token/cost vs transcript, attribute inventory, runner env, fake-claude end-to-end under flock, grep over `e3/`). Output: `15 passed, 12 deselected in 5.15s` (pass) |
+| Verification command run | ☑ pass | `uv run pytest experiments/live-trace/tests -q -k e3` at 2026-10-31T16:08:36Z -> `15 passed, 12 deselected in 5.20s` (pass) |
+| Negative cases hold | ☑ pass | invalid JSON -> 400, unknown path -> 404, nothing stored; non-loopback host -> ValueError; sentence in an allow-listed key dropped; prompt-text body gives event_name None; planted secret/sentence/email absent from `e3/` files (pass) |
+| verify | ☑ pass | Supervisor 2026-10-31: verify recipe from the HUN-168 worktree — `easy-personal --version` → `0.2.0`, `ping` → `easy-personal core ok`, MCP stdio `tools/call ping` → `easy-personal core ok`; diff touches only `experiments/live-trace/` + review files (no `src/`), so product behaviour is unchanged; spike suite `27 passed in 5.12s` — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor code-review 2026-10-31 over the branch diff vs HUN-165 (only experiments/live-trace/ + this review file). Content scan of stored runs for emails, scratch-file text, planted key: 0 hits. Inline security pass (Medium risk): subprocess list args, no shell=True; no credential reads; no ~/.claude* writes; receiver refuses any host but 127.0.0.1; value allow-list (STR_KEYS/NUM_KEYS) + SAFE_STR pattern, so user.email/account ids are never stored (0 email hits). Findings: P0 0, P1 0; P3: RUF100 unused noqa; 1.4 MB of run JSON committed — acceptable for spike evidence — pass |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest experiments/live-trace/tests -q` -> `27 passed in 5.20s` (12 harness + 15 e3) (pass) |
+| **Companion score (easy-verifier)** | ☑ N/A | spike code under `experiments/`, not product code; companion not run |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI: headless spike scripts |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI: headless spike scripts |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI: headless spike scripts |
 
 ---
 
@@ -61,12 +61,27 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-31T15:48:51Z by qa-expert, before any implementation commit:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ ls experiments/live-trace/e3 2>&1
+ls: cannot access 'experiments/live-trace/e3': No such file or directory
+$ uv run pytest experiments/live-trace/tests -q -k e3 2>&1 | tail -3
+Installed 43 packages in 20ms
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+12 deselected in 0.04s
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: captured 2026-10-31T16:08:36Z by qa-expert:
+
+```
+$ ls experiments/live-trace/e3
+RESULT.md  aggregate.py  analyze.py  receiver.py  run_e3.py  runs
+$ uv run pytest experiments/live-trace/tests -q -k e3 2>&1 | tail -3
+...............                                                          [100%]
+15 passed, 12 deselected in 5.20s
+```
+
+**DELTA**: The spike can now receive Claude Code OpenTelemetry on 127.0.0.1:4318 and measure its freshness (median 1007 ms at the lowered interval), token and cost accuracy (0.000% diff) and attributes.
+
+**WITNESS**: qa-expert agent, 2026-10-31 15:48-16:08 UTC; 9 headless Haiku sessions recorded in `experiments/live-trace/e3/runs/*.json` (Supervisor to confirm from `memory/event-trace/HUN-168.jsonl`).

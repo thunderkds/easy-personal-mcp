@@ -1,0 +1,50 @@
+{
+ "label": "e3-down",
+ "model": "haiku",
+ "scratch": "/tmp/live-trace-tnw2x6f7",
+ "start_utc": "2026-10-31T16:04:53.685+00:00",
+ "end_utc": "2026-10-31T16:05:20.543+00:00",
+ "start_epoch_ms": 1793462693685.5,
+ "end_epoch_ms": 1793462720543.7,
+ "wall_ms": 26858.2,
+ "exit_code": 0,
+ "timed_out": false,
+ "extra_env_names": [
+  "CLAUDE_CODE_ENABLE_TELEMETRY",
+  "OTEL_EXPORTER_OTLP_ENDPOINT",
+  "OTEL_EXPORTER_OTLP_PROTOCOL",
+  "OTEL_LOGS_EXPORTER",
+  "OTEL_LOGS_EXPORT_INTERVAL",
+  "OTEL_METRICS_EXPORTER",
+  "OTEL_METRIC_EXPORT_INTERVAL"
+ ],
+ "settings_file": null,
+ "session_id": "e1f39a2f-2589-4baf-9c47-d153f081e815",
+ "tool_use_by_name": {
+  "Read": 3,
+  "Bash": 2,
+  "Edit": 1,
+  "Agent": 1
+ },
+ "subagent_tool_use_by_name": {
+  "Read": 1,
+  "SubagentHandback": 1
+ },
+ "tool_use_total": 9,
+ "bash_total": 2,
+ "bash_failed": 1,
+ "unparsed_lines": 0,
+ "result_subtype": "success",
+ "result_is_error": false,
+ "num_turns": 0,
+ "cc_duration_ms": 5,
+ "total_cost_usd": 0.008165180000000001,
+ "steps": {
+  "read_3": true,
+  "bash_2_one_failing": true,
+  "edit_1": true,
+  "subagent_1": true,
+  "normal_end": true
+ },
+ "run_file": "/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-168/experiments/live-trace/e3/runs/sessions/e3-down-20261031T160453-e1f39a2f.json"
+}
