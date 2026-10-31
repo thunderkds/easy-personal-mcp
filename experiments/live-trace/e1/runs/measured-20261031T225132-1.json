@@ -1,0 +1,71 @@
+{
+ "label": "measured-20261031T225132-1",
+ "tail_stats": {
+  "polls": 286,
+  "records": 197,
+  "events": 82,
+  "abstained": 67,
+  "abstained_by_type": {
+   "api-request-shape": 2,
+   "api-request-blob": 24,
+   "api-request": 22,
+   "tools-used": 5,
+   "ai-title": 4,
+   "mode": 4,
+   "permission-mode": 4,
+   "bridge-session": 2
+  },
+  "bad_json": 0,
+  "files_seen": 415,
+  "subagent_files_seen": 241,
+  "scan_ms_max": 6.637027996475808,
+  "scan_ms_sum": 631.3583149240003,
+  "final_poll_events": 2
+ },
+ "tail_cpu_s": 0.671,
+ "sessions": [
+  {
+   "session_id": "215a3b4b-2c1e-427d-bffb-13ae2f1d0736",
+   "wall_ms": 27391.0,
+   "exit_code": 0,
+   "timed_out": false,
+   "steps": {
+    "read_3": true,
+    "bash_2_one_failing": true,
+    "edit_1": true,
+    "subagent_1": true,
+    "normal_end": true
+   },
+   "reference_total": 9,
+   "captured": 9,
+   "missed": [],
+   "extra": 0,
+   "dup_tool_use_events": 0,
+   "median_ms": 196.5,
+   "p95_ms": 1223.6,
+   "min_ms": 115.2,
+   "max_ms": 1223.6,
+   "latency_ms": {
+    "toolu_01R6PU7KzW78G9n2f5vsjoYG": 115.2,
+    "toolu_0113vUMeEhUhEyXc2dt65Nm5": 196.5,
+    "toolu_01MQAh1ZtD9HV7vHmADt2cNc": 130.0,
+    "toolu_01AtLQF9d5Pn8EGrAYqRxq7V": 1223.6,
+    "toolu_01B8FTC1H9qzyAFvw6EuusXz": 726.5,
+    "toolu_01RHoQaXQ1asaQF3hxgN177h": 158.6,
+    "toolu_01CpebWjivnbQKAQMrexkbwU": 782.7,
+    "toolu_01UBMRRcbAcrYvaesFb7x3ne": 153.1,
+    "toolu_01NsbtrUb5VL54FoeCmBmEAv": 774.6
+   },
+   "tool_results_seen": 9,
+   "usage_events_seen": 14,
+   "tool_use_by_name": {
+    "Read": 3,
+    "Bash": 2,
+    "Edit": 1,
+    "Agent": 1
+   },
+   "max_transcript_line_bytes": 58054,
+   "scratch": "/tmp/live-trace-1pu216gy"
+  }
+ ]
+}

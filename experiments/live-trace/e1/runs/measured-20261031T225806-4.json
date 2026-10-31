@@ -1,0 +1,72 @@
+{
+ "label": "measured-20261031T225806-4",
+ "tail_stats": {
+  "polls": 262,
+  "records": 151,
+  "events": 56,
+  "abstained": 45,
+  "abstained_by_type": {
+   "api-request-shape": 2,
+   "api-request-blob": 21,
+   "api-request": 17,
+   "tools-used": 5
+  },
+  "bad_json": 0,
+  "files_seen": 452,
+  "subagent_files_seen": 1,
+  "scan_ms_max": 11.960114999965299,
+  "scan_ms_sum": 814.62992401066,
+  "final_poll_events": 0,
+  "kept_events": 33
+ },
+ "tail_cpu_s": 0.835,
+ "sessions": [
+  {
+   "tail_lag_median_ms": 41.9,
+   "tail_lag_max_ms": 96.9,
+   "write_lag_median_ms": 177.6,
+   "write_lag_max_ms": 1226.2,
+   "session_id": "b597d2f3-c6ed-4013-8fdc-7635272d9012",
+   "wall_ms": 25006.6,
+   "exit_code": 0,
+   "timed_out": false,
+   "steps": {
+    "read_3": true,
+    "bash_2_one_failing": true,
+    "edit_1": true,
+    "subagent_1": true,
+    "normal_end": true
+   },
+   "reference_total": 9,
+   "captured": 9,
+   "missed": [],
+   "extra": 0,
+   "dup_tool_use_events": 0,
+   "median_ms": 212.9,
+   "p95_ms": 1248.3,
+   "min_ms": 135.9,
+   "max_ms": 1248.3,
+   "latency_ms": {
+    "toolu_012j6RJRGNwzgA9YjFaw4fTD": 183.4,
+    "toolu_01Y6DzdfNwF78obbco2FABc5": 170.7,
+    "toolu_018axxxNLVAwDtmnmSs3UVLs": 157.7,
+    "toolu_018a85Pk7a46DwKPDKwKG1tF": 1248.3,
+    "toolu_01XHqj9oZfsqqbrmoNJ9tZqm": 686.5,
+    "toolu_01SiD6e8QKoF5wwsbfpRuv3v": 212.9,
+    "toolu_01F5PupFsS55Kwd5LZZNPsf1": 703.0,
+    "toolu_01Gs5QMrXHEXT9izFhZ7NpdS": 135.9,
+    "toolu_01HriebuxqYdgxqMxtdKgxPU": 805.5
+   },
+   "tool_results_seen": 9,
+   "usage_events_seen": 15,
+   "tool_use_by_name": {
+    "Read": 3,
+    "Bash": 2,
+    "Edit": 1,
+    "Agent": 1
+   },
+   "max_transcript_line_bytes": 58054,
+   "scratch": "/tmp/live-trace-3bnt23ly"
+  }
+ ]
+}

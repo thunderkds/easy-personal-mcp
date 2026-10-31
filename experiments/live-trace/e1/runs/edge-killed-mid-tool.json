@@ -1,0 +1,61 @@
+{
+ "label": "edge-killed-mid-tool",
+ "tail_stats": {
+  "polls": 262,
+  "records": 45,
+  "events": 18,
+  "abstained": 13,
+  "abstained_by_type": {
+   "api-request-shape": 1,
+   "api-request-blob": 6,
+   "api-request": 5,
+   "tools-used": 1
+  },
+  "bad_json": 0,
+  "files_seen": 474,
+  "subagent_files_seen": 0,
+  "scan_ms_max": 4.248996003298089,
+  "scan_ms_sum": 626.1613860333455,
+  "final_poll_events": 0,
+  "kept_events": 2
+ },
+ "tail_cpu_s": 0.638,
+ "sessions": [
+  {
+   "tail_lag_median_ms": 101.1,
+   "tail_lag_max_ms": 101.1,
+   "write_lag_median_ms": 690.5,
+   "write_lag_max_ms": 690.5,
+   "session_id": "28bb5b70-4aa9-4d97-b7c1-e2432f5b5baf",
+   "wall_ms": 25011.8,
+   "exit_code": -9,
+   "timed_out": true,
+   "steps": {
+    "read_3": false,
+    "bash_2_one_failing": false,
+    "edit_1": false,
+    "subagent_1": false,
+    "normal_end": false
+   },
+   "reference_total": 1,
+   "captured": 1,
+   "missed": [],
+   "extra": 0,
+   "dup_tool_use_events": 0,
+   "median_ms": 791.6,
+   "p95_ms": 791.6,
+   "min_ms": 791.6,
+   "max_ms": 791.6,
+   "latency_ms": {
+    "toolu_019QbYPYZQ9vskdpf1ypmMVw": 791.6
+   },
+   "tool_results_seen": 0,
+   "usage_events_seen": 1,
+   "tool_use_by_name": {
+    "Bash": 1
+   },
+   "max_transcript_line_bytes": 40362,
+   "scratch": "/tmp/live-trace-btidwj0u"
+  }
+ ]
+}

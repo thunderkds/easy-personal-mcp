@@ -1,0 +1,76 @@
+{
+ "label": "measured-20261031T225248-1",
+ "tail_stats": {
+  "polls": 287,
+  "records": 224,
+  "events": 89,
+  "abstained": 64,
+  "abstained_by_type": {
+   "api-request-blob": 31,
+   "api-request": 21,
+   "api-request-shape": 3,
+   "tools-used": 5,
+   "ai-title": 1,
+   "mode": 1,
+   "permission-mode": 1,
+   "bridge-session": 1
+  },
+  "bad_json": 0,
+  "files_seen": 427,
+  "subagent_files_seen": 2,
+  "scan_ms_max": 10.125900000275578,
+  "scan_ms_sum": 890.2370429641451,
+  "final_poll_events": 0,
+  "kept_events": 35
+ },
+ "tail_cpu_s": 0.885,
+ "sessions": [
+  {
+   "tail_lag_median_ms": 44.8,
+   "tail_lag_max_ms": 93.1,
+   "write_lag_median_ms": 122.7,
+   "write_lag_max_ms": 1350.8,
+   "session_id": "6ed42a39-cc61-4c76-8c8c-e965938b4913",
+   "wall_ms": 27464.9,
+   "exit_code": 0,
+   "timed_out": false,
+   "steps": {
+    "read_3": true,
+    "bash_2_one_failing": true,
+    "edit_1": true,
+    "subagent_1": true,
+    "normal_end": true
+   },
+   "reference_total": 9,
+   "captured": 9,
+   "missed": [],
+   "extra": 0,
+   "dup_tool_use_events": 0,
+   "median_ms": 186.1,
+   "p95_ms": 1374.7,
+   "min_ms": 156.5,
+   "max_ms": 1374.7,
+   "latency_ms": {
+    "toolu_01Gzn5pmhaf2hEz4qzWouUfe": 173.2,
+    "toolu_01W8o4EQttz3GfSs5FdWweNC": 160.5,
+    "toolu_01V2R9rC5dpgB91j79BkhKGL": 163.0,
+    "toolu_01C8jub5RmagsLJFrwUpnVbw": 1374.7,
+    "toolu_017KKdT3JWXWQiz4Wd2ctpFS": 988.3,
+    "toolu_0166W43vtLzDb7SRZ9ZnkgvR": 186.1,
+    "toolu_01EWreVmBJtY1umoT7QLR6LH": 824.1,
+    "toolu_012b4aF5Sge5euXgrvtiuYQY": 156.5,
+    "toolu_016Mqfks8fdLt41kF6n1nGdB": 867.2
+   },
+   "tool_results_seen": 9,
+   "usage_events_seen": 17,
+   "tool_use_by_name": {
+    "Read": 3,
+    "Bash": 2,
+    "Edit": 1,
+    "Agent": 1
+   },
+   "max_transcript_line_bytes": 58054,
+   "scratch": "/tmp/live-trace-_8acdtnj"
+  }
+ ]
+}
