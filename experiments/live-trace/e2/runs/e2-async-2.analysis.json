@@ -1,0 +1,82 @@
+{
+ "all": {
+  "ref_ids": 9,
+  "pre_captured": 9,
+  "post_captured": 9,
+  "pre_capture_pct": 100.0,
+  "post_capture_pct": 100.0
+ },
+ "steps": {
+  "read_3": true,
+  "bash_2_one_failing": true,
+  "edit_1": true,
+  "subagent_1": true,
+  "normal_end": true
+ },
+ "post_latency_excl_subagent_tool": {
+  "n": 8,
+  "median_ms": 27.6,
+  "p95_ms": 2295.2,
+  "min_ms": 14.9,
+  "max_ms": 2295.2
+ },
+ "post_minus_pre": {
+  "n": 9,
+  "median_ms": 24.9,
+  "p95_ms": 2289.0,
+  "min_ms": 10.2,
+  "max_ms": 2289.0
+ },
+ "pre_latency": {
+  "n": 9,
+  "median_ms": 4.8,
+  "p95_ms": 6.5,
+  "min_ms": 4.1,
+  "max_ms": 6.5
+ },
+ "post_latency": {
+  "n": 9,
+  "median_ms": 31.1,
+  "p95_ms": 2295.2,
+  "min_ms": 14.9,
+  "max_ms": 2295.2
+ },
+ "pre_latency_values": [
+  6.2,
+  4.7,
+  4.7,
+  6.2,
+  4.8,
+  6.5,
+  4.7,
+  4.1,
+  4.9
+ ],
+ "post_latency_values": [
+  31.1,
+  14.9,
+  22.7,
+  2295.2,
+  580.4,
+  24.1,
+  523.8,
+  16.0,
+  644.8
+ ],
+ "events_by_name": {
+  "UserPromptSubmit": 2,
+  "PreToolUse": 9,
+  "PostToolUse": 8,
+  "PostToolUseFailure": 1,
+  "SubagentStart": 1,
+  "Stop": 2,
+  "SubagentStop": 1,
+  "SessionEnd": 1
+ },
+ "subagent_events_with_agent_id": 6,
+ "pre_post_extra_ids": [],
+ "wall_ms": 25649.6,
+ "exit_code": 0,
+ "label": "e2-async-2",
+ "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261"
+}

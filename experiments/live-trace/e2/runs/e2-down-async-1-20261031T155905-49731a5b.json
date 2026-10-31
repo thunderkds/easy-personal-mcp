@@ -1,0 +1,42 @@
+{
+ "label": "e2-down-async-1",
+ "model": "haiku",
+ "scratch": "/tmp/live-trace-gq_cf34r",
+ "start_utc": "2026-10-31T15:59:05.360+00:00",
+ "end_utc": "2026-10-31T15:59:30.420+00:00",
+ "start_epoch_ms": 1793462345360.9,
+ "end_epoch_ms": 1793462370420.7,
+ "wall_ms": 25059.8,
+ "exit_code": 0,
+ "timed_out": false,
+ "extra_env_names": [],
+ "settings_file": "/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-167/experiments/live-trace/e2/runs/e2-down-async-1.settings.json",
+ "session_id": "49731a5b-c6cc-409a-8845-c4d6c5cb6779",
+ "tool_use_by_name": {
+  "Read": 3,
+  "Bash": 2,
+  "Edit": 1,
+  "Agent": 1
+ },
+ "subagent_tool_use_by_name": {
+  "Read": 1,
+  "SubagentHandback": 1
+ },
+ "tool_use_total": 9,
+ "bash_total": 2,
+ "bash_failed": 1,
+ "unparsed_lines": 0,
+ "result_subtype": "success",
+ "result_is_error": false,
+ "num_turns": 0,
+ "cc_duration_ms": 7,
+ "total_cost_usd": 0.008079390000000002,
+ "steps": {
+  "read_3": true,
+  "bash_2_one_failing": true,
+  "edit_1": true,
+  "subagent_1": true,
+  "normal_end": true
+ },
+ "run_file": "/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-167/experiments/live-trace/e2/runs/e2-down-async-1-20261031T155905-49731a5b.json"
+}

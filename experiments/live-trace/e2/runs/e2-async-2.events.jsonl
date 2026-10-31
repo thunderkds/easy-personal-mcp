@@ -1,0 +1,25 @@
+{"hook_event_name": "UserPromptSubmit", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "recv_ms": 1793461924107.278}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01MBBusKHQQd3wdFxRQQpei7", "tool_name": "Read", "recv_ms": 1793461926302.182}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01MBBusKHQQd3wdFxRQQpei7", "tool_name": "Read", "recv_ms": 1793461926327.051}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01BbMe72j8iL3uw1UPVC3quL", "tool_name": "Read", "recv_ms": 1793461927868.658}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01BbMe72j8iL3uw1UPVC3quL", "tool_name": "Read", "recv_ms": 1793461927878.876}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01VE8LMFvNuP1kvCCP9JP5kx", "tool_name": "Read", "recv_ms": 1793461929198.71}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01VE8LMFvNuP1kvCCP9JP5kx", "tool_name": "Read", "recv_ms": 1793461929216.717}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01KFfQQvYSC8758X55Qfwkec", "tool_name": "Bash", "recv_ms": 1793461930810.161}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01KFfQQvYSC8758X55Qfwkec", "tool_name": "Bash", "recv_ms": 1793461933099.205}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01UsLvuknUApQDsnu2ojVT6p", "tool_name": "Bash", "recv_ms": 1793461934667.8}
+{"hook_event_name": "PostToolUseFailure", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01UsLvuknUApQDsnu2ojVT6p", "tool_name": "Bash", "recv_ms": 1793461935243.375}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01W9sGSTmxhArTJQe1iajTMS", "tool_name": "Edit", "recv_ms": 1793461937011.493}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01W9sGSTmxhArTJQe1iajTMS", "tool_name": "Edit", "recv_ms": 1793461937029.074}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01JMWg7jC9uvSp5QUegjoDdc", "tool_name": "Agent", "recv_ms": 1793461938911.662}
+{"hook_event_name": "SubagentStart", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "agent_id": "a362f1d29f96951cf", "recv_ms": 1793461939425.808}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01JMWg7jC9uvSp5QUegjoDdc", "tool_name": "Agent", "recv_ms": 1793461939430.773}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01Gtm8zxNn17wQpTVvcPnS2o", "tool_name": "Read", "agent_id": "a362f1d29f96951cf", "recv_ms": 1793461941615.092}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01Gtm8zxNn17wQpTVvcPnS2o", "tool_name": "Read", "agent_id": "a362f1d29f96951cf", "recv_ms": 1793461941627.029}
+{"hook_event_name": "Stop", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "recv_ms": 1793461942259.256}
+{"hook_event_name": "PreToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01NmqLgdX6LS8FDYRFbQoaLf", "tool_name": "SubagentHandback", "agent_id": "a362f1d29f96951cf", "recv_ms": 1793461943395.905}
+{"hook_event_name": "PostToolUse", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "tool_use_id": "toolu_01NmqLgdX6LS8FDYRFbQoaLf", "tool_name": "SubagentHandback", "agent_id": "a362f1d29f96951cf", "recv_ms": 1793461944035.812}
+{"hook_event_name": "SubagentStop", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "agent_id": "a362f1d29f96951cf", "recv_ms": 1793461944049.176}
+{"hook_event_name": "UserPromptSubmit", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "recv_ms": 1793461944062.103}
+{"hook_event_name": "Stop", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "recv_ms": 1793461946934.631}
+{"hook_event_name": "SessionEnd", "session_id": "aba56bcd-d47e-4872-af75-65d8c3cf4261", "recv_ms": 1793461947186.585}

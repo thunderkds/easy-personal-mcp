@@ -1,0 +1,25 @@
+{"hook_event_name": "UserPromptSubmit", "session_id": "96893973-e530-4535-b358-a1c2105df399", "recv_ms": 1793461850661.145}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01CuWSheaecyg3n1FfvJGhaS", "tool_name": "Read", "recv_ms": 1793461852889.45}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01CuWSheaecyg3n1FfvJGhaS", "tool_name": "Read", "recv_ms": 1793461852915.841}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01EHdcBEeCuhbCVfw2eXWBLr", "tool_name": "Read", "recv_ms": 1793461854423.594}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01EHdcBEeCuhbCVfw2eXWBLr", "tool_name": "Read", "recv_ms": 1793461854439.245}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01LHXZoV21ekW1HQYU5jw11s", "tool_name": "Read", "recv_ms": 1793461857516.593}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01LHXZoV21ekW1HQYU5jw11s", "tool_name": "Read", "recv_ms": 1793461857535.392}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01BhgUXPDtAsJWUTw41XA41j", "tool_name": "Bash", "recv_ms": 1793461859319.606}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01BhgUXPDtAsJWUTw41XA41j", "tool_name": "Bash", "recv_ms": 1793461861745.541}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_016Pq4efohk9H1dVoJeUy6fV", "tool_name": "Bash", "recv_ms": 1793461863377.435}
+{"hook_event_name": "PostToolUseFailure", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_016Pq4efohk9H1dVoJeUy6fV", "tool_name": "Bash", "recv_ms": 1793461864599.31}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_017rZCkwhYvyePSzt34DN3BX", "tool_name": "Edit", "recv_ms": 1793461867334.74}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_017rZCkwhYvyePSzt34DN3BX", "tool_name": "Edit", "recv_ms": 1793461867350.441}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01WpreUAqAp5r36o7zXiXxmF", "tool_name": "Agent", "recv_ms": 1793461869326.869}
+{"hook_event_name": "SubagentStart", "session_id": "96893973-e530-4535-b358-a1c2105df399", "agent_id": "a0e4e4245df314651", "recv_ms": 1793461869913.612}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01WpreUAqAp5r36o7zXiXxmF", "tool_name": "Agent", "recv_ms": 1793461869916.674}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01WbrjhHEzoc9deZULBdU45H", "tool_name": "Read", "agent_id": "a0e4e4245df314651", "recv_ms": 1793461871722.049}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01WbrjhHEzoc9deZULBdU45H", "tool_name": "Read", "agent_id": "a0e4e4245df314651", "recv_ms": 1793461871736.485}
+{"hook_event_name": "Stop", "session_id": "96893973-e530-4535-b358-a1c2105df399", "recv_ms": 1793461873264.598}
+{"hook_event_name": "PreToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01Drzx1fg7uQAxzmn3Bgk87t", "tool_name": "SubagentHandback", "agent_id": "a0e4e4245df314651", "recv_ms": 1793461873653.962}
+{"hook_event_name": "PostToolUse", "session_id": "96893973-e530-4535-b358-a1c2105df399", "tool_use_id": "toolu_01Drzx1fg7uQAxzmn3Bgk87t", "tool_name": "SubagentHandback", "agent_id": "a0e4e4245df314651", "recv_ms": 1793461874251.2}
+{"hook_event_name": "UserPromptSubmit", "session_id": "96893973-e530-4535-b358-a1c2105df399", "recv_ms": 1793461874263.61}
+{"hook_event_name": "SubagentStop", "session_id": "96893973-e530-4535-b358-a1c2105df399", "agent_id": "a0e4e4245df314651", "recv_ms": 1793461874274.102}
+{"hook_event_name": "Stop", "session_id": "96893973-e530-4535-b358-a1c2105df399", "recv_ms": 1793461876375.681}
+{"hook_event_name": "SessionEnd", "session_id": "96893973-e530-4535-b358-a1c2105df399", "recv_ms": 1793461876605.636}
