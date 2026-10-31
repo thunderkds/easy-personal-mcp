@@ -61,8 +61,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-10-31T15:48:51Z by qa-expert, before any implementation commit:
+
+```
+$ ls experiments/live-trace/e3 2>&1
+ls: cannot access 'experiments/live-trace/e3': No such file or directory
+$ uv run pytest experiments/live-trace/tests -q -k e3 2>&1 | tail -3
+Installed 43 packages in 20ms
+
+12 deselected in 0.04s
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
