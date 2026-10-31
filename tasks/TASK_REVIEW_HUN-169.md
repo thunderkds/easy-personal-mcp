@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `experiments/live-trace/tests/test_e4.py` (12 tests: per-line record, result fields and 2 result lines, planted secret, stream_event names, killed run, evaluate capture %/latency, latency summary, lock, forbidden env, cmd flags, bad lines) |
+| Verification command run | ☑ pass | `uv run pytest experiments/live-trace/tests -q -k e4` (2026-10-31T16:09:30Z): ............                                                             [100%] 12 passed, 12 deselected in 2.81s |
+| Negative cases hold | ☑ pass | killed run (partial last line, no result), unparsed and non-dict lines, forbidden OTEL_LOG env refused, planted secret and prompt sentence absent from stored record, e4/runs/ and RESULT.md |
+| verify | ☑ pass | 8 live Haiku sessions (5 measured, 2 partial, 1 resume): 45/45 and 18/18 tool_use ids captured, 100 % — pass; numbers in `experiments/live-trace/e4/RESULT.md` |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Only `experiments/live-trace/e4/` and `tests/test_e4.py` added; imports harness read-only; `src/`, `.claude*` untouched |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q`: 994 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 139.01s |
+| **Companion score (easy-verifier)** | ☑ N/A | not run (spike task, no companion tool run) |
+| **UI: Visual regression** | ☑ N/A | no UI component |
+| **UI: Design-system compliance** | ☑ N/A | no UI component |
+| **UI: Responsiveness at target** | ☑ N/A | no UI component |
 
 ---
 
@@ -61,12 +61,27 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured before any implementation commit):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+# 2026-10-31T15:48:47Z
+$ ls experiments/live-trace/e4 2>&1
+ls: cannot access 'experiments/live-trace/e4': No such file or directory
+$ uv run pytest experiments/live-trace/tests -q -k e4 2>&1 | tail -3
+Installed 43 packages in 30ms
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+12 deselected in 0.04s
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER** (2026-10-31T16:09:30Z):
+
+```
+$ ls experiments/live-trace/e4
+RESULT.md  capture.py  runs
+$ uv run pytest experiments/live-trace/tests -q -k e4 2>&1 | tail -3
+............                                                             [100%] 12 passed, 12 deselected in 2.81s
+```
+
+**DELTA**: The spike can now capture a headless claude -p stream-json run as metadata-only records and compare it with the transcript: 100 % of tool_use ids, median 1.8 ms and p95 4.4 ms latency, result-line fields and interactive answer in RESULT.md.
+
+**WITNESS**: qa-expert agent (HUN-169), 2026-10-31T16:09:30Z; commands run in the HUN-169 worktree. Not derived from memory/event-trace (spike worktree).
