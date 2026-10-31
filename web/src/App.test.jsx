@@ -29,7 +29,7 @@ it('opens on Usage and switches in-page between the views without changing the U
 it('lists the 7 views in the sidebar and marks only the active one', () => {
   render(<App />)
   const buttons = within(nav()).getAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'))
-  expect(buttons.map((b) => b.textContent)).toEqual(['Board', 'Scheduled', 'Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run'])
+  expect(buttons.map((b) => b.textContent)).toEqual(['Board', 'Scheduled', 'Memory', 'Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run'])
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(within(nav()).getByRole('button', { name: 'Kit' })).toHaveAttribute('aria-current', 'page')
   expect(within(nav()).getByRole('button', { name: 'Usage' })).not.toHaveAttribute('aria-current')
@@ -70,11 +70,18 @@ describe('rail groups and First run (HUN-160)', () => {
   it('puts each view in its group', () => {
     render(<App />)
     const inGroup = (id) => [...nav().querySelectorAll(`[data-group="${id}"] [aria-expanded] ~ .group-items button`)].map((b) => b.textContent)
-    expect(inGroup('work')).toEqual(['Board', 'Scheduled'])
+    expect(inGroup('work')).toEqual(['Board', 'Scheduled', 'Memory'])
     expect(inGroup('usage')).toEqual(['Usage', 'Warnings & plan'])
     expect(inGroup('kit')).toEqual(['Kit'])
     expect(inGroup('connect')).toEqual(['Workspaces', 'Agents'])
     expect(inGroup('system')).toEqual(['First run'])
+  })
+
+  it('opens the Memory view from the work group', async () => {
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Memory' }))
+    expect(within(nav()).getByRole('button', { name: 'Memory' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { name: 'Memory' })).toBeInTheDocument()
   })
 
   it('shows the "N left" badge on First run', async () => {

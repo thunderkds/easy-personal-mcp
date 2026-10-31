@@ -5,6 +5,7 @@ import BoardView from './BoardView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
 import KitView from './KitView.jsx'
+import MemoryView from './MemoryView.jsx'
 import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
 import UsageView from './UsageView.jsx'
@@ -20,6 +21,7 @@ const GROUPS = [
     tabs: [
       { id: 'board', label: 'Board', View: BoardView, scoped: true },
       { id: 'scheduled', label: 'Scheduled', View: JobsView },
+      { id: 'memory', label: 'Memory', View: MemoryView, scoped: true },
     ],
   },
   {

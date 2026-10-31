@@ -385,3 +385,30 @@ main .board-column { padding: var(--space-3); border: 1px solid var(--color-bord
 .board-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .board-kind { text-transform: lowercase; }
 main .board-toggle { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+
+/* Memory view (HUN-164): rings graph and side panel, one rule per line */
+main.memory { max-width: none; }
+.memory-picker { max-width: 20rem; }
+.memory-body { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--space-5); align-items: start; }
+@media (max-width: 63.999rem) { .memory-body { grid-template-columns: minmax(0, 1fr); } }
+.memory-graph { min-width: 0; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-input); }
+.memory-svg { display: block; width: 100%; min-width: 20rem; max-width: 40rem; height: auto; margin-inline: auto; }
+.memory-ring { fill: none; stroke: var(--color-control); stroke-dasharray: 2 4; }
+.memory-edge { stroke: var(--color-control); stroke-width: 1; }
+.memory-edge[data-active] { stroke: var(--color-accent); stroke-width: 1.5; }
+.memory-node { cursor: pointer; outline: none; }
+.memory-node circle { stroke: var(--color-bg); stroke-width: 2; }
+.memory-node text { fill: var(--color-secondary); font-family: var(--font-mono); font-size: 13px; pointer-events: none; }
+.memory-node-kit circle { fill: var(--color-accent); }
+.memory-node-claude circle { fill: var(--color-amber); }
+.memory-node-dangling circle { fill: none; stroke: var(--color-muted); stroke-dasharray: 3 2; }
+.memory-node[data-selected] text { fill: var(--color-heading); }
+.memory-node[data-selected] circle, .memory-node:focus-visible circle { stroke: var(--color-heading); stroke-width: 3; stroke-dasharray: none; }
+.memory-panel { min-width: 0; overflow-wrap: anywhere; }
+.memory-path { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-link); }
+.memory-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); }
+.memory-legend li { display: flex; align-items: center; gap: var(--space-2); }
+.memory-swatch { stroke: var(--color-bg); stroke-width: 1; }
+.memory-swatch.memory-node-kit { fill: var(--color-accent); }
+.memory-swatch.memory-node-claude { fill: var(--color-amber); }
+.memory-swatch.memory-node-dangling { fill: none; stroke: var(--color-muted); stroke-dasharray: 3 2; }
