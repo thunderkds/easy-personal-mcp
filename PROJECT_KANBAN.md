@@ -9,6 +9,12 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-165** — Live trace spike: test harness and baseline for the standard test session | QA-Automation-Agent | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-165.md`
+- [ ] **HUN-166** — Live trace E1: live tail of Claude Code transcripts | QA-Automation-Agent | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-166.md`
+- [ ] **HUN-167** — Live trace E2: native async http hooks to a local collector | QA-Automation-Agent | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-167.md`
+- [ ] **HUN-168** — Live trace E3: Claude Code OpenTelemetry to a local OTLP receiver | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-168.md`
+- [ ] **HUN-169** — Live trace E4: stream-json capture from headless runs | QA-Automation-Agent | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-169.md`
+- [ ] **HUN-170** — Live trace report: combined run, E5 docs-only result, REPORT.md | QA-Automation-Agent | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-170.md`
 
 ### In Progress
 

@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [Live trace spike in-repo, metadata only](decisions.md#2026-10-31--live-trace-spike-runs-inside-easy-personal-mcp-metadata-only) — HUN-165..170 in `experiments/live-trace/`; plan items are hypotheses; E5 docs-only (no Admin key); prototype waits for owner review.
 - [Work view, read-only (Javis OS ideas)](decisions.md#2026-10-31--work-view-inspired-by-javis-os-read-only) — board from PROJECT_KANBAN.md, agent = sidechain or `sdk*`, timers+cron first word, memory graph names+links live; merged HUN-160..164 2026-10-31.
 - [Local merge to main, push in batches](decisions.md#2026-10-21--stage-35-git-flow-local-merge-to-main-push-in-batches) — no per-task PR; board goes In Progress → Done (no review status in Linear).
 - [v1 = Python core + React/Vite page, on demand](decisions.md#2026-10-21--v1--python-core--reactvite-page-on-demand) — Option B; page on 127.0.0.1 only while `easy-personal dashboard` runs; systemd timer ingests.

@@ -204,6 +204,12 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-162 | Work view: read-only cross-project board from `PROJECT_KANBAN.md` (FR-037/038, NFR-010; after HUN-160) | Done (merged 2026-10-31) | Frontend-Implementer | C2 | Low | P0 |
 | HUN-163 | Work view: scheduled jobs, systemd timers + cron, first word only (FR-040; after HUN-160) | Done (merged 2026-10-31) | Frontend-Implementer | C2 | Medium | P1 |
 | HUN-164 | Work view: memory graph, names + links read live, rings layout (FR-041, NFR-010; after HUN-160) | Done (merged 2026-10-31) | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-165 | Live trace spike: harness + baseline for the standard test session (`experiments/live-trace/`, owner-approved 2026-10-31) | Todo | QA-Automation-Agent | C1 | Medium | P1 |
+| HUN-166 | Live trace E1: live tail of transcripts with the existing reader (after HUN-165) | Todo | QA-Automation-Agent | C1 | Medium | P1 |
+| HUN-167 | Live trace E2: native async http hooks to a local collector (after HUN-165) | Todo | QA-Automation-Agent | C1 | Medium | P1 |
+| HUN-168 | Live trace E3: OpenTelemetry to a local OTLP receiver (after HUN-165) | Todo | QA-Automation-Agent | C2 | Medium | P1 |
+| HUN-169 | Live trace E4: stream-json capture from headless runs (after HUN-165) | Todo | QA-Automation-Agent | C1 | Low | P1 |
+| HUN-170 | Live trace report: combined run, E5 docs-only (no Admin key), REPORT.md (after HUN-166..169) | Todo | QA-Automation-Agent | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
