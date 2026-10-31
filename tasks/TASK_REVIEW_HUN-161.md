@@ -61,8 +61,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Supervisor, 2026-10-31T14:49:29+07:00, main de84e68, before any implementation commit):
+```
+$ grep -rn "entrypoint" src
+(no output — no entrypoint column)
+$ ls src/easy_personal/core/migrations | grep m000
+m0001_baseline.py … m0006_connectors.py
+$ grep -n "typed\|\"agent\"" src/easy_personal/core/metrics.py
+(no output — usage_summary has no typed/agent split)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
