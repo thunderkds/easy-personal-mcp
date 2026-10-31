@@ -1,5 +1,5 @@
 # PRD — easy-personal-mcp
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-31
 **Status**: Approved (Phase 0 recheck + requirement grill, 2026-10-21)
 **Owner**: thunderkds
 
@@ -60,6 +60,11 @@ Milestones are internal delivery order inside the single v1 release.
 | US-014 | As P1, I want to group my connectors into workspaces (personal, company, side…) created from an Add button, each with its email and repos, so work and personal tools never mix. | P1 | Workspaces |
 | US-015 | As P1, I want my agent accounts (Claude personal, Claude company, Codex…) found for me and to pick which workspaces each Claude account uses, so each account sees only its own tools. | P1 | Workspaces |
 | US-016 | As P1, I want to filter my usage by workspace, so I see what each part of my life costs. | P1 | Workspaces |
+| US-017 | As P1, I want one read-only board of the tasks in all my kit projects, grouped by status, so I see what is in flight, waiting for review or blocked without opening each repo. | P1 | Work view |
+| US-018 | As P1, I want my usage split into work I typed and work agents ran (sub-agents, headless runs), so I see how much runs without me. | P1 | Work view |
+| US-019 | As P1, I want to see my agent-related scheduled jobs with next run, last run and last result, so I know my background work is alive. | P1 | Work view |
+| US-020 | As P1, I want each project's memory notes drawn as a graph of names and links, so I see what my agents remember and what is orphaned. | P1 | Work view |
+| US-021 | As P1, I want the dashboard views grouped into sections and a first-run checklist, so I find views fast and know what setup is still missing. | P1 | Work view |
 
 ---
 
@@ -103,6 +108,12 @@ Milestones are internal delivery order inside the single v1 release.
 | FR-034 | On first run with workspaces, pre-workspace connectors (`slack`, `gmail`, …) must be placed in `orphan` with their current name as both id and alias (keychain item untouched), and — after one confirmation — removed from the Claude config they were registered in. | US-014 |
 | FR-035 | Dashboard usage views and the CLI usage commands (`--workspace <name>`) must filter to events whose project path equals or sits under one of the workspace's repo paths. | US-016 |
 | FR-036 | Ingest must read the `projects/` folder of every confirmed Claude agent account; every stored event carries its agent account; dashboard and CLI usage can filter by agent account. | US-016, US-015 |
+| FR-037 | The `kanban` source must read each kit project's `PROJECT_KANBAN.md` (`## Board` subsections `Todo`, `In Progress`, `Ready for Review`, `Done`, `Closed (will not do)`, plus the `## Blocked` table) live on request, keeping only task id, title, status and project. When `<repo>/.claude/board.json` names a `board`, tasks are tagged with that board kind and the file's mtime is shown as "last board pull" — the Linear side comes from the kit's own pull into this file; easy-personal never calls the board's API. A missing or unparsable file is "no data" for that project. Nothing is written. | US-017, NFR-001, NFR-003 |
+| FR-038 | The Work view must show the FR-037 tasks as columns named by those statuses (the kit's terms, not new ones), filterable by project and workspace, with a count per column and the "last board pull" age per project. | US-017, FR-035 |
+| FR-039 | Ingest must store each session's `entrypoint` (new migration; the old rows get it by re-reading their source files from offset 0). A record is *agent* work when `is_sidechain` is true or its session's entrypoint is not the interactive CLI (`cli`); else it is *you*. Usage views and `usage_summary`/`usage_breakdown` add this split per day; an unknown entrypoint is abstained per FR-003, never guessed. | US-018, FR-003, NFR-009 |
+| FR-040 | The `schedules` source must list systemd user timers (`systemctl --user list-timers --all` + the unit's `ExecStart`) and the owner's crontab lines whose command's first word is `claude`, `easy-personal`, `easy-personal-launch` or a kit tool on a declared allow-list; it shows name, schedule, next run, last run and last exit code. Only the command's first word is kept, never its arguments. It never creates, edits, starts or stops a job. | US-019, NFR-002, NFR-003 |
+| FR-041 | The memory graph must read, live on request and never into the store, `<repo>/memory/**/*.md` of every kit project and `~/.claude*/projects/*/memory/*.md` of every confirmed agent account, grouped by project. Nodes = file name plus frontmatter `name` and `description`; edges = `[[name]]` links resolved by `name` slug; an unresolved link is drawn as a dangling node. Note bodies are never sent to the page; a click shows the path only. Node colour = kind (kit / Claude). | US-020, NFR-002, NFR-003 |
+| FR-042 | The dashboard rail must group views into sections: Work (board, scheduled, memory graph), Usage (usage, timeline, warnings and plan), Kit, Connections (connectors, workspaces, agent accounts), System. A first-run checklist must show, each with done/not done and the existing command or button: first ingest, ingest timer installed, agent accounts confirmed, first workspace. It adds no new write action. | US-021, FR-023 |
 
 ---
 
@@ -119,6 +130,7 @@ Milestones are internal delivery order inside the single v1 release.
 | NFR-007 | Linux only; Python 3.11+; native install (`uv tool install`); Docker optional and analytics-only (DDR-0001). | Portability |
 | NFR-008 | The live dashboard must reject any write request that lacks the per-launch token or whose `Host`/`Origin` is not the dashboard's own `127.0.0.1` address (defends against other browser tabs and DNS rebinding). | Security |
 | NFR-009 | Store scales with all agent accounts and forever history: schema changes go through ordered, versioned migrations (`PRAGMA user_version`), each in one transaction and tested from the previous released schema; `foreign_keys=ON` and a `busy_timeout` on every connection; workspace rules (unique names, one provider per workspace except `orphan`) enforced by constraints, not only code; usage queries filter by time before grouping and are covered by indexes, checked with `EXPLAIN QUERY PLAN` in tests. Target: workspace-filtered 30-day usage over 1,000,000 events returns in < 500 ms (owner delegated the number, 2026-10-26). | Performance / Reliability |
+| NFR-010 | Live Work view reads (FR-037 board, FR-041 memory graph) for 50 projects return in < 1 s on the owner's machine; add an in-memory cache only if a measured read misses this. | Performance |
 
 ---
 
@@ -149,6 +161,7 @@ Milestones are internal delivery order inside the single v1 release.
 - LLM-written narratives or "AI judgment" in reports.
 - Life sources before v2.
 - Workspaces: writing connectors into Codex accounts (listed only, DDR-0001); new providers (GitHub, Linear/Jira, Google Calendar, Notion); MCP tools that create or change workspaces (FR-021 stays read-only).
+- Work view: creating, moving or editing board tasks; calling Linear or any board API; starting, stopping or editing scheduled jobs or agents (the board and jobs views are read-only, unlike the reference Javis OS); storing or showing memory note bodies; /loop jobs (they live only inside a running session) and claude.ai cloud routines.
 
 ---
 
@@ -167,6 +180,9 @@ Milestones are internal delivery order inside the single v1 release.
 | 9 | Dev-time only: QA uses the easy-ui container to screenshot/check easy-personal's own dashboard as UI Evidence. easy-personal never calls easy-ui at runtime. | thunderkds | confirmed 2026-10-21 |
 | 10 | Resolved 2026-10-26: usage is ingested from every confirmed Claude agent account (each account's `projects/` folder); every event carries its agent account, and usage can be filtered by account as well as by workspace (FR-036). | thunderkds | done |
 | 11 | Default: workspace and agent-account data live in the existing local store; no new MCP tools in the first version. | Supervisor | revisit Stage 2 |
+| 12 | Resolved 2026-10-31 (grill): Work view inspired by github.com/blogminhquy/javis-os, ideas only. Board = read-only, PROJECT_KANBAN.md + kit's local Linear pull; agent split = sub-agents + non-`cli` entrypoints; schedules = agent-related timers + cron; graph = names + links, live, both memory kinds, per project; first run = checklist, no writes. | thunderkds | done |
+| 13 | Resolved 2026-10-31: board and memory graph (FR-037/FR-041) for 50 projects return in < 1 s on the owner's machine (NFR-010). | thunderkds | done |
+| 14 | Resolved 2026-10-31: the FR-039 migration marks every source file for re-read; the next normal ingest fills `entrypoint`; until then old rows count as "unknown" (abstained). No separate command. | thunderkds | done |
 
 ---
 

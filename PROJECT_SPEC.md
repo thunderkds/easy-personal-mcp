@@ -68,13 +68,22 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Workspace** — a named group the owner creates (e.g. "Acme", "Personal"): identity (name, color/icon, description, main email), a plain list of repo paths, and its own connectors. Has a fixed id; its name can be renamed. Holds no agent settings. At most one connector per provider, except the built-in **orphan** workspace. Deleting a workspace never deletes connectors: they move to orphan, which is active in no agent account; from orphan they can be assigned to another workspace. Connectors are deleted one at a time only. Pre-workspace connectors (`slack`, …) start in orphan. *(planned, 2026-10-26)*
 - **Agent account** — one agent config folder on this machine (Claude: `~/.claude*`; Codex: `~/.codex*`), auto-detected and confirmed + named by the owner (e.g. "Claude company"). A Claude agent account picks one or more workspaces whose connectors are written into it under their aliases; a Codex agent account is listed only. *(planned, 2026-10-26)*
 - **Milestone (M1–M4)** — internal delivery order inside the single v1 release.
+- **Work view** — the dashboard's `// work` section: Board, Scheduled, Memory. Read-only; inspired by Javis OS (ideas only). *(planned, 2026-10-31)*
+- **Board task** — one task row read live from a kit project's `PROJECT_KANBAN.md`: project + task id + title + **board status** (`Todo`, `In Progress`, `Ready for Review`, `Done`, `Closed (will not do)`, `Blocked`). Not a **kit task id** (trace file name), though the ids often match. Never stored.
+- **Last board pull** — the mtime of a project's `PROJECT_KANBAN.md` when its `.claude/board.json` names a board; shows how fresh the Linear side is. easy-personal never calls a board API.
+- **Typed work / Agent work** — the usage split. *Agent work* = a sidechain record, or any record of a session whose **entrypoint** is not `cli`. *Typed work* = the rest. A session with no entrypoint yet (pre-backfill) is **unknown** (abstained). Dashboard labels: "You" / "Agents".
+- **Entrypoint** — the transcript's `entrypoint` field (`cli`, `sdk-cli`, …), stored per event from the Work view migration on.
+- **Scheduled job** — a systemd user timer or crontab line whose command's first word (basename) is on the agent allow-list (`claude`, `easy-personal`, `easy-personal-launch`, kit tools). Shown: name, kind, schedule, next run, last run, last exit code. Arguments are never read out. Not a /loop job or a cloud routine.
+- **Memory note** — one `.md` file under `<repo>/memory/` (**kit memory**) or `~/.claude*/projects/*/memory/` (**Claude memory**). Its graph identity is the frontmatter `name` slug, else the file stem.
+- **Dangling link** — a `[[name]]` in a memory note that resolves to no memory note in the same project; drawn as an empty node.
+- **First-run checklist** — the `// system` panel that shows done / not done for: first ingest, ingest timer, agent accounts confirmed, first workspace. Links to existing commands and buttons; adds no write.
 
 ---
 
 ## Critical Constraints
 
 - Read-only on every source: never modify `~/.claude/projects/`, kit traces, report folders, `~/.easy-context/` or any repo.
-- Store and emit **metadata only**: no message text, tool input/output, trace `summary`, easy-ui `target`, file contents or secrets in the store, MCP/API responses, page, or logs.
+- Store and emit **metadata only**: no message text, tool input/output, trace `summary`, easy-ui `target`, file contents or secrets in the store, MCP/API responses, page, or logs. Named exception (owner, 2026-10-31): the Work view may *show, never store* board task titles (FR-037) and memory note frontmatter `name` + `description` (FR-041); note bodies and job arguments stay banned.
 - No traffic leaves the machine: local calls to `127.0.0.1` only; every HTTP surface binds `127.0.0.1`, never `0.0.0.0`; the page loads no remote asset (CSP `default-src 'self'`).
 - The only runtime call to another plug-in is the read-only easy-context MCP client (allow-list: `list_indexes`, `get_stats`). Never `index_path`; never call easy-verifier or easy-ui at runtime (DDR-0002).
 - Deterministic: no LLM in the server; every warning cites rule id + measured value.
@@ -82,7 +91,7 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - No MCP tool may write config, create a connector or return a secret value. Dashboard writes need the per-launch token and a matching `Host`/`Origin`.
 - `launch.py` imports only stdlib + `keyring`; secrets reach the child process only through its environment, never argv.
 - Sibling repos are conventions-only references; never import or vendor their code. Cross-repo needs go to that repo's board (XR-1).
-- Tool surface is frozen once approved; new tools need owner approval.
+- Tool surface is frozen once approved; new tools need owner approval. Approved 2026-10-31: `usage_summary` / `usage_breakdown` gain typed / agent / unknown token fields (FR-039); no new tools.
 - npm: exact versions in `package-lock.json`, `npm ci` only; the built page ships in the package so install needs no Node.
 
 ---
@@ -190,6 +199,11 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-126 | Restyle dashboard to the Graphite Mint design (owner canvas GGoKuwVrYPQAVGcT6e7Ptq); plain Warnings/Kit content kept (owner choice 2026-10-29); UI checked with easy-ui MCP | Todo | Frontend-Implementer | C2 | Low | P1 |
 | HUN-128 | Dashboard shell in a centered max-width container (1440 px, owner request 2026-10-29) | Todo | Frontend-Implementer | C1 | Low | P1 |
 | HUN-129 | Usage "By model" card: short headers, no clipped cost column (owner "fix", 2026-10-29) | Todo | Frontend-Implementer | C1 | Low | P1 |
+| HUN-160 | Work view rail regroup (`// work` `// usage` `// kit` `// connect` `// system`) + first-run checklist (FR-042) | Todo | Frontend-Implementer | C2 | Low | P0 |
+| HUN-161 | Typed vs agent usage split: `entrypoint` migration + backfill, MCP split fields (FR-039; migration-safety) | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-162 | Work view: read-only cross-project board from `PROJECT_KANBAN.md` (FR-037/038, NFR-010; after HUN-160) | Todo | Frontend-Implementer | C2 | Low | P0 |
+| HUN-163 | Work view: scheduled jobs, systemd timers + cron, first word only (FR-040; after HUN-160) | Todo | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-164 | Work view: memory graph, names + links read live, rings layout (FR-041, NFR-010; after HUN-160) | Todo | Frontend-Implementer | C2 | Medium | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 

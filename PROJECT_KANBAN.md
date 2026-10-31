@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-10-29
+**Last updated**: 2026-10-31
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -9,6 +9,11 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-160** — Work view rail regroup and first-run checklist | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-160.md`
+- [ ] **HUN-161** — Typed vs agent usage split (entrypoint migration) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-161.md`
+- [ ] **HUN-162** — Work view: read-only cross-project board | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-162.md`
+- [ ] **HUN-163** — Work view: scheduled jobs (systemd timers + cron) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-163.md`
+- [ ] **HUN-164** — Work view: memory graph (names + links, read live) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-164.md`
 
 ### In Progress
 
@@ -63,6 +68,11 @@
 - [x] **HUN-119** — Kit tab: plain project cards with health, recent activity and a details toggle | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-119.md`
 - [x] **HUN-120** — Warnings & plan: plain titles, why it matters, numbered steps, one ordered action list | Backend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-120.md`
 - [x] **HUN-121** — Restyle dashboard to reference image 2: indigo + monospace, grouped sidebar, right rail | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-121.md`
+- [x] **HUN-126** — Restyle dashboard to the Graphite Mint design (all 5 views; plain Warnings/Kit content kept) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-126.md`
+- [x] **HUN-128** — Dashboard shell in a centered max-width container | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-128.md`
+- [x] **HUN-129** — Usage "By model" card: no clipped cost column | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-129.md`
+- [x] **HUN-131** — Dashboard neon mint pass: brighter accent and glow per the updated Graphite Mint design | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-131.md`
+- [x] **HUN-132** — Landing page (site/index.html) in the Easy Kit family Graphite Mint layout | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-132.md`
 
 ### Closed (will not do)
 
