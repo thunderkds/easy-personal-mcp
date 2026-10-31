@@ -41,13 +41,13 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/surfaces/test_first_run.py` (10 tests: AC2/AC3 + edge cases), `web/src/FirstRun.test.jsx`, `web/src/App.test.jsx` (rail groups, badge, buttons, GET-only), `web/src/shell.test.js` (hidden group, token-only CSS), `tests/leak/harness.py` (route leak-scanned). Supervisor run 2026-10-31T15:19:47+07:00 on 1c456d9: `Tests  276 passed (276)`; `839 passed, 5 deselected, 1 xfailed, 1 warning in 163.92s (0:02:43)` |
+| Verification command run | ☑ pass | `npm --prefix web test -- --run` → `Test Files  13 passed (13)` / `Tests  276 passed (276)`; `npm --prefix web run build` → `✓ built in 125ms`; `uv run pytest -q` → `839 passed, 5 deselected, 1 xfailed, 1 warning in 163.92s (0:02:43)`; `uv run ruff check src tests` → `All checks passed!` |
+| Negative cases hold | ☑ pass | runtime: `POST /api/first-run -> 405`; no token `-> 403`; tests: unconfirmed accounts / orphan-only workspace / no unit file / no systemd → not done |
+| verify | ☑ pass | Supervisor /verify recipe 2026-10-31T15:19:11+07:00, isolated `uv tool install --reinstall --no-cache .` in temp home on fixtures: `0.2.0`, `easy-personal core ok`, ingest ok, dashboard bound `127.0.0.1` only, `GET /api/first-run -> 200 {"steps":[{"id":"first_ingest","done":true,…},{"id":"ingest_timer","done":false,"hint":"easy-personal schedule install"},…]}` — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor code-review 2026-10-31 on `main...HUN-160` (1c456d9): 11 changed files + direct callers `core/accounts.list_accounts`, `core/workspaces.list_all`, `core/schedule.{unit_dir,systemd_available,cron_snippet}`, CLI `schedule install` parser. lane_check: `lane: C2, 11 files, 450 lines, FITS; unpredicted: …` (guide predicted with `…` placeholders; no scope creep). Entry points `GROUPS`, `/api/first-run` found. Startup reads line present (spec, guide, role guide). Findings: P0 0, P1 0, P2 1 — `schedule.systemd_available()` runs `systemctl --user show-environment` with no timeout on each `/api/first-run` call while the timer is absent, and App re-reads on every view change; suggest `timeout=2` + TimeoutExpired → False (in `schedule.py`, outside this task's files; follow-up). P3 0. No safe fixes needed. |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| Full smoke suite still green (no regression) | ☑ pass | full suites above, no regression vs baseline (829 → 839 passed) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not run for this task (advisory, no hook); no report path. |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Supervisor 2026-10-31, headless Chrome over CDP (easy-ui MCP not registered in this session, same method as learnings), HUN-160 1c456d9 dashboard on fixture `tests/fixtures/claude_code/2.1.302`, temp home: `reports/HUN-160/First_run_{1280,768,375}.png`. LLM verdict vs `BRAINSTORMING_LOG_WORKVIEW.md` Rail sketch — pass: rail shows `// usage`, `// kit`, `// connect`, `// system`; `// work` present but hidden (`hidden=true`, no tabs yet); First run active with badge `3 left`; 4 cards in dashboard card style, done step in accent, not-done steps with command box / Open Agents / Open Workspaces buttons. |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Computed style (CDP): body `"IBM Plex Sans", system-ui, sans-serif`; code `"IBM Plex Mono", ui-monospace`; vitest `shell.test.js` asserts no raw colour literals in `.badge` / `.first-run*` rules (tokens only); console errors `[]`; request hosts `["127.0.0.1:47859"]` only (NFR-001). |
 | **UI: Responsiveness at target viewports** | ☑ pass | 1280 / 768 / 375 px: `scrollWidth <= clientWidth` true at all three (no horizontal scroll); at 375 the rail collapses behind the menu button and the cards stack full width. |
@@ -70,9 +70,18 @@ $ grep -rn "first-run\|first_run" src web/src
 (no output — no /api/first-run route, no first-run view)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (Supervisor, 2026-10-31T15:19:11+07:00, HUN-160 1c456d9):
+```
+$ grep -n "label: '//" web/src/App.jsx
+  { id: 'work', label: '// work', tabs: [] },
+    label: '// usage',
+  { id: 'kit', label: '// kit', ...
+    label: '// connect',
+  { id: 'system', label: '// system', tabs: [{ id: 'first-run', label: 'First run', View: FirstRun }] },
+$ curl -H 'X-Dashboard-Token: …' $BASE/api/first-run
+200 {"steps":[{"id":"first_ingest","done":true,…}, … 4 steps]}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner sees the views grouped into work / usage / kit / connect / system and a First run checklist with a `N left` badge that shows which setup steps are still missing and how to finish each.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor, 2026-10-31 (verify recipe + full suites run with `active_task` = HUN-160).
