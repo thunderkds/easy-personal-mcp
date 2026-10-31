@@ -210,7 +210,7 @@ def test_thirty_day_workspace_summary_over_a_million_events_is_under_500ms(tmp_p
     conn = store.connect(tmp_path / "big.sqlite")
     day = 86400
     base = 1_767_225_600  # 2026-01-01
-    stamp = lambda t: time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(t)) + ".000000Z"  # noqa: E731
+    stamp = lambda t: time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(t)) + ".000000Z"
     conn.executemany(
         "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, ts_utc, session_id,"
         " project_path, is_sidechain, entrypoint, model, message_id, input_tokens, output_tokens,"
