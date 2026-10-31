@@ -41,12 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `experiments/live-trace/tests/test_harness.py` (12 tests: stream parser counts by tool name, reference reader main+subagents, scratch maker outside repo, runner writes metadata-only JSON via fake claude, forbidden env refused, planted-secret grep). `12 passed in 0.08s` |
+| Verification command run | ☑ pass | `uv run pytest experiments/live-trace/tests -q -k harness` -> `............ [100%]` / `12 passed in 0.08s` (2026-10-31T15:46:13Z) |
+| Negative cases hold | ☑ pass | skipped step recorded false; no failing bash -> step false; content-logging env refused (ValueError); scratch parent inside repo refused; unknown session -> empty; planted secret absent from runs/, RESULT.md, NOTES.md |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` -> `994 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 214.03s`; `uv run ruff check experiments/live-trace` -> `All checks passed!` |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -61,12 +61,32 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-10-31T15:36:41Z, before any implementation commit, worktree HUN-165):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ ls experiments/live-trace 2>&1
+ls: cannot access 'experiments/live-trace': No such file or directory
+$ uv run pytest experiments/live-trace/tests -q -k harness 2>&1 | tail -3
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+
+no tests ran in 0.00s
+```
+
+**AFTER** (2026-10-31T15:46:13Z):
+
+```
+$ ls experiments/live-trace
+NOTES.md
+harness
+tests
+$ uv run pytest experiments/live-trace/tests -q -k harness 2>&1 | tail -3
+............                                                             [100%]
+12 passed in 0.08s
+```
+
+Baseline (5 real Haiku sessions, no tracing): wall-clock ms 31291, 32094, 26326, 27755, 28264; median 28264; 5 of 5 steps complete (see `experiments/live-trace/harness/RESULT.md`).
+
+**DELTA**: E1-E4 can now run the standard Haiku session headless in a scratch repo, read transcript tool_use timestamps, and compare against a 28264 ms median baseline.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
