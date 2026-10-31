@@ -65,10 +65,11 @@ Owner request 2026-10-31: "build them as the next versio n" (the live-trace stac
 
 URL: `GET /api/live?token=<dashboard token>` (the token also accepted in `x-dashboard-token`). `Content-Type: text/event-stream`. Keep-alive `: ping` comment every 15 s.
 
-* `event: snapshot` (first message, and again after a buffer reset) — `data: {"active_window_s": 300, "sessions": [{"session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd"}]}`
+* `event: snapshot` (first message, and again after a buffer reset) — `data: {"active_window_s": 300, "last_id": <n>, "sessions": [{"session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd"}]}`
 * `event: live` with `id: <n>` (monotonic) — `data: {"id": n, "session_id", "account", "project", "ts", "kind", "tool", "is_error", "is_sidechain", "tokens_in", "tokens_out", "cost_usd"}`
   * `kind` ∈ `tool_use`, `tool_result`, `usage`; `tool` is the tool name or `null`; `ts` is ISO-8601 UTC; `tokens_*` integers or `null`; `cost_usd` API-equivalent number or `null` (unknown model price).
   * `account` and `project` are the same labels the Usage view uses (account label, project folder name), never a full path.
+* `last_id` is the id of the newest event already counted in the snapshot's totals. The server sends only `live` events with `id > last_id` after a snapshot, and ids never restart while the dashboard runs; the client drops any `live` event with `id <= last_id` (amended 2026-10-31 after HUN-178 review).
 * Resume: a reconnect with `Last-Event-ID: n` gets only events with `id > n`; if `n` is older than the buffer, the server sends a fresh `snapshot` first.
 
 ## Acceptance Criteria

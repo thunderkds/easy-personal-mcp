@@ -38,8 +38,8 @@ const feedItem = (e) =>
 function reduce(state, action) {
   if (action.type === 'snapshot') {
     const sessions = Object.fromEntries(action.data.sessions.map((s) => [s.session_id, fromSnapshot(s, state.sessions[s.session_id])]))
-    // A snapshot is the whole truth: the server numbers its events from here.
-    return { sessions, lastId: 0, windowS: action.data.active_window_s ?? DEFAULT_WINDOW_S }
+    // The snapshot's totals already count every event up to last_id; ids never restart, so older ones are dropped.
+    return { sessions, lastId: action.data.last_id ?? 0, windowS: action.data.active_window_s ?? DEFAULT_WINDOW_S }
   }
   const e = action.data
   if (e.id <= state.lastId) return state // already seen

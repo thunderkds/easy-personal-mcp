@@ -40,7 +40,7 @@ const session = (id, over = {}) => ({
   session_id: id, account: 'Claude work', project: 'alpha', last_ts: new Date().toISOString(),
   tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0, ...over,
 })
-const snapshot = (sessions) => ({ active_window_s: 300, sessions })
+const snapshot = (sessions, last_id = 0) => ({ active_window_s: 300, last_id, sessions })
 let counter = 0
 const live = (sessionId, over = {}) => ({
   id: ++counter, session_id: sessionId, account: 'Claude work', project: 'alpha', ts: new Date().toISOString(),
@@ -275,8 +275,45 @@ describe('totals', () => {
     expect(feedOf('aaaaaaaa')).toHaveLength(1)
     expect(within(card('aaaaaaaa')).getByText('Tool calls').nextSibling).toHaveTextContent('9')
     expect(within(card('aaaaaaaa')).getByText('API-equivalent cost').nextSibling).toHaveTextContent('$2.00')
-    send(live('aaaaaaaa-1', { tool: 'Edit' })) // ids start over after a snapshot
+    send(live('aaaaaaaa-1', { tool: 'Edit' }))
     expect(feedOf('aaaaaaaa')).toHaveLength(2)
+  })
+})
+
+describe('resume after a snapshot (last_id)', () => {
+  it('an event with id <= snapshot.last_id is already in the totals and is not counted again', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 4, tokens_in: 100, tokens_out: 0, cost_usd: 1 })], 10))
+    send(live('aaaaaaaa-1', { id: 9, tool: 'Old', tokens_in: 50, tokens_out: 0, cost_usd: 0.5 }))
+    send(live('aaaaaaaa-1', { id: 10, tool: 'Old2', tokens_in: 50, tokens_out: 0, cost_usd: 0.5 }))
+    const a = within(card('aaaaaaaa'))
+    expect(a.getByText('Tool calls').nextSibling).toHaveTextContent('4')
+    expect(a.getByText('Tokens in').nextSibling).toHaveTextContent('100')
+    expect(a.getByText('API-equivalent cost').nextSibling).toHaveTextContent('$1.00')
+    expect(screen.queryByText('Old')).toBeNull()
+  })
+
+  it('an event with a later id is counted once', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 4, tokens_in: 100, tokens_out: 0, cost_usd: 1 })], 10))
+    const event = live('aaaaaaaa-1', { id: 11, tool: 'New', tokens_in: 50, tokens_out: 0, cost_usd: 0.5 })
+    send(event)
+    send(event)
+    const a = within(card('aaaaaaaa'))
+    expect(a.getByText('Tool calls').nextSibling).toHaveTextContent('5')
+    expect(a.getByText('Tokens in').nextSibling).toHaveTextContent('150')
+    expect(a.getByText('API-equivalent cost').nextSibling).toHaveTextContent('$1.50')
+    expect(feedOf('aaaaaaaa')).toHaveLength(1)
+  })
+
+  it('a second snapshot moves the line to its own last_id', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 5))
+    send(live('aaaaaaaa-1', { id: 6 }))
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 8 })], 20))
+    send(live('aaaaaaaa-1', { id: 7 })) // covered by the new snapshot
+    send(live('aaaaaaaa-1', { id: 21 }))
+    expect(within(card('aaaaaaaa')).getByText('Tool calls').nextSibling).toHaveTextContent('9')
   })
 })
 
