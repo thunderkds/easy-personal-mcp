@@ -35,6 +35,16 @@ METADATA_TYPES = {
     "artifact-comment-monitor",
     "artifact-autoreact-ledger",
     "frame-link",
+    # New in Claude Code 2.1.316 (HUN-166 spike). Their text-like fields (`aiTitle`, `tools`, `message`,
+    # `params`, `shape`, ...) are never read.
+    "api-request",
+    "api-request-blob",
+    "api-request-shape",
+    "tools-used",
+    "ai-title",
+    "mode",
+    "permission-mode",
+    "bridge-session",
 }
 TOKEN_FIELDS = (
     "input_tokens",

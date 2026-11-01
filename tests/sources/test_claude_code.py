@@ -3,7 +3,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from easy_personal.core import metrics
+from easy_personal.core import metrics, store
 from easy_personal.sources import claude_code
 
 SID = "00000000-0000-4000-8000-0000000000aa"
@@ -160,6 +160,50 @@ def test_unversioned_metadata_types_are_known_not_abstained(conn, fixtures_root)
         "artifact-comment-monitor",
         "frame-link",
     }
+
+
+V2_1_316_TYPES = {
+    "api-request",
+    "api-request-blob",
+    "api-request-shape",
+    "tools-used",
+    "ai-title",
+    "mode",
+    "permission-mode",
+    "bridge-session",
+}
+
+
+def test_2_1_316_metadata_types_are_known_not_abstained(conn, fixtures_root):
+    claude_code.ingest(conn, fixtures_root / "2.1.316")
+    assert _types(conn, 1) == set()
+    assert _types(conn, 0) == V2_1_316_TYPES
+    assert metrics.usage_summary(conn)["abstained"]["total"] == 0
+
+
+def test_2_1_316_metadata_types_keep_only_type_session_and_time(conn, fixtures_root):
+    claude_code.ingest(conn, fixtures_root / "2.1.316")
+    kept = {"record_type", "session_id", "ts_utc", "version"}  # version is the per-record label
+    cols = [c for c in store.EVENT_COLUMNS if c != "abstained"]
+    rows = [dict(zip(cols, r)) for r in conn.execute(f"SELECT {', '.join(cols)} FROM events")]
+    assert len(rows) == 8
+    for row in rows:
+        filled = {k for k, v in row.items() if v is not None}
+        assert filled <= kept, (row["record_type"], filled - kept)
+        assert row["session_id"] == "00000000-0000-4000-8000-000000000004"
+    dump = "\n".join(conn.iterdump())
+    assert "INVENTED_" not in dump  # every planted value in the fixture, not a hand-picked few
+
+
+def test_unknown_type_beside_2_1_316_types_still_abstained(conn, tmp_path, fixtures_root):
+    root = tmp_path / "projects"
+    root.mkdir()
+    lines = "".join((fixtures_root / "2.1.316" / "meta.jsonl").read_text().splitlines(keepends=True)[:-1])  # drop the truncated tail
+    future = {"type": "future-316-type", "version": "2.1.316", "sessionId": SID}
+    (root / "s.jsonl").write_text(lines + json.dumps(future) + "\n")
+    claude_code.ingest(conn, root)
+    assert _types(conn, 1) == {"future-316-type"}
+    assert metrics.usage_summary(conn)["abstained"] == {"total": 1, "by_version": {"2.1.316": 1}}
 
 
 def test_unknown_types_abstained_per_version(conn, fixtures_root):

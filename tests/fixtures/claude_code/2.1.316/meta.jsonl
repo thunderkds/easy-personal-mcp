@@ -1,0 +1,9 @@
+{"type":"api-request","id":"INVENTED_REQ_1","keep":1,"params":{"model":"INVENTED_MODEL"},"querySource":"INVENTED_SOURCE","requestDigest":"INVENTED_DIGEST","shapeHash":"INVENTED_SHAPE","cacheControl":"INVENTED_CACHE","tail":"INVENTED_TAIL","sessionId":"00000000-0000-4000-8000-000000000004","timestamp":"2026-01-15T10:00:00.000Z","version":"2.1.316"}
+{"type":"api-request-blob","hash":"INVENTED_HASH","message":{"role":"user","content":"INVENTED_BLOB_TEXT"},"sessionId":"00000000-0000-4000-8000-000000000004"}
+{"type":"api-request-shape","shape":"INVENTED_SHAPE_TEXT","shapeHash":"INVENTED_SHAPE","sessionId":"00000000-0000-4000-8000-000000000004","timestamp":"2026-01-15T10:00:00.000Z","version":"2.1.316"}
+{"type":"tools-used","tools":["INVENTED_TOOL_A","INVENTED_TOOL_B"],"sessionId":"00000000-0000-4000-8000-000000000004"}
+{"type":"ai-title","aiTitle":"INVENTED_AI_TITLE","sessionId":"00000000-0000-4000-8000-000000000004"}
+{"type":"mode","mode":"INVENTED_MODE","sessionId":"00000000-0000-4000-8000-000000000004"}
+{"type":"permission-mode","permissionMode":"INVENTED_PERMISSION_MODE","sessionId":"00000000-0000-4000-8000-000000000004"}
+{"type":"bridge-session","bridgeId":"INVENTED_BRIDGE","sessionId":"00000000-0000-4000-8000-000000000004"}
+{"type":"assistant","message":{"id":"msg_fixture_TRUNC","role":"assis
