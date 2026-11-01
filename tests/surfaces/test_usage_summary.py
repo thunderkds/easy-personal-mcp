@@ -113,7 +113,7 @@ def test_mcp_and_cli_return_identical_numbers(tmp_path, monkeypatch, capsys, fix
 def test_ingest_source_flag_overrides_env(tmp_path, monkeypatch, capsys, fixtures_root):
     monkeypatch.setenv("EASY_PERSONAL_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(tmp_path / "absent"))
-    assert _cli_json(capsys, ["ingest", "--source", str(fixtures_root)])["files"] == 5
+    assert _cli_json(capsys, ["ingest", "--source", str(fixtures_root)])["files"] == 6
 
 
 def test_cli_usage_rejects_bad_date(tmp_path, monkeypatch, capsys):

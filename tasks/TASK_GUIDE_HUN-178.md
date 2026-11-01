@@ -60,7 +60,6 @@ Owner request 2026-10-31: "build them as the next versio n" (the live-trace stac
 
 ---
 
-
 ### Event contract (fixed by the Supervisor 2026-10-31; HUN-177 serves it, HUN-178 consumes it)
 
 URL: `GET /api/live?token=<dashboard token>` (the token also accepted in `x-dashboard-token`). `Content-Type: text/event-stream`. Keep-alive `: ping` comment every 15 s.
