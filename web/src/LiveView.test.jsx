@@ -199,6 +199,12 @@ describe('feed', () => {
     expect(within(card('aaaaaaaa')).getByText('Tool calls').nextSibling).toHaveTextContent('1')
   })
 
+  it('says the feed only holds calls seen since the page opened (the snapshot carries no history)', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 7 })]))
+    expect(within(card('aaaaaaaa')).getByText('No tool calls seen since this page opened.')).toBeInTheDocument()
+  })
+
   it('announces new items politely and labels the feed', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
@@ -271,7 +277,7 @@ describe('totals', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     send(live('aaaaaaaa-1', { tool: 'Read', tokens_in: 5, tokens_out: 5, cost_usd: 0.05 }))
-    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 9, tokens_in: 900, tokens_out: 100, cost_usd: 2 })]))
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 9, tokens_in: 900, tokens_out: 100, cost_usd: 2 })], 1)) // the snapshot covers event 1
     expect(feedOf('aaaaaaaa')).toHaveLength(1)
     expect(within(card('aaaaaaaa')).getByText('Tool calls').nextSibling).toHaveTextContent('9')
     expect(within(card('aaaaaaaa')).getByText('API-equivalent cost').nextSibling).toHaveTextContent('$2.00')
@@ -314,6 +320,19 @@ describe('resume after a snapshot (last_id)', () => {
     send(live('aaaaaaaa-1', { id: 7 })) // covered by the new snapshot
     send(live('aaaaaaaa-1', { id: 21 }))
     expect(within(card('aaaaaaaa')).getByText('Tool calls').nextSibling).toHaveTextContent('9')
+  })
+})
+
+describe('server restart', () => {
+  it('a snapshot with a lower last_id means ids restarted: old feed rows go, new ids are counted', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 5))
+    send(live('aaaaaaaa-1', { id: 6, tool: 'Before' }))
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 1))
+    expect(screen.queryByText('Before')).toBeNull()
+    send(live('aaaaaaaa-1', { id: 2, tool: 'After' }))
+    expect(feedOf('aaaaaaaa')).toHaveLength(1)
+    expect(feedOf('aaaaaaaa')[0]).toContain('After')
   })
 })
 

@@ -37,7 +37,11 @@ const feedItem = (e) =>
 
 function reduce(state, action) {
   if (action.type === 'snapshot') {
-    const sessions = Object.fromEntries(action.data.sessions.map((s) => [s.session_id, fromSnapshot(s, state.sessions[s.session_id])]))
+    // A last_id below the one we reached means the server restarted and its ids began again: old feed rows would repeat ids.
+    const restarted = (action.data.last_id ?? 0) < state.lastId
+    const sessions = Object.fromEntries(
+      action.data.sessions.map((s) => [s.session_id, fromSnapshot(s, restarted ? undefined : state.sessions[s.session_id])]),
+    )
     // The snapshot's totals already count every event up to last_id; ids never restart, so older ones are dropped.
     return { sessions, lastId: action.data.last_id ?? 0, windowS: action.data.active_window_s ?? DEFAULT_WINDOW_S }
   }
@@ -117,7 +121,7 @@ const clock = (ts) => new Date(ts).toLocaleTimeString()
 function Feed({ items }) {
   return (
     <>
-      {items.length === 0 && <p className="muted">No tool calls yet.</p>}
+      {items.length === 0 && <p className="muted">No tool calls seen since this page opened.</p>}
       <ol className="live-feed" aria-live="polite" aria-relevant="additions" aria-label="Tool calls, newest first">
         {items.map((i) => (
           <li key={i.id}>
