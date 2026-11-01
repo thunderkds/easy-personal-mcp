@@ -101,3 +101,5 @@ SIGINT to the dashboard process: process gone within 3 s (no orphan thread/proce
 **DELTA**: While `easy-personal dashboard` runs, a Claude Code tool call now lands in the store and in a bounded in-memory event buffer within about 100 ms of the transcript write (median 641 ms after Claude Code's own record timestamp), where before nothing followed the transcripts after the start-up ingest.
 
 **WITNESS**: Supervisor session re-ran the tail independently through the installed CLI on 2026-11-01 (verify row: 150 ms append-to-store, partial line held, concurrent ingest exit 0, clean SIGINT stop, 0 planted hits); attributed in `memory/event-trace/HUN-176.jsonl` (58 records).
+
+> **Correction (Supervisor, 2026-11-01, during HUN-177 verify):** the HUN-176 verify fixture line lacked `cache_*_input_tokens`, so `parse_record` abstained on it; the row counts above prove store/cursor/lock/partial-line/stop behaviour but not record → buffer-event mapping. That mapping was then verified end to end through `GET /api/live` in `tasks/TASK_REVIEW_HUN-177.md` (verify row: tool_use + usage + delta events), and is covered by `tests/core/test_live.py`.
