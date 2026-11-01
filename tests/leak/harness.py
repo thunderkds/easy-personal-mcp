@@ -107,6 +107,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/board": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],  # HUN-162: titles are shown, never stored
     "/api/jobs": [""],  # HUN-163: fake systemctl/crontab with a planted canary in arguments (see leak conftest)
     "/api/memory-graph": ["", "?project=%2Fnope", "?project="],  # HUN-164; each listed project is also called by collect_api
+    "/api/live": ["", "?token=leak-test-token"],  # HUN-177: SSE stream, read by `read_live_stream` over a tail that has read the planted transcripts
     "/api/first-run": [""],  # HUN-160: four done / not-done flags and fixed hints
     "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
@@ -287,12 +288,74 @@ def collect_mcp(app, out: Collected, logs: "LogCapture") -> None:
     out.add("log records (in-process)", logs.text())
 
 
+def _collect_live(out: Collected, app, token: str) -> None:
+    """HUN-177: a tail that read the planted transcripts from a fresh store, streamed (plain, by query token, resumed)."""
+    import tempfile
+
+    from easy_personal.core import live
+    from easy_personal.surfaces import api
+
+    mp = pytest.MonkeyPatch()
+    with tempfile.TemporaryDirectory() as home:
+        mp.setenv("EASY_PERSONAL_HOME", home)  # empty offsets: the tail sees every planted line as new
+        mp.setattr(live, "FORGET_AFTER_S", 10**9)  # the planted transcripts are old: keep their sessions ...
+        tail = live.LiveTail()
+        tail.poll_once()
+        mp.undo()
+    mp.setattr(live, "_current", tail)
+    mp.setattr(live, "ACTIVE_WINDOW_S", 10**9)  # ... and count them as active, so the snapshot lists sessions
+    mp.setattr(api, "PING_S", 0.05)  # a short buffer still reaches the chunk count: pings fill it
+    try:
+        for query in API_CALLS["/api/live"]:
+            out.add(f"api /api/live{query}", read_live_stream(app, "/api/live" + query, token, chunks=6))
+        out.add("api /api/live resumed", read_live_stream(app, "/api/live", token, resume="0", chunks=8))
+    finally:
+        mp.undo()
+    out.add("api /api/live tail buffer", repr((tail.events_since(0), tail.snapshot())))
+
+
 def api_routes(app) -> set[str]:
     return {r.path for r in app.routes if r.path.startswith("/api/")}
 
 
 def unregistered_api_routes(app) -> set[str]:
     return api_routes(app) - set(API_CALLS) - set(API_WRITE_CALLS)
+
+
+def read_live_stream(app, path: str, token: str, resume: str = "", chunks: int = 3) -> str:
+    """GET the never-ending `/api/live` stream in-process, drop the connection after `chunks` messages; return the text."""
+    route, _, query = path.partition("?")
+    headers = [(b"host", b"127.0.0.1:4321"), (b"x-dashboard-token", token.encode())]
+    if resume:
+        headers.append((b"last-event-id", resume.encode()))
+    scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1", "method": "GET",
+             "scheme": "http", "path": route, "raw_path": route.encode(), "query_string": query.encode(),
+             "headers": headers, "client": ("127.0.0.1", 1), "server": ("127.0.0.1", 4321)}  # fmt: skip
+    text = []
+
+    async def run() -> None:
+        gone, first = asyncio.Event(), True
+
+        async def receive():
+            nonlocal first
+            if first:
+                first = False
+                return {"type": "http.request", "body": b"", "more_body": False}
+            await gone.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            if message["type"] == "http.response.start":
+                text.append(f"{message['status']} {message['headers']}\n")
+            elif message["type"] == "http.response.body":
+                text.append(message.get("body", b"").decode())
+                if "".join(text).count("\n\n") >= chunks:
+                    gone.set()
+
+        await app(scope, receive, send)
+
+    asyncio.run(asyncio.wait_for(run(), 10))
+    return "".join(text)
 
 
 def collect_api(out: Collected, logs: "LogCapture", secret: str = "", workdir: Path | None = None) -> None:
@@ -312,9 +375,12 @@ def collect_api(out: Collected, logs: "LogCapture", secret: str = "", workdir: P
     client = TestClient(api.create_app(token, port), base_url=f"http://127.0.0.1:{port}")
     headers = {api.TOKEN_HEADER: token}
     for path, queries in API_CALLS.items():
+        if path == "/api/live":
+            continue  # a stream: read below
         for query in queries:
             res = client.get(path + query, headers=headers)
             out.add(f"api {path}{query}", f"{res.status_code} {dict(res.headers)} {res.text}")
+    _collect_live(out, client.app, token)
     listed = client.get("/api/memory-graph", headers=headers).json().get("projects", [])
     for project in listed:  # HUN-164: the graph of every project with memory notes
         res = client.get("/api/memory-graph", params={"project": project["project"]}, headers=headers)

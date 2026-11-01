@@ -3,23 +3,30 @@
 Every request must carry a `Host` equal to the dashboard's own address (blocks DNS rebinding);
 a present `Origin` must match it too. `/api/*` also needs the per-launch token in the
 `X-Dashboard-Token` header. Every response carries a CSP of `default-src 'self'`.
+
+One route differs: the browser `EventSource` cannot send headers, so `GET /api/live` also accepts the
+token as a `token` query parameter (same constant-time check). uvicorn runs with no access log, so the
+query string is never printed; no other route reads a token from the URL.
 """
 
+import asyncio
 import contextlib
 import hmac
 import json
 import secrets
 import socket
 import threading
+import time
 import webbrowser
 from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import uvicorn
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -30,6 +37,7 @@ from easy_personal.core import (
     first_run,
     jobs,
     kit,
+    live,
     memgraph,
     metrics,
     plan,
@@ -40,6 +48,9 @@ from easy_personal.core import (
 from easy_personal.surfaces.mcp import LOOPBACK
 
 TOKEN_HEADER = "x-dashboard-token"
+LIVE_PATH = "/api/live"
+POLL_S = 0.1  # how often the stream looks at the live tail's buffer
+PING_S = 15.0  # keep-alive comment interval
 CSP = "default-src 'self'; frame-ancestors 'none'"
 
 
@@ -55,6 +66,11 @@ class Guard:
         self.host = f"{LOOPBACK}:{port}"
         self.origin = f"http://{self.host}"
 
+    @staticmethod
+    def _query_token(scope) -> str:
+        values = parse_qs(scope["query_string"].decode("latin-1")).get("token", [""])
+        return values[0]
+
     def _allowed(self, scope) -> bool:
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
         if headers.get("host") != self.host:
@@ -62,7 +78,7 @@ class Guard:
         if "origin" in headers and headers["origin"] != self.origin:
             return False
         if scope["path"].startswith("/api/"):
-            sent = headers.get(TOKEN_HEADER, "")
+            sent = headers.get(TOKEN_HEADER) or (self._query_token(scope) if scope["path"] == LIVE_PATH else "")
             return hmac.compare_digest(sent.encode(), self.token.encode())
         return True
 
@@ -98,6 +114,64 @@ def _query(handler: Callable):
             return JSONResponse({"error": str(exc)}, status_code=400)
 
     return endpoint
+
+
+def _sse(event: str, data: dict, event_id: int | None = None) -> bytes:
+    head = f"event: {event}\n" + (f"id: {event_id}\n" if event_id is not None else "")
+    return f"{head}data: {json.dumps(data, separators=(',', ':'))}\n\n".encode()
+
+
+_SESSION_KEYS = ("session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd")
+_EVENT_KEYS = ("id", "session_id", "account", "project", "ts", "kind", "tool", "is_error", "is_sidechain",
+               "tokens_in", "tokens_out", "cost_usd")  # fmt: skip  (the cache counts stay out of the contract)
+
+
+def _snapshot_data(snapshot: dict) -> dict:
+    return {
+        "active_window_s": snapshot["active_window_s"],
+        "last_id": snapshot["last_id"],
+        "sessions": [{k: s[k] for k in _SESSION_KEYS} for s in snapshot["sessions"]],
+    }
+
+
+def _resume_id(request) -> int | None:
+    """The `Last-Event-ID` header as a non-negative int, else None (absent or not a number)."""
+    value = request.headers.get("last-event-id", "").strip()
+    return int(value) if value.isdecimal() else None
+
+
+async def live_stream(request):
+    """Server-Sent Events from the live tail: a snapshot, then one `live` event per new buffer entry.
+
+    The first message is a `snapshot` unless `Last-Event-ID` names an event the buffer still reaches.
+    With no tail running (`live.current()` is None) the snapshot is empty and only keep-alives follow;
+    the stream picks the tail up if one starts later. It ends on client disconnect and when uvicorn
+    is stopping (`app.state.should_stop`), so Ctrl-C never waits on an open stream.
+    """
+    stopping = getattr(request.app.state, "should_stop", lambda: False)
+    resume = _resume_id(request)
+
+    async def events():
+        cursor, last_ping = (resume if live.current() is not None else None), time.monotonic()
+        while not stopping() and not await request.is_disconnected():
+            tail = live.current()
+            if tail is not None and cursor is not None and (cursor > tail.last_id or tail.rolled_past(cursor)):
+                cursor = None  # an id from before a restart, or older than the buffer: start over
+            if cursor is None:
+                snapshot = tail.snapshot() if tail else {"active_window_s": live.ACTIVE_WINDOW_S, "last_id": 0, "sessions": []}
+                cursor = snapshot["last_id"]
+                yield _sse("snapshot", _snapshot_data(snapshot))
+            for event in tail.events_since(cursor) if tail else ():
+                cursor = event["id"]
+                yield _sse("live", {k: event[k] for k in _EVENT_KEYS}, event["id"])
+            if time.monotonic() - last_ping >= PING_S:
+                last_ping = time.monotonic()
+                yield b": ping\n\n"
+            await asyncio.sleep(POLL_S)
+
+    return StreamingResponse(
+        events(), media_type="text/event-stream", headers={"cache-control": "no-store", "x-accel-buffering": "no"}
+    )
 
 
 def _period(q):
@@ -520,6 +594,7 @@ async def connectors_alias(request):
 
 def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
     routes = [
+        Route(LIVE_PATH, live_stream),
         Route("/api/usage/summary", _query(lambda c, q: metrics.usage_summary(c, *_scope(q)))),
         Route(
             "/api/usage/breakdown",
@@ -573,9 +648,10 @@ def serve(open_browser: Callable[[str], object] = webbrowser.open) -> None:
     port = sock.getsockname()[1]
     token = secrets.token_urlsafe(32)
     url = f"http://{LOOPBACK}:{port}/#{token}"
-    server = uvicorn.Server(
-        uvicorn.Config(create_app(token, port), log_config=None, access_log=False)
-    )
+    app = create_app(token, port)
+    # access_log=False: uvicorn would print each request's query string, and `/api/live?token=` carries the token
+    server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False))
+    app.state.should_stop = lambda: server.should_exit  # open event streams end when Ctrl-C arrives
     print(f"dashboard: {url}\nCtrl-C to stop.", flush=True)
     with contextlib.suppress(Exception):  # headless: the URL is already printed
         open_browser(url)

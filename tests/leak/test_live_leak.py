@@ -23,3 +23,13 @@ def test_live_tail_buffer_snapshot_store_and_logs_hold_no_canary(canaries, tmp_p
         ("log records", caplog.text),
     ):
         canaries.assert_clean(surface, blob)
+
+
+def test_live_stream_really_ran_over_planted_transcripts(leak_run):
+    """Guards against a vacuous pass: the SSE routes streamed a snapshot and live events built from the planted lines."""
+    body = leak_run.outputs["api /api/live"]
+    assert body.startswith("200 ") and "event: snapshot" in body and "text/event-stream" in body
+    assert '"session_id"' in body  # the snapshot lists sessions
+    assert "event: snapshot" in leak_run.outputs["api /api/live?token=leak-test-token"]
+    assert "event: live" in leak_run.outputs["api /api/live resumed"]
+    assert "event: snapshot" not in leak_run.outputs["api /api/live resumed"]
