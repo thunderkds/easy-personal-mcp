@@ -70,13 +70,27 @@ def test_sections_exist_in_order():
     assert positions == sorted(positions)
 
 
-def test_status_names_v0_2_0_not_planning():
+def test_status_names_v0_3_0_not_planning():
     assert "Status: planning" not in README
-    assert "Status: v0.2.0" in README
-    assert "v0.1.0" not in README
-    assert "The first command prints `0.2.0`" in README
-    assert 'version = "0.2.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "Usage, Warnings & plan, Kit, Workspaces and Agents" in README
+    assert "Status: v0.3.0" in README
+    assert "v0.1.0" not in README and "v0.2.0" not in README
+    assert "The first command prints `0.3.0`" in README
+    assert 'version = "0.3.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "Live, Board, Scheduled, Memory, Usage, Warnings & plan, Kit, Workspaces and Agents" in README
+
+
+def test_live_view_is_documented():
+    section = README.split("### Live view", 1)[1].split("\n## ", 1)[0].split("\n### ", 1)[0]
+    for text in (
+        "/api/live",
+        "Server-Sent Events",
+        "only while `easy-personal dashboard` is open",
+        "nothing to install",
+        "last 5 minutes",
+        "never shows message text, tool input or tool output",
+        "API-equivalent",
+    ):
+        assert text in section, text
 
 
 def test_connector_remove_rule_for_pre_workspace_connectors():

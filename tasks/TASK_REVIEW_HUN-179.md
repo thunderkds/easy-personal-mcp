@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/test_readme.py`: `test_status_names_v0_3_0_not_planning` (version in README + pyproject, tab list) and new `test_live_view_is_documented`; both failed first (`2 failed, 13 passed`), then passed. `tests/test_site_content.py::test_header_has_brand_version_pill_and_github_button` pins the site pill to pyproject; `tests/test_skeleton.py` pins CLI/MCP version to the installed package |
+| Verification command run | ☑ pass | `uv run pytest tests/test_readme.py tests/test_site_content.py tests/test_skeleton.py -q` -> `56 passed in 1.06s` |
+| Negative cases hold | ☑ pass | Site drift negatives (`test_wrong_version_fails`, drifted stats) and README checker negatives still pass; README has no host path / email / token (`test_no_host_paths_emails_or_tokens`) |
+| verify | ☑ pass | Supervisor /verify 2026-11-01: `uv tool install --reinstall --no-cache .` into a scratch dir; `easy-personal --version` → `0.3.0`; `ping` → `easy-personal core ok`; MCP stdio `initialize` → `"serverInfo":{"name":"easy-personal","version":"0.3.0"}`, `tools/call ping` → `easy-personal core ok` — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Stage 4 code-review (Supervisor): `main...HEAD` 6 files (pyproject, uv.lock, README, site pill, tests/test_readme.py, review file); README Live section checked against `core/live.py` (100 ms, 300 s window), `LiveView.jsx` (`FEED_MAX = 50`, unknown price named), `api.py` `/api/live`; migration paragraph checked: `git log v0.2.0..main -- src/easy_personal/core/migrations/` → only `a8b26ed` (HUN-161 m0007), so 6 → 7 is right. lane_check `C1, 4 files, 52 lines, FITS`. Findings: 0 P0/P1/P2; P3: README states the migration before the "back up first" advice (order only). Not reviewed: code (none changed) |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` -> `1049 passed, 6 deselected, 1 xfailed, 1 warning in 124.82s`; `uv run ruff check .` -> `All checks passed!` |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier `score` refused every path of this repo this session (`target repository path does not exist`); advisory only |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Only change to `site/index.html` is the header pill text `v0.2.0` -> `v0.3.0` (the drift test pins it to pyproject); no layout, style or screenshot changed. No dashboard (`web/`) change |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Text-only change, see row above |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Text-only change, see row above |
 
 ---
 
@@ -61,12 +61,31 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-01T02:50:54Z from `uv tool install --reinstall --no-cache .` of the unmodified worktree (main 8988140) into a scratch tool dir:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ easy-personal --version
+0.2.0
+$ easy-personal ping
+easy-personal core ok
+$ grep -n '^version' pyproject.toml
+3:version = "0.2.0"
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+README before (verbatim): `Status: v0.2.0. It runs natively on Linux. ...`, `The first command prints `0.2.0`.`, dashboard paragraph ends `The tabs are Usage, Warnings & plan, Kit, Workspaces and Agents.`; no Live view text anywhere in README. site/index.html: `<span class="pill">usage dashboard · v0.2.0</span>`.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: captured 2026-11-01T03:10:09Z, same install command, fresh scratch tool dir, branch HUN-179:
+
+```
+$ easy-personal --version
+0.3.0
+$ easy-personal ping
+easy-personal core ok
+$ MCP stdio initialize -> "serverInfo":{"name":"easy-personal","version":"0.3.0"}
+```
+
+README now has `Status: v0.3.0`, `The first command prints `0.3.0``, the tab list `Live, Board, Scheduled, Memory, Usage, Warnings & plan, Kit, Workspaces and Agents, plus a First run checklist`, a `### Live view` section (runs only while the dashboard is open, nothing to install, `GET /api/live`, active sessions / last 50 tool calls / token + API-equivalent cost totals, never message text, tool input or tool output) and an Upgrade paragraph (store version 6 -> 7, `store.sqlite.bak-v6`, no config change for the Live view). Site pill: `usage dashboard · v0.3.0`.
+
+**DELTA**: a user installing this commit gets `0.3.0` from the CLI and MCP and can read in the README how the Live view works and that it needs nothing installed.
+
+**WITNESS**: Supervisor session installed the branch independently on 2026-11-01 and saw `0.3.0` from the CLI and the MCP server (verify row); attributed in `memory/event-trace/HUN-179.jsonl`.
