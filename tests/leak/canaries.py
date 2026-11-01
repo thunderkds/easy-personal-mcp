@@ -39,6 +39,8 @@ PATTERNS = {
     "unknown_payload": "LEAKCANARY unknown {t}",
     "last_prompt": "LEAKCANARY last-prompt {t}",
     "custom_title": "LEAKCANARY title {t}",
+    "ai_title": "LEAKCANARY ai-title {t}",
+    "request_blob": "LEAKCANARY request-blob {t}",
     "agent_name": "LEAKCANARY agent {t}",
     "malformed": "LEAKCANARY malformed {t}",
     "binary": "LEAKCANARY binary {t}",

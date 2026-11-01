@@ -41,12 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/sources/test_claude_code.py`: `test_2_1_316_metadata_types_are_known_not_abstained` (AC1), `test_2_1_316_metadata_types_keep_only_type_session_and_time` (AC2), `test_unknown_type_beside_2_1_316_types_still_abstained` (AC3). Leak: `tests/leak/canaries.py` (`ai_title`, `request_blob`) + `tests/fixtures/leak/session.jsonl.tmpl`. Fixture `tests/fixtures/claude_code/2.1.316/meta.jsonl`. `tests/surfaces/test_usage_summary.py` file count 5 to 6 (new fixture file). |
+| Verification command run | ☑ pass | `uv run pytest tests/sources -q && uv run pytest tests/leak -q` gave `137 passed, 1 deselected in 6.85s` and `29 passed, 1 warning in 25.79s` |
+| Negative cases hold | ☑ pass | `test_unknown_type_beside_2_1_316_types_still_abstained`: invented `future-316-type` is abstained, `by_version` `{"2.1.316": 1}`; planted `INVENTED_*` values absent from the full SQLite dump. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` gave `997 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 115.15s` |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -61,12 +61,39 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: re-captured 2026-11-01T01:52:48Z by the resuming agent, before any implementation commit (the branch has no commits). Command: `EASY_PERSONAL_HOME=<scratch> PYTHONPATH=<scratch>/before/src uv run --no-sync python <scratch>/demo175.py tests/fixtures/claude_code/2.1.316`, where `<scratch>/before/src` is `git archive HEAD src` (unmodified `claude_code.py`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+# 2026-11-01T01:52:48Z module: <scratch>/before/src/easy_personal/sources/claude_code.py
+ai-title             abstained=1 count=1
+api-request          abstained=1 count=1
+api-request-blob     abstained=1 count=1
+api-request-shape    abstained=1 count=1
+bridge-session       abstained=1 count=1
+mode                 abstained=1 count=1
+permission-mode      abstained=1 count=1
+tools-used           abstained=1 count=1
+total abstained: 8
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+(The previous agent's capture of 2026-10-31T16:35:39Z gave the same 8 abstained; it predates the last fixture edit, so it was replaced.)
+
+**AFTER**: same command with the working-tree `claude_code.py` (2026-11-01T01:55:29Z):
+
+```
+# 2026-11-01T01:55:29Z module: .../easy-personal-mcp-wt/HUN-175/src/easy_personal/sources/claude_code.py
+ai-title             abstained=0 count=1
+api-request          abstained=0 count=1
+api-request-blob     abstained=0 count=1
+api-request-shape    abstained=0 count=1
+bridge-session       abstained=0 count=1
+mode                 abstained=0 count=1
+permission-mode      abstained=0 count=1
+tools-used           abstained=0 count=1
+total abstained: 0
+```
+
+**DELTA**: A Claude Code 2.1.316 transcript no longer shows its 8 new metadata record types as abstained, and no text from them is stored.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
