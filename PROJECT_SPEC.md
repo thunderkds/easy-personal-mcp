@@ -210,11 +210,11 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-168 | Live trace E3: OpenTelemetry to a local OTLP receiver (after HUN-165) | Done (merged 2026-10-31) | QA-Automation-Agent | C2 | Medium | P1 |
 | HUN-169 | Live trace E4: stream-json capture from headless runs (after HUN-165) | Done (merged 2026-10-31) | QA-Automation-Agent | C1 | Low | P1 |
 | HUN-170 | Live trace report: combined run, E5 docs-only (no Admin key), REPORT.md (after HUN-166..169) | Done (merged 2026-10-31) | QA-Automation-Agent | C1 | Low | P1 |
-| HUN-175 | Transcript reader: 8 record types new in Claude Code 2.1.316 (FR-046; v0.3.0) | Todo | Backend-Implementer | C1 | Medium | P1 |
-| HUN-176 | Live tail while the dashboard runs, lock-friendly (FR-043; after HUN-175) | Todo | Backend-Implementer | C2 | Medium | P0 |
-| HUN-177 | `GET /api/live` SSE stream, guarded, resumable (FR-044; after HUN-176) | Todo | Backend-Implementer | C2 | Medium | P0 |
-| HUN-178 | Live view: active sessions, tool feed, running totals (FR-045; after HUN-177) | Todo | Frontend-Implementer | C2 | Low | P0 |
-| HUN-179 | Release 0.3.0: version, README, site, ship plan (after HUN-178) | Todo | Backend-Implementer | C1 | Low | P1 |
+| HUN-175 | Transcript reader: 8 record types new in Claude Code 2.1.316 (FR-046; v0.3.0) | Done (merged 2026-11-01) | Backend-Implementer | C1 | Medium | P1 |
+| HUN-176 | Live tail while the dashboard runs, lock-friendly (FR-043; after HUN-175) | Done (merged 2026-11-01) | Backend-Implementer | C2 | Medium | P0 |
+| HUN-177 | `GET /api/live` SSE stream, guarded, resumable (FR-044; after HUN-176) | Done (merged 2026-11-01) | Backend-Implementer | C2 | Medium | P0 |
+| HUN-178 | Live view: active sessions, tool feed, running totals (FR-045; after HUN-177) | Done (merged 2026-11-01) | Frontend-Implementer | C2 | Low | P0 |
+| HUN-179 | Release 0.3.0: version, README, site, ship plan (after HUN-178) | Done (merged 2026-11-01) | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
