@@ -192,8 +192,7 @@ def test_2_1_316_metadata_types_keep_only_type_session_and_time(conn, fixtures_r
         assert filled <= kept, (row["record_type"], filled - kept)
         assert row["session_id"] == "00000000-0000-4000-8000-000000000004"
     dump = "\n".join(conn.iterdump())
-    for planted in ("INVENTED_AI_TITLE", "INVENTED_BLOB_TEXT", "INVENTED_TOOL_A", "INVENTED_BRIDGE", "INVENTED_MODE"):
-        assert planted not in dump
+    assert "INVENTED_" not in dump  # every planted value in the fixture, not a hand-picked few
 
 
 def test_unknown_type_beside_2_1_316_types_still_abstained(conn, tmp_path, fixtures_root):
