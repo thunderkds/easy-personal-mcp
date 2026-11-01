@@ -384,13 +384,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "workspace":
         return _workspace(args)
     if args.command == "dashboard":
+        from easy_personal.core import live
         from easy_personal.surfaces import api
 
         print("ingesting before start (waits if another ingest runs)...", file=sys.stderr)
         rc = _ingest(argparse.Namespace(source=None, retention_days=None))
         if rc:
             return rc
-        api.serve()
+        tail = live.LiveTail().start()  # FR-043: follows the transcripts while the page is open
+        try:
+            api.serve()
+        finally:
+            tail.stop()
         return 0
     if args.command in ("usage", "outliers"):
         try:
