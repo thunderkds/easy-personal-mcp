@@ -360,7 +360,59 @@ def test_snapshot_totals_count_a_message_once_and_cover_active_sessions_only(pro
     assert set(session) == {"session_id", "account", "project", "last_ts", "tool_calls", "tokens_in",
                             "tokens_out", "cache_creation", "cache_read", "cost_usd"}  # fmt: skip
     usage_events = [e for e in tail.events_since(0) if e["kind"] == "usage" and e["session_id"] == "s1"]
-    assert len(usage_events) == 1
+    assert [e["tokens_out"] for e in usage_events] == [3, 6]  # first sight, then the growth (delta)
+
+
+def _sums(events):
+    keys = ("tokens_in", "tokens_out", "cache_creation", "cache_read")
+    return {k: sum(e[k] for e in events if e["kind"] == "usage") for k in keys}
+
+
+def test_usage_delta_events_keep_live_totals_equal_to_the_snapshot(projects, start):
+    path = projects / "demo" / "s1.jsonl"
+    append(path, assistant())
+    tail = start()
+
+    def message(out, cache_read=3, model="claude-sonnet-5-5"):
+        record = assistant(message="msg_grow", tools=(), out=out)
+        record["message"]["model"] = model
+        record["message"]["usage"]["cache_read_input_tokens"] = cache_read
+        return record
+
+    # one message written as several records: figures grow, one repeat changes nothing, then a new message
+    for records in ([message(3)], [message(7, cache_read=9)], [message(7, cache_read=9)], [message(12, cache_read=9)]):
+        append(path, *records)
+        time.sleep(0.15)
+    other = assistant(message="msg_other", tools=(), out=4)
+    other["message"]["model"] = "claude-sonnet-5-5"
+    append(path, other)
+    assert wait_until(lambda: tail.last_id >= 4)
+    snap = tail.snapshot()
+    events = [e for e in tail.events_since(0) if e["id"] <= snap["last_id"]]
+    usage = [e for e in events if e["kind"] == "usage"]
+    assert [e["tokens_out"] for e in usage if e["tokens_out"]] == [3, 4, 5, 4]  # 3, +4, (repeat: nothing), +5, other 4
+    [session] = snap["sessions"]
+    totals = _sums(events)
+    assert (session["tokens_in"], session["tokens_out"], session["cache_creation"], session["cache_read"]) == (
+        totals["tokens_in"], totals["tokens_out"], totals["cache_creation"], totals["cache_read"]
+    )  # fmt: skip
+    assert session["tokens_out"] == 12 + 4 and session["cache_read"] == 9 + 3
+    assert sum(e["cost_usd"] for e in usage) == pytest.approx(session["cost_usd"])
+    assert all(e["cost_usd"] is not None for e in usage)
+
+
+def test_unpriced_model_growth_keeps_cost_unknown_in_deltas_and_snapshot(projects, start):
+    path = projects / "demo" / "s1.jsonl"
+    append(path, assistant())
+    tail = start()
+    append(path, assistant(message="msg_u", tools=(), out=2))
+    time.sleep(0.2)
+    append(path, assistant(message="msg_u", tools=(), out=9))
+    assert wait_until(lambda: tail.last_id >= 2)
+    snap = tail.snapshot()
+    usage = [e for e in tail.events_since(0) if e["kind"] == "usage"]
+    assert [e["tokens_out"] for e in usage] == [2, 7] and all(e["cost_usd"] is None for e in usage)
+    assert snap["sessions"][0]["tokens_out"] == 9 and snap["sessions"][0]["cost_usd"] is None
 
 
 def test_idle_sessions_are_forgotten_so_memory_stays_bounded(projects, start):

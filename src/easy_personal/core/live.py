@@ -312,13 +312,20 @@ class LiveTail:
     def _count_usage(self, session: _Session, account: str, item: dict) -> None:
         message_id, model, *counts, api_error = item["usage"]
         before = session.messages.get(message_id)
-        if before is None:  # a message is written as several records: one usage event, the largest figures
+        if before is None:  # a message is written as several records: the first one is a usage event
             cost = self._prices.cost(model, *counts)
             self._append(account, item, {"kind": "usage", "tool": None, "is_error": api_error}, (*counts, cost))
             session.messages[message_id] = (*counts, cost)
             return
         largest = [max(a, b) for a, b in zip(counts, before[:4], strict=True)]
-        session.messages[message_id] = (*largest, self._prices.cost(model, *largest))
+        if largest == list(before[:4]):
+            return  # a repeat that grew nothing: no event
+        cost = self._prices.cost(model, *largest)
+        # The page sums snapshot + live events, so growth is an event carrying the difference (cost: None if unpriced).
+        delta = [new - old for new, old in zip(largest, before[:4], strict=True)]
+        delta_cost = None if cost is None or before[4] is None else cost - before[4]
+        self._append(account, item, {"kind": "usage", "tool": None, "is_error": api_error}, (*delta, delta_cost))
+        session.messages[message_id] = (*largest, cost)
 
     def _append(self, account: str, item: dict, event: dict, tokens=(None, None, None, None, None)) -> None:
         self._last_id = next(self._ids)
