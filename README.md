@@ -4,7 +4,7 @@ The Easy Kit plug-in about you, not a repo: it turns your local Claude Code acti
 
 Local-first. No network at runtime. Metadata only, never message content. No LLM inside.
 
-Status: v0.2.0. It runs natively on Linux. See `PRD.md` (what and why), `PROJECT_SPEC.md` (how) and `docs/ddr/` (design decisions).
+Status: v0.3.0. It runs natively on Linux. See `PRD.md` (what and why), `PROJECT_SPEC.md` (how) and `docs/ddr/` (design decisions).
 
 ## What it reads
 
@@ -35,7 +35,7 @@ easy-personal --version
 easy-personal ping
 ```
 
-The first command prints `0.2.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
+The first command prints `0.3.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
 
 ## Quick start
 
@@ -107,7 +107,21 @@ The server has 10 tools. None of them writes config or returns a secret.
 easy-personal dashboard
 ```
 
-This runs an ingest, then starts the page on `127.0.0.1` with a free port. It prints a URL like `http://127.0.0.1:<port>/#<token>` and opens your browser. The token is new on every launch. Press Ctrl-C to stop. The tabs are Usage, Warnings & plan, Kit, Workspaces and Agents.
+This runs an ingest, then starts the page on `127.0.0.1` with a free port. It prints a URL like `http://127.0.0.1:<port>/#<token>` and opens your browser. The token is new on every launch. Press Ctrl-C to stop. The tabs are Live, Board, Scheduled, Memory, Usage, Warnings & plan, Kit, Workspaces and Agents, plus a First run checklist.
+
+### Live view
+
+The Live tab shows what Claude Code is doing now. It runs only while `easy-personal dashboard` is open. There is nothing to install. It adds no hooks and no OpenTelemetry, and it changes no Claude config file.
+
+While the dashboard runs, a background tail follows the transcripts of every confirmed Claude account and checks for new lines about every 100 ms. It reads them through the normal ingest path. The tail and the scheduled ingest share one read position, so no event is counted twice. The page gets the new events over `GET /api/live` (Server-Sent Events). That route uses the same `127.0.0.1` and token guard as the rest of the API.
+
+The tab shows:
+
+- Active sessions: a session that wrote a record in the last 5 minutes, grouped by account and project.
+- A feed of tool calls per session, newest first, the last 50.
+- Running totals of tokens and API-equivalent cost. An unknown model price is named, never counted as $0.
+
+The totals count what the tail saw since the dashboard started. The tab never shows message text, tool input or tool output, only tool names, counts and times. Claude Code itself writes some records a little late, so an event can show up a second or two after it happened.
 
 ## Schedule
 
@@ -230,6 +244,8 @@ git pull
 npm --prefix web ci && npm --prefix web run build
 uv tool install --reinstall --no-cache .
 ```
+
+The first command that opens the store applies the pending migrations. Version 0.3.0 moves a store from version 6 to 7: it adds the `entrypoint` column for the You and Agents split, and the next ingest fills it in. The migration leaves `store.sqlite.bak-v6` beside the store. The Live view needs no config change.
 
 Before an upgrade, back up the store so you can roll back:
 
