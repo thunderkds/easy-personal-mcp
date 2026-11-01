@@ -61,8 +61,17 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-01T02:00:47Z in the worktree at 3a1f707, before any implementation commit:
+
+```
+$ uv run python -c "import easy_personal.core.live"
+    import easy_personal.core.live
+ModuleNotFoundError: No module named 'easy_personal.core.live'
+$ uv run pytest tests/core -q -k live
+369 deselected, 1 warning in 1.06s
+$ grep -n "live" src/easy_personal/surfaces/cli.py
+(no match, exit 1)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
