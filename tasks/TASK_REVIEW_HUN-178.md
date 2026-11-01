@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/LiveView.test.jsx` (30 tests: AC1 feed order/cap, AC2 totals + API-equivalent label, AC3 reconnect state, last_id resume, server restart, design/a11y), `web/src/App.test.jsx` (views list), `tests/test_site_content.py` (AC4 views stat 9). `cd web && npx vitest run LiveView` -> `Tests  30 passed (30)` |
+| Verification command run | ☑ pass | `cd web && npx vitest run LiveView` -> `Test Files  1 passed (1) / Tests  30 passed (30)`; `uv run pytest tests/test_site_content.py -q` -> `33 passed in 0.60s` (2026-11-01) |
+| Negative cases hold | ☑ pass | Tests: malformed message ignored; duplicate/old id (`id <= last_id`) not counted twice; unknown price shown as `abstained: unknown price`, never $0; extra server fields (message text) never rendered; server restart (lower `last_id`) clears stale feed rows. Real run: planted `INVENTED_SECRET_PATH` in the transcript tool input appears 0 times in the page text, the SSE stream, `dash.out` or `dash.err`; the token appears 0 times in logs after the start line. |
+| verify | ☑ pass | Supervisor /verify 2026-11-01, independent re-run (`scratchpad/hun178/up.sh` + `shoot.mjs` + `append.mjs` into a fresh `run-sup` dir): `uv tool install` of the worktree, real `easy-personal dashboard` (`http://127.0.0.1:51263`), headless Chrome at 1280×720 and 375×800: `feed rows before/after append: 0 5` at both widths with no reload, 3 sessions, `status: Live stream connected`, `liveRegion: polite`, `hScroll: False`, body `IBM Plex Sans 14px`, tool `IBM Plex Mono`, requests to `127.0.0.1:51263` only; one console 404 = missing favicon (also on main); SIGINT → stopped; `INVENTED_` hits in page/stream/logs: 0; token in logs outside the start line: 0 — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Stage 4 code-review (Supervisor): `main...HEAD` 7 files (`web/src/LiveView.jsx` + test, `App.jsx`, `api.js`, `app.css`, `site/index.html`, guide); reducer checked against the merged contract: snapshot replaces totals (feed kept unless `last_id` went down = restart), `id <= lastId` dropped, usage deltas summed, null cost → `abstained: unknown price` never $0; consumers: none (leaf view). lane_check `C2, 7 files, 663 lines, EXCEEDS (lines 663 > 500)` — 363 test lines; label kept. Findings: 0 P0/P1/P2; P3: favicon 404 on every view (pre-existing). Screenshots viewed by the Supervisor: house card style, ellipsis on the long project name at 375 px. Security: page shows tool names, counts, times only; token stays in the fragment → `?token=` on `/api/live` only |
+| Full smoke suite still green (no regression) | ☑ pass | `cd web && npx vitest run` -> `Tests  356 passed (356)`; `uv run pytest -q` -> `1048 passed, 6 deselected, 1 xfailed, 1 warning in 129.44s` (static bundle rebuilt first) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier `score` refused every path of this repo this session (`target repository path does not exist`); advisory only |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real dashboard (installed CLI, temp `EASY_PERSONAL_HOME`) + real tail, headless Chrome (Playwright over `/usr/bin/google-chrome`) at 1280x720: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/ffe95e7d-1a2a-4db0-bd19-6595640fcdeb/scratchpad/hun178/after-live-1280.png`. Verdict (viewed): same Graphite Mint card style as Usage/Memory; stream status line, All sessions totals card with the API-equivalent footnote, account heading, project heading, session cards with id, active/idle, totals and feed (newest first). BEFORE (main b289dbe, no Live): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/ffe95e7d-1a2a-4db0-bd19-6595640fcdeb/scratchpad/hun178/before-work-1280.png`. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | vitest `design` block in `web/src/LiveView.test.jsx`: every `.live-*` rule in `app.css` uses only `var(--…)` colors; text colors >= 4.5:1 on card and page backgrounds; Reconnect button shows the shared focus ring; main landmark + heading per section; feed has `aria-live="polite"`. Computed style in the real page: body `IBM Plex Sans` 14px, `.live-tool`/`.live-time`/`.live-id`/dt labels `IBM Plex Mono` (12.5/12.5/13/11.5px); `.live-feed` `aria-live` = `polite`. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280x720: `scrollWidth 1280 = clientWidth 1280`; narrow 375x800 (rail collapsed behind the menu button): `scrollWidth 375 = clientWidth 375`, no horizontal page scroll, long project name truncated with an ellipsis (`/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/ffe95e7d-1a2a-4db0-bd19-6595640fcdeb/scratchpad/hun178/after-live-narrow.png`); `.live-sessions` (`overflow-y: auto`, max-height 70vh) scrolled inside its box (scrollHeight 706 > clientHeight 560) and `.live-feed` is its own scroll box. Vitest: 60 sessions scroll inside their own box; long project name has a `title` and a one-line style. |
 
 ---
 
@@ -61,12 +61,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-01T02:41:02Z from main b289dbe (pre-HUN-178 code) after the branch's implementation commits existed (no BEFORE was taken before them; the earlier BEFORE text in this file is replaced). Main was exported with `git archive b289dbe`, built with `npm --prefix web run build`, installed with `uv tool install` into a temp dir, and run as `easy-personal dashboard` on fixtures; headless Chrome read the sidebar:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ grep -c "live" web/src/App.jsx        # in the b289dbe export
+0
+$ node nav.mjs <dashboard url>          # sidebar buttons, 1280x720
+["// work","Board","Scheduled","Memory","// usage","Usage","Warnings & plan","// kit","Kit","// connect","Workspaces","Agents","// system","First run2 left"]
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Screenshots of the `// work` area without a Live view: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/ffe95e7d-1a2a-4db0-bd19-6595640fcdeb/scratchpad/hun178/before-work-1280.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/ffe95e7d-1a2a-4db0-bd19-6595640fcdeb/scratchpad/hun178/before-work-narrow.png`. The `site/index.html` views stat on main is 8.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: same flow on the HUN-178 branch (installed CLI from the worktree, built bundle, real dashboard with the live tail on; three transcript sessions in 2 projects, 5 tool-call lines appended while the page was open, one with an unpriced model). Page text after the appends:
+
+```
+Live / Live stream connected
+All sessions: Tool calls 5, Tokens in 5,000, Tokens out 1,250, API-equivalent cost $0.02 + abstained: unknown price
+Claude default
+  a-very-long-project-folder-name-... : c44d81a0 active · just now  (1 call, $0.01)  feed: Edit
+  alpha : b7d20e55 (2 calls, abstained: unknown price) feed: Bash, Grep ; a1f3c9e2 (2 calls, $0.01) feed: Glob, WebFetch
+feed rows before/after append (live, no reload): 0 -> 5
+```
+
+Sidebar now lists `Live` first under `// work`. Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/ffe95e7d-1a2a-4db0-bd19-6595640fcdeb/scratchpad/hun178/after-live-1280.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/ffe95e7d-1a2a-4db0-bd19-6595640fcdeb/scratchpad/hun178/after-live-narrow.png`. Raw stream (curl) opened `event: snapshot` with `last_id` 20 and the three sessions; page and logs contain 0 hits of the planted `INVENTED_SECRET_PATH`.
+
+**DELTA**: The owner can open `// work` > Live and watch each active Claude Code session's tool calls arrive newest-first, with running token and API-equivalent cost totals per session and overall, without reloading and without any message or tool content.
+
+**WITNESS**: Supervisor session re-ran the page independently on a fresh install in headless Chrome on 2026-11-01 (verify row: 0 → 5 feed rows live at both widths, 0 leaks); attributed in `memory/event-trace/HUN-178.jsonl`.
