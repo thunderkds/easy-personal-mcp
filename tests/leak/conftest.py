@@ -37,10 +37,12 @@ def leak_run(tmp_path_factory, canaries):
     (agent_root / ".codex").mkdir()
     (agent_root / ".codex" / "config.toml").write_text("")
     canaries.render_memory_notes(repo, agent_root / ".claude-work")  # HUN-164: bodies hold a canary
+    canaries.render_easy_memory(repo, root / "easy-memory")  # HUN-184: notes hold prompt / answer / session canaries, `trash/` too
     canaries.render_agent_files(agent_root)  # HUN-115: `.claude.json` and limits file with unread canaries
     env = harness.child_env(home, projects, ui_reports)
     mp = pytest.MonkeyPatch()
     mp.setenv("EASY_PERSONAL_HOME", str(home))
+    mp.setenv("EASY_MEMORY_HOME", str(root / "easy-memory"))
     mp.setenv("EASY_PERSONAL_CLAUDE_PROJECTS", str(projects))
     mp.setenv("EASY_PERSONAL_AGENT_ROOT", str(agent_root))
     mp.setenv("EASY_PERSONAL_UI_REPORTS", str(ui_reports))

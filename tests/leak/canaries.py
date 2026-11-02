@@ -53,6 +53,10 @@ PATTERNS = {
     "claude_json_user_id": "LEAKCANARY user-id {t}",
     "limits_extra_key": "LEAKCANARY limits-extra {t}",
     "memory_body": "LEAKCANARY memory-body {t}",
+    "easymem_prompt": "INVENTED_easymem-prompt-{t}",  # HUN-184: easy-memory note fields that must never leave core/easymem.py
+    "easymem_answer": "INVENTED_easymem-answer-{t}",
+    "easymem_session": "INVENTED_easymem-session-{t}",
+    "easymem_trash": "INVENTED_easymem-trash-{t}",
 }
 ACCOUNT_EMAIL = "owner@example.invalid"  # the one `.claude.json` value the Agents page shows on purpose
 
@@ -129,6 +133,24 @@ class Canaries:
         notes = claude_folder / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(repo)) / "memory"
         notes.mkdir(parents=True)
         (notes / "leak-note.md").write_text(f"---\nname: leak-note\ndescription: claude note\n---\n{body}\n[[leak-index]]\n")
+
+    def render_easy_memory(self, repo: Path, store_home: Path) -> Path:
+        """Plant an easy-memory store for `repo`: notes citing a kit file and a source file, a log, and a trashed note."""
+        (repo / "src").mkdir(parents=True, exist_ok=True)
+        (repo / "src" / "code.py").write_text("print('x')\n")
+        folder = store_home / "leak0000easymem"
+        (folder / "notes").mkdir(parents=True)
+        (folder / "trash").mkdir()
+        (folder / "meta.json").write_text(json.dumps({"v": 1, "path": str(repo)}))
+        files = {"memory/MEMORY.md": "0" * 64, "src/code.py": "0" * 64}
+        note = {"v": 1, "id": "leak", "time": "2026-11-01T10:00:00Z", "files": files, "session_id": self.values["easymem_session"],
+                "prompt": self.values["easymem_prompt"], "answer": self.values["easymem_answer"]}  # fmt: skip
+        (folder / "notes" / "leak.json").write_text(json.dumps(note))
+        trashed = {**note, "files": {self.values["easymem_trash"]: "0" * 64}, "prompt": self.values["easymem_trash"]}
+        (folder / "trash" / "leak-trashed.json").write_text(json.dumps(trashed))
+        line = {"time": "2026-11-01T10:00:00Z", "session_id": self.values["easymem_session"], "configured": "auto", "effective": "on", "injected": True}
+        (folder / "prompts.log").write_text(json.dumps(line) + "\n")
+        return folder
 
     def render_agent_files(self, agent_root: Path) -> None:
         """Plant `.claude.json` (default + `.claude-work`) and a limits file whose unread keys hold canaries."""

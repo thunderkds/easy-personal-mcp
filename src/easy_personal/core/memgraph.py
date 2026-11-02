@@ -3,7 +3,9 @@
 Sources: `<repo>/memory/**/*.md` (kit memory) of every stored project, and
 `<account>/projects/*/memory/**/*.md` (Claude memory) of every confirmed Claude account. Only the
 frontmatter `name` and `description` lines, the relative path and the `[[link]]` targets leave this
-module; a note body is scanned for link targets and dropped. Read-only: nothing is written anywhere.
+module; a note body is scanned for link targets and dropped. The easy-memory layer (FR-051..053, `core/easymem.py`)
+adds cited-file nodes and a panel block from the easy-memory store, by the same rules. Read-only: nothing is
+written anywhere.
 Core code: it must not import connectors.
 """
 
@@ -13,7 +15,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from easy_personal.core import accounts, discovery, kit
+from easy_personal.core import accounts, discovery, easymem, kit
 
 MAX_NOTE_BYTES = 1024 * 1024  # a bigger note is abstained, never read
 MAX_FILES = 5000  # per memory folder
@@ -115,16 +117,17 @@ def _transcript_project(folder: Path) -> str | None:
 
 
 def _sources(conn: sqlite3.Connection) -> dict[str, dict]:
-    """Project key -> `{"kit": memory folder or None, "claude": [(account id, label, memory folder)]}`.
+    """Project key -> `{"kit": memory folder or None, "claude": [(account id, label, memory folder)], "em": easy-memory folder or None}`.
 
     The key is the stored project path, or the Claude folder name when that folder maps to no project.
+    A stored project with no memory folder is listed when its easy-memory store folder holds a note file.
     Folder checks only: no note is opened here.
     """
     stored = kit.scoped_projects(conn)
     out: dict[str, dict] = {}
     for path in stored:
         if (Path(path) / MEMORY).is_dir():
-            out.setdefault(path, {"kit": Path(path) / MEMORY, "claude": []})
+            out.setdefault(path, {"kit": Path(path) / MEMORY, "claude": [], "em": None})
     by_folder_name = {_encoded(p): p for p in reversed(stored)}
     for account in accounts.list_accounts(conn):
         if account["provider"] != "claude" or account["status"] != "confirmed":
@@ -137,8 +140,17 @@ def _sources(conn: sqlite3.Connection) -> dict[str, dict]:
             if not (folder / MEMORY).is_dir():
                 continue
             key = by_folder_name.get(folder.name) or _transcript_project(folder) or folder.name
-            entry = out.setdefault(key, {"kit": None, "claude": []})
+            entry = out.setdefault(key, {"kit": None, "claude": [], "em": None})
             entry["claude"].append((account["id"], account["label"], folder / MEMORY))
+    store = easymem.load()
+    for key in sorted(set(out) | set(stored)):
+        folder = easymem.find(store, key) if key.startswith("/") else None
+        if folder is None:
+            continue
+        if key in out:
+            out[key]["em"] = folder
+        elif easymem.has_notes(folder):
+            out[key] = {"kit": None, "claude": [], "em": folder}
     return out
 
 
@@ -170,8 +182,12 @@ def project_list(conn: sqlite3.Connection) -> dict:
     for key, source in sorted(_sources(conn).items()):
         files, _ = _files(source)
         kit_notes = sum(f["kind"] == "kit" for f in files)
-        if files:
-            rows.append({"project": key, "name": _display_name(key), "kit_notes": kit_notes, "claude_notes": len(files) - kit_notes})
+        em_notes = easymem.note_count(source["em"]) if source["em"] else 0
+        if files or em_notes:
+            rows.append({
+                "project": key, "name": _display_name(key), "kit_notes": kit_notes,
+                "claude_notes": len(files) - kit_notes, "easy_memory_notes": em_notes,
+            })  # fmt: skip
     return {"projects": rows}
 
 
@@ -183,6 +199,27 @@ def _ring(entry: dict) -> int:
             return 0
         return 1 if entry["rel"].count("/") == 1 else 2
     return 1 if name == "MEMORY.md" else 2
+
+
+def _cited_nodes(nodes: list[dict], cited: list[dict]) -> list[dict]:
+    """Cited files as ring 4 nodes. One that is also a memory node adds its three fields to that node instead."""
+    by_path: dict[str, list[dict]] = {}
+    for node in nodes:
+        by_path.setdefault(node["path"], []).append(node)
+    extra = []
+    for item in cited:
+        fields = {"cited": item["cited"], "newest": item["newest"], "stale": item["stale"]}
+        if item["path"] in by_path:
+            for node in by_path[item["path"]]:
+                node.update(fields)
+            continue
+        name = Path(item["path"]).name
+        extra.append({
+            "id": f"easymem:{item['path']}", "kind": "easy_memory", "ring": 4, "name": name, "stem": Path(name).stem,
+            "description": "", "path": item["path"], "account": None, "abstained": False,
+            "links_in": 0, "links_out": 0, **fields,
+        })  # fmt: skip
+    return extra
 
 
 def project_graph(conn: sqlite3.Connection, project: str) -> dict:
@@ -245,10 +282,14 @@ def project_graph(conn: sqlite3.Connection, project: str) -> dict:
     for source_id, target_id in edges:
         notes[source_id]["links_out"] += 1
         notes[target_id]["links_in"] += 1
+    panel, cited_nodes = None, []
+    if source["em"]:
+        panel, cited = easymem.summary(source["em"], project)
+        cited_nodes = _cited_nodes(nodes, cited)
     return {
         "project": project,
         "name": _display_name(project),
-        "nodes": nodes + sorted(dangling.values(), key=lambda n: n["id"]),
+        "nodes": nodes + sorted(dangling.values(), key=lambda n: n["id"]) + cited_nodes,
         "edges": [{"source": s, "target": t} for s, t in sorted(edges)],
         "counts": {
             "notes": len(nodes),
@@ -258,4 +299,5 @@ def project_graph(conn: sqlite3.Connection, project: str) -> dict:
             "duplicates": duplicates,
             "capped": capped,
         },
+        "easy_memory": panel,
     }

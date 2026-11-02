@@ -12,6 +12,7 @@ def test_fixture_plants_every_canary(canaries, tmp_path):
     canaries.render_ui_reports(tmp_path / "p" / "ui")
     canaries.render_agent_files(tmp_path / "p" / "agents")
     canaries.render_memory_notes(tmp_path / "p" / "repo", tmp_path / "p" / "agents" / ".claude-work")
+    canaries.render_easy_memory(tmp_path / "p" / "repo", tmp_path / "p" / "easy-memory")
     raw = b"".join(p.read_bytes() for p in (*(tmp_path / "p").rglob("*.json*"), *(tmp_path / "p").rglob("*.md")))
     for name, value in canaries.values.items():
         escaped = json.dumps(value)[1:-1].encode()  # how a JSON line holds it
@@ -202,3 +203,15 @@ def test_memory_graph_really_ran_and_kept_bodies_out(leak_run, canaries):
     body = next(blob for label, blob in leak_run.outputs.items() if label.startswith("api /api/memory-graph project="))
     assert "leak-index" in body and "leak-note" in body and "leak-ghost" in body and "dangling" in body
     assert canaries.values["memory_body"] not in body
+
+
+def test_easy_memory_layer_really_ran_and_kept_note_text_out(leak_run, canaries):
+    """HUN-184: the planted store was read (cited file, panel, hit rate); prompt / answer / session / trash never left."""
+    body = next(blob for label, blob in leak_run.outputs.items() if label.startswith("api /api/memory-graph project="))
+    assert '"id":"easymem:src/code.py"' in body and '"kind":"easy_memory"' in body
+    assert '"notes":1' in body and '"prompts_on":1' in body and '"injected":1' in body
+    assert '"stale":"stale"' in body  # the planted hash is not the file's hash
+    for name in ("easymem_prompt", "easymem_answer", "easymem_session", "easymem_trash"):
+        assert canaries.values[name] not in body, name
+    listing = leak_run.outputs["api /api/memory-graph"]
+    assert '"easy_memory_notes":1' in listing
