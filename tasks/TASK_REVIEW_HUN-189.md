@@ -117,7 +117,7 @@ same-snapshot total tokens, owners on/off: 7253177192 7253177192 equal
 sum of groups == total: True ; keys on/off: 129 158
 ```
 
-Why `wt-t165` and `wt-t146-t147` stay in the AFTER list: their branches match two stored repos (`personal-agentic-claude` and a clone at `~/workspace/pets/.spawn/t182-live/repo`), so rule 2 leaves them unchanged (guide: exactly one repo). 21 sibling `wt-*` paths checked: 3 mapped (`wt-t180-auto` -> the `.spawn` clone, `wt-t197`, `wt-t202` -> `personal-agentic-claude`), 5 ambiguous by that clone (`wt-t146-t147`, `wt-t165`, `wt-t169`, `wt-t170`, `wt-t183`). All 12 `.claude/worktrees/*` paths and the 4 `orderly/...` subfolders mapped by rule 1. `T005` and `agent-affa...` left the list (rule 1).
+Why `wt-t165` and `wt-t146-t147` stay in the AFTER list: their branches match two stored repos (`personal-agentic-claude` and a clone at `~/workspace/pets/.spawn/t182-live/repo`), so rule 2 leaves them unchanged (guide: exactly one repo). 21 top-level sibling `wt-*` paths checked: 11 mapped to `personal-agentic-claude`, 6 ambiguous because of that clone (`wt-t146-t147`, `wt-t165`, `wt-t169`, `wt-t170`, `wt-t180-auto`, `wt-t183`), 4 match no stored repo (`wt-t148`, `wt-t150`, `wt-t195`, `wt-t198`: branch never merged or ref deleted). The gone `.claude/worktrees/*` paths and the `orderly/...` subfolders mapped by rule 1 (20-path map at first run; 17 rule-1 paths). `T005` and `agent-affa...` left the list (rule 1).
 
 **DELTA**: Usage by project, the top-project warning and the Kit / Board / Memory lists now count a gone worktree under its owner repo, so 157 project keys became 129 and the gone count in Kit/Board fell from 137/125 to 108/108 (reads still under 2 s), with total tokens unchanged.
 
