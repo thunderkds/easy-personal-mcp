@@ -202,10 +202,15 @@ def _ring(entry: dict) -> int:
 
 
 def _cited_nodes(nodes: list[dict], cited: list[dict]) -> list[dict]:
-    """Cited files as ring 4 nodes. One that is also a memory node adds its three fields to that node instead."""
+    """Cited files as ring 4 nodes. One that is also a kit memory node adds its three fields to that node instead.
+
+    A cited path is relative to the repo, so it can only be a kit note: a Claude note's `memory/...` path is
+    relative to its account folder and names another file even when the text is the same.
+    """
     by_path: dict[str, list[dict]] = {}
     for node in nodes:
-        by_path.setdefault(node["path"], []).append(node)
+        if node["kind"] == "kit":
+            by_path.setdefault(node["path"], []).append(node)
     extra = []
     for item in cited:
         fields = {"cited": item["cited"], "newest": item["newest"], "stale": item["stale"]}

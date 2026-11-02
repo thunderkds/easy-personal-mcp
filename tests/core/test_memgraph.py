@@ -337,6 +337,16 @@ def test_cited_path_equal_to_a_kit_node_adds_fields_to_it(conn, em, world, monke
     assert len(g["nodes"]) == len(plain["nodes"]) + 2
 
 
+def test_cited_path_equal_to_a_claude_note_path_is_not_merged_into_it(conn, em):
+    """`memory/feedback.md` exists only as a Claude note (account folder), not in the repo: no stamp on the Claude node."""
+    (em["folder"] / "notes" / "n9.json").write_text(json.dumps({"v": 1, "time": "2026-11-01T11:00:00Z", "files": {"memory/feedback.md": "h"}}))
+    g = graph(conn, em["repo"])
+    claude = next(n for n in g["nodes"] if n["kind"] == "claude" and n["path"] == "memory/feedback.md")
+    assert "cited" not in claude and "stale" not in claude
+    cited = next(n for n in g["nodes"] if n["id"] == "easymem:memory/feedback.md")
+    assert cited["stale"] == "gone" and cited["cited"] == 1
+
+
 def test_stale_kit_node(conn, em, world):
     (world["mem"] / "decisions.md").write_text("edited since the note")
     assert by_path(graph(conn, em["repo"]))["memory/decisions.md"]["stale"] == "stale"
