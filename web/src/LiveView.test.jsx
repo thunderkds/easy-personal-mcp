@@ -345,6 +345,158 @@ describe('no content', () => {
   })
 })
 
+describe('attention (FR-050)', () => {
+  const failing = { state: 'failing', tool: 'Edit', count: 3, is_sidechain: true, since: 't' }
+  const waiting = { state: 'waiting', tool: 'AskUserQuestion', count: null, is_sidechain: false, since: 't' }
+  const stuck = { state: 'needs_attention', tool: 'Bash', count: null, is_sidechain: false, since: 't' }
+  const pills = (idPrefix) => [...card(idPrefix).querySelectorAll('.live-pill')].map((p) => p.textContent)
+  const order = () => screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent)
+
+  it('AC1: a failing state in a subagent stream renders the tool, the count and "agent" in the card head', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [failing] })]))
+    expect(pills('aaaaaaaa')).toEqual(['failing: Edit ×3 · agent'])
+    expect(card('aaaaaaaa').querySelector('.card-head .live-pill')).not.toBeNull()
+  })
+
+  it('AC2: waiting and needs attention are worded as the guide says', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [waiting] }),
+      session('bbbbbbbb-2', { project: 'beta', attention: [stuck] }),
+    ]))
+    expect(pills('aaaaaaaa')).toEqual(['waiting for you: question'])
+    expect(pills('bbbbbbbb')).toEqual(['needs attention: Bash · hung or waiting for permission'])
+  })
+
+  it('AC2: an unknown tool reads "unknown tool"; a failing streak of mixed tools reads "N in a row"', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [{ ...stuck, tool: null }] }),
+      session('bbbbbbbb-2', { project: 'beta', attention: [{ ...failing, tool: null, count: 3, is_sidechain: false }] }),
+    ]))
+    expect(pills('aaaaaaaa')).toEqual(['needs attention: unknown tool · hung or waiting for permission'])
+    expect(pills('bbbbbbbb')).toEqual(['failing: 3 in a row'])
+  })
+
+  it('two streams failing in one session (main + subagent) give two pills and no duplicate React key', () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [{ ...failing, is_sidechain: false, tool: 'Bash' }, failing] })]))
+    expect(pills('aaaaaaaa')).toEqual(['failing: Bash ×3', 'failing: Edit ×3 · agent'])
+    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/)
+    errors.mockRestore()
+  })
+
+  it('several states on one session give one pill each, failing first; the border takes the first state', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [stuck, waiting, { ...failing, is_sidechain: false }] })]))
+    expect(pills('aaaaaaaa')).toEqual([
+      'failing: Edit ×3',
+      'waiting for you: question',
+      'needs attention: Bash · hung or waiting for permission',
+    ])
+    expect(card('aaaaaaaa')).toHaveAttribute('data-state', 'failing')
+  })
+
+  it('the border state is on the card, one value per state, and absent without a state', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [waiting] }),
+      session('bbbbbbbb-2', { project: 'beta', attention: [stuck] }),
+      session('cccccccc-3', { project: 'gamma' }),
+    ]))
+    expect(card('aaaaaaaa')).toHaveAttribute('data-state', 'waiting')
+    expect(card('bbbbbbbb')).toHaveAttribute('data-state', 'needs_attention')
+    expect(card('cccccccc')).not.toHaveAttribute('data-state')
+    expect(pills('cccccccc')).toEqual([])
+  })
+
+  it('a long tool name is cut by CSS but the whole text is in the title', () => {
+    const tool = 'mcp__claude_ai_Linear__save_issue'
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [{ ...stuck, tool }] })]))
+    const pill = card('aaaaaaaa').querySelector('.live-pill')
+    expect(pill).toHaveAttribute('title', `needs attention: ${tool} · hung or waiting for permission`)
+  })
+
+  it('AC3: a re-sent snapshot without the state removes the pill and border, and keeps the feed', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [failing] })], 1))
+    send(live('aaaaaaaa-1', { id: 2, tool: 'Read' }))
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 2))
+    expect(pills('aaaaaaaa')).toEqual([])
+    expect(card('aaaaaaaa')).not.toHaveAttribute('data-state')
+    expect(feedOf('aaaaaaaa')).toHaveLength(1)
+    expect(screen.queryByText(/need you/)).toBeNull()
+  })
+
+  it('a live event does not change the states of a session', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [failing] }), session('bbbbbbbb-2', { project: 'beta' })]))
+    send(live('aaaaaaaa-1', { tool: 'Read' }))
+    send(live('bbbbbbbb-2', { kind: 'tool_result', tool: 'Bash', is_error: true }))
+    expect(pills('aaaaaaaa')).toEqual(['failing: Edit ×3 · agent'])
+    expect(pills('bbbbbbbb')).toEqual([])
+  })
+
+  it('AC4: the header counts sessions with any state in a status region, and hides it at zero', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [failing, waiting] }), // two states, one session
+      session('bbbbbbbb-2', { project: 'beta', attention: [stuck] }),
+      session('cccccccc-3', { project: 'gamma' }),
+    ]))
+    const count = screen.getByText('2 sessions need you')
+    expect(count.closest('[role="status"]')).not.toBeNull()
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [failing] })]))
+    expect(screen.getByText('1 session needs you').closest('[role="status"]')).not.toBeNull()
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    expect(screen.queryByText(/need/)).toBeNull()
+    expect(screen.getAllByRole('status')).toHaveLength(1) // only the link status is left
+  })
+
+  it('AC5: inside a project a card with a state comes first; ties keep the newest first', () => {
+    const at = (s) => new Date(Date.now() - s * 1000).toISOString()
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('newest00-1', { last_ts: at(1) }),
+      session('older000-2', { last_ts: at(30), attention: [waiting] }),
+      session('oldest00-3', { last_ts: at(60), attention: [stuck] }),
+      session('middle00-4', { last_ts: at(10) }),
+      session('other000-5', { project: 'beta', last_ts: at(5) }),
+    ]))
+    expect(order()).toEqual(['older000', 'oldest00', 'newest00', 'middle00', 'other000'])
+  })
+
+  it('AC6: a session with a state is never shown as idle, even when it is quiet', () => {
+    const quiet = new Date(Date.now() - 3_000_000).toISOString()
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { last_ts: quiet, attention: [stuck] }),
+      session('bbbbbbbb-2', { project: 'beta', last_ts: quiet }),
+    ]))
+    expect(within(card('aaaaaaaa')).queryByText(/idle/)).toBeNull()
+    expect(within(card('aaaaaaaa')).getByText(/active/)).toBeInTheDocument()
+    expect(card('aaaaaaaa')).not.toHaveAttribute('data-idle')
+    expect(within(card('bbbbbbbb')).getByText(/idle/)).toBeInTheDocument()
+  })
+
+  it('AC7: a failed result row shows its tool name, not tool_result', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { kind: 'tool_result', tool: 'Edit', is_error: true, is_sidechain: true }))
+    expect(feedOf('aaaaaaaa')[0]).toMatch(/Edit.*agent.*error/)
+    expect(feedOf('aaaaaaaa')[0]).not.toContain('tool_result')
+  })
+
+  it('shows no content even if the server sent extra attention fields', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [{ ...failing, input: 'SECRET-planted', text: 'SECRET-planted' }] })]))
+    expect(document.body.textContent).not.toContain('SECRET')
+  })
+})
+
 describe('design', () => {
   const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
   const liveCss = css.split('\n').filter((line) => /^[^/]*\.live-/.test(line)).join('\n')
@@ -353,6 +505,14 @@ describe('design', () => {
     expect(liveCss).not.toBe('')
     expect(liveCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
     expect(liveCss).not.toMatch(/\b(rgb|rgba|hsl|hsla)\(/)
+  })
+
+  it('colors the pill and the card border from tokens only, one rule per state, and never by color alone', () => {
+    for (const state of ['failing', 'waiting', 'needs_attention']) {
+      expect(liveCss).toMatch(new RegExp(`\\.live-pill\\[data-state='${state}'\\][^\\n]*color: var\\(--color-[a-z-]+\\)`))
+      expect(liveCss).toMatch(new RegExp(`\\.live-session\\[data-state='${state}'\\][^\\n]*border-color: var\\(--color-[a-z-]+\\)`))
+    }
+    expect(liveCss).toMatch(/\.live-pill[^\n]*font-family: var\(--font-mono\)/)
   })
 
   it('keeps every text color of the view at 4.5:1 or more on the card and page backgrounds', () => {

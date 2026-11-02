@@ -25,8 +25,22 @@ function fromSnapshot(s, old) {
     tokens_out: s.tokens_out,
     cost: s.cost_usd ?? 0,
     unpriced: !priced(s.cost_usd) && hasTokens(s.tokens_in, s.tokens_out),
+    attention: s.attention ?? [], // the server's states; the page never works one out itself
     feed: old?.feed ?? [],
   }
+}
+
+const STATE_ORDER = ['failing', 'waiting', 'needs_attention'] // the first one of a session names its border
+
+/** A session's states, failing first. Unknown state names are left out. */
+const statesOf = (s) => STATE_ORDER.flatMap((state) => s.attention.filter((a) => a.state === state))
+
+/** The words of one state. `tool: null` means the server could not name one (mixed or unknown tools). */
+function pillText(a) {
+  const agent = a.is_sidechain ? ' · agent' : ''
+  if (a.state === 'failing') return a.tool ? `failing: ${a.tool} ×${a.count}${agent}` : `failing: ${a.count} in a row${agent}`
+  if (a.state === 'waiting') return `waiting for you: question${agent}`
+  return `needs attention: ${a.tool ?? 'unknown tool'}${agent} · hung or waiting for permission`
 }
 
 /** A feed row is a tool call, or a tool result that failed. Everything else only moves the totals. */
@@ -74,6 +88,7 @@ const sum = (list) =>
   )
 
 const before = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+const needsYou = (s) => statesOf(s).length > 0
 
 /** account -> project -> sessions, names in order, the newest session of a project first. */
 function group(sessions) {
@@ -85,7 +100,7 @@ function group(sessions) {
       account,
       projects: Object.keys(accounts[account])
         .sort(before)
-        .map((project) => ({ project, sessions: accounts[account][project].sort((a, b) => before(b.last_ts, a.last_ts)) })),
+        .map((project) => ({ project, sessions: accounts[account][project].sort((a, b) => needsYou(b) - needsYou(a) || before(b.last_ts, a.last_ts)) })),
     }))
 }
 
@@ -137,13 +152,19 @@ function Feed({ items }) {
 }
 
 function Session({ s, now, windowS }) {
-  const idle = now - Date.parse(s.last_ts) > windowS * 1000
+  const states = statesOf(s)
+  const idle = states.length === 0 && now - Date.parse(s.last_ts) > windowS * 1000 // a session with a state is never idle
   return (
-    <li className="live-session" data-idle={idle || undefined}>
+    <li className="live-session" data-idle={idle || undefined} data-state={states[0]?.state}>
       <div className="card-head">
         <h4 className="live-id" title={s.session_id}>
           {s.session_id.slice(0, ID_CHARS)}
         </h4>
+        {states.map((a, i) => (
+          <span key={`${a.state}-${i}`} className="live-pill" data-state={a.state} title={pillText(a)}>
+            {pillText(a)}
+          </span>
+        ))}
         <span className="count">{`${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`}</span>
       </div>
       <Totals total={s} />
@@ -192,9 +213,17 @@ export default function LiveView() {
     return () => clearInterval(timer)
   }, [])
   const sessions = Object.values(state.sessions)
+  const needing = sessions.filter(needsYou).length
   return (
     <main className="live">
-      <h1>Live</h1>
+      <div className="live-head">
+        <h1>Live</h1>
+        {needing > 0 && (
+          <p role="status" className="live-need">
+            {needing === 1 ? '1 session needs you' : `${needing} sessions need you`}
+          </p>
+        )}
+      </div>
       <div className="live-status">
         <p role="status">{STATUS[link]}</p>
         {link === 'closed' && (
