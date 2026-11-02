@@ -227,11 +227,11 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-182 | Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Low | P0 |
 | HUN-183 | Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Todo | Backend-Implementer | C1 | Low | P1 |
 | HUN-184 | easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P1 |
-| HUN-185 | Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Todo | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-185 | Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Medium | P1 |
 | HUN-186 | Dashboard speed + gone-project filter (FR-054, NFR-013) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-187 | Board view UX: one project at a time, hide no-board projects, plain clamped titles, phone width (FR-055) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Low | P0 |
 | HUN-188 | Usage, Memory and Kit view UX: one-line numbers, distinct model names, Memory default, Kit fold (FR-054, FR-056) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Low | P1 |
-| HUN-189 | Owner project: count gone worktrees under their main repo in usage by project, top-project warning and project lists (FR-057) | In Progress | Backend-Implementer | C2 | Medium | P1 |
+| HUN-189 | Owner project: count gone worktrees under their main repo in usage by project, top-project warning and project lists (FR-057) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
