@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/Timeline.test.jsx` (describe 'top 10 and Show N more (HUN-191, FR-058)': AC1 60 sessions 10 cards + "Show 50 more" -> 60 + "Show fewer" + `aria-expanded`, heading "Session timeline (60)"; native button; AC2 10 / 11 / 0 sessions; AC3 `detail_sessions: 50` card 51+ no `svg.chart`, no gap in footer, no "Gap of", has the muted line, totals + progressbar kept, cards 1-50 unchanged; number from `detail_sessions` (12); no field = 60 charts; AC5 "Showing N of" gone; AC4 existing share test now "also those folded away" (1.67 %)). Old "caps the list" test replaced on purpose. `cd web && npx vitest run Timeline Usage Widgets` -> `Test Files 3 passed (3)  Tests 112 passed (112)` |
+| Verification command run | ☑ pass | `npx vitest run Timeline Usage Widgets` -> 3 files, 112 passed; `npm --prefix web run build` -> `✓ built in 794ms`; `uv run pytest tests/test_web_toolchain.py -q` -> `16 passed in 2.39s` |
+| Negative cases hold | ☑ pass | exactly 10 -> no button, exactly 11 -> "Show 1 more", 0 -> "No sessions in this period." and no button, no `detail_sessions` -> 60/60 charts and no "Chart kept" line (Timeline.test.jsx) |
+| verify | ☑ pass | Stage 5 2026-11-02 @ ba32dc1 (Supervisor, own driver `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/v191/v.mjs`, worktree build, real `easy-personal dashboard`, Usage → Last 30 days) at 1280×720 and 375×812: folded "Session timeline (599)", 10 cards, 10 charts, button "Show 589 more" aria-expanded false, no "Showing 50 of" line; open: 599 cards, 50 charts, 549 "Chart kept for the newest 50 sessions only." lines, "Show fewer" aria-expanded true, opened in ~0.53 s; last card has no gap count; no horizontal scroll; 0 page errors — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed `web/src/Timeline.jsx` (useTopN, `charted` by `detail_sessions`), `web/src/Timeline.test.jsx`, `metrics.py` docstring; caller `UsageView.jsx` (unchanged), `useTopN` from HUN-190. `lane: C1, 3 files, 126 lines, FITS`. Code review: 0 P0, 0 P1, 0 P2, 0 P3. Security: page-only, text nodes only — 0 findings (Low risk). Startup reads complete |
+| Full smoke suite still green (no regression) | ☑ pass | full web suite `cd web && npx vitest run` -> `Test Files 18 passed (18)  Tests 474 passed (474)`; Python suite not run (only a docstring in `metrics.py` changed; `tests/test_web_toolchain.py` 16 passed) |
+| **Companion score (easy-verifier)** | ☑ N/A | Not run: learnings 2026-11-01 — easy-verifier refused every repo path |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | owner data, Usage, Last 30 days, 2026-11-02T11:59:49Z: folded = 10 cards + "Show 589 more"; screenshots viewed: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/after-1280-folded.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/after-1280-open-last.png` (no-chart card with muted line, share bar, footer, then "Show fewer" in the same Kit button style), BEFORE `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/before-1280-folded.png` |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | reuses `useTopN` (`.details-toggle`) and `.muted`; `git diff main --stat` shows no CSS or `tokens.css` change; vitest asserts `aria-expanded` false/true and the count in the button text |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280x720 and 375x800 on owner data, measured with the list open (599 cards, worst case): `documentElement.scrollWidth`/`clientWidth` = 1280/1280 and 375/375, no horizontal scroll; screenshots `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/after-375-folded.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/after-375-open-last.png` |
 
 ---
 
@@ -61,12 +61,28 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T11:56:39Z (headless Chrome via playwright-core against `BROWSER=true uv run easy-personal dashboard` run from the HUN-191 worktree before any change; owner's store; Usage, "Last 30 days"; scripts and raw output in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+heading: "Session timeline (599)"
+cards (li[data-session]): 50     charts (svg.chart): 50     "Chart kept..." lines: 0     show/hide button: none
+text (2026-11-02T11:57:37Z): "Showing 50 of 599 sessions, newest first."
+scrollWidth/clientWidth: 1280/1280 and 375/375
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Screenshots: `.../hun191/before-1280-folded.png`, `.../hun191/before-375-folded.png`.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: captured 2026-11-02T11:59:49Z, same script and same owner store, from the HUN-191 worktree after commit d67ef36 (raw: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/after.json`):
+
+```
+heading: "Session timeline (599)"
+folded: cards 10, charts 10, "Chart kept..." lines 0, "Showing N of" lines 0, button "Show 589 more" (aria-expanded="false")
+open:   cards 599, charts 50, "Chart kept for the newest 50 sessions only." lines 549, button "Show fewer" (aria-expanded="true")
+last card (easy-verifier-mcp, 799 messages, 143,328,727 tokens): no chart, line "Chart kept for the newest 50 sessions only.", share bar kept
+scrollWidth/clientWidth: 1280/1280 and 375/375
+```
+
+**DELTA**: The owner can now list all 599 sessions of the last 30 days (10 shown first, "Show 589 more" for the rest) instead of only 50; sessions past the 50 with chart detail show their totals and a "Chart kept for the newest 50 sessions only." line.
+
+**WITNESS**: Supervisor, Stage 5 2026-11-02, own driver `v191/v.mjs` on the owner's real data (not the implementing agent's script); trace `memory/event-trace/HUN-191.jsonl`.
+
