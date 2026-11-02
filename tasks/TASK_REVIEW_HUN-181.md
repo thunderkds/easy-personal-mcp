@@ -70,9 +70,17 @@ has attention: False | snapshot keys: ['active_window_s', 'last_id', 'sessions']
 tool_result events: [('tool_result', None, True), ('tool_result', None, True), ('tool_result', None, True)]
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same script, 2026-11-02T03:24:19Z (the script's `BEFORE` label is only its print text), after the change:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+snapshot session keys: ['account', 'attention', 'cache_creation', 'cache_read', 'cost_usd', 'last_ts', 'project', 'session_id', 'tokens_in', 'tokens_out', 'tool_calls']
+has attention: True | snapshot keys: ['active_window_s', 'last_id', 'open_call_minutes', 'sessions', 'state_version']
+tool_result events: [('tool_result', 'Bash', True), ('tool_result', 'Bash', True), ('tool_result', 'Bash', True)]
+```
+
+Real run (AC 12, headless `claude -p --model claude-haiku-5-5`, dashboard with `live_open_call_minutes: 1`): `/api/live` showed `failing` (Bash, count 4) at 03:20:40 after `false` x3, and `needs_attention` (Bash, count 1) at 03:23:08 for a `python3 -c 'import time; time.sleep(90)'` call, cleared at its result (03:23:38).
+
+**DELTA**: A live session now carries `attention` states (`failing`, `waiting`, `needs_attention`) in `snapshot()` and `GET /api/live`, and failed results name their tool.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
