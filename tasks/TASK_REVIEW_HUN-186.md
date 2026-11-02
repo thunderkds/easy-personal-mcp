@@ -41,12 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/surfaces/test_dashboard_speed.py` (17 tests: golden equality AC4, gone x3 lists AC5, gone history counts AC6, sessions detail/size AC3, no per-project git or trace scan, lighter token queries equal the full ones), fixture `tests/surfaces/hun186_fixture.py`, golden `tests/surfaces/hun186_golden.json` (captured from main de96ca4); updated for the new shape: `tests/core/test_board.py`, `tests/surfaces/test_api.py`, `test_api_board.py`, `test_api_memory_graph.py`, `test_scope_warnings.py` |
+| Verification command run | ☑ pass | `uv run pytest -q && uv run ruff check src tests` -> `1138 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 258.33s (0:04:18)` then `All checks passed!` (leak suite included) |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | same run as above; one earlier full run had `tests/e2e/test_workspaces_flow.py::test_nothing_outside_the_temp_machine_is_touched[cli]` fail while other agents used the real ~/.easy-personal (its guard reports a change of the real store); it passed alone and in the final full run |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -88,9 +88,28 @@ Profile breakdown (cProfile in-process on the same copy, `profile_before.txt`, l
 - board 0.50 s: `scoped_projects` 0.44 s; board files 0.05 s.
 - usage/summary 0.84 s and outliers 0.89 s: SQL only (event scans), no Python hot spot.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (captured 2026-11-02 15:48 local on the same store COPY and the same harness; code = commit 0549c01; `uptime` before: `15:48:16 up 7:31, load average: 4.90, 6.81, 10.24`, after: `15:48:46 ... load average: 5.38, 6.76, 10.11`; no migration, schema unchanged at v7):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+| Route (as the views call it) | run 1 / 2 / 3 (s) | median (s) BEFORE -> AFTER | bytes BEFORE -> AFTER |
+|---|---|---|---|
+| /api/board | 0.26 / 0.25 / 0.30 | 0.34 -> **0.26** | 133,370 -> 121,207 (134 gone projects dropped, `gone` added) |
+| /api/kit | 0.71 / 0.65 / 0.72 | 7.78 -> **0.71** | 98,424 -> 73,741 |
+| /api/memory-graph (list) | 0.44 / 0.49 / 0.51 | 0.39 -> **0.49** (see note) | 7,545 -> 5,624 |
+| /api/warnings | 1.38 / 1.30 / 1.27 | 2.81 -> **1.30** | 1,524 -> 1,526 |
+| /api/plan | 1.21 / 1.39 / 1.32 | 3.48 -> **1.32** | 1,310 -> 1,310 |
+| /api/usage/summary (all time) | 0.68 / 0.59 / 0.59 | 1.18 -> **0.59** | 648 |
+| /api/usage/summary?since=7d | 0.44 / 0.44 / 0.42 | 1.29 -> **0.44** | 479 |
+| /api/usage/outliers (all time) | 0.81 / 1.01 / 0.89 | 1.35 -> **0.89** | 20,980 |
+| /api/usage/outliers?since=7d | 0.43 / 0.44 / 0.44 | 0.60 -> **0.44** | 9,885 |
+| /api/usage/sessions (all time) | 1.13 / 1.18 / 1.03 | 7.22 -> **1.13** | 7,670,516 -> 472,618 |
+| /api/usage/sessions?since=7d (page default) | 0.50 / 0.52 / 0.51 | 3.09 -> **0.51** | 3,785,348 -> **389,062** (< 1 MB) |
+| /api/usage/breakdown by day / model / project / tool, 7d | day 0.43/0.43/0.54; model 0.34/0.31/0.35; project 0.33/0.31/0.32; tool 0.31/0.31/0.34 | 0.79 / 0.34 / 0.79 / 0.58 -> 0.43 / 0.34 / 0.32 / 0.31 | same |
+
+Note: memory-graph list is not faster (0.39 BEFORE was measured at load 4; AFTER at load 5-9 it ran 0.44-0.86). Its cost is the `SELECT DISTINCT project_path` scan (0.26-0.28 s) plus easy-memory folder reads; it was already far below 2 s, so no fix was made.
+Also measured at load 8-9 (other agents running tests, 15:45): warnings 2.14-2.85, plan 2.04-2.49, kit 1.66-2.14, memory-graph 0.85, sessions all-time 1.1-1.6: the same code is above 2 s for warnings and plan when the load average is above ~8. Every other route stays below 2 s at that load.
+Gone counts on the copy: `/api/kit` gone 133 (28 listed), `/api/board` gone 121 (28 listed; worktree paths are skipped before counting, as before), `/api/memory-graph` gone 24 (31 listed; counts only gone projects that had memory notes).
+
+**DELTA**: Every dashboard read opens in under 2 s on the owner's store copy at load average ~5 (kit 7.8 s -> 0.7 s, warnings 2.8 s -> 1.3 s, plan 3.5 s -> 1.3 s, sessions 3.1 s / 3.8 MB -> 0.5 s / 0.39 MB), and the Board, Kit and Memory lists no longer show the 133 projects whose folder is gone, each with a `gone` count.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
