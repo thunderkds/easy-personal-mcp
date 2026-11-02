@@ -88,3 +88,11 @@
 **Approved by**: owner, 2026-11-02 (4 grill answers + 2 flag answers + badge mockup + quiet rule; "let go" with Option C).
 **Files**: `PRD.md` US-023, FR-044 (amended), FR-047..FR-050, NFR-012, OQ 15–17; `BRAINSTORMING_LOG_ATTENTION.md`; `PROJECT_SPEC.md` glossary (Live tail, Stream, Open call, Attention state). DDR gate: < 2 of 3 criteria → no DDR.
 **Stage 2 2026-11-02**: 3 tasks on Linear — HUN-181 live tail attention + stream re-send (P0, C2, Medium → `security-review`), HUN-182 Live view badge (P0, C2, Low, UI Evidence rows), HUN-183 release 0.4.0 (P1, C1, Low); chain 181 → 182 → 183.
+
+## 2026-11-02 — easy-memory layer in the Memory view = one graph response (Option A)
+
+**Decision**: The Memory view also shows the easy-memory store (`$EASY_MEMORY_HOME`, else `~/.easy-memory/`), read as files — never through the easy-memory MCP (keeps DDR-0002) — metadata only: each note's `time` + `files` map and `prompts.log` `time` / `effective` / `injected`; `prompt`, `answer`, `session_id` and `trash/` never leave `core/easymem.py`. Per project: the 30 most-cited files as `easy_memory` nodes on ring 4 (merged into a kit / Claude node with the same path), stale = newest citing note's hash ≠ disk (or gone), a 30-day panel (notes per local day, hit rate), easy-memory-only projects listed. Same `/api/memory-graph` route, no new route, nothing stored.
+**Why**: owner asked to "show memory visualize from easy-memory mcp with the kit family"; notes have no `[[links]]`, so cited files are the only graph-shaped metadata; MCP tools return note text, which the metadata-only rule bans. Options B (separate route) and C (panel first) rejected in `BRAINSTORMING_LOG_EASYMEMORY.md`.
+**Approved by**: owner, 2026-11-02 (5 grill answers + Option A + "continue").
+**Files**: `PRD.md` US-024, FR-051..FR-053, NFR-010 (amended), OQ 18–19; `BRAINSTORMING_LOG_EASYMEMORY.md`; `PROJECT_SPEC.md` glossary (easy-memory note, Cited file), read-only constraint, Content leakage row. DDR gate: < 2 of 3 criteria (easy to reverse, no new route or storage) → no DDR.
+**Stage 2 2026-11-02**: 2 tasks on Linear — HUN-184 backend reader + graph fields (P1, C2, Medium → `security-review`), HUN-185 Memory view layer (P1, C2, Medium, UI Evidence rows); chain 184 → 185. Not part of the v0.4.0 release (HUN-183); release placement decided after HUN-185.

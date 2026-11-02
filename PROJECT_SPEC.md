@@ -75,6 +75,8 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Entrypoint** — the transcript's `entrypoint` field (`cli`, `sdk-cli`, …), stored per event from the Work view migration on.
 - **Scheduled job** — a systemd user timer or crontab line whose command's first word (basename) is on the agent allow-list (`claude`, `easy-personal`, `easy-personal-launch`, kit tools). Shown: name, kind, schedule, next run, last run, last exit code. Arguments are never read out. Not a /loop job or a cloud routine.
 - **Memory note** — one `.md` file under `<repo>/memory/` (**kit memory**) or `~/.claude*/projects/*/memory/` (**Claude memory**). Its graph identity is the frontmatter `name` slug, else the file stem.
+- **easy-memory note** — one `notes/<id>.json` in the easy-memory store (`$EASY_MEMORY_HOME`, else `~/.easy-memory/<key>/`), saved by easy-memory's Stop hook. Only its `time` and `files` map are read out; its `prompt`, `answer` and `session_id` never leave `core/easymem.py`. Not a **Memory note** (no frontmatter, no links). *(planned, 2026-11-02)*
+- **Cited file** — a repo-relative path in an easy-memory note's `files` map, drawn as one graph node per project (top 30 by citation count, FR-052). **Stale** when the file's current SHA-256 differs from the hash in the newest note that cites it, or the file is gone. *(planned, 2026-11-02)*
 - **Dangling link** — a `[[name]]` in a memory note that resolves to no memory note in the same project; drawn as an empty node.
 - **Live tail** — the background reader `core/live.py` that follows transcripts while `easy-personal dashboard` runs (FR-043). Not the scheduled ingest, though both share one cursor.
 - **Stream** — one transcript file of a session: the main thread or one subagent (`subagents/*.jsonl`). Subagent records share the parent's session id, so failure streaks and open calls are kept per stream. *(planned, 2026-11-02)*
@@ -86,7 +88,7 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 
 ## Critical Constraints
 
-- Read-only on every source: never modify `~/.claude/projects/`, kit traces, report folders, `~/.easy-context/` or any repo.
+- Read-only on every source: never modify `~/.claude/projects/`, kit traces, report folders, `~/.easy-context/`, the easy-memory store (`~/.easy-memory/`) or any repo. easy-memory is read as files, never through its MCP (FR-051), and its `trash/` is never read.
 - Store and emit **metadata only**: no message text, tool input/output, trace `summary`, easy-ui `target`, file contents or secrets in the store, MCP/API responses, page, or logs. Named exception (owner, 2026-10-31): the Work view may *show, never store* board task titles (FR-037) and memory note frontmatter `name` + `description` (FR-041); note bodies and job arguments stay banned.
 - No traffic leaves the machine: local calls to `127.0.0.1` only; every HTTP surface binds `127.0.0.1`, never `0.0.0.0`; the page loads no remote asset (CSP `default-src 'self'`).
 - The only runtime call to another plug-in is the read-only easy-context MCP client (allow-list: `list_indexes`, `get_stats`). Never `index_path`; never call easy-verifier or easy-ui at runtime (DDR-0002).
@@ -105,7 +107,7 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 | Area | Risk Level | Reason | Files |
 |------|-----------|--------|-------|
 | Transcript parsing | High | Undocumented, changing format; silent mis-parse = wrong numbers | `sources/claude_code.py` |
-| Content leakage | High | Transcripts, trace `summary` and easy-ui `target` hold private text | `sources/`, `core/store.py`, all surfaces |
+| Content leakage | High | Transcripts, trace `summary`, easy-ui `target` and easy-memory notes (`prompt`, `answer`) hold private text | `sources/`, `core/store.py`, `core/easymem.py`, all surfaces |
 | Launcher | High | In the start path of every connector; handles live secrets | `launch.py` |
 | Dashboard write path | High | Browser-reachable `127.0.0.1` endpoint that stores secrets (CSRF, DNS rebinding) | `surfaces/api.py`, `web/` |
 | Claude Code config writes | Med | A wrong entry breaks a connector; must go through the official CLI | `connectors/writer.py` |
@@ -222,6 +224,8 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-181 | Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-182 | Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Todo | Frontend-Implementer | C2 | Low | P0 |
 | HUN-183 | Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Todo | Backend-Implementer | C1 | Low | P1 |
+| HUN-184 | easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Todo | Backend-Implementer | C2 | Medium | P1 |
+| HUN-185 | Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Todo | Frontend-Implementer | C2 | Medium | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
