@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/LiveView.test.jsx` (describe 'attention (FR-050)': 12 tests for AC1-AC7, plus 1 design test for token-only pill/border colours). Before the change 11 of them failed (see BEFORE); after: `Tests 52 passed (52)` for `LiveView neon`. |
+| Verification command run | ☑ pass | 2026-11-02T04:40Z `cd web && npx vitest run LiveView neon` -> `Test Files 2 passed (2) / Tests 52 passed (52)`; `uv run pytest tests/test_site_content.py -q` -> `33 passed in 1.23s`. |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `cd web && npx vitest run` -> `Tests 370 passed (370)` (web suite only; no Python code changed). |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Fixture stream (fake SSE server + built page, no real store), 1280x720: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/shots/live-wide.png`. Verdict: matches the owner mockup (card head = id, pill, active/idle count; red / green / amber card border by state; header '4 sessions need you'); stateless cards keep the v0.3.0 style. Script: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/shoot.mjs`. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Test 'colors the pill and the card border from tokens only' + existing 'Live rules ... only var(--...) colors' and '4.5:1' tests (the contrast test now also covers the red, accent and amber pill/header colours on --color-bg and --color-raised). Computed style in the screenshot run: pill font-family `"IBM Plex Mono", ...`, pill colour rgb(239,123,123) = --color-red, failing card border rgb(239,123,123). Text label is always in the pill. Only one theme (dark) exists in tokens.css, so 'both themes' = the one theme. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280x720 and 375x800 (rail collapsed behind Menu): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/shots/live-wide.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/shots/live-narrow.png`. `document.documentElement.scrollWidth` = innerWidth in both (1280/1280, 375/375): no horizontal page scroll. Pill wraps under/next to the id; long tool name `mcp__claude_ai_Linear__save_issue` is cut with an ellipsis and its full text is in `title`. |
 
 ---
 
@@ -61,10 +61,48 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured on main @ 16eb0c2 code, with the new attention tests written but no implementation commit; command `cd web && npx vitest run LiveView`, output filtered to results, first line is the UTC time):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+2026-11-02T04:36:31Z
+     × AC1: a failing state in a subagent stream renders the tool, the count and "agent" in the card head 12ms
+     × AC2: waiting and needs attention are worded as the guide says 8ms
+     × AC2: an unknown tool reads "unknown tool"; a failing streak of mixed tools reads "N in a row" 10ms
+     × several states on one session give one pill each, failing first; the border takes the first state 6ms
+     × the border state is on the card, one value per state, and absent without a state 11ms
+     × a long tool name is cut by CSS but the whole text is in the title 7ms
+     × a live event does not change the states of a session 10ms
+     × AC4: the header counts sessions with any state in a status region, and hides it at zero 13ms
+     × AC5: inside a project a card with a state comes first; ties keep the newest first 19ms
+     × AC6: a session with a state is never shown as idle, even when it is quiet 8ms
+     × colors the pill and the card border from tokens only, one rule per state, and never by color alone 1ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > AC1: a failing state in a subagent stream renders the tool, the count and "agent" in the card head
+AssertionError: expected [] to deeply equal [ 'failing: Edit ×3 · agent' ]
+-   "failing: Edit ×3 · agent",
+    358|     expect(pills('aaaaaaaa')).toEqual(['failing: Edit ×3 · agent'])
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > AC2: waiting and needs attention are worded as the guide says
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > AC2: an unknown tool reads "unknown tool"; a failing streak of mixed tools reads "N in a row"
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > several states on one session give one pill each, failing first; the border takes the first state
+AssertionError: expected [] to deeply equal [ 'failing: Edit ×3', …(2) ]
+-   "failing: Edit ×3",
+    386|       'failing: Edit ×3',
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > the border state is on the card, one value per state, and absent without a state
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > a long tool name is cut by CSS but the whole text is in the title
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > a live event does not change the states of a session
+AssertionError: expected [] to deeply equal [ 'failing: Edit ×3 · agent' ]
+-   "failing: Edit ×3 · agent",
+    430|     expect(pills('aaaaaaaa')).toEqual(['failing: Edit ×3 · agent'])
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > AC4: the header counts sessions with any state in a status region, and hides it at zero
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > AC5: inside a project a card with a state comes first; ties keep the newest first
+ FAIL  src/LiveView.test.jsx > attention (FR-050) > AC6: a session with a state is never shown as idle, even when it is quiet
+ FAIL  src/LiveView.test.jsx > design > colors the pill and the card border from tokens only, one rule per state, and never by color alone
+ Test Files  1 failed (1)
+      Tests  11 failed | 33 passed (44)
+   Duration  1.39s (tests 62%, environment 30%, setup 5%, import 2%, transform 1%)
+```
+
+**AFTER** (2026-11-02T04:40:14Z, same file, after the change): `cd web && npx vitest run LiveView neon` -> `Test Files 2 passed (2)`, `Tests 52 passed (52)`. Screenshot: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/shots/live-wide.png` shows `failing: Edit ×3 · agent`, `waiting for you: question`, `needs attention: mcp__claude_ai_Linear__s…` pills with red/green/amber borders and the header text `4 sessions need you`.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

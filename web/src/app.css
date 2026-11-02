@@ -415,6 +415,8 @@ main.memory { max-width: none; }
 
 /* Live view (HUN-178): totals strip, then sessions by account and project; the list scrolls inside its own box */
 main.live { max-width: none; }
+.live-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-5); }
+.live-need { margin: 0; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-amber); }
 .live-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-secondary); }
 .live-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: var(--space-2) var(--space-4); }
 .live-totals dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
@@ -425,6 +427,15 @@ main.live { max-width: none; }
 .live-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-link); }
 .live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: var(--space-3); }
 .live-session { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-raised); }
+.live-session .card-head { flex-wrap: wrap; row-gap: var(--space-1); }
+.live-session .count { margin-left: auto; }
+.live-session[data-state='failing'] { border-color: var(--color-red); }
+.live-session[data-state='waiting'] { border-color: var(--color-accent); }
+.live-session[data-state='needs_attention'] { border-color: var(--color-amber); }
+.live-pill { box-sizing: border-box; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 var(--space-2); border: 1px solid currentColor; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-label); }
+.live-pill[data-state='failing'] { color: var(--color-red); }
+.live-pill[data-state='waiting'] { color: var(--color-accent); }
+.live-pill[data-state='needs_attention'] { color: var(--color-amber); }
 .live-session[data-idle] .live-id { color: var(--color-muted); }
 .live-id { margin: 0; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-accent); }
 .live-feed { display: flex; flex-direction: column; gap: var(--space-1); max-height: 14rem; overflow-y: auto; font-size: var(--fs-note); }
