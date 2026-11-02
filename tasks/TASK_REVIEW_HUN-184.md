@@ -41,8 +41,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_easymem.py` (new, 37 tests), `tests/core/test_memgraph.py`, `tests/surfaces/test_api_memory_graph.py`, `tests/leak/test_leak_suite.py` + `canaries.py` / `conftest.py` / `harness.py` |
+| Verification command run | ☑ pass | `67 passed, 390 deselected` (core) / `7 passed, 183 deselected` (surfaces) / `33 passed` (leak); full suite `1120 passed, 2 skipped, 6 deselected, 1 xfailed in 153.49s`; `ruff check src tests`: All checks passed |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
@@ -71,9 +71,20 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ```
 No `easy_memory_notes` on the list row, no `cited`/`newest`/`stale` on the node, no `easy_memory` block, no cited-file node for `src/a.py`, easy-memory-only project not listed.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-02T04:44:13Z, same command on branch HUN-184; `days` shortened to its non-zero entry):
+```
+{"projects": [{"project": "<tmp>/alpha", "name": "alpha", "kit_notes": 1, "claude_notes": 0, "easy_memory_notes": 1}]}
+{"project": "<tmp>/alpha", "name": "alpha",
+ "nodes": [{"id": "kit:memory/MEMORY.md", "kind": "kit", "ring": 0, ..., "links_out": 0, "cited": 1, "newest": "2026-11-01", "stale": "stale"},
+           {"id": "easymem:src/a.py", "kind": "easy_memory", "ring": 4, "name": "a.py", "stem": "a", "description": "", "path": "src/a.py",
+            "account": null, "abstained": false, "links_in": 0, "links_out": 0, "cited": 1, "newest": "2026-11-01", "stale": "stale"}],
+ "edges": [], "counts": {...unchanged...},
+ "easy_memory": {"notes": 1, "abstained": 0, "days": [30 x {date, count}; 2026-11-01 = 1], "prompts_on": 1, "injected": 1,
+                 "files_cited": 2, "files_not_drawn": 0, "outside": 0}}
+```
+Real run on the owner's machine (read-only; the store was copied with the sqlite backup API, then `GET /api/memory-graph` through the guarded app, 2026-11-02T04:44:06Z): list 200, 40 projects, 204 ms; graph of easy-personal-mcp 200, 166 ms, 32 nodes (27 easy_memory; fresh 20, stale 10 across all node kinds); block `{"notes": 102, "abstained": 0, "prompts_on": 12, "injected": 5, "files_cited": 44, "files_not_drawn": 14, "outside": 0}`, days (oldest first, 30 entries) ending `... 0, 49, 0, 26, 11, 16`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: `GET /api/memory-graph` now returns cited-file nodes, stale marks, the 30-day easy-memory panel and per-project easy-memory note counts (including easy-memory-only projects), read from the easy-memory store files with no note text.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
