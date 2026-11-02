@@ -61,8 +61,32 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured before any implementation commit, unchanged `main` code at 2f9dbf0, read-only `?mode=ro` connection to `~/.easy-personal/store.sqlite`; script = usage_breakdown(project), kit.scoped_projects, kit_summary(hide_gone), board, memgraph.project_list, tokens_by_project; each timed as median of 3):
+
+```
+captured 2026-11-02T10:21:32Z store /home/hungnguyenhuu/.easy-personal/store.sqlite
+usage_breakdown(project) all-time: 157 keys, total tokens 7239133029; median 0.428s runs [0.441, 0.424, 0.428]
+    2,300,421,336  orderly
+    1,383,952,220  personal-agentic-claude
+    1,213,879,909  easy-verifier-mcp
+      732,328,896  easy-personal-mcp
+      376,132,068  idea-radar
+      309,276,993  easy-context-mcp
+      293,230,753  easy-memory-mcp
+      216,479,110  kitchd
+      132,445,400  idea-ladder
+       83,782,283  easy-ui-mcp
+       78,227,869  java-training
+       11,916,435  T005
+       11,579,131  wt-t165
+        9,623,719  wt-t146-t147
+        8,483,812  agent-affa2aecb6624047e
+kit.scoped_projects: 172 paths (35 alive, 137 gone); median 0.203s
+kit_summary(hide_gone): 35 projects, gone=137; median 0.584s runs [0.584, 0.612, 0.574]
+board: 35 projects, gone=125; median 0.224s
+memory project_list: 31 projects, gone=27; median 0.297s
+tokens_by_project: 157 keys; median 0.246s
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
