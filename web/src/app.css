@@ -444,3 +444,13 @@ main.live { max-width: none; }
 .live-tool { font-family: var(--font-mono); color: var(--color-text); overflow-wrap: anywhere; }
 .live-tag { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .live-tag.error { color: var(--color-red); }
+
+/* Usage, Memory, Kit UX */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.kpi-value { white-space: nowrap; overflow-wrap: normal; }
+.kpi-note { overflow-wrap: anywhere; }
+/* By model: the id wraps at its hyphens, so two ids that differ only at the end stay different on screen (full id in the title). */
+.model-table th:first-child { max-width: none; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+.gone-note { margin-block: var(--space-2); }
+.model-table td.cost-cell { white-space: normal; min-width: 6rem; }
+.cost-note { display: block; font-size: var(--fs-label); overflow-wrap: anywhere; }

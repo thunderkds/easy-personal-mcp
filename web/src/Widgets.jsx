@@ -1,4 +1,4 @@
-import { percent } from './format.js'
+import { compact, fmt, percent } from './format.js'
 
 const W = 200
 const H = 40
@@ -70,5 +70,18 @@ export function Progress({ ratio, label }) {
     <div className="progress" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(pct.toFixed(2))}>
       <div className="progress-fill" style={{ width: `${pct}%` }} />
     </div>
+  )
+}
+
+/** A big count on one line: the compact form is what the eye sees; the full value is the title and the accessible text. Below 10,000 it is just the number. */
+export function Compact({ n, className }) {
+  const short = compact(n)
+  const full = fmt(n)
+  if (short === full) return <span className={className}>{full}</span>
+  return (
+    <span className={className} title={full}>
+      <span aria-hidden="true">{short}</span>
+      <span className="sr-only">{full}</span>
+    </span>
   )
 }

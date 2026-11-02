@@ -17,6 +17,7 @@ const withProjects = (...projects) => ({ kit: { ...kit, projects } })
 async function openDetails() {
   fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
 }
+const showMore = () => fireEvent.click(screen.getByRole('button', { name: /^Show \d+ more$/ }))
 const row = (name) => screen.getByRole('rowheader', { name: new RegExp(`^${name}`) }).closest('tr')
 
 beforeEach(() => {
@@ -76,6 +77,7 @@ describe('project cards (AC1, AC2, AC3, AC7)', () => {
 
   it('lists one card per project, newest activity first, no-data last', async () => {
     await renderView()
+    showMore()
     const names = screen.getAllByRole('article').map((a) => within(a).getByRole('heading').textContent)
     expect(names).toEqual(['delta', 'alpha', 'gamma', 'beta'])
   })
@@ -93,6 +95,7 @@ describe('project cards (AC1, AC2, AC3, AC7)', () => {
 
   it('shows Healthy and No kit data chips', async () => {
     await renderView()
+    showMore()
     expect(within(card('delta')).getByText('Healthy')).toBeInTheDocument()
     expect(within(card('beta')).getByText('No kit data')).toBeInTheDocument()
   })
@@ -114,12 +117,14 @@ describe('project cards (AC1, AC2, AC3, AC7)', () => {
 
   it('says there is no kit data yet for an empty project, never a zero', async () => {
     await renderView()
+    showMore()
     expect(card('beta')).toHaveTextContent('No kit data yet.')
     expect(card('beta')).not.toHaveTextContent(/\b0\b/)
   })
 
   it('marks a project whose folder is missing', async () => {
     await renderView()
+    showMore()
     expect(card('beta')).toHaveTextContent('(folder missing)')
     expect(card('delta')).not.toHaveTextContent('folder missing')
   })
@@ -145,6 +150,7 @@ describe('commit sparkline (AC4)', () => {
   })
   it('draws none without git data', async () => {
     await renderView()
+    showMore()
     expect(within(card('beta')).queryByRole('img')).toBeNull()
   })
 })
@@ -338,11 +344,65 @@ describe('feed cards (HUN-121 AC4, AC8)', () => {
 
   it('each project is a feed card: icon with the initial, title, last-active time at the right, footer', async () => {
     await renderView()
+    showMore()
     const delta = card('delta')
     expect(delta).toHaveClass('feed-card')
     expect(delta.querySelector('.feed-icon')).toHaveTextContent('D')
     expect(delta.querySelector('.feed-time')).toHaveTextContent('today')
     expect(card('alpha').querySelector('footer.feed-foot')).toHaveTextContent('Not set up here: Verifier')
     expect(card('beta').querySelector('.feed-time')).toBeNull()
+  })
+})
+
+describe('recent projects first, the rest folded (HUN-188 AC5, AC6)', () => {
+  const idle = (name, lastUtc) => ({
+    project: name,
+    missing_on_disk: false,
+    parts: { kernel: { ...project('alpha').parts.kernel, last_utc: lastUtc }, git: { status: 'no data' }, context: { status: 'no data' } },
+  })
+  const names = () => screen.getAllByRole('article').map((a) => within(a).getByRole('heading').textContent)
+
+  it('shows projects active in the last 30 days and folds the others behind "Show N more"', async () => {
+    await renderView(withProjects(project('delta'), idle('old-a', '2026-08-01T12:00:00Z'), idle('old-b', '2026-07-01T12:00:00Z'), project('alpha')))
+    expect(names()).toEqual(['delta', 'alpha'])
+    const toggle = screen.getByRole('button', { name: 'Show 2 more' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(names()).toEqual(['delta', 'alpha', 'old-a', 'old-b'])
+    const open = screen.getByRole('button', { name: 'Show fewer' })
+    expect(open).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(open)
+    expect(names()).toEqual(['delta', 'alpha'])
+  })
+
+  it('counts exactly 30 days back as recent and 31 as folded', async () => {
+    await renderView(withProjects(idle('day-30', '2026-09-21T12:00:00Z'), idle('day-31', '2026-09-20T12:00:00Z')))
+    expect(names()).toEqual(['day-30'])
+    expect(screen.getByRole('button', { name: 'Show 1 more' })).toBeInTheDocument()
+  })
+
+  it('has no fold button when every project is recent', async () => {
+    await renderView(withProjects(project('delta'), project('alpha')))
+    expect(screen.queryByRole('button', { name: /^Show \d+ more$/ })).toBeNull()
+  })
+
+  it('when every project is idle shows the 10 newest and folds the rest', async () => {
+    const many = Array.from({ length: 13 }, (_, i) => idle(`p${String(i).padStart(2, '0')}`, `2026-0${1 + (i % 6)}-0${1 + (i % 9)}T12:00:00Z`))
+    await renderView(withProjects(...many))
+    expect(names()).toHaveLength(10)
+    expect(screen.getByRole('button', { name: 'Show 3 more' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('says how many gone folders were hidden when the response has `gone` > 0, nothing otherwise', async () => {
+    await renderView({ kit: { ...kit, gone: 3 } })
+    expect(screen.getByText('3 gone folders hidden')).toBeInTheDocument()
+  })
+  it('says "1 gone folder hidden" for one', async () => {
+    await renderView({ kit: { ...kit, gone: 1 } })
+    expect(screen.getByText('1 gone folder hidden')).toBeInTheDocument()
+  })
+  it('shows no gone line when `gone` is 0 or missing', async () => {
+    await renderView()
+    expect(screen.queryByText(/gone folder/)).toBeNull()
   })
 })

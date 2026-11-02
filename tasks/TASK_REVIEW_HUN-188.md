@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | web/src/format.test.js (compact, cost figure, abstained line); web/src/UsageView.test.jsx (describe 'one-line figures, cost note, model names'); web/src/MemoryView.test.jsx (describe 'default project and gone line'); web/src/KitView.test.jsx (describe 'recent projects first, the rest folded'); golden SVG test in MemoryView.test.jsx unchanged and passing — pass |
+| Verification command run | ☑ pass | `cd web && npx vitest run`: Test Files 18 passed (18), Tests 395 passed (395); `uv run pytest tests/test_web_toolchain.py tests/test_site_content.py -q`: 49 passed in 3.84s — pass |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | screenshots under /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun188/after/ viewed: figures on one line, distinct model names, Memory on a real project, Kit short; golden SVG file unchanged (git status clean for web/src/test) — pass |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | UsageView.test.jsx CSS test: new `/* Usage, Memory, Kit UX */` block has no hex/rgb/hsl colours (only var(--…)); Plex Mono kept for .kpi-value; sr-only text for full value, Kit fold button has aria-expanded — pass |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1440x900 and 390x844: documentElement.scrollWidth <= innerWidth on Usage, Memory, Kit; KPI figures 1 line each; no clipped model name — pass |
 
 ---
 
@@ -68,9 +68,14 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 - Kit: heading "Kit by project (162)", 162 cards, page height 29779 px at 1440 (30598 px at 390); no "gone folders hidden" text.
 - No page-wide horizontal scroll in any of the six captures.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-11-02T08:30:24Z, same probe on the changed build (uv run easy-personal dashboard from the HUN-188 worktree), raw `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun188/after/probe.json`, screenshots `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun188/after/{wide,narrow}-{usage-kpis,usage-bymodel,memory-view,kit-top,kit-fold}.png` (full pages: `{wide,narrow}-{Usage,Memory,Kit}.png`):
+- Usage: Total tokens `3.13 B` (full `3,125,382,288` as title and sr-only text), 1 line at 1440 and 390; Messages `21.4 K`; cost figure `$2148.43` alone on 1 line, muted line under it `abstained: (unknown), claude-opus-5` (kpis-crop screenshots).
+- By model: names wrap at hyphens, none clipped (scrollWidth == clientWidth for all 5 rows); opus-5-5 and opus-5 read `claude-opus-5-5` / `claude-opus-5`; Total/Output compact in that table (`2.39 B`, `10.9 M`); cost column visible with a muted abstained line.
+- Memory default: `personal-agentic-claude` (21 notes, 10 links), no longer the Claude folder key.
+- Kit: heading "Kit by project (165)", 24 cards shown, button "Show 141 more" (aria-expanded false), page height 6600 px at 1440 (7303 at 390), was 29779 / 30598.
+- No page-wide horizontal scroll in any capture. "N gone folders hidden" not visible in the real run because the backend `gone` field (HUN-186) is not in this worktree; covered by vitest fixtures.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner can read the Usage figures on one line, tell the opus models apart, open Memory on a real project and see a 24-card Kit page instead of a 165-card one.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

@@ -508,3 +508,59 @@ describe('You / Agents series (HUN-161)', () => {
     expect(rules.join('\n')).toContain('var(--color-amber)')
   })
 })
+
+describe('one-line figures, cost note, model names (HUN-188 AC1-AC3)', () => {
+  const kpi = (name) => screen.getByRole('region', { name })
+  const big = { ...breakdowns.day.total, input_tokens: 3_000_000_000, output_tokens: 100_000_000, cache_creation_input_tokens: 7_421_801 }
+  const bigSummary = { ...summary, input_tokens: 3_000_000_000, output_tokens: 100_000_000, cache_creation_input_tokens: 7_421_801, cache_read_input_tokens: 0, messages: 21286 }
+
+  it('shows a big figure compact, with the full value as title and accessible text', async () => {
+    await renderView({ summary: bigSummary })
+    const value = within(kpi('Total tokens')).getByText('3,107,421,801').closest('.kpi-value')
+    expect(value).toHaveAttribute('title', '3,107,421,801')
+    expect(value).toHaveTextContent('3.11 B3,107,421,801')
+    expect(value.querySelector('[aria-hidden="true"]')).toHaveTextContent('3.11 B')
+    expect(within(kpi('Messages')).getByText('21.3 K')).toBeInTheDocument()
+    expect(within(kpi('Messages')).getByText('21,286').closest('.kpi-value')).toHaveAttribute('title', '21,286')
+  })
+
+  it('keeps small figures exact, with no title', async () => {
+    await renderView()
+    const value = within(kpi('Messages')).getByText('20')
+    expect(value).toHaveClass('kpi-value')
+    expect(value).not.toHaveAttribute('title')
+  })
+
+  it('cost figure is the dollar amount; abstained models go in a muted line under it', async () => {
+    const cost = { usd: 2138.61, price_table_date: '2026-10-01', abstained_models: ['(unknown)', 'claude-opus-5'] }
+    await renderView({ breakdowns: { ...breakdowns, day: { ...breakdowns.day, total: { ...breakdowns.day.total, api_equivalent_cost: cost } } } })
+    const card = kpi('API-equivalent cost')
+    expect(card.querySelector('.kpi-value')).toHaveTextContent(/^\$2138\.61$/)
+    const note = within(card).getByText('abstained: (unknown), claude-opus-5')
+    expect(note).toHaveClass('kpi-note')
+    expect(card.querySelector('.kpi-value')).not.toContainElement(note)
+  })
+
+  it('has no muted line when no model abstained', async () => {
+    await renderView()
+    expect(kpi('API-equivalent cost').querySelector('.kpi-note')).toBeNull()
+  })
+
+  it('By model rows for two opus ids show different text and carry the full id as title', async () => {
+    const mk = (key) => ({ ...breakdowns.model.groups[0], key })
+    await renderView({ breakdowns: { ...breakdowns, model: { ...breakdowns.model, groups: [mk('claude-opus-4-1-20250805'), mk('claude-opus-5')] } } })
+    const sec = screen.getByRole('region', { name: 'By model' })
+    const heads = within(sec).getAllByRole('rowheader')
+    expect(heads.map((h) => h.textContent)).toEqual(['claude-opus-4-1-20250805', 'claude-opus-5'])
+    expect(heads.map((h) => h.getAttribute('title'))).toEqual(['claude-opus-4-1-20250805', 'claude-opus-5'])
+  })
+
+  it('CSS: the model column wraps instead of clipping, figures never wrap, colours stay tokens', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    const block = css.slice(css.indexOf('/* Usage, Memory, Kit UX */'))
+    expect(block).toMatch(/\.model-table th:first-child \{[^}]*overflow-wrap: anywhere/)
+    expect(block).not.toMatch(/\.model-table th:first-child \{[^}]*text-overflow: ellipsis/)
+    expect(block).toMatch(/\.kpi-value \{[^}]*white-space: nowrap/)
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(/)
+  })
+})

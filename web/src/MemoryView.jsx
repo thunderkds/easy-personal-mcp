@@ -142,12 +142,19 @@ function ProjectGraph({ project }) {
   )
 }
 
+const noteCount = (p) => (p.kit_notes ?? 0) + (p.claude_notes ?? 0) + (p.easy_memory_notes ?? 0)
+
+/** The project with the most notes (kit + Claude + easy-memory); ties go to the lower name. */
+export function busiest(projects) {
+  return [...projects].sort((a, b) => noteCount(b) - noteCount(a) || before(a.name, b.name))[0]?.project
+}
+
 /** `// work` › Memory: one project's memory notes as rings. Names and links only; no note body is ever sent. */
 export default function MemoryView() {
   const [chosen, setChosen] = useState(null)
   const list = useLoad(() => getJson('/api/memory-graph'), [])
   const projects = list.status === 'ready' ? list.data.projects : []
-  const project = projects.some((p) => p.project === chosen) ? chosen : projects[0]?.project
+  const project = projects.some((p) => p.project === chosen) ? chosen : busiest(projects)
   return (
     <main className="memory">
       <h1>Memory</h1>
@@ -158,6 +165,7 @@ export default function MemoryView() {
         </p>
       )}
       {list.status === 'ready' && projects.length === 0 && <p>No memory notes found.</p>}
+      {list.status === 'ready' && list.data.gone > 0 && <p className="muted gone-note">{plural(list.data.gone, 'gone folder')} hidden</p>}
       {project && (
         <>
           <div className="field memory-picker">

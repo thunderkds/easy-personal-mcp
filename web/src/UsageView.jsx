@@ -4,8 +4,8 @@ import Breakdown from './Breakdown.jsx'
 import Cost from './Cost.jsx'
 import { NO_SCOPE } from './Scope.jsx'
 import Timeline from './Timeline.jsx'
-import { fmt, percent, totalTokens } from './format.js'
-import { Progress, Sparkline, Trend } from './Widgets.jsx'
+import { abstainedText, costFigure, fmt, percent, totalTokens } from './format.js'
+import { Compact, Progress, Sparkline, Trend } from './Widgets.jsx'
 
 const PERIODS = [
   { id: '7', label: 'Last 7 days', days: 7 },
@@ -56,15 +56,16 @@ async function loadPrevious(days, workspace, account) {
 const sumTokens = (row) => (row ? totalTokens(row) : null)
 const usdOf = (cost) => (cost && cost.usd !== null && cost.abstained_models.length === 0 ? cost.usd : null)
 
-function Kpi({ name, value, current, previous, spark, sparkLabel }) {
+function Kpi({ name, value, note, current, previous, spark, sparkLabel }) {
   const id = `kpi-${name.replace(/\W+/g, '-').toLowerCase()}`
   return (
     <section className="kpi" aria-labelledby={id}>
       <h2 id={id} className="kpi-name">{name}</h2>
       <div className="kpi-head">
-        <span className="kpi-value">{value}</span>
+        {typeof value === 'number' ? <Compact n={value} className="kpi-value" /> : <span className="kpi-value">{value}</span>}
         <Trend current={current} previous={previous} />
       </div>
+      {note && <span className="kpi-note">{note}</span>}
       <Sparkline values={spark} label={sparkLabel} />
     </section>
   )
@@ -86,7 +87,7 @@ function Widgets({ summary, day, previous, period }) {
       <div className="kpi-strip" data-testid="kpi-strip">
         <Kpi
           name="Total tokens"
-          value={fmt(totalTokens(summary))}
+          value={totalTokens(summary)}
           current={totalTokens(summary)}
           previous={sumTokens(previous)}
           spark={tokens}
@@ -94,7 +95,7 @@ function Widgets({ summary, day, previous, period }) {
         />
         <Kpi
           name="Messages"
-          value={fmt(summary.messages)}
+          value={summary.messages}
           current={summary.messages}
           previous={previous ? previous.messages : null}
           spark={messages}
@@ -102,7 +103,8 @@ function Widgets({ summary, day, previous, period }) {
         />
         <Kpi
           name="API-equivalent cost"
-          value={<Cost cost={cost} />}
+          value={costFigure(cost)}
+          note={abstainedText(cost)}
           current={usdOf(cost)}
           previous={usdOf(previous?.api_equivalent_cost)}
           spark={usd}
