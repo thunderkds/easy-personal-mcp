@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/MemoryView.test.jsx` (55 tests, 33 new, 1 existing picker test updated on purpose): AC1 ring 4/kind/radius, AC2 mark + accessible name + "not checked", AC3 click panel, AC4 panel/sparkline/hit rate/"no prompts"/0-total flat line, AC5 `easy_memory` null or missing, AC6 list count + easy-memory-only project, AC7 determinism with ring 4. Run 2026-11-02T10:19:57Z: `Test Files 3 passed (3)  Tests 105 passed (105)` (MemoryView App neon) |
+| Verification command run | ☑ pass | `cd web && npx vitest run MemoryView App neon && cd .. && uv run pytest tests/test_web_toolchain.py tests/test_site_content.py -q` → `Tests 105 passed (105)` then `49 passed in 4.23s` (2026-11-02T10:19:57Z, after `npm --prefix web run build`; before the rebuild 2 toolchain tests fail with `static build stale`, as the learning predicts) |
+| Negative cases hold | ☑ pass | `easy_memory: null` and field missing → no panel, 3 rings, `viewBox="0 0 640 640"`, no legend entry; `prompts_on: 0` → "no prompts" (no NaN / 0%); all-zero `days` → 30 equal-height bars, "0 notes"; easy-memory-only project; planted `SECRET_P/A/S` fields on nodes and block never reach the DOM; ring 4 kept when the other nodes hit `MAX_DRAWN`; golden `web/src/test/memory-graph.golden.svg` unchanged (`git diff --stat` empty) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `cd web && npx vitest run` → `Test Files 18 passed (18)  Tests 446 passed (446)`; `uv run pytest -q -x --ignore=tests/e2e` → `1116 passed, 6 deselected, 1 warning in 113.86s`; `tests/e2e` not run (nothing it covers changed; page-only task) |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real run, Chrome headless via playwright-core, owner's machine, dashboard on a read-only copy of the real store (`EASY_PERSONAL_HOME` = scratch copy; the real `~/.easy-personal/store.sqlite` and `~/.easy-memory/**` were only read), Memory → easy-personal-mcp: 32 nodes, 28 easy-memory on ring 4, 3 merged kit nodes with a mark, 13 stale marks, all "changed since the newest note". Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun185/shots/memory-wide.png` (1280×720 viewport, full page), `memory-wide-click.png` (an easy-memory node selected), `graph-only.png`, `memory-narrow.png`. Read by eye: ring 4 readable, long names cut to 10 chars with every second label above its node, a few same-prefix names (BRAINSTOR…) repeat and sit close; panels sit under the graph so no label meets a panel. No `gone` node in the real data: `gone` is covered by vitest (mark ×, name "file gone"). Without easy-memory: golden SVG test unchanged |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | vitest `design tokens and contrast for the easy-memory layer`: node = `var(--color-heading)`, mark = `var(--color-red)`, sparkline = `var(--color-accent)`, counts and dates in `var(--font-mono)`; the existing "no raw colour literals on `.memory` lines" test still passes. Computed from `tokens.css`: mark symbol on its disc 6.86:1, shapes on the graph background 7.08–16.19:1 (need 3:1), panel text on the page 5.9–14.7:1 (need 4.5:1). Real run: panel font computed `"IBM Plex Mono", ui-monospace…`, node fill `rgb(234, 237, 234)` = `--color-heading`. Stale mark has an accessible name (`role="img"`, `aria-label` "changed since the newest note" / "file gone") and a symbol (!, ×), so never colour alone; sparkline `aria-label` "Notes saved per day, last 30 days: 116 in the window, 116 notes in total". `tokens.css` has a dark theme only, so "both themes" is one theme. No token for a blue/violet exists: the easy-memory node uses the neutral `--color-heading` (ask the Supervisor if another hue is wanted) |
+| **UI: Responsiveness at target viewports** | ☑ pass | Real run measured in Chrome: 1280×720 `scrollWidth 1280 = innerWidth 1280`, graph 702 px wide; 375×800 (clicked `Menu` first) `scrollWidth 375 = innerWidth 375`, graph 341 px, panels stacked under it. Screenshots as above. At 1280 the 18 rem side column would leave the graph 394 px wide (ring 4 text ~6 px), so with ring 4 the panels go under the graph in two columns (`.memory-body[data-wide]`) |
 
 ---
 
@@ -87,9 +87,15 @@ top node: {'path': 'PROJECT_KANBAN.md', 'cited': 11, 'newest': '2026-11-02', 'st
 So the API sends 27 `easy_memory` nodes (ring 4) and a panel block, but `RingsGraph` has no ring 4 (`RADII` has 4 entries)
 and `KIND_NAMES` has no `easy_memory` entry: such a node would be labelled "<name>, undefined".
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-02T10:22Z, real run on the owner's machine, dashboard on a read-only copy of the store, `node real.mjs`):
+```
+wide   {"scrollW":1280,"innerW":1280,"nodes":32,"easy":28,"marks":13,
+        "panelText":"easy-memory | 116 notes | saved per day, last 30 days | Hit rate 41.7% of 12 prompts | 16 files not drawn"}
+click  board.json | easy-memory file | .claude/board.json | cited by 1 note | newest note 2026-11-02 | unchanged since the newest note
+list   ['hungnguyenhuu · easy-memory 2', 'plugins · easy-memory 1', 'ghostty · easy-memory 2', 'easy-personal-mcp · kit 4 · easy-memory 116' ...]
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: Memory → easy-personal-mcp now draws the files easy-memory notes cite on a fourth ring with a stale mark, shows notes per day, hit rate, files not drawn and unreadable notes, and the project list shows the easy-memory count.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

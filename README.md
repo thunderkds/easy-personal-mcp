@@ -109,6 +109,14 @@ easy-personal dashboard
 
 This runs an ingest, then starts the page on `127.0.0.1` with a free port. It prints a URL like `http://127.0.0.1:<port>/#<token>` and opens your browser. The token is new on every launch. Press Ctrl-C to stop. The tabs are Live, Board, Scheduled, Memory, Usage, Warnings & plan, Kit, Workspaces and Agents, plus a First run checklist.
 
+### Memory view
+
+The Memory tab draws one project's memory notes as rings: `memory/MEMORY.md` in the centre, then the other kit notes, then Claude notes, then unresolved `[[links]]`. It reads the files live and stores nothing. A note body is never sent to the page.
+
+If you use easy-memory, a fourth, outer ring draws the files its notes cite (the 30 most cited, bigger when cited more). A file that changed since the newest note that cites it, or is gone, gets a mark. A cited file that is also a kit memory note is drawn once, as that note. Click a node to see its path, how many notes cite it, the date of the newest one and its state. A panel beside the graph shows notes saved per day for the last 30 days, how often notes were injected into prompts, files not drawn and notes that could not be read. The project list shows the easy-memory note count beside the kit and Claude counts.
+
+easy-memory is read as files in `$EASY_MEMORY_HOME` (else `~/.easy-memory`), never through its MCP server, and never written. From a note only its time and the file paths it cites are read. Its prompt, answer and session id are never read out, and neither is its `trash/` folder.
+
 ### Live view
 
 The Live tab shows what Claude Code is doing now. It runs only while `easy-personal dashboard` is open. There is nothing to install. It adds no hooks and no OpenTelemetry, and it changes no Claude config file.
