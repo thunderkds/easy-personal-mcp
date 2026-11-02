@@ -448,8 +448,9 @@ def session_timeline(
 
     `detail_sessions` (the dashboard sends 50): only the newest N sessions carry `points` and
     `gaps`; the others keep every total but have both lists empty, and the answer says so in a
-    top-level `detail_sessions`. The page draws the chart of the newest 50 only (`MAX_SESSIONS` in
-    `web/src/Timeline.jsx`), so the rest was payload nobody read. None = every session in full.
+    top-level `detail_sessions`. The page lists every session ("Show N more") and draws the chart of
+    the newest `detail_sessions` only; the rest show their totals without a chart. None = every
+    session in full.
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
