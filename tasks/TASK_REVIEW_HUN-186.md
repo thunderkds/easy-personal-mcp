@@ -61,8 +61,32 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-02 15:21-15:26 local, BEFORE any implementation commit; main code de96ca4; owner store COPY with schema v7, 370k events, 161 stored projects, 330 MB; dashboard app run from this worktree against the copy, requests by `curl -w '%{time_total} %{size_download}'` with the `x-dashboard-token` header, 3 runs each; `uptime` before the run: `15:22:06 up 7:04, load average: 4.11, 13.52, 21.18`; after: `15:23:22 ... load average: 6.66, 12.23, 20.13`; the 7-day usage requests ran at `15:25:36 ... load average: 11.76, 11.53, 18.76`). Load average is not "normal" but far below the ~60 of the Supervisor's measure, so these numbers are a LOWER bound.
+
+| Route (as the views call it) | run 1 / 2 / 3 (s) | median (s) | bytes |
+|---|---|---|---|
+| /api/board | 0.30 / 0.34 / 0.44 | 0.34 | 133,370 |
+| /api/kit | 7.78 / 8.66 / 7.09 | **7.78** | 98,424 |
+| /api/memory-graph (list) | 0.36 / 0.43 / 0.39 | 0.39 | 7,545 |
+| /api/warnings | 2.81 / 2.94 / 2.43 | **2.81** | 1,524 |
+| /api/plan | 3.48 / 3.64 / 3.41 | **3.48** | 1,310 |
+| /api/usage/summary (no since = all time) | 1.21 / 1.08 / 1.18 | 1.18 | 648 |
+| /api/usage/summary?since=7d | 1.29 / 2.05 / 0.76 | 1.29 | 479 |
+| /api/usage/summary previous 7d | 1.26 / 0.68 / 0.35 | 0.68 | 575 |
+| /api/usage/outliers (all time) | 1.35 / 1.37 / 1.35 | 1.35 | 20,980 |
+| /api/usage/outliers?since=7d | 0.62 / 0.60 / 0.57 | 0.60 | 9,885 |
+| /api/usage/sessions (no since = all time) | 8.58 / 7.22 / 7.11 | **7.22** | **7,670,516** |
+| /api/usage/sessions?since=7d (the page default) | 3.78 / 3.09 / 2.41 | **3.09** | **3,785,348** |
+| /api/usage/breakdown?by=day / model / project / tool, 7d | day 0.63/0.94/0.79; model 0.36/0.33/0.34; project 0.57/0.79/0.89; tool 0.58/0.60/0.36 | 0.79 / 0.34 / 0.79 / 0.58 | 2,970 / 1,948 / 32,436 / 23,291 |
+| /api/first-run, /api/accounts, /api/workspaces | all < 0.3 | - | - |
+
+Profile breakdown (cProfile in-process on the same copy, `profile_before.txt`, load ~6.5):
+- kit 7.70 s: 646 SQL executes = 4.73 s (`_kernel` = 2 queries x 161 projects = 4.42 s: full scan of `kit_trace_events` (44k rows, no `project_path` index) for every project); `git_part` = 161 `git log` subprocesses = 2.84 s (134 of the 161 folders do not exist); `scoped_projects` `SELECT DISTINCT project_path` = 0.40 s.
+- usage/sessions 5.79 s (profile): `_parse_utc` (`datetime.strptime`) called 216,152 times for the idle-gap check = 4.81 s; SQL only 0.25 s. Size: 349 sessions / 21,269 points in 7 days; the page draws the newest 50 only (`MAX_SESSIONS` in `web/src/Timeline.jsx`): their points are 290 KB of the 3.79 MB; the other 299 sessions' points are 3.62 MB and gaps 12 KB, and the page never reads them (it reads their totals only).
+- warnings 3.65 s / plan 6.91 s (same `rules.evaluate`; plan ran at higher load): 17 SQL executes = 1.85 s; `usage_breakdown` called 3 times = 2.61 s (`tokens_jump` runs it by day twice just to read `total`: 1.73 s, of which `strptime` in `_keys` for 28,026 messages = 0.64 s); the same 7-day message query is run by 4 rules.
+- memory-graph list 0.84 s: `scoped_projects` 0.44 s, easy-memory note counts 0.13 s.
+- board 0.50 s: `scoped_projects` 0.44 s; board files 0.05 s.
+- usage/summary 0.84 s and outliers 0.89 s: SQL only (event scans), no Python hot spot.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
