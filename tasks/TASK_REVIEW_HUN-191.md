@@ -61,8 +61,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T11:56:39Z (headless Chrome via playwright-core against `BROWSER=true uv run easy-personal dashboard` run from the HUN-191 worktree before any change; owner's store; Usage, "Last 30 days"; scripts and raw output in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun191/`):
+
+```
+heading: "Session timeline (599)"
+cards (li[data-session]): 50     charts (svg.chart): 50     "Chart kept..." lines: 0     show/hide button: none
+text (2026-11-02T11:57:37Z): "Showing 50 of 599 sessions, newest first."
+scrollWidth/clientWidth: 1280/1280 and 375/375
+```
+
+Screenshots: `.../hun191/before-1280-folded.png`, `.../hun191/before-375-folded.png`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
