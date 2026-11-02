@@ -121,7 +121,8 @@ def _sse(event: str, data: dict, event_id: int | None = None) -> bytes:
     return f"{head}data: {json.dumps(data, separators=(',', ':'))}\n\n".encode()
 
 
-_SESSION_KEYS = ("session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd")
+_SESSION_KEYS = ("session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd",
+                 "attention")  # fmt: skip
 _EVENT_KEYS = ("id", "session_id", "account", "project", "ts", "kind", "tool", "is_error", "is_sidechain",
                "tokens_in", "tokens_out", "cost_usd")  # fmt: skip  (the cache counts stay out of the contract)
 
@@ -130,8 +131,15 @@ def _snapshot_data(snapshot: dict) -> dict:
     return {
         "active_window_s": snapshot["active_window_s"],
         "last_id": snapshot["last_id"],
+        "open_call_minutes": snapshot["open_call_minutes"],
         "sessions": [{k: s[k] for k in _SESSION_KEYS} for s in snapshot["sessions"]],
     }
+
+
+_EMPTY_SNAPSHOT = {
+    "active_window_s": live.ACTIVE_WINDOW_S, "last_id": 0, "state_version": 0,
+    "open_call_minutes": rules.LIVE_DEFAULTS["live_open_call_minutes"], "sessions": [],
+}  # fmt: skip  (no tail running)
 
 
 def _resume_id(request) -> int | None:
@@ -153,13 +161,23 @@ async def live_stream(request):
 
     async def events():
         cursor, last_ping = (resume if live.current() is not None else None), time.monotonic()
+        seen = live.current().state_version if cursor is not None else None  # attention state the page already has
         while not stopping() and not await request.is_disconnected():
             tail = live.current()
             if tail is not None and cursor is not None and (cursor > tail.last_id or tail.rolled_past(cursor)):
                 cursor = None  # an id from before a restart, or older than the buffer: start over
             if cursor is None:
-                snapshot = tail.snapshot() if tail else {"active_window_s": live.ACTIVE_WINDOW_S, "last_id": 0, "sessions": []}
-                cursor = snapshot["last_id"]
+                snapshot = tail.snapshot() if tail else _EMPTY_SNAPSHOT
+                cursor, seen = snapshot["last_id"], snapshot["state_version"]
+                yield _sse("snapshot", _snapshot_data(snapshot))
+            elif tail is not None and tail.state_version != seen:
+                snapshot = tail.snapshot()  # attention changed: events up to its `last_id` first, then the snapshot
+                for event in tail.events_since(cursor):
+                    if event["id"] > snapshot["last_id"]:
+                        break
+                    cursor = event["id"]
+                    yield _sse("live", {k: event[k] for k in _EVENT_KEYS}, event["id"])
+                cursor, seen = snapshot["last_id"], snapshot["state_version"]
                 yield _sse("snapshot", _snapshot_data(snapshot))
             for event in tail.events_since(cursor) if tail else ():
                 cursor = event["id"]

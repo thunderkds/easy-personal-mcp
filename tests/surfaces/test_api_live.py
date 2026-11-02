@@ -23,7 +23,7 @@ CONTRACT_EVENT = {
     "tokens_in", "tokens_out", "cost_usd",
 }  # fmt: skip
 CONTRACT_SESSION = {
-    "session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd",
+    "session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd", "attention",
 }  # fmt: skip
 
 
@@ -31,14 +31,14 @@ def stamp() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
-def record(session="s1", tool="Bash", message="msg_1", out=5):
+def record(session="s1", tool="Bash", message="msg_1", out=5, use_id="toolu_1"):
     return {
         "type": "assistant", "version": "2.1.316", "cwd": "/work/demo-app", "sessionId": session,
         "isSidechain": False, "entrypoint": "cli", "timestamp": stamp(),
         "message": {
             "id": message, "model": "claude-fixture-model-1",
             "content": [{"type": "text", "text": SECRET},
-                        {"type": "tool_use", "id": "toolu_1", "name": tool, "input": {"command": SECRET}}],
+                        {"type": "tool_use", "id": use_id, "name": tool, "input": {"command": SECRET}}],
             "usage": {"input_tokens": 10, "output_tokens": out, "cache_creation_input_tokens": 2,
                       "cache_read_input_tokens": 3},
         },
@@ -237,7 +237,7 @@ def test_live_without_a_running_tail_sends_an_empty_snapshot_and_keep_alives(app
     out = get(app, step=lambda text: ": ping" in text)
     first, *rest = messages(out["text"])
     assert (out["status"], first["event"], first["data"]) == (
-        200, "snapshot", {"active_window_s": 300, "last_id": 0, "sessions": []})
+        200, "snapshot", {"active_window_s": 300, "last_id": 0, "open_call_minutes": 10, "sessions": []})
     assert rest and rest[0]["comment"] == "ping"
 
 
@@ -299,6 +299,48 @@ def test_live_a_stale_or_bad_last_event_id_starts_with_a_fresh_snapshot(app, tai
     fill(tail, add, 1)
     out = get(app, hdrs=headers(extra=[("last-event-id", sent)]), step=count("snapshot"))
     assert messages(out["text"])[0]["event"] == "snapshot"
+
+
+# -- attention states re-send the snapshot (HUN-181, AC 9) -------------------------------------------
+
+
+def test_live_resends_a_snapshot_with_attention_after_a_state_change_and_keeps_event_ids_continuous(app, tail, add):
+    add(record(message="msg_old"))
+    tail.poll_once()
+    state = {"phase": 0}
+
+    def step(text):
+        got = messages(text)
+        snapshots = [m for m in got if m["event"] == "snapshot"]
+        if state["phase"] == 0 and snapshots:
+            state["phase"] = 1
+            add(record(message="msg_a", tool="Read", use_id="toolu_r"))  # ordinary call: no re-send
+            tail.poll_once()
+            add(record(message="msg_ask", tool="AskUserQuestion", use_id="toolu_q"))  # state change
+            tail.poll_once()
+        if state["phase"] == 1 and len(snapshots) >= 2:
+            state["phase"] = 2
+            add(record(message="msg_ask", tool="Read", use_id="toolu_r2"))  # a live event after the re-send
+            tail.poll_once()
+        return state["phase"] == 2 and any(m["data"]["id"] == tail.last_id for m in got if m["event"] == "live")
+
+    out = get(app, step=step)
+    got = messages(out["text"])
+    snapshots = [m["data"] for m in got if m["event"] == "snapshot"]
+    assert len(snapshots) == 2  # the ordinary call did not trigger a third message
+    first, second = snapshots
+    assert first["sessions"][0]["attention"] == [] and first["open_call_minutes"] == 10
+    [session] = second["sessions"]
+    assert set(session) == CONTRACT_SESSION and second["open_call_minutes"] == 10
+    assert [(a["state"], a["tool"], a["count"], a["is_sidechain"]) for a in session["attention"]] == [
+        ("waiting", "AskUserQuestion", 1, False)
+    ]
+    assert set(session["attention"][0]) == {"state", "tool", "count", "is_sidechain", "since"}
+    ids = [m["data"]["id"] for m in got if m["event"] == "live"]
+    assert ids == list(range(first["last_id"] + 1, ids[-1] + 1))  # no gap, no duplicate across the re-send
+    after = got[[m["event"] for m in got].index("snapshot", 1) :]
+    assert second["last_id"] == max(i for i in ids if i <= second["last_id"])
+    assert all(m["data"]["id"] > second["last_id"] for m in after if m["event"] == "live")
 
 
 # -- lifetime, logs (edge cases, AC 5) --------------------------------------------------------------
