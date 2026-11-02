@@ -61,8 +61,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-02T04:35:54Z, `uv run python <scratchpad>/demo.py` on main @ 16eb0c2; fixture = temp repo `alpha` with `memory/MEMORY.md`, plus a temp easy-memory store holding one note citing `src/a.py` and `memory/MEMORY.md`, one prompts.log line, and one easy-memory-only folder):
+```
+{"projects": [{"project": "<tmp>/alpha", "name": "alpha", "kit_notes": 1, "claude_notes": 0}]}
+{"project": "<tmp>/alpha", "name": "alpha",
+ "nodes": [{"id": "kit:memory/MEMORY.md", "kind": "kit", "ring": 0, "name": "index", "stem": "MEMORY", "description": "hot",
+            "path": "memory/MEMORY.md", "account": null, "abstained": false, "links_in": 0, "links_out": 0}],
+ "edges": [], "counts": {"notes": 1, "links": 0, "dangling": 0, "abstained": 0, "duplicates": 0, "capped": false}}
+```
+No `easy_memory_notes` on the list row, no `cited`/`newest`/`stale` on the node, no `easy_memory` block, no cited-file node for `src/a.py`, easy-memory-only project not listed.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
