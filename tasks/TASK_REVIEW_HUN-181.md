@@ -61,8 +61,14 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T03:08:37Z on branch `HUN-181` @ 5af6a25, before any implementation commit. Command: `uv run python <scratchpad>/demo181.py` (temp home; a fixture session `s1` with 3 `tool_use` + 3 failed `tool_result` records, read by `live.LiveTail.poll_once()`):
+
+```
+2026-11-02T03:08:37.763572+00:00 BEFORE
+snapshot session keys: ['account', 'cache_creation', 'cache_read', 'cost_usd', 'last_ts', 'project', 'session_id', 'tokens_in', 'tokens_out', 'tool_calls']
+has attention: False | snapshot keys: ['active_window_s', 'last_id', 'sessions']
+tool_result events: [('tool_result', None, True), ('tool_result', None, True), ('tool_result', None, True)]
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
