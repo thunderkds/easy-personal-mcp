@@ -267,3 +267,34 @@ def test_no_planted_text_reaches_the_map(conn, world):
     add(conn, 0, world["sib_ref"], "feat/x")
     git(world["a"], "commit", "-q", "--allow-empty", "-m", CANARY)
     assert CANARY not in repr(owners.owner_map(conn))
+
+
+def _tie(conn, root, names):
+    """Repos at `names` (relative to root) that all have branch feat/tie; one gone sibling that used it."""
+    paths = [make_repo(root / name) for name in names]
+    for repo in paths:
+        git(repo, "branch", "feat/tie")
+        add(conn, len(conn.execute("SELECT 1 FROM events").fetchall()), repo)
+    gone = root / "wt-tie"
+    add(conn, 50, gone, "feat/tie")
+    return paths, str(gone)
+
+
+def test_a_tie_between_a_hidden_and_a_visible_repo_goes_to_the_visible_one(conn, tmp_path):
+    (_, visible), gone = _tie(conn, tmp_path.resolve(), [".spawn/x/repo", "visible"])
+    assert owners.owner_map(conn) == {gone: str(visible)}
+
+
+def test_a_tie_between_two_visible_repos_is_unchanged(conn, tmp_path):
+    _tie(conn, tmp_path.resolve(), ["one", "two"])
+    assert owners.owner_map(conn) == {}
+
+
+def test_a_tie_between_two_hidden_repos_is_unchanged(conn, tmp_path):
+    _tie(conn, tmp_path.resolve(), [".a/repo", ".b/repo"])
+    assert owners.owner_map(conn) == {}
+
+
+def test_a_single_match_inside_a_hidden_folder_is_still_used(conn, tmp_path):
+    (hidden,), gone = _tie(conn, tmp_path.resolve(), [".spawn/x/repo"])
+    assert owners.owner_map(conn) == {gone: str(hidden)}

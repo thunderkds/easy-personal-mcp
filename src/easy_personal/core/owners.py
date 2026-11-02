@@ -2,8 +2,8 @@
 
 For a stored path whose folder is gone: (1) the git repo of its nearest existing parent folder; else
 (2) the one stored repo that has one of the path's event branches as a ref or in a merge commit
-subject; else (3) no owner. An existing folder has none. Nothing is written to the store, and a branch
-text is compared in Python, never given to git.
+subject (on a tie, the one outside hidden folders); else (3) no owner. An existing folder has none.
+Nothing is written to the store, and a branch text is compared in Python, never given to git.
 """
 
 import re
@@ -92,6 +92,8 @@ def owner_map(conn: sqlite3.Connection) -> dict[str, str]:
             if candidates is None:
                 candidates = [p for p in sorted(branches) if (Path(p) / ".git").exists()]
             matches = [repo for repo in candidates if wanted & _repo_branches(repo)]
+            if len(matches) > 1:  # a tie: a repo inside a hidden folder (e.g. `.spawn/…/repo`, a clone) loses to a visible one
+                matches = [r for r in matches if not any(part.startswith(".") for part in Path(r).parts)]
             owner = matches[0] if len(matches) == 1 else None
         if owner:
             mapping[path] = owner
