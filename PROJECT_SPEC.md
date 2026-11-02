@@ -222,9 +222,9 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-178 | Live view: active sessions, tool feed, running totals (FR-045; after HUN-177) | Done (merged 2026-11-01) | Frontend-Implementer | C2 | Low | P0 |
 | HUN-179 | Release 0.3.0: version, README, site, ship plan (after HUN-178) | Done (merged 2026-11-01) | Backend-Implementer | C1 | Low | P1 |
 | HUN-181 | Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P0 |
-| HUN-182 | Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Todo | Frontend-Implementer | C2 | Low | P0 |
+| HUN-182 | Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Low | P0 |
 | HUN-183 | Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Todo | Backend-Implementer | C1 | Low | P1 |
-| HUN-184 | easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Todo | Backend-Implementer | C2 | Medium | P1 |
+| HUN-184 | easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-185 | Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Todo | Frontend-Implementer | C2 | Medium | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
