@@ -61,8 +61,31 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-02T10:13Z UTC, worktree HUN-185 at main 9a47d59, before any implementation commit):
+
+1. Web tests of the files this task touches, current page code:
+```
+$ cd web && npx vitest run MemoryView App neon        # started 2026-11-02T10:13:21Z
+ Test Files  3 passed (3)
+      Tests  72 passed (72)
+```
+2. The page code has no easy-memory layer. `grep -n "easy" web/src/MemoryView.jsx` prints only the two lines
+that count easy-memory notes for the default project (HUN-188), nothing that draws a node, mark or panel:
+```
+145:const noteCount = (p) => (p.kit_notes ?? 0) + (p.claude_notes ?? 0) + (p.easy_memory_notes ?? 0)
+149:/** Real project paths first, then the most notes (kit + Claude + easy-memory), then the lower name. */
+```
+3. The data the page ignores (HUN-184 backend, real read-only call on the owner's machine, store opened `mode=ro`,
+`2026-11-02T10:13:45Z`, `uv run python real_graph.py <this repo>`):
+```
+nodes 32 easy_memory nodes 27 merged 3
+stale: ['fresh', 'stale']
+{"notes": 115, "abstained": 0, "days": [... "2026-10-29": 49, "2026-10-31": 26, "2026-11-01": 11, "2026-11-02": 29],
+ "prompts_on": 12, "injected": 5, "files_cited": 46, "files_not_drawn": 16, "outside": 0}
+top node: {'path': 'PROJECT_KANBAN.md', 'cited': 11, 'newest': '2026-11-02', 'stale': 'stale'}
+```
+So the API sends 27 `easy_memory` nodes (ring 4) and a panel block, but `RingsGraph` has no ring 4 (`RADII` has 4 entries)
+and `KIND_NAMES` has no `easy_memory` entry: such a node would be labelled "<name>, undefined".
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
