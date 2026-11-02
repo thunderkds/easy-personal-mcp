@@ -1,4 +1,4 @@
-# TASK_REVIEW — HUN-189: [Short Title]
+# TASK_REVIEW — HUN-189: Owner project for gone worktrees
 
 > Sibling of `tasks/TASK_GUIDE_HUN-189.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_owners.py` (19 tests: AC1-9) and `tests/surfaces/test_owner_api.py` (2 tests: API breakdown, kit/board gone). `uv run pytest tests/core/test_owners.py tests/surfaces/test_owner_api.py -q` -> `21 passed`. |
+| Verification command run | ☑ pass | `uv run pytest tests/core -q -k "owner or metrics or kit"` -> `34 passed, 443 deselected`; `uv run pytest tests/surfaces -q` -> `209 passed`; `uv run ruff check .` -> `All checks passed!` |
+| Negative cases hold | ☑ pass | Two repos share the branch, no repo has it, `main`/`master`/`HEAD`/empty, non-repo parent, existing folder (zero git calls), regex/shell text as a branch, git timeout, plain folder without `.git`, owner never a gone path: all unchanged (tests in `test_owners.py`). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` -> `1161 passed, 6 deselected, 1 xfailed, 1 warning in 168.34s` (after `npm --prefix web run build`). |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Backend only, no `web/` change. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Backend only, no `web/` change. |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Backend only, no `web/` change. |
 
 ---
 
@@ -88,9 +88,37 @@ memory project_list: 31 projects, gone=27; median 0.297s
 tokens_by_project: 157 keys; median 0.246s
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same script, same read-only connection, code at the HUN-189 commit; captured later, so new ingest adds tokens: the equality check below is on one snapshot):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+captured 2026-11-02T10:29:22Z store /home/hungnguyenhuu/.easy-personal/store.sqlite
+usage_breakdown(project) all-time: 129 keys, total tokens 7253177192; median 0.545s runs [1.002, 0.545, 0.54]
+    2,306,919,580  orderly
+    1,396,541,868  personal-agentic-claude
+    1,245,986,095  easy-verifier-mcp
+      741,445,839  easy-personal-mcp
+      376,132,068  idea-radar
+      309,276,993  easy-context-mcp
+      293,230,753  easy-memory-mcp
+      216,479,110  kitchd
+      144,361,835  idea-ladder
+       83,782,283  easy-ui-mcp
+       78,227,869  java-training
+       11,579,131  wt-t165
+        9,623,719  wt-t146-t147
+        4,565,152  hungnguyen111
+        3,326,165  proj
+kit.scoped_projects: 145 paths (37 alive, 108 gone); median 0.350s
+kit_summary(hide_gone): 37 projects, gone=108; median 0.699s runs [0.699, 0.683, 0.704]
+board: 37 projects, gone=108; median 0.374s
+memory project_list: 34 projects, gone=26; median 0.422s
+tokens_by_project: 129 keys; median 0.385s
+same-snapshot total tokens, owners on/off: 7253177192 7253177192 equal
+sum of groups == total: True ; keys on/off: 129 158
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+Why `wt-t165` and `wt-t146-t147` stay in the AFTER list: their branches match two stored repos (`personal-agentic-claude` and a clone at `~/workspace/pets/.spawn/t182-live/repo`), so rule 2 leaves them unchanged (guide: exactly one repo). 21 sibling `wt-*` paths checked: 3 mapped (`wt-t180-auto` -> the `.spawn` clone, `wt-t197`, `wt-t202` -> `personal-agentic-claude`), 5 ambiguous by that clone (`wt-t146-t147`, `wt-t165`, `wt-t169`, `wt-t170`, `wt-t183`). All 12 `.claude/worktrees/*` paths and the 4 `orderly/...` subfolders mapped by rule 1. `T005` and `agent-affa...` left the list (rule 1).
+
+**DELTA**: Usage by project, the top-project warning and the Kit / Board / Memory lists now count a gone worktree under its owner repo, so 157 project keys became 129 and the gone count in Kit/Board fell from 137/125 to 108/108 (reads still under 2 s), with total tokens unchanged.
+
+**WITNESS**: backend-developer agent, 2026-11-02 (real-store reads at 10:21Z BEFORE and 10:29Z AFTER); event trace `memory/event-trace/HUN-189.jsonl` for the Supervisor to confirm.
