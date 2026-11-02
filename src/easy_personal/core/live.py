@@ -122,7 +122,7 @@ def _item(record, parsed: dict) -> dict | None:
 class _Call:
     """An open call: the tool, the assistant message that made it and when (memory only)."""
 
-    __slots__ = ("tool", "message_id", "ts")
+    __slots__ = ("message_id", "tool", "ts")
 
     def __init__(self, tool: str, message_id: str | None, ts: str):
         self.tool, self.message_id, self.ts = tool, message_id, ts
@@ -424,10 +424,12 @@ class LiveTail:
         O(sessions + open calls). `state_version` moves only when a session's attention list changes.
         """
         now = self._clock()
-        stamp = lambda seconds: (now - timedelta(seconds=seconds)).strftime(_STAMP)  # noqa: E731
-        call_horizon, forget_horizon, quiet_cutoff = stamp(OPEN_CALL_MAX_S), stamp(FORGET_AFTER_S), stamp(
-            self.open_call_minutes * 60
-        )
+
+        def before(seconds: float) -> str:
+            return (now - timedelta(seconds=seconds)).strftime(_STAMP)
+
+        call_horizon, forget_horizon = before(OPEN_CALL_MAX_S), before(FORGET_AFTER_S)
+        quiet_cutoff = before(self.open_call_minutes * 60)
         with self._mutex:
             for session_id, session in list(self._sessions.items()):
                 for stream in session.streams.values():
