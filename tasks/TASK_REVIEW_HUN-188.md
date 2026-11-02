@@ -61,8 +61,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T08:21:55Z from main code de96ca4 (worktree HUN-188, no edits), real run `BROWSER=true setsid uv run easy-personal dashboard` on the owner's data, probe `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun188/probe.mjs` (headless Chrome), raw output `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun188/before/probe.json`, screenshots `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun188/before/{wide,narrow}-{Usage,Memory,Kit}.png`:
+- Usage 1440x900: "Total tokens" figure `3,111,681,853` renders on 2 lines (wraps); cost card figure text `$2143.03 + abstained: (unknown), claude-opus-5` on 3 lines. At 390 px the cost figure is 2 lines.
+- Usage By model, visible names (cell clientWidth 96 px, scrollWidth larger = clipped with an ellipsis): claude-opus-5-5 (121 px), claude-sonnet-5-5 (136), claude-opus-5 (106), claude-haiku-5-5 (128), (unknown). All four long names are cut off by the ellipsis (scrollWidth > clientWidth), so claude-opus-5-5 and claude-opus-5 lose their distinguishing end; the full-page screenshot was too tall to read, so the clipped text itself was not eyeballed.
+- Memory default project: `-home-hungnguyenhuu-workspace-pets-per-agentic-claude` (48 options), graph "2 notes · 1 link · 1 unresolved"; no "gone folders hidden" text.
+- Kit: heading "Kit by project (162)", 162 cards, page height 29779 px at 1440 (30598 px at 390); no "gone folders hidden" text.
+- No page-wide horizontal scroll in any of the six captures.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
