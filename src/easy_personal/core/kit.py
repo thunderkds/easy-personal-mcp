@@ -11,7 +11,7 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from easy_personal.core import metrics
+from easy_personal.core import metrics, owners
 from easy_personal.sources.context import context_part
 from easy_personal.sources.git_local import git_part
 from easy_personal.sources.ui import ui_part
@@ -21,14 +21,9 @@ NO_DATA = {"status": "no data"}
 GIT_WORKERS = 8  # `git rev-list` runs in parallel: it is a subprocess wait, and a big repo takes 100+ ms
 
 
-def scoped_projects(
+def _stored_projects(
     conn: sqlite3.Connection, workspace: str | None = None, account: str | None = None
 ) -> list[str]:
-    """Stored project paths seen in usage, limited to a workspace's repos and/or an account's events.
-
-    Kit traces carry no account, so the kit parts follow this project list. An unknown workspace
-    or account raises ValueError (see `metrics._scope`).
-    """
     scope, params = metrics._scope(conn, workspace, None, None, account)
     return [
         p
@@ -38,6 +33,19 @@ def scoped_projects(
             params,
         )
     ]
+
+
+def scoped_projects(
+    conn: sqlite3.Connection, workspace: str | None = None, account: str | None = None
+) -> list[str]:
+    """Project paths seen in usage, limited to a workspace's repos and/or an account's events.
+
+    A gone worktree is listed as its owner project, once (FR-057). Kit traces carry no account, so the
+    kit parts follow this project list. An unknown workspace or account raises ValueError (see `metrics._scope`).
+    """
+    paths = _stored_projects(conn, workspace, account)
+    owner = owners.owner_map(conn)
+    return sorted({owner.get(p, p) for p in paths})
 
 
 def kernel_error_rate(
@@ -53,7 +61,7 @@ def kernel_error_rate(
     """
     where, params = "abstained = 0 AND ts_utc >= ? AND ts_utc < ?", [since, until]
     if workspace is not None or account is not None:
-        paths = scoped_projects(conn, workspace, account)
+        paths = _stored_projects(conn, workspace, account)  # trace rows keep their own stored path
         if not paths:
             return 0.0, 0
         where += f" AND project_path IN ({', '.join('?' * len(paths))})"

@@ -9,7 +9,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from easy_personal.core import discovery
+from easy_personal.core import discovery, owners
 
 ORPHAN = "orphan"
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")
@@ -178,7 +178,8 @@ def project_paths(
 
     A repo path is also resolved like `discovery.resolve_project`, so a subfolder or worktree still
     reaches the stored project. Only DISTINCT stored paths (inside the period bounds, for speed) are
-    compared, path-aware: `/a/b` never matches `/a/bc`. Raises WorkspaceError for an unknown name.
+    compared, path-aware: `/a/b` never matches `/a/bc`. A gone path whose owner project (FR-057) is under
+    a repo counts too. Raises WorkspaceError for an unknown name.
     """
     roots = set()
     for repo in by_name(conn, name)["repos"]:
@@ -197,4 +198,5 @@ def project_paths(
             f"SELECT DISTINCT project_path FROM events WHERE {' AND '.join(clauses)}", params
         )
     )  # fmt: skip
-    return sorted(p for p in stored if any(_under(p, root) for root in roots))
+    owner = owners.owner_map(conn)  # a gone worktree counts for its owner's workspace (FR-057)
+    return sorted(p for p in stored if any(_under(owner.get(p, p), root) or _under(p, root) for root in roots))

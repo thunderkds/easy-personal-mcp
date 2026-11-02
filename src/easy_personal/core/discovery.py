@@ -32,6 +32,14 @@ def _git(cwd: str, *args: str) -> str | None:
         return None
 
 
+def repo_of(folder: str) -> str | None:
+    """The git repo an existing folder is in (a worktree gives its main repo), else None."""
+    common = _git(folder, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if common and Path(common).name == ".git":
+        return str(Path(common).parent)
+    return _git(folder, "rev-parse", "--show-toplevel")
+
+
 def resolve_project(cwd: str) -> str:
     """Return the project path for a session cwd.
 
@@ -40,7 +48,4 @@ def resolve_project(cwd: str) -> str:
     """
     if not Path(cwd).is_dir():
         return cwd
-    common = _git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if common and Path(common).name == ".git":
-        return str(Path(common).parent)
-    return _git(cwd, "rev-parse", "--show-toplevel") or cwd
+    return repo_of(cwd) or cwd

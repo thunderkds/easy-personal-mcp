@@ -6,7 +6,7 @@ from functools import lru_cache
 from itertools import pairwise
 from pathlib import Path
 
-from easy_personal.core import accounts, workspaces
+from easy_personal.core import accounts, owners, workspaces
 from easy_personal.core import prices as price_table
 
 DIMENSIONS = ("day", "model", "project", "tool")
@@ -263,7 +263,7 @@ def usage_breakdown(
     workspace: str | None = None,
     account: str | None = None,
 ) -> dict:
-    """Tokens per day (OS local) / model / project (folder name) / tool for [since, until).
+    """Tokens per day (OS local) / model / project (folder name of the owner project, FR-057) / tool for [since, until).
 
     `total` counts each message once, so it equals `usage_summary`. Tool groups overlap: a
     message that used several tools appears in each. Cost is API-equivalent, never a bill; a
@@ -276,9 +276,11 @@ def usage_breakdown(
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     groups: dict[str, dict] = {}
     total = _new_group()
+    owner = owners.owner_map(conn) if by == "project" else {}  # a gone worktree counts under its owner (FR-057)
     for ts, model, project_path, tools, i, o, cc, cr, sc, ep in _messages(
         conn, since_utc, until_utc, workspace, account
     ):
+        project_path = owner.get(project_path, project_path)
         usd, kind = prices.cost(model, i, o, cc, cr), work_kind(sc, ep)
         _add(total, model, i, o, cc, cr, usd, kind)
         for key in _keys(by, ts, model, project_path, tools):
@@ -359,8 +361,10 @@ def tokens_by_project(
 ) -> dict[str, int]:
     """All tokens per project folder name in [since, until); the `project` groups of `usage_breakdown`, in one query."""
     totals: dict[str, int] = {}
+    owner = owners.owner_map(conn)
     for path, *sums in _message_sums(conn, since, until, workspace, account, by_project=True):
-        totals[_folder(path)] = totals.get(_folder(path), 0) + sum(sums)
+        key = _folder(owner.get(path, path))
+        totals[key] = totals.get(key, 0) + sum(sums)
     return totals
 
 
