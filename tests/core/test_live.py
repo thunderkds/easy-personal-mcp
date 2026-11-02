@@ -33,13 +33,14 @@ def now_ts(offset_s: float = 0.0) -> str:
     return (datetime.now(UTC) + timedelta(seconds=offset_s)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
-def assistant(session="s1", tools=("Bash",), message=None, ts=None, sidechain=False, out=5):
+def assistant(session="s1", tools=("Bash",), message=None, ts=None, sidechain=False, out=5, use_ids=None):
     """One assistant record: usage plus one tool_use block per tool name (planted secrets inside)."""
     blocks = [{"type": "text", "text": SECRET_TEXT}]
     blocks += [
-        {"type": "tool_use", "id": f"toolu_{next(_ids)}", "name": t, "input": {"command": f"ls {SECRET_INPUT}"}}
-        for t in tools
-    ]
+        {"type": "tool_use", "id": (use_ids[i] if use_ids else f"toolu_{next(_ids)}"), "name": t,
+         "input": {"command": f"ls {SECRET_INPUT}"}}
+        for i, t in enumerate(tools)
+    ]  # fmt: skip
     return {
         "type": "assistant", "version": "2.1.316", "cwd": "/work/demo-app", "sessionId": session,
         "isSidechain": sidechain, "entrypoint": "cli", "timestamp": ts or now_ts(),
@@ -51,11 +52,11 @@ def assistant(session="s1", tools=("Bash",), message=None, ts=None, sidechain=Fa
     }  # fmt: skip
 
 
-def tool_result(session="s1", error=False, ts=None):
+def tool_result(session="s1", error=False, ts=None, use_id="toolu_x", sidechain=False):
     return {
         "type": "user", "version": "2.1.316", "cwd": "/work/demo-app", "sessionId": session,
-        "isSidechain": False, "entrypoint": "cli", "timestamp": ts or now_ts(),
-        "message": {"content": [{"type": "tool_result", "tool_use_id": "toolu_x", "is_error": error,
+        "isSidechain": sidechain, "entrypoint": "cli", "timestamp": ts or now_ts(),
+        "message": {"content": [{"type": "tool_result", "tool_use_id": use_id, "is_error": error,
                                  "content": SECRET_OUTPUT}]},
     }  # fmt: skip
 
@@ -347,7 +348,7 @@ def test_snapshot_totals_count_a_message_once_and_cover_active_sessions_only(pro
     tail = start()
     # one message written as two records (thinking/tool_use blocks): same message id, growing output
     append(path, assistant(message="msg_dup", tools=(), out=3), assistant(message="msg_dup", tools=("Bash",), out=9))
-    append(path, assistant(session="s-old", ts=now_ts(-3600), message="msg_old"))
+    append(path, assistant(session="s-old", tools=(), ts=now_ts(-3600), message="msg_old"))
     append(path, tool_result())
     assert wait_until(lambda: tail.snapshot()["sessions"] and tail.last_id >= 5)
     snap = tail.snapshot()
@@ -358,7 +359,8 @@ def test_snapshot_totals_count_a_message_once_and_cover_active_sessions_only(pro
     assert (session["tokens_in"], session["tokens_out"]) == (10, 9)  # max of the two records, once
     assert session["last_ts"].endswith("Z")
     assert set(session) == {"session_id", "account", "project", "last_ts", "tool_calls", "tokens_in",
-                            "tokens_out", "cache_creation", "cache_read", "cost_usd"}  # fmt: skip
+                            "tokens_out", "cache_creation", "cache_read", "cost_usd", "attention"}  # fmt: skip
+    assert session["attention"] == []
     usage_events = [e for e in tail.events_since(0) if e["kind"] == "usage" and e["session_id"] == "s1"]
     assert [e["tokens_out"] for e in usage_events] == [3, 6]  # first sight, then the growth (delta)
 
@@ -419,9 +421,9 @@ def test_idle_sessions_are_forgotten_so_memory_stays_bounded(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
     tail = start()
-    append(path, assistant(session="s-stale", ts=now_ts(-2 * live.FORGET_AFTER_S)))
+    append(path, assistant(session="s-stale", tools=(), ts=now_ts(-2 * live.FORGET_AFTER_S)))
     append(path, assistant(session="s-fresh"))
-    assert wait_until(lambda: tail.last_id >= 4)
+    assert wait_until(lambda: tail.last_id >= 3)
     assert set(tail._sessions) == {"s-fresh"}  # the stale one was dropped as soon as it was seen
 
 
@@ -452,3 +454,267 @@ def test_cli_dashboard_stops_the_tail_when_serve_raises(projects, monkeypatch):
         cli.main(["dashboard"])
     assert live.current() is None
     assert not any(t.name == live.THREAD_NAME for t in threading.enumerate())
+
+
+# -- attention states (HUN-181, FR-047..049, NFR-012) ------------------------------------------------
+
+
+class Clock:
+    """A settable clock; record timestamps come from it so the 10-minute and 24-hour rules need no sleeping."""
+
+    def __init__(self):
+        self.at = datetime.now(UTC)
+
+    def __call__(self):
+        return self.at
+
+    def stamp(self, plus_s: float = 0.0) -> str:
+        return (self.at + timedelta(seconds=plus_s)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+    def advance(self, **kwargs):
+        self.at += timedelta(**kwargs)
+
+
+@pytest.fixture
+def clock():
+    return Clock()
+
+
+@pytest.fixture
+def manual(projects, clock):
+    """A tail with a fake clock that the test drives with `poll_once()`; the files exist (ingested) first."""
+
+    def _make():
+        with store.opened(config.store_path()) as conn:
+            claude_code.ingest_accounts(conn)
+        return live.LiveTail(clock=clock)
+
+    return _make
+
+
+MAIN = "demo/s1.jsonl"
+SUB = "demo/s1/subagents/agent-a1.jsonl"
+
+
+def use(clock, ids, tools=("Bash",), message=None, session="s1", sidechain=False, plus_s=0.0):
+    return assistant(session=session, tools=tools, use_ids=ids, message=message, ts=clock.stamp(plus_s), sidechain=sidechain)
+
+
+def result(clock, use_id, error=False, session="s1", sidechain=False, plus_s=0.0):
+    return tool_result(session=session, error=error, use_id=use_id, ts=clock.stamp(plus_s), sidechain=sidechain)
+
+
+def attention(tail, session="s1"):
+    [s] = [s for s in tail.snapshot(now=tail._clock())["sessions"] if s["session_id"] == session]
+    return s["attention"]
+
+
+def seeded(projects, manual, clock, *paths):
+    """Files holding one old record each (what exists before the dashboard starts), then the tail."""
+    for rel in paths:
+        append(projects / rel, assistant(tools=(), ts=clock.stamp(), sidechain="subagents" in rel))
+    return manual()
+
+
+def test_a_result_carries_the_tool_name_of_its_use_across_polls_and_unknown_ids_stay_null(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, use(clock, ["toolu_A", "toolu_B"], tools=("Bash", "Read"), message="msg_1"))
+    tail.poll_once()
+    append(projects / MAIN, result(clock, "toolu_B"), result(clock, "toolu_A", error=True), result(clock, "toolu_old"))
+    tail.poll_once()
+    results = [(e["tool"], e["is_error"]) for e in tail.events_since(0) if e["kind"] == "tool_result"]
+    assert results == [("Read", False), ("Bash", True), (None, False)]
+    assert all(set(e) == EVENT_KEYS for e in tail.events_since(0))  # no block id in the event
+
+
+def test_streams_are_separate_three_failures_in_a_subagent_file_mark_failing_and_a_main_success_keeps_it(
+    projects, manual, clock
+):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    append(projects / SUB, *[r for i in range(3) for r in (use(clock, [f"sub_{i}"], sidechain=True, message=f"m_{i}"),
+                                                           result(clock, f"sub_{i}", error=True, sidechain=True))])
+    append(projects / MAIN, use(clock, ["main_1"]), result(clock, "main_1"))
+    tail.poll_once()
+    assert attention(tail) == [
+        {"state": "failing", "tool": "Bash", "count": 3, "is_sidechain": True, "since": attention(tail)[0]["since"]}
+    ]
+    assert attention(tail)[0]["since"].endswith("Z")
+
+
+def test_three_failures_in_a_row_mark_failing_and_the_next_success_clears_it(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    for i in range(2):
+        append(projects / MAIN, use(clock, [f"t{i}"], tools=("Edit",), message=f"m{i}"), result(clock, f"t{i}", error=True))
+    tail.poll_once()
+    assert attention(tail) == []  # two are not enough
+    append(projects / MAIN, use(clock, ["t2"], tools=("Grep",), message="m2"), result(clock, "t2", error=True))
+    tail.poll_once()
+    [item] = attention(tail)
+    assert (item["state"], item["tool"], item["count"], item["is_sidechain"]) == ("failing", "Grep", 3, False)
+    append(projects / MAIN, use(clock, ["t3"], message="m3"), result(clock, "t3"))
+    tail.poll_once()
+    assert attention(tail) == []
+
+
+def test_unpaired_failed_results_count_in_the_streak_with_a_null_tool(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, *[result(clock, f"before_start_{i}", error=True) for i in range(3)])
+    tail.poll_once()
+    [item] = attention(tail)
+    assert (item["state"], item["tool"], item["count"]) == ("failing", None, 3)
+
+
+def test_the_failing_bound_comes_from_thresholds_in_the_config(projects, manual, clock):
+    config.config_path().write_text("thresholds:\n  live_failing_streak: 5\n")
+    tail = seeded(projects, manual, clock, MAIN)
+    for i in range(4):
+        append(projects / MAIN, use(clock, [f"t{i}"], message=f"m{i}"), result(clock, f"t{i}", error=True))
+    tail.poll_once()
+    assert attention(tail) == []
+    append(projects / MAIN, use(clock, ["t4"], message="m4"), result(clock, "t4", error=True))
+    tail.poll_once()
+    assert [(a["state"], a["count"]) for a in attention(tail)] == [("failing", 5)]
+
+
+@pytest.mark.parametrize("tool", ["AskUserQuestion", "ExitPlanMode"])
+def test_an_open_question_or_plan_prompt_is_waiting_at_once_and_its_result_clears_it(projects, manual, clock, tool):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, use(clock, ["q1"], tools=(tool,), message="mq"))
+    tail.poll_once()
+    [item] = attention(tail)
+    assert (item["state"], item["tool"], item["count"], item["is_sidechain"]) == ("waiting", tool, 1, False)
+    append(projects / MAIN, result(clock, "q1"))
+    tail.poll_once()
+    assert attention(tail) == []
+
+
+def test_another_call_open_ten_minutes_in_a_silent_session_needs_attention_and_a_record_clears_it(
+    projects, manual, clock
+):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, use(clock, ["slow"], tools=("Bash",), message="ms"))
+    tail.poll_once()
+    clock.advance(minutes=9, seconds=59)
+    tail.poll_once()
+    assert attention(tail) == []
+    clock.advance(seconds=1)
+    tail.poll_once()  # the poll loop alone does it: no new line arrived
+    [item] = attention(tail)
+    assert (item["state"], item["tool"], item["count"]) == ("needs_attention", "Bash", 1)
+    append(projects / MAIN, result(clock, "slow"))
+    tail.poll_once()
+    assert attention(tail) == []
+
+
+def test_a_thread_started_tail_sets_needs_attention_within_two_seconds(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, use(clock, ["slow"], message="ms"))
+    tail.poll_once()
+    tail.start()
+    try:
+        clock.advance(minutes=10)
+        assert wait_until(lambda: attention(tail), timeout=2.0)
+    finally:
+        tail.stop()
+
+
+def test_a_record_in_another_stream_of_the_session_prevents_needs_attention(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    append(projects / MAIN, use(clock, ["agent_call"], tools=("Agent",), message="ma"))
+    tail.poll_once()
+    clock.advance(minutes=9)
+    append(projects / SUB, assistant(tools=(), ts=clock.stamp(), sidechain=True, message="msub"))  # the subagent works
+    tail.poll_once()
+    clock.advance(minutes=9)
+    tail.poll_once()
+    assert attention(tail) == []  # 18 min since the call, 9 since the session last wrote
+    clock.advance(minutes=1)
+    tail.poll_once()
+    assert [a["state"] for a in attention(tail)] == ["needs_attention"]
+
+
+def test_the_open_call_minutes_come_from_thresholds_and_sit_in_the_snapshot(projects, manual, clock):
+    assert manual().snapshot()["open_call_minutes"] == 10
+    config.config_path().write_text("thresholds:\n  live_open_call_minutes: 1\n")
+    tail = seeded(projects, manual, clock, MAIN)
+    assert tail.snapshot()["open_call_minutes"] == 1
+    append(projects / MAIN, use(clock, ["slow"], message="ms"))
+    tail.poll_once()
+    clock.advance(seconds=60)
+    tail.poll_once()
+    assert [a["state"] for a in attention(tail)] == ["needs_attention"]
+
+
+def test_a_later_assistant_message_closes_earlier_open_calls_but_parallel_blocks_of_one_message_stay_open(
+    projects, manual, clock
+):
+    tail = seeded(projects, manual, clock, MAIN)
+    # one message, two tool_use blocks written as two records (same message id): both stay open
+    append(projects / MAIN, use(clock, ["p1"], message="mp"), use(clock, ["p2"], message="mp"))
+    tail.poll_once()
+    append(projects / MAIN, result(clock, "p1"))
+    tail.poll_once()
+    session = next(iter(tail._sessions.values()))
+    assert len(session.streams[str(projects / MAIN)].open) == 1  # p2 is still open
+    append(projects / MAIN, use(clock, ["n1"], message="mn"))  # a new message: p2's result was skipped
+    tail.poll_once()
+    assert list(session.streams[str(projects / MAIN)].open) == ["n1"]
+    clock.advance(minutes=10)
+    tail.poll_once()
+    [item] = attention(tail)
+    assert (item["state"], item["count"]) == ("needs_attention", 1)
+
+
+def test_a_session_with_an_open_call_stays_listed_past_five_minutes_and_one_hour_and_the_call_is_dropped_at_24_h(
+    projects, manual, clock
+):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, use(clock, ["slow"], message="ms"))
+    append(projects / "demo" / "other.jsonl", assistant(session="s-closed", tools=(), ts=clock.stamp()))
+    tail.poll_once()
+    clock.advance(seconds=live.ACTIVE_WINDOW_S + 1)
+    tail.poll_once()
+    ids = {s["session_id"] for s in tail.snapshot(now=clock())["sessions"]}
+    assert ids == {"s1"}  # the session with the open call stays; the quiet one without it leaves the list
+    clock.advance(seconds=live.FORGET_AFTER_S)
+    tail.poll_once()
+    assert "s1" in {s["session_id"] for s in tail.snapshot(now=clock())["sessions"]}
+    assert "s-closed" not in tail._sessions  # forgotten at 1 h
+    clock.advance(hours=23)
+    tail.poll_once()
+    assert tail.snapshot(now=clock())["sessions"] == []  # the call is older than 24 h: dropped, session idle
+    assert "s1" not in tail._sessions
+
+
+def test_state_version_ignores_ordinary_tool_calls_and_moves_once_per_state_set_change(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    before = tail.state_version
+    for i in range(100):
+        append(projects / MAIN, use(clock, [f"ok{i}"], tools=("Read",), message=f"m{i}"), result(clock, f"ok{i}"))
+        tail.poll_once()
+    assert tail.state_version == before
+    append(projects / MAIN, use(clock, ["q"], tools=("AskUserQuestion",), message="mq"))
+    tail.poll_once()
+    assert tail.state_version == before + 1
+    tail.poll_once()
+    assert tail.state_version == before + 1  # a poll that changes nothing
+    append(projects / MAIN, result(clock, "q"))
+    tail.poll_once()
+    assert tail.state_version == before + 2
+    assert tail.snapshot()["sessions"][0]["attention"] == []
+
+
+def test_a_call_or_result_without_a_block_id_shows_no_state_and_is_logged_once_by_type(
+    projects, manual, clock, caplog
+):
+    caplog.set_level(logging.WARNING)
+    tail = seeded(projects, manual, clock, MAIN)
+    bare_use = use(clock, ["x"], tools=("AskUserQuestion",), message="m1")
+    del bare_use["message"]["content"][1]["id"]
+    bare_result = result(clock, "x", error=True)
+    del bare_result["message"]["content"][0]["tool_use_id"]
+    append(projects / MAIN, bare_use, bare_result, bare_use, bare_result, bare_result, bare_result)
+    tail.poll_once()
+    assert attention(tail) == []
+    assert sum("has no id" in r.getMessage() for r in caplog.records) == 2  # one line per block type
+
