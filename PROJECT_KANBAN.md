@@ -11,6 +11,9 @@
 ### Todo
 - [ ] **HUN-183** — Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
 - [ ] **HUN-185** — Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-185.md`
+- [ ] **HUN-186** — Dashboard speed + gone-project filter: fast kit / usage sessions / warnings / plan / memory list reads, hide gone projects (FR-054, NFR-013) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-186.md`
+- [ ] **HUN-187** — Board view UX: one project at a time, hide projects without a board, plain clamped titles, no sideways scroll on phones (FR-055) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-187.md`
+- [ ] **HUN-188** — Usage, Memory and Kit view UX: one-line numbers, distinct model names, Memory opens on the busiest project, Kit folds idle projects (FR-054, FR-056) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-188.md`
 
 ### In Progress
 

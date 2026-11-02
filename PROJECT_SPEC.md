@@ -77,6 +77,7 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Memory note** — one `.md` file under `<repo>/memory/` (**kit memory**) or `~/.claude*/projects/*/memory/` (**Claude memory**). Its graph identity is the frontmatter `name` slug, else the file stem.
 - **easy-memory note** — one `notes/<id>.json` in the easy-memory store (`$EASY_MEMORY_HOME`, else `~/.easy-memory/<key>/`), saved by easy-memory's Stop hook. Only its `time` and `files` map are read out; its `prompt`, `answer` and `session_id` never leave `core/easymem.py`. Not a **Memory note** (no frontmatter, no links). *(planned, 2026-11-02)*
 - **Cited file** — a repo-relative path in an easy-memory note's `files` map, drawn as one graph node per project (top 30 by citation count, FR-052). **Stale** when the file's current SHA-256 differs from the hash in the newest note that cites it, or the file is gone. *(planned, 2026-11-02)*
+- **Gone project** — a stored project path (`events.project_path`) whose folder no longer exists on disk (e.g. a deleted `/tmp` test folder). Hidden from the Board, Kit and Memory lists (FR-054); its usage history is still counted.
 - **Dangling link** — a `[[name]]` in a memory note that resolves to no memory note in the same project; drawn as an empty node.
 - **Live tail** — the background reader `core/live.py` that follows transcripts while `easy-personal dashboard` runs (FR-043). Not the scheduled ingest, though both share one cursor.
 - **Stream** — one transcript file of a session: the main thread or one subagent (`subagents/*.jsonl`). Subagent records share the parent's session id, so failure streaks and open calls are kept per stream. *(planned, 2026-11-02)*
@@ -226,6 +227,9 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-183 | Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Todo | Backend-Implementer | C1 | Low | P1 |
 | HUN-184 | easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-185 | Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Todo | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-186 | Dashboard speed + gone-project filter (FR-054, NFR-013) | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-187 | Board view UX: one project at a time, hide no-board projects, plain clamped titles, phone width (FR-055) | Todo | Frontend-Implementer | C2 | Low | P0 |
+| HUN-188 | Usage, Memory and Kit view UX: one-line numbers, distinct model names, Memory default, Kit fold (FR-054, FR-056) | Todo | Frontend-Implementer | C2 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
