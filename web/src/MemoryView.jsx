@@ -144,9 +144,11 @@ function ProjectGraph({ project }) {
 
 const noteCount = (p) => (p.kit_notes ?? 0) + (p.claude_notes ?? 0) + (p.easy_memory_notes ?? 0)
 
-/** The project with the most notes (kit + Claude + easy-memory); ties go to the lower name. */
+const isRealPath = (p) => p.project.startsWith('/') // a Claude-folder-only key is not an absolute path
+
+/** Real project paths first, then the most notes (kit + Claude + easy-memory), then the lower name. */
 export function busiest(projects) {
-  return [...projects].sort((a, b) => noteCount(b) - noteCount(a) || before(a.name, b.name))[0]?.project
+  return [...projects].sort((a, b) => Number(isRealPath(b)) - Number(isRealPath(a)) || noteCount(b) - noteCount(a) || before(a.name, b.name))[0]?.project
 }
 
 /** `// work` › Memory: one project's memory notes as rings. Names and links only; no note body is ever sent. */

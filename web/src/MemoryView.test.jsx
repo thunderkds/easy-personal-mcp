@@ -207,6 +207,22 @@ describe('default project and gone line (HUN-188 AC4, AC6)', () => {
     expect(screen.getByLabelText('Project')).toHaveValue('/work/real')
   })
 
+  it('never opens on a Claude-folder-only key even when it has MORE notes than a real project', async () => {
+    const folder = { project: '-home-me-claude-folder', name: '-home-me-claude-folder', kit_notes: 0, claude_notes: 40 }
+    stub({ projects: { projects: [folder, { project: '/work/real', name: 'real', kit_notes: 1, claude_notes: 0 }] } })
+    render(<MemoryView />)
+    await screen.findByRole('group', { name: /^Memory graph of / })
+    expect(screen.getByLabelText('Project')).toHaveValue('/work/real')
+  })
+
+  it('opens on the folder-only key with the most notes when no real project exists', async () => {
+    const folder = (key, n) => ({ project: key, name: key, kit_notes: 0, claude_notes: n })
+    stub({ projects: { projects: [folder('-a-folder', 2), folder('-b-folder', 5)] } })
+    render(<MemoryView />)
+    await screen.findByRole('group', { name: /^Memory graph of / })
+    expect(screen.getByLabelText('Project')).toHaveValue('-b-folder')
+  })
+
   it('treats a missing note count as 0 and still opens on a project', async () => {
     stub({ projects: { projects: [{ project: '/work/x', name: 'x' }] } })
     render(<MemoryView />)
