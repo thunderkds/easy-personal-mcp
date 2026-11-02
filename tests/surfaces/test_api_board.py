@@ -54,4 +54,4 @@ def test_workspace_scope_filters_and_an_unknown_workspace_is_400(client, repos):
 
 
 def test_empty_store_gives_no_projects(client):
-    assert client.get("/api/board", headers=AUTH).json() == {"projects": []}
+    assert client.get("/api/board", headers=AUTH).json() == {"projects": [], "gone": 0}

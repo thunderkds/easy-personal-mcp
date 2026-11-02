@@ -152,9 +152,11 @@ def _is_worktree(path: str) -> bool:
 
 
 def board(conn: sqlite3.Connection, workspace: str | None = None, account: str | None = None) -> dict:
-    """Every project seen in usage (same scope as the kit), with its board tasks.
+    """Every project seen in usage whose folder exists (same scope as the kit), with its board tasks.
 
+    A gone project (folder missing, FR-054) is left out and counted in the top-level `gone`.
     An unknown workspace or account raises ValueError, as for `kit.kit_summary`.
     """
-    paths = [p for p in kit.scoped_projects(conn, workspace, account) if not _is_worktree(p)]
-    return {"projects": [read_project(Path(p)) for p in paths]}
+    stored = [p for p in kit.scoped_projects(conn, workspace, account) if not _is_worktree(p)]
+    paths, gone = kit.split_gone(stored)
+    return {"projects": [read_project(Path(p)) for p in paths], "gone": gone}

@@ -49,6 +49,7 @@ from easy_personal.surfaces.mcp import LOOPBACK
 
 TOKEN_HEADER = "x-dashboard-token"
 LIVE_PATH = "/api/live"
+TIMELINE_DETAIL_SESSIONS = 50  # sessions with points + gaps in /api/usage/sessions: the page draws 50 (`MAX_SESSIONS` in web/src/Timeline.jsx)
 POLL_S = 0.1  # how often the stream looks at the live tail's buffer
 PING_S = 15.0  # keep-alive comment interval
 CSP = "default-src 'self'; frame-ancestors 'none'"
@@ -619,14 +620,17 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
             _query(lambda c, q: metrics.usage_breakdown(c, q.get("by", ""), *_period(q), workspace=_scope(q)[2], account=_scope(q)[3])),
         ),
         Route("/api/usage/outliers", _query(lambda c, q: metrics.session_outliers(c, *_scope(q)))),
-        Route("/api/usage/sessions", _query(lambda c, q: metrics.session_timeline(c, *_scope(q)))),
+        Route(
+            "/api/usage/sessions",
+            _query(lambda c, q: metrics.session_timeline(c, *_scope(q), detail_sessions=TIMELINE_DETAIL_SESSIONS)),
+        ),
         Route("/api/workspaces", _query(lambda c, q: {"workspaces": workspaces.list_all(c)})),
         Route("/api/workspaces", workspaces_add, methods=["POST"]),
         Route("/api/workspaces/{id}", workspaces_edit, methods=["PATCH"]),
         Route("/api/workspaces/{id}", workspaces_delete, methods=["DELETE"]),
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c, **_who(q)))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c, **_who(q)))),
-        Route("/api/kit", _query(lambda c, q: kit.kit_summary(c, **_who(q)))),
+        Route("/api/kit", _query(lambda c, q: kit.kit_summary(c, **_who(q), hide_gone=True))),
         Route("/api/board", _query(lambda c, q: board.board(c, **_who(q)))),
         Route("/api/accounts", _query(lambda c, q: accounts.grouped(c, q.get("by", "account")))),
         Route("/api/accounts", _account_write(lambda c, _id, b: accounts.add(c, b.get("path")), 201), methods=["POST"]),

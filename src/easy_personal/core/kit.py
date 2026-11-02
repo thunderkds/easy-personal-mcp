@@ -8,6 +8,7 @@ later parts add keys next to them. A part with nothing to read is `{"status": "n
 """
 
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from easy_personal.core import metrics
@@ -17,6 +18,7 @@ from easy_personal.sources.ui import ui_part
 from easy_personal.sources.verifier import verifier_part
 
 NO_DATA = {"status": "no data"}
+GIT_WORKERS = 8  # `git rev-list` runs in parallel: it is a subprocess wait, and a big repo takes 100+ ms
 
 
 def scoped_projects(
@@ -62,45 +64,64 @@ def kernel_error_rate(
     return (errors / calls if calls else 0.0), calls
 
 
-def _kernel(conn, project: str) -> dict:
-    calls, errors, tasks, first, last = conn.execute(
-        "SELECT COUNT(*), COALESCE(SUM(is_error), 0), COUNT(DISTINCT kit_task_id), "
-        "MIN(ts_utc), MAX(ts_utc) FROM kit_trace_events WHERE project_path = ? AND abstained = 0",
-        (project,),
-    ).fetchone()
-    abstained = conn.execute(
-        "SELECT COUNT(*) FROM kit_trace_events WHERE project_path = ? AND abstained = 1", (project,)
-    ).fetchone()[0]
-    if not calls and not abstained:
-        return dict(NO_DATA)
+def _kernel_by_project(conn) -> dict[str, dict]:
+    """The `kernel` part of every project that has trace rows, from one pass over the table."""
+    rows = conn.execute(
+        "SELECT project_path, SUM(abstained = 0), COALESCE(SUM(CASE WHEN abstained = 0 THEN is_error END), 0), "
+        "COUNT(DISTINCT CASE WHEN abstained = 0 THEN kit_task_id END), "
+        "MIN(CASE WHEN abstained = 0 THEN ts_utc END), MAX(CASE WHEN abstained = 0 THEN ts_utc END), "
+        "SUM(abstained = 1) FROM kit_trace_events GROUP BY project_path"
+    )
     return {
-        "status": "ok",
-        "tool_calls": calls,
-        "tool_errors": errors,
-        "error_rate": round(errors / calls, 4) if calls else None,
-        "kit_tasks": tasks,
-        "first_utc": first,
-        "last_utc": last,
-        "abstained": abstained,
+        project: {
+            "status": "ok",
+            "tool_calls": calls,
+            "tool_errors": errors,
+            "error_rate": round(errors / calls, 4) if calls else None,
+            "kit_tasks": tasks,
+            "first_utc": first,
+            "last_utc": last,
+            "abstained": abstained,
+        }
+        for project, calls, errors, tasks, first, last, abstained in rows
+        if calls or abstained
     }
 
 
+def split_gone(paths: list[str]) -> tuple[list[str], int]:
+    """(the paths whose folder exists, how many do not): a *gone project* is a stored path with no folder (FR-054)."""
+    alive = [p for p in paths if Path(p).is_dir()]
+    return alive, len(paths) - len(alive)
+
+
 def kit_summary(
-    conn: sqlite3.Connection, workspace: str | None = None, account: str | None = None
+    conn: sqlite3.Connection,
+    workspace: str | None = None,
+    account: str | None = None,
+    hide_gone: bool = False,
 ) -> dict:
     """Every project seen in usage, by folder name, with its kit parts.
 
     `workspace` / `account` keep only the projects of that workspace or with events of that account.
+    `hide_gone` (the dashboard) drops projects whose folder is missing and adds a top-level `gone` count;
+    MCP and CLI leave it off and keep those rows, flagged `missing_on_disk`.
     """
     projects = scoped_projects(conn, workspace, account)
-    return {
+    gone = None
+    if hide_gone:
+        projects, gone = split_gone(projects)
+    kernel = _kernel_by_project(conn)
+    present = [p for p in projects if Path(p).is_dir()]
+    with ThreadPoolExecutor(max_workers=GIT_WORKERS) as pool:
+        git = dict(zip(present, pool.map(git_part, present), strict=True))
+    summary = {
         "projects": [
             {
                 "project": Path(p).name or p,
-                "missing_on_disk": not Path(p).is_dir(),
+                "missing_on_disk": p not in git,
                 "parts": {
-                    "kernel": _kernel(conn, p),
-                    "git": git_part(p),
+                    "kernel": kernel.get(p) or dict(NO_DATA),
+                    "git": git.get(p) or dict(NO_DATA),  # git on a missing folder says "no data" too
                     "context": context_part(conn, p),
                     "verifier": verifier_part(conn, p),
                 },
@@ -109,3 +130,6 @@ def kit_summary(
         ],
         "ui": ui_part(conn),
     }
+    if gone is not None:
+        summary["gone"] = gone
+    return summary

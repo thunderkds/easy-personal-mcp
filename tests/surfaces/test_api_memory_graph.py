@@ -43,7 +43,7 @@ def test_requires_the_token_and_host(client):
 
 def test_without_project_lists_projects(client, repo):
     body = client.get(PATH, headers=AUTH).json()
-    assert body == {"projects": [{"project": str(repo), "name": "alpha", "kit_notes": 2, "claude_notes": 0, "easy_memory_notes": 0}]}
+    assert body == {"projects": [{"project": str(repo), "name": "alpha", "kit_notes": 2, "claude_notes": 0, "easy_memory_notes": 0}], "gone": 0}
 
 
 def test_with_project_returns_graph_without_bodies(client, repo):

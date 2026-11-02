@@ -1,0 +1,1386 @@
+{
+ "board": {
+  "projects": [
+   {
+    "abstained": 0,
+    "board": "linear",
+    "last_pull": "2025-10-09T08:53:20Z",
+    "project": "alive-a",
+    "status": "ok",
+    "tasks": [
+     {
+      "id": "HUN-1",
+      "status": "Todo",
+      "title": "First task"
+     },
+     {
+      "id": "HUN-2",
+      "status": "Done",
+      "title": "Second task"
+     }
+    ]
+   },
+   {
+    "abstained": 0,
+    "board": null,
+    "last_pull": null,
+    "project": "alive-b",
+    "status": "no data",
+    "tasks": []
+   },
+   {
+    "abstained": 0,
+    "board": null,
+    "last_pull": null,
+    "project": "gone-x",
+    "status": "no data",
+    "tasks": []
+   },
+   {
+    "abstained": 0,
+    "board": null,
+    "last_pull": null,
+    "project": "gone-y",
+    "status": "no data",
+    "tasks": []
+   }
+  ]
+ },
+ "breakdown_day": {
+  "by": "day",
+  "groups": [
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a",
+      "model-b"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 3,
+    "cache_read_input_tokens": 100,
+    "input_tokens": 40,
+    "key": "2026-10-14",
+    "messages": 3,
+    "output_tokens": 17,
+    "split": {
+     "agent": 0,
+     "typed": 160,
+     "unknown": 0
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 1800,
+    "input_tokens": 251020,
+    "key": "2026-10-15",
+    "messages": 5,
+    "output_tokens": 1019,
+    "split": {
+     "agent": 0,
+     "typed": 253839,
+     "unknown": 0
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a",
+      "model-b"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 50000,
+    "input_tokens": 40,
+    "key": "2026-10-16",
+    "messages": 4,
+    "output_tokens": 20,
+    "split": {
+     "agent": 15,
+     "typed": 50030,
+     "unknown": 15
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 10,
+    "key": "2026-10-17",
+    "messages": 1,
+    "output_tokens": 5,
+    "split": {
+     "agent": 0,
+     "typed": 15,
+     "unknown": 0
+    }
+   }
+  ],
+  "period": {
+   "since_utc": "2026-10-13T00:00:00.000000Z",
+   "until_utc": "2026-10-20T00:00:00.000000Z"
+  },
+  "total": {
+   "api_equivalent_cost": {
+    "abstained_models": [
+     "model-a",
+     "model-b"
+    ],
+    "price_table_date": "2026-10-21",
+    "usd": null
+   },
+   "cache_creation_input_tokens": 3,
+   "cache_read_input_tokens": 51900,
+   "input_tokens": 251110,
+   "messages": 13,
+   "output_tokens": 1061,
+   "split": {
+    "agent": 15,
+    "typed": 304044,
+    "unknown": 15
+   }
+  }
+ },
+ "breakdown_model": {
+  "by": "model",
+  "groups": [
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 3,
+    "cache_read_input_tokens": 51900,
+    "input_tokens": 251090,
+    "key": "model-a",
+    "messages": 11,
+    "output_tokens": 1051,
+    "split": {
+     "agent": 15,
+     "typed": 304014,
+     "unknown": 15
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-b"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 20,
+    "key": "model-b",
+    "messages": 2,
+    "output_tokens": 10,
+    "split": {
+     "agent": 0,
+     "typed": 30,
+     "unknown": 0
+    }
+   }
+  ],
+  "period": {
+   "since_utc": "2026-10-13T00:00:00.000000Z",
+   "until_utc": "2026-10-20T00:00:00.000000Z"
+  },
+  "total": {
+   "api_equivalent_cost": {
+    "abstained_models": [
+     "model-a",
+     "model-b"
+    ],
+    "price_table_date": "2026-10-21",
+    "usd": null
+   },
+   "cache_creation_input_tokens": 3,
+   "cache_read_input_tokens": 51900,
+   "input_tokens": 251110,
+   "messages": 13,
+   "output_tokens": 1061,
+   "split": {
+    "agent": 15,
+    "typed": 304044,
+    "unknown": 15
+   }
+  }
+ },
+ "breakdown_project": {
+  "by": "project",
+  "groups": [
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a",
+      "model-b"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 3,
+    "cache_read_input_tokens": 50100,
+    "input_tokens": 250080,
+    "key": "alive-a",
+    "messages": 8,
+    "output_tokens": 46,
+    "split": {
+     "agent": 15,
+     "typed": 300199,
+     "unknown": 15
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 1000,
+    "key": "gone-x",
+    "messages": 2,
+    "output_tokens": 1000,
+    "split": {
+     "agent": 0,
+     "typed": 2000,
+     "unknown": 0
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 1800,
+    "input_tokens": 20,
+    "key": "alive-b",
+    "messages": 2,
+    "output_tokens": 10,
+    "split": {
+     "agent": 0,
+     "typed": 1830,
+     "unknown": 0
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-b"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 10,
+    "key": "gone-y",
+    "messages": 1,
+    "output_tokens": 5,
+    "split": {
+     "agent": 0,
+     "typed": 15,
+     "unknown": 0
+    }
+   }
+  ],
+  "period": {
+   "since_utc": "2026-10-13T00:00:00.000000Z",
+   "until_utc": "2026-10-20T00:00:00.000000Z"
+  },
+  "total": {
+   "api_equivalent_cost": {
+    "abstained_models": [
+     "model-a",
+     "model-b"
+    ],
+    "price_table_date": "2026-10-21",
+    "usd": null
+   },
+   "cache_creation_input_tokens": 3,
+   "cache_read_input_tokens": 51900,
+   "input_tokens": 251110,
+   "messages": 13,
+   "output_tokens": 1061,
+   "split": {
+    "agent": 15,
+    "typed": 304044,
+    "unknown": 15
+   }
+  }
+ },
+ "breakdown_tool": {
+  "by": "tool",
+  "groups": [
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a",
+      "model-b"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 51800,
+    "input_tokens": 251070,
+    "key": "(none)",
+    "messages": 10,
+    "output_tokens": 1044,
+    "split": {
+     "agent": 15,
+     "typed": 303884,
+     "unknown": 15
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 3,
+    "cache_read_input_tokens": 100,
+    "input_tokens": 40,
+    "key": "Bash",
+    "messages": 3,
+    "output_tokens": 17,
+    "split": {
+     "agent": 0,
+     "typed": 160,
+     "unknown": 0
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 100,
+    "input_tokens": 10,
+    "key": "Edit",
+    "messages": 1,
+    "output_tokens": 5,
+    "split": {
+     "agent": 0,
+     "typed": 115,
+     "unknown": 0
+    }
+   },
+   {
+    "api_equivalent_cost": {
+     "abstained_models": [
+      "model-a"
+     ],
+     "price_table_date": "2026-10-21",
+     "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 100,
+    "input_tokens": 10,
+    "key": "Read",
+    "messages": 1,
+    "output_tokens": 5,
+    "split": {
+     "agent": 0,
+     "typed": 115,
+     "unknown": 0
+    }
+   }
+  ],
+  "period": {
+   "since_utc": "2026-10-13T00:00:00.000000Z",
+   "until_utc": "2026-10-20T00:00:00.000000Z"
+  },
+  "total": {
+   "api_equivalent_cost": {
+    "abstained_models": [
+     "model-a",
+     "model-b"
+    ],
+    "price_table_date": "2026-10-21",
+    "usd": null
+   },
+   "cache_creation_input_tokens": 3,
+   "cache_read_input_tokens": 51900,
+   "input_tokens": 251110,
+   "messages": 13,
+   "output_tokens": 1061,
+   "split": {
+    "agent": 15,
+    "typed": 304044,
+    "unknown": 15
+   }
+  }
+ },
+ "kit": {
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.1667,
+      "first_utc": "2026-10-15T10:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-10-15T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 12,
+      "tool_errors": 2
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "alive-a"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "alive-b"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.6,
+      "first_utc": "2026-10-15T10:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-10-15T10:04:00.000000Z",
+      "status": "ok",
+      "tool_calls": 5,
+      "tool_errors": 3
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-x"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-y"
+   }
+  ],
+  "ui": {
+   "status": "no data"
+  }
+ },
+ "memory_list": {
+  "projects": [
+   {
+    "claude_notes": 0,
+    "easy_memory_notes": 0,
+    "kit_notes": 2,
+    "name": "alive-a",
+    "project": "<ROOT>/alive-a"
+   }
+  ]
+ },
+ "outliers": {
+  "period": {
+   "since_utc": "2026-10-13T00:00:00.000000Z",
+   "until_utc": "2026-10-20T00:00:00.000000Z"
+  },
+  "sessions": [
+   {
+    "max_context_tokens": 10,
+    "project": "alive-a",
+    "reasons": [
+     "tool_calls"
+    ],
+    "session_id": "a4",
+    "tool_calls": 95
+   },
+   {
+    "max_context_tokens": 250000,
+    "project": "alive-a",
+    "reasons": [
+     "context_tokens"
+    ],
+    "session_id": "a2",
+    "tool_calls": 0
+   }
+  ],
+  "thresholds": {
+   "context_tokens": 200000,
+   "tool_calls": 90
+  }
+ },
+ "plan": {
+  "groups": [
+   {
+    "items": [
+     {
+      "fix": "Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
+      "label": "warning",
+      "measured": 0.1713,
+      "rule_id": "cache_hit_low",
+      "steps": [
+       "Keep the start of your prompts the same from one turn to the next.",
+       "Avoid editing CLAUDE.md or switching models in the middle of a session."
+      ],
+      "summary": "17.1% of prompt tokens came from cache; target 50% or more, last 7 days",
+      "threshold": 0.5,
+      "title": "Low cache reuse",
+      "why": "A prompt read from cache costs far less and returns faster, so a low share means you pay full price for text Claude has already seen."
+     }
+    ],
+    "priority": 1
+   },
+   {
+    "items": [
+     {
+      "detail": {
+       "version": "9.9.9"
+      },
+      "fix": "Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer which Claude Code version writes the records.",
+      "label": "aware",
+      "measured": 1.0,
+      "rule_id": "records_unreadable",
+      "steps": [
+       "Update easy-personal to the latest version.",
+       "If it stays high, tell the easy-personal maintainer which Claude Code version writes the records."
+      ],
+      "summary": "100% of records from Claude Code 9.9.9 could not be read; target 2% or less, last 7 days",
+      "threshold": 0.02,
+      "title": "Some Claude Code records are unreadable",
+      "why": "Records the parser cannot read are left out of every number you see, so the totals are too low."
+     },
+     {
+      "fix": "Read the failing tool calls in memory/event-trace/. Fix the command or permission that keeps failing.",
+      "label": "warning",
+      "measured": 0.2941,
+      "rule_id": "tool_errors_high",
+      "steps": [
+       "Read the failing tool calls in memory/event-trace/.",
+       "Fix the command or permission that keeps failing."
+      ],
+      "summary": "29.4% of kernel-trace tool calls failed; target 10% or less, last 7 days",
+      "threshold": 0.1,
+      "title": "Many tool calls fail",
+      "why": "Failed tool calls waste tokens and time because Claude retries and explains the error."
+     }
+    ],
+    "priority": 2
+   },
+   {
+    "items": [
+     {
+      "detail": {
+       "project": "alive-a"
+      },
+      "fix": "Confirm that this project should take most of your effort. Split long-running work into shorter sessions.",
+      "label": "aware",
+      "measured": 0.9874,
+      "rule_id": "project_dominates",
+      "steps": [
+       "Confirm that this project should take most of your effort.",
+       "Split long-running work into shorter sessions."
+      ],
+      "summary": "One project (alive-a) used 98.7% of tokens; target 60% or less, last 7 days",
+      "threshold": 0.6,
+      "title": "One project uses most of your tokens",
+      "why": "A single project that crowds out the rest can hide waste, and your limit runs out sooner."
+     },
+     {
+      "fix": "Open Usage and find which project or session drove the rise. Decide if the rise is intended before it becomes your baseline.",
+      "label": "aware",
+      "measured": 759.185,
+      "rule_id": "tokens_jump",
+      "steps": [
+       "Open Usage and find which project or session drove the rise.",
+       "Decide if the rise is intended before it becomes your baseline."
+      ],
+      "summary": "Token use rose 75,918.5% in the last 7 days against the 7 days before; target 50% or less",
+      "threshold": 0.5,
+      "title": "Token use jumped",
+      "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost."
+     }
+    ],
+    "priority": 3
+   }
+  ]
+ },
+ "sessions": {
+  "gap_minutes": 30,
+  "period": {
+   "since_utc": "2026-10-13T00:00:00.000000Z",
+   "until_utc": "2026-10-20T00:00:00.000000Z"
+  },
+  "sessions": [
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-17T12:00:00.000000Z",
+    "gaps": [],
+    "input_tokens": 10,
+    "messages": 1,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 5,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-17T12:00:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a4",
+    "start_utc": "2026-10-17T12:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-16T12:01:00.000000Z",
+    "gaps": [],
+    "input_tokens": 20,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 10,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T12:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T12:01:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a3",
+    "start_utc": "2026-10-16T12:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-16T09:00:00.000000Z",
+    "gaps": [],
+    "input_tokens": 10,
+    "messages": 1,
+    "models": [
+     "model-b"
+    ],
+    "output_tokens": 5,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-b",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T09:00:00.000000Z"
+     }
+    ],
+    "project": "gone-y",
+    "session_id": "gy1",
+    "start_utc": "2026-10-16T09:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 50000,
+    "end_utc": "2026-10-16T00:10:00.000000Z",
+    "gaps": [
+     {
+      "end_utc": "2026-10-16T00:10:00.000000Z",
+      "minutes": 40.0,
+      "start_utc": "2026-10-15T23:30:00.000000Z"
+     }
+    ],
+    "input_tokens": 250010,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 14,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 250000,
+      "model": "model-a",
+      "output_tokens": 9,
+      "ts_utc": "2026-10-15T23:30:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 50000,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T00:10:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a2",
+    "start_utc": "2026-10-15T23:30:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-15T09:02:00.000000Z",
+    "gaps": [],
+    "input_tokens": 1000,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 1000,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 500,
+      "model": "model-a",
+      "output_tokens": 500,
+      "ts_utc": "2026-10-15T09:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 500,
+      "model": "model-a",
+      "output_tokens": 500,
+      "ts_utc": "2026-10-15T09:02:00.000000Z"
+     }
+    ],
+    "project": "gone-x",
+    "session_id": "gx1",
+    "start_utc": "2026-10-15T09:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 1800,
+    "end_utc": "2026-10-15T08:01:00.000000Z",
+    "gaps": [],
+    "input_tokens": 20,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 10,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 900,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-15T08:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 900,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-15T08:01:00.000000Z"
+     }
+    ],
+    "project": "alive-b",
+    "session_id": "b1",
+    "start_utc": "2026-10-15T08:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 3,
+    "cache_read_input_tokens": 100,
+    "end_utc": "2026-10-14T10:45:00.000000Z",
+    "gaps": [
+     {
+      "end_utc": "2026-10-14T10:45:00.000000Z",
+      "minutes": 40.0,
+      "start_utc": "2026-10-14T10:05:00.000000Z"
+     }
+    ],
+    "input_tokens": 40,
+    "messages": 3,
+    "models": [
+     "model-a",
+     "model-b"
+    ],
+    "output_tokens": 17,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 100,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-14T10:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 3,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 20,
+      "model": "model-a",
+      "output_tokens": 7,
+      "ts_utc": "2026-10-14T10:05:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-b",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-14T10:45:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a1",
+    "start_utc": "2026-10-14T10:00:00.000000Z"
+   }
+  ]
+ },
+ "sessions_all": {
+  "gap_minutes": 30,
+  "period": {
+   "since_utc": null,
+   "until_utc": null
+  },
+  "sessions": [
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-17T12:00:00.000000Z",
+    "gaps": [],
+    "input_tokens": 10,
+    "messages": 1,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 5,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-17T12:00:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a4",
+    "start_utc": "2026-10-17T12:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-16T12:01:00.000000Z",
+    "gaps": [],
+    "input_tokens": 20,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 10,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T12:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T12:01:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a3",
+    "start_utc": "2026-10-16T12:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-16T09:00:00.000000Z",
+    "gaps": [],
+    "input_tokens": 10,
+    "messages": 1,
+    "models": [
+     "model-b"
+    ],
+    "output_tokens": 5,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-b",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T09:00:00.000000Z"
+     }
+    ],
+    "project": "gone-y",
+    "session_id": "gy1",
+    "start_utc": "2026-10-16T09:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 50000,
+    "end_utc": "2026-10-16T00:10:00.000000Z",
+    "gaps": [
+     {
+      "end_utc": "2026-10-16T00:10:00.000000Z",
+      "minutes": 40.0,
+      "start_utc": "2026-10-15T23:30:00.000000Z"
+     }
+    ],
+    "input_tokens": 250010,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 14,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 250000,
+      "model": "model-a",
+      "output_tokens": 9,
+      "ts_utc": "2026-10-15T23:30:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 50000,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-16T00:10:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a2",
+    "start_utc": "2026-10-15T23:30:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-15T09:02:00.000000Z",
+    "gaps": [],
+    "input_tokens": 1000,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 1000,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 500,
+      "model": "model-a",
+      "output_tokens": 500,
+      "ts_utc": "2026-10-15T09:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 500,
+      "model": "model-a",
+      "output_tokens": 500,
+      "ts_utc": "2026-10-15T09:02:00.000000Z"
+     }
+    ],
+    "project": "gone-x",
+    "session_id": "gx1",
+    "start_utc": "2026-10-15T09:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 1800,
+    "end_utc": "2026-10-15T08:01:00.000000Z",
+    "gaps": [],
+    "input_tokens": 20,
+    "messages": 2,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 10,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 900,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-15T08:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 900,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-15T08:01:00.000000Z"
+     }
+    ],
+    "project": "alive-b",
+    "session_id": "b1",
+    "start_utc": "2026-10-15T08:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 3,
+    "cache_read_input_tokens": 100,
+    "end_utc": "2026-10-14T10:45:00.000000Z",
+    "gaps": [
+     {
+      "end_utc": "2026-10-14T10:45:00.000000Z",
+      "minutes": 40.0,
+      "start_utc": "2026-10-14T10:05:00.000000Z"
+     }
+    ],
+    "input_tokens": 40,
+    "messages": 3,
+    "models": [
+     "model-a",
+     "model-b"
+    ],
+    "output_tokens": 17,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 100,
+      "input_tokens": 10,
+      "model": "model-a",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-14T10:00:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 3,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 20,
+      "model": "model-a",
+      "output_tokens": 7,
+      "ts_utc": "2026-10-14T10:05:00.000000Z"
+     },
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 10,
+      "model": "model-b",
+      "output_tokens": 5,
+      "ts_utc": "2026-10-14T10:45:00.000000Z"
+     }
+    ],
+    "project": "alive-a",
+    "session_id": "a1",
+    "start_utc": "2026-10-14T10:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-09T08:00:00.000000Z",
+    "gaps": [],
+    "input_tokens": 100,
+    "messages": 1,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 100,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 100,
+      "model": "model-a",
+      "output_tokens": 100,
+      "ts_utc": "2026-10-09T08:00:00.000000Z"
+     }
+    ],
+    "project": "gone-x",
+    "session_id": "gx0",
+    "start_utc": "2026-10-09T08:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-08T08:00:00.000000Z",
+    "gaps": [],
+    "input_tokens": 100,
+    "messages": 1,
+    "models": [
+     "model-a"
+    ],
+    "output_tokens": 100,
+    "points": [
+     {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 100,
+      "model": "model-a",
+      "output_tokens": 100,
+      "ts_utc": "2026-10-08T08:00:00.000000Z"
+     }
+    ],
+    "project": "alive-b",
+    "session_id": "b0",
+    "start_utc": "2026-10-08T08:00:00.000000Z"
+   },
+   {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "end_utc": "2026-10-01T09:00:00.000000Z",
+    "gaps": [],
+    "input_tokens": 0,
+    "messages": 0,
+    "models": [],
+    "output_tokens": 0,
+    "points": [],
+    "project": "alive-a",
+    "session_id": "hist",
+    "start_utc": "2026-10-01T09:00:00.000000Z"
+   }
+  ]
+ },
+ "summary": {
+  "abstained": {
+   "by_version": {
+    "9.9.9": 1
+   },
+   "total": 1
+  },
+  "cache_creation_input_tokens": 3,
+  "cache_hit_ratio": 0.1713,
+  "cache_read_input_tokens": 51900,
+  "entrypoints": {
+   "cli": 304044,
+   "sdk-cli": 15
+  },
+  "input_tokens": 251110,
+  "messages": 13,
+  "output_tokens": 1061,
+  "period": {
+   "since_utc": "2026-10-13T00:00:00.000000Z",
+   "until_utc": "2026-10-20T00:00:00.000000Z"
+  },
+  "sessions": 7,
+  "split": {
+   "agent": 15,
+   "typed": 304044,
+   "unknown": 15
+  }
+ },
+ "summary_all": {
+  "abstained": {
+   "by_version": {
+    "9.9.9": 1
+   },
+   "total": 1
+  },
+  "cache_creation_input_tokens": 3,
+  "cache_hit_ratio": 0.1712,
+  "cache_read_input_tokens": 51900,
+  "entrypoints": {
+   "cli": 304444,
+   "sdk-cli": 15
+  },
+  "input_tokens": 251310,
+  "messages": 15,
+  "output_tokens": 1261,
+  "period": {
+   "since_utc": null,
+   "until_utc": null
+  },
+  "sessions": 10,
+  "split": {
+   "agent": 15,
+   "typed": 304444,
+   "unknown": 15
+  }
+ },
+ "warnings": {
+  "abstained": [
+   {
+    "reason": "no easy-context data (service down or no index for a known project)",
+    "rule_id": "context_index_stale",
+    "title": "Code index is out of date"
+   }
+  ],
+  "as_of_utc": "2026-10-20T00:00:00+00:00",
+  "hits": [
+   {
+    "fix": "Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
+    "label": "warning",
+    "measured": 0.1713,
+    "priority": 1,
+    "rule_id": "cache_hit_low",
+    "steps": [
+     "Keep the start of your prompts the same from one turn to the next.",
+     "Avoid editing CLAUDE.md or switching models in the middle of a session."
+    ],
+    "summary": "17.1% of prompt tokens came from cache; target 50% or more, last 7 days",
+    "threshold": 0.5,
+    "title": "Low cache reuse",
+    "why": "A prompt read from cache costs far less and returns faster, so a low share means you pay full price for text Claude has already seen.",
+    "window_days": 7
+   },
+   {
+    "detail": {
+     "version": "9.9.9"
+    },
+    "fix": "Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer which Claude Code version writes the records.",
+    "label": "aware",
+    "measured": 1.0,
+    "priority": 2,
+    "rule_id": "records_unreadable",
+    "steps": [
+     "Update easy-personal to the latest version.",
+     "If it stays high, tell the easy-personal maintainer which Claude Code version writes the records."
+    ],
+    "summary": "100% of records from Claude Code 9.9.9 could not be read; target 2% or less, last 7 days",
+    "threshold": 0.02,
+    "title": "Some Claude Code records are unreadable",
+    "why": "Records the parser cannot read are left out of every number you see, so the totals are too low.",
+    "window_days": 7
+   },
+   {
+    "fix": "Read the failing tool calls in memory/event-trace/. Fix the command or permission that keeps failing.",
+    "label": "warning",
+    "measured": 0.2941,
+    "priority": 2,
+    "rule_id": "tool_errors_high",
+    "steps": [
+     "Read the failing tool calls in memory/event-trace/.",
+     "Fix the command or permission that keeps failing."
+    ],
+    "summary": "29.4% of kernel-trace tool calls failed; target 10% or less, last 7 days",
+    "threshold": 0.1,
+    "title": "Many tool calls fail",
+    "why": "Failed tool calls waste tokens and time because Claude retries and explains the error.",
+    "window_days": 7
+   },
+   {
+    "detail": {
+     "project": "alive-a"
+    },
+    "fix": "Confirm that this project should take most of your effort. Split long-running work into shorter sessions.",
+    "label": "aware",
+    "measured": 0.9874,
+    "priority": 3,
+    "rule_id": "project_dominates",
+    "steps": [
+     "Confirm that this project should take most of your effort.",
+     "Split long-running work into shorter sessions."
+    ],
+    "summary": "One project (alive-a) used 98.7% of tokens; target 60% or less, last 7 days",
+    "threshold": 0.6,
+    "title": "One project uses most of your tokens",
+    "why": "A single project that crowds out the rest can hide waste, and your limit runs out sooner.",
+    "window_days": 7
+   },
+   {
+    "fix": "Open Usage and find which project or session drove the rise. Decide if the rise is intended before it becomes your baseline.",
+    "label": "aware",
+    "measured": 759.185,
+    "priority": 3,
+    "rule_id": "tokens_jump",
+    "steps": [
+     "Open Usage and find which project or session drove the rise.",
+     "Decide if the rise is intended before it becomes your baseline."
+    ],
+    "summary": "Token use rose 75,918.5% in the last 7 days against the 7 days before; target 50% or less",
+    "threshold": 0.5,
+    "title": "Token use jumped",
+    "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost.",
+    "window_days": 7
+   }
+  ]
+ }
+}
