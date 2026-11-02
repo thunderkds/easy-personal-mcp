@@ -215,14 +215,32 @@ function ProjectCard({ project, active, health, now }) {
   )
 }
 
+const RECENT_FALLBACK = 10 // when no project was active in the last 30 days, still show this many
+
+/** Ordered cards split in two: active in the last 30 days (else the 10 newest), and the rest. */
+export function splitRecent(ordered, now) {
+  const recent = ordered.filter((i) => i.active && daysBefore(i.active.day, now) <= DAYS)
+  const head = recent.length > 0 ? recent.length : Math.min(RECENT_FALLBACK, ordered.length)
+  return { shown: ordered.slice(0, head), folded: ordered.slice(head) }
+}
+
 function Cards({ projects }) {
   const now = new Date()
+  const [open, setOpen] = useState(false)
+  const { shown, folded } = splitRecent(byActivity(projects), now)
+  const card = ({ project, active, health }) => <ProjectCard key={project.project} project={project} active={active} health={health} now={now} />
   return (
-    <ul className="project-cards">
-      {byActivity(projects).map(({ project, active, health }) => (
-        <ProjectCard key={project.project} project={project} active={active} health={health} now={now} />
-      ))}
-    </ul>
+    <>
+      <ul className="project-cards">
+        {shown.map(card)}
+        {open && folded.map(card)}
+      </ul>
+      {folded.length > 0 && (
+        <button type="button" className="details-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? 'Show fewer' : `Show ${fmt(folded.length)} more`}
+        </button>
+      )}
+    </>
   )
 }
 
@@ -331,6 +349,7 @@ export default function KitView({ scope = NO_SCOPE }) {
               Kit by project <span className="count">{`(${state.data.projects.length})`}</span>
             </h2>
             <p className="muted">How the agent kit, code index and verifier are doing in each project.</p>
+            {state.data.gone > 0 && <p className="muted gone-note">{plural(state.data.gone, 'gone folder')} hidden</p>}
             <Projects projects={state.data.projects} />
           </section>
           <Ui ui={state.data.ui} />

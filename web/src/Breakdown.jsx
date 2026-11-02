@@ -1,5 +1,6 @@
 import Cost from './Cost.jsx'
-import { fmt, totalTokens } from './format.js'
+import { Compact } from './Widgets.jsx'
+import { abstainedText, costFigure, fmt, totalTokens } from './format.js'
 
 const LABELS = { day: 'Day', model: 'Model', project: 'Project', tool: 'Tool' }
 const TITLES = { day: 'By day', model: 'By model', project: 'By project', tool: 'By tool' }
@@ -69,9 +70,12 @@ function ModelTable({ groups }) {
           {groups.map((g, i) => (
             <tr key={i}>
               <th scope="row" title={g.key}>{g.key}</th>
-              <td>{fmt(totalTokens(g))}</td>
-              <td>{fmt(g.output_tokens)}</td>
-              <td><Cost cost={g.api_equivalent_cost} /></td>
+              <td><Compact n={totalTokens(g)} /></td>
+              <td><Compact n={g.output_tokens} /></td>
+              <td className="cost-cell">
+                <span className={g.api_equivalent_cost.usd === null ? 'muted' : undefined}>{costFigure(g.api_equivalent_cost)}</span>
+                {abstainedText(g.api_equivalent_cost) && <span className="muted cost-note">{abstainedText(g.api_equivalent_cost)}</span>}
+              </td>
             </tr>
           ))}
         </tbody>

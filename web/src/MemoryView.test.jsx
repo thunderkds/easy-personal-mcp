@@ -180,3 +180,70 @@ describe('design tokens (UI AC 2)', () => {
     for (const line of rules) expect(line).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/)
   })
 })
+
+describe('default project and gone line (HUN-188 AC4, AC6)', () => {
+  const many = {
+    projects: [
+      { project: '-home-me-claude-folder', name: '-home-me-claude-folder', kit_notes: 0, claude_notes: 2 },
+      { project: '/work/zeta', name: 'zeta', kit_notes: 3, claude_notes: 1, easy_memory_notes: 6 },
+      { project: '/work/alpha', name: 'alpha', kit_notes: 9, claude_notes: 1 },
+      { project: '/work/beta', name: 'beta', kit_notes: 5, claude_notes: 0, easy_memory_notes: 5 },
+    ],
+  }
+
+  it('opens on the project with the most notes, counting easy-memory notes; ties go to the lower name', async () => {
+    const calls = stub({ projects: many })
+    render(<MemoryView />)
+    await screen.findByRole('group', { name: /^Memory graph of / })
+    // alpha 10, beta 10, zeta 10: all tie, alpha wins by name
+    expect(screen.getByLabelText('Project')).toHaveValue('/work/alpha')
+    expect(calls.at(-1)).toBe('/api/memory-graph?project=%2Fwork%2Falpha')
+  })
+
+  it('never opens on a Claude-folder-only key while a real project has more notes', async () => {
+    stub({ projects: { projects: [many.projects[0], { project: '/work/real', name: 'real', kit_notes: 4, claude_notes: 0 }] } })
+    render(<MemoryView />)
+    await screen.findByRole('group', { name: /^Memory graph of / })
+    expect(screen.getByLabelText('Project')).toHaveValue('/work/real')
+  })
+
+  it('never opens on a Claude-folder-only key even when it has MORE notes than a real project', async () => {
+    const folder = { project: '-home-me-claude-folder', name: '-home-me-claude-folder', kit_notes: 0, claude_notes: 40 }
+    stub({ projects: { projects: [folder, { project: '/work/real', name: 'real', kit_notes: 1, claude_notes: 0 }] } })
+    render(<MemoryView />)
+    await screen.findByRole('group', { name: /^Memory graph of / })
+    expect(screen.getByLabelText('Project')).toHaveValue('/work/real')
+  })
+
+  it('opens on the folder-only key with the most notes when no real project exists', async () => {
+    const folder = (key, n) => ({ project: key, name: key, kit_notes: 0, claude_notes: n })
+    stub({ projects: { projects: [folder('-a-folder', 2), folder('-b-folder', 5)] } })
+    render(<MemoryView />)
+    await screen.findByRole('group', { name: /^Memory graph of / })
+    expect(screen.getByLabelText('Project')).toHaveValue('-b-folder')
+  })
+
+  it('treats a missing note count as 0 and still opens on a project', async () => {
+    stub({ projects: { projects: [{ project: '/work/x', name: 'x' }] } })
+    render(<MemoryView />)
+    await screen.findByRole('group', { name: /^Memory graph of / })
+    expect(screen.getByLabelText('Project')).toHaveValue('/work/x')
+  })
+
+  it('says how many gone folders were hidden, and nothing when `gone` is 0 or missing', async () => {
+    stub({ projects: { ...list, gone: 4 } })
+    const first = render(<MemoryView />)
+    expect(await screen.findByText('4 gone folders hidden')).toBeInTheDocument()
+    first.unmount()
+    stub({ projects: { ...list, gone: 0 } })
+    render(<MemoryView />)
+    await screen.findByLabelText('Project')
+    expect(screen.queryByText(/gone folder/)).toBeNull()
+  })
+
+  it('keeps the empty text when the list is empty', async () => {
+    stub({ projects: { projects: [] } })
+    render(<MemoryView />)
+    expect(await screen.findByText('No memory notes found.')).toBeInTheDocument()
+  })
+})
