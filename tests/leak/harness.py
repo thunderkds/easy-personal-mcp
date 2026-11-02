@@ -243,6 +243,7 @@ def child_env(home: Path, projects: Path, ui_reports: Path | None = None) -> dic
     env = dict(os.environ)
     env.update(
         EASY_PERSONAL_HOME=str(home),
+        EASY_MEMORY_HOME=str(home.parent / "easy-memory"),  # never the owner's ~/.easy-memory
         EASY_PERSONAL_CLAUDE_PROJECTS=str(projects),
         PYTHONPATH=SRC,
         EASY_PERSONAL_VERIFIER_REPORTS=str(home / "no-verifier-container"),  # never the owner's

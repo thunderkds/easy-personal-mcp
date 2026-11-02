@@ -1,5 +1,6 @@
 """Memory graph reader (HUN-164, FR-041): names + [[links]] read live, bodies never returned."""
 
+import hashlib
 import json
 import os
 import re
@@ -260,3 +261,131 @@ def test_fifty_projects_by_forty_notes_under_one_second(conn, tmp_path):
         worst = max(worst, time.perf_counter() - start)
         assert g["counts"]["notes"] == 40
     assert list_time < 1 and worst < 1
+
+
+# --- easy-memory layer (HUN-184, FR-051..053) ---------------------------------------------------------
+
+EM_SECRET = "INVENTED_easymem_prompt"
+
+
+def sha(text):
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+@pytest.fixture
+def em(world, tmp_path, monkeypatch):
+    """A temp easy-memory store for the `world` repo: three notes citing a kit file, a source file and a gone file."""
+    repo = world["repo"]
+    (repo / ".git").mkdir()
+    (repo / "src").mkdir()
+    (repo / "src" / "app.py").write_text("v1")
+    home = tmp_path / "em-home"
+    monkeypatch.setenv("EASY_MEMORY_HOME", str(home))
+    folder = home / hashlib.sha256(os.path.realpath(repo / ".git").encode()).hexdigest()[:16]
+    (folder / "notes").mkdir(parents=True)
+    (folder / "meta.json").write_text(json.dumps({"v": 1, "path": str(repo / ".git")}))
+    mem_hash = sha((world["mem"] / "decisions.md").read_text())
+
+    def add(n, time_text, files):
+        body = {"v": 1, "id": f"n{n}", "time": time_text, "prompt": EM_SECRET, "answer": EM_SECRET, "session_id": EM_SECRET, "files": files}
+        (folder / "notes" / f"n{n}.json").write_text(json.dumps(body))
+
+    add(1, "2026-10-30T10:00:00Z", {"src/app.py": sha("v1"), "memory/decisions.md": mem_hash, "old/gone.py": "h"})
+    add(2, "2026-10-31T10:00:00Z", {"src/app.py": sha("v1"), "memory/decisions.md": mem_hash})
+    add(3, "2026-11-01T10:00:00Z", {"src/app.py": sha("v1")})
+    return {"folder": folder, "home": home, "repo": repo}
+
+
+def test_every_row_has_easy_memory_notes_and_graph_has_a_null_block_without_a_store(conn, world):
+    assert [p["easy_memory_notes"] for p in memgraph.project_list(conn)["projects"]] == [0]
+    assert graph(conn, world["repo"])["easy_memory"] is None
+
+
+def test_missing_store_leaves_the_graph_unchanged(conn, world, tmp_path, monkeypatch):
+    before = graph(conn, world["repo"])
+    monkeypatch.setenv("EASY_MEMORY_HOME", str(tmp_path / "does-not-exist"))
+    after = graph(conn, world["repo"])
+    assert after == before
+
+
+def test_cited_files_become_ring_four_nodes(conn, em):
+    g = graph(conn, em["repo"])
+    nodes = {n["id"]: n for n in g["nodes"]}
+    app = nodes["easymem:src/app.py"]
+    assert app == {
+        "id": "easymem:src/app.py", "kind": "easy_memory", "ring": 4, "name": "app.py", "stem": "app", "description": "",
+        "path": "src/app.py", "account": None, "abstained": False, "links_in": 0, "links_out": 0,
+        "cited": 3, "newest": app["newest"], "stale": "fresh",
+    }  # fmt: skip
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", app["newest"])
+    assert nodes["easymem:old/gone.py"]["stale"] == "gone" and nodes["easymem:old/gone.py"]["cited"] == 1
+    assert g["edges"] == graph(conn, em["repo"])["edges"] and all("easymem" not in json.dumps(e) for e in g["edges"])
+
+
+def test_cited_path_equal_to_a_kit_node_adds_fields_to_it(conn, em, world, monkeypatch):
+    monkeypatch.setenv("EASY_MEMORY_HOME", str(em["home"] / "elsewhere"))
+    plain = graph(conn, em["repo"])
+    monkeypatch.setenv("EASY_MEMORY_HOME", str(em["home"]))
+    g = graph(conn, em["repo"])
+    merged = by_path(g)["memory/decisions.md"]
+    assert not any(n["id"] == "easymem:memory/decisions.md" for n in g["nodes"])
+    assert merged["cited"] == 2 and merged["stale"] == "fresh" and merged["newest"]
+    base = by_path(plain)["memory/decisions.md"]
+    assert {k: v for k, v in merged.items() if k not in ("cited", "newest", "stale")} == base
+    kinds = [n["kind"] for n in g["nodes"]]
+    assert kinds.count("easy_memory") == 2  # app.py and gone.py only
+    assert len(g["nodes"]) == len(plain["nodes"]) + 2
+
+
+def test_cited_path_equal_to_a_claude_note_path_is_not_merged_into_it(conn, em):
+    """`memory/feedback.md` exists only as a Claude note (account folder), not in the repo: no stamp on the Claude node."""
+    (em["folder"] / "notes" / "n9.json").write_text(json.dumps({"v": 1, "time": "2026-11-01T11:00:00Z", "files": {"memory/feedback.md": "h"}}))
+    g = graph(conn, em["repo"])
+    claude = next(n for n in g["nodes"] if n["kind"] == "claude" and n["path"] == "memory/feedback.md")
+    assert "cited" not in claude and "stale" not in claude
+    cited = next(n for n in g["nodes"] if n["id"] == "easymem:memory/feedback.md")
+    assert cited["stale"] == "gone" and cited["cited"] == 1
+
+
+def test_stale_kit_node(conn, em, world):
+    (world["mem"] / "decisions.md").write_text("edited since the note")
+    assert by_path(graph(conn, em["repo"]))["memory/decisions.md"]["stale"] == "stale"
+
+
+def test_easy_memory_block(conn, em):
+    block = graph(conn, em["repo"])["easy_memory"]
+    assert block["notes"] == 3 and block["abstained"] == 0 and len(block["days"]) == 30
+    assert block["files_cited"] == 3 and block["files_not_drawn"] == 0 and block["outside"] == 0
+    assert block["prompts_on"] == 0 and block["injected"] == 0
+    assert set(block) == {"notes", "abstained", "days", "prompts_on", "injected", "files_cited", "files_not_drawn", "outside"}
+
+
+def test_list_counts_notes_and_lists_easy_memory_only_projects(conn, em, tmp_path):
+    only = tmp_path / "work" / "only-em"
+    (only / ".git").mkdir(parents=True)
+    folder = em["home"] / hashlib.sha256(os.path.realpath(only / ".git").encode()).hexdigest()[:16]
+    (folder / "notes").mkdir(parents=True)  # no meta.json: found by the computed key
+    (folder / "notes" / "a.json").write_text(json.dumps({"v": 1, "time": "2026-11-01T10:00:00Z", "files": {}}))
+    quiet = tmp_path / "work" / "quiet"  # a stored project whose store folder holds no note
+    quiet.mkdir()
+    add_event(conn, 5, str(only))
+    add_event(conn, 6, str(quiet))
+    conn.commit()
+    rows = {p["name"]: p for p in memgraph.project_list(conn)["projects"]}
+    assert rows["alpha"]["easy_memory_notes"] == 3 and rows["alpha"]["kit_notes"] == 6
+    assert rows["only-em"] == {"project": str(only), "name": "only-em", "kit_notes": 0, "claude_notes": 0, "easy_memory_notes": 1}
+    assert "quiet" not in rows
+    g = memgraph.project_graph(conn, str(only))
+    assert g["easy_memory"]["notes"] == 1 and g["nodes"] == [] and g["counts"]["notes"] == 0
+
+
+def test_corrupt_notes_are_counted_not_listed(conn, em):
+    (em["folder"] / "notes" / "bad.json").write_text("{nope")
+    block = graph(conn, em["repo"])["easy_memory"]
+    assert block["notes"] == 3 and block["abstained"] == 1
+    assert memgraph.project_list(conn)["projects"][0]["easy_memory_notes"] == 3
+
+
+def test_no_note_text_in_any_response(conn, em):
+    text = json.dumps(graph(conn, em["repo"])) + json.dumps(memgraph.project_list(conn))
+    assert EM_SECRET not in text

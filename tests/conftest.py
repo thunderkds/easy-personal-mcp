@@ -63,3 +63,9 @@ def _isolated_data_dir(monkeypatch, tmp_path_factory):
 def _isolated_agent_root(monkeypatch, tmp_path_factory):
     """Account detection scans a fresh empty dir, never the owner's real ~/.claude* / ~/.codex*."""
     monkeypatch.setenv("EASY_PERSONAL_AGENT_ROOT", str(tmp_path_factory.mktemp("agent-root")))
+
+
+@pytest.fixture(autouse=True)
+def _isolated_easy_memory_home(monkeypatch, tmp_path_factory):
+    """HUN-184: tests never read the owner's ~/.easy-memory; tests that plant a store override this."""
+    monkeypatch.setenv("EASY_MEMORY_HOME", str(tmp_path_factory.mktemp("em-none")))
