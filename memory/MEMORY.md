@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [v0.4.0 live attention = Option C](decisions.md#2026-11-02--v040-live-attention-states--snapshot-pushed-state-option-c) — failing / waiting for you / needs attention worked out in the live tail; snapshot re-sent only on a state change; no new dep, nothing stored.
 - [v0.3.0 live view = transcript tail only](decisions.md#2026-10-31--v030-live-view--transcript-tail-only-option-a) — Option A: tail in `easy-personal dashboard` → store → `GET /api/live` SSE → Live view; no hooks/OTel, no Claude config writes; HUN-175..179.
 - [Live trace spike in-repo, metadata only](decisions.md#2026-10-31--live-trace-spike-runs-inside-easy-personal-mcp-metadata-only) — HUN-165..170 in `experiments/live-trace/`; plan items are hypotheses; E5 docs-only (no Admin key); prototype waits for owner review.
 - [Work view, read-only (Javis OS ideas)](decisions.md#2026-10-31--work-view-inspired-by-javis-os-read-only) — board from PROJECT_KANBAN.md, agent = sidechain or `sdk*`, timers+cron first word, memory graph names+links live; merged HUN-160..164 2026-10-31.

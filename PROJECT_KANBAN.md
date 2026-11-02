@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-10-31
+**Last updated**: 2026-11-02
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -9,11 +9,9 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-175** — Transcript reader recognises the record types new in Claude Code 2.1.316 (FR-046) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-175.md`
-- [ ] **HUN-176** — Live tail: follow every account's transcripts while the dashboard runs (FR-043) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-176.md`
-- [ ] **HUN-177** — GET /api/live: stream live events to the page as Server-Sent Events (FR-044) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-177.md`
-- [ ] **HUN-178** — Live view: active sessions, per-session tool feed, running token and cost totals (FR-045) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-178.md`
-- [ ] **HUN-179** — Release 0.3.0: version bump, README and site updates, release plan | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-179.md`
+- [ ] **HUN-181** — Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-181.md`
+- [ ] **HUN-182** — Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-182.md`
+- [ ] **HUN-183** — Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
 
 ### In Progress
 
@@ -84,6 +82,11 @@
 - [x] **HUN-168** — Live trace E3: Claude Code OpenTelemetry to a local OTLP receiver | QA-Automation-Agent | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-168.md`
 - [x] **HUN-169** — Live trace E4: stream-json capture from headless runs | QA-Automation-Agent | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-169.md`
 - [x] **HUN-170** — Live trace report: combined run, E5 docs-only result, REPORT.md | QA-Automation-Agent | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-170.md`
+- [x] **HUN-175** — Transcript reader recognises the record types new in Claude Code 2.1.316 (FR-046) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-175.md`
+- [x] **HUN-176** — Live tail: follow every account's transcripts while the dashboard runs (FR-043) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-176.md`
+- [x] **HUN-177** — GET /api/live: stream live events to the page as Server-Sent Events (FR-044) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-177.md`
+- [x] **HUN-178** — Live view: active sessions, per-session tool feed, running token and cost totals (FR-045) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-178.md`
+- [x] **HUN-179** — Release 0.3.0: version bump, README and site updates, release plan | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-179.md`
 
 ### Closed (will not do)
 
