@@ -233,6 +233,7 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-188 | Usage, Memory and Kit view UX: one-line numbers, distinct model names, Memory default, Kit fold (FR-054, FR-056) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-189 | Owner project: count gone worktrees under their main repo in usage by project, top-project warning and project lists (FR-057) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-190 | Usage lists show top 10 with "Show N more" (By project, model, tool, outlier sessions) (FR-058) | Done (merged 2026-11-02) | Frontend-Implementer | C1 | Low | P1 |
+| HUN-191 | Session timeline shows 10 sessions with "Show N more"; sessions past the 50 with chart detail listed without a chart (FR-058) | In Progress | Frontend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
