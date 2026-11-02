@@ -23,7 +23,7 @@ CONTRACT_EVENT = {
     "tokens_in", "tokens_out", "cost_usd",
 }  # fmt: skip
 CONTRACT_SESSION = {
-    "session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd",
+    "session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd", "attention",
 }  # fmt: skip
 
 
@@ -31,14 +31,14 @@ def stamp() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
-def record(session="s1", tool="Bash", message="msg_1", out=5):
+def record(session="s1", tool="Bash", message="msg_1", out=5, use_id="toolu_1"):
     return {
         "type": "assistant", "version": "2.1.316", "cwd": "/work/demo-app", "sessionId": session,
         "isSidechain": False, "entrypoint": "cli", "timestamp": stamp(),
         "message": {
             "id": message, "model": "claude-fixture-model-1",
             "content": [{"type": "text", "text": SECRET},
-                        {"type": "tool_use", "id": "toolu_1", "name": tool, "input": {"command": SECRET}}],
+                        {"type": "tool_use", "id": use_id, "name": tool, "input": {"command": SECRET}}],
             "usage": {"input_tokens": 10, "output_tokens": out, "cache_creation_input_tokens": 2,
                       "cache_read_input_tokens": 3},
         },
@@ -237,7 +237,7 @@ def test_live_without_a_running_tail_sends_an_empty_snapshot_and_keep_alives(app
     out = get(app, step=lambda text: ": ping" in text)
     first, *rest = messages(out["text"])
     assert (out["status"], first["event"], first["data"]) == (
-        200, "snapshot", {"active_window_s": 300, "last_id": 0, "sessions": []})
+        200, "snapshot", {"active_window_s": 300, "last_id": 0, "open_call_minutes": 10, "sessions": []})
     assert rest and rest[0]["comment"] == "ping"
 
 
@@ -255,32 +255,51 @@ def fill(tail, add, n):
     tail.poll_once()
 
 
-def test_live_reconnect_with_last_event_id_gets_only_later_events_and_no_snapshot(app, tail, add):
+def test_live_reconnect_with_last_event_id_replays_later_events_then_one_fresh_snapshot(app, tail, add):
     fill(tail, add, 2)
     ids = [e["id"] for e in tail.events_since(0)]
     assert len(ids) == 4  # two tool_use + two usage
-    out = get(app, hdrs=headers(extra=[("last-event-id", str(ids[1]))]), step=lambda t: len(messages(t)) >= 2)
+    out = get(app, hdrs=headers(extra=[("last-event-id", str(ids[1]))]), step=count("snapshot"))
     got = messages(out["text"])
-    assert [m["event"] for m in got[:2]] == ["live", "live"]
-    assert [m["data"]["id"] for m in got[:2]] == ids[2:]
+    assert [m["event"] for m in got[:3]] == ["live", "live", "snapshot"]
+    assert [m["data"]["id"] for m in got[:2]] == ids[2:]  # replayed once, in order
+    assert got[2]["data"]["last_id"] == ids[-1]
+    assert sum(m["event"] == "snapshot" for m in got) == 1
 
 
-def test_live_reconnect_at_the_newest_id_gets_nothing_until_a_new_event(app, tail, add, monkeypatch):
+def test_live_reconnect_at_the_newest_id_gets_a_snapshot_then_only_new_events(app, tail, add, monkeypatch):
     monkeypatch.setattr(api, "PING_S", 0.05)
     fill(tail, add, 1)
     newest = tail.last_id
 
     def step(text):
-        if ": ping" in text:
+        if ": ping" in text and not state["added"]:
+            state["added"] = True
             add(record(message="msg_after", tool="Grep"))
             tail.poll_once()
         return sum(m["event"] == "live" for m in messages(text)) >= 1
 
+    state = {"added": False}
     out = get(app, hdrs=headers(extra=[("last-event-id", str(newest))]), step=step)
     got = messages(out["text"])
-    assert got[0]["comment"] == "ping"
+    assert got[0]["event"] == "snapshot" and got[0]["data"]["last_id"] == newest
     assert next(m["data"]["id"] for m in got if m["event"] == "live") == newest + 1
-    assert all(m["event"] != "snapshot" for m in got)
+    assert sum(m["event"] == "snapshot" for m in got) == 1
+
+
+def test_live_a_state_change_while_disconnected_reaches_the_page_in_the_snapshot_after_resume(app, tail, add):
+    add(record(message="msg_old"))
+    tail.poll_once()
+    newest = tail.last_id
+    add(record(message="msg_ask", tool="AskUserQuestion", use_id="toolu_q"))  # the page was away
+    tail.poll_once()
+    out = get(app, hdrs=headers(extra=[("last-event-id", str(newest))]), step=count("snapshot"))
+    got = messages(out["text"])
+    ids = [m["data"]["id"] for m in got if m["event"] == "live"]
+    assert ids == list(range(newest + 1, tail.last_id + 1))
+    snapshot = got[-1]
+    assert snapshot["event"] == "snapshot" and snapshot["data"]["last_id"] == tail.last_id
+    assert [a["state"] for a in snapshot["data"]["sessions"][0]["attention"]] == ["waiting"]
 
 
 def test_live_resume_older_than_the_buffer_starts_with_a_fresh_snapshot(app, monkeypatch, projects, add):
@@ -299,6 +318,48 @@ def test_live_a_stale_or_bad_last_event_id_starts_with_a_fresh_snapshot(app, tai
     fill(tail, add, 1)
     out = get(app, hdrs=headers(extra=[("last-event-id", sent)]), step=count("snapshot"))
     assert messages(out["text"])[0]["event"] == "snapshot"
+
+
+# -- attention states re-send the snapshot (HUN-181, AC 9) -------------------------------------------
+
+
+def test_live_resends_a_snapshot_with_attention_after_a_state_change_and_keeps_event_ids_continuous(app, tail, add):
+    add(record(message="msg_old"))
+    tail.poll_once()
+    state = {"phase": 0}
+
+    def step(text):
+        got = messages(text)
+        snapshots = [m for m in got if m["event"] == "snapshot"]
+        if state["phase"] == 0 and snapshots:
+            state["phase"] = 1
+            add(record(message="msg_a", tool="Read", use_id="toolu_r"))  # ordinary call: no re-send
+            tail.poll_once()
+            add(record(message="msg_ask", tool="AskUserQuestion", use_id="toolu_q"))  # state change
+            tail.poll_once()
+        if state["phase"] == 1 and len(snapshots) >= 2:
+            state["phase"] = 2
+            add(record(message="msg_ask", tool="Read", use_id="toolu_r2"))  # a live event after the re-send
+            tail.poll_once()
+        return state["phase"] == 2 and any(m["data"]["id"] == tail.last_id for m in got if m["event"] == "live")
+
+    out = get(app, step=step)
+    got = messages(out["text"])
+    snapshots = [m["data"] for m in got if m["event"] == "snapshot"]
+    assert len(snapshots) == 2  # the ordinary call did not trigger a third message
+    first, second = snapshots
+    assert first["sessions"][0]["attention"] == [] and first["open_call_minutes"] == 10
+    [session] = second["sessions"]
+    assert set(session) == CONTRACT_SESSION and second["open_call_minutes"] == 10
+    assert [(a["state"], a["tool"], a["count"], a["is_sidechain"]) for a in session["attention"]] == [
+        ("waiting", "AskUserQuestion", 1, False)
+    ]
+    assert set(session["attention"][0]) == {"state", "tool", "count", "is_sidechain", "since"}
+    ids = [m["data"]["id"] for m in got if m["event"] == "live"]
+    assert ids == list(range(first["last_id"] + 1, ids[-1] + 1))  # no gap, no duplicate across the re-send
+    after = got[[m["event"] for m in got].index("snapshot", 1) :]
+    assert second["last_id"] == max(i for i in ids if i <= second["last_id"])
+    assert all(m["data"]["id"] > second["last_id"] for m in after if m["event"] == "live")
 
 
 # -- lifetime, logs (edge cases, AC 5) --------------------------------------------------------------

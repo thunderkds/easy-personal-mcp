@@ -19,11 +19,11 @@ import sqlite3
 import threading
 import time
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from easy_personal.core import accounts, config, discovery, lock, prices, store
+from easy_personal.core import accounts, config, discovery, lock, prices, rules, store
 from easy_personal.sources import claude_code
 
 log = logging.getLogger(__name__)
@@ -34,6 +34,8 @@ ACTIVE_WINDOW_S = 300  # FR-044: a session is active when it wrote a record in t
 FORGET_AFTER_S = 3600  # an idle session's running totals are dropped after an hour (bounded memory)
 MAX_BATCH_LINES = 500  # one lock hold = at most this many lines of one file
 ROOTS_REFRESH_S = 1.0
+OPEN_CALL_MAX_S = 24 * 3600  # an open call older than a day is dropped (the session ended without a result)
+WAITING_TOOLS = frozenset({"AskUserQuestion", "ExitPlanMode"})  # an open one waits for the owner (FR-049)
 THREAD_NAME = "easy-personal-live-tail"
 _STAMP = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -68,8 +70,9 @@ def _jsonl_files(root: Path) -> Iterator[tuple[str, int, int]]:
 def _item(record, parsed: dict) -> dict | None:
     """Metadata of one decoded record for the buffer, or None when it has no session or time.
 
-    Only `parse_record`'s label-checked fields, a `tool_result` block's `is_error` flag and the
-    record type are read: the blocks' `content`, `input` and `text` are never touched.
+    Only `parse_record`'s label-checked fields and, from content blocks, `type`, `id`, `tool_use_id`,
+    `name` and `is_error` are read: the blocks' `content`, `input` and `text` are never touched. A block
+    id (`block_id`) is kept to pair a call with its result in memory; it never reaches a buffered event.
     """
     session, ts = parsed["session_id"], parsed["ts_utc"]
     if parsed["abstained"] or session is None or ts is None:
@@ -80,17 +83,28 @@ def _item(record, parsed: dict) -> dict | None:
         "project": (Path(path).name or path) if path else None,
         "ts": ts,
         "is_sidechain": bool(parsed["is_sidechain"]),
+        "message_id": parsed["message_id"],
     }
-    events = [
-        {"kind": "tool_use", "tool": name, "is_error": False}
-        for name in (parsed["tool_names"] or "").split(",")
-        if name
-    ]
-    message = record.get("message") if parsed["record_type"] == "user" else None
+    message = record.get("message") if parsed["record_type"] in ("assistant", "user") else None
     content = message.get("content") if isinstance(message, dict) else None
+    events = []
     for block in content if isinstance(content, list) else []:
-        if isinstance(block, dict) and block.get("type") == "tool_result":
-            events.append({"kind": "tool_result", "tool": None, "is_error": block.get("is_error") is True})
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "tool_use" and parsed["record_type"] == "assistant":
+            if name := claude_code._label(block.get("name")):
+                events.append(
+                    {"kind": "tool_use", "tool": name, "is_error": False, "block_id": claude_code._label(block.get("id"))}
+                )
+        elif block.get("type") == "tool_result" and parsed["record_type"] == "user":
+            events.append(
+                {
+                    "kind": "tool_result",
+                    "tool": None,
+                    "is_error": block.get("is_error") is True,
+                    "block_id": claude_code._label(block.get("tool_use_id")),
+                }
+            )
     usage = None
     if parsed["message_id"] and parsed["input_tokens"] is not None:
         usage = (
@@ -105,6 +119,26 @@ def _item(record, parsed: dict) -> dict | None:
     return {**base, "events": events, "usage": usage}
 
 
+class _Call:
+    """An open call: the tool, the assistant message that made it and when (memory only)."""
+
+    __slots__ = ("message_id", "tool", "ts")
+
+    def __init__(self, tool: str, message_id: str | None, ts: str):
+        self.tool, self.message_id, self.ts = tool, message_id, ts
+
+
+class _Stream:
+    """One transcript file of a session: its open calls (by block id) and its run of failed results."""
+
+    def __init__(self):
+        self.is_sidechain = False
+        self.open: dict[str, _Call] = {}
+        self.streak = 0
+        self.streak_tool: str | None = None
+        self.streak_since = ""
+
+
 class _Session:
     """Running totals of one session since the tail started; a message counts once (its largest figures)."""
 
@@ -114,13 +148,31 @@ class _Session:
         self.last_ts = ""
         self.tool_calls = 0
         self.messages: dict[str, tuple[int, int, int, int, float | None]] = {}
+        self.streams: dict[str, _Stream] = {}  # by transcript file path: subagents share the session id
+        self.attention: list[dict] = []
+
+    @property
+    def has_open_call(self) -> bool:
+        return any(stream.open for stream in self.streams.values())
 
 
 class LiveTail:
     """Background tail plus a bounded buffer of recent events with monotonically increasing ids."""
 
-    def __init__(self, poll_s: float = POLL_SECONDS, buffer_size: int = BUFFER_SIZE):
+    def __init__(
+        self, poll_s: float = POLL_SECONDS, buffer_size: int = BUFFER_SIZE, clock: Callable[[], datetime] | None = None
+    ):
         self.poll_s = poll_s
+        self._clock = clock or (lambda: datetime.now(UTC))
+        try:
+            bounds = rules.live_thresholds(config.config_path())
+        except ValueError as exc:  # the warnings surface reports a bad config; the tail keeps the defaults
+            log.warning("live tail uses default attention bounds: %s", type(exc).__name__)
+            bounds = rules.LIVE_DEFAULTS
+        self.failing_streak = int(bounds["live_failing_streak"])
+        self.open_call_minutes = bounds["live_open_call_minutes"]
+        self._state_version = 0
+        self._warned: set[str] = set()
         self.buffer_size = buffer_size
         self._mutex = threading.Lock()
         self._buffer: deque[dict] = deque(maxlen=buffer_size)
@@ -184,6 +236,12 @@ class LiveTail:
         with self._mutex:
             return self._last_id
 
+    @property
+    def state_version(self) -> int:
+        """Counts changes of any session's attention states; an ordinary tool call never moves it."""
+        with self._mutex:
+            return self._state_version
+
     def events_since(self, last_id: int) -> list[dict]:
         """Buffered events with `id > last_id`, oldest first (copies)."""
         with self._mutex:
@@ -195,12 +253,15 @@ class LiveTail:
             return bool(self._buffer) and last_id + 1 < self._buffer[0]["id"]
 
     def snapshot(self, now: datetime | None = None) -> dict:
-        """Active sessions with running totals, and the `last_id` those totals include (one atomic read)."""
-        cutoff = ((now or datetime.now(UTC)) - timedelta(seconds=ACTIVE_WINDOW_S)).strftime(_STAMP)
+        """Active sessions with running totals, and the `last_id` those totals include (one atomic read).
+
+        A session with an open call is listed even when it wrote nothing for 5 minutes (FR-044).
+        """
+        cutoff = ((now or self._clock()) - timedelta(seconds=ACTIVE_WINDOW_S)).strftime(_STAMP)
         with self._mutex:
             sessions = []
             for session_id, s in self._sessions.items():
-                if s.last_ts < cutoff:
+                if s.last_ts < cutoff and not s.has_open_call:
                     continue
                 figures = list(s.messages.values())
                 costs = [f[4] for f in figures]
@@ -216,10 +277,17 @@ class LiveTail:
                         "cache_creation": sum(f[2] for f in figures),
                         "cache_read": sum(f[3] for f in figures),
                         "cost_usd": None if None in costs else sum(costs),  # one unpriced model: abstain
+                        "attention": [dict(a) for a in s.attention],
                     }
                 )
             sessions.sort(key=lambda s: s["last_ts"], reverse=True)
-            return {"active_window_s": ACTIVE_WINDOW_S, "last_id": self._last_id, "sessions": sessions}
+            return {
+                "active_window_s": ACTIVE_WINDOW_S,
+                "last_id": self._last_id,
+                "state_version": self._state_version,
+                "open_call_minutes": self.open_call_minutes,
+                "sessions": sessions,
+            }
 
     # -- polling -----------------------------------------------------------------------------------
 
@@ -228,6 +296,12 @@ class LiveTail:
         if conn is None:
             with store.opened(config.store_path()) as own:
                 return self.poll_once(own)
+        try:
+            self._scan(conn)
+        finally:
+            self._evaluate()  # the time-based states move even when no line arrived
+
+    def _scan(self, conn: sqlite3.Connection) -> None:
         self._refresh_roots(conn)
         known = store.file_offsets(conn, claude_code.SOURCE)
         for account_id, root in self._roots:
@@ -275,6 +349,7 @@ class LiveTail:
                 parsed = claude_code.parse_record(record, self._project_of)
                 rows.append((line_offset, next_offset, parsed))
                 if isinstance(record, dict) and (item := _item(record, parsed)):
+                    item["path"] = path
                     items.append(item)
             if not rows:
                 return True
@@ -300,14 +375,99 @@ class LiveTail:
                 session = self._sessions.setdefault(item["session_id"], _Session(account))
                 session.last_ts = max(session.last_ts, item["ts"])
                 session.project = item["project"] or session.project
+                stream = session.streams.setdefault(item["path"], _Stream())
+                stream.is_sidechain = item["is_sidechain"] or "subagents" in Path(item["path"]).parts
+                self._close_on_new_message(stream, item)
                 for event in item["events"]:
                     session.tool_calls += event["kind"] == "tool_use"
+                    event = self._pair(stream, item, event)
                     self._append(account, item, event)
                 if item["usage"]:
                     self._count_usage(session, account, item)
-            horizon = (datetime.now(UTC) - timedelta(seconds=FORGET_AFTER_S)).strftime(_STAMP)
-            for gone in [sid for sid, s in self._sessions.items() if s.last_ts < horizon]:
-                del self._sessions[gone]
+        self._evaluate()
+
+    def _warn_once(self, kind: str) -> None:
+        if kind not in self._warned:
+            self._warned.add(kind)
+            log.warning("live tail: a %s block has no id, so its call is not tracked (format changed?)", kind)
+
+    def _close_on_new_message(self, stream: _Stream, item: dict) -> None:
+        """A later assistant message means the tool results of earlier ones were read (or skipped by the ingest)."""
+        message_id = item["message_id"]
+        if message_id:
+            for block_id in [k for k, call in stream.open.items() if call.message_id != message_id]:
+                del stream.open[block_id]
+
+    def _pair(self, stream: _Stream, item: dict, event: dict) -> dict:
+        """Open a call or close it by block id; keep the failure streak. Returns the event for the buffer."""
+        block_id = event["block_id"]
+        if block_id is None:
+            self._warn_once(event["kind"])
+            return event
+        if event["kind"] == "tool_use":
+            stream.open[block_id] = _Call(event["tool"], item["message_id"], item["ts"])
+            return event
+        call = stream.open.pop(block_id, None)
+        tool = call.tool if call else None  # None: the call began before the tail did, or the tail skipped it
+        if event["is_error"]:
+            if not stream.streak:
+                stream.streak_since, stream.streak_tool = item["ts"], tool
+            elif stream.streak_tool != tool:
+                stream.streak_tool = None  # mixed tools: the page must not name just the last one
+            stream.streak += 1
+        else:
+            stream.streak = 0
+        return {**event, "tool": tool}
+
+    def _evaluate(self) -> None:
+        """Drop expired calls and idle sessions, then work out each session's attention states.
+
+        O(sessions + open calls). `state_version` moves only when a session's attention list changes.
+        """
+        now = self._clock()
+
+        def before(seconds: float) -> str:
+            return (now - timedelta(seconds=seconds)).strftime(_STAMP)
+
+        call_horizon, forget_horizon = before(OPEN_CALL_MAX_S), before(FORGET_AFTER_S)
+        quiet_cutoff = before(self.open_call_minutes * 60)
+        with self._mutex:
+            for session_id, session in list(self._sessions.items()):
+                for stream in session.streams.values():
+                    for block_id in [k for k, call in stream.open.items() if call.ts < call_horizon]:
+                        del stream.open[block_id]
+                if session.last_ts < forget_horizon and not session.has_open_call:
+                    del self._sessions[session_id]
+                    continue
+                states = self._attention(session, quiet_cutoff)
+                if states != session.attention:
+                    session.attention = states
+                    self._state_version += 1
+
+    def _attention(self, session: _Session, quiet_cutoff: str) -> list[dict]:
+        failing, waiting, others = [], [], []
+        for stream in session.streams.values():
+            if stream.streak >= max(self.failing_streak, 1):
+                failing.append(
+                    {"state": "failing", "tool": stream.streak_tool, "count": stream.streak,
+                     "is_sidechain": stream.is_sidechain, "since": stream.streak_since}
+                )  # fmt: skip
+            calls = sorted(stream.open.values(), key=lambda c: c.ts)
+            asking = [c for c in calls if c.tool in WAITING_TOOLS]
+            if asking:
+                waiting.append(
+                    {"state": "waiting", "tool": asking[0].tool, "count": len(asking),
+                     "is_sidechain": stream.is_sidechain, "since": asking[0].ts}
+                )  # fmt: skip
+            others += [(c, stream.is_sidechain) for c in calls if c.tool not in WAITING_TOOLS]
+        states = sorted(failing, key=lambda a: a["since"]) + sorted(waiting, key=lambda a: a["since"])
+        if others and session.last_ts <= quiet_cutoff:
+            oldest, is_sidechain = min(others, key=lambda pair: pair[0].ts)
+            states.append(
+                {"state": "needs_attention", "tool": oldest.tool, "count": len(others),
+                 "is_sidechain": is_sidechain, "since": oldest.ts}
+            )  # fmt: skip
+        return states
 
     def _count_usage(self, session: _Session, account: str, item: dict) -> None:
         message_id, model, *counts, api_error = item["usage"]

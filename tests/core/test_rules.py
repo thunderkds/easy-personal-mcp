@@ -191,6 +191,31 @@ def test_unknown_threshold_in_config_is_an_error(tmp_path):
         rules.load_rules(config)
 
 
+def test_live_threshold_keys_load_beside_rule_ids_and_default_when_absent(tmp_path):
+    config = tmp_path / "config.yaml"
+    assert rules.live_thresholds(config) == {"live_failing_streak": 3, "live_open_call_minutes": 10}
+    config.write_text("thresholds:\n  cache_hit_low: 0.7\n  live_failing_streak: 5\n  live_open_call_minutes: 1.5\n")
+    assert rules.live_thresholds(config) == {"live_failing_streak": 5, "live_open_call_minutes": 1.5}
+    assert {r.id: r.threshold for r in rules.load_rules(config)}["cache_hit_low"] == 0.7
+
+
+@pytest.mark.parametrize("key", ["live_failing_streak", "live_open_call_minutes"])
+def test_live_threshold_that_is_not_a_number_is_refused_with_the_existing_message(tmp_path, key):
+    config = tmp_path / "config.yaml"
+    config.write_text(f"thresholds:\n  {key}: soon\n")
+    for load in (rules.load_rules, rules.live_thresholds):
+        with pytest.raises(ValueError, match="config thresholds must be numbers"):
+            load(config)
+
+
+def test_an_unknown_threshold_is_still_refused_beside_the_live_keys(tmp_path):
+    config = tmp_path / "config.yaml"
+    config.write_text("thresholds:\n  live_failing_streak: 5\n  live_no_such_key: 1\n")
+    for load in (rules.load_rules, rules.live_thresholds):
+        with pytest.raises(ValueError, match="unknown rules: live_no_such_key"):
+            load(config)
+
+
 def test_missing_config_uses_defaults(tmp_path):
     defaults = rules.load_rules(tmp_path / "absent.yaml")
     assert {r.id: r.threshold for r in defaults} == {

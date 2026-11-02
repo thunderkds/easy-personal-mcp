@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | New tests written in this task: `tests/core/test_live.py` (AC 1–8 + mixed-streak), `tests/core/test_rules.py` (AC 10), `tests/surfaces/test_api_live.py` (AC 9 + resume re-snapshot), `tests/leak/test_live_leak.py` (AC 11). Supervisor rerun 2026-11-02 @ 66520b1: `81 passed, 330 deselected` / `27 passed, 160 deselected` / `32 passed` |
+| Verification command run | ☑ pass | `uv run pytest tests/core -q -k "live or rules"` → `81 passed, 330 deselected, 1 warning in 5.10s`; `uv run pytest tests/surfaces -q -k live` → `27 passed, 160 deselected, 1 warning in 0.83s`; `uv run pytest tests/leak -q` → `32 passed, 1 warning in 45.46s` |
+| Negative cases hold | ☑ pass | 9m59s open → no `needs_attention`; record in another stream prevents it; 100 ordinary calls → `state_version` unchanged; unknown / non-number threshold refused; planted ids + secret text absent from events, snapshot, SSE text, store, logs |
+| verify | ☑ pass | Stage 5 2026-11-02 @ 88226e3, `/verify` recipe: temp `uv tool install` (`0.3.0`, `easy-personal core ok`), real `easy-personal dashboard` with `thresholds: live_open_call_minutes: 1`, real `/api/live` SSE, appended transcript lines: PASS failing Bash x3 (0.10s), PASS cleared by success, PASS waiting for you (AskUserQuestion), PASS cleared by answer, PASS needs attention after 1 min quiet (60.20s), PASS cleared by result, PASS no canary / block id in SSE; 7 snapshots = 1 initial + 6 state changes (none for ordinary calls), 18 live events; dashboard exit 0 — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed `core/live.py`, `core/rules.py`, `surfaces/api.py` + their tests and direct callers (`live_stream`, `load_rules` users). Lane: `C2, 7 files, 646 lines, EXCEEDS (lines 646 > 500)` — ~400 lines are tests; kept C2. Stage 4 code-review: P1 stale attention after resume (fixed 66520b1), P2 mixed-tool streak named last tool (fixed 66520b1), P1 process: agent's startup reads partial (`agents/backend.md` head only, PRD refs not read) — Supervisor re-checked every AC against PRD, no code impact. Security pass (manual; built-in `security-review` failed: no `origin/HEAD`): block reads limited to `type`/`name`/`id`/`tool_use_id`/`is_error` via `_label`; `_append` fixed key list excludes `block_id`; logs carry kind/exception type only; `/api/live` guard unchanged; memory bounded — no findings |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` → `1070 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 143.09s`; `uv run ruff check src tests` → `All checks passed!` |
+| **Companion score (easy-verifier)** | ☑ N/A | Not run: learnings 2026-11-01 — easy-verifier refused every repo path |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Backend only; the page is HUN-182 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Backend only; the page is HUN-182 |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Backend only; the page is HUN-182 |
 
 ---
 
@@ -61,12 +61,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T03:08:37Z on branch `HUN-181` @ 5af6a25, before any implementation commit. Command: `uv run python <scratchpad>/demo181.py` (temp home; a fixture session `s1` with 3 `tool_use` + 3 failed `tool_result` records, read by `live.LiveTail.poll_once()`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+2026-11-02T03:08:37.763572+00:00 BEFORE
+snapshot session keys: ['account', 'cache_creation', 'cache_read', 'cost_usd', 'last_ts', 'project', 'session_id', 'tokens_in', 'tokens_out', 'tool_calls']
+has attention: False | snapshot keys: ['active_window_s', 'last_id', 'sessions']
+tool_result events: [('tool_result', None, True), ('tool_result', None, True), ('tool_result', None, True)]
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: same script, 2026-11-02T03:24:19Z (the script's `BEFORE` label is only its print text), after the change:
+
+```
+snapshot session keys: ['account', 'attention', 'cache_creation', 'cache_read', 'cost_usd', 'last_ts', 'project', 'session_id', 'tokens_in', 'tokens_out', 'tool_calls']
+has attention: True | snapshot keys: ['active_window_s', 'last_id', 'open_call_minutes', 'sessions', 'state_version']
+tool_result events: [('tool_result', 'Bash', True), ('tool_result', 'Bash', True), ('tool_result', 'Bash', True)]
+```
+
+Real run (AC 12, headless `claude -p --model claude-haiku-5-5`, dashboard with `live_open_call_minutes: 1`): `/api/live` showed `failing` (Bash, count 4) at 03:20:40 after `false` x3, and `needs_attention` (Bash, count 1) at 03:23:08 for a `python3 -c 'import time; time.sleep(90)'` call, cleared at its result (03:23:38).
+
+**DELTA**: A live session now carries `attention` states (`failing`, `waiting`, `needs_attention`) in `snapshot()` and `GET /api/live`, and failed results name their tool.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
