@@ -219,7 +219,7 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-177 | `GET /api/live` SSE stream, guarded, resumable (FR-044; after HUN-176) | Done (merged 2026-11-01) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-178 | Live view: active sessions, tool feed, running totals (FR-045; after HUN-177) | Done (merged 2026-11-01) | Frontend-Implementer | C2 | Low | P0 |
 | HUN-179 | Release 0.3.0: version, README, site, ship plan (after HUN-178) | Done (merged 2026-11-01) | Backend-Implementer | C1 | Low | P1 |
-| HUN-181 | Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-181 | Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-182 | Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Todo | Frontend-Implementer | C2 | Low | P0 |
 | HUN-183 | Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Todo | Backend-Implementer | C1 | Low | P1 |
 

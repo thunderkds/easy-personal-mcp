@@ -77,7 +77,7 @@ Live          2 sessions need you
 | \# | Criterion (testable) | Traces to requirement |
 | -- | -- | -- |
 | 1 | A snapshot session with `attention: [{state: "failing", tool: "Edit", count: 3, is_sidechain: true}]` renders the pill `failing: Edit ×3 · agent` in the card head | FR-050 |
-| 2 | `waiting` renders `waiting for you: question`; `needs_attention` renders `needs attention: <tool> · hung or waiting for permission`; `tool: null` renders "unknown tool" | FR-050 |
+| 2 | `waiting` renders `waiting for you: question`; `needs_attention` renders `needs attention: <tool> · hung or waiting for permission`; `tool: null` renders "unknown tool", except `failing` with `tool: null`, which renders `failing: 3 in a row` (mixed or unknown tools; HUN-181 review 2026-11-02) | FR-050 |
 | 3 | A re-sent snapshot without the state removes the pill and border; feeds are kept | FR-050 |
 | 4 | The header shows "N sessions need you" (N = sessions with any state) in a `role="status"` region; hidden when N = 0 | FR-050 |
 | 5 | Within a project, cards with a state sort before cards without; ties keep newest first | FR-050 |

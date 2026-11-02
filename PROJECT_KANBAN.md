@@ -9,7 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-181** — Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-181.md`
 - [ ] **HUN-182** — Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-182.md`
 - [ ] **HUN-183** — Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
 
@@ -87,6 +86,7 @@
 - [x] **HUN-177** — GET /api/live: stream live events to the page as Server-Sent Events (FR-044) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-177.md`
 - [x] **HUN-178** — Live view: active sessions, per-session tool feed, running token and cost totals (FR-045) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-178.md`
 - [x] **HUN-179** — Release 0.3.0: version bump, README and site updates, release plan | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-179.md`
+- [x] **HUN-181** — Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-181.md`
 
 ### Closed (will not do)
 
