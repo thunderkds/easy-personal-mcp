@@ -161,7 +161,7 @@ async def live_stream(request):
 
     async def events():
         cursor, last_ping = (resume if live.current() is not None else None), time.monotonic()
-        seen = live.current().state_version if cursor is not None else None  # attention state the page already has
+        seen = None  # the attention state the page has: unknown, so a resume also gets one fresh snapshot
         while not stopping() and not await request.is_disconnected():
             tail = live.current()
             if tail is not None and cursor is not None and (cursor > tail.last_id or tail.rolled_past(cursor)):

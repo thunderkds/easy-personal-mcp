@@ -255,32 +255,51 @@ def fill(tail, add, n):
     tail.poll_once()
 
 
-def test_live_reconnect_with_last_event_id_gets_only_later_events_and_no_snapshot(app, tail, add):
+def test_live_reconnect_with_last_event_id_replays_later_events_then_one_fresh_snapshot(app, tail, add):
     fill(tail, add, 2)
     ids = [e["id"] for e in tail.events_since(0)]
     assert len(ids) == 4  # two tool_use + two usage
-    out = get(app, hdrs=headers(extra=[("last-event-id", str(ids[1]))]), step=lambda t: len(messages(t)) >= 2)
+    out = get(app, hdrs=headers(extra=[("last-event-id", str(ids[1]))]), step=count("snapshot"))
     got = messages(out["text"])
-    assert [m["event"] for m in got[:2]] == ["live", "live"]
-    assert [m["data"]["id"] for m in got[:2]] == ids[2:]
+    assert [m["event"] for m in got[:3]] == ["live", "live", "snapshot"]
+    assert [m["data"]["id"] for m in got[:2]] == ids[2:]  # replayed once, in order
+    assert got[2]["data"]["last_id"] == ids[-1]
+    assert sum(m["event"] == "snapshot" for m in got) == 1
 
 
-def test_live_reconnect_at_the_newest_id_gets_nothing_until_a_new_event(app, tail, add, monkeypatch):
+def test_live_reconnect_at_the_newest_id_gets_a_snapshot_then_only_new_events(app, tail, add, monkeypatch):
     monkeypatch.setattr(api, "PING_S", 0.05)
     fill(tail, add, 1)
     newest = tail.last_id
 
     def step(text):
-        if ": ping" in text:
+        if ": ping" in text and not state["added"]:
+            state["added"] = True
             add(record(message="msg_after", tool="Grep"))
             tail.poll_once()
         return sum(m["event"] == "live" for m in messages(text)) >= 1
 
+    state = {"added": False}
     out = get(app, hdrs=headers(extra=[("last-event-id", str(newest))]), step=step)
     got = messages(out["text"])
-    assert got[0]["comment"] == "ping"
+    assert got[0]["event"] == "snapshot" and got[0]["data"]["last_id"] == newest
     assert next(m["data"]["id"] for m in got if m["event"] == "live") == newest + 1
-    assert all(m["event"] != "snapshot" for m in got)
+    assert sum(m["event"] == "snapshot" for m in got) == 1
+
+
+def test_live_a_state_change_while_disconnected_reaches_the_page_in_the_snapshot_after_resume(app, tail, add):
+    add(record(message="msg_old"))
+    tail.poll_once()
+    newest = tail.last_id
+    add(record(message="msg_ask", tool="AskUserQuestion", use_id="toolu_q"))  # the page was away
+    tail.poll_once()
+    out = get(app, hdrs=headers(extra=[("last-event-id", str(newest))]), step=count("snapshot"))
+    got = messages(out["text"])
+    ids = [m["data"]["id"] for m in got if m["event"] == "live"]
+    assert ids == list(range(newest + 1, tail.last_id + 1))
+    snapshot = got[-1]
+    assert snapshot["event"] == "snapshot" and snapshot["data"]["last_id"] == tail.last_id
+    assert [a["state"] for a in snapshot["data"]["sessions"][0]["attention"]] == ["waiting"]
 
 
 def test_live_resume_older_than_the_buffer_starts_with_a_fresh_snapshot(app, monkeypatch, projects, add):

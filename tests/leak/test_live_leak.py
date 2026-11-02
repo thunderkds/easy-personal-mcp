@@ -32,7 +32,8 @@ def test_live_stream_really_ran_over_planted_transcripts(leak_run):
     assert '"session_id"' in body  # the snapshot lists sessions
     assert "event: snapshot" in leak_run.outputs["api /api/live?token=leak-test-token"]
     assert "event: live" in leak_run.outputs["api /api/live resumed"]
-    assert "event: snapshot" not in leak_run.outputs["api /api/live resumed"]
+    resumed = leak_run.outputs["api /api/live resumed"]  # replayed events first, then one fresh snapshot (HUN-181)
+    assert resumed.index("event: live") < resumed.index("event: snapshot")
 
 
 def test_attention_states_leak_no_planted_block_id_or_content(tmp_path, monkeypatch, caplog):

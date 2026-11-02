@@ -544,7 +544,7 @@ def test_streams_are_separate_three_failures_in_a_subagent_file_mark_failing_and
 def test_three_failures_in_a_row_mark_failing_and_the_next_success_clears_it(projects, manual, clock):
     tail = seeded(projects, manual, clock, MAIN)
     for i in range(2):
-        append(projects / MAIN, use(clock, [f"t{i}"], tools=("Edit",), message=f"m{i}"), result(clock, f"t{i}", error=True))
+        append(projects / MAIN, use(clock, [f"t{i}"], tools=("Grep",), message=f"m{i}"), result(clock, f"t{i}", error=True))
     tail.poll_once()
     assert attention(tail) == []  # two are not enough
     append(projects / MAIN, use(clock, ["t2"], tools=("Grep",), message="m2"), result(clock, "t2", error=True))
@@ -554,6 +554,15 @@ def test_three_failures_in_a_row_mark_failing_and_the_next_success_clears_it(pro
     append(projects / MAIN, use(clock, ["t3"], message="m3"), result(clock, "t3"))
     tail.poll_once()
     assert attention(tail) == []
+
+
+def test_a_streak_of_different_tools_names_no_tool(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    for i, tool in enumerate(("Bash", "Bash", "Edit")):
+        append(projects / MAIN, use(clock, [f"t{i}"], tools=(tool,), message=f"m{i}"), result(clock, f"t{i}", error=True))
+    tail.poll_once()
+    [item] = attention(tail)
+    assert (item["state"], item["tool"], item["count"]) == ("failing", None, 3)  # not "Edit"
 
 
 def test_unpaired_failed_results_count_in_the_streak_with_a_null_tool(projects, manual, clock):

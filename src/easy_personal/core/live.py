@@ -411,9 +411,10 @@ class LiveTail:
         tool = call.tool if call else None  # None: the call began before the tail did, or the tail skipped it
         if event["is_error"]:
             if not stream.streak:
-                stream.streak_since = item["ts"]
+                stream.streak_since, stream.streak_tool = item["ts"], tool
+            elif stream.streak_tool != tool:
+                stream.streak_tool = None  # mixed tools: the page must not name just the last one
             stream.streak += 1
-            stream.streak_tool = tool
         else:
             stream.streak = 0
         return {**event, "tool": tool}
