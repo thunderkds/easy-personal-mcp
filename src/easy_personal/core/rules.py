@@ -169,7 +169,7 @@ def summary(rule: Rule, measured, detail: dict | None = None) -> str:
 # Metric functions: (conn, since, until, **scope) -> (measured, detail); `scope` is the optional
 # `workspace` and `account` of `metrics._scope`. Raise Abstain when unmeasurable.
 def _cache_hit_ratio(conn, since, until, **scope):
-    ratio = metrics.usage_summary(conn, since, until, **scope)["cache_hit_ratio"]
+    ratio = metrics.cache_hit_ratio(conn, since, until, **scope)
     if ratio is None:
         raise Abstain("no prompt tokens in the window")
     return ratio, None
@@ -196,14 +196,7 @@ def _unreadable_share(conn, since, until, **scope):
 
 
 def _top_project_share(conn, since, until, **scope):
-    groups = metrics.usage_breakdown(conn, "project", since, until, **scope)["groups"]
-    totals = {
-        g["key"]: g["input_tokens"]
-        + g["output_tokens"]
-        + g["cache_creation_input_tokens"]
-        + g["cache_read_input_tokens"]
-        for g in groups
-    }
+    totals = metrics.tokens_by_project(conn, since, until, **scope)
     whole = sum(totals.values())
     if len(totals) < 2 or not whole:
         raise Abstain("fewer than two projects with tokens in the window")
@@ -216,13 +209,7 @@ def _week_over_week_tokens(conn, since, until, **scope):
     start, end = datetime.fromisoformat(since), datetime.fromisoformat(until)
 
     def tokens(lo, hi):
-        total = metrics.usage_breakdown(conn, "day", _iso(lo), _iso(hi), **scope)["total"]
-        return (
-            total["input_tokens"]
-            + total["output_tokens"]
-            + total["cache_creation_input_tokens"]
-            + total["cache_read_input_tokens"]
-        )
+        return metrics.token_total(conn, _iso(lo), _iso(hi), **scope)
 
     previous = tokens(start - (end - start), start)
     if not previous:

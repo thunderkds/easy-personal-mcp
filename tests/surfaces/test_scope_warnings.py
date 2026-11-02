@@ -134,7 +134,8 @@ def test_unknown_scope_raises_even_on_an_empty_store(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def client(conn):
+def client(conn, monkeypatch):
+    monkeypatch.setattr(kit, "split_gone", lambda paths: (paths, 0))  # the /work/* folders are fake: keep them, this tests scope
     return TestClient(api.create_app(TOKEN, PORT), base_url=f"http://127.0.0.1:{PORT}")
 
 
@@ -160,7 +161,7 @@ def test_api_routes_read_scope_from_the_query(client):
 def test_api_without_scope_is_the_golden_shape(client):
     assert get(client, "/api/warnings").json() == GOLDEN["warnings"]
     assert get(client, "/api/plan").json() == GOLDEN["plan"]
-    assert get(client, "/api/kit").json() == GOLDEN["kit"]
+    assert get(client, "/api/kit").json() == {**GOLDEN["kit"], "gone": 0}
 
 
 @pytest.mark.parametrize("path", ["/api/warnings", "/api/plan", "/api/kit"])

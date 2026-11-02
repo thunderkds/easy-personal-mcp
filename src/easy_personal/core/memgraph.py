@@ -116,14 +116,14 @@ def _transcript_project(folder: Path) -> str | None:
     return None
 
 
-def _sources(conn: sqlite3.Connection) -> dict[str, dict]:
+def _sources(conn: sqlite3.Connection, stored: list[str] | None = None) -> dict[str, dict]:
     """Project key -> `{"kit": memory folder or None, "claude": [(account id, label, memory folder)], "em": easy-memory folder or None}`.
 
     The key is the stored project path, or the Claude folder name when that folder maps to no project.
     A stored project with no memory folder is listed when its easy-memory store folder holds a note file.
-    Folder checks only: no note is opened here.
+    Folder checks only: no note is opened here. `stored` is the stored project list, when the caller already read it.
     """
-    stored = kit.scoped_projects(conn)
+    stored = kit.scoped_projects(conn) if stored is None else stored
     out: dict[str, dict] = {}
     for path in stored:
         if (Path(path) / MEMORY).is_dir():
@@ -177,18 +177,27 @@ def _display_name(key: str) -> str:
 
 
 def project_list(conn: sqlite3.Connection) -> dict:
-    """Projects that have at least one memory note: id, folder name and the note counts per origin."""
-    rows = []
-    for key, source in sorted(_sources(conn).items()):
+    """Projects that have at least one memory note: id, folder name and the note counts per origin.
+
+    A listed project whose stored folder is gone (FR-054) is left out and counted in the top-level
+    `gone`; a Claude-only key (a Claude folder that maps to no stored project) is kept.
+    """
+    stored = kit.scoped_projects(conn)
+    stored_set, rows, gone = set(stored), [], 0
+    for key, source in sorted(_sources(conn, stored).items()):
         files, _ = _files(source)
         kit_notes = sum(f["kind"] == "kit" for f in files)
         em_notes = easymem.note_count(source["em"]) if source["em"] else 0
-        if files or em_notes:
-            rows.append({
-                "project": key, "name": _display_name(key), "kit_notes": kit_notes,
-                "claude_notes": len(files) - kit_notes, "easy_memory_notes": em_notes,
-            })  # fmt: skip
-    return {"projects": rows}
+        if not (files or em_notes):
+            continue
+        if key in stored_set and not Path(key).is_dir():
+            gone += 1
+            continue
+        rows.append({
+            "project": key, "name": _display_name(key), "kit_notes": kit_notes,
+            "claude_notes": len(files) - kit_notes, "easy_memory_notes": em_notes,
+        })  # fmt: skip
+    return {"projects": rows, "gone": gone}
 
 
 def _ring(entry: dict) -> int:

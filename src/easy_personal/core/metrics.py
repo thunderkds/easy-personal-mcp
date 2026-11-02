@@ -2,6 +2,7 @@
 
 import sqlite3
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from itertools import pairwise
 from pathlib import Path
 
@@ -169,6 +170,12 @@ def work_kind(is_sidechain, entrypoint) -> str:
     return "agent" if entrypoint.startswith("sdk") else "typed"
 
 
+def _parse_utc(value: str) -> datetime:
+    """A stored UTC time as an aware datetime (`fromisoformat` is ~20x faster than `strptime`; it ran 200k times)."""
+    return datetime.fromisoformat(value)
+
+
+@lru_cache(maxsize=4096)
 def _folder(project_path: str | None) -> str:
     return Path(project_path).name or project_path if project_path else "(unknown)"
 
@@ -200,8 +207,7 @@ def _messages(
 
 def _keys(by: str, ts: str, model, project_path, tools) -> list[str]:
     if by == "day":  # OS local timezone, DST-aware
-        utc = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=UTC)
-        return [utc.astimezone().strftime("%Y-%m-%d")]
+        return [_parse_utc(ts).astimezone().strftime("%Y-%m-%d")]
     if by == "model":
         return [model or "(unknown)"]
     if by == "project":
@@ -300,6 +306,64 @@ def usage_breakdown(
     }
 
 
+def _message_sums(conn, since, until, workspace, account, by_project: bool = False):
+    """Token sums over the messages in [since, until): `(input, output, cache creation, cache read)`, or per stored project path."""
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    inner, inner_params = _inner_window(since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
+    where, params = _period("ts", since_utc, until_utc)
+    sums = "COALESCE(SUM(i), 0), COALESCE(SUM(o), 0), COALESCE(SUM(cc), 0), COALESCE(SUM(cr), 0)"
+    rows = conn.execute(
+        f"SELECT {'project_path, ' if by_project else ''}{sums} FROM ("
+        "  SELECT MIN(ts_utc) AS ts, MAX(input_tokens) AS i, MAX(output_tokens) AS o,"
+        "         MAX(cache_creation_input_tokens) AS cc, MAX(cache_read_input_tokens) AS cr,"
+        "         MAX(project_path) AS project_path"
+        "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
+        f"  AND input_tokens IS NOT NULL AND {inner} AND {scope} GROUP BY message_id"
+        f") WHERE {where}{' GROUP BY project_path' if by_project else ''}",
+        inner_params + scope_params + params,
+    ).fetchall()
+    return rows if by_project else rows[0]
+
+
+def token_total(
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
+) -> int:
+    """All tokens (input + output + cache) of the messages in [since, until); the `total` of `usage_breakdown`, in one query."""
+    return sum(_message_sums(conn, since, until, workspace, account))
+
+
+def cache_hit_ratio(
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
+) -> float | None:
+    """Cache-read share of prompt tokens in [since, until), as `usage_summary` reports it; None without prompt tokens."""
+    inp, _, cache_create, cache_read = _message_sums(conn, since, until, workspace, account)
+    prompt_tokens = inp + cache_create + cache_read
+    return round(cache_read / prompt_tokens, 4) if prompt_tokens else None
+
+
+def tokens_by_project(
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
+) -> dict[str, int]:
+    """All tokens per project folder name in [since, until); the `project` groups of `usage_breakdown`, in one query."""
+    totals: dict[str, int] = {}
+    for path, *sums in _message_sums(conn, since, until, workspace, account, by_project=True):
+        totals[_folder(path)] = totals.get(_folder(path), 0) + sum(sums)
+    return totals
+
+
 def session_outliers(
     conn: sqlite3.Connection,
     since: str | None = None,
@@ -365,21 +429,23 @@ def session_outliers(
     }
 
 
-def _parse_utc(value: str) -> datetime:
-    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=UTC)
-
-
 def session_timeline(
     conn: sqlite3.Connection,
     since: str | None = None,
     until: str | None = None,
     workspace: str | None = None,
     account: str | None = None,
+    detail_sessions: int | None = None,
 ) -> dict:
     """Per session in [since, until): start/end, models, token points per message and idle gaps.
 
     Start/end/gaps come from every non-abstained event of the session; points and totals count
     each message once (same rule as `usage_summary`). Tokens and times only, no text.
+
+    `detail_sessions` (the dashboard sends 50): only the newest N sessions carry `points` and
+    `gaps`; the others keep every total but have both lists empty, and the answer says so in a
+    top-level `detail_sessions`. The page draws the chart of the newest 50 only (`MAX_SESSIONS` in
+    `web/src/Timeline.jsx`), so the rest was payload nobody read. None = every session in full.
     """
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
@@ -423,18 +489,21 @@ def session_timeline(
             }
         )
 
+    order = sorted(sessions)
+    order.sort(key=lambda session: times[session][0], reverse=True)  # newest first, ties by session id
     result = []
-    for session, state in sessions.items():
+    for rank, session in enumerate(order):
         stamps, pts = times[session], points.get(session, [])
+        detailed = detail_sessions is None or rank < detail_sessions
         gaps = []
-        for before, after in pairwise(stamps):
+        for before, after in pairwise(stamps) if detailed else ():
             minutes = (_parse_utc(after) - _parse_utc(before)).total_seconds() / 60
             if minutes >= TIMELINE_GAP_MINUTES:
                 gaps.append({"start_utc": before, "end_utc": after, "minutes": round(minutes, 1)})
         result.append(
             {
                 "session_id": session,
-                "project": _folder(state["path"]),
+                "project": _folder(sessions[session]["path"]),
                 "start_utc": stamps[0],
                 "end_utc": stamps[-1],
                 "models": sorted({p["model"] for p in pts if p["model"]}),
@@ -443,17 +512,18 @@ def session_timeline(
                 "output_tokens": sum(p["output_tokens"] for p in pts),
                 "cache_creation_input_tokens": sum(p["cache_creation_input_tokens"] for p in pts),
                 "cache_read_input_tokens": sum(p["cache_read_input_tokens"] for p in pts),
-                "points": pts,
+                "points": pts if detailed else [],
                 "gaps": gaps,
             }
         )
-    result.sort(key=lambda s: s["session_id"])
-    result.sort(key=lambda s: s["start_utc"], reverse=True)
-    return {
+    answer = {
         "period": {"since_utc": since_utc, "until_utc": until_utc},
         "gap_minutes": TIMELINE_GAP_MINUTES,
         "sessions": result,
     }
+    if detail_sessions is not None:
+        answer["detail_sessions"] = detail_sessions
+    return answer
 
 
 def history_start(conn: sqlite3.Connection) -> str | None:

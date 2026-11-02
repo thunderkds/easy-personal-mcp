@@ -223,14 +223,17 @@ def seed(conn, *paths):
     conn.commit()
 
 
-def test_projects_come_from_usage_and_a_deleted_folder_is_no_data(conn, tmp_path):
+def test_projects_come_from_usage_and_a_deleted_folder_is_hidden_and_counted(conn, tmp_path):
     a, b = repo(tmp_path, "alpha"), repo(tmp_path, "beta")
+    bare = tmp_path / "repos" / "bare"
+    bare.mkdir(parents=True)  # exists, but has no board file
     gone = tmp_path / "repos" / "gone"
-    seed(conn, a, b, gone)
-    got = {p["project"]: p for p in board.board(conn)["projects"]}
-    assert set(got) == {"alpha", "beta", "gone"}
+    seed(conn, a, b, bare, gone)
+    result = board.board(conn)
+    got = {p["project"]: p for p in result["projects"]}
+    assert set(got) == {"alpha", "beta", "bare"} and result["gone"] == 1  # FR-054: `gone` is not listed
     assert got["alpha"]["status"] == "ok" and len(got["alpha"]["tasks"]) == 8
-    assert got["gone"]["status"] == "no data" and got["gone"]["tasks"] == []
+    assert got["bare"]["status"] == "no data" and got["bare"]["tasks"] == []
 
 
 def test_worktree_folders_are_not_projects(conn, tmp_path):

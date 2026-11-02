@@ -114,7 +114,7 @@ def test_parity_with_core_and_mcp_numbers(client, home):
             "/api/usage/summary": metrics.usage_summary(conn),
             "/api/usage/breakdown?by=model": metrics.usage_breakdown(conn, "model"),
             "/api/usage/outliers": metrics.session_outliers(conn),
-            "/api/usage/sessions": metrics.session_timeline(conn),
+            "/api/usage/sessions": metrics.session_timeline(conn, detail_sessions=api.TIMELINE_DETAIL_SESSIONS),
         }
     for path, expected in want.items():
         assert client.get(path, headers=AUTH).json() == expected, path
@@ -132,7 +132,7 @@ def test_kit_route_guarded_and_matches_core(client, home):
 
     assert client.get("/api/kit").status_code == 403
     with store.opened(home / "store.sqlite") as conn:
-        want = kit.kit_summary(conn)
+        want = kit.kit_summary(conn, hide_gone=True)
     res = client.get("/api/kit", headers=AUTH)
     assert res.status_code == 200
     assert res.json() == want
