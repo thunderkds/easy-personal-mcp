@@ -61,8 +61,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T08:21:44Z (wide) and 08:21:52Z (narrow) from current main de96ca4, worktree build, owner's real store, `VIEWS=Board node all.mjs <url> /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun187/before`:
+
+```
+1440x900: page height 19580 px, horizontal overflow false (scrollWidth 1440), projects listed 149 (ul[aria-label=Projects] li), cards 113
+390x844 : page height 21128 px, horizontal overflow TRUE (scrollWidth 736 > innerWidth 390), projects listed 149, cards 113
+GET /api/board: 149 projects (139 status "no data", 10 ok, 3 with a board kind), no top-level "gone" key
+```
+
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun187/before/wide-Board.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun187/before/narrow-Board.png`; raw numbers `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun187/before/info.json`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
