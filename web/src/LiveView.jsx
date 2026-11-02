@@ -160,8 +160,8 @@ function Session({ s, now, windowS }) {
         <h4 className="live-id" title={s.session_id}>
           {s.session_id.slice(0, ID_CHARS)}
         </h4>
-        {states.map((a) => (
-          <span key={a.state} className="live-pill" data-state={a.state} title={pillText(a)}>
+        {states.map((a, i) => (
+          <span key={`${a.state}-${i}`} className="live-pill" data-state={a.state} title={pillText(a)}>
             {pillText(a)}
           </span>
         ))}

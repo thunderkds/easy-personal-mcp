@@ -379,6 +379,15 @@ describe('attention (FR-050)', () => {
     expect(pills('bbbbbbbb')).toEqual(['failing: 3 in a row'])
   })
 
+  it('two streams failing in one session (main + subagent) give two pills and no duplicate React key', () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [{ ...failing, is_sidechain: false, tool: 'Bash' }, failing] })]))
+    expect(pills('aaaaaaaa')).toEqual(['failing: Bash ×3', 'failing: Edit ×3 · agent'])
+    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/)
+    errors.mockRestore()
+  })
+
   it('several states on one session give one pill each, failing first; the border takes the first state', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [stuck, waiting, { ...failing, is_sidechain: false }] })]))
