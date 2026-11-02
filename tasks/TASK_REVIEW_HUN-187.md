@@ -74,7 +74,7 @@ Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-
 **AFTER**: captured 2026-11-02T08:26:13Z (wide) and 08:26:23Z (narrow), worktree build of this branch, same owner store:
 
 ```
-1440x900: page height 900 px (was 19580), horizontal overflow false (scrollWidth 1440), picker entries: 1 project + "143 without a board" toggle (was 149 listed), cards 5 (was 113)
+1440x900: page height 900 px (was 19580), horizontal overflow false (scrollWidth 1440), picker lists 10 projects with a board and opens on 1; 143 others behind the "143 without a board" toggle (was 149 listed in a wall), cards 5 (was 113)
 390x844 : page height 1274 px (was 21128), horizontal overflow false (scrollWidth 390 vs innerWidth 390; was 736), cards 5
 All projects, 1440x900: scrollWidth 1440, page 13442 px with the 143 names expanded; longest title box 51 px = 3 lines
 ```
