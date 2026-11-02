@@ -61,8 +61,14 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T11:24:54Z, branch HUN-190 at 45b8e06 (no implementation commit), real `easy-personal dashboard` (page built from main) on the owner's data, Usage > 30 days, headless Chrome; driver `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/shot.cjs`. Rows rendered per list:
+
+```
+1280 {"project_bars":123,"project_table":123,"model":5,"tool":101,"outliers":114,"day_bars":27,"buttons":{"project":[],"model":[],"tool":[],"outliers":[],"day":[]},"scrollWidth":1280,"clientWidth":1280}
+375  {"project_bars":123,"project_table":123,"model":5,"tool":101,"outliers":114,"day_bars":27,"buttons":{...all empty},"scrollWidth":375,"clientWidth":375}
+```
+
+No list has a fold button. Screenshots: `.../scratchpad/hun190/before-1280.png`, `.../scratchpad/hun190/before-375.png`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
