@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { compact, fmt, percent } from './format.js'
 
 const W = 200
@@ -84,4 +85,19 @@ export function Compact({ n, className }) {
       <span className="sr-only">{full}</span>
     </span>
   )
+}
+
+export const TOP_N = 10
+
+/** A ranked list shows its first rows, then a "Show N more" button (same look as the Kit button). `toggle` is null when nothing is hidden. */
+export function useTopN(items, limit = TOP_N) {
+  const [open, setOpen] = useState(false)
+  const hidden = Math.max(items.length - limit, 0)
+  const toggle =
+    hidden > 0 ? (
+      <button type="button" className="details-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? 'Show fewer' : `Show ${fmt(hidden)} more`}
+      </button>
+    ) : null
+  return { shown: open ? items : items.slice(0, limit), toggle }
 }

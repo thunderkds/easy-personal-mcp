@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/Widgets.test.jsx` (7 `useTopN` tests incl. 0/1/10/11/25 rows, Infinity limit, focus, count format), `web/src/UsageView.test.jsx` (`top 10 lists (HUN-190, FR-058)`, 12 tests: AC1 project 25 rows 10 + "Show 15 more" -> 25 + "Show fewer" -> 10, AC2 table own button / model / tool / outliers, AC3 10, 11, 0 rows, AC4 bar width 4% folded and open, AC5 By day 25 bars/rows no button, AC6 period and workspace fold again, AC7 native button, independent lists). Red first (`useTopN is not a function`), green after. Output: `Test Files 2 passed (2) / Tests 91 passed (91)` for `vitest run Usage Breakdown Widgets`. |
+| Verification command run | ☑ pass | `cd web && npx vitest run Usage Breakdown Widgets` -> `Test Files 2 passed (2), Tests 91 passed (91)` ("Breakdown" matches no file; Breakdown is covered through UsageView.test.jsx); `npm --prefix web run build` -> `✓ built in 525ms`; `uv run pytest tests/test_web_toolchain.py -q` -> `16 passed in 3.33s` |
+| Negative cases hold | ☑ pass | 0 rows: empty text, no button; <=10 rows: no button; By day never folded; By model has 5 rows on owner data: no button (real run) |
+| verify | ☑ pass | Stage 5 2026-11-02 @ f6ea956 (Supervisor, own driver `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/v190/v.mjs`, worktree build, real `easy-personal dashboard` on the owner's store, Usage default 7 days): 1280×720 and 375×812 folded: By project 10 bars + "Show 93 more" (aria-expanded false), By model 5 rows no button, By tool 10 + "Show 66 more", Outlier sessions 10 + "Show 47 more", By day 8 bars (not cut); after clicks: 103 / 76 / 57 rows, "Show fewer", aria-expanded true; the By project table button stays separate (closed `<details>`); Enter on the tool button folds back to 10; no horizontal scroll; 0 page errors. Screenshots `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/v190/wide.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/v190/narrow.png` — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed `web/src/Widgets.jsx` (`useTopN`), `web/src/Breakdown.jsx` (ProjectBars, ModelTable, FullTable; day table `Infinity`), `web/src/UsageView.jsx` (Outliers) and their tests; caller `UsageView` (lists unmount while loading, so period/scope changes fold). `lane: C1, 5 files, 368 lines, EXCEEDS (lines 368 > 250)` — most lines are re-indentation of the existing JSX into fragments plus 19 tests; no extra logic, so no relabel. Code review: 0 P0, 0 P1, 0 P2, 0 P3. Security: page-only, no new request or HTML, text nodes only — 0 findings (Low risk: security-review not required). Startup reads complete |
+| Full smoke suite still green (no regression) | ☑ pass | `cd web && npx vitest run` -> `Tests 467 passed (467)` |
+| **Companion score (easy-verifier)** | ☑ N/A | Not run: learnings 2026-11-01 — easy-verifier refused every repo path |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real dashboard, owner data, Usage 30 days, headless Chrome. After: By project and Outlier sessions end with the button under row 10 (`Show 113 more`, `Show 104 more`), By tool `Show 91 more`; button looks like the Kit button (same `.details-toggle`, no new CSS). Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/after-1280.png`, crop `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/after-1280-crop.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/after-375.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/after-expanded-1280.png`; before: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/before-1280.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/before-375.png`. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Reuses `.details-toggle`; `git diff main -- web/src/app.css web/src/tokens.css` is empty (no new CSS, no new colour or token). |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280 px: `scrollWidth 1280 / clientWidth 1280`; 375 px (after `Menu` click): `scrollWidth 375 / clientWidth 375`. No horizontal scroll. |
 
 ---
 
@@ -61,12 +61,27 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-02T11:24:54Z, branch HUN-190 at 45b8e06 (no implementation commit), real `easy-personal dashboard` (page built from main) on the owner's data, Usage > 30 days, headless Chrome; driver `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/093552ec-c663-4553-a758-f85c71fffea0/scratchpad/hun190/shot.cjs`. Rows rendered per list:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+1280 {"project_bars":123,"project_table":123,"model":5,"tool":101,"outliers":114,"day_bars":27,"buttons":{"project":[],"model":[],"tool":[],"outliers":[],"day":[]},"scrollWidth":1280,"clientWidth":1280}
+375  {"project_bars":123,"project_table":123,"model":5,"tool":101,"outliers":114,"day_bars":27,"buttons":{...all empty},"scrollWidth":375,"clientWidth":375}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+No list has a fold button. Screenshots: `.../scratchpad/hun190/before-1280.png`, `.../scratchpad/hun190/before-375.png`.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: captured 2026-11-02T11:27:54Z, branch HUN-190 after the implementation commit, same driver and data (Usage, 30 days):
+
+```
+1280 {"project_bars":10,"project_table":10,"model":5,"tool":10,"outliers":10,"day_bars":27,"buttons":{"project":["Show 113 more|false","Show 113 more|false"],"model":[],"tool":["Show 91 more|false"],"outliers":["Show 104 more|false"],"day":[]},"scrollWidth":1280,"clientWidth":1280}
+after clicking the first button of each list (By project bars, By tool, Outliers):
+expanded {"project_bars":123,"model":5,"tool":101,"outliers":114,"buttons":["Show fewer|true","Show 113 more|false","Show fewer|true","Show fewer|true"]}
+375  {"project_bars":10,"project_table":10,"model":5,"tool":10,"outliers":10,"day_bars":27,"buttons":{same as 1280},"scrollWidth":375,"clientWidth":375}
+```
+
+Rows before -> after: By project bars 123 -> 10, By project table 123 -> 10, By tool 101 -> 10, Outlier sessions 114 -> 10, By model 5 -> 5 (no button), By day 27 -> 27. Expanded: 123 / 101 / 114 rows; the project table button stayed independent (`Show 113 more`).
+
+**DELTA**: The owner opens Usage and sees the top 10 of each ranked list, and one click on "Show N more" shows every row.
+
+**WITNESS**: Supervisor, Stage 5 2026-11-02, own driver `v190/v.mjs` on the owner's real data (not the implementing agent's script); trace `memory/event-trace/HUN-190.jsonl`.
+

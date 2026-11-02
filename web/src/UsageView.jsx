@@ -5,7 +5,7 @@ import Cost from './Cost.jsx'
 import { NO_SCOPE } from './Scope.jsx'
 import Timeline from './Timeline.jsx'
 import { abstainedText, costFigure, fmt, percent, totalTokens } from './format.js'
-import { Compact, Progress, Sparkline, Trend } from './Widgets.jsx'
+import { Compact, Progress, Sparkline, Trend, useTopN } from './Widgets.jsx'
 
 const PERIODS = [
   { id: '7', label: 'Last 7 days', days: 7 },
@@ -243,6 +243,7 @@ function WorkSplit({ day }) {
 }
 
 function Outliers({ data }) {
+  const { shown, toggle } = useTopN(data.sessions)
   return (
     <section className="card" aria-labelledby="h-outliers">
       <div className="card-head">
@@ -253,7 +254,7 @@ function Outliers({ data }) {
         <p className="muted">No outlier sessions in this period.</p>
       ) : (
         <ul className="outliers">
-          {data.sessions.map((s) => (
+          {shown.map((s) => (
             <li key={s.session_id} className="outlier">
               <div className="outlier-top">
                 <span className="mono-ellipsis" title={s.project}>{s.project}</span>
@@ -268,6 +269,7 @@ function Outliers({ data }) {
           ))}
         </ul>
       )}
+      {toggle}
       <p className="footnote">
         Outlier: {data.thresholds.tool_calls} or more tool calls, or a context of {fmt(data.thresholds.context_tokens)} tokens or more.
       </p>

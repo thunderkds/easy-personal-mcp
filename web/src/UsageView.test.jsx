@@ -564,3 +564,145 @@ describe('one-line figures, cost note, model names (HUN-188 AC1-AC3)', () => {
     expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(/)
   })
 })
+
+describe('top 10 lists (HUN-190, FR-058)', () => {
+  const rows = (n, prefix) =>
+    Array.from({ length: n }, (_, i) => ({
+      key: `${prefix}-${i + 1}`,
+      messages: 1,
+      input_tokens: 100,
+      output_tokens: 100,
+      cache_creation_input_tokens: 100,
+      cache_read_input_tokens: 100,
+      api_equivalent_cost: { usd: 1, price_table_date: '2026-10-01', abstained_models: [] },
+    }))
+  const bd = (by, n) => ({ ...breakdowns[by], groups: rows(n, by) })
+  const sessionsOf = (n) => ({
+    ...emptyOutliers,
+    sessions: Array.from({ length: n }, (_, i) => ({ session_id: `sess-${i + 1}`, project: 'app', tool_calls: 200 - i, max_context_tokens: 1000, reasons: ['tool_calls'] })),
+  })
+  const many = (n) => ({
+    breakdowns: { ...breakdowns, model: bd('model', n), project: bd('project', n), tool: bd('tool', n), day: bd('day', n) },
+    outliers: sessionsOf(n),
+  })
+  const region = (name) => screen.getByRole('region', { name })
+  const bodyRows = (sec) => within(sec).getAllByRole('row').filter((r) => within(r).queryAllByRole('columnheader').length === 0)
+
+  it('By project: 10 bar rows + "Show 15 more"; click shows 25 and "Show fewer"; click folds again (AC1)', async () => {
+    await renderView(many(25))
+    const sec = region('By project')
+    expect(within(sec).getAllByRole('listitem')).toHaveLength(10)
+    const btn = within(sec).getAllByRole('button', { name: 'Show 15 more' })[0]
+    expect(btn).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(btn)
+    expect(within(sec).getAllByRole('listitem')).toHaveLength(25)
+    const open = within(sec).getByRole('button', { name: 'Show fewer' })
+    expect(open).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(open)
+    expect(within(sec).getAllByRole('listitem')).toHaveLength(10)
+  })
+
+  it('By project "Show table": 10 rows and its own button, independent of the bars (AC2)', async () => {
+    await renderView(many(25))
+    const sec = region('By project')
+    const table = within(sec).getByRole('table')
+    expect(within(table).getAllByRole('row')).toHaveLength(11)
+    const buttons = within(sec).getAllByRole('button', { name: 'Show 15 more' })
+    expect(buttons).toHaveLength(2)
+    fireEvent.click(buttons[1])
+    expect(within(table).getAllByRole('row')).toHaveLength(26)
+    expect(within(sec).getAllByRole('listitem')).toHaveLength(10)
+    expect(within(sec).getByRole('button', { name: 'Show fewer' })).toBeInTheDocument()
+  })
+
+  it('By model, By tool and Outlier sessions: 10 rows + "Show 15 more", then all 25 (AC2)', async () => {
+    await renderView(many(25))
+    for (const [name, count] of [['By model', () => bodyRows(region('By model')).length], ['By tool', () => bodyRows(region('By tool')).length], ['Outlier sessions', () => within(region('Outlier sessions')).getAllByRole('listitem').length]]) {
+      expect(count()).toBe(10)
+      fireEvent.click(within(region(name)).getByRole('button', { name: 'Show 15 more' }))
+      expect(count()).toBe(25)
+      expect(within(region(name)).getByRole('button', { name: 'Show fewer' })).toHaveAttribute('aria-expanded', 'true')
+    }
+  })
+
+  it('the Outlier sessions count stays the true total while folded', async () => {
+    await renderView(many(25))
+    expect(screen.getByTestId('outlier-count')).toHaveTextContent('25')
+  })
+
+  it('opening one list leaves the others folded (independent)', async () => {
+    await renderView(many(25))
+    fireEvent.click(within(region('By model')).getByRole('button', { name: 'Show 15 more' }))
+    expect(bodyRows(region('By model'))).toHaveLength(25)
+    expect(bodyRows(region('By tool'))).toHaveLength(10)
+    expect(within(region('Outlier sessions')).getAllByRole('listitem')).toHaveLength(10)
+  })
+
+  it('exactly 10 rows: all shown, no button; 11 rows: "Show 1 more" (AC3)', async () => {
+    await renderView(many(10))
+    expect(screen.queryByRole('button', { name: /Show \d+ more|Show fewer/ })).toBeNull()
+    expect(within(region('By project')).getAllByRole('listitem')).toHaveLength(10)
+    expect(bodyRows(region('By tool'))).toHaveLength(10)
+  })
+  it('11 rows: one hidden', async () => {
+    await renderView(many(11))
+    expect(within(region('By tool')).getByRole('button', { name: 'Show 1 more' })).toBeInTheDocument()
+    expect(within(region('Outlier sessions')).getByRole('button', { name: 'Show 1 more' })).toBeInTheDocument()
+  })
+
+  it('0 rows: the existing empty text and no button (AC3)', async () => {
+    await renderView({
+      breakdowns: { day: emptyBreakdown('day'), model: emptyBreakdown('model'), project: emptyBreakdown('project'), tool: emptyBreakdown('tool') },
+      outliers: emptyOutliers,
+    })
+    expect(screen.getAllByText(/No usage recorded in this period/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/No outlier sessions in this period/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Show \d+ more/ })).toBeNull()
+  })
+
+  it('bar widths use the total of every row, folded or not (AC4)', async () => {
+    await renderView(many(25))
+    const sec = region('By project')
+    const width = () => within(sec).getAllByRole('listitem')[0].querySelector('.bar-fill').style.width
+    expect(width()).toBe('4%')
+    fireEvent.click(within(sec).getAllByRole('button', { name: 'Show 15 more' })[0])
+    expect(width()).toBe('4%')
+  })
+
+  it('By day shows every day and has no button (AC5)', async () => {
+    await renderView(many(25))
+    const sec = region('By day')
+    expect(sec.querySelectorAll('.bar')).toHaveLength(25)
+    expect(within(sec).getByRole('table').querySelectorAll('tbody tr')).toHaveLength(25)
+    expect(within(sec).queryByRole('button')).toBeNull()
+  })
+
+  it('changing the period folds the lists again (AC6)', async () => {
+    const f = await renderView(many(25))
+    fireEvent.click(within(region('By model')).getByRole('button', { name: 'Show 15 more' }))
+    expect(bodyRows(region('By model'))).toHaveLength(25)
+    f.calls.length = 0
+    fireEvent.click(screen.getByRole('button', { name: 'All time' }))
+    await waitFor(() => expect(usageCalls(f).length).toBe(7))
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(bodyRows(region('By model'))).toHaveLength(10)
+    expect(within(region('By model')).getByRole('button', { name: 'Show 15 more' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('changing the workspace folds the lists again', async () => {
+    const f = await renderView(many(25))
+    fireEvent.click(within(region('By tool')).getByRole('button', { name: 'Show 15 more' }))
+    expect(bodyRows(region('By tool'))).toHaveLength(25)
+    f.rerender({ workspace: 'Acme', account: '' })
+    await waitFor(() => expect(bodyRows(region('By tool'))).toHaveLength(10))
+  })
+
+  it('the button is a focusable native <button> with the count in its text (AC7)', async () => {
+    await renderView(many(25))
+    const btn = within(region('By tool')).getByRole('button', { name: 'Show 15 more' })
+    expect(btn.tagName).toBe('BUTTON')
+    expect(btn).toHaveClass('details-toggle')
+    btn.focus()
+    expect(btn).toHaveFocus()
+  })
+})
