@@ -20,6 +20,11 @@
 **Why**: The launcher must run on the host and reach the keychain; `~/.claude.json` holds sign-in and trust.
 **Files**: `src/easy_personal/launch.py`, `src/easy_personal/connectors/`, `docs/ddr/0001-native-runtime-and-write-targets.md`
 
+### 2026-11-03 — Memory on vs off block reads easy-memory's report.json (HUN-198, FR-066)
+**Decision**: `easymem.report(folder)` reads `<store>/report.json` (written by easy-memory `report --json`, its FR-015 / HUN-197): 64 KB cap, regular file inside the store folder, whitelisted fields only (`generated`, `min_sessions`, `too_few`, `on_vs_off_pct`, on/off `sessions` + `tokens_all_median`); `v` > 1 → `unsupported`, anything malformed → `none`; never raises. `memgraph` adds it as `easy_memory.report`; `EasyMemoryPanel` draws "Memory on vs off" under the hit-rate line ("Saves N%" / "Uses N% more" only when `too_few` is false).
+**Why**: owner 2026-11-03 asked easy-memory to give easy-personal its numbers; easy-memory owns the on/off join logic, this repo only shows it (no MCP call, DDR-0002). Layout and wording are Supervisor defaults (PRD Open Questions row 23).
+**Files**: `src/easy_personal/core/easymem.py`, `src/easy_personal/core/memgraph.py`, `web/src/MemoryView.jsx`, `tests/core/test_easymem.py`, `tests/surfaces/test_api_memory_graph.py`, `tests/leak/`
+
 ## Infrastructure
 
 ### 2026-10-21 — Board scoped to Linear project easy-personal-mcp (P-HUN-3)
