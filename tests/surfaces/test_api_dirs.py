@@ -36,7 +36,9 @@ def tree(tmp_path):
 
 
 def ask(client, path=None, **kw):
-    return client.get("/api/dirs", params={} if path is None else {"path": str(path)}, headers=AUTH, **kw)
+    return client.get(
+        "/api/dirs", params={} if path is None else {"path": str(path)}, headers=AUTH, **kw
+    )
 
 
 def test_lists_folders_only_case_insensitive_and_marks_git_repos(client, tree):
@@ -44,11 +46,17 @@ def test_lists_folders_only_case_insensitive_and_marks_git_repos(client, tree):
     assert res.status_code == 200
     body = res.json()
     assert body["path"] == str(tree)
-    assert body["dirs"] == [{"name": "a", "repo": False}, {"name": "B", "repo": False}, {"name": "r", "repo": True}]
+    assert body["dirs"] == [
+        {"name": "a", "repo": False},
+        {"name": "B", "repo": False},
+        {"name": "r", "repo": True},
+    ]
     assert "truncated" not in body
 
 
-def test_without_path_it_lists_the_process_working_directory_at_request_time(client, tree, monkeypatch):
+def test_without_path_it_lists_the_process_working_directory_at_request_time(
+    client, tree, monkeypatch
+):
     monkeypatch.chdir(tree)
     assert ask(client).json()["path"] == str(tree)
     monkeypatch.chdir(tree / "a")
@@ -132,7 +140,9 @@ def test_exactly_500_folders_is_not_truncated(client, tmp_path):
     assert len(body["dirs"]) == 500 and "truncated" not in body
 
 
-def test_symlink_to_a_folder_is_listed_a_broken_link_and_a_loop_are_skipped_and_no_target_leaks(client, tmp_path):
+def test_symlink_to_a_folder_is_listed_a_broken_link_and_a_loop_are_skipped_and_no_target_leaks(
+    client, tmp_path
+):
     root = tmp_path / "links"
     (root / "real").mkdir(parents=True)
     (root / "link").symlink_to(root / "real")
@@ -155,7 +165,11 @@ def test_a_git_file_marks_a_worktree_as_a_repo(client, tmp_path):
 def test_file_names_and_contents_never_reach_the_response(client, tree):
     for target in (tree, tree / "a", tree / "r"):
         res = ask(client, target)
-        assert FILE_CANARY not in res.text and CONTENT_CANARY not in res.text and "inner.txt" not in res.text
+        assert (
+            FILE_CANARY not in res.text
+            and CONTENT_CANARY not in res.text
+            and "inner.txt" not in res.text
+        )
         assert set(res.json()) <= {"path", "parent", "home", "dirs", "truncated"}
 
 
@@ -174,13 +188,20 @@ def test_the_path_is_never_logged(client, tree, caplog):
 
 def test_needs_the_token(client, tree):
     assert client.get("/api/dirs", params={"path": str(tree)}).status_code == 403
-    assert client.get("/api/dirs", params={"path": str(tree)}, headers={api.TOKEN_HEADER: "wrong"}).status_code == 403
+    assert (
+        client.get(
+            "/api/dirs", params={"path": str(tree)}, headers={api.TOKEN_HEADER: "wrong"}
+        ).status_code
+        == 403
+    )
 
 
 def test_wrong_host_and_foreign_origin_are_refused(client, tree):
     wrong_host = TestClient(api.create_app(TOKEN, PORT, tree), base_url="http://evil.example:5555")
     assert wrong_host.get("/api/dirs", headers=AUTH).status_code == 403
-    assert client.get("/api/dirs", headers=AUTH | {"origin": "http://evil.example"}).status_code == 403
+    assert (
+        client.get("/api/dirs", headers=AUTH | {"origin": "http://evil.example"}).status_code == 403
+    )
 
 
 def test_the_token_in_the_url_is_not_accepted_here(client, tree):
