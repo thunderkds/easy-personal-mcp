@@ -10,6 +10,16 @@
 
 ---
 
+## Auto decisions
+
+Mode: auto
+1. Ran Stage 5 verify myself — RULE: the owner's explicit request "you run verify [auto]" overrides `docs/claude-md/tracks.md` `## Auto mode` (Supervisor never runs /verify)
+2. Verified on a copy of the owner store, never the live one — RULE: standing owner constraint (never touch `~/.easy-personal/store.sqlite` with new code)
+3. Accepted the toast overlapping the bottom of the right rail at 1920 px — SAFER OPTION: a toast floats above content by design (FR-065) and can be closed ⚠ decided for you — please review
+4. Code-review P3 notes (duplicate placement pin, one unexplained flaky run) left as suggestions — RULE: `.claude/skills/code-review/SKILL.md` Phase 4 (only P0/P1 are fixed automatically)
+Checks: tests `cd web && npx vitest run` — 20 files / 548 passed (agent run); `npm --prefix web run build` — built; `uv run pytest tests/test_web_toolchain.py -q` — 16 passed; reviews code-review — P0 0, P1 0, P2 0, P3 2; real run `easy-personal dashboard` (branch install, store copy) — toast inside the page box, pill in the content middle at 1920/1280/375
+Not done: merge (yours); /verify: ☑ pass (Supervisor-run at owner request 2026-11-03)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
@@ -17,7 +27,7 @@
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/shell.test.js` (new describe "toast host and loading pill placement (HUN-202, FR-065)", 4 tests, AC 1-5 CSS rules); `web/src/Toast.test.jsx` (old `right: var(--space-4)` pin updated to the new rule). Red first: 3 of 4 new tests failed on the old CSS (the phone-rule test already held), then passed. |
 | Verification command run | ☑ pass | `cd web && npx vitest run` -> `Test Files  20 passed (20)  Tests  548 passed (548)` (run twice; one earlier full run showed 1 unrelated failed test that did not reproduce in 3 reruns, not identified); `npm --prefix web run build` -> `built in 310ms`; `uv run pytest tests/test_web_toolchain.py -q` -> `16 passed in 2.22s` |
 | Negative cases hold | ☑ pass | 375 px: `scrollWidth` 375 = innerWidth 375 with pill and toast; pill (y 388-424) and toast (y 664-726) do not overlap; 1280 px toast unchanged (right 1264) |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| verify | ☑ pass | Supervisor-run at the owner's request ("you run verify [auto]", 2026-11-03). Isolated `uv tool install .` from the branch: `0.4.0`, `easy-personal core ok`, MCP `tools/list` 11 tools. Dashboard from the branch on a store copy (scratchpad `verify202.*`), headless Chrome: 1920×1080 toast host 1280–1664 (shell 240–1680, 16 px inside), bottom 1064; pill cx/cy 1076/540 = main column centre / window middle. 1280×720 toast 880–1264, pill 756/360. 375×812 toast 16–359, pill 187.5/406. scrollWidth = window width at all three. Screenshots `verify-{1920,1280,375}-{loading,toast}.png` viewed — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
