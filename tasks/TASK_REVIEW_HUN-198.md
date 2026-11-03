@@ -16,7 +16,7 @@
 |-------|--------|------------------------|
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | tests/core/test_easymem.py (AC1, AC2, edge cases), tests/surfaces/test_api_memory_graph.py (AC3), tests/core/test_memgraph.py, tests/leak/canaries.py + tests/leak/test_leak_suite.py (AC8), web/src/MemoryView.test.jsx (AC4-AC7). 166 passed (pytest group); vitest 502 passed. |
 | Verification command run | pass | Exit 0. pytest group: `166 passed, 1 warning in 59.17s`; vitest: `Test Files 18 passed (18) / Tests 502 passed (502)`; build: `built in 340ms`; full: `1301 passed, 6 deselected, 1 xfailed, 1 warning in 197.46s`. (CSS spacing tweak afterwards: vitest re-run 502 passed, rebuilt.) |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| Negative cases hold | pass | tests/core/test_easymem.py: empty, `[]`, `{`, string, null, binary, deep nesting, 65 KB file, directory, missing file/folder, symlink outside the folder, `v: 2`, bool/string/negative/float counts, NaN pct, wrong `too_few` all return none/unsupported without raising; vitest: future/unparseable `generated`, pct shown only when `too_few` false. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
