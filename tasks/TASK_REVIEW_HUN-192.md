@@ -61,8 +61,19 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-03 02:48:17 UTC, on a `.backup` copy of `~/.easy-personal/store.sqlite`, before any implementation commit):
+
+```
+$ date -u; sqlite3 <copy> "PRAGMA user_version; SELECT name FROM pragma_table_info('events') WHERE name='tool_error_count'; SELECT 'rows_with_column=' || COUNT(*) FROM pragma_table_info('events') WHERE name='tool_error_count'; SELECT COUNT(*) AS events FROM events;"
+Tue Nov  3 02:48:17 AM UTC 2026
+7                      <- PRAGMA user_version (store is v7)
+rows_with_column=0     <- events.tool_error_count column absent (name query printed nothing)
+386360                 <- events rows
+$ uv run python -c "from easy_personal.core.migrations import MIGRATIONS; print(max(n for n,_ in MIGRATIONS))"
+code latest migration: 7
+$ sqlite3 <copy> "SELECT COUNT(*), SUM(byte_offset>0) FROM source_files WHERE source='claude_code'"
+1198|1197          <- 1198 claude_code files, 1197 with a non-zero offset
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
