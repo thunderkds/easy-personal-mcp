@@ -34,6 +34,17 @@ def test_ingest_actually_ran(leak_run):
     assert "/work/leak-demo" in dump
 
 
+def test_failed_tool_result_was_counted_and_its_text_not_stored(leak_run, canaries):
+    """HUN-192: the planted failing tool_result raised `tool_error_count` to 1; its INVENTED_ text is nowhere."""
+    import sqlite3
+
+    copy = sqlite3.connect(":memory:")
+    copy.executescript(leak_run.outputs["store .dump"])
+    assert copy.execute("SELECT SUM(tool_error_count) FROM events").fetchone() == (1,)
+    copy.close()
+    assert not canaries.find(leak_run.outputs["store .dump"])
+
+
 def test_kit_trace_ingest_actually_ran(leak_run):
     # the canary sits in `summary` of a trace that was really ingested: metadata rows exist
     dump = leak_run.outputs["store .dump"]

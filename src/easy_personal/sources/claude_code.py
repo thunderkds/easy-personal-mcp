@@ -97,6 +97,16 @@ def _signals(blocks) -> list[tuple[str, str]]:
     return found
 
 
+def _tool_errors(message) -> int | None:
+    """Failed `tool_result` blocks of a user message; None when it holds no `tool_result` block.
+
+    Only `type` and `is_error` of a block are read: its `content` and `tool_use_id` never are.
+    """
+    content = message.get("content") if isinstance(message, dict) else None
+    results = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_result"] if isinstance(content, list) else []
+    return sum(b.get("is_error") is True for b in results) if results else None
+
+
 def _utc(value) -> str | None:
     if not isinstance(value, str):
         return None
@@ -157,6 +167,8 @@ def parse_record(record, project_of) -> dict:
         is_sidechain=int(record.get("isSidechain") is True),
         entrypoint=_label(record.get("entrypoint")),
     )
+    if rtype == "user":
+        event["tool_error_count"] = _tool_errors(record.get("message"))
     if rtype != "assistant":
         return event
 

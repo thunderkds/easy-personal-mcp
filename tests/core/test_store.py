@@ -25,6 +25,7 @@ ALLOWED_EVENT_COLUMNS = {
     "message_id",
     "agent_account_id",
     "entrypoint",
+    "tool_error_count",
     "tool_names",
     "input_tokens",
     "output_tokens",

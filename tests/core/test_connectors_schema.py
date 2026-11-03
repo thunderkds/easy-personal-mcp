@@ -133,6 +133,7 @@ def test_v5_store_with_rows_upgrades_keeping_every_row(tmp_path, fixtures_root):
     store.migrate(conn, path, [m for m in MIGRATIONS if m[0] <= 5])  # schema before m0006
     conn.execute("INSERT INTO meta VALUES ('machine_id', 'm1')")
     conn.execute("ALTER TABLE events ADD COLUMN entrypoint TEXT")  # today's ingest writes it (m0007 then keeps it)
+    conn.execute("ALTER TABLE events ADD COLUMN tool_error_count INTEGER")  # likewise (m0008 keeps it)
     conn.commit()
     claude_code.ingest(conn, fixtures_root)
     conn.execute("INSERT INTO agent_accounts (provider, folder, label, status) VALUES ('claude', '/h/.claude', 'd', 'confirmed')")
