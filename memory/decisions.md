@@ -104,3 +104,4 @@
 **Approved by**: owner, 2026-11-03 (6 grill answers + error-count answer after the Supervisor corrected its Q3 claim that errors were already stored).
 **Files**: `PRD.md` Overview, US-026, FR-059..FR-063, KPI row, Out of Scope, OQ 22. Brainstorming next (Stage 0.5b).
 **Brainstorm 2026-11-03 (owner)**: pool matched sessions over like-with-like groups (≥ 10 pooled per side); `wake` change = XR-2 on the kernel repo (`skills/wake` is kit-managed). Added NFR-014 (< 3 s, git time budget). Recommended build: Option A, compute on read (`BRAINSTORMING_LOG_KITPERF.md`).
+**Stage 2 2026-11-03**: 3 tasks on Linear — HUN-192 store v8 `tool_error_count` + re-read (P0, C2, Medium → `migration-safety` + `security-review`), HUN-193 `core/kitperf.py` + `kit_findings` MCP + CLI (P0, C2, Medium → `security-review`), HUN-194 release 0.5.0 (P1, C1, Low; after HUN-183); chain 192 → 193 → 194. XR-2 not filed yet (kernel repo board).

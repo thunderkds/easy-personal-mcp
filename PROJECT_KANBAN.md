@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-02
+**Last updated**: 2026-11-03
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -10,10 +10,9 @@
 
 ### Todo
 - [ ] **HUN-183** — Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
-- [ ] **HUN-185** — Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-185.md`
-- [ ] **HUN-186** — Dashboard speed + gone-project filter: fast kit / usage sessions / warnings / plan / memory list reads, hide gone projects (FR-054, NFR-013) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-186.md`
-- [ ] **HUN-187** — Board view UX: one project at a time, hide projects without a board, plain clamped titles, no sideways scroll on phones (FR-055) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-187.md`
-- [ ] **HUN-188** — Usage, Memory and Kit view UX: one-line numbers, distinct model names, Memory opens on the busiest project, Kit folds idle projects (FR-054, FR-056) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-188.md`
+- [ ] **HUN-192** — Store failed tool results per user record: migration 7 → 8 + re-read (FR-059) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-192.md`
+- [ ] **HUN-193** — kit_findings: like-with-like session comparison per kit server, MCP tool + CLI (FR-060..FR-063, NFR-014; after HUN-192) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-193.md`
+- [ ] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
 
 ### In Progress
 
@@ -92,6 +91,13 @@
 - [x] **HUN-181** — Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-181.md`
 - [x] **HUN-182** — Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-182.md`
 - [x] **HUN-184** — easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-184.md`
+- [x] **HUN-185** — Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-185.md`
+- [x] **HUN-186** — Dashboard speed + gone-project filter: fast kit / usage sessions / warnings / plan / memory list reads, hide gone projects (FR-054, NFR-013) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-186.md`
+- [x] **HUN-187** — Board view UX: one project at a time, hide projects without a board, plain clamped titles, no sideways scroll on phones (FR-055) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-187.md`
+- [x] **HUN-188** — Usage, Memory and Kit view UX: one-line numbers, distinct model names, Memory opens on the busiest project, Kit folds idle projects (FR-054, FR-056) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-188.md`
+- [x] **HUN-189** — Owner project: count gone worktrees under their main repo in usage by project and project lists (FR-057) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-189.md`
+- [x] **HUN-190** — Usage lists show top 10 with "Show N more" (FR-058) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-190.md`
+- [x] **HUN-191** — Session timeline shows 10 sessions with "Show N more" (FR-058) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-191.md`
 
 ### Closed (will not do)
 

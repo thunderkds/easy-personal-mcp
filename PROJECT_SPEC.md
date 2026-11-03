@@ -77,6 +77,11 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Memory note** — one `.md` file under `<repo>/memory/` (**kit memory**) or `~/.claude*/projects/*/memory/` (**Claude memory**). Its graph identity is the frontmatter `name` slug, else the file stem.
 - **easy-memory note** — one `notes/<id>.json` in the easy-memory store (`$EASY_MEMORY_HOME`, else `~/.easy-memory/<key>/`), saved by easy-memory's Stop hook. Only its `time` and `files` map are read out; its `prompt`, `answer` and `session_id` never leave `core/easymem.py`. Not a **Memory note** (no frontmatter, no links). *(planned, 2026-11-02)*
 - **Cited file** — a repo-relative path in an easy-memory note's `files` map, drawn as one graph node per project (top 30 by citation count, FR-052). **Stale** when the file's current SHA-256 differs from the hash in the newest note that cites it, or the file is gone. *(planned, 2026-11-02)*
+- **Kit server** — one of the four Easy Kit MCP servers compared for kit performance: easy-ui, easy-verifier, easy-context, easy-memory. A session *used* a kit server when any of its events (sub-agent records included) calls a tool named `mcp__<server>__*` (FR-060). easy-personal itself is not a compared server. *(planned, 2026-11-03)*
+- **Tool error count** — `events.tool_error_count`: the number of `tool_result` blocks with `is_error` true in one `user` record (FR-059, store v8). NULL = unknown (not a user record with tool results, or ingested before v8). *(planned, 2026-11-03)*
+- **Good result** — a session with a commit on its branch between its first event and last event + 30 min, and a tool-error rate (failed tool results ÷ tool calls) ≤ `kit_error_rate`. Sessions on `main`/`master`/`HEAD`/no branch, or with unknown error counts, have an *unknown* result, not a bad one (FR-061). *(planned, 2026-11-03)*
+- **Kit finding** — one pooled like-with-like comparison (strata = owner project × main model × token-size tertile) of one kit server on one measure (tokens, cost, length, good-result share), shown only with ≥ 10 pooled sessions per side and always worded "linked to" (FR-062). Returned by the MCP tool `kit_findings` (FR-063). *(planned, 2026-11-03)*
+- **Habit** — the fixed text a kit finding carries when the server side is better; Claude follows it in that session only and edits no file. *(planned, 2026-11-03)*
 - **Gone project** — a stored project path (`events.project_path`) whose folder no longer exists on disk (e.g. a deleted `/tmp` test folder). Hidden from the Board, Kit and Memory lists (FR-054); its usage history is still counted.
 - **Owner project** — the stored repo that a gone worktree or subfolder belongs to (FR-057): by path when a parent folder is still a git repo, else by its git branch name found in exactly one stored repo. Usage by project and the project lists count it there; stored events keep their own path.
 - **Dangling link** — a `[[name]]` in a memory note that resolves to no memory note in the same project; drawn as an empty node.
@@ -95,6 +100,7 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - No traffic leaves the machine: local calls to `127.0.0.1` only; every HTTP surface binds `127.0.0.1`, never `0.0.0.0`; the page loads no remote asset (CSP `default-src 'self'`).
 - The only runtime call to another plug-in is the read-only easy-context MCP client (allow-list: `list_indexes`, `get_stats`). Never `index_path`; never call easy-verifier or easy-ui at runtime (DDR-0002).
 - Deterministic: no LLM in the server; every warning cites rule id + measured value.
+- Kit findings say "linked to", never "caused"; habit texts come from a fixed table in `core/kitperf.py`. `skills/wake` is kit-managed (`.claude/harness-lock.json`): never edit it here; its call to `kit_findings` is XR-2 on the kernel repo.
 - Writes allowed only to `~/.easy-personal/`, the OS keychain (service prefix `easy-personal/`) and Claude Code user scope **via `claude mcp add-json|remove --scope user`** (DDR-0001). Never `~/.claude.json` by direct edit; never project-scope config or hooks (kernel-owned).
 - No MCP tool may write config, create a connector or return a secret value. Dashboard writes need the per-launch token and a matching `Host`/`Origin`.
 - `launch.py` imports only stdlib + `keyring`; secrets reach the child process only through its environment, never argv.
@@ -234,8 +240,13 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-189 | Owner project: count gone worktrees under their main repo in usage by project, top-project warning and project lists (FR-057) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-190 | Usage lists show top 10 with "Show N more" (By project, model, tool, outlier sessions) (FR-058) | Done (merged 2026-11-02) | Frontend-Implementer | C1 | Low | P1 |
 | HUN-191 | Session timeline shows 10 sessions with "Show N more"; sessions past the 50 with chart detail listed without a chart (FR-058) | Done (merged 2026-11-02) | Frontend-Implementer | C1 | Low | P1 |
+| HUN-192 | Store failed tool results per user record: migration 7 → 8 + re-read (FR-059) | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-193 | kit_findings: like-with-like session comparison per kit server, MCP tool + CLI (FR-060..FR-063, NFR-014; after HUN-192) | Todo | Backend-Implementer | C2 | Medium | P0 |
+| HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Todo | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
+
+Cross-repo: **XR-2** = Easy Kit kernel (owner of `skills/wake`) — `wake` calls `kit_findings` when the easy-personal MCP is connected, ≤ 3 lines, silent on failure — **not filed yet**: goes on the kernel repo's own board. Needed by FR-063.
 
 ---
 
