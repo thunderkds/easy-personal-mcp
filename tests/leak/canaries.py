@@ -30,6 +30,7 @@ PATTERNS = {
     "file_path": "/home/leak/LEAKCANARY_{t}/secret.txt",
     "file_content": "LEAKCANARY file-content {t}",
     "tool_output": "LEAKCANARY tool-output {t}",
+    "failed_tool_result": "INVENTED_failed-tool-result-{t}",  # HUN-192: content of a failing tool_result; only its count is stored
     "attachment": "LEAKCANARY attachment {t}",
     "system_text": "LEAKCANARY system {t}",
     "model_text": "LEAKCANARY model name {t}",

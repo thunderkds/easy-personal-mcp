@@ -45,7 +45,7 @@ def test_v6_store_upgrades_keeps_rows_resets_offsets_and_backfills_on_next_inges
     conn = store.connect(path)
     columns = {r[1]: r for r in conn.execute("PRAGMA table_info(events)")}
     assert "entrypoint" in columns and columns["entrypoint"][3] == 0  # nullable
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == max(n for n, _ in MIGRATIONS)
     assert list(tmp_path.glob("*.bak-v6"))
     assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == rows > 0
     assert conn.execute("SELECT COUNT(*) FROM events WHERE entrypoint IS NOT NULL").fetchone()[0] == 0

@@ -24,6 +24,7 @@ EVENT_COLUMNS = (
     "is_sidechain",
     "is_api_error",
     "entrypoint",
+    "tool_error_count",
     "model",
     "message_id",
     "tool_names",
@@ -149,13 +150,16 @@ def save_file(
                 yield (mid, source, path, inode, line_offset, account_id, *(event[c] for c in EVENT_COLUMNS))
 
     placeholders = ", ".join("?" * (6 + len(EVENT_COLUMNS)))
-    # A re-read (offsets reset by migration 7) finds its rows: only `entrypoint` may change, never a row added.
+    # A re-read (offsets reset by migrations 7 and 8) finds its rows: only `entrypoint` and `tool_error_count`
+    # may change, each only to a known value, never a row added.
     sql = (
         "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, "
         f"agent_account_id, {', '.join(EVENT_COLUMNS)}) VALUES ({placeholders}) "
         "ON CONFLICT (machine_id, source, source_path, inode, byte_offset) DO UPDATE "
-        "SET entrypoint = excluded.entrypoint "
-        "WHERE excluded.entrypoint IS NOT NULL AND events.entrypoint IS NOT excluded.entrypoint"
+        "SET entrypoint = COALESCE(excluded.entrypoint, events.entrypoint), "
+        "tool_error_count = COALESCE(excluded.tool_error_count, events.tool_error_count) "
+        "WHERE (excluded.entrypoint IS NOT NULL AND events.entrypoint IS NOT excluded.entrypoint) "
+        "OR (excluded.tool_error_count IS NOT NULL AND events.tool_error_count IS NOT excluded.tool_error_count)"
     )
     in_file = "machine_id = ? AND source = ? AND source_path = ? AND inode = ?"
     with conn:
