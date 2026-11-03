@@ -15,6 +15,8 @@ from easy_personal.sources import context
 PACKAGED = Path(__file__).resolve().parent.parent / "data" / "rules.yaml"
 LABELS = ("improve", "aware", "warning")
 LIVE_DEFAULTS = {"live_failing_streak": 3, "live_open_call_minutes": 10}  # live attention states (FR-048/049)
+KIT_ERROR_RATE_DEFAULT = 0.04  # median session tool-error rate on the owner store after the v8 re-read (HUN-193)
+THRESHOLD_KEYS = (*LIVE_DEFAULTS, "kit_error_rate")  # config keys that are not rule ids
 OPS = {"lt": lambda m, t: m < t, "gt": lambda m, t: m > t}
 
 
@@ -99,13 +101,13 @@ def load_rules(config_file: Path | None = None) -> list[Rule]:
     if config_file is None or not config_file.exists():
         return pack
     overrides = _read_flat(config_file, "thresholds")
-    unknown = set(overrides) - {r.id for r in pack} - set(LIVE_DEFAULTS)
+    unknown = set(overrides) - {r.id for r in pack} - set(THRESHOLD_KEYS)
     if unknown:
         raise ValueError(
             f"config {config_file}: thresholds for unknown rules: {', '.join(sorted(unknown))}"
         )
     try:
-        for key in LIVE_DEFAULTS.keys() & overrides.keys():
+        for key in set(THRESHOLD_KEYS) & overrides.keys():
             _number(overrides[key])
         return [
             r.with_threshold(_number(overrides[r.id])) if r.id in overrides else r for r in pack
@@ -122,6 +124,16 @@ def live_thresholds(config_file: Path | None = None) -> dict[str, float]:
         overrides = _read_flat(config_file, "thresholds")
         found.update({k: _number(overrides[k]) for k in LIVE_DEFAULTS if k in overrides})
     return found
+
+
+def kit_error_rate(config_file: Path | None = None) -> float:
+    """Highest tool-error rate of a good session (FR-061): default, or `kit_error_rate` under `thresholds:`."""
+    if config_file is not None and config_file.exists():
+        load_rules(config_file)  # refuses unknown keys and non-numbers with the one message
+        overrides = _read_flat(config_file, "thresholds")
+        if "kit_error_rate" in overrides:
+            return _number(overrides["kit_error_rate"])
+    return KIT_ERROR_RATE_DEFAULT
 
 
 def _iso(moment: datetime) -> str:

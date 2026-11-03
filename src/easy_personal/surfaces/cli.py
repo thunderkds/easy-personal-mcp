@@ -12,6 +12,7 @@ from easy_personal.core import (
     accounts,
     config,
     kit,
+    kitperf,
     lock,
     metrics,
     plan,
@@ -104,6 +105,10 @@ def build_parser() -> argparse.ArgumentParser:
         scoped_p = sub.add_parser(name, help=text)
         scoped_p.add_argument("--workspace", help="only this workspace's repo paths")
         scoped_p.add_argument("--account", help="only this agent account (id or label)")
+    findings_p = sub.add_parser("kit-findings", help="kit servers linked to cheaper or better sessions (same as MCP kit_findings)")
+    findings_p.add_argument("--json", action="store_true", help="print the full result as JSON")
+    findings_p.add_argument("--limit", type=positive_int, default=kitperf.DEFAULT_LIMIT, help="at most this many findings (max 10)")
+    findings_p.add_argument("--since", type=iso_datetime, help="ISO date/datetime, inclusive")
     sub.add_parser("dashboard", help="ingest, then serve the local dashboard until Ctrl-C")
     for name, text in (("exec", "run a connector's provider server with keychain secrets"),
                        ("headers", "print a connector's JSON headers from the keychain")):
@@ -411,6 +416,27 @@ def main(argv: list[str] | None = None) -> int:
         except (workspaces.WorkspaceError, accounts.AccountError) as exc:  # unknown workspace or account
             print(f"easy-personal: {exc}", file=sys.stderr)
             return 2
+        return 0
+    if args.command == "kit-findings":
+        try:
+            with store.opened(config.store_path()) as conn:
+                result = kitperf.kit_findings(conn, args.limit, args.since)
+        except ValueError as exc:  # bad thresholds in config.yaml
+            print(f"easy-personal: {exc}", file=sys.stderr)
+            return 2
+        if args.json:
+            _print_json(result)
+        else:
+            for finding in result["findings"]:
+                print(finding["text"] + " " + finding["habit"])
+            if not result["findings"] and result["other"]:
+                print("No kit finding with a habit yet.")
+            if result["other"]:
+                print("Other comparisons (no habit):")
+                for finding in result["other"]:
+                    print("  " + finding["text"])
+            if not result["findings"] and not result["other"]:
+                print("No kit finding yet: " + ", ".join(f"{n['server']} {n['with']} vs {n['without']}" for n in result["not_enough"]))
         return 0
     if args.command in ("warnings", "plan", "kit"):
         scope = {"workspace": args.workspace, "account": args.account}

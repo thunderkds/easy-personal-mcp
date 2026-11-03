@@ -46,6 +46,15 @@ def _lines(repo: str, *args: str) -> list[str]:
         return []
 
 
+def merge_branch(subject: str) -> str | None:
+    """The branch a merge commit subject names (any FR-057 form), else None."""
+    for pattern in MERGE_SUBJECTS:
+        found = pattern.match(subject)
+        if found:
+            return found.group(1)
+    return None
+
+
 def _repo_branches(repo: str) -> frozenset[str]:
     """Branch names of a repo: local and remote refs, plus branches named in merge commit subjects."""
 
@@ -58,10 +67,9 @@ def _repo_branches(repo: str) -> frozenset[str]:
             elif len(parts) == 4:
                 names.add(parts[3])
         for subject in _lines(repo, "log", "--all", "--merges", "--format=%s"):
-            for pattern in MERGE_SUBJECTS:
-                found = pattern.match(subject)
-                if found:
-                    names.add(found.group(1))
+            branch = merge_branch(subject)
+            if branch:
+                names.add(branch)
         return frozenset(names)
 
     return _cached("branches", repo, read)

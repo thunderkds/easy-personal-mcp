@@ -40,6 +40,7 @@ MCP_CALLS: dict[str, list[dict]] = {
     "warnings": [{}, {"workspace": "acme"}, {"account": "1"}, {"workspace": "acme", "account": "1"}],
     "improvement_plan": [{}, {"workspace": "acme"}, {"account": "1"}],
     "kit_summary": [{}, {"workspace": "acme"}, {"account": "1"}, {"workspace": "acme", "account": "1"}],
+    "kit_findings": [{}, {"limit": 10}, {"limit": 99, "since": "2026-01-01"}],
     "connector_catalog": [{}],
     "connector_status": [{}],
     "connector_suggestions": [{}],
@@ -78,6 +79,7 @@ CLI_CALLS: dict[str, list[list[str]]] = {
     "warnings": [[], ["--workspace", "acme"], ["--account", "1"], ["--account", "1", "--workspace", "acme"]],
     "plan": [[], ["--workspace", "acme"], ["--account", "1"]],
     "kit": [[], ["--workspace", "acme"], ["--account", "1"], ["--account", "1", "--workspace", "acme"]],
+    "kit-findings": [[], ["--json"], ["--json", "--limit", "10", "--since", "2026-01-01"]],
     "account": [
         ["list"], ["list", "--by", "provider"], ["list", "--by", "account"],
         # HUN-65: id 1 is the fake agent root's `.claude-work`; `acme` comes from "workspace" above.
