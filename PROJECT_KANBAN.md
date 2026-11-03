@@ -9,6 +9,7 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-196** — Cache reuse card follows the app-wide period, with written-to-cache and lowest-model lines (FR-064) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-196.md`
 
 ### In Progress
 
