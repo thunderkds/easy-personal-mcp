@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from easy_personal import launch
-from easy_personal.core import config
+from easy_personal.core import config, kitperf
 from easy_personal.sources import context
 from easy_personal.surfaces import cli, mcp
 
@@ -70,12 +70,12 @@ def test_sections_exist_in_order():
     assert positions == sorted(positions)
 
 
-def test_status_names_v0_3_0_not_planning():
+def test_status_names_v0_4_0_not_planning():
     assert "Status: planning" not in README
-    assert "Status: v0.3.0" in README
-    assert "v0.1.0" not in README and "v0.2.0" not in README
-    assert "The first command prints `0.3.0`" in README
-    assert 'version = "0.3.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "Status: v0.4.0" in README
+    assert "v0.1.0" not in README and "v0.2.0" not in README and "Status: v0.3.0" not in README
+    assert "The first command prints `0.4.0`" in README
+    assert 'version = "0.4.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "Live, Board, Scheduled, Memory, Usage, Warnings & plan, Kit, Workspaces and Agents" in README
 
 
@@ -89,6 +89,59 @@ def test_live_view_is_documented():
         "last 5 minutes",
         "never shows message text, tool input or tool output",
         "API-equivalent",
+    ):
+        assert text in section, text
+
+
+def test_live_view_documents_attention_states_settings_and_start_limit():
+    section = README.split("### Live view", 1)[1].split("\n## ", 1)[0].split("\n### ", 1)[0]
+    for text in (
+        "failing",
+        "waiting for you",
+        "needs attention",
+        "`live_failing_streak`",
+        "`live_open_call_minutes`",
+        "`thresholds:`",
+        "before `easy-personal dashboard` started",
+    ):
+        assert text in section, text
+    assert "live_failing_streak: 3" in README and "live_open_call_minutes: 10" in README
+
+
+def test_kit_performance_is_documented():
+    section = README.split("### Kit performance", 1)[1].split("\n## ", 1)[0].split("\n### ", 1)[0]
+    for text in (
+        "kit_findings",
+        "easy-personal kit-findings",
+        "`findings`",
+        "`other`",
+        "`not_enough`",
+        "linked to",
+        "never \"caused\"",
+        "at least 10",
+        "5 %",
+        "good result",
+        "`kit_error_rate`",
+        "0.04",
+        "`thresholds:`",
+        "XR-2",
+        "`wake`",
+    ):
+        assert text in section, text
+    assert "kit_error_rate: 0.04" in README
+    assert kitperf.MIN_SIDE == 10  # the 5 % gap (HUN-195) is documented, not imported: it merges separately
+
+
+def test_upgrade_documents_migration_7_to_8_and_rollback():
+    section = README.split("## Upgrade and rollback", 1)[1].split("\n## ", 1)[0]
+    for text in (
+        "from version 7 to 8",
+        "`m0008_tool_errors`",
+        "`store.sqlite.bak-v7`",
+        "20 to 45 seconds",
+        "deleted transcripts",
+        "0.3.0 program",
+        "newer than this program",
     ):
         assert text in section, text
 

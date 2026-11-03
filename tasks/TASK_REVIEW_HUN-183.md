@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/test_readme.py`: `test_status_names_v0_4_0_not_planning` (AC 1), `test_live_view_documents_attention_states_settings_and_start_limit` (AC 2), `test_kit_performance_is_documented` (AC 3), `test_upgrade_documents_migration_7_to_8_and_rollback` (AC 4); written first, 4 failed before the README change |
+| Verification command run | ☑ pass | `uv run pytest tests/test_readme.py tests/test_site_content.py tests/test_skeleton.py -q` -> `59 passed in 1.46s` (2026-11-03 03:49 UTC) |
+| Negative cases hold | ☑ pass | `test_checker_rejects_unknown_command`, site drift negative tests (version pill 9.9.9, extra tool) still pass; README has no host path, email or token (`test_no_host_paths_emails_or_tokens`) |
+| verify | ☑ pass | Stage 5 2026-11-03 03:52 UTC @ 47b42a8 (Supervisor, worktree): `uv run easy-personal --version` → `0.4.0`; `uv run pytest tests/test_readme.py tests/test_site_content.py tests/test_skeleton.py -q` → `59 passed in 1.41s`. README facts checked against code: `kitperf.MIN_SIDE` 10, `KIT_ERROR_RATE_DEFAULT` 0.04, `GIT_BUDGET_SECONDS` 2.0, `m0008_tool_errors`, `.bak-v7`, 0.3.0 refusal text (tested in HUN-192 verify); the 5 % rule matches branch HUN-195 (`MIN_GAP_PCT = 5.0`), which must merge first. No file overlap with HUN-195. |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed the README diff (Live view, Kit performance, Configuration, Upgrade and rollback), `pyproject.toml`/`uv.lock` version lines, `site/index.html` pill, `tests/test_readme.py` (4 new checks). No `src/` change. Code review: 0 P0, 0 P1, 0 P2, 0 P3. Security: docs only — 0 findings (Low risk). Startup reads complete. |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` -> `1239 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 172.53s`; `uv run ruff check .` -> `All checks passed!` |
+| **Companion score (easy-verifier)** | ☑ N/A | not run (docs/version release task) |
+| **UI: Visual regression** | ☑ N/A | no UI change; only the site version pill text |
+| **UI: Design-system compliance** | ☑ N/A | no UI change; only the site version pill text |
+| **UI: Responsiveness** | ☑ N/A | no UI change; only the site version pill text |
 
 ---
 
@@ -61,12 +61,19 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured Tue Nov  3 03:48:18 UTC 2026, worktree HUN-183 at 5031ed2, before any implementation commit):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ date -u; uv run easy-personal --version
+Tue Nov  3 03:48:18 AM UTC 2026
+0.3.0
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+README "Upgrade and rollback", prior migration paragraph (verbatim): "The first command that opens the store applies the pending migrations. Version 0.3.0 moves a store from version 6 to 7: it adds the `entrypoint` column for the You and Agents split, and the next ingest fills it in. The migration leaves `store.sqlite.bak-v6` beside the store. The Live view needs no config change."
+
+**AFTER** (2026-11-03 03:49:05 UTC): `uv run easy-personal --version` prints `0.4.0`. README "Upgrade and rollback" now reads: "Version 0.4.0 moves a store from version 7 to 8 (`m0008_tool_errors`). It adds the column `tool_error_count` ... The migration leaves `store.sqlite.bak-v7` beside the store." plus a new "Kit performance" section and Live view attention states.
+
+**DELTA**: A user can read how 0.4.0 differs from 0.3.0 (attention states and their settings, easy-memory layer, kit findings and `kit_error_rate`, store 7 -> 8 with `.bak-v7` rollback), and the package reports 0.4.0.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
