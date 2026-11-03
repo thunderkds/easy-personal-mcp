@@ -34,8 +34,17 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-03T15:35:33Z on branch HUN-203 at `fd2ff94` (no implementation commit yet), dashboard run from the worktree on a copy of the store (`easy-personal dashboard`, port 56473), headless Chrome:
+
+```
+$ curl -s -w "\nHTTP %{http_code} %{content_type}\n" -H "X-Dashboard-Token: <token>" http://127.0.0.1:56473/api/dirs
+Not Found
+HTTP 404 text/plain; charset=utf-8
+
+1280x720  workspace form: button "+ Add repo" bottom=612, Save top=612  -> gapPx 0   (scrollWidth 1280/1280)
+375x812   workspace form: button "+ Add repo" bottom=798, Save top=798  -> gapPx 0   (scrollWidth 375/375)
+```
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/54000ba3-d7c0-4535-8376-908a80d33c6d/scratchpad/shots203/before-1280-form.png`, `.../before-375-form.png`. Full log: `.../scratchpad/before203.txt`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
