@@ -416,6 +416,8 @@ main.memory { max-width: none; }
 .memory-easy { min-width: 0; font-family: var(--font-mono); font-size: var(--fs-note); }
 .memory-easy h2 { margin-top: 0; }
 .memory-easy p { margin: var(--space-1) 0; }
+.memory-report-row { display: flex; flex-wrap: wrap; gap: 0 var(--space-2); }
+.memory-report-row span:first-child { color: var(--color-heading); }
 .memory-easy-total { font-size: var(--fs-section); color: var(--color-heading); }
 .memory-spark { display: block; width: 100%; height: 3rem; margin-block: var(--space-2); }
 .memory-spark rect { fill: var(--color-accent); }

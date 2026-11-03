@@ -226,3 +226,11 @@ def test_easy_memory_layer_really_ran_and_kept_note_text_out(leak_run, canaries)
         assert canaries.values[name] not in body, name
     listing = leak_run.outputs["api /api/memory-graph"]
     assert '"easy_memory_notes":1' in listing
+
+
+def test_easy_memory_report_really_ran_and_kept_its_other_text_out(leak_run, canaries):
+    """HUN-198: the planted report.json was read (the on / off numbers are out); the canaries beside them are not."""
+    body = next(blob for label, blob in leak_run.outputs.items() if label.startswith("api /api/memory-graph project="))
+    assert '"report":{"state":"ok"' in body and '"tokens_all_median":18658261' in body
+    for name in ("easymem_prompt", "easymem_answer", "easymem_session"):
+        assert canaries.values[name] not in body, name

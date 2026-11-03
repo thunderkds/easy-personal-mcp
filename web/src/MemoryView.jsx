@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getJson } from './api.js'
-import { compact, fmt, percent } from './format.js'
+import { ago, compact, fmt, percent } from './format.js'
 import { useLoad } from './useLoad.js'
 
 export const MAX_DRAWN = 300 // more nodes than this are counted, not drawn
@@ -156,6 +156,47 @@ function Sparkline({ days, total }) {
   )
 }
 
+/** The age of the report, or '' when `generated` does not parse or lies in the future. */
+function updated(generated) {
+  const time = Date.parse(generated)
+  return Number.isNaN(time) || time > Date.now() ? '' : `updated ${ago(generated)}`
+}
+
+const groupText = (g) => (g.sessions === 0 || g.tokens_all_median === null ? 'no sessions' : `${compact(g.tokens_all_median)} tokens / session`)
+
+function SavingLine({ report }) {
+  const { on, off, min_sessions: need, too_few: tooFew, on_vs_off_pct: pct } = report
+  if (tooFew) return <p className="muted">{`too few sessions to compare (${fmt(on.sessions)} on / ${fmt(off.sessions)} off, need ${fmt(need)} each)`}</p>
+  if (pct === null) return null
+  const whole = Math.round(Math.abs(pct))
+  return <p>{pct < 0 && whole > 0 ? `Saves ${whole}%` : pct > 0 && whole > 0 ? `Uses ${whole}% more` : 'No difference'}</p>
+}
+
+/** FR-066: sessions and median tokens with easy-memory on and off, read from its report.json. Numbers only. */
+function MemoryOnOff({ report }) {
+  const age = report.state === 'ok' ? updated(report.generated) : ''
+  return (
+    <div className="memory-report" role="group" aria-label="memory on vs off">
+      <p>
+        <strong>Memory on vs off</strong>
+        {age && <span className="muted"> {age}</span>}
+      </p>
+      {report.state === 'unsupported' && <p className="muted">report format not supported</p>}
+      {report.state === 'none' && <p className="muted">no report yet</p>}
+      {report.state === 'ok' && (
+        <>
+          {[['On', report.on], ['Off', report.off]].map(([label, g]) => (
+            <p key={label} className="memory-report-row">
+              <span>{label}</span> <span>{plural(g.sessions, 'session')}</span> <span>{groupText(g)}</span>
+            </p>
+          ))}
+          <SavingLine report={report} />
+        </>
+      )}
+    </div>
+  )
+}
+
 /** FR-053: notes per day, injection hit rate, files not drawn, abstained notes. Counts only; no note text. */
 function EasyMemoryPanel({ data }) {
   const rate = data.prompts_on > 0 ? `${percent(data.injected / data.prompts_on)} of ${compact(data.prompts_on)} prompt${data.prompts_on === 1 ? '' : 's'}` : 'no prompts'
@@ -169,6 +210,7 @@ function EasyMemoryPanel({ data }) {
         <span className="muted">Hit rate </span>
         {rate}
       </p>
+      {data.report && <MemoryOnOff report={data.report} />}
       {data.files_not_drawn > 0 && <p className="muted">{plural(data.files_not_drawn, 'file')} not drawn</p>}
       {data.abstained > 0 && <p className="muted">{plural(data.abstained, 'note')} could not be read</p>}
     </section>

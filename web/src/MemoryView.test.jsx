@@ -548,3 +548,103 @@ describe('design tokens and contrast for the easy-memory layer (HUN-185 UI AC2)'
     for (const text of ['--color-heading', '--color-secondary', '--color-muted']) expect(contrast(text, '--color-bg')).toBeGreaterThanOrEqual(4.5)
   })
 })
+
+// ---- HUN-198: memory on vs off (FR-066) ----
+describe('memory on vs off block (HUN-198 AC4..AC7)', () => {
+  const NOW = new Date('2026-11-03T12:06:31Z').getTime()
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(NOW)
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const report = (over = {}) => ({
+    state: 'ok', generated: '2026-11-03T10:06:31Z', min_sessions: 10, too_few: true, on_vs_off_pct: null,
+    on: { sessions: 3, tokens_all_median: 18658261 }, off: { sessions: 5, tokens_all_median: 16553412 }, ...over,
+  })
+  const shown = async (over) => {
+    await open(withEm({ easy_memory: block({ report: over === undefined ? report() : over }) }))
+    return screen.getByRole('group', { name: 'memory on vs off' })
+  }
+
+  it('too_few: both group rows, the age, and the too-few line; no "Saves" or "Uses" (AC4, AC7)', async () => {
+    const group = await shown()
+    expect(group).toHaveTextContent('Memory on vs off')
+    expect(group).toHaveTextContent('updated 2 h ago')
+    expect(group).toHaveTextContent('On 3 sessions 18.7 M tokens / session')
+    expect(group).toHaveTextContent('Off 5 sessions 16.6 M tokens / session')
+    expect(group).toHaveTextContent('too few sessions to compare (3 on / 5 off, need 10 each)')
+    expect(group).not.toHaveTextContent(/Saves|Uses/)
+  })
+
+  it('sits inside the easy-memory panel under the hit-rate line', async () => {
+    await shown()
+    const panel = screen.getByRole('region', { name: 'easy-memory' })
+    const group = within(panel).getByRole('group', { name: 'memory on vs off' })
+    const rate = within(panel).getByText('Hit rate').closest('p')
+    expect(rate.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it.each([
+    [-12, 'Saves 12%'],
+    [8, 'Uses 8% more'],
+    [0, 'No difference'],
+  ])('enough sessions, pct %i: "%s" (AC5)', async (pct, text) => {
+    const group = await shown(report({ too_few: false, on_vs_off_pct: pct }))
+    expect(group).toHaveTextContent(text)
+    expect(group).not.toHaveTextContent('too few sessions')
+    expect(group).toHaveTextContent('On 3 sessions')
+  })
+
+  it('enough sessions, pct null: no saving line and no too-few line (AC5)', async () => {
+    const group = await shown(report({ too_few: false, on_vs_off_pct: null }))
+    expect(group).not.toHaveTextContent(/Saves|Uses|No difference|too few/)
+  })
+
+  it('a pct is never shown while too_few is true, even when the file carries one', async () => {
+    const group = await shown(report({ too_few: true, on_vs_off_pct: -30 }))
+    expect(group).not.toHaveTextContent(/Saves|30/)
+  })
+
+  it('unsupported: only the notice, no numbers (AC6)', async () => {
+    const group = await shown({ state: 'unsupported' })
+    expect(group).toHaveTextContent('report format not supported')
+    expect(group).not.toHaveTextContent(/\d/)
+  })
+
+  it('none: "no report yet" (AC6)', async () => {
+    const group = await shown({ state: 'none' })
+    expect(group).toHaveTextContent('no report yet')
+    expect(group).not.toHaveTextContent(/sessions|updated/)
+  })
+
+  it('an answer without a report key draws no block (older server)', async () => {
+    await open(withEm())
+    expect(screen.queryByRole('group', { name: 'memory on vs off' })).toBeNull()
+  })
+
+  it('an empty group reads "no sessions", never NaN or 0 tokens', async () => {
+    const group = await shown(report({ off: { sessions: 0, tokens_all_median: null } }))
+    expect(group).toHaveTextContent('Off 0 sessions no sessions')
+    expect(group.innerHTML).not.toMatch(/NaN|null|undefined/)
+  })
+
+  it('one session is singular', async () => {
+    const group = await shown(report({ on: { sessions: 1, tokens_all_median: 5000 } }))
+    expect(group).toHaveTextContent('On 1 session 5,000 tokens / session')
+  })
+
+  it.each([
+    ['a future time', '2026-11-04T10:00:00Z'],
+    ['an unparseable time', 'last tuesday'],
+  ])('%s: no "updated" text, the block still shows (edge case)', async (_name, generated) => {
+    const group = await shown(report({ generated }))
+    expect(group).not.toHaveTextContent('updated')
+    expect(group).toHaveTextContent('On 3 sessions')
+  })
+
+  it('draws only the fields it is given: planted extra text never reaches the page', async () => {
+    const group = await shown({ ...report(), prompt: 'SECRET_P', store: { notes: 'SECRET_S' } })
+    expect(group.ownerDocument.body.innerHTML).not.toMatch(/SECRET_P|SECRET_S/)
+  })
+})

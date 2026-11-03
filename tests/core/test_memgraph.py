@@ -357,7 +357,8 @@ def test_easy_memory_block(conn, em):
     assert block["notes"] == 3 and block["abstained"] == 0 and len(block["days"]) == 30
     assert block["files_cited"] == 3 and block["files_not_drawn"] == 0 and block["outside"] == 0
     assert block["prompts_on"] == 0 and block["injected"] == 0
-    assert set(block) == {"notes", "abstained", "days", "prompts_on", "injected", "files_cited", "files_not_drawn", "outside"}
+    assert set(block) == {"notes", "abstained", "days", "prompts_on", "injected", "files_cited", "files_not_drawn", "outside", "report"}
+    assert block["report"] == {"state": "none"}  # HUN-198: no report.json in this store
 
 
 def test_list_counts_notes_and_lists_easy_memory_only_projects(conn, em, tmp_path):

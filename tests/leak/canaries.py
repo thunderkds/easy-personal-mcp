@@ -151,6 +151,12 @@ class Canaries:
         (folder / "trash" / "leak-trashed.json").write_text(json.dumps(trashed))
         line = {"time": "2026-11-01T10:00:00Z", "session_id": self.values["easymem_session"], "configured": "auto", "effective": "on", "injected": True}
         (folder / "prompts.log").write_text(json.dumps(line) + "\n")
+        report = {"v": 1, "generated": "2026-11-03T10:06:31Z", "min_sessions": 10, "too_few": True, "on_vs_off_pct": None,
+                  "groups": {"on": {"sessions": 3, "tokens_all_median": 18658261, "turns_median": self.values["easymem_prompt"]},
+                             "off": {"sessions": 5, "tokens_all_median": 16553412}},
+                  "store": {"notes": self.values["easymem_answer"]}, "session_id": self.values["easymem_session"],
+                  "prompt": self.values["easymem_prompt"], "answer": self.values["easymem_answer"]}  # fmt: skip
+        (folder / "report.json").write_text(json.dumps(report))  # HUN-198: only the on / off numbers may leave
         return folder
 
     def render_agent_files(self, agent_root: Path) -> None:
