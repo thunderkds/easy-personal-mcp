@@ -4,7 +4,7 @@ One row per session (with at least one tool call) is built from `events` on ever
 stored). For each kit server and each measure (tokens per call, cost per call, good-result share), kit
 sessions are compared with non-kit sessions inside strata of (owner project, main model, tool-call
 band); the strata are pooled and a pooled difference is shown only when each side has at least 10
-sessions. A difference where the server side is better is a *finding* with a habit; the others are
+sessions. A difference of at least 5 % where the server side is better is a *finding* with a habit; the others are
 listed as `other`. All say "linked to", never "caused". Habit texts are a fixed table here.
 The rules are fixed in `PROJECT_SPEC.md` under Kit performance. Metadata only: no id, path or text
 from an event leaves this module.
@@ -25,6 +25,7 @@ from easy_personal.core import prices as price_table
 
 SERVERS = ("easy-ui", "easy-verifier", "easy-context", "easy-memory")
 MIN_SIDE = 10  # pooled sessions needed on each side of a finding (FR-062)
+MIN_GAP_PCT = 5.0  # a smaller gap never carries a habit (owner, 2026-11-03)
 DEFAULT_LIMIT, MAX_LIMIT = 3, 10
 WINDOW_AFTER_SECONDS = 30 * 60  # a commit counts until 30 min after the last event (FR-061)
 GIT_BUDGET_SECONDS = 2.0  # total git time per call (NFR-014)
@@ -267,7 +268,7 @@ def _finding(server: str, measure: str, delta: float, with_n: int, without_n: in
         f"Sessions that used {server} are linked to {abs(delta):.1f}% {'fewer' if delta < 0 else 'more'} "
         f"{words} than similar sessions without it ({with_n} vs {without_n} sessions)."
     )
-    better = delta < 0 if lower_is_better else delta > 0
+    better = (delta < 0 if lower_is_better else delta > 0) and abs(delta) >= MIN_GAP_PCT
     return {
         "server": server,
         "measure": measure,

@@ -81,7 +81,7 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         """Which Easy Kit MCP servers (easy-ui, easy-verifier, easy-context, easy-memory) are linked to
         cheaper or better sessions, comparing sessions with and without each server inside the same
         project, main model and tool-call band (tokens and cost per tool call, share of good results).
-        `findings` = at most `limit` (default 3, max 10) comparisons where the server side is better, each
+        `findings` = at most `limit` (default 3, max 10) comparisons where the server side is better by at least 5 %, each
         with numbers, group sizes and one fixed habit; `other` = every other comparison that has at least 10
         sessions on each side (no habit); `not_enough` lists servers with fewer. Worded "linked to", never
         "caused". `since` is an ISO date or datetime (without an offset: local time); omitted means all
