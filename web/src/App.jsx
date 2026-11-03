@@ -51,7 +51,7 @@ const TABS = GROUPS.flatMap((g) => g.tabs)
 
 // The rest of the Easy family. Plain links: the page loads nothing from them.
 const FAMILY = [
-  { name: 'Easy Kit', href: 'https://personal-agentic-claude.vercel.app/' },
+  { name: 'Easy Kit', href: 'https://easy-kits.vercel.app/' },
   { name: 'Easy Memory', href: 'https://easy-memory.vercel.app/' },
   { name: 'Easy Verifier', href: 'https://easy-verifier.vercel.app/' },
 ]

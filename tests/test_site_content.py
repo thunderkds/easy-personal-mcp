@@ -29,14 +29,14 @@ SECTION_IDS = ("hero", "flow", "dashboard", "install", "tools", "connectors", "f
 _VOID = {"meta", "link", "br", "img", "hr", "input"}
 ALLOWED_HOSTS = {
     "github.com": "/thunderkds/easy-personal-mcp",
-    "personal-agentic-claude.vercel.app": "",
+    "easy-kits.vercel.app": "",
     "easy-memory.vercel.app": "",
     "easy-verifier.vercel.app": "",
     "easy-ui-mcp.vercel.app": "",
 }
 # The five Easy Kit family members, in the order every family list on the site shows them.
 FAMILY_ORDER = [
-    ("Easy Kit", "https://personal-agentic-claude.vercel.app/"),
+    ("Easy Kit", "https://easy-kits.vercel.app/"),
     ("Easy Verifier", "https://easy-verifier.vercel.app/"),
     ("Easy UI", "https://easy-ui-mcp.vercel.app/"),
     ("Easy Memory", "https://easy-memory.vercel.app/"),
@@ -387,6 +387,130 @@ def test_flow_is_inline_html_without_a_library_or_image():
     assert not [e for e in _in(parser, "flow") if e.tag in ("img", "canvas", "script", "iframe")]
 
 
+# ---- HUN-201 (FR-067): system diagram in #flow and the quick-start strip ----
+
+QUICKSTART_COMMANDS = [
+    "uv tool install --reinstall --no-cache .",
+    "easy-personal ingest",
+    "claude mcp add --scope user easy-personal -- easy-personal mcp",
+    "easy-personal dashboard",
+]
+_SVG_PAINT_OK = {"none", "currentcolor"}
+
+
+def _flow_svgs(parser: _Parser) -> list[Element]:
+    return _in(parser, "flow", "svg")
+
+
+def _svg_markup(html: str) -> str:
+    match = re.search(r"<section id=\"flow\".*?</section>", html, re.DOTALL)
+    assert match, "no #flow section"
+    svgs = re.findall(r"<svg\b.*?</svg>", match.group(0), re.DOTALL)
+    assert len(svgs) == 1, f"#flow must hold exactly one inline svg, found {len(svgs)}"
+    return svgs[0]
+
+
+def check_svg_colors(svg: str) -> None:
+    """Only tokens or currentColor: no hex or rgb() anywhere, no paint attribute with a literal colour."""
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\s*\(", svg), "literal colour in the diagram"
+    for name, value in re.findall(r"\b(fill|stroke|stop-color|color)\s*=\s*\"([^\"]*)\"", svg):
+        ok = value.lower() in _SVG_PAINT_OK or value.startswith("url(#")
+        assert ok, f"{name}={value!r}: use a class with var(--color-*) or currentColor"
+
+
+def test_flow_holds_one_inline_svg_with_an_accessible_name():
+    parser = _page()
+    svgs = _flow_svgs(parser)
+    assert len(svgs) == 1
+    svg = svgs[0]
+    assert svg.attrs.get("role") == "img"
+    ids = {e.attrs["id"]: e for e in _in(parser, "flow", attr="id")}
+    for attr, min_len in (("aria-labelledby", 1),):
+        refs = (svg.attrs.get(attr) or "").split()
+        assert len(refs) >= 2, "name and description must both be referenced"
+        for ref in refs:
+            assert ref in ids, f"{attr} points to a missing id: {ref}"
+            assert len(_norm(ids[ref].text)) >= 20, f"{ref} is too short to be a name or description"
+    assert [e.tag for e in (ids[r] for r in svg.attrs["aria-labelledby"].split())] == ["title", "desc"]
+    assert not [e for e in _in(parser, "flow") if e.tag in ("script", "foreignobject", "image", "use")]
+
+
+def test_svg_has_a_node_for_every_read_and_connect_step():
+    parser = _page()
+    nodes = [e.attrs["data-node"] for e in _in(parser, "flow", "g", "data-node")]
+    assert nodes == READ_STEPS + CONNECT_STEPS, nodes
+    # the diagram and the text lists name the same steps
+    assert nodes == [e.attrs["data-step"] for e in _lane(parser, "read") + _lane(parser, "connect")]
+
+
+def test_svg_draws_the_your_machine_boundary_and_the_provider_outside_it():
+    parser = _page()
+    boundary = _in(parser, "flow", "g", "data-boundary")
+    assert len(boundary) == 1
+    assert "your machine" in _norm(boundary[0].text).lower()
+    outside = [e for e in _in(parser, "flow", "g", "data-outside")]
+    assert [_norm(e.text) for e in outside] and "provider" in _norm(outside[0].text).lower()
+
+
+def test_svg_uses_tokens_and_currentcolor_only():
+    check_svg_colors(_svg_markup(PAGE.read_text(encoding="utf-8")))
+
+
+def test_svg_with_a_hex_fill_fails():
+    svg = _svg_markup(PAGE.read_text(encoding="utf-8"))
+    with pytest.raises(AssertionError):
+        check_svg_colors(svg.replace("<rect", '<rect fill="#3cf5a8"', 1))
+    with pytest.raises(AssertionError):
+        check_svg_colors(svg.replace("<rect", '<rect fill="red"', 1))
+
+
+def test_flow_animation_stops_for_reduced_motion():
+    style = re.search(r"<style>(.*?)</style>", PAGE.read_text(encoding="utf-8"), re.DOTALL).group(1)
+    animated = "animation:" in re.sub(r"@media \(prefers-reduced-motion: reduce\)\s*\{.*?\n  \}", "", style, flags=re.DOTALL)
+    if animated:
+        reduce = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\n  \}", style, re.DOTALL)
+        assert reduce and "animation: none" in reduce.group(1)
+
+
+def _quickstart() -> list[str]:
+    html = PAGE.read_text(encoding="utf-8")
+    match = re.search(r'<section class="quickstart".*?</section>', html, re.DOTALL)
+    assert match, "no quick-start strip"
+    assert html.index('<section id="hero"') < match.start() < html.index('<section id="flow"')
+    return re.findall(r"<li\b[^>]*data-quickstep[^>]*>(.*?)</li>", match.group(0), re.DOTALL)
+
+
+def check_quickstart(readme: str) -> None:
+    items = _quickstart()
+    assert len(items) == 4, f"quick-start needs 4 steps, found {len(items)}"
+    readme_lines = {ln.strip() for ln in readme.splitlines()}
+    shown = []
+    for item in items:
+        commands = re.findall(r'<code class="cmd">(.*?)</code>', item, re.DOTALL)
+        assert len(commands) == 1, "each quick-start step carries exactly one command"
+        shown.append(_norm(re.sub(r"<[^>]+>", "", commands[0])).replace("&amp;", "&"))
+        assert re.search(r"<svg\b[^>]*aria-hidden=\"true\"", item), "each step has a decorative icon"
+    for command in shown:
+        assert command in readme_lines, f"quick-start command not in README: {command!r}"
+    assert shown == QUICKSTART_COMMANDS
+
+
+def test_quickstart_strip_follows_the_hero_with_four_readme_commands():
+    check_quickstart(README.read_text(encoding="utf-8"))
+
+
+def test_quickstart_links_to_the_install_guide():
+    html = PAGE.read_text(encoding="utf-8")
+    block = re.search(r'<section class="quickstart".*?</section>', html, re.DOTALL).group(0)
+    assert 'href="#install"' in block
+
+
+def test_edited_readme_quickstart_command_fails():
+    readme = README.read_text(encoding="utf-8").replace("easy-personal dashboard\n", "easy-personal board\n")
+    with pytest.raises(AssertionError):
+        check_quickstart(readme)
+
+
 # ---- AC 3-5: tools, connectors, install ----
 
 
@@ -474,7 +598,7 @@ def test_footer_links():
     assert {
         "https://github.com/thunderkds/easy-personal-mcp",
         "https://github.com/thunderkds/easy-personal-mcp#readme",
-        "https://personal-agentic-claude.vercel.app/",
+        "https://easy-kits.vercel.app/",
         "https://easy-verifier.vercel.app/",
     } <= hrefs
 

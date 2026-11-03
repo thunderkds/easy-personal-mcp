@@ -28,7 +28,7 @@ One short public page that lets a developer arriving from GitHub catch the idea 
 4. **Install & deploy** (`#install`) — install, first run, MCP registration, dashboard, schedule, connectors, upgrade and rollback; every command verbatim from `README.md`; link to `RUNBOOK.md` on GitHub for the full procedure.
 5. **MCP tools** (`#tools`) — every tool `surfaces/mcp.py` registers, one line each.
 6. **Connectors** (`#connectors`) — the catalog providers grouped by category, claude.ai-connector flag shown.
-7. **Footer** — GitHub repo, README, https://personal-agentic-claude.vercel.app/, https://easy-verifier.vercel.app/.
+7. **Footer** — GitHub repo, README, https://easy-kits.vercel.app/, https://easy-verifier.vercel.app/.
 
 ## Stack
 

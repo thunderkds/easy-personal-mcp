@@ -28,7 +28,7 @@ ALLOWED_URL_PREFIXES = (
     "https://www.w3.org/",
     "https://react.dev/errors",
     "https://react.dev/link/",
-    "https://personal-agentic-claude.vercel.app/",
+    "https://easy-kits.vercel.app/",
     "https://easy-memory.vercel.app/",
     "https://easy-verifier.vercel.app/",
 )

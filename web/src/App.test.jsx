@@ -397,7 +397,7 @@ describe('grouped sidebar and right rail (HUN-121, HUN-126)', () => {
     expect(within(side).getByText('// family')).toBeInTheDocument()
     const links = within(side).getAllByRole('link')
     expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['Easy Kit', 'https://personal-agentic-claude.vercel.app/'],
+      ['Easy Kit', 'https://easy-kits.vercel.app/'],
       ['Easy Memory', 'https://easy-memory.vercel.app/'],
       ['Easy Verifier', 'https://easy-verifier.vercel.app/'],
     ])

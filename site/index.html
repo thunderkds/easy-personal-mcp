@@ -93,14 +93,15 @@
   .aside a { padding: 7px 0.75rem; border-radius: 6px; color: var(--color-nav); }
   .aside a:hover { color: var(--color-heading); }
   .aside a[aria-current] { background: var(--color-accent-soft); color: var(--color-accent); text-shadow: var(--glow-text); box-shadow: inset 0 0 0 1px var(--color-accent-line); font-weight: 500; }
-  main { flex: 1; min-width: 0; padding: 3rem 3.5rem; display: flex; flex-direction: column; gap: 2.5rem; }
+  main { flex: 1; min-width: 0; padding: 2rem 3.5rem; display: flex; flex-direction: column; gap: 2.5rem; }
   main > section, main > footer { display: flex; flex-direction: column; gap: 0.875rem; min-width: 0; scroll-margin-top: 1rem; }
 
   /* hero */
   .eyebrow { font-family: var(--font-mono); font-size: 0.78125rem; color: var(--color-accent); text-shadow: var(--glow-text); }
   h1 { font-size: 2.75rem; line-height: 1.1; font-weight: 600; letter-spacing: -0.02em; }
-  .lead { max-width: 42.5rem; font-size: 1.0625rem; line-height: 1.6; color: var(--color-secondary); }
-  .hero-note { max-width: 42.5rem; color: var(--color-secondary); }
+  #hero { gap: 0.625rem; }
+  .lead { max-width: 56rem; font-size: 1.0625rem; line-height: 1.6; color: var(--color-secondary); }
+  .hero-note { max-width: 56rem; color: var(--color-secondary); }
   .btn-row { display: flex; gap: 0.75rem; margin-top: 0.375rem; }
   .btn-primary { display: inline-flex; align-items: center; height: 40px; padding: 0 18px; border-radius: 6px; background: var(--color-accent); box-shadow: var(--glow-box); color: var(--color-input); font-weight: 500; font-size: 0.875rem; }
   .btn-primary:hover { color: var(--color-input); filter: brightness(1.08); }
@@ -121,15 +122,61 @@
   h3 { font-size: 0.9375rem; font-weight: 600; }
   section > p { max-width: 50rem; }
 
+  /* quick-start strip: four numbered cards under the hero */
+  .qs { list-style: none; margin: 0.25rem 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem; counter-reset: qs; }
+  .qs li { position: relative; background: var(--color-input); border: 1px solid var(--color-control); border-radius: 8px; padding: 14px 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto 1fr; align-items: center; gap: 8px 10px; counter-increment: qs; min-width: 0; }
+  .qs li::before { content: counter(qs); position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--color-accent-soft); border: 1px solid var(--color-accent-line); color: var(--color-accent); font: 500 0.75rem var(--font-mono); }
+  .qs-icon { width: 28px; height: 28px; color: var(--color-accent); filter: var(--glow-line); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .qs h3 { font-size: 1rem; padding-right: 1.75rem; }
+  .qs p, .qs .cmd { grid-column: 1 / -1; }
+  .qs p { color: var(--color-muted); font-size: 0.8125rem; line-height: 1.5; }
+  .cmd { display: block; align-self: stretch; padding: 8px 10px; font-size: 0.78125rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: break-word; color: var(--color-text); }
+  .nb { white-space: nowrap; }
+  .cmd::before { content: "$ "; color: var(--color-accent); }
+  .qs-more { font-size: 0.84375rem; }
+  .quickstart { margin-top: -1rem; }
+
+  /* connected steps: a numbered card per step with an arrow to the next one */
+  .qs li:not(:last-child)::after, .steps li:not(:last-child)::after { content: ""; position: absolute; left: 1.375rem; bottom: -1.5rem; width: 0.875rem; height: 1.25rem; background: var(--color-accent); clip-path: polygon(40% 0, 60% 0, 60% 55%, 100% 55%, 50% 100%, 0 55%, 40% 55%); }
+
   /* flow diagram */
+  .flow-diagram { container-type: inline-size; margin-top: 0.25rem; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-input); }
+  .flow-diagram svg { display: block; width: 100%; height: auto; }
+  .flow-diagram-note { display: none; color: var(--color-muted); font-size: 0.8125rem; }
+  .fd-machine { fill: none; stroke: var(--color-accent-line); stroke-width: 1.5; stroke-dasharray: 8 6; stroke-linejoin: round; }
+  .fd-machine-name { fill: var(--color-accent); font: 600 13px var(--font-mono); }
+  .fd-machine-note { fill: var(--color-muted); font: 400 12.5px var(--font-sans); }
+  .fd-band { fill: var(--color-bg); stroke: var(--color-divider); }
+  .fd-lane { fill: var(--color-nav); font: 500 12.5px var(--font-mono); letter-spacing: 0.04em; }
+  .fd-node { fill: var(--color-bg); stroke: var(--color-control); stroke-width: 1.5; }
+  .fd-node-key { stroke: var(--color-accent-line); }
+  .fd-node-out { fill: var(--color-bg); stroke: var(--color-muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .fd-chip { fill: var(--color-input); stroke: var(--color-border); }
+  .fd-chip-t { fill: var(--color-nav); font: 400 12.5px var(--font-mono); }
+  .fd-title { fill: var(--color-heading); font: 500 16px var(--font-mono); }
+  .fd-sub { fill: var(--color-secondary); font: 400 13px var(--font-sans); }
+  .fd-dim { fill: var(--color-muted); font: 400 12.5px var(--font-sans); }
+  .fd-badge { fill: var(--color-bg); stroke: var(--color-accent-line); stroke-width: 1.5; }
+  .fd-badge-t { fill: var(--color-accent); font: 600 12px var(--font-mono); }
+  .fd-person { fill: none; stroke: var(--color-accent); stroke-width: 1.6; stroke-linecap: round; }
+  .fd-edge { fill: none; stroke: var(--color-accent); stroke-width: 1.75; stroke-dasharray: 6 5; marker-end: url(#fd-arrow); animation: fd-flow 1.4s linear infinite; }
+  .fd-edge-secret { stroke: var(--color-secondary); }
+  .fd-head { fill: var(--color-accent); }
+  @keyframes fd-flow { to { stroke-dashoffset: -22; } }
+  @container (max-width: 720px) {
+    .flow-diagram svg { display: none; }
+    .flow-diagram-note { display: block; }
+  }
+
+  /* lanes: the same steps as text, numbered and joined by arrows */
   .lanes { display: grid; gap: 1rem; margin-top: 0.25rem; }
-  .lane { border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; min-width: 0; }
-  .lane-head { padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--color-border); }
+  .lane { border: 1px dashed var(--color-accent-line); border-radius: 10px; overflow: hidden; min-width: 0; }
+  .lane-head { padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--color-divider); }
   .lane-head h3 { color: var(--color-accent); text-shadow: var(--glow-text); }
   .lane .note { color: var(--color-muted); font-size: 0.84375rem; }
-  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--color-border); counter-reset: step; }
-  .steps li { background: var(--color-bg); padding: 16px; display: flex; flex-direction: column; gap: 8px; counter-increment: step; min-width: 0; }
-  .steps li::before { content: counter(step, decimal-leading-zero); font-family: var(--font-mono); font-size: 0.71875rem; color: var(--color-accent); }
+  .steps { list-style: none; margin: 0; padding: 1.25rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem; counter-reset: step; }
+  .steps li { position: relative; background: var(--color-input); border: 1px solid var(--color-control); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 8px; counter-increment: step; min-width: 0; }
+  .steps li::before { content: counter(step); align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--color-accent-soft); border: 1px solid var(--color-accent-line); color: var(--color-accent); font: 500 0.75rem var(--font-mono); }
   .steps .name { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 500; color: var(--color-heading); overflow-wrap: anywhere; }
   .steps .caption { color: var(--color-muted); font-size: 0.78125rem; line-height: 1.5; }
 
@@ -163,9 +210,6 @@
 
   main > footer { padding-top: 1.5rem; border-top: 1px solid var(--color-divider); color: var(--color-muted); font-size: 0.84375rem; }
 
-  @media (min-width: 560px) {
-    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
   @media (min-width: 768px) {
     .groups { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   }
@@ -173,7 +217,20 @@
     .shots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (min-width: 1200px) {
-    .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .steps, .qs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .qs li:not(:last-child)::after, .steps li:not(:last-child)::after { left: auto; bottom: auto; right: -1.5rem; top: 50%; width: 1.25rem; height: 0.875rem; transform: translateY(-50%); clip-path: polygon(0 40%, 55% 40%, 55% 0, 100% 50%, 55% 100%, 55% 60%, 0 60%); }
+  }
+  @media (min-width: 900px) {
+    /* button and stat strip share one row, so the quick-start strip below stays near the top */
+    #hero { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 1.25rem; row-gap: 0.625rem; align-items: center; }
+    #hero > * { grid-column: 1 / -1; }
+    #hero > .btn-row { grid-column: 1; grid-row: 5; margin-top: 0; }
+    #hero > .stats { grid-column: 2; grid-row: 5; margin: 0; }
+    #hero > .box-label { grid-row: 6; }
+    #hero > .install-box { grid-row: 7; }
+  }
+  @media (min-width: 769px) {
+    .stats li { flex-direction: row; align-items: baseline; gap: 10px; padding: 10px 18px; }
   }
   @media (max-width: 1100px) {
     .site-header { padding-block: 0.75rem; flex-wrap: wrap; row-gap: 0.625rem; }
@@ -195,6 +252,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
+    .fd-edge { animation: none; }
   }
 </style>
 </head>
@@ -208,7 +266,7 @@
     <span class="pill">usage dashboard · v0.4.0</span>
   </div>
   <nav class="family" aria-label="Family">
-    <a href="https://personal-agentic-claude.vercel.app/"><span class="dot"></span>Easy Kit</a>
+    <a href="https://easy-kits.vercel.app/"><span class="dot"></span>Easy Kit</a>
     <a href="https://easy-verifier.vercel.app/"><span class="dot"></span>Easy Verifier</a>
     <a href="https://easy-ui-mcp.vercel.app/"><span class="dot"></span>Easy UI</a>
     <a href="https://easy-memory.vercel.app/"><span class="dot"></span>Easy Memory</a>
@@ -261,9 +319,163 @@
   </ul>
 </section>
 
+<section class="quickstart" aria-labelledby="quickstart-title">
+  <h2 id="quickstart-title">Quick start in four steps</h2>
+  <ol class="qs">
+    <li data-quickstep="install">
+      <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+      <h3>Install</h3>
+      <p>After the build in the box above, install the tool.</p>
+      <code class="cmd">uv tool install <span class="nb">--reinstall</span> <span class="nb">--no-cache</span> .</code>
+    </li>
+    <li data-quickstep="ingest">
+      <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>
+      <h3>Ingest</h3>
+      <p>Copy your session metadata into the local store.</p>
+      <code class="cmd">easy-personal ingest</code>
+    </li>
+    <li data-quickstep="register">
+      <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4"/></svg>
+      <h3>Register with Claude Code</h3>
+      <p>Restart Claude Code. Claude can then read your numbers.</p>
+      <code class="cmd">claude mcp add <span class="nb">--scope</span> user <span class="nb">easy-personal</span> <span class="nb">--</span> <span class="nb">easy-personal</span> mcp</code>
+    </li>
+    <li data-quickstep="dashboard">
+      <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 16v-4M12 16V8M17 16v-6"/></svg>
+      <h3>Open the dashboard</h3>
+      <p>A page on <code>127.0.0.1</code> opens. Ctrl-C stops it.</p>
+      <code class="cmd">easy-personal dashboard</code>
+    </li>
+  </ol>
+  <p class="muted qs-more">Schedule, connectors, upgrade and rollback: <a href="#install">the full install and deploy guide</a>.</p>
+</section>
+
 <section id="flow">
   <h2>The flow</h2>
   <p>There are two lanes. The first lane reads your activity. To <span class="term">ingest</span> is to copy metadata into the store. The second lane connects a tool to Claude Code. A <span class="term">connector</span> is a provider, such as Slack, set up for Claude Code with its secrets kept in the OS keychain. The <span class="term">launcher</span> is the small command that Claude Code starts for a connector.</p>
+  <div class="flow-diagram">
+    <svg viewBox="0 0 1000 540" role="img" aria-labelledby="flow-title flow-desc" focusable="false">
+      <title id="flow-title">How easy-personal works: read your usage, connect a tool</title>
+      <desc id="flow-desc">Two lanes inside a dashed boundary called your machine. In the read lane, Claude Code transcripts and kit reports flow into ingest, which keeps metadata only and drops message text, into a local SQLite store, and out to three outputs: MCP tools, the CLI and a dashboard on 127.0.0.1, which reach you and Claude. In the connect lane, a catalog form saves secrets to the OS keychain, claude mcp add-json registers the launcher in Claude Code, and the launcher reads the keychain and starts the provider server, which is the only part outside your machine.</desc>
+      <defs>
+        <marker id="fd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="fd-head" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+
+      <g data-boundary="machine">
+        <path class="fd-machine" d="M8 16H992V324H862V524H8Z"/>
+        <text class="fd-machine-name" x="24" y="40">your machine</text>
+        <text class="fd-machine-note" x="120" y="40">· your files, the store and your secrets stay here</text>
+      </g>
+
+      <rect class="fd-band" x="20" y="58" width="960" height="256" rx="8"/>
+      <text class="fd-lane" x="36" y="80">READ · your activity becomes numbers</text>
+
+      <g data-node="transcripts + kit reports">
+        <rect class="fd-node" x="34" y="96" width="190" height="200" rx="8"/>
+        <circle class="fd-badge" cx="34" cy="96" r="12"/><text class="fd-badge-t" x="34" y="100.5" text-anchor="middle">1</text>
+        <text class="fd-title" x="52" y="121">your files</text>
+        <rect class="fd-chip" x="46" y="138" width="166" height="22" rx="4"/><text class="fd-chip-t" x="56" y="153.5">Claude Code sessions</text>
+        <rect class="fd-chip" x="46" y="164" width="166" height="22" rx="4"/><text class="fd-chip-t" x="56" y="179.5">easy-memory</text>
+        <rect class="fd-chip" x="46" y="190" width="166" height="22" rx="4"/><text class="fd-chip-t" x="56" y="205.5">easy-verifier</text>
+        <rect class="fd-chip" x="46" y="216" width="166" height="22" rx="4"/><text class="fd-chip-t" x="56" y="231.5">easy-ui</text>
+        <rect class="fd-chip" x="46" y="242" width="166" height="22" rx="4"/><text class="fd-chip-t" x="56" y="257.5">easy-context</text>
+        <rect class="fd-chip" x="46" y="268" width="166" height="22" rx="4"/><text class="fd-chip-t" x="56" y="283.5">git history</text>
+      </g>
+      <path class="fd-edge" d="M224 196H262"/>
+
+      <g data-node="ingest">
+        <rect class="fd-node fd-node-key" x="262" y="136" width="120" height="120" rx="8"/>
+        <circle class="fd-badge" cx="262" cy="136" r="12"/><text class="fd-badge-t" x="262" y="140.5" text-anchor="middle">2</text>
+        <text class="fd-title" x="322" y="188" text-anchor="middle">ingest</text>
+        <text class="fd-sub" x="322" y="212" text-anchor="middle">metadata only</text>
+        <text class="fd-dim" x="322" y="230" text-anchor="middle">text is dropped</text>
+      </g>
+      <path class="fd-edge" d="M382 196H418"/>
+
+      <g data-node="local store">
+        <path class="fd-node fd-node-key" d="M418 152a60 12 0 0 1 120 0v92a60 12 0 0 1-120 0z"/>
+        <path class="fd-node fd-node-key" d="M418 152a60 12 0 0 0 120 0"/>
+        <circle class="fd-badge" cx="418" cy="152" r="12"/><text class="fd-badge-t" x="418" y="156.5" text-anchor="middle">3</text>
+        <text class="fd-title" x="478" y="204" text-anchor="middle">local store</text>
+        <text class="fd-sub" x="478" y="224" text-anchor="middle">one SQLite file</text>
+        <text class="fd-dim" x="478" y="242" text-anchor="middle">on your disk</text>
+      </g>
+      <path class="fd-edge" d="M538 196C556 196 556 138 574 138"/>
+      <path class="fd-edge" d="M538 196C556 196 556 202 574 202"/>
+      <path class="fd-edge" d="M538 196C556 196 556 266 574 266"/>
+
+      <g data-node="MCP / CLI / dashboard">
+        <rect class="fd-node fd-node-key" x="574" y="112" width="160" height="52" rx="6"/>
+        <text class="fd-title" x="590" y="134">MCP tools</text><text class="fd-sub" x="590" y="152">for Claude Code</text>
+        <rect class="fd-node fd-node-key" x="574" y="176" width="160" height="52" rx="6"/>
+        <text class="fd-title" x="590" y="198">CLI</text><text class="fd-sub" x="590" y="216">in your terminal</text>
+        <rect class="fd-node fd-node-key" x="574" y="240" width="160" height="52" rx="6"/>
+        <text class="fd-title" x="590" y="262">dashboard</text><text class="fd-sub" x="590" y="280">127.0.0.1 only</text>
+        <circle class="fd-badge" cx="574" cy="112" r="12"/><text class="fd-badge-t" x="574" y="116.5" text-anchor="middle">4</text>
+      </g>
+      <path class="fd-edge" d="M734 138C752 138 752 196 770 196"/>
+      <path class="fd-edge" d="M734 202C752 202 752 196 770 196"/>
+      <path class="fd-edge" d="M734 266C752 266 752 196 770 196"/>
+
+      <g>
+        <rect class="fd-node" x="770" y="136" width="200" height="120" rx="8"/>
+        <circle class="fd-person" cx="870" cy="168" r="9"/>
+        <path class="fd-person" d="M852 194c2-10 9-15 18-15s16 5 18 15"/>
+        <text class="fd-title" x="870" y="220" text-anchor="middle">you + Claude</text>
+        <text class="fd-sub" x="870" y="240" text-anchor="middle">ask in chat or open the page</text>
+      </g>
+
+      <rect class="fd-band" x="20" y="338" width="832" height="174" rx="8"/>
+      <text class="fd-lane" x="36" y="360">CONNECT · a tool joins Claude Code</text>
+
+      <g data-node="catalog form">
+        <rect class="fd-node" x="34" y="372" width="180" height="100" rx="8"/>
+        <circle class="fd-badge" cx="34" cy="372" r="12"/><text class="fd-badge-t" x="34" y="376.5" text-anchor="middle">1</text>
+        <text class="fd-title" x="124" y="418" text-anchor="middle">catalog form</text>
+        <text class="fd-sub" x="124" y="440" text-anchor="middle">pick a provider,</text>
+        <text class="fd-sub" x="124" y="457" text-anchor="middle">fill in its fields</text>
+      </g>
+      <path class="fd-edge" d="M214 422H250"/>
+
+      <g data-node="OS keychain">
+        <rect class="fd-node fd-node-key" x="250" y="372" width="180" height="100" rx="8"/>
+        <circle class="fd-badge" cx="250" cy="372" r="12"/><text class="fd-badge-t" x="250" y="376.5" text-anchor="middle">2</text>
+        <text class="fd-title" x="340" y="418" text-anchor="middle">OS keychain</text>
+        <text class="fd-sub" x="340" y="440" text-anchor="middle">secrets saved once,</text>
+        <text class="fd-sub" x="340" y="457" text-anchor="middle">never in a file</text>
+      </g>
+      <path class="fd-edge" d="M430 422H466"/>
+
+      <g data-node="claude mcp add-json">
+        <rect class="fd-node" x="466" y="372" width="210" height="100" rx="8"/>
+        <circle class="fd-badge" cx="466" cy="372" r="12"/><text class="fd-badge-t" x="466" y="376.5" text-anchor="middle">3</text>
+        <text class="fd-title" x="571" y="418" text-anchor="middle">claude mcp add-json</text>
+        <text class="fd-sub" x="571" y="440" text-anchor="middle">registers the launcher</text>
+        <text class="fd-sub" x="571" y="457" text-anchor="middle">in Claude Code</text>
+      </g>
+      <path class="fd-edge" d="M676 422H712"/>
+
+      <g data-node="launcher">
+        <rect class="fd-node fd-node-key" x="712" y="372" width="130" height="100" rx="8"/>
+        <circle class="fd-badge" cx="712" cy="372" r="12"/><text class="fd-badge-t" x="712" y="376.5" text-anchor="middle">4</text>
+        <text class="fd-title" x="777" y="418" text-anchor="middle">launcher</text>
+        <text class="fd-sub" x="777" y="440" text-anchor="middle">injects secrets</text>
+        <text class="fd-sub" x="777" y="457" text-anchor="middle">at start</text>
+      </g>
+      <path class="fd-edge fd-edge-secret" d="M340 472C340 516 777 516 777 472"/>
+      <text class="fd-dim" x="558" y="490" text-anchor="middle">the launcher reads the keychain</text>
+      <path class="fd-edge" d="M842 422H878"/>
+
+      <g data-outside="provider">
+        <text class="fd-dim" x="931" y="358" text-anchor="middle">off your machine</text>
+        <rect class="fd-node-out" x="878" y="372" width="106" height="100" rx="8"/>
+        <text class="fd-title" x="931" y="414" text-anchor="middle">provider</text>
+        <text class="fd-title" x="931" y="434" text-anchor="middle">server</text>
+        <text class="fd-dim" x="931" y="456" text-anchor="middle">e.g. Slack</text>
+      </g>
+    </svg>
+    <p class="flow-diagram-note">The diagram is hidden on a narrow screen. The numbered steps below tell the same flow.</p>
+  </div>
   <div class="lanes">
     <div class="lane" data-lane-box="read">
       <div class="lane-head">
@@ -419,7 +631,7 @@ cp -p ~/.easy-personal/store.sqlite.backup ~/.easy-personal/store.sqlite</pre>
   <p><a href="https://github.com/thunderkds/easy-personal-mcp">GitHub</a> ·
   <a href="https://github.com/thunderkds/easy-personal-mcp#readme">README</a> for configuration and limits.</p>
   <p>The Easy Kit family:
-  <a href="https://personal-agentic-claude.vercel.app/">Easy Kit</a> ·
+  <a href="https://easy-kits.vercel.app/">Easy Kit</a> ·
   <a href="https://easy-verifier.vercel.app/">Easy Verifier</a> ·
   <a href="https://easy-ui-mcp.vercel.app/">Easy UI</a> ·
   <a href="https://easy-memory.vercel.app/">Easy Memory</a> ·
