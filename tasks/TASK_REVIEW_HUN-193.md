@@ -61,8 +61,18 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured Tue Nov 3 03:06:58 UTC 2026, branch HUN-193, before any implementation commit, on the v8 store copy `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/54000ba3-d7c0-4535-8376-908a80d33c6d/scratchpad/hun193/store.sqlite`:
+
+```
+$ date -u; EASY_PERSONAL_HOME=<hun193 dir> uv run easy-personal kit-findings --json
+usage: easy-personal [-h] [--version]
+                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,dashboard,exec,headers,connector,account,doctor} ...
+easy-personal: error: argument command: invalid choice: 'kit-findings' (choose from ping, mcp, ingest, schedule, usage, outliers, workspace, warnings, kit, plan, dashboard, exec, headers, connector, account, doctor)
+
+$ MCP tool names from surfaces/mcp.create_app().list_tools():
+['connector_catalog', 'connector_status', 'connector_suggestions', 'improvement_plan', 'kit_summary', 'ping', 'session_outliers', 'usage_breakdown', 'usage_summary', 'warnings']
+```
+(no `kit_findings` tool, no `kit-findings` command)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
