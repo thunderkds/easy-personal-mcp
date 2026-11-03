@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/Rail.test.jsx` (new describe 'cache reuse follows the app-wide period (HUN-196, FR-064)': 11 tests, AC1, AC3, AC4 x3, AC5, edges: unknown group, zero-prompt group, failing breakdown, failing summary, scope change refetches breakdown); `web/src/App.test.jsx` (period survives a view switch, AC2); `web/src/UsageView.test.jsx` (harness `WithPeriod`, AC6: the existing period tests pass unchanged). Red first: 12 failed before the change, then `Tests  487 passed (487)`. |
+| Verification command run | ☑ pass | `cd web && npx vitest run` → `Test Files  18 passed (18)`, `Tests  487 passed (487)`; `npm --prefix web run build` → `✓ built in 113ms`; `uv run pytest tests/test_web_toolchain.py -q` → `16 passed in 1.47s` (2026-11-03). |
+| Negative cases hold | ☑ pass | 19-message group ignored; fewer than 2 qualifying groups and `(unknown)` group give no Lowest line; zero prompt tokens give ring "no data", no extra lines, no NaN/Infinity; failing breakdown keeps ring and written line; failing summary gives "no data". |
+| verify | ☐ N/A | `verify` skill not run by the implementer (Supervisor runs it at Stage 5). Headless Chrome check on the store copy: picker 7 / 30 / All changed the card request and label, Board kept the period; browser behaviour pass (see Visual regression row). |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | Not reviewed yet: `code-review` is the Supervisor's Stage 4. Blast radius: `App.jsx` passes two new props to every view (views ignore them); `UsageView` signature; `Rail.jsx`; `app.css` one declaration on `.rail-note`. |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q -x` → `1244 passed, 6 deselected, 1 xfailed, 1 warning in 146.73s`; vitest 487 passed. |
+| **Companion score (easy-verifier)** | ☑ N/A | Not run by the implementer. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | 1280x720 on the v8 store copy, read by vision: card matches the mockup (ring, period note, "Written to cache", "Lowest"). Numbers (card text read from the DOM): 7 days `97.4%`, written 2.6%, Lowest claude-haiku-5-5 82.3%; 30 days `97.4%`, 2.6%, 82.5%; All time `97.5%`, 2.5%, 82.5%. Board view after picking 30 days still says "last 30 days". Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/54000ba3-d7c0-4535-8376-908a80d33c6d/scratchpad/hun196/shots/after-usage-7d.png`, `after-usage-30d.png`, `after-usage-all.png`, `after-board-30d.png`; before: `before-usage-30d.png` (card says "last 7 days" on the 30-day picker). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Reuses `.rail-card`, `.muted`, `.rail-note`, `Ring`; no new colour or token. One CSS declaration added: `overflow-wrap: anywhere` on `.rail-note` (long model names wrap). Accessibility: ring `aria-label` names the period (vitest `Cache reuse 91.8%, last 30 days`); the two lines are plain `<p>` text. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280x720: page scrollWidth/clientWidth 1265/1265; a 70-character model name injected in the Lowest line wraps inside the card (card 243/243, rail 245/245, page 1265/1265), `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/54000ba3-d7c0-4535-8376-908a80d33c6d/scratchpad/hun196/shots/after-longname.png`. 375x812: page 375/375 on Usage and Board; the right rail is `display: none` below 80rem by existing CSS (`.rail`), so the card is not shown on phones (unchanged behaviour); `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/54000ba3-d7c0-4535-8376-908a80d33c6d/scratchpad/hun196/shots/after-375-usage-30d.png`. |
 
 ---
 
@@ -75,9 +75,16 @@ click Board ok
 
 The card says "last 7 days" while the Usage picker is on "Last 30 days" and "All time": it ignores the picker, and it has no "Written to cache" or "Lowest" line. Screenshots: `<scratchpad>/hun196/shots/before-*.png`.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-03T05:17Z, branch HUN-196 at 37f1cd9, same store copy, same script, 1280x720):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+[usage-7d]  pressed="Last 7 days"  card: Cache reuse | 97.4% | Share of prompt tokens read from cache, last 7 days. | Written to cache 2.6% | Lowest: claude-haiku-5-5 82.3%
+[usage-30d] pressed="Last 30 days" card: Cache reuse | 97.4% | Share of prompt tokens read from cache, last 30 days. | Written to cache 2.6% | Lowest: claude-haiku-5-5 82.5%
+[usage-all] pressed="All time"     card: Cache reuse | 97.5% | Share of prompt tokens read from cache, all time. | Written to cache 2.5% | Lowest: claude-haiku-5-5 82.5%
+[board-30d] (Board view)           card: Cache reuse | 97.4% | Share of prompt tokens read from cache, last 30 days. | Written to cache 2.6% | Lowest: claude-haiku-5-5 82.5%
+```
+
+**DELTA**: The owner can pick 7 days, 30 days or All time once and see the rail card follow it on every view, with the share written to cache and the weakest model next to the steady ratio.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
