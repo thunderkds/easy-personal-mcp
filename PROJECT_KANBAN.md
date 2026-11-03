@@ -11,8 +11,6 @@
 ### Todo
 
 ### In Progress
-- [ ] **HUN-183** — Release 0.4.0: version, README live attention + easy-memory + kit performance + v8 upgrade note, site (after HUN-195) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
-- [ ] **HUN-195** — kit_findings: a finding needs a gap of at least 5% to carry a habit (FR-062) | Supervisor | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-195.md`
 
 ### Ready for Review
 
@@ -88,6 +86,7 @@
 - [x] **HUN-179** — Release 0.3.0: version bump, README and site updates, release plan | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-179.md`
 - [x] **HUN-181** — Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-181.md`
 - [x] **HUN-182** — Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Frontend-Implementer | C2 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-182.md`
+- [x] **HUN-183** — Release 0.4.0: version, README live attention + easy-memory + kit performance + v8 upgrade note, site (after HUN-195) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
 - [x] **HUN-184** — easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-184.md`
 - [x] **HUN-185** — Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-185.md`
 - [x] **HUN-186** — Dashboard speed + gone-project filter: fast kit / usage sessions / warnings / plan / memory list reads, hide gone projects (FR-054, NFR-013) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-186.md`
@@ -98,6 +97,7 @@
 - [x] **HUN-191** — Session timeline shows 10 sessions with "Show N more" (FR-058) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-191.md`
 - [x] **HUN-192** — Store failed tool results per user record: migration 7 → 8 + re-read (FR-059) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-192.md`
 - [x] **HUN-193** — kit_findings: like-with-like session comparison per kit server, MCP tool + CLI (FR-060..FR-063, NFR-014; after HUN-192) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-193.md`
+- [x] **HUN-195** — kit_findings: a finding needs a gap of at least 5% to carry a habit (FR-062) | Supervisor | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-195.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
