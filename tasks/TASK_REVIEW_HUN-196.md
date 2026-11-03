@@ -61,8 +61,19 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-03T05:13:03Z, branch HUN-196 at 5564a82, no implementation commit; dashboard run headless on a copy of the owner store with `BROWSER=true EASY_PERSONAL_HOME=<scratchpad>/hun196/home`, driven over Chrome DevTools Protocol with `<scratchpad>/hun196/tools/shoot.mjs`, 1280x720):
+
+```
+[usage-7d] pressed="Last 7 days"  card: Cache reuse | 97.4% | Share of prompt tokens read from cache, last 7 days. || ring: Cache reuse 97.4%, last 7 days
+click Last 30 days ok
+[usage-30d] pressed="Last 30 days" card: Cache reuse | 97.4% | Share of prompt tokens read from cache, last 7 days. || ring: Cache reuse 97.4%, last 7 days
+click All time ok
+[usage-all] pressed="All time"     card: Cache reuse | 97.4% | Share of prompt tokens read from cache, last 7 days. || ring: Cache reuse 97.4%, last 7 days
+click Board ok
+[board-all] pressed=""             card: Cache reuse | 97.4% | Share of prompt tokens read from cache, last 7 days. || ring: Cache reuse 97.4%, last 7 days
+```
+
+The card says "last 7 days" while the Usage picker is on "Last 30 days" and "All time": it ignores the picker, and it has no "Written to cache" or "Lowest" line. Screenshots: `<scratchpad>/hun196/shots/before-*.png`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

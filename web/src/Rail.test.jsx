@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Rail from './Rail.jsx'
 import { NO_SCOPE } from './Scope.jsx'
-import { accountsStatus, emptySummary, fakeFetch, statusLine, warnings } from './test/fixtures.js'
+import { accountsStatus, breakdowns, emptySummary, fakeFetch, statusLine, summary, warnings } from './test/fixtures.js'
 
 beforeEach(() => {
   window.location.hash = '#secret-token'
@@ -150,15 +150,16 @@ describe('right rail (HUN-121)', () => {
     await waitFor(() => expect(within(card('Next actions')).getByText('no data')).toBeInTheDocument())
   })
 
-  it('AC6: only the three existing routes are read; the scope goes to summary and warnings, not to accounts', async () => {
+  it('AC6: only existing routes are read (summary and by-model breakdown for the card); the scope goes to summary and warnings, not to accounts', async () => {
     const f = stub({ accounts: accountsStatus })
     render(<Rail scope={{ workspace: 'work', account: '2' }} />)
     await screen.findByRole('heading', { name: 'Next actions (3)' })
     await screen.findByText('Claude default')
     const paths = [...new Set(f.calls.map((c) => c.url.split('?')[0]))].sort()
-    expect(paths).toEqual(['/api/accounts', '/api/usage/summary', '/api/warnings'])
-    const summary = f.calls.find((c) => c.url.startsWith('/api/usage/summary')).url
-    expect(summary).toMatch(/^\/api\/usage\/summary\?since=[^&]+&workspace=work&account=2$/)
+    expect(paths).toEqual(['/api/accounts', '/api/usage/breakdown', '/api/usage/summary', '/api/warnings'])
+    const summaryUrl = f.calls.find((c) => c.url.startsWith('/api/usage/summary')).url
+    expect(summaryUrl).toMatch(/^\/api\/usage\/summary\?since=[^&]+&workspace=work&account=2$/)
+    expect(f.calls.find((c) => c.url.startsWith('/api/usage/breakdown')).url).toMatch(/^\/api\/usage\/breakdown\?by=model&since=[^&]+&workspace=work&account=2$/)
     expect(f.calls.find((c) => c.url.startsWith('/api/warnings')).url).toBe('/api/warnings?workspace=work&account=2')
     expect(f.calls.find((c) => c.url.startsWith('/api/accounts')).url).toBe('/api/accounts?by=account')
   })
@@ -170,5 +171,116 @@ describe('right rail (HUN-121)', () => {
     rerender(<Rail scope={{ workspace: 'personal', account: '' }} />)
     await waitFor(() => expect(f.calls.some((c) => c.url === '/api/warnings?workspace=personal')).toBe(true))
     expect(f.calls.some((c) => /^\/api\/usage\/summary\?since=[^&]+&workspace=personal$/.test(c.url))).toBe(true)
+  })
+
+  it('edge: a scope change also refetches the by-model breakdown', async () => {
+    const f = stub()
+    const { rerender } = render(<Rail scope={NO_SCOPE} />)
+    await screen.findByRole('heading', { name: 'Next actions (3)' })
+    rerender(<Rail scope={{ workspace: 'personal', account: '' }} />)
+    await waitFor(() => expect(f.calls.some((c) => /^\/api\/usage\/breakdown\?by=model&since=[^&]+&workspace=personal$/.test(c.url))).toBe(true))
+  })
+})
+
+describe('cache reuse follows the app-wide period (HUN-196, FR-064)', () => {
+  const DAY = 86400000
+  const cacheCalls = (f) => f.calls.filter((c) => /^\/api\/usage\/(summary|breakdown)/.test(c.url))
+  const sinceOf = (url) => {
+    const raw = new URL(url, 'http://x').searchParams.get('since')
+    return raw === null ? null : new Date(raw).getTime()
+  }
+  const model = (key, messages, input, cc, cr) => ({ ...breakdowns.model.groups[0], key, messages, input_tokens: input, cache_creation_input_tokens: cc, cache_read_input_tokens: cr })
+  const withModels = (...groups) => ({ breakdowns: { ...breakdowns, model: { ...breakdowns.model, groups } } })
+  // 21 / 1000 prompt tokens = 2.1 %
+  const smallSummary = { ...summary, input_tokens: 79, cache_creation_input_tokens: 21, cache_read_input_tokens: 900, cache_hit_ratio: 0.9 }
+  const card = () => screen.getByRole('region', { name: 'Cache reuse' })
+
+  it('AC1: 7 days is the default; 30 days sends the 30-day since to both requests and names the period', async () => {
+    const f = stub()
+    const { rerender } = render(<Rail scope={NO_SCOPE} period="7" />)
+    await screen.findByRole('img', { name: 'Cache reuse 91.8%, last 7 days' })
+    expect(Math.abs(Date.now() - 7 * DAY - sinceOf(cacheCalls(f)[0].url))).toBeLessThan(60000)
+    f.calls.length = 0
+    rerender(<Rail scope={NO_SCOPE} period="30" />)
+    await screen.findByRole('img', { name: 'Cache reuse 91.8%, last 30 days' })
+    expect(within(card()).getByText('Share of prompt tokens read from cache, last 30 days.')).toBeInTheDocument()
+    const calls = cacheCalls(f)
+    expect(calls.map((c) => c.url.split('?')[0]).sort()).toEqual(['/api/usage/breakdown', '/api/usage/summary'])
+    for (const c of calls) expect(Math.abs(Date.now() - 30 * DAY - sinceOf(c.url))).toBeLessThan(60000)
+  })
+
+  it('AC1: All time sends no since in either request', async () => {
+    const f = stub()
+    render(<Rail scope={NO_SCOPE} period="all" />)
+    await screen.findByRole('img', { name: 'Cache reuse 91.8%, all time' })
+    const calls = cacheCalls(f)
+    expect(calls).toHaveLength(2)
+    expect(calls.map((c) => c.url).sort()).toEqual(['/api/usage/breakdown?by=model', '/api/usage/summary'])
+  })
+
+  it('AC3: "Written to cache" is cache creation over prompt tokens, one decimal (21 / 1000 = 2.1%)', async () => {
+    stub({ summary: smallSummary })
+    render(<Rail scope={NO_SCOPE} />)
+    expect(await within(await screen.findByRole('region', { name: 'Cache reuse' })).findByText('Written to cache 2.1%')).toBeInTheDocument()
+  })
+
+  it('AC4: "Lowest" names the lowest-ratio model among groups with 20 or more messages', async () => {
+    stub({ summary: smallSummary, ...withModels(model('claude-opus-5-5', 40, 10, 10, 980), model('claude-haiku-5-5', 20, 175, 25, 800), model('claude-sonnet-5-5', 30, 10, 20, 970)) })
+    render(<Rail scope={NO_SCOPE} />)
+    expect(await within(await screen.findByRole('region', { name: 'Cache reuse' })).findByText('Lowest: claude-haiku-5-5 80.0%')).toBeInTheDocument()
+  })
+
+  it('AC4: a group with 19 messages is ignored, even when it has the lowest ratio', async () => {
+    stub({ summary: smallSummary, ...withModels(model('claude-opus-5-5', 40, 10, 10, 980), model('tiny', 19, 900, 0, 100), model('claude-sonnet-5-5', 30, 40, 20, 940)) })
+    render(<Rail scope={NO_SCOPE} />)
+    expect(await within(await screen.findByRole('region', { name: 'Cache reuse' })).findByText('Lowest: claude-sonnet-5-5 94.0%')).toBeInTheDocument()
+    expect(screen.queryByText(/tiny/)).toBeNull()
+  })
+
+  it('AC4: fewer than 2 qualifying groups leaves the "Lowest" line out (the written line stays)', async () => {
+    stub({ summary: smallSummary, ...withModels(model('claude-opus-5-5', 40, 10, 10, 980), model('tiny', 19, 900, 0, 100)) })
+    render(<Rail scope={NO_SCOPE} />)
+    await within(await screen.findByRole('region', { name: 'Cache reuse' })).findByText('Written to cache 2.1%')
+    expect(screen.queryByText(/Lowest/)).toBeNull()
+  })
+
+  it('edge: an (unknown) model group is skipped for "Lowest" and does not count as a qualifying group', async () => {
+    stub({ summary: smallSummary, ...withModels(model('claude-opus-5-5', 40, 10, 10, 980), model('(unknown)', 50, 900, 0, 100)) })
+    render(<Rail scope={NO_SCOPE} />)
+    await within(await screen.findByRole('region', { name: 'Cache reuse' })).findByText('Written to cache 2.1%')
+    expect(screen.queryByText(/Lowest/)).toBeNull()
+  })
+
+  it('AC5: no prompt tokens gives "no data" in the ring and no extra lines, no NaN or Infinity', async () => {
+    stub({ summary: emptySummary, ...withModels(model('claude-opus-5-5', 40, 0, 0, 0), model('claude-haiku-5-5', 40, 0, 0, 0)) })
+    render(<Rail scope={NO_SCOPE} />)
+    await screen.findByRole('img', { name: 'Cache reuse: no data' })
+    expect(screen.queryByText(/Written to cache/)).toBeNull()
+    expect(screen.queryByText(/Lowest/)).toBeNull()
+    expect(card().textContent).not.toMatch(/NaN|Infinity/)
+  })
+
+  it('edge: a model group with no prompt tokens is skipped, never NaN', async () => {
+    stub({ summary: smallSummary, ...withModels(model('claude-opus-5-5', 40, 10, 10, 980), model('empty', 40, 0, 0, 0), model('claude-sonnet-5-5', 30, 40, 20, 940)) })
+    render(<Rail scope={NO_SCOPE} />)
+    expect(await within(await screen.findByRole('region', { name: 'Cache reuse' })).findByText('Lowest: claude-sonnet-5-5 94.0%')).toBeInTheDocument()
+    expect(card().textContent).not.toMatch(/NaN|Infinity/)
+  })
+
+  it('edge: a failing breakdown keeps the ring and the written line and leaves "Lowest" out', async () => {
+    const base = fakeFetch({ summary: smallSummary })
+    vi.stubGlobal('fetch', async (url, init) => (String(url).startsWith('/api/usage/breakdown') ? failing : base(url, init)))
+    render(<Rail scope={NO_SCOPE} />)
+    expect(await screen.findByRole('img', { name: 'Cache reuse 90.0%, last 7 days' })).toBeInTheDocument()
+    expect(within(card()).getByText('Written to cache 2.1%')).toBeInTheDocument()
+    expect(screen.queryByText(/Lowest/)).toBeNull()
+  })
+
+  it('edge: a failing summary shows "no data" even when the breakdown works', async () => {
+    const base = fakeFetch()
+    vi.stubGlobal('fetch', async (url, init) => (String(url).startsWith('/api/usage/summary') ? failing : base(url, init)))
+    render(<Rail scope={NO_SCOPE} />)
+    await waitFor(() => expect(within(card()).getByText('no data')).toBeInTheDocument())
+    expect(screen.queryByText(/Lowest/)).toBeNull()
   })
 })

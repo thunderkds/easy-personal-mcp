@@ -100,6 +100,7 @@ export default function App() {
   const [active, setActive] = useState('usage')
   const [menuOpen, setMenuOpen] = useState(false)
   const [chosen, setChosen] = useState(readScope)
+  const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064); not remembered across reloads
   const [options, setOptions] = useState(undefined)
   const [closed, setClosed] = useState({}) // group id -> collapsed
   const [firstRun, setFirstRun] = useState(undefined) // checklist steps; null when the request failed
@@ -220,10 +221,12 @@ export default function App() {
                 onOpenAgents={() => setActive('agents')}
                 onOpenWorkspaces={() => setActive('workspaces')}
                 onAccountsChanged={reloadOptions}
+                period={period}
+                onPeriodChange={setPeriod}
               />
             )}
           </div>
-          {options !== undefined && <Rail scope={scope} refresh={options} onOpenPlan={() => setActive('warnings')} />}
+          {options !== undefined && <Rail scope={scope} period={period} refresh={options} onOpenPlan={() => setActive('warnings')} />}
         </div>
       </div>
     </div>
