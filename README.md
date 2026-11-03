@@ -56,9 +56,10 @@ easy-personal outliers
 easy-personal warnings
 easy-personal plan
 easy-personal kit
+easy-personal kit-findings --json
 ```
 
-`usage --by` takes `day`, `model`, `project` or `tool`. `usage` and `outliers` take `--since` and `--until` (ISO dates). `ingest --retention-days N` deletes events older than N days.
+`kit-findings` compares sessions with and without each Easy Kit MCP server, like with like, and says "linked to", never "caused" (`--limit`, `--since`; rules in `PROJECT_SPEC.md`). `usage --by` takes `day`, `model`, `project` or `tool`. `usage` and `outliers` take `--since` and `--until` (ISO dates). `ingest --retention-days N` deletes events older than N days.
 
 Group repos into workspaces and filter usage by one. A workspace counts events whose project path equals or sits under one of its repo paths. The name is a slug (`orphan` is reserved for the built-in workspace). The email is information only.
 
@@ -88,7 +89,7 @@ It binds `127.0.0.1` and port 8765 unless you pass `--port`.
 
 ### MCP tools
 
-The server has 10 tools. None of them writes config or returns a secret.
+The server has 11 tools. None of them writes config or returns a secret.
 
 - `ping`
 - `usage_summary`
@@ -97,6 +98,7 @@ The server has 10 tools. None of them writes config or returns a secret.
 - `warnings`
 - `improvement_plan`
 - `kit_summary`
+- `kit_findings`
 - `connector_catalog`
 - `connector_status`
 - `connector_suggestions`

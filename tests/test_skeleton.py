@@ -33,6 +33,7 @@ def test_cli_and_mcp_return_same_core_value(capsys):
         "warnings",
         "improvement_plan",
         "kit_summary",
+        "kit_findings",
         "connector_catalog",
         "connector_status",
         "connector_suggestions",

@@ -4,7 +4,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from easy_personal import core
-from easy_personal.core import config, kit, metrics, plan, rules, store
+from easy_personal.core import config, kit, kitperf, metrics, plan, rules, store
 
 LOOPBACK = "127.0.0.1"
 
@@ -75,6 +75,17 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         (name) and `account` (id or label) keep only that scope's projects."""
         with store.opened(config.store_path()) as conn:
             return kit.kit_summary(conn, workspace=workspace, account=account)
+
+    @app.tool()
+    def kit_findings(limit: int = kitperf.DEFAULT_LIMIT, since: str | None = None) -> dict[str, Any]:
+        """Which Easy Kit MCP servers (easy-ui, easy-verifier, easy-context, easy-memory) are linked to
+        cheaper, shorter or better sessions, comparing sessions with and without each server inside the
+        same project, main model and size band. At most `limit` findings (default 3, max 10), each with
+        numbers, group sizes and one fixed habit when the server side is better; `not_enough` lists servers
+        with fewer than 10 sessions on a side. Worded "linked to", never "caused". `since` is an ISO date or
+        datetime (without an offset: local time); omitted means all stored history."""
+        with store.opened(config.store_path()) as conn:
+            return kitperf.kit_findings(conn, limit, since)
 
     @app.tool()
     def connector_catalog() -> dict[str, Any]:
