@@ -9,10 +9,10 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-183** — Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
-- [ ] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
 
 ### In Progress
+- [ ] **HUN-183** — Release 0.4.0: version, README live attention + easy-memory + kit performance + v8 upgrade note, site (after HUN-195) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
+- [ ] **HUN-195** — kit_findings: a finding needs a gap of at least 5% to carry a habit (FR-062) | Supervisor | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-195.md`
 
 ### Ready for Review
 
@@ -100,6 +100,7 @@
 - [x] **HUN-193** — kit_findings: like-with-like session comparison per kit server, MCP tool + CLI (FR-060..FR-063, NFR-014; after HUN-192) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-193.md`
 
 ### Closed (will not do)
+- [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
 
 ## Blocked
 

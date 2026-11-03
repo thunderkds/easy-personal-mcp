@@ -245,7 +245,7 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-179 | Release 0.3.0: version, README, site, ship plan (after HUN-178) | Done (merged 2026-11-01) | Backend-Implementer | C1 | Low | P1 |
 | HUN-181 | Live attention states in the live tail + stream re-send (FR-047..049, NFR-012; v0.4.0) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-182 | Live view attention badge, border, header count, sort (FR-050; after HUN-181) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Low | P0 |
-| HUN-183 | Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Todo | Backend-Implementer | C1 | Low | P1 |
+| HUN-183 | Release 0.4.0 (widened 2026-11-03): live attention + easy-memory + UX pass + kit performance, v8 upgrade note | In Progress | Backend-Implementer | C1 | Low | P1 |
 | HUN-184 | easy-memory store reader + cited-file nodes and panel data in /api/memory-graph (FR-051..053 backend) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-185 | Memory view easy-memory layer: cited-file nodes, stale mark, 30-day panel, list count (FR-052..053 page; after HUN-184) | Done (merged 2026-11-02) | Frontend-Implementer | C2 | Medium | P1 |
 | HUN-186 | Dashboard speed + gone-project filter (FR-054, NFR-013) | Done (merged 2026-11-02) | Backend-Implementer | C2 | Medium | P0 |
@@ -256,7 +256,8 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-191 | Session timeline shows 10 sessions with "Show N more"; sessions past the 50 with chart detail listed without a chart (FR-058) | Done (merged 2026-11-02) | Frontend-Implementer | C1 | Low | P1 |
 | HUN-192 | Store failed tool results per user record: migration 7 → 8 + re-read (FR-059) | Done (merged 2026-11-03) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-193 | kit_findings: like-with-like session comparison per kit server, MCP tool + CLI (FR-060..FR-063, NFR-014; after HUN-192) | Done (merged 2026-11-03) | Backend-Implementer | C2 | Medium | P0 |
-| HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Todo | Backend-Implementer | C1 | Low | P1 |
+| HUN-195 | kit_findings: a finding needs a gap of at least 5% to carry a habit (FR-062, owner 2026-11-03) | In Progress (minimal track, branch HUN-195, merge waits for owner) | Supervisor | C1 | Low | P1 |
+| HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
