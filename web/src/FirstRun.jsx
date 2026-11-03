@@ -1,3 +1,5 @@
+import Loading from './Loading.jsx'
+
 // What each API step id is called here, and how a not-done step is finished:
 // `command` = run the hint in a terminal; `agents` / `workspaces` = a button to that view.
 const STEPS = {
@@ -28,7 +30,7 @@ export default function FirstRun({ steps, onOpenAgents, onOpenWorkspaces }) {
   return (
     <main className="first-run">
       <h1>First run</h1>
-      {known === undefined && <p role="status">Loading</p>}
+      {known === undefined && <Loading label="Loading" />}
       {known === null && (
         <p role="alert" className="error">
           Could not load the checklist.

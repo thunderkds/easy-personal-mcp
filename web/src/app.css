@@ -198,6 +198,21 @@ main button.sort { min-height: 0; padding: 0; border: 0; }
 .picks { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
 .group { min-width: 0; margin: 0; padding: 0; border: 0; }
 .repo-row { display: flex; gap: var(--space-2); }
+
+/* Form layout: two columns from 40rem, one on a phone; hints and errors sit under their field */
+.form-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+@media (min-width: 40rem) {
+  .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-grid > .wide { grid-column: 1 / -1; }
+}
+.group > * + * { margin-top: var(--space-2); }
+.field label.required::after { content: ' *'; color: var(--color-accent); }
+.hint { display: block; color: var(--color-muted); font-size: var(--fs-note); }
+.field-error { display: block; color: var(--color-red); font-size: var(--fs-note); }
+.field input[aria-invalid='true'] { border-color: var(--color-red); }
+.color-row { display: flex; align-items: center; gap: var(--space-2); }
+.color-row input:not([type='color']) { flex: 1; min-width: 0; }
+.color-row input[type='color'] { flex: none; width: 2.5rem; padding: 2px; cursor: pointer; }
 pre.plan { margin: 0; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--color-input); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-note); }
 .swatch { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.5rem; height: 1.5rem; border: 1px solid var(--color-control); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-small); }
 .entry-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
@@ -474,3 +489,57 @@ main.live { max-width: none; }
 .gone-note { margin-block: var(--space-2); }
 .model-table td.cost-cell { white-space: normal; min-width: 6rem; }
 .cost-note { display: block; font-size: var(--fs-label); overflow-wrap: anywhere; }
+
+/* Floating notifications (toasts) and the floating loading pill: fixed, so the page never moves */
+.toast-host {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(24rem, calc(100vw - 2 * var(--space-4)));
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  background: var(--color-raised);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  pointer-events: auto;
+  animation: toast-in 0.18s ease-out;
+}
+.toast-error { border-color: var(--color-red); }
+.toast-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-control); }
+.toast-close { flex: none; width: 1.75rem; height: 1.75rem; border: 0; border-radius: var(--radius-sm); background: none; color: var(--color-secondary); font-size: 1.125rem; line-height: 1; cursor: pointer; }
+.toast-close:hover { background: var(--color-selected); color: var(--color-heading); }
+@media (max-width: 39.999rem) {
+  .toast-host { left: var(--space-4); width: auto; }
+}
+.loading-pill {
+  position: fixed;
+  top: calc(var(--header-height) + var(--space-3));
+  right: var(--space-4);
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-raised);
+  border: 1px solid var(--color-accent-line);
+  border-radius: 999px;
+  color: var(--color-secondary);
+  font-size: var(--fs-control);
+}
+.spinner { flex: none; width: 0.875rem; height: 0.875rem; border: 2px solid var(--color-track); border-top-color: var(--color-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(0.5rem); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  .toast { animation: none; }
+}

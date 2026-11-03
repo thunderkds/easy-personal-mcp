@@ -1,6 +1,7 @@
 import { getJson } from './api.js'
 import { ago, localTime } from './format.js'
 import { useLoad } from './useLoad.js'
+import Loading from './Loading.jsx'
 
 const NO_DATA = {
   systemd: 'systemd timers: no data (no systemctl or no user session)',
@@ -60,7 +61,7 @@ export default function JobsView() {
   return (
     <main>
       <h1>Scheduled jobs</h1>
-      {state.status === 'loading' && <p role="status">Loading scheduled jobs</p>}
+      {state.status === 'loading' && <Loading label="Loading scheduled jobs" />}
       {state.status === 'error' && (
         <p role="alert" className="error">
           Could not load scheduled jobs: {state.message}

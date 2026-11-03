@@ -3,6 +3,7 @@ import { getJson } from './api.js'
 import { ago, fmt } from './format.js'
 import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
+import Loading from './Loading.jsx'
 
 const load = (scope) => getJson(scopedPath('/api/board', scope))
 
@@ -200,7 +201,7 @@ export default function BoardView({ scope = NO_SCOPE }) {
   return (
     <main className="board">
       <h1>Board</h1>
-      {state.status === 'loading' && <p role="status">Loading board</p>}
+      {state.status === 'loading' && <Loading label="Loading board" />}
       {state.status === 'error' && (
         <p role="alert" className="error">
           Could not load board: {state.message}

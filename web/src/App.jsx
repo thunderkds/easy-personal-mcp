@@ -6,9 +6,11 @@ import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
 import KitView from './KitView.jsx'
 import LiveView from './LiveView.jsx'
+import Loading from './Loading.jsx'
 import MemoryView from './MemoryView.jsx'
 import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
+import { ToastProvider } from './Toast.jsx'
 import UsageView from './UsageView.jsx'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
@@ -91,12 +93,21 @@ function validScope(scope, options) {
   }
 }
 
+/** The page: one toast host above everything (`useNotify()` in any view), then the shell. */
+export default function App() {
+  return (
+    <ToastProvider>
+      <Shell />
+    </ToastProvider>
+  )
+}
+
 /**
  * Sidebar shell. In-page views only: the URL fragment holds the dashboard token, so there is no routing.
  * App owns the Workspace/Account scope: it survives tab switches and is remembered in localStorage.
  * `options` is undefined while loading, null when the request failed (selects hidden, views unscoped).
  */
-export default function App() {
+function Shell() {
   const [active, setActive] = useState('usage')
   const [menuOpen, setMenuOpen] = useState(false)
   const [chosen, setChosen] = useState(readScope)
@@ -211,7 +222,7 @@ export default function App() {
           <div id="view">
             {scoped && options === undefined ? (
               <main>
-                <p role="status">Loading</p>
+                <Loading label="Loading" />
               </main>
             ) : (
               <View

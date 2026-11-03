@@ -2,6 +2,7 @@ import { getJson } from './api.js'
 import FeedCard from './FeedCard.jsx'
 import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
+import Loading from './Loading.jsx'
 
 const load = (scope) => getJson(scopedPath('/api/warnings', scope))
 
@@ -102,7 +103,7 @@ export default function WarningsPlanView({ scope = NO_SCOPE, onOpenAgents }) {
   return (
     <main className="warnings">
       <h1>Warnings and plan</h1>
-      {state.status === 'loading' && <p role="status">Loading warnings</p>}
+      {state.status === 'loading' && <Loading label="Loading warnings" />}
       {state.status === 'error' && (
         <p role="alert" className="error">
           Could not load warnings: {state.message}

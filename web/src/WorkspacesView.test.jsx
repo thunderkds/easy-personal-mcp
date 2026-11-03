@@ -1,9 +1,12 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
+import { ToastProvider } from './Toast.jsx'
 import { fakeFetch, legacyOne, workspaceOverrides, workspacesFull } from './test/fixtures.js'
 
+// A view rendered alone needs the toast host App provides; App brings its own.
+const render = (ui, options) => rtlRender(ui, ui.type === App ? options : { wrapper: ToastProvider, ...options })
 const SECRET = 'xoxb-PLANTED-secret-123'
 
 /** Reads from the fixtures; writes go to `write(method, path, body)` (an Error answers HTTP 400) and are recorded. */
@@ -95,7 +98,7 @@ describe('add and edit a workspace (AC2)', () => {
     const fn = stub({ write: () => ({ workspace: { id: 9, name: 'new-one', is_orphan: false, repos: ['/a'] } }) })
     const form = await openAdd()
     type(within(form).getByLabelText('Name'), 'new-one')
-    type(within(form).getByLabelText('Color (#rrggbb)'), '#112233')
+    type(within(form).getByLabelText('Color'), '#112233')
     type(within(form).getByLabelText('Email'), 'a@b.test')
     type(within(form).getByLabelText('Description'), 'hello')
     click(within(form).getByRole('button', { name: '+ Add repo' }))
@@ -110,7 +113,7 @@ describe('add and edit a workspace (AC2)', () => {
     expect([method, url]).toEqual(['POST', '/api/workspaces'])
     expect(init.headers['X-Dashboard-Token']).toBe('secret-token')
     expect(body).toEqual({ name: 'new-one', color: '#112233', icon: null, email: 'a@b.test', description: 'hello', repos: ['/a'] })
-    expect(await screen.findByRole('status')).toHaveTextContent("Workspace 'new-one' created")
+    expect(await within(screen.getByTestId('toasts')).findByRole('status')).toHaveTextContent("Workspace 'new-one' created")
   })
 
   it('shows the API message for an invalid name and keeps the form', async () => {
@@ -118,7 +121,8 @@ describe('add and edit a workspace (AC2)', () => {
     const form = await openAdd()
     type(within(form).getByLabelText('Name'), 'Bad Name')
     click(within(form).getByRole('button', { name: 'Save' }))
-    expect(await within(form).findByRole('alert')).toHaveTextContent('name must match')
+    expect(await within(screen.getByTestId('toasts')).findByRole('alert')).toHaveTextContent('name must match')
+    expect(within(form).queryByRole('alert')).toBeNull() // no inline block in the page flow
     expect(within(form).getByLabelText('Name')).toHaveValue('Bad Name')
   })
 
@@ -493,5 +497,200 @@ describe('legacy connectors banner (AC6)', () => {
     render(<WorkspacesView />)
     const banner = await screen.findByRole('region', { name: 'Legacy connectors' })
     expect(within(banner).getByText(/not created by easy-personal/)).toBeInTheDocument()
+  })
+})
+
+describe('workspace form UX (HUN-200)', () => {
+  async function openAdd() {
+    render(<WorkspacesView />)
+    await card('company')
+    click(screen.getByRole('button', { name: '+ Add workspace' }))
+    return screen.findByRole('region', { name: 'Workspace form' })
+  }
+  const save = (form) => click(within(form).getByRole('button', { name: /^(Save|Saving…)$/ }))
+
+  it('AC1: labels every field, marks Name required and describes the formats by hints', async () => {
+    stub()
+    const form = await openAdd()
+    expect(within(form).getByLabelText('Name')).toHaveAttribute('aria-required', 'true')
+    expect(within(form).getByLabelText('Color')).toHaveAccessibleDescription(/#rrggbb/)
+    expect(within(form).getByLabelText('Email')).toHaveAccessibleDescription(/main email/i)
+    expect(within(form).getByLabelText('Icon')).toHaveAccessibleDescription(/short text/i)
+    expect(within(form).getByRole('group', { name: 'Repos' })).toHaveAccessibleDescription(/absolute path/i)
+  })
+
+  it('AC1: an empty Name shows its error next to the field, focuses it and sends no request', async () => {
+    const fn = stub()
+    const form = await openAdd()
+    save(form)
+    const name = within(form).getByLabelText('Name')
+    expect(name).toHaveAttribute('aria-invalid', 'true')
+    expect(name).toHaveAccessibleDescription(/Name is required/)
+    expect(within(form).getByText('Name is required')).toBeInTheDocument()
+    expect(name).toHaveFocus()
+    expect(writes(fn)).toHaveLength(0)
+  })
+
+  it('AC1: a colour that is not #rrggbb and a bad email each get their own error; the first bad field is focused', async () => {
+    const fn = stub()
+    const form = await openAdd()
+    type(within(form).getByLabelText('Name'), 'ok-name')
+    type(within(form).getByLabelText('Color'), '#12345')
+    type(within(form).getByLabelText('Email'), 'a@')
+    save(form)
+    const color = within(form).getByLabelText('Color')
+    const email = within(form).getByLabelText('Email')
+    expect(color).toHaveAttribute('aria-invalid', 'true')
+    expect(color).toHaveAccessibleDescription(/#rrggbb/)
+    expect(email).toHaveAttribute('aria-invalid', 'true')
+    expect(email).toHaveAccessibleDescription(/valid email/i)
+    expect(within(form).getByLabelText('Name')).not.toHaveAttribute('aria-invalid', 'true')
+    expect(color).toHaveFocus()
+    expect(writes(fn)).toHaveLength(0)
+  })
+
+  it('AC1: typing in a field clears that field\'s error', async () => {
+    stub()
+    const form = await openAdd()
+    save(form)
+    type(within(form).getByLabelText('Name'), 'x')
+    expect(within(form).getByLabelText('Name')).not.toHaveAttribute('aria-invalid', 'true')
+    expect(within(form).queryByText('Name is required')).toBeNull()
+  })
+
+  it('AC1: a whitespace-only Name is empty', async () => {
+    const fn = stub()
+    const form = await openAdd()
+    type(within(form).getByLabelText('Name'), '   ')
+    save(form)
+    expect(within(form).getByText('Name is required')).toBeInTheDocument()
+    expect(writes(fn)).toHaveLength(0)
+  })
+
+  it('AC2: the colour picker and the text stay in sync both ways; an empty text saves color null', async () => {
+    const fn = stub({ write: () => ({ workspace: { id: 9, name: 'n', is_orphan: false, repos: [] } }) })
+    const form = await openAdd()
+    const text = within(form).getByLabelText('Color')
+    const picker = within(form).getByLabelText('Color picker')
+    expect(picker).toHaveAttribute('type', 'color')
+    type(text, '#112233')
+    expect(picker).toHaveValue('#112233')
+    type(picker, '#aabbcc')
+    expect(text).toHaveValue('#aabbcc')
+    type(text, '')
+    type(within(form).getByLabelText('Name'), 'n')
+    save(form)
+    await waitFor(() => expect(writes(fn)).toHaveLength(1))
+    expect(writes(fn)[0][2].color).toBeNull()
+  })
+
+  it('AC2: the picker shows the stored colour of an edited workspace', async () => {
+    stub()
+    render(<WorkspacesView />)
+    click(within(await card('company')).getByRole('button', { name: 'Open' }))
+    const form = await screen.findByRole('region', { name: 'Workspace form' })
+    expect(within(form).getByLabelText('Color picker')).toHaveValue('#0b5fd6')
+  })
+
+  it('AC3: the Save button reads "Saving…" and is disabled while the request runs, then returns', async () => {
+    let release
+    const hold = new Promise((r) => (release = r))
+    stub({ hold, write: () => ({ workspace: { id: 9, name: 'n', is_orphan: false, repos: [] } }) })
+    const form = await openAdd()
+    type(within(form).getByLabelText('Name'), 'n')
+    save(form)
+    const busy = await within(form).findByRole('button', { name: 'Saving…' })
+    expect(busy).toBeDisabled()
+    release()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Saving…' })).toBeNull())
+  })
+
+  it('AC4: the Confirm/Cancel plan comes after the form action buttons and gets focus', async () => {
+    stub({ write: planned(['will change (workspace 2, now acme):', '  connector c1a2b3c4: alias company-slack -> acme-slack']) })
+    render(<WorkspacesView />)
+    click(within(await card('company')).getByRole('button', { name: 'Open' }))
+    const form = await screen.findByRole('region', { name: 'Workspace form' })
+    type(within(form).getByLabelText('Name'), 'acme')
+    save(form)
+    const plan = await within(form).findByRole('group', { name: 'Changes' })
+    expect(plan).toHaveFocus()
+    const saveButton = within(form).getByRole('button', { name: 'Save' })
+    expect(saveButton.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const nameField = within(form).getByLabelText('Name')
+    expect(nameField.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('AC6: the result of a confirmed plan is a toast, not an inline block', async () => {
+    stub({ write: planned(['plan line'], 'renamed.') })
+    render(<WorkspacesView />)
+    click(within(await card('company')).getByRole('button', { name: 'Open' }))
+    const form = await screen.findByRole('region', { name: 'Workspace form' })
+    type(within(form).getByLabelText('Name'), 'acme')
+    save(form)
+    click(await screen.findByRole('button', { name: 'Confirm' }))
+    expect(await within(screen.getByTestId('toasts')).findByText('renamed.')).toBeInTheDocument()
+    expect(within(form).queryByText('renamed.')).toBeNull()
+  })
+
+  it('AC5/AC6: ok:false (status not 0) is an error toast', async () => {
+    stub({ write: (_m, _p, b) => (b.confirm ? { status: 1, pending: false, lines: ['claude refused'] } : { status: 1, pending: true, lines: ['plan'] }) })
+    render(<WorkspacesView />)
+    click(within(await card('company')).getByRole('button', { name: 'Open' }))
+    const form = await screen.findByRole('region', { name: 'Workspace form' })
+    type(within(form).getByLabelText('Name'), 'acme')
+    save(form)
+    click(await screen.findByRole('button', { name: 'Confirm' }))
+    expect(await within(screen.getByTestId('toasts')).findByRole('alert')).toHaveTextContent('claude refused')
+  })
+
+  it('AC6: the card view has no inline result block after an adoption either', async () => {
+    stub({ overrides: workspaceOverrides({ legacy: legacyOne }), write: planned(['adopt'], 'adopted.') })
+    render(<WorkspacesView />)
+    click(await within(await screen.findByRole('region', { name: 'Legacy connectors' })).findByRole('button', { name: 'Adopt' }))
+    click(await screen.findByRole('button', { name: 'Confirm' }))
+    const toast = await within(screen.getByTestId('toasts')).findByRole('status')
+    expect(toast).toHaveTextContent('adopted.')
+  })
+
+  it('the form fields sit in a grid wrapper (one column on a phone, set in CSS)', async () => {
+    stub()
+    const form = await openAdd()
+    expect(form.querySelector('.form-grid')).not.toBeNull()
+  })
+})
+
+describe('add connector form UX (HUN-200)', () => {
+  it('shows "Reviewing…" disabled while the plan is asked for, and hints the alias', async () => {
+    let release
+    const hold = new Promise((r) => (release = r))
+    stub({ hold, write: planned(['plan']) })
+    render(<WorkspacesView />)
+    click(within(await card('company')).getByRole('button', { name: 'Open' }))
+    const form = await screen.findByRole('region', { name: 'Workspace form' })
+    click(within(form).getByRole('button', { name: 'Add connector' }))
+    fireEvent.change(within(form).getByLabelText('Provider'), { target: { value: 'discord' } })
+    expect(within(form).getByLabelText('Alias (optional)')).toHaveAccessibleDescription(/default alias/i)
+    type(within(form).getByLabelText('Bot name'), 'bot')
+    type(within(form).getByLabelText('Bot token'), SECRET)
+    click(within(form).getByRole('button', { name: 'Review changes' }))
+    const busy = await within(form).findByRole('button', { name: 'Reviewing…' })
+    expect(busy).toBeDisabled()
+    release()
+    expect(await screen.findByRole('group', { name: 'Changes' })).toBeInTheDocument()
+  })
+
+  it('never puts a typed secret in a toast', async () => {
+    stub({ write: () => new Error('keychain locked') })
+    render(<WorkspacesView />)
+    click(within(await card('company')).getByRole('button', { name: 'Open' }))
+    const form = await screen.findByRole('region', { name: 'Workspace form' })
+    click(within(form).getByRole('button', { name: 'Add connector' }))
+    fireEvent.change(within(form).getByLabelText('Provider'), { target: { value: 'discord' } })
+    type(within(form).getByLabelText('Bot name'), 'bot')
+    type(within(form).getByLabelText('Bot token'), SECRET)
+    click(within(form).getByRole('button', { name: 'Review changes' }))
+    const toast = await within(screen.getByTestId('toasts')).findByRole('alert')
+    expect(toast).toHaveTextContent('keychain locked')
+    expect(screen.getByTestId('toasts').textContent).not.toContain(SECRET)
   })
 })

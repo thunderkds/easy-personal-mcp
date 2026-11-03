@@ -1,9 +1,13 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 import AgentsView from './AgentsView.jsx'
+import { ToastProvider } from './Toast.jsx'
 import { fakeFetch, accountList, accountsStatus, accountsStatusByProvider } from './test/fixtures.js'
 
+// A view rendered alone needs the toast host App provides; App brings its own.
+const render = (ui, options) => rtlRender(ui, ui.type === App ? options : { wrapper: ToastProvider, ...options })
+const toasts = () => within(screen.getByTestId('toasts'))
 const PLAN = { steps: [{ account_id: 2, account: 'Claude personal', action: 'add', alias: 'work-slack', connector_id: 'c1', line: 'Claude personal: add work-slack -> exec c1' }] }
 
 /** Reads from the fixture; writes answered by `write(method, path, body)` and recorded. */
@@ -159,7 +163,8 @@ describe('Agents view', () => {
     fireEvent.click(within(r).getByRole('checkbox', { name: 'work' }))
     fireEvent.click(within(r).getByRole('button', { name: 'Review changes' }))
     fireEvent.click(await within(r).findByRole('button', { name: 'Confirm' }))
-    expect(await within(r).findByRole('alert')).toHaveTextContent('claude failed')
+    expect(await toasts().findByRole('alert')).toHaveTextContent('claude failed')
+    expect(within(r).queryByRole('alert')).toBeNull()
     await waitFor(() => expect(within(r).getByRole('checkbox', { name: 'work' })).not.toBeChecked())
     expect(writes(fn).filter((w) => w[0] === 'PUT').pop()).toEqual(['PUT', '/api/accounts/2/workspaces', { workspaces: [] }])
   })
@@ -306,13 +311,13 @@ describe('re-choose and rename (HUN-114)', () => {
     for (const name of ['Use this account', 'Rename', 'Ignore']) expect(within(r).queryByRole('button', { name })).toBeNull()
   })
 
-  it('AC7: a refused action shows the server text in an alert on that row only', async () => {
+  it('AC7: a refused action shows the server text in an error toast, not inline in the row', async () => {
     providerStub((m, p) => (p.endsWith('/ignore') ? new Error('the default account cannot be ignored') : {}))
     render(<AgentsView />)
     const r = await screen.findByRole('listitem', { name: 'Claude personal' })
     fireEvent.click(within(r).getByRole('button', { name: 'Ignore' }))
-    expect(await within(r).findByRole('alert')).toHaveTextContent('the default account cannot be ignored')
-    expect(within(screen.getByRole('listitem', { name: 'Claude wife' })).queryByRole('alert')).toBeNull()
+    expect(await toasts().findByRole('alert')).toHaveTextContent('the default account cannot be ignored')
+    expect(within(r).queryByRole('alert')).toBeNull()
   })
 })
 
@@ -411,5 +416,59 @@ describe('Agents status card (HUN-116)', () => {
     const r = row('Claude default')
     expect(within(r).getByRole('button', { name: 'Rename' })).toBeInTheDocument()
     expect(within(r).getByRole('group', { name: 'Workspaces' })).toBeInTheDocument()
+  })
+})
+
+describe('Agents toasts and form hints (HUN-200)', () => {
+  it('shows the apply result as a status toast, not inline', async () => {
+    stub({ write: (m, p) => (p === '/api/sync' ? { status: 0, lines: ['Claude personal: added work-slack'] } : {}) })
+    render(<AgentsView />)
+    const r = await screen.findByRole('listitem', { name: 'Claude personal' })
+    fireEvent.click(within(r).getByRole('checkbox', { name: 'work' }))
+    fireEvent.click(within(r).getByRole('button', { name: 'Review changes' }))
+    fireEvent.click(await within(r).findByRole('button', { name: 'Confirm' }))
+    expect(await toasts().findByRole('status')).toHaveTextContent('added work-slack')
+    expect(within(r).queryByText(/added work-slack/)).toBeNull()
+  })
+
+  it('a failed apply result (status not 0) is an error toast', async () => {
+    stub({ write: (m, p) => (p === '/api/sync' ? { status: 1, lines: ['claude refused'] } : {}) })
+    render(<AgentsView />)
+    const r = await screen.findByRole('listitem', { name: 'Claude personal' })
+    fireEvent.click(within(r).getByRole('checkbox', { name: 'work' }))
+    fireEvent.click(within(r).getByRole('button', { name: 'Review changes' }))
+    fireEvent.click(await within(r).findByRole('button', { name: 'Confirm' }))
+    expect(await toasts().findByRole('alert')).toHaveTextContent('claude refused')
+  })
+
+  it('the account name field is required and has a hint', async () => {
+    stub()
+    render(<AgentsView />)
+    const r = await screen.findByRole('listitem', { name: 'Claude personal' })
+    fireEvent.click(within(r).getByRole('button', { name: 'Rename' }))
+    const name = within(r).getByLabelText('Name')
+    expect(name).toHaveAttribute('aria-required', 'true')
+    expect(name).toHaveAccessibleDescription(/shown on the account card/i)
+  })
+
+  it('shows "Reviewing…" on the picker button while the plan is asked for', async () => {
+    let release
+    const hold = new Promise((r) => (release = r))
+    const read = fakeFetch()
+    vi.stubGlobal('fetch', async (url, init = {}) => {
+      if (init.method) {
+        await hold
+        return { ok: true, status: 200, json: async () => ({}) }
+      }
+      if (String(url).startsWith('/api/sync')) return { ok: true, status: 200, json: async () => PLAN }
+      return read(url, init)
+    })
+    render(<AgentsView />)
+    const r = await screen.findByRole('listitem', { name: 'Claude personal' })
+    fireEvent.click(within(r).getByRole('checkbox', { name: 'work' }))
+    fireEvent.click(within(r).getByRole('button', { name: 'Review changes' }))
+    expect(await within(r).findByRole('button', { name: 'Reviewing…' })).toBeDisabled()
+    release()
+    expect(await within(r).findByRole('button', { name: 'Confirm' })).toBeInTheDocument()
   })
 })

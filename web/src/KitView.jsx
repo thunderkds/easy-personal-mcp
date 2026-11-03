@@ -4,6 +4,7 @@ import FeedCard from './FeedCard.jsx'
 import { fmt, localTime, percent } from './format.js'
 import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
+import Loading from './Loading.jsx'
 import { Sparkline } from './Widgets.jsx'
 
 const load = (scope) => getJson(scopedPath('/api/kit', scope))
@@ -336,7 +337,7 @@ export default function KitView({ scope = NO_SCOPE }) {
   return (
     <main>
       <h1>Easy Kit</h1>
-      {state.status === 'loading' && <p role="status">Loading kit</p>}
+      {state.status === 'loading' && <Loading label="Loading kit" />}
       {state.status === 'error' && (
         <p role="alert" className="error">
           Could not load kit: {state.message}
