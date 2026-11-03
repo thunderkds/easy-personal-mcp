@@ -96,3 +96,18 @@ viewport   scheme  scrollWidth innerWidth
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-201.jsonl`, never the
 implementing agent alone]
+
+## Stage 4 — code-review (Supervisor, 2026-11-03)
+
+Scope: `git diff main...HEAD` (9 files). Lane check: `lane: C2, 8 files, 539 lines, EXCEEDS (lines 539 > 500); unpredicted: PROJECT_SPEC_SITE.md, tasks/TASK_GUIDE_HUN-201.md` — the excess is the guide + review files; label kept at C2.
+Entry point `#flow` found in `site/index.html`. Startup reads line present and complete (PROJECT_SPEC.md, guide, agents/frontend.md). Reviewers: correctness, testing, maintainability, standards; adversarial (≥ 50 lines). Security, performance, migration, api: not activated (static HTML/CSS + URL constants, no input handling, no queries).
+
+| Sev | File | Line | Finding | Conf | Action |
+|---|---|---|---|---|---|
+| P0 | — | — | None. | — | — |
+| P1 | — | — | None. | — | — |
+| P2 | `site/index.html` | `@container (max-width: 720px)` | The diagram hides whenever its column is ≤ 720 px, i.e. viewports under ~1100 px (tablets, small laptops), not only phones. | 75 | Suggest: lower to ~560 px or add a stacked variant later. Not applied (design choice; guide allowed the text fallback). |
+| P2 | `PROJECT_SPEC_SITE.md` | 31 | Same line also edited, uncommitted, on `main` by the Supervisor (FR-067 footer list) — merge conflict risk. | 100 | Supervisor resolves at merge: keep main's fuller list. |
+| P3 | `tests/test_site_content.py` | `test_flow_holds_one_inline_svg_with_an_accessible_name` | Loop `for attr, min_len in (("aria-labelledby", 1),)` has an unused `min_len` and iterates one item. | 100 | Optional cleanup. |
+
+Guide deviation accepted: the guide asked for dark + light screenshots, but the site is dark-only by a pinned test (`test_dark_only`); the light row is correctly marked as identical. Verdict: no P0/P1, 0 safe fixes applied. Ready for Stage 5.
