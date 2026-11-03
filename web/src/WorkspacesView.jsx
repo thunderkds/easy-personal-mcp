@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getJson, sendJson } from './api.js'
+import FolderPicker from './FolderPicker.jsx'
 import Loading from './Loading.jsx'
 import { useNotify } from './Toast.jsx'
 
@@ -349,10 +350,23 @@ function WorkspaceForm({ workspace, data, act, onBack }) {
   const [repos, setRepos] = useState(workspace?.repos ?? [])
   const [errors, setErrors] = useState({})
   const [pending, setPending] = useState(false)
+  const [browsing, setBrowsing] = useState(false)
+  const browseButton = useRef(null)
   const refs = { name: useRef(null), color: useRef(null), email: useRef(null) }
   const mine = isNew ? [] : data.connectors.filter((c) => c.workspace === workspace.name)
   const clear = (field) => setErrors((e) => (e[field] ? { ...e, [field]: undefined } : e))
   const colorValue = HEX_COLOR.test(color.trim()) ? color.trim().toLowerCase() : '#000000'
+
+  const closeBrowser = () => setBrowsing(false)
+  const wasBrowsing = useRef(false)
+  useEffect(() => {
+    // The dialog is gone from the page once `browsing` is false: only then can the focus go back to Browse…
+    if (browsing) wasBrowsing.current = true
+    else if (wasBrowsing.current) {
+      wasBrowsing.current = false
+      browseButton.current?.focus()
+    }
+  }, [browsing])
 
   async function save(e) {
     e.preventDefault()
@@ -490,13 +504,16 @@ function WorkspaceForm({ workspace, data, act, onBack }) {
               </div>
             ))}
             <div className="actions">
+              <button type="button" ref={browseButton} onClick={() => setBrowsing(true)}>
+                Browse…
+              </button>
               <button type="button" onClick={() => setRepos([...repos, ''])}>
-                + Add repo
+                + Type a path
               </button>
             </div>
           </fieldset>
         </div>
-        <div className="actions">
+        <div className="actions form-actions">
           <button type="submit" disabled={act.locked}>
             {pending ? 'Saving…' : 'Save'}
           </button>
@@ -505,6 +522,15 @@ function WorkspaceForm({ workspace, data, act, onBack }) {
           </button>
         </div>
       </form>
+      {browsing && (
+        <FolderPicker
+          onChoose={(path) => {
+            setRepos((list) => (list.some((r) => r.trim() === path) ? list : [...list, path]))
+            closeBrowser()
+          }}
+          onClose={closeBrowser}
+        />
+      )}
       <Changes act={act} />
 
       {!isNew && (
