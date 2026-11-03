@@ -3,12 +3,13 @@
 easy-memory keeps `<store>/<key>/notes/*.json`, `meta.json` and `prompts.log` (`$EASY_MEMORY_HOME`, else
 `~/.easy-memory`). Only a note's `time` and `files` map and a log line's `time`, `effective` and `injected`
 are kept; `prompt`, `answer` and `session_id` are parsed away and never returned, logged or put in an
-exception. `trash/` is never opened. A cited file is opened only to hash it, only inside the project folder.
+exception. `report.json` (FR-065, written by easy-memory's `report --json`) is read for its on-vs-off numbers only. `trash/` is never opened. A cited file is opened only to hash it, only inside the project folder.
 Read-only: nothing is written anywhere. Core code: stdlib only, it must not import connectors.
 """
 
 import hashlib
 import json
+import math
 import os
 import stat
 from datetime import UTC, date, datetime, timedelta
@@ -17,6 +18,9 @@ from pathlib import Path
 FORMAT_VERSION = 1  # the newest note format this reader understands
 MAX_NOTE_BYTES = 1024 * 1024  # a bigger note is abstained, never read
 MAX_META_BYTES = 64 * 1024
+MAX_REPORT_BYTES = 64 * 1024
+MAX_GENERATED_CHARS = 64
+REPORT_VERSION = 1  # the newest report.json format this reader understands
 MAX_LOG_LINE = 64 * 1024  # a longer prompts.log line is skipped
 MAX_HASH_BYTES = 10 * 1024 * 1024  # a bigger cited file is "unchecked"
 MAX_NODES = 30
@@ -263,3 +267,70 @@ def summary(folder: Path, project: str, today: date | None = None) -> tuple[dict
         "outside": len(cites) - len(inside),
     }
     return panel, cited
+
+
+def _count(value) -> bool:
+    """A whole number of at least 0; a bool is not a number here."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _number(value) -> bool:
+    """A finite int or float; a bool is not a number here."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _group(raw) -> dict | None:
+    """`{sessions, tokens_all_median}` of one report group, or None when a field has the wrong type.
+
+    The median is null for a group with no sessions (easy-memory writes it so); anywhere else it must be a number.
+    """
+    if not isinstance(raw, dict):
+        return None
+    sessions, median = raw.get("sessions"), raw.get("tokens_all_median")
+    if not _count(sessions):
+        return None
+    if median is None and sessions == 0:
+        return {"sessions": 0, "tokens_all_median": None}
+    return {"sessions": sessions, "tokens_all_median": median} if _number(median) and median >= 0 else None
+
+
+def report(folder: Path) -> dict:
+    """The on-vs-off comparison of a store folder's `report.json` (FR-065). Never raises.
+
+    `{"state": "ok", generated, min_sessions, too_few, on_vs_off_pct, on, off}` with only those fields;
+    `{"state": "unsupported"}` for a format newer than this reader; `{"state": "none"}` for a missing, unreadable,
+    too big (64 KB), malformed or wrongly typed file, and for a symlink that leaves the store folder.
+    """
+    none = {"state": "none"}
+    try:
+        root = os.path.realpath(folder)
+        real = os.path.realpath(os.path.join(root, "report.json"))
+        if os.path.dirname(real) != root and not real.startswith(root + os.sep):
+            return none
+        with open(real, "rb") as handle:
+            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                return none
+            raw = handle.read(MAX_REPORT_BYTES + 1)
+        data = json.loads(raw.decode("utf-8")) if len(raw) <= MAX_REPORT_BYTES else None
+    except (OSError, ValueError, RecursionError):  # UnicodeDecodeError is a ValueError
+        return none
+    if not isinstance(data, dict):
+        return none
+    version = data.get("v")
+    if not _number(version):
+        return none
+    if version > REPORT_VERSION:
+        return {"state": "unsupported"}
+    groups = data.get("groups")
+    on, off = (_group(groups.get(name)) for name in ("on", "off")) if isinstance(groups, dict) else (None, None)
+    generated, minimum, too_few = data.get("generated"), data.get("min_sessions"), data.get("too_few")
+    percent = data.get("on_vs_off_pct", "missing")
+    if version != REPORT_VERSION or not isinstance(version, int) or on is None or off is None:
+        return none
+    if not isinstance(generated, str) or len(generated) > MAX_GENERATED_CHARS:
+        return none
+    if not _count(minimum) or minimum < 1 or not isinstance(too_few, bool):
+        return none
+    if percent is not None and not _number(percent):
+        return none
+    return {"state": "ok", "generated": generated, "min_sessions": minimum, "too_few": too_few, "on_vs_off_pct": percent, "on": on, "off": off}

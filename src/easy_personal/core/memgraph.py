@@ -299,6 +299,7 @@ def project_graph(conn: sqlite3.Connection, project: str) -> dict:
     panel, cited_nodes = None, []
     if source["em"]:
         panel, cited = easymem.summary(source["em"], project)
+        panel["report"] = easymem.report(source["em"])  # HUN-198, FR-065
         cited_nodes = _cited_nodes(nodes, cited)
     return {
         "project": project,

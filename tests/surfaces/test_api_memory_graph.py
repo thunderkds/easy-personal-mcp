@@ -107,3 +107,42 @@ def test_graph_has_cited_file_nodes_and_panel(client, repo, em_store):
 
 def test_graph_without_a_store_has_a_null_block(client, repo):
     assert client.get(PATH, params={"project": str(repo)}, headers=AUTH).json()["easy_memory"] is None
+
+
+# --- HUN-198 (FR-065): the on-vs-off report rides in the easy-memory panel -------------------------
+
+REPORT = {"v": 1, "generated": "2026-11-03T10:06:31Z", "min_sessions": 10, "too_few": True, "on_vs_off_pct": None,
+          "groups": {"on": {"sessions": 3, "tokens_all_median": 18658261}, "off": {"sessions": 5, "tokens_all_median": 16553412}},
+          "store": {"notes": 139}, "prompt": "INVENTED_P", "session_id": "INVENTED_S"}  # fmt: skip
+
+
+def test_graph_panel_has_the_report(client, repo, em_store):
+    from easy_personal.core import easymem
+
+    folder = easymem.find(easymem.load(), str(repo))
+    (folder / "report.json").write_text(json.dumps(REPORT))
+    res = client.get(PATH, params={"project": str(repo)}, headers=AUTH)
+    assert res.json()["easy_memory"]["report"] == {
+        "state": "ok", "generated": "2026-11-03T10:06:31Z", "min_sessions": 10, "too_few": True, "on_vs_off_pct": None,
+        "on": {"sessions": 3, "tokens_all_median": 18658261}, "off": {"sessions": 5, "tokens_all_median": 16553412},
+    }  # fmt: skip
+    assert "INVENTED_P" not in res.text and "INVENTED_S" not in res.text
+
+
+def test_graph_panel_report_is_none_without_a_file(client, repo, em_store):
+    assert client.get(PATH, params={"project": str(repo)}, headers=AUTH).json()["easy_memory"]["report"] == {"state": "none"}
+
+
+def test_a_store_folder_with_only_report_json_breaks_neither_list_nor_graph(client, repo, tmp_path, em_store):
+    """No `notes/` at all: the project (it has kit notes) still draws, and the list does not crash."""
+    home = tmp_path / "em-home"
+    key = hashlib.sha256(os.path.realpath(repo / ".git").encode()).hexdigest()[:16]
+    import shutil
+
+    shutil.rmtree(home / key / "notes")
+    (home / key / "report.json").write_text(json.dumps(REPORT))
+    assert client.get(PATH, headers=AUTH).status_code == 200
+    res = client.get(PATH, params={"project": str(repo)}, headers=AUTH)
+    assert res.status_code == 200
+    panel = res.json()["easy_memory"]
+    assert panel["notes"] == 0 and panel["report"]["state"] == "ok"

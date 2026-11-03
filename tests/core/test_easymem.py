@@ -386,3 +386,147 @@ def test_nothing_is_written(fx):
     fx.summary()
     easymem.note_count(fx.folder)
     assert snapshot() == before
+
+
+# --- HUN-198 (FR-065): report.json, the on-vs-off numbers easy-memory writes --------------------
+
+REAL_REPORT = {
+    "v": 1, "generated": "2026-11-03T10:06:31Z", "min_sessions": 10, "sessions_logged": 9, "no_data": 0,
+    "no_claude_log": 1, "forced": 0,
+    "groups": {"on": {"sessions": 3, "tokens_all_median": 18658261, "tokens_io_median": 129194, "turns_median": 177},
+               "off": {"sessions": 5, "tokens_all_median": 16553412, "tokens_io_median": 100808, "turns_median": 169}},
+    "note_opened": {"opened": 0, "indexed": 3}, "too_few": True, "on_vs_off_pct": None,
+    "store": {"notes": 139, "bytes": 275959},
+}  # fmt: skip
+
+
+def put_report(fx, report=None, raw=None):
+    target = fx.folder / "report.json"
+    target.write_bytes(raw if raw is not None else json.dumps(REAL_REPORT if report is None else report).encode())
+    return target
+
+
+def edited(**groups_or_top):
+    """A deep copy of the real report with top-level keys replaced; `on` / `off` replace that group."""
+    report = json.loads(json.dumps(REAL_REPORT))
+    for key, value in groups_or_top.items():
+        if key in ("on", "off"):
+            report["groups"][key] = value
+        else:
+            report[key] = value
+    return report
+
+
+def test_report_returns_exactly_the_panel_fields(fx):
+    put_report(fx)
+    assert easymem.report(fx.folder) == {
+        "state": "ok", "generated": "2026-11-03T10:06:31Z", "min_sessions": 10, "too_few": True, "on_vs_off_pct": None,
+        "on": {"sessions": 3, "tokens_all_median": 18658261}, "off": {"sessions": 5, "tokens_all_median": 16553412},
+    }  # fmt: skip
+
+
+def test_report_keeps_no_other_key_of_the_file(fx):
+    put_report(fx, {**REAL_REPORT, "prompt": PROMPT, "answer": ANSWER, "session_id": SESSION})
+    assert PROMPT not in json.dumps(easymem.report(fx.folder))
+    assert set(easymem.report(fx.folder)) == {"state", "generated", "min_sessions", "too_few", "on_vs_off_pct", "on", "off"}
+
+
+def test_report_with_a_saving_and_an_empty_group(fx):
+    put_report(fx, edited(too_few=False, on_vs_off_pct=-12, off={"sessions": 0, "tokens_all_median": None}))
+    got = easymem.report(fx.folder)
+    assert got["state"] == "ok" and got["on_vs_off_pct"] == -12 and got["off"] == {"sessions": 0, "tokens_all_median": None}
+
+
+@pytest.mark.parametrize("raw", [b"", b"[]", b"{", b'"text"', b"null", b"\xff\xfe\x00", b"{" * 100000], ids=["empty", "list", "cut", "string", "null", "binary", "deep"])
+def test_report_not_an_object_is_none(fx, raw):
+    put_report(fx, raw=raw)
+    assert easymem.report(fx.folder) == {"state": "none"}
+
+
+def test_report_missing_file_or_folder_is_none(fx, tmp_path):
+    assert easymem.report(fx.folder) == {"state": "none"}
+    assert easymem.report(tmp_path / "nowhere") == {"state": "none"}
+
+
+def test_report_directory_instead_of_file_is_none(fx):
+    (fx.folder / "report.json").mkdir()
+    assert easymem.report(fx.folder) == {"state": "none"}
+
+
+def test_report_over_64_kb_is_none(fx):
+    padded = {**REAL_REPORT, "pad": "x" * (65 * 1024)}
+    put_report(fx, padded)
+    assert easymem.report(fx.folder) == {"state": "none"}
+
+
+@pytest.mark.parametrize("version", [2, 99, 1.5])
+def test_report_newer_version_is_unsupported(fx, version):
+    put_report(fx, {"v": version})
+    assert easymem.report(fx.folder) == {"state": "unsupported"}
+
+
+def test_report_unsupported_carries_no_numbers(fx):
+    put_report(fx, {**REAL_REPORT, "v": 2})
+    assert easymem.report(fx.folder) == {"state": "unsupported"}
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        {**REAL_REPORT, "v": 0}, {**REAL_REPORT, "v": True}, {**REAL_REPORT, "v": "1"},
+        {k: v for k, v in REAL_REPORT.items() if k != "v"},
+        edited(on={"sessions": "3", "tokens_all_median": 1}),
+        edited(on={"sessions": True, "tokens_all_median": 1}),
+        edited(on={"sessions": -1, "tokens_all_median": 1}),
+        edited(on={"sessions": 2.5, "tokens_all_median": 1}),
+        edited(on={"sessions": 3, "tokens_all_median": True}),
+        edited(on={"sessions": 3, "tokens_all_median": "1"}),
+        edited(on={"sessions": 3, "tokens_all_median": -5}),
+        edited(on={"sessions": 3}),
+        edited(on={"sessions": 3, "tokens_all_median": None}),
+        edited(generated="x" * 65),
+        edited(off=[1, 2]),
+        edited(min_sessions=True), edited(min_sessions="10"), edited(min_sessions=0), edited(min_sessions=-3),
+        edited(too_few="true"), edited(too_few=1), edited(too_few=None),
+        edited(on_vs_off_pct="8"), edited(on_vs_off_pct=True), edited(on_vs_off_pct=float("nan")),
+        edited(generated=5), edited(generated=None),
+        {**REAL_REPORT, "groups": None}, {**REAL_REPORT, "groups": {"on": REAL_REPORT["groups"]["on"]}},
+        {k: v for k, v in REAL_REPORT.items() if k != "too_few"},
+        {k: v for k, v in REAL_REPORT.items() if k != "on_vs_off_pct"},
+    ],
+)  # fmt: skip
+def test_report_a_wrong_field_is_none(fx, report):
+    put_report(fx, report)
+    assert easymem.report(fx.folder) == {"state": "none"}
+
+
+def test_report_unparseable_generated_is_kept_as_text(fx):
+    put_report(fx, edited(generated="not a time"))
+    assert easymem.report(fx.folder)["generated"] == "not a time"  # the page shows no age; the block still shows
+
+
+def test_report_symlink_inside_the_folder_is_read(fx):
+    real = fx.folder / "elsewhere.json"
+    real.write_text(json.dumps(REAL_REPORT))
+    (fx.folder / "report.json").symlink_to(real)
+    assert easymem.report(fx.folder)["state"] == "ok"
+
+
+def test_report_symlink_outside_the_folder_is_none(fx, tmp_path):
+    outside = tmp_path / "outside.json"
+    outside.write_text(json.dumps(REAL_REPORT))
+    (fx.folder / "report.json").symlink_to(outside)
+    assert easymem.report(fx.folder) == {"state": "none"}
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can read a mode 0 file")
+def test_report_never_raises_on_an_unreadable_file(fx):
+    put_report(fx).chmod(0)
+    assert easymem.report(fx.folder) == {"state": "none"}
+
+
+def test_report_writes_nothing(fx):
+    put_report(fx)
+    before = sorted((p.name, p.stat().st_mtime_ns) for p in fx.folder.rglob("*"))
+    easymem.report(fx.folder)
+    assert sorted((p.name, p.stat().st_mtime_ns) for p in fx.folder.rglob("*")) == before
