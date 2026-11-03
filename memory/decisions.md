@@ -96,3 +96,11 @@
 **Approved by**: owner, 2026-11-02 (5 grill answers + Option A + "continue").
 **Files**: `PRD.md` US-024, FR-051..FR-053, NFR-010 (amended), OQ 18–19; `BRAINSTORMING_LOG_EASYMEMORY.md`; `PROJECT_SPEC.md` glossary (easy-memory note, Cited file), read-only constraint, Content leakage row. DDR gate: < 2 of 3 criteria (easy to reverse, no new route or storage) → no DDR.
 **Stage 2 2026-11-02**: 2 tasks on Linear — HUN-184 backend reader + graph fields (P1, C2, Medium → `security-review`), HUN-185 Memory view layer (P1, C2, Medium, UI Evidence rows); chain 184 → 185. Not part of the v0.4.0 release (HUN-183); release placement decided after HUN-185.
+
+## 2026-11-03 — Kit performance: session findings read by `wake` (requirement grill)
+
+**Decision**: easy-personal-mcp's main goal is Easy Kit performance (tokens/cost, result quality, speed). First release: per kit MCP server (easy-ui, easy-verifier, easy-context, easy-memory), compare sessions that used it with sessions that did not, like with like (same owner project, model, size band), ≥ 10 sessions per group, worded "linked to". Good result = a commit on the session's branch (first event → last event + 30 min) and a tool-error rate ≤ `kit_error_rate`. Tool errors are not stored today → add a per-message failed-tool-result count (FR-059, store migration 7 → 8, re-read). New MCP tool `kit_findings` (≤ 3 findings with a fixed habit text); `wake` adds ≤ 3 lines; Claude follows the habit in that session only, never edits kit files from a finding.
+**Why**: owner, 2026-11-02: the MCP part had no clear use (its own tools: 0 calls in 624 sessions); the tool should make the whole kit work better. Like with like works on existing history (625 sessions, 81 with a kit server); a planned on/off test costs weaker sessions.
+**Approved by**: owner, 2026-11-03 (6 grill answers + error-count answer after the Supervisor corrected its Q3 claim that errors were already stored).
+**Files**: `PRD.md` Overview, US-026, FR-059..FR-063, KPI row, Out of Scope, OQ 22. Brainstorming next (Stage 0.5b).
+**Brainstorm 2026-11-03 (owner)**: pool matched sessions over like-with-like groups (≥ 10 pooled per side); `wake` change = XR-2 on the kernel repo (`skills/wake` is kit-managed). Added NFR-014 (< 3 s, git time budget). Recommended build: Option A, compute on read (`BRAINSTORMING_LOG_KITPERF.md`).

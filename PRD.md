@@ -1,5 +1,5 @@
 # PRD — easy-personal-mcp
-**Last updated**: 2026-11-02
+**Last updated**: 2026-11-03
 **Status**: Approved (Phase 0 recheck + requirement grill, 2026-10-21)
 **Owner**: thunderkds
 
@@ -26,6 +26,8 @@ person's local agent and kit activity, turns it into deterministic metrics, warn
 plan, and shows them on a live local dashboard and through MCP tools. It also manages personal tool
 connectors from a provider catalog for Claude Code, keeping every secret in the OS keychain and
 injecting it only at launch. Nothing leaves the person's machine.
+
+**Main goal from 2026-11-02 (owner): Easy Kit performance.** The main job of easy-personal-mcp is now to help Claude use the Easy Kit better. *Performance* means token and cost efficiency, result quality, and speed (adoption is not a goal). Claude reads the findings by itself at session start; the person does not have to ask. The first release of this goal compares Claude Code sessions with and without each kit MCP server (FR-059..FR-063). The existing usage, connector and dashboard features stay as they are.
 
 ---
 
@@ -69,6 +71,7 @@ Milestones are internal delivery order inside the single v1 release.
 | US-023 | As P1, I want the Live view to mark a session that keeps failing, waits for my answer, or has a tool call that has not returned for a long time, so I know which of my sessions needs me without watching each feed. | P1 | Live attention (v0.4.0) |
 | US-024 | As P1, I want the memory graph to also show what easy-memory saved for each project (which files its notes cite, which of those changed since, how often notes were injected), so I see what the auto-memory knows and whether it is going stale, without reading any note text. | P1 | easy-memory layer |
 | US-025 | As P1, I want every dashboard view to show my real projects only, open in a few seconds and keep its numbers readable, so the dashboard is usable on a machine with many short-lived test folders. | P1 | Dashboard UX pass |
+| US-026 | As P2, I want to read at session start which kit MCP servers are linked to cheaper, faster or better sessions, with one habit for each finding, so I use the kit in the way that works on this person's real history, not by guessing. | P2 | Kit performance |
 
 ---
 
@@ -134,6 +137,11 @@ Milestones are internal delivery order inside the single v1 release.
 | FR-056 | Usage cards must keep each number on one line (compact form, full value on hover / accessible name), keep abstained notes out of the main figure, and show model names that differ (no two rows with the same visible text). The Memory view opens on the project with the most memory notes. The Kit view lists projects active in the last 30 days first and folds the rest behind "Show N more". | US-025, FR-023, FR-041 |
 | FR-057 | Usage by project, the top-project warning and the Board, Kit and Memory project lists must count a gone worktree under its *owner project*: (1) a gone path inside a folder that is still a git repo belongs to that repo (e.g. `<repo>/.claude/worktrees/x`); (2) otherwise a gone path whose git branch names (from its events, excluding `main`, `master`, `HEAD`) are found in exactly one stored repo (as a branch ref or in a merge commit subject: `Merge branch '<b>'`, `Merge pull request #N from <owner>/<b>`, `Merge <b>: <text>`) belongs to that repo; when 2+ repos match, the ones inside a hidden folder (a path part starting with `.`) are dropped and a single remaining match wins; (3) otherwise it stays as it is. The grouping is done when read; stored events are never changed. Usage totals are unchanged. | US-025, FR-054 |
 | FR-058 | In the Usage view, every ranked list (By project, By model, By tool, Outlier sessions, and the "Show table" table of By project) must show its first 10 rows in the current order, then a "Show N more" button that shows every row, and "Show fewer" to fold again. A list with 10 rows or fewer has no button. The Session timeline follows the same rule: 10 sessions (newest first), "Show N more" lists every session; a session past the API's `detail_sessions` (50) shows its card with totals but no chart and no gap count, and the card says so. The By day chart and its table are not cut (a timeline). Totals and shares are still computed on every row. | US-025, FR-023 |
+| FR-059 | The `claude_code` source must also store, per `user` record (where tool results arrive), the number of its `tool_result` blocks with `is_error` true (an integer only; error text and tool input are never read, FR-002). This needs store migration 7 → 8 that marks every source file for re-read; until the re-read, old rows count as "unknown" for this field, never as 0. | US-026, FR-002 |
+| FR-060 | A session *used* a kit server when any of its events calls a tool named `mcp__<server>__*`, for the kit servers easy-ui, easy-verifier, easy-context and easy-memory (name matching rules are fixed in `PROJECT_SPEC.md`). Sub-agent records count toward their parent session. | US-026 |
+| FR-061 | A session has a *good result* when (a) at least one local commit exists on the session's git branch between its first event and 30 min after its last event, and (b) its tool-error rate (failed tool results ÷ tool results) is at most `kit_error_rate` (default set at Stage 2 from the owner's history), from `~/.easy-personal/config.yaml` `thresholds:`. A session on `main`, `master`, `HEAD` or no branch has no result ("unknown"), not a bad one. | US-026, FR-014 |
+| FR-062 | For each kit server, sessions that used it are compared *like with like* with sessions that did not: same project (owner project, FR-057), same model, and a similar size band. Compared measures: tokens per session, API-equivalent cost, session length (first to last event), and good-result share. Each kit session is matched with sessions without that server from its own group, and the matched sessions are pooled over all groups. A finding is shown only when each pooled side has at least 10 sessions, and it is always worded "linked to", never "caused". Each finding carries one fixed *habit* text from a per-server table in the code (no LLM-written text). | US-026, NFR-002 |
+| FR-063 | A new MCP tool `kit_findings` must return the top findings (at most 3 by default) with numbers, group sizes and the habit, from the same core as every other surface (FR-008). Through XR-2, the `wake` skill calls it at session start and adds at most 3 lines to its briefing; Claude follows each habit in that session only and changes no file. When the tool is not reachable or has no finding, `wake` adds nothing and does not fail. | US-026, FR-008 |
 
 ---
 
@@ -154,6 +162,7 @@ Milestones are internal delivery order inside the single v1 release.
 | NFR-011 | Live view latency: a tool call appears on the page within 2 s of its transcript record for at least 95% of events in the standard test session (spike baseline: 95.7%, median 214 ms, HUN-170); the tail adds no measurable wall-clock to the session. | Performance |
 | NFR-012 | Live attention states add no new polling loop, thread or SSE route: they come from the existing tail and stream. A *failing* or *waiting for you* state reaches the page within the NFR-011 2 s bound; *needs attention* within 2 s after its threshold (worked out in the tail's existing poll loop). The stream re-sends state only when a session's set of states changes, never for an ordinary tool call. Memory stays bounded (per-stream open-call map, dropped with the session or after 24 h). | Performance |
 | NFR-013 | On the owner's machine at normal load, every `/api/*` read a view makes on open returns in < 2 s (median of 3), and `/api/usage/sessions` for the last 7 days sends < 1 MB. Measured before and after with the same store. | Performance |
+| NFR-014 | `kit_findings` returns in < 3 s on the owner's machine at normal load (median of 3). Git work has a total time budget; a branch not checked within it counts as "unknown", never as bad. | Performance |
 
 ---
 
@@ -167,6 +176,7 @@ Milestones are internal delivery order inside the single v1 release.
 | Kit coverage | none | Kernel traces, verifier (JSON era) and context freshness show data for every discovered project that uses them; easy-ui shows overall | `kit_summary` vs. presence of that part's files/index per project |
 | Plan effectiveness | first 4 weeks | Rule hits per week fall over 4 weeks | `warnings` count per ISO week |
 | Weekly review time | n/a | < 5 min | Self-reported |
+| Kit findings Claude reads | 0 (easy-personal MCP tools: 0 calls in 624 sessions) | `wake` shows ≥ 1 finding in most kit-repo sessions; tokens per session in kit repos fall over 4 weeks | `kit_findings` calls per session start; tokens per session per ISO week |
 
 ---
 
@@ -186,6 +196,7 @@ Milestones are internal delivery order inside the single v1 release.
 - Workspaces: writing connectors into Codex accounts (listed only, DDR-0001); new providers (GitHub, Linear/Jira, Google Calendar, Notion); MCP tools that create or change workspaces (FR-021 stays read-only).
 - Work view: creating, moving or editing board tasks; calling Linear or any board API; starting, stopping or editing scheduled jobs or agents (the board and jobs views are read-only, unlike the reference Javis OS); storing or showing memory note bodies; /loop jobs (they live only inside a running session) and claude.ai cloud routines.
 - Live attention (v0.4.0): "same tool N times in a row" and tool-name loop rules (measured as noise on the owner's history, 2026-11-02: 292 of 550 streams have an 8+ same-tool run, mostly normal Bash work; 2-tool loops hit 11 streams, all planned batches); attention states in MCP, CLI or browser notifications (cut list, later); telling a hung command from a permission prompt; reading error text or tool input; hooks or OpenTelemetry (reference: github.com/agentblazo/blazo, ideas only).
+- Kit performance (first release): comparing kernel skills, hooks or stages (cut list, later release); easy-personal's own MCP tools as a compared server; before/after or planned on/off tests (method A only; a planned test may come later for one server); Claude changing kit files from a finding (kit changes go through the normal pipeline with owner approval); the dashboard page for findings (MCP + `wake` first); proof of cause.
 - easy-memory layer: showing note prompt or answer text, session ids or trashed notes; one node per note; calling the easy-memory MCP; forgetting, restoring or editing notes; switching easy-memory on or off; a page date range for the panel (fixed 30 days).
 
 ---
@@ -215,6 +226,7 @@ Milestones are internal delivery order inside the single v1 release.
 | 19 | Assumed: easy-memory keeps store format `v` 1 (`meta.json`, `notes/<id>.json`, `prompts.log`). A newer `v` is abstained, never guessed; no change is asked of easy-memory-mcp. | Supervisor | revisit Stage 2 |
 | 20 | Assumed (Supervisor default, 2026-11-02, owner may change): the NFR-013 targets (< 2 s per read, < 1 MB sessions payload) and the FR-055 default project rule. Measured 2026-11-02 under load average ~60: kit 81 s, usage/sessions 72 s (7.6 MB), warnings 21–25 s, plan 22 s, memory-graph list 3–20 s, board 1–3 s. 160 stored projects, 27 folders exist, 96 under `/tmp`. |
 | 21 | Decided (owner, 2026-11-02): gone worktrees are put under their owner project by path, then by branch name (FR-057), at read time; the store is not rewritten. Measured 2026-11-02: 173 stored paths, 44 gone non-/tmp paths (12 `.claude/worktrees/`, 25 sibling `wt-*`, 7 other subfolders); `feat/t165-site-scan-first` found only in personal-agentic-claude's merge subjects. Owner, 2026-11-02 (after HUN-189 review): keep the `Merge <b>: <text>` form; a tie between a repo and a clone in a hidden folder (`pets/.spawn/t182-live/repo`) goes to the repo that is not hidden. |
+| 22 | Resolved 2026-11-03 (grill): kit performance = FR-059..FR-063. Owner chose: unit = session; method = like with like, ≥ 10 sessions per group, "linked to"; quality = commit on branch + few tool errors; delivery = `kit_findings` MCP tool read by `wake` (≤ 3 lines); action = per-session habit only; first scope = 4 MCP servers. Measured 2026-11-03: 625 sessions; 81 used a kit server (74 in the last 30 days); 290 on a task branch; tool errors not stored (kernel traces 45,464 rows all `is_error` 0; API errors 60 of 386,360) → owner chose to add the error count (FR-059, migration 7 → 8); 1,205 of 1,206 transcripts still on disk. Brainstorm 2026-11-03 (owner): pool matched sessions over groups (strict groups gave almost no findings: easy-verifier 15 sessions in 10 projects); `wake` change goes to the kernel repo (XR-2). | thunderkds | done |
 
 ---
 
@@ -225,3 +237,4 @@ Work that lives in another repo goes on that repo's own board (one project per K
 | ID | Repo | Change | Needed by |
 |----|------|--------|-----------|
 | XR-1 | easy-verifier-mcp | Write score JSON next to each HTML evidence report (same folder, same base name). | FR-011 (M2) |
+| XR-2 | Easy Kit kernel (owner of `skills/wake`) | `wake` calls the easy-personal MCP tool `kit_findings` when that server is connected, adds at most 3 lines, and stays silent on any failure. `wake` is kit-managed (`.claude/harness-lock.json`), so it is never edited in this repo. | FR-063 |
