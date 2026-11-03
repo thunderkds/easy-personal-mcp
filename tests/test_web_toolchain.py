@@ -116,7 +116,7 @@ def test_xml_namespace_and_react_error_urls_are_allowed(tree):
 def test_family_links_are_allowed_but_other_hosts_still_fail(tree):
     """HUN-126: the sidebar links to three Easy sites; any other remote URL in the build still fails."""
     js = tree / STATIC_REL / "assets" / "app.js"
-    js.write_text('a("https://easy-memory.vercel.app/");b("https://personal-agentic-claude.vercel.app/");c("https://easy-verifier.vercel.app/")\n')
+    js.write_text('a("https://easy-memory.vercel.app/");b("https://easy-kits.vercel.app/");c("https://easy-verifier.vercel.app/")\n')
     assert run_check(tree, "--write-stamp").returncode == 0
     r = run_check(tree)
     assert r.returncode == 0, r.stdout + r.stderr
