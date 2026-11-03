@@ -10,7 +10,6 @@
 
 ### Todo
 - [ ] **HUN-183** — Release 0.4.0: version, README live attention + limits, site (after HUN-182) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-183.md`
-- [ ] **HUN-192** — Store failed tool results per user record: migration 7 → 8 + re-read (FR-059) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-192.md`
 - [ ] **HUN-193** — kit_findings: like-with-like session comparison per kit server, MCP tool + CLI (FR-060..FR-063, NFR-014; after HUN-192) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-193.md`
 - [ ] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
 
@@ -98,6 +97,7 @@
 - [x] **HUN-189** — Owner project: count gone worktrees under their main repo in usage by project and project lists (FR-057) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-189.md`
 - [x] **HUN-190** — Usage lists show top 10 with "Show N more" (FR-058) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-190.md`
 - [x] **HUN-191** — Session timeline shows 10 sessions with "Show N more" (FR-058) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-191.md`
+- [x] **HUN-192** — Store failed tool results per user record: migration 7 → 8 + re-read (FR-059) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-192.md`
 
 ### Closed (will not do)
 
