@@ -41,12 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_kitperf.py` (35 tests: AC1 server use incl. sub-agent and `mcp__claude_ai_*`; AC2 commit window, merged+deleted branch, main/NULL/not-a-repo; AC3 error rate 1/10 and 3/10 at 0.2 and 0.3, NULL count = unknown; AC4 `kit_error_rate` config, non-number refused, missing file = default; AC5 hand-computed pooling 8.333% with one-sided strata excluded; AC6 9 vs 10 sessions; AC7 wording and habit; AC9 slow fake git; AC10 canary), `tests/surfaces/test_kit_findings.py` (7 tests: AC8 MCP = CLI `--json`, limit cap), `tests/leak/harness.py` (registers `kit_findings` and `kit-findings`; AC10) |
-| Verification command run | ☑ pass | `uv run pytest tests/core -q -k kitperf` → `35 passed, 490 deselected`; `uv run pytest tests/surfaces -q -k "kit_findings or mcp or cli"` → `47 passed, 169 deselected`; `uv run pytest tests/leak -q` → `34 passed in 47.86s`; `uv run pytest -q` → `1231 passed, 2 skipped, 6 deselected, 1 xfailed in 144.14s` (2026-11-03, worktree HUN-193; log `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/54000ba3-d7c0-4535-8376-908a80d33c6d/scratchpad/hun193/verify.log`) |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_kitperf.py` (39 tests: AC1 server use incl. sub-agent and `mcp__claude_ai_*`; AC2 commit window, merged+deleted branch, main/NULL/not-a-repo; AC3 error rate 1/10 and 3/10 at 0.2 and 0.3, NULL count = unknown; AC4 `kit_error_rate` config, non-number refused, missing file = default; AC5 hand-computed pooling 8.333% and a per-call fixture (25.0%, 3 vs 5 sessions) with one-sided strata excluded; zero-call sessions not compared; `findings` empty with `other` filled; `other` not cut by `limit`; AC6 9 vs 10 sessions; AC7 wording and habit; AC9 slow fake git; AC10 canary), `tests/surfaces/test_kit_findings.py` (8 tests, incl. CLI text: findings first, `Other comparisons (no habit):` heading: AC8 MCP = CLI `--json`, limit cap), `tests/leak/harness.py` (registers `kit_findings` and `kit-findings`; AC10) |
+| Verification command run | ☑ pass | `uv run pytest tests/core -q -k kitperf` → `39 passed, 490 deselected`; `uv run pytest tests/surfaces -q -k "kit_findings or mcp or cli"` → `48 passed, 169 deselected`; `uv run pytest tests/leak -q` → `34 passed in 44.01s`; `uv run pytest -q` → `1236 passed, 2 skipped, 6 deselected, 1 xfailed in 146.81s` (2026-11-03, worktree HUN-193; log `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/54000ba3-d7c0-4535-8376-908a80d33c6d/scratchpad/hun193/verify2.log`, run after the rework) |
 | Negative cases hold | ☑ pass | 9 pooled sessions → `not_enough`; branch `main`/`master`/`HEAD`/NULL, not a repo, gone folder, branch texts `--all`, `a..b`, `x@{1}`, tie of two branches → unknown; NULL `tool_error_count` with tool calls → unknown, never 0; git missing on PATH → all unknown; empty store → no findings, no error; slow git → returns within budget + 1 s |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` → `1231 passed, 2 skipped, 6 deselected, 1 xfailed`. Four doc/registry tests needed the new tool listed (`tests/test_skeleton.py`, `README.md` tool list + command + count 11, `site/index.html` row + stat 11): minimal edits, HUN-194 owns the real prose |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` → `1236 passed, 2 skipped, 6 deselected, 1 xfailed`. Four doc/registry tests needed the new tool listed (`tests/test_skeleton.py`, `README.md` tool list + command + count 11, `site/index.html` row + stat 11): minimal edits, HUN-194 owns the real prose |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -74,51 +74,173 @@ $ MCP tool names from surfaces/mcp.create_app().list_tools():
 ```
 (no `kit_findings` tool, no `kit-findings` command)
 
-**AFTER**: Tue Nov 3 03:15:59 UTC 2026, same store copy, after the change:
+**AFTER** (rework, owner decision 2026-11-03: size band = tool-call tertile, measures per tool call, `findings` vs `other`): Tue Nov 3 03:25:46 UTC 2026, same store copy:
 
 ```
 $ EASY_PERSONAL_HOME=<hun193 dir> uv run easy-personal kit-findings --json
 {
-  "as_of": "2026-11-03T03:16:01Z",
+  "as_of": "2026-11-03T03:25:47Z",
   "findings": [
     {
-      "delta_pct": 236.2,
-      "habit": null,
-      "measure": "tokens",
+      "delta_pct": 9.4,
+      "habit": "Check UI changes with easy-ui before you call the work done.",
+      "measure": "good_result",
       "server": "easy-ui",
-      "text": "Sessions that used easy-ui are linked to 236.2% more tokens than similar sessions without it (27 vs 62 sessions).",
-      "with": 27,
-      "without": 62
+      "text": "Sessions that used easy-ui are linked to 9.4% more good results than similar sessions without it (12 vs 21 sessions).",
+      "with": 12,
+      "without": 21
     },
     {
-      "delta_pct": 207.1,
-      "habit": null,
-      "measure": "cost",
+      "delta_pct": -4.4,
+      "habit": "Search with easy-context before you read files one by one.",
+      "measure": "tokens_per_call",
+      "server": "easy-context",
+      "text": "Sessions that used easy-context are linked to 4.4% fewer tokens per tool call than similar sessions without it (24 vs 68 sessions).",
+      "with": 24,
+      "without": 68
+    },
+    {
+      "delta_pct": -3.6,
+      "habit": "Check UI changes with easy-ui before you call the work done.",
+      "measure": "cost_per_call",
       "server": "easy-ui",
-      "text": "Sessions that used easy-ui are linked to 207.1% more dollars of API-equivalent cost than similar sessions without it (23 vs 59 sessions).",
+      "text": "Sessions that used easy-ui are linked to 3.6% fewer dollars of API-equivalent cost per tool call than similar sessions without it (23 vs 49 sessions).",
       "with": 23,
-      "without": 59
-    },
-    {
-      "delta_pct": 196.2,
-      "habit": null,
-      "measure": "length",
-      "server": "easy-ui",
-      "text": "Sessions that used easy-ui are linked to 196.2% more minutes of session time than similar sessions without it (27 vs 62 sessions).",
-      "with": 27,
-      "without": 62
+      "without": 49
     }
   ],
   "not_enough": [],
   "note": "linked to, not caused",
-  "sessions": 621,
-  "unknown_results": 396
+  "other": [
+    {
+      "delta_pct": 14.5,
+      "habit": null,
+      "measure": "cost_per_call",
+      "server": "easy-context",
+      "text": "Sessions that used easy-context are linked to 14.5% more dollars of API-equivalent cost per tool call than similar sessions without it (23 vs 59 sessions).",
+      "with": 23,
+      "without": 59
+    },
+    {
+      "delta_pct": 12.6,
+      "habit": null,
+      "measure": "tokens_per_call",
+      "server": "easy-memory",
+      "text": "Sessions that used easy-memory are linked to 12.6% more tokens per tool call than similar sessions without it (16 vs 115 sessions).",
+      "with": 16,
+      "without": 115
+    },
+    {
+      "delta_pct": 8.0,
+      "habit": null,
+      "measure": "tokens_per_call",
+      "server": "easy-ui",
+      "text": "Sessions that used easy-ui are linked to 8.0% more tokens per tool call than similar sessions without it (27 vs 53 sessions).",
+      "with": 27,
+      "without": 53
+    },
+    {
+      "delta_pct": 7.3,
+      "habit": null,
+      "measure": "tokens_per_call",
+      "server": "easy-verifier",
+      "text": "Sessions that used easy-verifier are linked to 7.3% more tokens per tool call than similar sessions without it (12 vs 186 sessions).",
+      "with": 12,
+      "without": 186
+    }
+  ],
+  "sessions": 609,
+  "unknown_results": 386
 }
-$ median of 3 runs (`uv run easy-personal kit-findings --json`, includes uv start-up): 1.89 s, 1.92 s, 1.90 s -> median 1.90 s (< 3 s, NFR-014)
+$ EASY_PERSONAL_HOME=<hun193 dir> uv run easy-personal kit-findings --json --limit 10
+{
+  "as_of": "2026-11-03T03:25:49Z",
+  "findings": [
+    {
+      "delta_pct": 9.4,
+      "habit": "Check UI changes with easy-ui before you call the work done.",
+      "measure": "good_result",
+      "server": "easy-ui",
+      "text": "Sessions that used easy-ui are linked to 9.4% more good results than similar sessions without it (12 vs 21 sessions).",
+      "with": 12,
+      "without": 21
+    },
+    {
+      "delta_pct": -4.4,
+      "habit": "Search with easy-context before you read files one by one.",
+      "measure": "tokens_per_call",
+      "server": "easy-context",
+      "text": "Sessions that used easy-context are linked to 4.4% fewer tokens per tool call than similar sessions without it (24 vs 68 sessions).",
+      "with": 24,
+      "without": 68
+    },
+    {
+      "delta_pct": -3.6,
+      "habit": "Check UI changes with easy-ui before you call the work done.",
+      "measure": "cost_per_call",
+      "server": "easy-ui",
+      "text": "Sessions that used easy-ui are linked to 3.6% fewer dollars of API-equivalent cost per tool call than similar sessions without it (23 vs 49 sessions).",
+      "with": 23,
+      "without": 49
+    },
+    {
+      "delta_pct": -1.2,
+      "habit": "Search easy-memory for earlier notes before you start the task.",
+      "measure": "cost_per_call",
+      "server": "easy-memory",
+      "text": "Sessions that used easy-memory are linked to 1.2% fewer dollars of API-equivalent cost per tool call than similar sessions without it (13 vs 98 sessions).",
+      "with": 13,
+      "without": 98
+    }
+  ],
+  "not_enough": [],
+  "note": "linked to, not caused",
+  "other": [
+    {
+      "delta_pct": 14.5,
+      "habit": null,
+      "measure": "cost_per_call",
+      "server": "easy-context",
+      "text": "Sessions that used easy-context are linked to 14.5% more dollars of API-equivalent cost per tool call than similar sessions without it (23 vs 59 sessions).",
+      "with": 23,
+      "without": 59
+    },
+    {
+      "delta_pct": 12.6,
+      "habit": null,
+      "measure": "tokens_per_call",
+      "server": "easy-memory",
+      "text": "Sessions that used easy-memory are linked to 12.6% more tokens per tool call than similar sessions without it (16 vs 115 sessions).",
+      "with": 16,
+      "without": 115
+    },
+    {
+      "delta_pct": 8.0,
+      "habit": null,
+      "measure": "tokens_per_call",
+      "server": "easy-ui",
+      "text": "Sessions that used easy-ui are linked to 8.0% more tokens per tool call than similar sessions without it (27 vs 53 sessions).",
+      "with": 27,
+      "without": 53
+    },
+    {
+      "delta_pct": 7.3,
+      "habit": null,
+      "measure": "tokens_per_call",
+      "server": "easy-verifier",
+      "text": "Sessions that used easy-verifier are linked to 7.3% more tokens per tool call than similar sessions without it (12 vs 186 sessions).",
+      "with": 12,
+      "without": 186
+    }
+  ],
+  "sessions": 609,
+  "unknown_results": 386
+}
+$ median of 3 runs of `uv run easy-personal kit-findings --json` (includes uv start-up): 1.92 s, 1.81 s, 1.85 s -> median 1.85 s (< 3 s, NFR-014)
 ```
-MCP tool list now includes `kit_findings` (`tests/test_skeleton.py` lists it after `kit_summary`).
+`kit_error_rate` default stays 0.04 (median session error rate 0.0433 over sessions with tool calls, re-checked after the rework). MCP tool list includes `kit_findings` (`tests/test_skeleton.py`).
 
-**DELTA**: Claude (MCP `kit_findings`) and the owner (`easy-personal kit-findings`) can now read, from real history, which Easy Kit servers are linked to cheaper, shorter or better sessions, like with like.
+**DELTA**: Claude (MCP `kit_findings`) and the owner (`easy-personal kit-findings`) can now read, from real history, which Easy Kit servers are linked to cheaper-per-call or better sessions, like with like, with a habit for each win and the other comparisons listed apart.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

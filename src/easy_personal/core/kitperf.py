@@ -1,9 +1,11 @@
 """Kit performance (FR-060..FR-063): sessions that used a kit MCP server, compared like with like.
 
-One row per session is built from `events` on every call (nothing is stored). For each kit server and
-each measure, kit sessions are compared with non-kit sessions inside strata of (owner project, main
-model, size band); the strata are pooled and the pooled difference is a *finding* only when each side
-has at least 10 sessions. Findings say "linked to", never "caused". Habit texts are a fixed table here.
+One row per session (with at least one tool call) is built from `events` on every call (nothing is
+stored). For each kit server and each measure (tokens per call, cost per call, good-result share), kit
+sessions are compared with non-kit sessions inside strata of (owner project, main model, tool-call
+band); the strata are pooled and a pooled difference is shown only when each side has at least 10
+sessions. A difference where the server side is better is a *finding* with a habit; the others are
+listed as `other`. All say "linked to", never "caused". Habit texts are a fixed table here.
 The rules are fixed in `PROJECT_SPEC.md` under Kit performance. Metadata only: no id, path or text
 from an event leaves this module.
 """
@@ -35,9 +37,8 @@ HABITS = {
 }
 # measure -> (lower is better, words after "fewer|more" in the finding text)
 MEASURES = {
-    "tokens": (True, "tokens"),
-    "cost": (True, "dollars of API-equivalent cost"),
-    "length": (True, "minutes of session time"),
+    "tokens_per_call": (True, "tokens per tool call"),
+    "cost_per_call": (True, "dollars of API-equivalent cost per tool call"),
     "good_result": (False, "good results"),
 }
 _BAD_REF = re.compile(r"[\s~^:?*\[\\\x00-\x1f\x7f]|\.\.|@\{|^-")  # never let a branch text act as a git option or range
@@ -168,11 +169,12 @@ def _session_rows(conn: sqlite3.Connection, since_utc: str | None, prices) -> di
             branches.setdefault(session, Counter())[branch] += n
     result = {}
     for session, row in rows.items():
-        if not row.get("assistants") or session not in models:
-            continue
+        if not row.get("assistants") or session not in models or not row["calls"]:
+            continue  # no assistant event, no model, or no tool call: not compared
         row["errors"] = row["err_sum"] if row["err_known"] else None  # NULL-aware SUM: no counted record = unknown
+        row["tokens_per_call"] = row["tokens"] / row["calls"]
+        row["cost_per_call"] = None if row["cost"] is None else row["cost"] / row["calls"]
         row["model"] = min(models[session].items(), key=lambda kv: (-kv[1], kv[0]))[0]
-        row["length"] = (_epoch(row["last"]) - _epoch(row["first"])) / 60
         row["path"] = min(paths[session].items(), key=lambda kv: (-kv[1], kv[0]))[0] if session in paths else None
         top = branches.get(session, Counter()).most_common(2)
         row["branch"] = top[0][0] if top and (len(top) == 1 or top[0][1] > top[1][1]) else None
@@ -182,9 +184,7 @@ def _session_rows(conn: sqlite3.Connection, since_utc: str | None, prices) -> di
 
 
 def _error_rate(row: dict) -> float | None:
-    """Failed tool results / tool calls; no calls = 0; calls but no counted user record = unknown (never 0)."""
-    if not row["calls"]:
-        return 0.0
+    """Failed tool results / tool calls (every compared session has calls); no counted user record = unknown (never 0)."""
     return None if row["errors"] is None else row["errors"] / row["calls"]
 
 
@@ -201,10 +201,10 @@ def _window(row: dict) -> tuple[int, int]:
 
 
 def _tertile_bands(sessions: dict[str, dict]) -> None:
-    tokens = sorted(r["tokens"] for r in sessions.values())
-    low, high = (tokens[len(tokens) // 3], tokens[2 * len(tokens) // 3]) if tokens else (0, 0)
+    calls = sorted(r["calls"] for r in sessions.values())
+    low, high = (calls[len(calls) // 3], calls[2 * len(calls) // 3]) if calls else (0, 0)
     for row in sessions.values():
-        row["band"] = 0 if row["tokens"] < low else 1 if row["tokens"] < high else 2
+        row["band"] = 0 if row["calls"] < low else 1 if row["calls"] < high else 2
 
 
 def _prepare(conn: sqlite3.Connection, since_utc: str | None, prices, threshold: float, budget: float) -> dict[str, dict]:
@@ -232,7 +232,7 @@ def _prepare(conn: sqlite3.Connection, since_utc: str | None, prices, threshold:
 
 def median_error_rate(conn: sqlite3.Connection) -> float | None:
     """Median error rate over sessions with at least one tool call and a known rate (used once, to set the default)."""
-    rates = [r for row in _session_rows(conn, None, price_table.load()).values() if row["calls"] and (r := _error_rate(row)) is not None]
+    rates = [r for row in _session_rows(conn, None, price_table.load()).values() if (r := _error_rate(row)) is not None]
     return median(rates) if rates else None
 
 
@@ -287,26 +287,28 @@ def kit_findings(
     prices: price_table.PriceTable | None = None,
     threshold: float | None = None,
 ) -> dict:
-    """Top findings (at most `limit`, capped at 10) for the four kit servers; see the module doc for the rules."""
+    """`findings` (server side better, habit, at most `limit`, capped at 10) and `other` (every other passing comparison)."""
     limit = max(1, min(limit, MAX_LIMIT))
     if threshold is None:
         threshold = rules.kit_error_rate(config.config_path())
     sessions = _prepare(conn, metrics._utc_bound(since), prices or price_table.load(), threshold, GIT_BUDGET_SECONDS)
-    findings, not_enough = [], []
+    found, not_enough = [], []
     for server in SERVERS:
-        with_n, without_n, _ = _pool(sessions, server, "tokens")
+        with_n, without_n, _ = _pool(sessions, server, "tokens_per_call")
         if with_n < MIN_SIDE or without_n < MIN_SIDE:
             not_enough.append({"server": server, "with": with_n, "without": without_n})
             continue
         for measure in MEASURES:
             with_n, without_n, delta = _pool(sessions, server, measure)
             if delta is not None and with_n >= MIN_SIDE and without_n >= MIN_SIDE:
-                findings.append(_finding(server, measure, delta, with_n, without_n))
-    findings.sort(key=lambda f: (-abs(f["delta_pct"]), f["server"], f["measure"]))
+                found.append(_finding(server, measure, delta, with_n, without_n))
+    found.sort(key=lambda f: (-abs(f["delta_pct"]), f["server"], f["measure"]))
+    findings = [f for f in found if f["habit"]]
     return {
         "as_of": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sessions": len(sessions),
         "findings": findings[:limit],
+        "other": [f for f in found if not f["habit"]],
         "not_enough": not_enough,
         "unknown_results": sum(r["good_result"] is None for r in sessions.values()),
         "note": NOTE,

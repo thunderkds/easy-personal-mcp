@@ -428,8 +428,14 @@ def main(argv: list[str] | None = None) -> int:
             _print_json(result)
         else:
             for finding in result["findings"]:
-                print(finding["text"] + (f" {finding['habit']}" if finding["habit"] else ""))
-            if not result["findings"]:
+                print(finding["text"] + " " + finding["habit"])
+            if not result["findings"] and result["other"]:
+                print("No kit finding with a habit yet.")
+            if result["other"]:
+                print("Other comparisons (no habit):")
+                for finding in result["other"]:
+                    print("  " + finding["text"])
+            if not result["findings"] and not result["other"]:
                 print("No kit finding yet: " + ", ".join(f"{n['server']} {n['with']} vs {n['without']}" for n in result["not_enough"]))
         return 0
     if args.command in ("warnings", "plan", "kit"):

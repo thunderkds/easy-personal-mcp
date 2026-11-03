@@ -79,11 +79,13 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
     @app.tool()
     def kit_findings(limit: int = kitperf.DEFAULT_LIMIT, since: str | None = None) -> dict[str, Any]:
         """Which Easy Kit MCP servers (easy-ui, easy-verifier, easy-context, easy-memory) are linked to
-        cheaper, shorter or better sessions, comparing sessions with and without each server inside the
-        same project, main model and size band. At most `limit` findings (default 3, max 10), each with
-        numbers, group sizes and one fixed habit when the server side is better; `not_enough` lists servers
-        with fewer than 10 sessions on a side. Worded "linked to", never "caused". `since` is an ISO date or
-        datetime (without an offset: local time); omitted means all stored history."""
+        cheaper or better sessions, comparing sessions with and without each server inside the same
+        project, main model and tool-call band (tokens and cost per tool call, share of good results).
+        `findings` = at most `limit` (default 3, max 10) comparisons where the server side is better, each
+        with numbers, group sizes and one fixed habit; `other` = every other comparison that has at least 10
+        sessions on each side (no habit); `not_enough` lists servers with fewer. Worded "linked to", never
+        "caused". `since` is an ISO date or datetime (without an offset: local time); omitted means all
+        stored history."""
         with store.opened(config.store_path()) as conn:
             return kitperf.kit_findings(conn, limit, since)
 

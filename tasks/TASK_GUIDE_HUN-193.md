@@ -30,20 +30,22 @@ Owner, 2026-11-02/03: the main job of easy-personal-mcp is Easy Kit performance;
 
 **Comparison rules (fixed here; record them in** `PROJECT_SPEC.md` **under Kit performance)**:
 
-* Sessions compared: `abstained = 0`, at least one `assistant` event, inside `since` (default: whole store).
-* Size band = tertile of total tokens over the compared sessions (3 bands).
+* Sessions compared: `abstained = 0`, at least one `assistant` event and **at least one tool call**, inside `since` (default: whole store).
+* Size band = tertile of **tool-call count** over the compared sessions (3 bands). Never a compared measure. (Revised 2026-11-03 after the first real run.)
+* Measures (revised 2026-11-03): `tokens_per_call` (total tokens ÷ tool calls), `cost_per_call` (API-equivalent cost ÷ tool calls), `good_result` (share). Raw tokens, raw cost and session length are no longer compared.
 * A stratum counts only if it has ≥ 1 session on each side. Pooled sizes = sums over counted strata. A finding needs ≥ 10 pooled sessions on **each** side (FR-062); otherwise the server is listed under `not_enough` with both counts.
 * Pooled delta for a measure = Σ over strata (kit sessions in stratum × (kit mean − non-kit mean)) ÷ Σ (kit sessions × non-kit mean), as a percentage. Good-result share uses only sessions whose result is known, with its own ≥ 10 check.
-* Ranking: by absolute pooled delta; ties by server name then measure. Return the top `limit` (default 3, max 10).
+* Ranking: by absolute pooled delta; ties by server name then measure. `findings` = only comparisons that carry a habit (server side better), top `limit` (default 3, max 10); `other` = every remaining comparison that passed the ≥ 10 rule, same ranking, `habit` always `null`, not cut by `limit`.
 * Wording: `text` = "Sessions that used <server> are linked to <N>% <fewer|more> <measure> than similar sessions without it (<a> vs <b> sessions)." Never "caused". `habit` = the server's fixed habit text from a table in `kitperf.py` when the server side is better on that measure, else `null`.
-* Good result (FR-061): branch not in (`main`, `master`, `HEAD`, NULL) and the project is a git repo; ≥ 1 commit on that branch with committer time in \[first event, last event + 30 min\] → commit known; branch ref gone → look for a merge commit whose subject uses an FR-057 form for that branch and use `<merge>^1..<merge>^2`; nothing found → unknown. Error rate = failed tool results ÷ tool calls; tool calls 0 → rate 0; any NULL `tool_error_count` in a session that has tool calls → unknown. Good = commit known and rate ≤ `kit_error_rate`.
+* Good result (FR-061): branch not in (`main`, `master`, `HEAD`, NULL) and the project is a git repo; ≥ 1 commit on that branch with committer time in \[first event, last event + 30 min\] → commit known; branch ref gone → look for a merge commit whose subject uses an FR-057 form for that branch and use `<merge>^1..<merge>^2`; nothing found → unknown. Error rate = failed tool results ÷ tool calls; tool calls 0 → rate 0; any NULL `tool_error_count` in a session that has tool calls → unknown. Good = commit known and rate ≤ `kit_error_rate`. Unknown error rate = no user record of the session carries a count (`SUM(tool_error_count)` NULL) — revised 2026-11-03.
 * `kit_error_rate`: a new key under `thresholds:` in `~/.easy-personal/config.yaml`, read like `rules.live_thresholds` (unknown keys still refused). Default: compute the median session error rate on the owner's store after HUN-192's re-read, round to 2 decimals, put that number in code and in `PROJECT_SPEC.md`.
 * Git work has a total budget of 2 s per call (`git rev-list` only, local refs, never fetch); a branch not checked in budget → unknown. Cache per (repo, branch) inside one call.
 
 **Response contract** (`kit_findings`, CLI `--json`):
 
 ```json
-{"as_of": "<UTC>", "sessions": 625, "findings": [{"server": "easy-memory", "measure": "tokens", "delta_pct": -21.4, "with": 14, "without": 61, "text": "…", "habit": "…"}],
+{"as_of": "<UTC>", "sessions": 625, "findings": [{"server": "easy-memory", "measure": "tokens_per_call", "delta_pct": -21.4, "with": 14, "without": 61, "text": "…", "habit": "…"}],
+ "other": [{"server": "easy-ui", "measure": "tokens_per_call", "delta_pct": 41.0, "with": 27, "without": 62, "text": "…", "habit": null}],
  "not_enough": [{"server": "easy-ui", "with": 3, "without": 40}], "unknown_results": 312, "note": "linked to, not caused"}
 ```
 
