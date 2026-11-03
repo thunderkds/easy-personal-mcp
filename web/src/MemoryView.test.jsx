@@ -549,7 +549,7 @@ describe('design tokens and contrast for the easy-memory layer (HUN-185 UI AC2)'
   })
 })
 
-// ---- HUN-198: memory on vs off (FR-065) ----
+// ---- HUN-198: memory on vs off (FR-066) ----
 describe('memory on vs off block (HUN-198 AC4..AC7)', () => {
   const NOW = new Date('2026-11-03T12:06:31Z').getTime()
   beforeEach(() => {

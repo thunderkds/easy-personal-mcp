@@ -3,7 +3,7 @@
 easy-memory keeps `<store>/<key>/notes/*.json`, `meta.json` and `prompts.log` (`$EASY_MEMORY_HOME`, else
 `~/.easy-memory`). Only a note's `time` and `files` map and a log line's `time`, `effective` and `injected`
 are kept; `prompt`, `answer` and `session_id` are parsed away and never returned, logged or put in an
-exception. `report.json` (FR-065, written by easy-memory's `report --json`) is read for its on-vs-off numbers only. `trash/` is never opened. A cited file is opened only to hash it, only inside the project folder.
+exception. `report.json` (FR-066, written by easy-memory's `report --json`) is read for its on-vs-off numbers only. `trash/` is never opened. A cited file is opened only to hash it, only inside the project folder.
 Read-only: nothing is written anywhere. Core code: stdlib only, it must not import connectors.
 """
 
@@ -295,7 +295,7 @@ def _group(raw) -> dict | None:
 
 
 def report(folder: Path) -> dict:
-    """The on-vs-off comparison of a store folder's `report.json` (FR-065). Never raises.
+    """The on-vs-off comparison of a store folder's `report.json` (FR-066). Never raises.
 
     `{"state": "ok", generated, min_sessions, too_few, on_vs_off_pct, on, off}` with only those fields;
     `{"state": "unsupported"}` for a format newer than this reader; `{"state": "none"}` for a missing, unreadable,

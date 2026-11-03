@@ -388,7 +388,7 @@ def test_nothing_is_written(fx):
     assert snapshot() == before
 
 
-# --- HUN-198 (FR-065): report.json, the on-vs-off numbers easy-memory writes --------------------
+# --- HUN-198 (FR-066): report.json, the on-vs-off numbers easy-memory writes --------------------
 
 REAL_REPORT = {
     "v": 1, "generated": "2026-11-03T10:06:31Z", "min_sessions": 10, "sessions_logged": 9, "no_data": 0,

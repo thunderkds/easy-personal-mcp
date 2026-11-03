@@ -109,7 +109,7 @@ def test_graph_without_a_store_has_a_null_block(client, repo):
     assert client.get(PATH, params={"project": str(repo)}, headers=AUTH).json()["easy_memory"] is None
 
 
-# --- HUN-198 (FR-065): the on-vs-off report rides in the easy-memory panel -------------------------
+# --- HUN-198 (FR-066): the on-vs-off report rides in the easy-memory panel -------------------------
 
 REPORT = {"v": 1, "generated": "2026-11-03T10:06:31Z", "min_sessions": 10, "too_few": True, "on_vs_off_pct": None,
           "groups": {"on": {"sessions": 3, "tokens_all_median": 18658261}, "off": {"sessions": 5, "tokens_all_median": 16553412}},

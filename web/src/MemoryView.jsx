@@ -172,7 +172,7 @@ function SavingLine({ report }) {
   return <p>{pct < 0 && whole > 0 ? `Saves ${whole}%` : pct > 0 && whole > 0 ? `Uses ${whole}% more` : 'No difference'}</p>
 }
 
-/** FR-065: sessions and median tokens with easy-memory on and off, read from its report.json. Numbers only. */
+/** FR-066: sessions and median tokens with easy-memory on and off, read from its report.json. Numbers only. */
 function MemoryOnOff({ report }) {
   const age = report.state === 'ok' ? updated(report.generated) : ''
   return (

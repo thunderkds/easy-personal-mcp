@@ -16,7 +16,7 @@ Before writing any code:
 3. Read this file completely
 4. Read your role guide (`Agent guide` above) with the Read tool and no `limit`
 5. Note the **Complexity Level** above and apply the matching process from the Complexity matrix in your role guide
-6. Read `PRD.md` FR-053, FR-065 and Open Questions row 23
+6. Read `PRD.md` FR-053, FR-066 and Open Questions row 23
 7. Read `src/easy_personal/core/easymem.py` in full, `src/easy_personal/core/memgraph.py` around `easymem.summary`, and `web/src/MemoryView.jsx` `EasyMemoryPanel`
 
 ---
@@ -49,7 +49,7 @@ With `too_few` false the last line is "Saves 12%" (pct −12) or "Uses 8% more" 
 
 **Restated intent**:
 
-> Backend: `easymem.report(folder) -> dict` reads `<folder>/report.json` (size cap 64 KB) and returns only the FR-065 fields, validated as numbers / bools: `{"state": "ok", "generated", "min_sessions", "too_few", "on_vs_off_pct", "on": {"sessions", "tokens_all_median"}, "off": {...}}`; `{"state": "unsupported"}` when `v` > 1; `{"state": "none"}` when the file is missing, unreadable, not JSON, not an object, or a needed field has the wrong type. It never raises. `memgraph` puts it in the panel as `easy_memory.report`. Frontend: `EasyMemoryPanel` shows the block from the mockup for `state: "ok"`, "report format not supported" for `unsupported`, "no report yet" for `none`.
+> Backend: `easymem.report(folder) -> dict` reads `<folder>/report.json` (size cap 64 KB) and returns only the FR-066 fields, validated as numbers / bools: `{"state": "ok", "generated", "min_sessions", "too_few", "on_vs_off_pct", "on": {"sessions", "tokens_all_median"}, "off": {...}}`; `{"state": "unsupported"}` when `v` > 1; `{"state": "none"}` when the file is missing, unreadable, not JSON, not an object, or a needed field has the wrong type. It never raises. `memgraph` puts it in the panel as `easy_memory.report`. Frontend: `EasyMemoryPanel` shows the block from the mockup for `state: "ok"`, "report format not supported" for `unsupported`, "no report yet" for `none`.
 
 **Out of scope**:
 
@@ -58,7 +58,7 @@ With `too_few` false the last line is "Saves 12%" (pct −12) or "Uses 8% more" 
 * `tokens_io_median`, `turns_median`, `note_opened`, `no_data`, `store` (not shown in this block)
 * A new card, view or MCP tool; a chart
 
-**Requirement Refs**: FR-065, FR-053
+**Requirement Refs**: FR-066, FR-053
 
 ### Requirement Fidelity Gate (sign off BEFORE implementation)
 
@@ -83,14 +83,14 @@ With `too_few` false the last line is "Saves 12%" (pct −12) or "Uses 8% more" 
 
 | \# | Criterion (testable) | Traces to requirement |
 | -- | -- | -- |
-| 1 | `easymem.report` on the real-shape fixture above returns `state: "ok"` with exactly the restated fields and values; no other key from the file (e.g. `store`, `note_opened`) is returned | FR-065 |
-| 2 | Missing file, empty file, `[]`, `{`, a 65 KB file, `groups.on.sessions = "3"` → `state: "none"`, no exception; `v: 2` → `state: "unsupported"` | FR-065 |
-| 3 | `/api/memory-graph?project=<p>` returns `easy_memory.report` for a project with an easy-memory store; a store folder holding only `report.json` (no `notes/`) does not crash the project list or the graph | FR-065, FR-053 |
-| 4 | Panel with `too_few` true shows both group rows and "too few sessions to compare (3 on / 5 off, need 10 each)", and no "Saves"/"Uses" text | FR-065 |
-| 5 | `too_few` false: pct −12 → "Saves 12%"; pct 8 → "Uses 8% more"; pct 0 → "No difference"; pct null → no saving line | FR-065 |
-| 6 | `unsupported` → "report format not supported", no numbers; `none` → "no report yet" | FR-065 |
-| 7 | "updated N ago" from `generated` (fixed clock in the test): 2 h → "updated 2 h ago"; tokens use the existing compact formatter (18,658,261 → "18.7M") | FR-065 |
-| 8 | Leak suite still passes; a planted prompt/answer/session id canary inside `report.json` never reaches the API response | FR-065, metadata-only |
+| 1 | `easymem.report` on the real-shape fixture above returns `state: "ok"` with exactly the restated fields and values; no other key from the file (e.g. `store`, `note_opened`) is returned | FR-066 |
+| 2 | Missing file, empty file, `[]`, `{`, a 65 KB file, `groups.on.sessions = "3"` → `state: "none"`, no exception; `v: 2` → `state: "unsupported"` | FR-066 |
+| 3 | `/api/memory-graph?project=<p>` returns `easy_memory.report` for a project with an easy-memory store; a store folder holding only `report.json` (no `notes/`) does not crash the project list or the graph | FR-066, FR-053 |
+| 4 | Panel with `too_few` true shows both group rows and "too few sessions to compare (3 on / 5 off, need 10 each)", and no "Saves"/"Uses" text | FR-066 |
+| 5 | `too_few` false: pct −12 → "Saves 12%"; pct 8 → "Uses 8% more"; pct 0 → "No difference"; pct null → no saving line | FR-066 |
+| 6 | `unsupported` → "report format not supported", no numbers; `none` → "no report yet" | FR-066 |
+| 7 | "updated N ago" from `generated` (fixed clock in the test): 2 h → "updated 2 h ago"; tokens use the existing compact formatter (18,658,261 → "18.7M") | FR-066 |
+| 8 | Leak suite still passes; a planted prompt/answer/session id canary inside `report.json` never reaches the API response | FR-066, metadata-only |
 
 ---
 
