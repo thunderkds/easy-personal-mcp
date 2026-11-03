@@ -19,13 +19,13 @@
 
 Run from the repo root. Schema changes are numbered migrations (`core/migrations/mNNNN_*.py`, `PRAGMA user_version`). The first command that opens the store applies every pending migration, each in one transaction, and leaves `store.sqlite.bak-v<N>` (the store as it was at version N) beside it. v0.3.0 moves a store from version 6 to 7 (`m0007_entrypoint`, HUN-161: adds `events.entrypoint`, resets claude_code offsets to 0; the next ingest re-reads and backfills, adding no rows). On the owner's machine the store is already at 7 (a main build migrated it 2026-10-31 21:50; `store.sqlite.bak-v6` exists), so no migration runs there.
 
-v0.4.0 (approved for `373d007`, owner 2026-11-03). It moves a store from version 7 to 8 (`m0008_tool_errors`, HUN-192: adds `events.tool_error_count`, resets claude_code offsets to 0; the next ingest or the dashboard's live tail re-reads every transcript on disk, adding no rows, about 20–45 s). **On the owner's machine this already happened**: the owner reinstalled from `main` at 2026-11-03 10:54 +07 (before the 0.4.0 version bump, so `--version` still says 0.3.0) and started the dashboard; the store is at 8 (393,188 events, 47,614 user rows with a count) and `store.sqlite.bak-v7` (386,360 events, 10:54:23) exists. So no migration runs at step 4; the reinstall only brings the 0.4.0 code (HUN-183 docs, HUN-195 5 % gap rule) and version.
+v0.4.0 (approved for `385dbed`, owner 2026-11-03; first approved at `373d007`, re-approved to add HUN-196). It moves a store from version 7 to 8 (`m0008_tool_errors`, HUN-192: adds `events.tool_error_count`, resets claude_code offsets to 0; the next ingest or the dashboard's live tail re-reads every transcript on disk, adding no rows, about 20–45 s). **On the owner's machine this already happened**: the owner reinstalled from `main` at 2026-11-03 10:54 +07 (before the 0.4.0 version bump, so `--version` still says 0.3.0) and started the dashboard; the store is at 8 (393,188 events, 47,614 user rows with a count) and `store.sqlite.bak-v7` (386,360 events, 10:54:23) exists. So no migration runs at step 4; the reinstall only brings the 0.4.0 code (HUN-183 docs, HUN-195 5 % gap rule, HUN-196 cache reuse card) and version.
 
 1. **Pre-deploy checks**. The pass condition for each is in brackets:
    ```bash
    cd ~/workspace/pets/hungnguyen111/easy-personal-mcp
    git checkout main && git status --short -- src web tests pyproject.toml uv.lock README.md   # [no output]
-   git merge-base --is-ancestor 373d007 HEAD && echo ok              # [ok: the approved commit is on main]
+   git merge-base --is-ancestor 385dbed HEAD && echo ok              # [ok: the approved commit is on main]
    npm --prefix web ci && npm --prefix web run build                # [✓ built]
    uv run pytest -q && npm --prefix web test                        # [0 failed; 1 xfailed is the known tool_signals P3]
    ```
@@ -42,7 +42,7 @@ v0.4.0 (approved for `373d007`, owner 2026-11-03). It moves a store from version
    ```
 5. **Tag the release** (v0.3.0 was never tagged; its row below is superseded):
    ```bash
-   git tag -a v0.4.0 373d007 -m "v0.4.0: live attention, easy-memory layer, dashboard UX, kit performance" && git push github main v0.4.0
+   git tag -a v0.4.0 385dbed -m "v0.4.0: live attention, easy-memory layer, dashboard UX, kit performance, cache reuse card" && git push github main v0.4.0
    ```
 6. **Post-deploy health check** (all must pass):
    ```bash
@@ -54,6 +54,8 @@ v0.4.0 (approved for `373d007`, owner 2026-11-03). It moves a store from version
    easy-personal usage | head -5              # pass: totals print, not lower than before the deploy
    easy-personal kit-findings                 # pass: exits 0 within 3 s; every line says "linked to"; habits only on gaps >= 5 %
    easy-personal doctor; echo "rc=$?"         # pass: rc=0 (no FAIL lines)
+   # HUN-196, manual: easy-personal dashboard -> Usage, pick "Last 30 days" (wide window, >= 80rem):
+   #   pass: the rail's Cache reuse card note says "last 30 days" and shows "Written to cache" and "Lowest: <model>"
    printf '%s\n' \
     '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"hc","version":"0"}}}' \
     '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
@@ -186,4 +188,4 @@ v0.3.0 (approved for `1c80450`; superseded by v0.4.0, never tagged):
 | v0.1.0 @ 30e21a3 (tag to be created at deploy step 5) | 2026-10-22 | HUN-32–41, HUN-43–53 (HUN-42 excluded: blocked by XR-1) | thunderkds (operator) | owner / 2026-10-22 / "Approve v0.1.0 @ 30e21a3 (Recommended)" | Pending — operator to run |
 | v0.2.0 @ ac64aae (tag at deploy step 6) | 2026-10-26 | HUN-42, HUN-56–58, HUN-61–73 (workspaces, agent accounts, connector id/alias + sync, Workspaces/Agents pages, multi-account ingest) | thunderkds (operator) | owner / 2026-10-26 / "Approve v0.2.0 @ ac64aae (Recommended)" | Deployed 2026-10-26 23:4x +07 by Supervisor on owner request ("run all for me"): backup store.sqlite.pre-v0.2.0; installed 0.2.0; store migrated v2 -> v6 (575 events kept, bak-v2 written); adopt-legacy: nothing to adopt; health checks all pass (version 0.2.0, schema 6, ping 0, doctor rc=0, 10 MCP tools, dashboard 5 tabs, no console errors); tag v0.2.0 pushed with main to github |
 | v0.3.0 @ 1c80450 (never tagged; superseded by v0.4.0) | 2026-11-01 | HUN-175–179 (Live view: 2.1.316 record types, live tail, `GET /api/live` SSE, Live tab, release prep); also since v0.2.0: HUN-83, HUN-113–121, HUN-126–132 (dashboard look and Kit cards), HUN-160–164 (Work view: Board, Scheduled, Memory; You/Agents split + m0007), HUN-165–170 (live-trace spike, experiments only) | thunderkds (operator) | owner / 2026-11-01 / "Approve v0.3.0 @ 1c80450 (Recommended)" | Superseded — not tagged; the owner's install moved past it (store v8 on 2026-11-03) |
-| v0.4.0 @ 373d007 (tag at deploy step 5) | 2026-11-03 | HUN-181–182 (live attention states + badge), HUN-184–185 (easy-memory layer), HUN-186–191 (dashboard speed, gone projects, owner project, board/usage/memory/kit UX, top-10 lists), HUN-192 (store v8 `tool_error_count`), HUN-193 (`kit_findings` MCP + CLI), HUN-195 (5 % habit gap), HUN-183 (release docs); HUN-194 closed as duplicate | thunderkds (operator) | owner / 2026-11-03 / "Approve v0.4.0 @ 373d007 (Recommended)" | Pending — operator to run steps 3–7 (store already migrated to v8 by the owner's 10:54 reinstall) |
+| v0.4.0 @ 385dbed (tag at deploy step 5) | 2026-11-03 | HUN-181–182 (live attention states + badge), HUN-184–185 (easy-memory layer), HUN-186–191 (dashboard speed, gone projects, owner project, board/usage/memory/kit UX, top-10 lists), HUN-192 (store v8 `tool_error_count`), HUN-193 (`kit_findings` MCP + CLI), HUN-195 (5 % habit gap), HUN-183 (release docs), HUN-196 (cache reuse card follows the period, written-to-cache + lowest model); HUN-194 closed as duplicate | thunderkds (operator) | owner / 2026-11-03 / "Approve v0.4.0 @ 385dbed (Recommended)" (supersedes the earlier approval of 373d007) | Pending — operator to run steps 3–7 (store already migrated to v8 by the owner's 10:54 reinstall) |
