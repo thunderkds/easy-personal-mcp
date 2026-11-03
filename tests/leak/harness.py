@@ -110,6 +110,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/jobs": [""],  # HUN-163: fake systemctl/crontab with a planted canary in arguments (see leak conftest)
     "/api/memory-graph": ["", "?project=%2Fnope", "?project="],  # HUN-164; each listed project is also called by collect_api
     "/api/live": ["", "?token=leak-test-token"],  # HUN-177: SSE stream, read by `read_live_stream` over a tail that has read the planted transcripts
+    "/api/dirs": ["", "?path=%2F", "?path=%2Fnope", "?path=relative"],  # HUN-203: folder names only; planted trees are listed in collect_api
     "/api/first-run": [""],  # HUN-160: four done / not-done flags and fixed hints
     "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
@@ -384,6 +385,10 @@ def collect_api(out: Collected, logs: "LogCapture", secret: str = "", workdir: P
             res = client.get(path + query, headers=headers)
             out.add(f"api {path}{query}", f"{res.status_code} {dict(res.headers)} {res.text}")
     _collect_live(out, client.app, token)
+    if workdir is not None:  # HUN-203: list the planted trees (transcripts, repo with memory notes, easy-memory store): their file names and bodies hold canaries
+        for target in (workdir.parent, workdir.parent / "projects", workdir.parent / "repo", workdir.parent / "repo" / "memory", workdir.parent / "easy-memory"):
+            res = client.get("/api/dirs", params={"path": str(target)}, headers=headers)
+            out.add(f"api /api/dirs planted {target.name}", f"{res.status_code} {dict(res.headers)} {res.text}")
     listed = client.get("/api/memory-graph", headers=headers).json().get("projects", [])
     for project in listed:  # HUN-164: the graph of every project with memory notes
         res = client.get("/api/memory-graph", params={"project": project["project"]}, headers=headers)
