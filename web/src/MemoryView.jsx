@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getJson } from './api.js'
 import { compact, fmt, percent } from './format.js'
 import { useLoad } from './useLoad.js'
+import Loading from './Loading.jsx'
 
 export const MAX_DRAWN = 300 // more nodes than this are counted, not drawn
 const SIZE = 640
@@ -178,7 +179,7 @@ function EasyMemoryPanel({ data }) {
 function ProjectGraph({ project }) {
   const [selectedId, setSelectedId] = useState(null)
   const state = useLoad(() => getJson(`/api/memory-graph?project=${encodeURIComponent(project)}`), [project])
-  if (state.status === 'loading') return <p role="status">Loading</p>
+  if (state.status === 'loading') return <Loading label="Loading" />
   if (state.status === 'error') return <p role="alert" className="error">Could not load the memory graph.</p>
   const { nodes, edges, counts, name } = state.data
   const easy = state.data.easy_memory ?? null
@@ -242,7 +243,7 @@ export default function MemoryView() {
   return (
     <main className="memory">
       <h1>Memory</h1>
-      {list.status === 'loading' && <p role="status">Loading</p>}
+      {list.status === 'loading' && <Loading label="Loading" />}
       {list.status === 'error' && (
         <p role="alert" className="error">
           Could not load the memory graph.

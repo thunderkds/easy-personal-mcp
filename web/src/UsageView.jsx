@@ -6,6 +6,7 @@ import { NO_SCOPE } from './Scope.jsx'
 import Timeline from './Timeline.jsx'
 import { abstainedText, costFigure, fmt, percent, totalTokens } from './format.js'
 import { Compact, Progress, Sparkline, Trend, useTopN } from './Widgets.jsx'
+import Loading from './Loading.jsx'
 
 export const PERIODS = [
   { id: '7', label: 'Last 7 days', days: 7 },
@@ -329,7 +330,7 @@ export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgen
           </button>
         ))}
       </div>
-      {state.status === 'loading' && <p role="status">Loading usage</p>}
+      {state.status === 'loading' && <Loading label="Loading usage" />}
       {state.status === 'error' && (
         <p role="alert" className="error">
           Could not load usage: {state.message}

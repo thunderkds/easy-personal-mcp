@@ -1,9 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
 import { getJson, sendJson } from './api.js'
+import Loading from './Loading.jsx'
+import { useNotify } from './Toast.jsx'
 
 const optional = (promise, fallback) => promise.catch(() => fallback)
 const emptyToNull = (text) => (text.trim() === '' ? null : text.trim())
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const accountName = (a) => a.label || a.folder.split('/').filter(Boolean).pop() || a.folder
+/** Ids of the hint and error spans of a field that its input names in `aria-describedby`. */
+const described = (id, hint, error) => [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined
+
+/** The hint (what format) and the error (what is wrong) under a field. */
+function FieldNotes({ id, hint, error }) {
+  return (
+    <>
+      {hint && (
+        <span id={`${id}-hint`} className="hint">
+          {hint}
+        </span>
+      )}
+      {error && (
+        <span id={`${id}-error`} className="field-error">
+          {error}
+        </span>
+      )}
+    </>
+  )
+}
+
+/** The first problem of each field that has one; empty colour and email are allowed. Mirrors the server rules. */
+function check({ name, color, email }) {
+  const errors = {}
+  if (!name.trim()) errors.name = 'Name is required'
+  if (color.trim() && !HEX_COLOR.test(color.trim())) errors.color = 'Use #rrggbb, for example #0b5fd6'
+  if (email.trim() && !EMAIL.test(email.trim())) errors.email = 'Enter a valid email, for example name@example.com'
+  return errors
+}
 
 /**
  * The lists the page shows. Workspaces and the catalog are required; accounts are optional. The legacy scan is slow
@@ -50,10 +83,11 @@ function useWorkspaceData() {
 
 /**
  * One write at a time for the whole page: ask for the plan (confirm false), show it, send confirm true.
- * `review(send)` resolves 'plan' (waiting for Confirm), 'final' (answered) or 'error'.
+ * The answer and any error float as toasts. `review(send)` resolves 'plan' (waiting for Confirm), 'final' (answered) or 'error'.
  */
 function useAction(onDone) {
-  const [st, setSt] = useState({ plan: null, result: null, error: null })
+  const notify = useNotify()
+  const [plan, setPlan] = useState(null)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
   const doneRef = useRef(onDone)
@@ -63,20 +97,20 @@ function useAction(onDone) {
     if (busyRef.current) return 'error'
     busyRef.current = true
     setBusy(true)
-    setSt((s) => ({ ...s, error: null, result: confirm ? s.result : null }))
     try {
       const body = await send(confirm)
       if (!confirm && body.pending) {
-        setSt({ plan: { lines: body.lines, send }, result: null, error: null })
+        setPlan({ lines: body.lines, send })
         return 'plan'
       }
       const ok = body.status === 0
       const lines = body.lines?.length ? body.lines : [ok ? 'Done.' : 'Nothing was changed.']
-      setSt({ plan: null, result: { ok, lines }, error: null })
+      setPlan(null)
+      notify(ok ? 'success' : 'error', lines.join('\n'))
       await doneRef.current(body)
       return 'final'
     } catch (e) {
-      setSt((s) => ({ ...s, error: e.message }))
+      notify('error', `Could not complete: ${e.message}`)
       return 'error'
     } finally {
       busyRef.current = false
@@ -85,49 +119,36 @@ function useAction(onDone) {
   }
 
   return {
-    ...st,
+    plan,
     busy,
-    locked: busy || st.plan !== null,
+    locked: busy || plan !== null,
     review: (send) => go(send, false),
-    confirm: () => go(st.plan.send, true),
-    cancel: () => setSt({ plan: null, result: null, error: null }),
-    reset: () => setSt({ plan: null, result: null, error: null }),
+    confirm: () => go(plan.send, true),
+    cancel: () => setPlan(null),
+    reset: () => setPlan(null),
   }
 }
 
-/** The plan with Confirm / Cancel, the last answer, or the last error. */
+/** The plan with Confirm / Cancel. It takes focus when it appears. The answer is a toast, not part of this block. */
 function Changes({ act }) {
   const ref = useRef(null)
   useEffect(() => {
     if (act.plan) ref.current?.focus()
   }, [act.plan])
+  if (!act.plan) return null
   return (
-    <>
-      {act.plan && (
-        <section role="group" aria-label="Changes" tabIndex={-1} ref={ref}>
-          <p>This will change:</p>
-          <pre className="plan">{act.plan.lines.join('\n')}</pre>
-          <div className="actions">
-            <button type="button" onClick={act.confirm} disabled={act.busy}>
-              Confirm
-            </button>
-            <button type="button" onClick={act.cancel} disabled={act.busy}>
-              Cancel
-            </button>
-          </div>
-        </section>
-      )}
-      {act.error && (
-        <p role="alert" className="error">
-          Could not complete: {act.error}
-        </p>
-      )}
-      {act.result && (
-        <div role="status" className={act.result.ok ? undefined : 'error'}>
-          <pre className="plan">{act.result.lines.join('\n')}</pre>
-        </div>
-      )}
-    </>
+    <section role="group" aria-label="Changes" tabIndex={-1} ref={ref}>
+      <p>This will change:</p>
+      <pre className="plan">{act.plan.lines.join('\n')}</pre>
+      <div className="actions">
+        <button type="button" onClick={act.confirm} disabled={act.busy}>
+          Confirm
+        </button>
+        <button type="button" onClick={act.cancel} disabled={act.busy}>
+          Cancel
+        </button>
+      </div>
+    </section>
   )
 }
 
@@ -147,8 +168,15 @@ function ConnectorRow({ connector: c, workspaces, orphan, act }) {
       </div>
       <div className="field">
         <label htmlFor={`alias-${c.id}`}>Alias</label>
-        <input id={`alias-${c.id}`} value={alias} autoComplete="off" spellCheck={false} onChange={(e) => setAlias(e.target.value)} />
-        <span className="muted">Leave empty for the default alias.</span>
+        <input
+          id={`alias-${c.id}`}
+          value={alias}
+          aria-describedby={`alias-${c.id}-hint`}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => setAlias(e.target.value)}
+        />
+        <FieldNotes id={`alias-${c.id}`} hint="Leave empty for the default alias." />
       </div>
       <div className="actions">
         <button
@@ -190,6 +218,7 @@ function AddConnector({ workspace, data, act }) {
   const [alias, setAlias] = useState('')
   const [values, setValues] = useState({})
   const [submitted, setSubmitted] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
 
   const held = data.connectors.filter((c) => c.workspace === workspace.name).map((c) => c.provider)
   const available = data.catalog.filter((e) => !held.includes(e.id))
@@ -219,7 +248,9 @@ function AddConnector({ workspace, data, act }) {
         values,
         confirm,
       })
+    setReviewing(true)
     const outcome = await act.review(send)
+    setReviewing(false)
     if (outcome === 'plan') setSubmitted(true)
     else if (outcome === 'final') close()
   }
@@ -263,31 +294,40 @@ function AddConnector({ workspace, data, act }) {
           . Use the form below only if you want this launcher instead.
         </p>
       )}
-      {showFields &&
-        entry.fields.map((f) => (
-          <div className="field" key={f.env}>
-            <label htmlFor={`add-${f.env}`}>{f.label}</label>
+      {showFields && (
+        <div className="form-grid">
+          {entry.fields.map((f) => (
+            <div className="field" key={f.env}>
+              <label htmlFor={`add-${f.env}`}>{f.label}</label>
+              <input
+                id={`add-${f.env}`}
+                name={f.env}
+                type={f.secret ? 'password' : 'text'}
+                autoComplete="off"
+                spellCheck={false}
+                value={values[f.env] ?? ''}
+                onChange={(e) => setValues({ ...values, [f.env]: e.target.value })}
+              />
+            </div>
+          ))}
+          <div className="field">
+            <label htmlFor="add-alias">Alias (optional)</label>
             <input
-              id={`add-${f.env}`}
-              name={f.env}
-              type={f.secret ? 'password' : 'text'}
+              id="add-alias"
+              value={alias}
+              aria-describedby="add-alias-hint"
               autoComplete="off"
               spellCheck={false}
-              value={values[f.env] ?? ''}
-              onChange={(e) => setValues({ ...values, [f.env]: e.target.value })}
+              onChange={(e) => setAlias(e.target.value)}
             />
+            <FieldNotes id="add-alias" hint="Leave empty for the default alias." />
           </div>
-        ))}
-      {showFields && (
-        <div className="field">
-          <label htmlFor="add-alias">Alias (optional)</label>
-          <input id="add-alias" value={alias} autoComplete="off" spellCheck={false} onChange={(e) => setAlias(e.target.value)} />
         </div>
       )}
       <div className="actions">
         {showFields && (
           <button type="submit" disabled={act.locked}>
-            Review changes
+            {reviewing ? 'Reviewing…' : 'Review changes'}
           </button>
         )}
         <button type="button" onClick={close} disabled={act.busy}>
@@ -307,82 +347,165 @@ function WorkspaceForm({ workspace, data, act, onBack }) {
   const [email, setEmail] = useState(workspace?.email ?? '')
   const [description, setDescription] = useState(workspace?.description ?? '')
   const [repos, setRepos] = useState(workspace?.repos ?? [])
+  const [errors, setErrors] = useState({})
+  const [pending, setPending] = useState(false)
+  const refs = { name: useRef(null), color: useRef(null), email: useRef(null) }
   const mine = isNew ? [] : data.connectors.filter((c) => c.workspace === workspace.name)
+  const clear = (field) => setErrors((e) => (e[field] ? { ...e, [field]: undefined } : e))
+  const colorValue = HEX_COLOR.test(color.trim()) ? color.trim().toLowerCase() : '#000000'
 
-  function save(e) {
+  async function save(e) {
     e.preventDefault()
+    const found = check({ name, color, email })
+    setErrors(found)
+    const first = ['name', 'color', 'email'].find((k) => found[k])
+    if (first) {
+      refs[first].current?.focus()
+      return
+    }
     const fields = {
-      name,
+      name: name.trim(),
       color: emptyToNull(color),
       icon: emptyToNull(icon),
       email: emptyToNull(email),
       description: emptyToNull(description),
       repos: repos.map((r) => r.trim()).filter(Boolean),
     }
-    if (isNew)
-      act.review(async () => {
-        const body = await sendJson('POST', '/api/workspaces', fields)
-        return { status: 0, pending: false, lines: [`Workspace '${body.workspace.name}' created.`], workspace: body.workspace }
-      })
-    else act.review((confirm) => sendJson('PATCH', `/api/workspaces/${workspace.id}`, { ...fields, confirm }))
+    setPending(true)
+    try {
+      if (isNew)
+        await act.review(async () => {
+          const body = await sendJson('POST', '/api/workspaces', fields)
+          return { status: 0, pending: false, lines: [`Workspace '${body.workspace.name}' created.`], workspace: body.workspace }
+        })
+      else await act.review((confirm) => sendJson('PATCH', `/api/workspaces/${workspace.id}`, { ...fields, confirm }))
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
     <section aria-label="Workspace form">
       <h2>{isNew ? 'New workspace' : `Edit ${workspace.name}`}</h2>
-      <Changes act={act} />
-      <form onSubmit={save}>
-        <div className="field">
-          <label htmlFor="ws-name">Name</label>
-          <input id="ws-name" value={name} autoComplete="off" spellCheck={false} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="ws-color">Color (#rrggbb)</label>
-          <input id="ws-color" value={color} autoComplete="off" spellCheck={false} onChange={(e) => setColor(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="ws-icon">Icon (short text)</label>
-          <input id="ws-icon" value={icon} maxLength={32} autoComplete="off" onChange={(e) => setIcon(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="ws-email">Email</label>
-          <input id="ws-email" type="email" value={email} autoComplete="off" onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="ws-description">Description</label>
-          <textarea id="ws-description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <fieldset className="group">
-          <legend>Repos</legend>
-          {repos.map((r, i) => (
-            <div className="repo-row" key={i}>
+      <form onSubmit={save} noValidate>
+        <div className="form-grid">
+          <div className="field">
+            <label htmlFor="ws-name" className="required">
+              Name
+            </label>
+            <input
+              id="ws-name"
+              ref={refs.name}
+              value={name}
+              aria-required="true"
+              aria-invalid={errors.name ? 'true' : undefined}
+              aria-describedby={described('ws-name', null, errors.name)}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
+                setName(e.target.value)
+                clear('name')
+              }}
+            />
+            <FieldNotes id="ws-name" error={errors.name} />
+          </div>
+          <div className="field">
+            <label htmlFor="ws-color">Color</label>
+            <div className="color-row">
               <input
-                aria-label={`Repo ${i + 1}`}
-                value={r}
+                id="ws-color"
+                ref={refs.color}
+                value={color}
+                placeholder="#0b5fd6"
+                aria-invalid={errors.color ? 'true' : undefined}
+                aria-describedby={described('ws-color', 'Optional. Format #rrggbb, or pick one.', errors.color)}
                 autoComplete="off"
                 spellCheck={false}
-                onChange={(e) => setRepos(repos.map((x, j) => (j === i ? e.target.value : x)))}
+                onChange={(e) => {
+                  setColor(e.target.value)
+                  clear('color')
+                }}
               />
-              <button type="button" aria-label={`Remove repo ${i + 1}`} onClick={() => setRepos(repos.filter((_, j) => j !== i))}>
-                ✕
+              <input
+                type="color"
+                aria-label="Color picker"
+                value={colorValue}
+                onChange={(e) => {
+                  setColor(e.target.value)
+                  clear('color')
+                }}
+              />
+            </div>
+            <FieldNotes id="ws-color" hint="Optional. Format #rrggbb, or pick one." error={errors.color} />
+          </div>
+          <div className="field">
+            <label htmlFor="ws-icon">Icon</label>
+            <input
+              id="ws-icon"
+              value={icon}
+              maxLength={32}
+              aria-describedby="ws-icon-hint"
+              autoComplete="off"
+              onChange={(e) => setIcon(e.target.value)}
+            />
+            <FieldNotes id="ws-icon" hint="Optional. Short text, up to 32 characters." />
+          </div>
+          <div className="field">
+            <label htmlFor="ws-email">Email</label>
+            <input
+              id="ws-email"
+              ref={refs.email}
+              type="email"
+              value={email}
+              aria-invalid={errors.email ? 'true' : undefined}
+              aria-describedby={described('ws-email', 'Optional. The main email of this workspace.', errors.email)}
+              autoComplete="off"
+              onChange={(e) => {
+                setEmail(e.target.value)
+                clear('email')
+              }}
+            />
+            <FieldNotes id="ws-email" hint="Optional. The main email of this workspace." error={errors.email} />
+          </div>
+          <div className="field wide">
+            <label htmlFor="ws-description">Description</label>
+            <textarea id="ws-description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          <fieldset className="group wide" aria-describedby="ws-repos-hint">
+            <legend>Repos</legend>
+            <FieldNotes id="ws-repos" hint="Optional. One absolute path per repo, for example /home/me/projects/acme." />
+            {repos.map((r, i) => (
+              <div className="repo-row" key={i}>
+                <input
+                  aria-label={`Repo ${i + 1}`}
+                  value={r}
+                  placeholder="/absolute/path/to/repo"
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(e) => setRepos(repos.map((x, j) => (j === i ? e.target.value : x)))}
+                />
+                <button type="button" aria-label={`Remove repo ${i + 1}`} onClick={() => setRepos(repos.filter((_, j) => j !== i))}>
+                  ✕
+                </button>
+              </div>
+            ))}
+            <div className="actions">
+              <button type="button" onClick={() => setRepos([...repos, ''])}>
+                + Add repo
               </button>
             </div>
-          ))}
-          <div className="actions">
-            <button type="button" onClick={() => setRepos([...repos, ''])}>
-              + Add repo
-            </button>
-          </div>
-        </fieldset>
+          </fieldset>
+        </div>
         <div className="actions">
           <button type="submit" disabled={act.locked}>
-            Save
+            {pending ? 'Saving…' : 'Save'}
           </button>
           <button type="button" onClick={onBack} disabled={act.busy}>
             Back to workspaces
           </button>
         </div>
       </form>
+      <Changes act={act} />
 
       {!isNew && (
         <>
@@ -505,7 +628,7 @@ export default function WorkspacesView() {
       </p>
     </>
   )
-  if (state.status === 'loading') return <main>{header}<p role="status">Loading workspaces</p></main>
+  if (state.status === 'loading') return <main>{header}<Loading label="Loading workspaces" /></main>
   if (state.status === 'error')
     return (
       <main>
