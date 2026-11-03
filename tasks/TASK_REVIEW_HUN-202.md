@@ -56,5 +56,30 @@ AC check: AC1 1664 <= 1680-16 and bottom 16 px from 1080; AC2 unchanged; AC3 16 
 
 **DELTA**: On a wide screen the toasts now stay inside the page box instead of at the far screen edge, and the loading pill shows in the middle of the content area instead of at the top-right.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: frontend-developer agent ran BEFORE (14:47:28Z) and AFTER (14:50:15Z) measurements; Supervisor reviewed the diff and the measurement table at Stage 4 (2026-11-03). Owner /verify pending.
+
+---
+
+## Stage 4 code-review (HUN-202)
+
+Scope: `git diff main...HEAD` — `web/src/app.css`, `web/src/shell.test.js`, `web/src/Toast.test.jsx`; callers: every view using `Loading.jsx` and `useNotify()` (no markup change). `lane_check`: `lane: C1, 3 files, 45 lines, FITS`. Entry point `.toast-host` / `.loading-pill` found in `web/src/app.css`. Startup reads line complete (PROJECT_SPEC.md, guide, agents/frontend.md). Conditional reviewers: none activated (CSS + tests only, < 50 code lines).
+
+Correctness check: shell is centred at 50% of the viewport, the main area is the shell minus the left sidebar, so its centre is `50% + sidebar/2` at every width ≥ 64rem — matches the measured 1076 px (1920) and 756 px (1280). Toast `right: max(16px, (100% - 90rem)/2 + 16px)` gives 1664 = shell right 1680 − 16 at 1920 and 16 px at ≤ 90rem.
+
+## P0 — Must Fix
+None.
+
+## P1 — Should Fix
+None.
+
+## P2 — Recommended
+None.
+
+## P3 — Optional
+| File | Line | Finding | Confidence | Action |
+| -- | -- | -- | -- | -- |
+| web/src/Toast.test.jsx | 108 | The toast-host placement is now pinned twice (here and in `shell.test.js`) | 75 | Keep one pin when next touching these tests |
+| (vitest run) | — | Agent saw 1 failing test in one full run that did not reproduce in 3 reruns; not identified | 75 | Watch for a flaky test; name it if it recurs |
+
+Verdict: P0 0, P1 0, P2 0, P3 2. No fixes applied.
+
