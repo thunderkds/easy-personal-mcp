@@ -61,3 +61,45 @@ Full log: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-eas
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
+
+---
+
+## Stage 4 code-review (HUN-203)
+
+Scope: `git diff main...HEAD` (10 files); callers: `create_app` route table, `WorkspaceForm`. `lane_check`: `lane: C2, 9 files, 691 lines, EXCEEDS (lines 691 > 500)` — 468 of those lines are tests; label kept C2. Entry points `Route("/api/dirs", dirs_list)` (`src/easy_personal/surfaces/api.py`) and `Browse…` (`web/src/WorkspacesView.jsx`) found. Startup reads line complete (PROJECT_SPEC.md, guide, agents/frontend.md). Conditional reviewers: security (input handling, filesystem), adversarial (≥ 50 lines), api (new route), over-engineering (new module `core/folders.py`: one caller, but keeps `api.py` thin like the other core helpers — accepted).
+
+Checks re-run by the Supervisor: `uv run pytest -q` → `1333 passed, 6 deselected, 1 xfailed` (the agent's 2 stale-build failures are gone after its rebuild); symlink-loop path → 400 `Not an existing folder` (Python 3.13.2).
+
+## P0 — Must Fix
+None.
+
+## P1 — Should Fix
+None.
+
+## P2 — Recommended
+None.
+
+## P3 — Optional
+| File | Line | Finding | Confidence | Action |
+| -- | -- | -- | -- | -- |
+| src/easy_personal/core/folders.py | 27 | Hidden folders are left out of a listing, but an explicit `?path=/home/u/.ssh` still lists that hidden folder's sub-folder names (names only, token-gated) | 75 | Accept (the UI never builds such a path); or refuse a path with a hidden segment if the owner wants it stricter |
+| web/src/app.css | 576 | Adds a shared `main button.primary` style (only used by "Choose this folder"); not in the guide, but it answers the HUN-200 suggestion "Save has no primary style" | 75 | Keep; apply to Save in a later task if wanted |
+
+Verdict: P0 0, P1 0, P2 0, P3 2. No fixes applied.
+
+## Stage 4 security review (HUN-203, Risk Medium)
+
+The built-in `security-review` skill failed to start (`git diff --name-only origin/HEAD...`: this repo's remote is `github`, there is no `origin`), so the Supervisor reviewed by hand against the same checklist:
+
+| Area | Finding | Result |
+| -- | -- | -- |
+| Access control | `/api/dirs` sits behind `Guard` (Host, Origin, `X-Dashboard-Token`); query-string token not accepted. Tests `test_needs_the_token`, `test_wrong_host_and_foreign_origin_are_refused`; real run: no token 403, wrong Host 403 | pass |
+| Data exposure | Sub-folder names + `repo` flag only; no file names, sizes, contents, symlink targets. Leak suite lists 5 planted trees whose file names and bodies hold canaries: `tests/leak` 35 passed | pass |
+| Input handling | Relative / missing / file / NUL → 400 with fixed text, path never echoed; symlink loop → 400; unreadable → 403 fixed text | pass |
+| Writes | `os.scandir` + `is_dir` + `lexists` only; nothing written | pass |
+| Logging | uvicorn `access_log=False`; the route logs nothing | pass |
+| Network | binds 127.0.0.1 (unchanged); no new outbound call | pass |
+| Page | folder names rendered as React text (escaped); dialog buttons `type="button"` outside the form | pass |
+| Residual | Anyone holding the per-launch token can list folder names the user can read — same trust as the dashboard itself. Hidden-folder note above (P3) | Low, accepted |
+
+Verdict: no High/Medium findings.
