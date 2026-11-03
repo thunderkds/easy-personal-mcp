@@ -41,12 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_tool_errors.py` (AC1,2,3,6 + v8 no-op + old-binary refusal), `tests/sources/test_claude_code_tool_errors.py` (AC4), `tests/leak/test_leak_suite.py::test_failed_tool_result_was_counted_and_its_text_not_stored` + planted `INVENTED_failed-tool-result-*` in `tests/fixtures/leak/session.jsonl.tmpl` (AC5). Before the code: 25 failed; after: `25 passed` (targeted), leak suite `34 passed`. AC7: real run below. |
+| Verification command run | ☑ pass | `uv run pytest tests/core/test_migrations.py tests/sources -q && uv run pytest tests/leak -q && uv run pytest -q` exit 0; final stage: `1189 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 160.25s (0:02:40)` |
+| Negative cases hold | ☑ pass | `is_error` `"true"`/1/missing not counted; text-only, string content, non-list content, assistant/system records -> NULL; deleted file keeps NULL; re-read never turns a known count back to NULL; v8 store opened by a v7 program refused (`newer than this program`). |
+| verify | ☐ N/A | Supervisor runs `verify` at Stage 5. Migration-safety gate (skill text read; `Skill` tool not available to this agent, checklist walked by hand): GO. Additive nullable column; no DROP/RENAME/NOT NULL; same shape as m0007 (idempotent column check + offset reset); automatic `<store>.bak-v7` backup (verified in real run: `store.sqlite.bak-v7`); rollback = restore the backup; dry-run on a 348 MB copy of the owner's store below; no heavy lock (`ADD COLUMN` rewrites nothing). |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | full `uv run pytest -q`: 1189 passed (3 older tests updated for v8: `test_store.py` allowed columns, `test_entrypoint.py` version check, `test_connectors_schema.py` v5 fixture column). |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -75,9 +75,25 @@ $ sqlite3 <copy> "SELECT COUNT(*), SUM(byte_offset>0) FROM source_files WHERE so
 1198|1197          <- 1198 claude_code files, 1197 with a non-zero offset
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (real run 2026-11-03 02:57:16-02:58:01 UTC, copy of the owner's store, `EASY_PERSONAL_HOME=<scratch>/home`; live store never touched):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+events before: 386360 v7
+$ /usr/bin/time -v uv run easy-personal ingest      # migrates 7 -> 8 (backup store.sqlite.bak-v7), then re-reads every transcript
+  files 1214 ... Elapsed (wall clock) time: 0:44.69 ... Maximum resident set size: 71472 kB
+$ sqlite3 <copy> "PRAGMA user_version; SELECT COUNT(*) FROM events; SELECT COUNT(*), SUM(tool_error_count IS NOT NULL), SUM(tool_error_count) FROM events WHERE record_type='user'; SELECT COUNT(*) FROM events WHERE record_type<>'user' AND tool_error_count IS NOT NULL;"
+8
+391123
+56432|47356|2376          <- user rows | with a known count | total failed tool results
+0                        <- non-user rows with a count
+$ ls: ingest.lock  store.sqlite  store.sqlite.bak-v7
+# the 386360 original rows keep their ids (id <= bak-v7 max id: 386360 rows; 55707 user rows, 46700 now filled);
+# the +4763 events are new transcript lines written after the snapshot (ingest reported new_events 4763), not duplicates.
+# source_files claude_code: 1214 files, 1213 with offset > 0 after ingest (was reset to 0 by the migration).
+$ second ingest: new_events 1 (+5 other sources), 1.14 s; user count totals 56433|47357|2376 (unchanged, idempotent)
+```
+
+**DELTA**: The store (v8) now records, per user record, how many tool results failed (`events.tool_error_count`, NULL = unknown), so the next task can compute a tool-error rate per session.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
