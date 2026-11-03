@@ -11,6 +11,8 @@
 ### Todo
 
 ### In Progress
+- [ ] **HUN-201** — Easy Kit link → easy-kits.vercel.app; landing page flow made visual (SVG system diagram + quick-start strip) | ? | ? | Risk: ? | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-201.md`
+- [ ] **HUN-202** — Toasts stay inside the page box; loading indicator in the middle of the content area (FR-065 follow-up) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-202.md`
 
 ### Ready for Review
 
