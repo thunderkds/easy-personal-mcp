@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { useState } from 'react'
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import UsageView from './UsageView.jsx'
@@ -17,13 +18,19 @@ const options = {
 }
 const NONE = { workspace: '', account: '' }
 
+/** The period lives in App (HUN-196): this stands in for it, so the picker still works in these tests. */
+function WithPeriod({ scope }) {
+  const [period, setPeriod] = useState('7')
+  return <UsageView scope={scope} options={options} period={period} onPeriodChange={setPeriod} />
+}
+
 /** The scope now lives in App (HUN-118): the view takes `scope` + `options` and refetches when they change. */
 async function renderView(overrides, scope = NONE) {
   const fetchStub = fakeFetch(overrides)
   vi.stubGlobal('fetch', fetchStub)
-  const view = render(<UsageView scope={scope} options={options} />)
+  const view = render(<WithPeriod scope={scope} />)
   await screen.findByRole('heading', { name: 'Totals' })
-  fetchStub.rerender = (next) => view.rerender(<UsageView scope={next} options={options} />)
+  fetchStub.rerender = (next) => view.rerender(<WithPeriod scope={next} />)
   return fetchStub
 }
 

@@ -7,7 +7,7 @@ import Timeline from './Timeline.jsx'
 import { abstainedText, costFigure, fmt, percent, totalTokens } from './format.js'
 import { Compact, Progress, Sparkline, Trend, useTopN } from './Widgets.jsx'
 
-const PERIODS = [
+export const PERIODS = [
   { id: '7', label: 'Last 7 days', days: 7 },
   { id: '30', label: 'Last 30 days', days: 30 },
   { id: 'all', label: 'All time', days: null },
@@ -277,9 +277,9 @@ function Outliers({ data }) {
   )
 }
 
-export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgents = () => {} }) {
+/** The period is app-wide (HUN-196): App owns it and the right rail reads it too. */
+export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgents = () => {}, period = '7', onPeriodChange = () => {} }) {
   const { workspace, account } = scope
-  const [period, setPeriod] = useState('7')
   const [state, setState] = useState({ status: 'loading' })
 
   useEffect(() => {
@@ -324,7 +324,7 @@ export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgen
       )}
       <div className="periods" role="group" aria-label="Period">
         {PERIODS.map((p) => (
-          <button key={p.id} type="button" aria-pressed={p.id === period} onClick={() => setPeriod(p.id)}>
+          <button key={p.id} type="button" aria-pressed={p.id === period} onClick={() => onPeriodChange(p.id)}>
             {p.label}
           </button>
         ))}

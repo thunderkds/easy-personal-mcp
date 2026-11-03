@@ -1,6 +1,7 @@
 import { getJson } from './api.js'
 import { limitTone, percent, until } from './format.js'
 import { scopeQuery } from './Scope.jsx'
+import { PERIODS } from './UsageView.jsx'
 import { useLoad } from './useLoad.js'
 import { Progress, Ring } from './Widgets.jsx'
 
@@ -22,16 +23,41 @@ function Card({ title, state, children }) {
   )
 }
 
-function CacheReuse({ scope }) {
-  const state = useLoad(() => {
-    const since = `since=${encodeURIComponent(new Date(Date.now() - 7 * DAY_MS).toISOString())}`
-    return getJson(`/api/usage/summary?${[since, scopeQuery(scope)].filter(Boolean).join('&')}`)
-  }, [scope.workspace, scope.account])
-  const ratio = state.status === 'ready' ? state.data.cache_hit_ratio : null
+const MIN_MESSAGES = 20 // a model needs this many messages in the period to count for "Lowest"
+const MIN_MODELS = 2
+const promptOf = (row) => row.input_tokens + row.cache_creation_input_tokens + row.cache_read_input_tokens
+
+/** The model with the lowest cache hit ratio among those with enough messages, or null with fewer than two such models. */
+function lowestModel(groups) {
+  const rated = groups
+    .filter((g) => g.key !== '(unknown)' && g.messages >= MIN_MESSAGES && promptOf(g) > 0)
+    .map((g) => ({ name: g.key, ratio: g.cache_read_input_tokens / promptOf(g) }))
+  return rated.length < MIN_MODELS ? null : rated.reduce((low, m) => (m.ratio < low.ratio ? m : low))
+}
+
+function CacheReuse({ scope, period }) {
+  const chosen = PERIODS.find((p) => p.id === period) ?? PERIODS[0]
+  const state = useLoad(async () => {
+    const since = chosen.days === null ? '' : `since=${encodeURIComponent(new Date(Date.now() - chosen.days * DAY_MS).toISOString())}`
+    const url = (path, extra = '') => {
+      const query = [extra, since, scopeQuery(scope)].filter(Boolean).join('&')
+      return query ? `${path}?${query}` : path
+    }
+    // The breakdown only adds the "Lowest" line: when it fails, the ring and the written line stay.
+    const [summary, models] = await Promise.all([getJson(url('/api/usage/summary')), getJson(url('/api/usage/breakdown', 'by=model')).catch(() => null)])
+    return { summary, models }
+  }, [period, scope.workspace, scope.account])
+  const summary = state.status === 'ready' ? state.data.summary : null
+  const ratio = summary ? summary.cache_hit_ratio : null
+  const prompt = summary ? promptOf(summary) : 0
+  const lowest = summary && prompt > 0 && state.data.models ? lowestModel(state.data.models.groups) : null
+  const days = chosen.label.toLowerCase()
   return (
     <Card title="Cache reuse" state={state}>
-      <Ring ratio={ratio} label={ratio === null ? 'Cache reuse: no data' : `Cache reuse ${percent(ratio)}, last 7 days`} />
-      <p className="muted rail-note">Share of prompt tokens read from cache, last 7 days.</p>
+      <Ring ratio={ratio} label={ratio === null ? 'Cache reuse: no data' : `Cache reuse ${percent(ratio)}, ${days}`} />
+      <p className="muted rail-note">{`Share of prompt tokens read from cache, ${days}.`}</p>
+      {prompt > 0 && <p className="muted rail-note">{`Written to cache ${percent(summary.cache_creation_input_tokens / prompt)}`}</p>}
+      {lowest && <p className="muted rail-note">{`Lowest: ${lowest.name} ${percent(lowest.ratio)}`}</p>}
     </Card>
   )
 }
@@ -106,10 +132,10 @@ function PlanLimits({ refresh }) {
 }
 
 /** `refresh` changes when the accounts changed (App reloads its scope options), so the limits are read again. */
-export default function Rail({ scope, refresh, onOpenPlan }) {
+export default function Rail({ scope, refresh, onOpenPlan, period = '7' }) {
   return (
     <div className="rail">
-      <CacheReuse scope={scope} />
+      <CacheReuse scope={scope} period={period} />
       <NextActions scope={scope} onOpenPlan={onOpenPlan} />
       <PlanLimits refresh={refresh} />
     </div>

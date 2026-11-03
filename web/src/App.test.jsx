@@ -26,6 +26,22 @@ it('opens on Usage and switches in-page between the views without changing the U
   expect(window.location.hash).toBe('#secret-token')
 })
 
+it('the Usage period is app-wide: the rail card follows it, and it survives a view switch (HUN-196, FR-064)', async () => {
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Totals' })
+  const periods = () => within(screen.getByRole('group', { name: 'Period' }))
+  expect(periods().getByRole('button', { name: 'Last 7 days' })).toHaveAttribute('aria-pressed', 'true')
+  expect(await screen.findByRole('img', { name: /Cache reuse .*, last 7 days/ })).toBeInTheDocument()
+  fireEvent.click(periods().getByRole('button', { name: 'Last 30 days' }))
+  expect(await screen.findByRole('img', { name: /Cache reuse .*, last 30 days/ })).toBeInTheDocument()
+  fireEvent.click(within(nav()).getByRole('button', { name: 'Board' }))
+  expect(await screen.findByRole('img', { name: /Cache reuse .*, last 30 days/ })).toBeInTheDocument()
+  fireEvent.click(within(nav()).getByRole('button', { name: 'Usage' }))
+  await screen.findByRole('heading', { name: 'Totals' })
+  expect(periods().getByRole('button', { name: 'Last 30 days' })).toHaveAttribute('aria-pressed', 'true')
+  expect(periods().getByRole('button', { name: 'Last 7 days' })).toHaveAttribute('aria-pressed', 'false')
+})
+
 it('lists the 7 views in the sidebar and marks only the active one', () => {
   render(<App />)
   const buttons = within(nav()).getAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'))

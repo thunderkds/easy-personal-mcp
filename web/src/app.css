@@ -352,7 +352,7 @@ ul.part-lines > li { padding: var(--space-1) 0; border-top: 1px solid var(--colo
 .ring-track { stroke: var(--color-track); stroke-width: 8; }
 .ring-value { stroke: var(--color-accent); stroke-width: 8; filter: var(--glow-line); }
 .ring-text { fill: var(--color-accent); font-family: var(--font-mono); font-size: 17px; font-weight: 500; }
-.rail-note { line-height: 1.5; }
+.rail-note { line-height: 1.5; overflow-wrap: anywhere; }
 .rail-list { display: flex; flex-direction: column; gap: 10px; font-size: var(--fs-cell); line-height: 1.45; }
 ol.rail-list { counter-reset: rail; }
 ol.rail-list > li { display: flex; gap: 10px; counter-increment: rail; overflow-wrap: anywhere; }
