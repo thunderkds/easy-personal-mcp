@@ -10,47 +10,20 @@
 
 ---
 
-<!-- Optional: the final report, only for a task run in auto mode (the user's `[auto]` tag,
-`docs/claude-md/tracks.md` `## Auto mode`). To use it, copy the block below out of this comment, to this
-place, and replace every <...>. Keep `Mode: auto` as its first line, exactly as written: T182's hook reads
-it. Write it to this file before the run ends; the chat message is a copy, not the report. The same
-block is the Supervisor's final chat message. It is not the `delivery-report` page and not
-Evidence. A taste decision (what the user wants) also ends with the flag. Write `DEBATED` only when ≥2
-Advocate `Agent` calls ran for that question, naming each Advocate's option. A decision with no Advocates is
-labelled `RULE`, `FACT` or `SAFER OPTION`, never `DEBATED`. A decision flagged `⚠ decided for you` is a choice, and is never labelled `FACT`. A
-safety action a rule requires (for example the backup before a delete) is `RULE` without the flag.
-At Risk Medium or High, a `RULE:` counts only when it names a written rule (`path:line`,
-`path § <heading>`, or `docs/claude-md/tracks.md` `### <section>`), and a `FACT:` needs a Citation
-(`path:line "quoted text"`); without one it is a choice and must be `DEBATED`. Good: `2. backed up the CSV
-— RULE: `docs/claude-md/tracks.md` `### Stops that stay``. Bad: `1. kept recurring.csv — RULE: Surgical Changes`.
-
-## Auto decisions
-
-Mode: auto
-1. <what was decided> — RULE: <the rule>
-2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its option>; Advocate 2: <its option>) ⚠ decided for you — please review
-4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
-Paused: <only when a stop that stays paused the task: which one, and why>
-Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
-Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | /verify (yours)>
-
--->
-
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/shell.test.js` (new describe "toast host and loading pill placement (HUN-202, FR-065)", 4 tests, AC 1-5 CSS rules); `web/src/Toast.test.jsx` (old `right: var(--space-4)` pin updated to the new rule). Red first: 3 of 4 new tests failed on the old CSS (the phone-rule test already held), then passed. |
+| Verification command run | ☑ pass | `cd web && npx vitest run` -> `Test Files  20 passed (20)  Tests  548 passed (548)` (run twice; one earlier full run showed 1 unrelated failed test that did not reproduce in 3 reruns, not identified); `npm --prefix web run build` -> `built in 310ms`; `uv run pytest tests/test_web_toolchain.py -q` -> `16 passed in 2.22s` |
+| Negative cases hold | ☑ pass | 375 px: `scrollWidth` 375 = innerWidth 375 with pill and toast; pill (y 388-424) and toast (y 664-726) do not overlap; 1280 px toast unchanged (right 1264) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Headless screenshots BEFORE/AFTER in the scratchpad (`before/` and `after/`, `{1920,1280,375}-{loading,toast}.png`); AFTER 1920 toast sits inside the shell, bottom-right of the page box; pill in the content middle (see AFTER measurements) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Only existing tokens used (`--space-4`, `--shell-max`, `--sidebar-width`); no new token, no colour literal; existing Toast.test.jsx "tokens only" test passes |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1920x1080, 1280x720, 375x812 measured; no horizontal overflow (scrollWidth = innerWidth in all six states) |
 
 ---
 
@@ -61,12 +34,27 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-03T14:47:28Z, headless Chrome (CDP getBoundingClientRect) on the unchanged `web/src/app.css` (HEAD 849f304), dashboard built from this worktree on a COPY of the store. Script: scratchpad `measure.mjs`; `scroll` = documentElement.scrollWidth.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+| Viewport | `.shell` L-R | main column (`.content`) L-R, centre x | `.toast-host` L-R, bottom | `.loading-pill` L-R, centre x/y | scroll |
+|---|---|---|---|---|---|
+| 1920x1080 | 240-1680 | 473-1679, cx 1076 | 1520-1904, bottom 1064 (16 px above window bottom) | 1761.5-1904, cx 1832.8, cy 86 | 1920 |
+| 1280x720 | 0-1280 | 232-1280, cx 756 | 880-1264, bottom 704 | 1121.5-1264, cx 1192.8, cy 86 | 1280 |
+| 375x812 | 0-375 | 0-375, cx 187.5 | 16-359, bottom 796 | 216.5-359, cx 287.8, cy 86 | 375 |
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+At 1920 the toast right edge (1904) is 224 px outside the shell right edge (1680); the pill is at the far screen edge (cx 1832.8 vs main column centre 1076) and at the top (cy 86 vs window middle 540). Screenshots: scratchpad `before/before-{1920,1280,375}-{loading,toast}.png`.
+
+**AFTER**: captured 2026-11-03T14:50:15Z, same script and same viewports, after the CSS change (dashboard rebuilt from this worktree, store copy).
+
+| Viewport | `.shell` L-R | main column L-R, cx | `.toast-host` L-R, bottom | `.loading-pill` L-R, cx/cy | scroll |
+|---|---|---|---|---|---|
+| 1920x1080 | 240-1680 | 473-1679, cx 1076 | 1280-1664 (shell right 1680 - 16), bottom 1064 | 1004.8-1147.3, cx 1076, cy 540 | 1920 |
+| 1280x720 | 0-1280 | 232-1280, cx 756 | 880-1264 (unchanged), bottom 704 | 684.8-827.3, cx 756, cy 360 | 1280 |
+| 375x812 | 0-375 | 0-375, cx 187.5 | 16-359 (unchanged), bottom 796 | 116.3-258.8, cx 187.5, cy 406 | 375 |
+
+AC check: AC1 1664 <= 1680-16 and bottom 16 px from 1080; AC2 unchanged; AC3 16 px gutter, no scroll; AC4 pill cx = main column cx (1076 / 756) and cy = window middle (540 / 360), at 375 centred (187.5, 406) with no scroll.
+
+**DELTA**: On a wide screen the toasts now stay inside the page box instead of at the far screen edge, and the loading pill shows in the middle of the content area instead of at the top-right.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

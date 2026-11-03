@@ -105,10 +105,10 @@ describe('toast host (AC5, AC6)', () => {
 describe('toast and loading styles (design system)', () => {
   const block = (selector) => css.match(new RegExp(`(?:^|\\n)${selector.replace(/[.[\]]/g, '\\$&')}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
 
-  it('fixes the host bottom-right with a 16 px (--space-4) gutter', () => {
+  it('fixes the host bottom-right with a 16 px (--space-4) gutter from the page box', () => {
     const rule = block('.toast-host')
     expect(rule).toContain('position: fixed')
-    expect(rule).toContain('right: var(--space-4)')
+    expect(rule).toContain('right: max(var(--space-4),') // wider screens: inside the shell edge (HUN-202)
     expect(rule).toContain('bottom: var(--space-4)')
   })
 

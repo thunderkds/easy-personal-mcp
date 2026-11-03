@@ -493,7 +493,8 @@ main.live { max-width: none; }
 /* Floating notifications (toasts) and the floating loading pill: fixed, so the page never moves */
 .toast-host {
   position: fixed;
-  right: var(--space-4);
+  /* --space-4 inside the shell's right edge: on a screen wider than the shell, add the margin on each side of it (% = viewport width without the scrollbar, as for .shell) */
+  right: max(var(--space-4), calc((100% - var(--shell-max)) / 2 + var(--space-4)));
   bottom: var(--space-4);
   z-index: 10;
   display: flex;
@@ -523,8 +524,12 @@ main.live { max-width: none; }
 }
 .loading-pill {
   position: fixed;
-  top: calc(var(--header-height) + var(--space-3));
-  right: var(--space-4);
+  /* Middle of the window; centred on the whole shell (which is centred on the screen) below 64rem */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  max-width: calc(100% - 2 * var(--space-4));
   z-index: 9;
   display: inline-flex;
   align-items: center;
@@ -535,6 +540,10 @@ main.live { max-width: none; }
   border-radius: 999px;
   color: var(--color-secondary);
   font-size: var(--fs-control);
+}
+/* From 64rem the sidebar shows: centre on the main column. Its centre is 50% + half the sidebar at any screen width */
+@media (min-width: 64rem) {
+  .loading-pill { left: calc(50% + var(--sidebar-width) / 2); }
 }
 .spinner { flex: none; width: 0.875rem; height: 0.875rem; border: 2px solid var(--color-track); border-top-color: var(--color-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
