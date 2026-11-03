@@ -34,8 +34,13 @@
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-03T11:42:47Z, on branch HUN-198 before any implementation commit; store = scratch copy of `~/.easy-memory`, `EASY_MEMORY_HOME` pointed at the copy, project `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-memory-mcp`; the real store was not written):
+
+```
+EASY_MEMORY_HOME=<scratch copy of ~/.easy-memory> project_graph(easy-memory-mcp)['easy_memory']:
+{"notes": 141, "abstained": 0, "days": "<30 days>", "prompts_on": 52, "injected": 35, "files_cited": 31, "files_not_drawn": 1, "outside": 0}
+has 'report' key: False
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
