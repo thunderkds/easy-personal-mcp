@@ -261,6 +261,7 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-198 | Memory panel: memory on vs off block from easy-memory report.json (FR-066) | Done (merged 2026-11-03) | Supervisor | C2 | Low | P2 |
 | HUN-200 | Dashboard form UX, floating toasts, floating loading pill (FR-065) | Done (merged 2026-11-03) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-202 | Toasts inside the page box; loading pill in the content middle (FR-065 follow-up) | Done (merged 2026-11-03) | Frontend-Implementer | C1 | Low | P1 |
+| HUN-203 | Repos folder browser + gap above Save (FR-068) | Done (merged 2026-11-03) | Frontend-Implementer | C2 | Medium | P1 |
 | HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).

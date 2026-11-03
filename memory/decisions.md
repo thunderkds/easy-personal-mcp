@@ -36,6 +36,11 @@
 **Why**: owner 2026-11-03: "the easy kit just update the link … update the index page more visualize, will be easy to catch with the flow, diagram also". Open suggestion (P2): lower the hide threshold to ~560 px so tablets see the diagram.
 **Files**: `site/index.html`, `web/src/App.jsx`, `scripts/check_static.py`, `tests/test_site_content.py`, `PROJECT_SPEC_SITE.md`
 
+### 2026-11-03 — Repos folder browser lists folder names from the server (HUN-203, FR-068)
+**Decision**: `GET /api/dirs?path=` (`core/folders.py` `list_dirs`) answers sub-folder names + a `repo` flag (`.git` exists) for an absolute path, default `os.getcwd()` of the dashboard process; hidden entries left out, ≤ 500 entries (`truncated`), 400 bad path / 403 unreadable with fixed text, path never echoed or logged, behind `Guard` (header token only). The page's `FolderPicker.jsx` is a modal `<dialog>` (Up / Home / folder list / "Choose this folder"); "+ Type a path" keeps the text row. `.form-actions` gives Save/Back a `--space-4` gap; `main button.primary` is the first primary-button style.
+**Why**: owner 2026-11-03: Repos should be a button that opens the current directory; a browser cannot return an absolute path from the OS dialog, so the server lists names. Accepted residual: an explicit `?path=` into a hidden folder lists its sub-folder names (token-gated, names only). The built-in `security-review` skill needs an `origin` remote (this repo has `github`), so HUN-203's security review was done by hand.
+**Files**: `src/easy_personal/core/folders.py`, `src/easy_personal/surfaces/api.py`, `tests/surfaces/test_api_dirs.py`, `tests/leak/harness.py`, `web/src/FolderPicker.jsx`, `web/src/WorkspacesView.jsx`, `web/src/app.css`
+
 ## Infrastructure
 
 ### 2026-10-21 — Board scoped to Linear project easy-personal-mcp (P-HUN-3)
