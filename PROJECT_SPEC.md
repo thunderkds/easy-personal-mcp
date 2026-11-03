@@ -258,6 +258,8 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-193 | kit_findings: like-with-like session comparison per kit server, MCP tool + CLI (FR-060..FR-063, NFR-014; after HUN-192) | Done (merged 2026-11-03) | Backend-Implementer | C2 | Medium | P0 |
 | HUN-195 | kit_findings: a finding needs a gap of at least 5% to carry a habit (FR-062, owner 2026-11-03) | Done (merged 2026-11-03, owner approved) | Supervisor | C1 | Low | P1 |
 | HUN-196 | Cache reuse card follows the app-wide period, with written-to-cache and lowest-model lines (FR-064) | Done (merged 2026-11-03) | Frontend-Implementer | C2 | Low | P1 |
+| HUN-198 | Memory panel: memory on vs off block from easy-memory report.json (FR-066) | Done (merged 2026-11-03) | Supervisor | C2 | Low | P2 |
+| HUN-200 | Dashboard form UX, floating toasts, floating loading pill (FR-065) | Done (merged 2026-11-03) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).

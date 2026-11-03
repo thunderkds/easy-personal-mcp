@@ -25,6 +25,11 @@
 **Why**: owner 2026-11-03 asked easy-memory to give easy-personal its numbers; easy-memory owns the on/off join logic, this repo only shows it (no MCP call, DDR-0002). Layout and wording are Supervisor defaults (PRD Open Questions row 23).
 **Files**: `src/easy_personal/core/easymem.py`, `src/easy_personal/core/memgraph.py`, `web/src/MemoryView.jsx`, `tests/core/test_easymem.py`, `tests/surfaces/test_api_memory_graph.py`, `tests/leak/`
 
+### 2026-11-03 — One floating toast host and one floating loading pill for the dashboard (HUN-200, FR-065)
+**Decision**: `web/src/Toast.jsx` (`ToastProvider` in `App.jsx`, `useNotify()` → `notify(kind, text)`) is the only place action results and action errors show: bottom-right, max 3 (oldest dropped), success `role=status` hides after 5 s, error `role=alert` stays until closed. `web/src/Loading.jsx` is the only page/list loading line (fixed pill under the header, `role=status`). Failed page loads, the Rail card loading and the Live link status stay inline. Forms check fields client-side before any request (`HEX_COLOR`, `EMAIL`, required Name) with errors next to the field; the Confirm/Cancel plan stays inline after the buttons.
+**Why**: owner 2026-11-03 (auto mode) asked for better form UX and floating notifications/loading. Placement, timing and what stays inline are auto-mode Supervisor defaults (`tasks/TASK_REVIEW_HUN-200.md` decisions 2–5). Open suggestions: long success toasts close after 5 s; pill overlaps the scope line at 375 px; Save has no primary style.
+**Files**: `web/src/Toast.jsx`, `web/src/Loading.jsx`, `web/src/App.jsx`, `web/src/WorkspacesView.jsx`, `web/src/AgentsView.jsx`, `web/src/app.css`
+
 ## Infrastructure
 
 ### 2026-10-21 — Board scoped to Linear project easy-personal-mcp (P-HUN-3)
