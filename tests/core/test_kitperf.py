@@ -394,6 +394,22 @@ def test_a_worse_server_is_listed_under_other_without_a_habit_and_findings_stay_
     assert "50.0% more tokens per tool call" in other["text"] and "linked to" in other["text"]
 
 
+@pytest.mark.parametrize("kit_tokens, habit", [(96, False), (95.5, False), (95, True)])
+def test_a_better_gap_under_5_percent_goes_to_other_without_a_habit(conn, kit_tokens, habit):
+    # other sessions: 100 tokens per call; kit sessions: kit_tokens per call -> delta -4 %, -4.5 %, -5 %
+    seeded(conn, 10, 12, kit_tokens=kit_tokens, other_tokens=100)
+    result = kitperf.kit_findings(conn, limit=10, threshold=0.2)
+    if habit:
+        (finding,) = result["findings"]
+        assert finding["delta_pct"] == -5.0 and finding["habit"] == kitperf.HABITS["easy-memory"]
+        assert result["other"] == []
+    else:
+        assert result["findings"] == []
+        (other,) = result["other"]
+        assert other["habit"] is None and "fewer tokens per tool call" in other["text"]
+    assert kitperf.MIN_GAP_PCT == 5.0
+
+
 def test_texts_never_claim_a_cause(conn):
     seeded(conn, 10, 12)
     seeded(conn, 10, 12, kit_tokens=300, server="easy-ui", prefix="u")
