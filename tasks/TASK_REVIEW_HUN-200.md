@@ -20,8 +20,32 @@ Mode: auto
 5. Failed page loads stay inline; the Rail card's own loading and the Live link status stay inline — SAFER OPTION: they are page or card state, not notifications ⚠ decided for you — please review
 6. Stage 0.5 grill/brainstorm answered from the request and code: PRD US-028 + FR-065 written by the Supervisor; brainstorming took the one recommended direction — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule` rows 2 and 4 ⚠ (taste) decided for you — please review
 7. Sub-agent spawned on this session's CLI and model — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule` row 14
-Checks: pending
+8. Stage 4 code-review: no P0/P1; P2/P3 left as suggestions, not applied — RULE: `.claude/skills/code-review/SKILL.md` Phase 4 (only P0/P1 are fixed automatically)
+9. html-report for the review not rendered — SAFER OPTION: findings are recorded here; the page adds no check ⚠ decided for you — please review
+Checks: tests `cd web && npx vitest run` — 20 files / 529 tests passed (was 18 / 487); `npm --prefix web run build` — built; `uv run pytest tests/test_web_toolchain.py -q` — 16 passed (agent run 2026-11-03T12:35Z); reviews code-review — P0 0, P1 0, P2 1, P3 3; real run: dashboard from the branch on a copy of the owner store, screenshots `after-{1280,375}-*.png` in the session scratchpad `shots/` — field errors next to fields, toast bottom-right, loading pill floating (auto-checked, not /verify)
 Not done: merge (yours); /verify (yours)
+
+### Stage 4 code-review (HUN-200)
+
+Scope: 18 files (`git diff main...HEAD`), callers = `App.jsx` provider. `lane_check`: `lane: C2, 17 files, 1041 lines, EXCEEDS (files 17 > 14; lines 1041 > 500)` — the loading pill touches 10 views by design; label kept C2. Entry point `ToastProvider` found in `web/src/App.jsx:99`. Startup reads line complete.
+
+## P0 — Must Fix
+None.
+
+## P1 — Should Fix
+None.
+
+## P2 — Recommended
+| File | Line | Finding | Confidence | Action |
+| -- | -- | -- | -- | -- |
+| web/src/WorkspacesView.jsx | 109 | A long multi-line success result (e.g. a connector plan answer) now hides after 5 s; before it stayed on the page | 75 | Keep success toasts with more than ~3 lines open until closed, or longer timeout |
+
+## P3 — Optional
+| File | Line | Finding | Confidence | Action |
+| -- | -- | -- | -- | -- |
+| web/src/app.css | 522 | At 375 px the loading pill overlaps the wrapped scope line under the header (`after-375-loading-usage.png`) | 100 | Place the pill lower on phones or at the bottom-centre |
+| web/src/app.css | 516 | Save is first but has the same style as the other buttons; no visual primary | 75 | Add a primary button style from tokens |
+| web/src/WorkspacesView.test.jsx | — | Form tests were written with the implementation, not seen failing alone (agent report) | 100 | Process note only; tests do assert the ACs |
 
 
 ## Evidence
