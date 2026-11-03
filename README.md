@@ -4,7 +4,7 @@ The Easy Kit plug-in about you, not a repo: it turns your local Claude Code acti
 
 Local-first. No network at runtime. Metadata only, never message content. No LLM inside.
 
-Status: v0.3.0. It runs natively on Linux. See `PRD.md` (what and why), `PROJECT_SPEC.md` (how) and `docs/ddr/` (design decisions).
+Status: v0.4.0. It runs natively on Linux. See `PRD.md` (what and why), `PROJECT_SPEC.md` (how) and `docs/ddr/` (design decisions).
 
 ## What it reads
 
@@ -35,7 +35,7 @@ easy-personal --version
 easy-personal ping
 ```
 
-The first command prints `0.3.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
+The first command prints `0.4.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
 
 ## Quick start
 
@@ -59,7 +59,7 @@ easy-personal kit
 easy-personal kit-findings --json
 ```
 
-`kit-findings` compares sessions with and without each Easy Kit MCP server, like with like, and says "linked to", never "caused" (`--limit`, `--since`; rules in `PROJECT_SPEC.md`). `usage --by` takes `day`, `model`, `project` or `tool`. `usage` and `outliers` take `--since` and `--until` (ISO dates). `ingest --retention-days N` deletes events older than N days.
+`kit-findings` compares sessions with and without each Easy Kit MCP server (see Kit performance below; `--limit`, `--since`). `usage --by` takes `day`, `model`, `project` or `tool`. `usage` and `outliers` take `--since` and `--until` (ISO dates). `ingest --retention-days N` deletes events older than N days.
 
 Group repos into workspaces and filter usage by one. A workspace counts events whose project path equals or sits under one of its repo paths. The name is a slug (`orphan` is reserved for the built-in workspace). The email is information only.
 
@@ -131,7 +131,59 @@ The tab shows:
 - A feed of tool calls per session, newest first, the last 50.
 - Running totals of tokens and API-equivalent cost. An unknown model price is named, never counted as $0.
 
+Each session can carry an **attention state**. The tail works it out, and the page only shows it as a badge that names the tool, a border and a count in the Live header. Active sessions with a state sort first. There are three states:
+
+- **failing**: one stream of the session ended its last 3 tool results in a row with an error. The next successful result in that stream clears it. A denied permission counts as an error. A stream is the main thread or one subagent.
+- **waiting for you**: the session has an open `AskUserQuestion` or `ExitPlanMode` call. It shows at once. An open call is a tool call whose result has not arrived yet.
+- **needs attention**: another open call is older than 10 minutes and the whole session (main thread and subagents) wrote nothing in that time. It means the call is hung or waits for a permission. A long subagent that keeps writing is not flagged.
+
+Two settings change the limits. Put them under `thresholds:` in `~/.easy-personal/config.yaml`:
+
+```yaml
+thresholds:
+  live_failing_streak: 3
+  live_open_call_minutes: 10
+```
+
+`live_failing_streak` is the number of failed results in a row (default 3). `live_open_call_minutes` is the age of an open call in minutes (default 10). Only the Live view shows attention states. The MCP tools, the CLI and notifications do not.
+
+The tail pairs a call with its result in memory only. It stores and sends no call id. An open call is dropped after 24 hours.
+
+Known limit: the tail starts from the positions that the ingest saved. A call that opened before `easy-personal dashboard` started, and that the scheduled ingest already read, is not seen as open. Its session gets no state from that call.
+
 The totals count what the tail saw since the dashboard started. The tab never shows message text, tool input or tool output, only tool names, counts and times. Claude Code itself writes some records a little late, so an event can show up a second or two after it happened.
+
+### Kit performance
+
+The MCP tool `kit_findings` and the command `easy-personal kit-findings` answer one question: which Easy Kit servers are linked to cheaper or better sessions on your own history. The four kit servers are easy-ui, easy-verifier, easy-context and easy-memory. A session used a kit server when one of its tool calls is named `mcp__<server>__...`. Subagent calls count for their session.
+
+```bash
+easy-personal kit-findings
+easy-personal kit-findings --json --limit 5 --since 2026-10-01
+```
+
+The comparison is like with like. A session that used a kit server is compared with sessions that did not, in the same project, with the same main model and a similar number of tool calls. Sessions with no tool call are not compared. Three measures are compared: tokens per tool call, API-equivalent cost per tool call and the share of good results. Raw totals are not compared, because a long session always has more tokens.
+
+A **good result** is a session that has a commit on its own git branch between its first event and 30 minutes after its last event, and a tool-error rate of at most `kit_error_rate` (failed tool results divided by tool calls). A session on `main`, `master` or `HEAD`, or with no branch, has an unknown result. It is not a bad result. A session whose errors were never counted also has an unknown result.
+
+The result has three lists:
+
+- `findings`: comparisons where the server side is better by at least 5 %. Each one has a fixed habit text, such as use the server before you start. At most 3 are returned (`--limit`, up to 10).
+- `other`: every other comparison that has enough sessions. It has the same numbers and no habit. A gap smaller than 5 % goes here.
+- `not_enough`: servers that have fewer than 10 pooled sessions on either side, with their session counts.
+
+A comparison needs at least 10 pooled sessions on each side. The text always says "linked to", never "caused": the numbers show a link in your history, not a cause. Nothing is stored: the result is worked out from the event store on every call. No LLM writes any text.
+
+Set the limit for a good result under `thresholds:`:
+
+```yaml
+thresholds:
+  kit_error_rate: 0.04
+```
+
+The default 0.04 is the median tool-error rate of the owner's sessions. The git check reads local branches only, never fetches, and stops after 2 seconds. Whatever it did not check in time is unknown.
+
+The kit kernel's `wake` skill will read `kit_findings` at session start and add at most 3 lines from `findings`. That change belongs to the kernel repo (XR-2) and is not shipped yet. Until then, ask Claude to call `kit_findings`, or run the command.
 
 ## Schedule
 
@@ -230,11 +282,14 @@ verifier:
   reports_dir: ~/path/to/easy-verifier-reports
 thresholds:
   cache_hit_low: 0.4
+  live_failing_streak: 3
+  live_open_call_minutes: 10
+  kit_error_rate: 0.04
 ```
 
 - `ui: reports_dir:` is the easy-ui report folder. Without it, UI checks show as no data.
 - `verifier: reports_dir:` is the easy-verifier report folder. The default is `~/.easy-verifier-reports`.
-- `thresholds:` overrides a rule threshold by rule id. The rules are in `src/easy_personal/data/rules.yaml`.
+- `thresholds:` overrides a rule threshold by rule id. The rules are in `src/easy_personal/data/rules.yaml`. It also takes `live_failing_streak` and `live_open_call_minutes` (see Live view) and `kit_error_rate` (see Kit performance). A value that is not a number is refused.
 
 | Variable | Meaning |
 | -- | -- |
@@ -255,7 +310,9 @@ npm --prefix web ci && npm --prefix web run build
 uv tool install --reinstall --no-cache .
 ```
 
-The first command that opens the store applies the pending migrations. Version 0.3.0 moves a store from version 6 to 7: it adds the `entrypoint` column for the You and Agents split, and the next ingest fills it in. The migration leaves `store.sqlite.bak-v6` beside the store. The Live view needs no config change.
+The first command that opens the store applies the pending migrations. Version 0.4.0 moves a store from version 7 to 8 (`m0008_tool_errors`). It adds the column `tool_error_count`, the number of failed tool results in each user record, which the kit performance comparison needs. The migration leaves `store.sqlite.bak-v7` beside the store. The earlier move from version 6 to 7 (0.3.0) left `store.sqlite.bak-v6`.
+
+The next ingest re-reads every Claude Code transcript that is still on disk and fills in the error counts. It adds no row. On a large store this takes about 20 to 45 seconds, once. Error counts of deleted transcripts stay unknown, never 0, and the sessions that need them are not scored. The Live view and the Memory view need no config change.
 
 Before an upgrade, back up the store so you can roll back:
 
@@ -263,7 +320,7 @@ Before an upgrade, back up the store so you can roll back:
 cp -p ~/.easy-personal/store.sqlite ~/.easy-personal/store.sqlite.backup
 ```
 
-To roll back, remove the connectors you added since the deploy and the timer, uninstall the tool and restore the store:
+To roll back, remove the connectors you added since the deploy and the timer, uninstall the tool and restore the store. The 0.3.0 program refuses a version 8 store ("newer than this program"), so restore the store first. Use the backup you made before the upgrade, or the `.bak-v7` file that the migration left, then install the 0.3.0 program:
 
 ```bash
 easy-personal connector remove slack
@@ -271,6 +328,8 @@ easy-personal schedule remove
 uv tool uninstall easy-personal-mcp
 cp -p ~/.easy-personal/store.sqlite.backup ~/.easy-personal/store.sqlite
 ```
+
+To restore from the migration's own copy instead, use `cp -p ~/.easy-personal/store.sqlite.bak-v7 ~/.easy-personal/store.sqlite`. Stop the dashboard first. Then install the 0.3.0 program from its tag. A store that went back to version 7 migrates again on the next 0.4.0 run.
 
 The full deploy, health check and rollback steps, and the common failures, are in [`RUNBOOK.md`](RUNBOOK.md).
 

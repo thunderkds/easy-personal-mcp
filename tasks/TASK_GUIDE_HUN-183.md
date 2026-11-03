@@ -1,4 +1,4 @@
-**Date**: 2026-11-02
+**Date**: 2026-11-03
 **Complexity Level**: C1
 **Risk Level**: Low
 **Priority**: P1
@@ -22,25 +22,24 @@ Before writing any code:
 
 ## Requirement (Pillar 1 — Adapt the requirement)
 
-Owner request 2026-11-02: live attention states as the next version; owner chose Option C and said "let go".
+Owner request 2026-11-02: live attention states as the next version. **Widened 2026-11-03 (owner): one release 0.4.0** from `main` that carries everything merged since 0.3.0 (`1c80450`): live attention (HUN-181..182), the easy-memory layer (HUN-184..185), the dashboard UX pass (HUN-186..191) and kit performance (HUN-192, HUN-193, HUN-195). HUN-194 (a separate 0.5.0) is closed as a duplicate of this task.
 
 **Restated intent**:
 
-> Bump the package to 0.4.0. In `README.md` Live view: describe the three attention states, the two settings (`live_failing_streak`, `live_open_call_minutes` under `thresholds:`), and the accepted limit (a call opened before `easy-personal dashboard` started is not seen as open, PRD OQ #17). Update the site where the drift tests require it, and hand the Supervisor what `ship` needs (changed tasks; upgrade note: no migration, no config change needed).
+> Bump the package to 0.4.0. In `README.md`: (1) Live view — the three attention states, the two settings (`live_failing_streak`, `live_open_call_minutes` under `thresholds:`) and the accepted limit (a call opened before `easy-personal dashboard` started is not seen as open, PRD OQ #17); (2) Memory view — the easy-memory layer (cited-file nodes, stale mark, 30-day panel) if not documented yet; (3) a new "Kit performance" section — what `kit_findings` / `easy-personal kit-findings` return (`findings` with a habit, `other`, `not_enough`), "linked to, not caused", ≥ 10 pooled sessions per side, a gap of at least 5 % for a habit, the good-result rule, the `kit_error_rate` setting under `thresholds:` (default 0.04), and that `wake` reads findings only after XR-2 ships in the kit kernel; replace the placeholder sentence HUN-193 added; (4) "Upgrade and rollback" — store migration 7 → 8 (`m0008_tool_errors`), backup `store.sqlite.bak-v7`, the next ingest re-reads transcripts (about 20–45 s on the owner's store), error counts stay unknown for deleted transcripts; rollback = restore `.bak-v7` with the 0.3.0 binary. Update the site where the drift tests require it (version pill, tool count). Hand the Supervisor what `ship` needs: the changed tasks and the migration + rollback note.
 
 **Out of scope**:
 
 * New features
-* Pushing or tagging (owner does it)
+* Pushing, tagging or reinstalling the tool (owner does it; reinstall migrates the live store)
+* The kernel `wake` change (XR-2)
 
-**Requirement Refs**: US-023, FR-049
+**Requirement Refs**: US-023, FR-049, US-024, US-025, US-026, FR-059, FR-062, FR-063
 
-### Shared rules (v0.4.0 live attention)
+### Shared rules (v0.4.0)
 
-* Direction: `BRAINSTORMING_LOG_ATTENTION.md` Option C and `memory/decisions.md` "v0.4.0 live attention states = snapshot-pushed state (Option C)". No hooks, no OpenTelemetry, no Claude config write, no new thread, loop or route, no new dependency, nothing new stored (no migration).
-* Metadata only (FR-002, NFR-002): from content blocks read only `type`, `id`, `tool_use_id`, `name`, `is_error`. Never `input`, `content`, `text`. Block ids stay in memory: never in the store, the SSE payload, the page or a log. Extend `tests/leak/test_live_leak.py`.
-* Only an attention-state change bumps `state_version`; an ordinary tool call (open → success) never does.
-* Never use `git stash` (shared across worktrees); refresh `.claude/hooks/.state/active_task` right before every full test run.
+* No code change under `src/` except the version string. Never use `git stash` (shared across worktrees); refresh `.claude/hooks/.state/active_task` right before every full test run.
+* README wording follows ASD-STE100: one term per thing (*attention state*, *open call*, *kit server*, *good result*, *kit finding*, *habit*).
 
 ### Requirement Fidelity Gate (sign off BEFORE implementation)
 
@@ -53,7 +52,7 @@ Owner request 2026-11-02: live attention states as the next version; owner chose
 
 ## Dependencies & Reachability
 
-**Depends on**: HUN-182 (Live view badge)
+**Depends on**: HUN-195
 
 **Entry point**: `easy-personal --version` → `0.4.0`
 
@@ -64,8 +63,10 @@ Owner request 2026-11-02: live attention states as the next version; owner chose
 | \# | Criterion (testable) | Traces to requirement |
 | -- | -- | -- |
 | 1 | `easy-personal --version` prints `0.4.0` | release |
-| 2 | README Live view documents the three states, both settings with defaults, and the start limit; `tests/test_readme.py` passes | US-023, FR-049 |
-| 3 | Site drift tests pass | site |
+| 2 | README Live view documents the three states, both settings with defaults, and the start limit | US-023, FR-049 |
+| 3 | README "Kit performance" documents the tool, the CLI command, `findings` / `other` / `not_enough`, the 10-session and 5 % rules, the good-result rule, `kit_error_rate` with default 0.04, and the XR-2 limit | US-026, FR-062, FR-063 |
+| 4 | README "Upgrade and rollback" has the 7 → 8 migration note, the `.bak-v7` backup and the rollback steps | FR-059 |
+| 5 | `tests/test_readme.py`, the site drift tests and `tests/test_skeleton.py` pass; full suite green | release |
 
 ---
 
@@ -98,7 +99,8 @@ uv run pytest tests/test_readme.py tests/test_site_content.py tests/test_skeleto
 | File | Change |
 | -- | -- |
 | `pyproject.toml`, `src/easy_personal/__init__.py` | version 0.4.0 |
-| `README.md` | Live view: attention states, settings, limit |
+| `README.md` | Live view, Memory view, Kit performance, Upgrade and rollback |
+| `RUNBOOK.md` | not touched: `ship` writes the v0.4.0 entry |
 | site files named by `tests/test_site_content.py` | version pill |
 
 ## Files Must NOT Touch
