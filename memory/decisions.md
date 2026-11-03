@@ -30,6 +30,11 @@
 **Why**: owner 2026-11-03 (auto mode) asked for better form UX and floating notifications/loading. Placement, timing and what stays inline are auto-mode Supervisor defaults (`tasks/TASK_REVIEW_HUN-200.md` decisions 2–5). Open suggestions: long success toasts close after 5 s; pill overlaps the scope line at 375 px; Save has no primary style.
 **Files**: `web/src/Toast.jsx`, `web/src/Loading.jsx`, `web/src/App.jsx`, `web/src/WorkspacesView.jsx`, `web/src/AgentsView.jsx`, `web/src/app.css`
 
+### 2026-11-03 — Easy Kit site is https://easy-kits.vercel.app/; landing flow drawn as one inline SVG (HUN-201, FR-067)
+**Decision**: every Easy Kit link (dashboard `FAMILY` in `web/src/App.jsx`, site header + footer, `scripts/check_static.py` allowlist) points to `https://easy-kits.vercel.app/`; README GitHub repo links to `personal-agentic-claude` stay (repo, not site). `site/index.html` `#flow` holds one token-only inline `<svg role="img">` (both lanes, `data-node` per step, `data-boundary` "your machine", `data-outside` provider) above the kept `data-lane`/`data-step` text lists (now numbered cards with arrows); a `section.quickstart` (4 README commands, no id) sits between `#hero` and `#flow`. The SVG hides when its container is ≤ 720 px (viewport < ~1100 px); the cards carry the flow there. Site stays dark-only (`test_dark_only`).
+**Why**: owner 2026-11-03: "the easy kit just update the link … update the index page more visualize, will be easy to catch with the flow, diagram also". Open suggestion (P2): lower the hide threshold to ~560 px so tablets see the diagram.
+**Files**: `site/index.html`, `web/src/App.jsx`, `scripts/check_static.py`, `tests/test_site_content.py`, `PROJECT_SPEC_SITE.md`
+
 ## Infrastructure
 
 ### 2026-10-21 — Board scoped to Linear project easy-personal-mcp (P-HUN-3)
