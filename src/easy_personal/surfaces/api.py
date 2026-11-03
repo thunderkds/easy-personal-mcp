@@ -35,6 +35,7 @@ from easy_personal.core import (
     board,
     config,
     first_run,
+    folders,
     jobs,
     kit,
     live,
@@ -611,6 +612,16 @@ async def connectors_alias(request):
     return await run_in_threadpool(_run_writer, work, None, True)
 
 
+def dirs_list(request):
+    """`GET /api/dirs?path=`: sub-folder names for the folder browser; the path is never logged or echoed."""
+    try:
+        return JSONResponse(folders.list_dirs(request.query_params.get("path")))
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except OSError:
+        return JSONResponse({"error": "Cannot read this folder"}, status_code=403)
+
+
 def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
     routes = [
         Route(LIVE_PATH, live_stream),
@@ -624,6 +635,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
             "/api/usage/sessions",
             _query(lambda c, q: metrics.session_timeline(c, *_scope(q), detail_sessions=TIMELINE_DETAIL_SESSIONS)),
         ),
+        Route("/api/dirs", dirs_list),
         Route("/api/workspaces", _query(lambda c, q: {"workspaces": workspaces.list_all(c)})),
         Route("/api/workspaces", workspaces_add, methods=["POST"]),
         Route("/api/workspaces/{id}", workspaces_edit, methods=["PATCH"]),
