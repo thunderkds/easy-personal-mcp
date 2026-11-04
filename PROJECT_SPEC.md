@@ -267,6 +267,7 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-205 | Easy Kit update 75040d9 → 04b019a (minimal track) | Done (merged 2026-11-04) | Supervisor | C1 | Low | P1 |
 | HUN-206 | Scratch row in project lists + `GET /api/workspaces/unassigned` (FR-069, FR-070 read side) | Done (merged 2026-11-04) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-207 | Usage opens Scratch; Workspaces page lists repos in no workspace + Add to (FR-069 UI, FR-070; after HUN-206) | Todo | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-209 | Store migration 9: clear stale `abstained` on Claude Code metadata rows (false `records_unreadable`; FR-003, FR-026) | Done (merged 2026-11-04) | Backend-Implementer | C1 | Medium | P1 |
 | HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
