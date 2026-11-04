@@ -61,8 +61,32 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-04T11:10:50Z / re-run 2026-11-04T11:11:31Z, before any change to `src/`.
+Command: `uv run pytest tests/core/test_live.py -q -k "two_tails or another_caller or cursor_at_the_end or replaced_file_is_followed or truncated_file_is_followed" --tb=line`
+Failure of AC 1 (two `LiveTail` objects on one store; the first poll wins the store cursor, the second tail lists no session):
+
+```
+>           assert {s["session_id"] for s in tail.snapshot(now=clock())["sessions"]} == {"sess1", "sess2", "sess3"}
+E           AssertionError: assert set() == {'sess1', 'sess2', 'sess3'}
+E             Extra items in the right set:
+E             'sess2'
+E             'sess3'
+E             'sess1'
+tests/core/test_live.py:770: AssertionError
+```
+
+Full summary of the run:
+
+```
+AssertionError: assert [] == ['Old', 'New']
+AssertionError: assert (0 == 3)
+FAILED tests/core/test_live.py::test_two_tails_on_one_store_each_list_every_session_and_every_tool_event_once_in_the_store
+FAILED tests/core/test_live.py::test_a_line_stored_by_another_caller_between_two_polls_is_still_published_and_not_stored_again
+FAILED tests/core/test_live.py::test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_nothing_until_a_new_line
+FAILED tests/core/test_live.py::test_a_replaced_file_is_followed_by_both_tails_without_publishing_old_lines_twice
+FAILED tests/core/test_live.py::test_a_truncated_file_is_followed_by_both_tails_without_an_error_or_a_second_publish
+5 failed, 38 deselected in 1.04s
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
