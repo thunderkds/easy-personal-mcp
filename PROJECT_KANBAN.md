@@ -107,6 +107,7 @@
 - [x] **HUN-203** — Repos folder browser in the workspace form + gap above Save (FR-068) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-203.md`
 - [x] **HUN-205** — Commit the Easy Kit update 75040d9 → 04b019a (kit files only) | Supervisor | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-205.md`
 - [x] **HUN-206** — Scratch row in project lists + unassigned-repos read route (FR-069, FR-070 read side) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-206.md`
+- [x] **HUN-209** — Store migration 9: clear the stale abstained flag on Claude Code metadata rows (false \`records_unreadable\` warning) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-209.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
