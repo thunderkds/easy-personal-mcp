@@ -747,12 +747,18 @@ def tool_events(tail, session):
 
 
 def seed_three(projects, manual, clock):
-    """Three sessions in three projects, one old record each, then two tails that start on that store."""
+    """Three sessions in three projects, one old record each, then two tails that start on that store.
+
+    Each tail polls once (it sees the three files at the store cursor), as a running dashboard would.
+    """
     for n in (1, 2, 3):
         record = assistant(session=f"sess{n}", tools=(), ts=clock.stamp())
         record["cwd"] = f"/work/app-{n}"
         append(projects / session_file(n), record)
-    return manual(), manual()
+    tails = manual(), manual()
+    for tail in tails:
+        tail.poll_once()
+    return tails
 
 
 def test_two_tails_on_one_store_each_list_every_session_and_every_tool_event_once_in_the_store(
@@ -814,8 +820,12 @@ def test_a_replaced_file_is_followed_by_both_tails_without_publishing_old_lines_
     write_line(clock, projects, 1, tool="New")  # new inode, shorter than the old offset
     first.poll_once()
     second.poll_once()
-    for tail in (first, second):
-        assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Old", "New"]
+    write_line(clock, projects, 1, tool="Next")
+    first.poll_once()
+    second.poll_once()
+    assert [e["tool"] for e in tool_events(first, "sess1")] == ["Old", "New", "Next"]
+    # the second tail restarts the new file at the store cursor, which the first tail already moved
+    assert [e["tool"] for e in tool_events(second, "sess1")] == ["Old", "Next"]
 
 
 def test_a_truncated_file_is_followed_by_both_tails_without_an_error_or_a_second_publish(projects, manual, clock):
@@ -836,3 +846,40 @@ def test_a_truncated_file_is_followed_by_both_tails_without_an_error_or_a_second
         assert tools.count("Old") == 3 and tools.count("Newer") == 1 and tools.count("New") <= 1
     assert tool_events(second, "sess1")[-1]["tool"] == "Newer"
 
+
+
+def test_one_batch_with_a_line_stored_by_another_caller_and_a_new_line_publishes_both_and_stores_the_new_one(
+    projects, manual, clock
+):
+    tail, _other = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1, tool="Read")
+    with store.opened(config.store_path()) as conn:
+        claude_code.ingest_accounts(conn)  # stores "Read" only
+    write_line(clock, projects, 1, tool="Write")  # the tail now reads both in one batch
+    tail.poll_once()
+    assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Read", "Write"]
+    assert len(store_rows("SELECT 1 FROM events")) == 5
+    assert store_rows("SELECT byte_offset FROM source_files WHERE path LIKE '%sess1.jsonl'") == [
+        ((projects / session_file(1)).stat().st_size,)
+    ]
+
+
+def test_a_store_cursor_that_goes_back_does_not_make_the_tail_publish_history_again(projects, manual, clock):
+    tail, _other = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1, tool="Read")
+    tail.poll_once()
+    with store.opened(config.store_path()) as conn, conn:
+        conn.execute("UPDATE source_files SET byte_offset = 0")  # what a re-read migration does
+    tail.poll_once()
+    write_line(clock, projects, 1, tool="Write")
+    tail.poll_once()
+    assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Read", "Write"]
+    assert len(store_rows("SELECT 1 FROM events")) == 5  # a re-read adds no row (same file, same offsets)
+
+
+def test_the_tails_offset_map_forgets_a_file_that_is_gone(projects, manual, clock):
+    tail, _other = seed_three(projects, manual, clock)
+    assert len(tail._offsets) == 3
+    (projects / session_file(3)).unlink()
+    tail.poll_once()
+    assert len(tail._offsets) == 2

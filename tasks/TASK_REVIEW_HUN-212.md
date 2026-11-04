@@ -88,9 +88,19 @@ FAILED tests/core/test_live.py::test_a_truncated_file_is_followed_by_both_tails_
 5 failed, 38 deselected in 1.04s
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same pytest command, 2026-11-04 (after the change; the new file also holds 3 edge tests): `uv run pytest tests/core/test_live.py -q` printed `46 passed in 6.93s`.
+Real run (AC 7, simulated sessions: fixture lines appended to 3 transcript files under a temp account root, two real `easy-personal dashboard` processes on one temp store, `/api/live` read from each; started 2026-11-04T11:17:03Z):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+dashboard 1 (port 35225) snapshot sessions: [('sess1', 'repo-1', 3), ('sess2', 'repo-2', 3), ('sess3', 'repo-3', 3)]
+dashboard 1 live tool_use events: 9 [('sess1', 'Bash'), ('sess2', 'Bash'), ('sess3', 'Bash')]
+dashboard 2 (port 52037) snapshot sessions: [('sess1', 'repo-1', 3), ('sess2', 'repo-2', 3), ('sess3', 'repo-3', 3)]
+dashboard 2 live tool_use events: 9 [('sess1', 'Bash'), ('sess2', 'Bash'), ('sess3', 'Bash')]
+store events rows: 12 (3 seed + 9 new = 12 expected)
+distinct (path,inode,offset): 12
+```
+
+**DELTA**: two dashboards (or a dashboard plus the scheduled ingest) now each show every running session, and the store still holds each line once.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-212.jsonl`, never the
 implementing agent alone]
