@@ -24,26 +24,6 @@ At Risk Medium or High, a `RULE:` counts only when it names a written rule (`pat
 (`path:line "quoted text"`); without one it is a choice and must be `DEBATED`. Good: `2. backed up the CSV
 — RULE: `docs/claude-md/tracks.md` `### Stops that stay``. Bad: `1. kept recurring.csv — RULE: Surgical Changes`.
 
-## Auto decisions
-
-Mode: auto
-1. <what was decided> — RULE: <the rule>
-2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its option>; Advocate 2: <its option>) ⚠ decided for you — please review
-4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
-Paused: <only when a stop that stays paused the task: which one, and why>
-Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
-Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | /verify (yours)>
-
--->
-
-## Auto decisions
-
-Mode: auto
-1. HUN-207 not started in this run; it stays in Todo until the owner merges HUN-206 — DEBATED: stop after HUN-206 (Advocate 1: stack HUN-207 on the HUN-206 branch; Advocate 2: stop after HUN-206) ⚠ decided for you — please review
-Checks: none — no HUN-207 code was written (auto-checked, not /verify)
-Not done: all of HUN-207 (starts after the owner merges HUN-206); merge (yours); /verify (yours)
-
 ## Evidence
 
 | Check | Result | Notes / output snippet |
