@@ -61,12 +61,103 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-04T11:50:21Z, before any implementation commit; `EASY_PERSONAL_HOME=<scratchpad>/home` = `sqlite3 .backup` copy of the owner store, run from the worktree with `uv run easy-personal warnings`; abstained: ['context_index_stale']). Only `tokens_jump` fired; its steps are the generic ones, no `causes`, no `diagnosis`:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+[
+ {
+  "fix": "Open Usage and find which project or session drove the rise. Decide if the rise is intended before it becomes your baseline.",
+  "label": "aware",
+  "measured": 2.026,
+  "priority": 3,
+  "rule_id": "tokens_jump",
+  "steps": [
+   "Open Usage and find which project or session drove the rise.",
+   "Decide if the rise is intended before it becomes your baseline."
+  ],
+  "summary": "Token use rose 202.6% in the last 7 days against the 7 days before; target 50% or less",
+  "threshold": 0.5,
+  "title": "Token use jumped",
+  "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost.",
+  "window_days": 7
+ }
+]
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Timings of the same command, 3 runs incl. `uv` start: 4.29 s, 3.47 s, 5.12 s. In-process `rules.evaluate` on the copy, 3 runs: 2.09 s, 1.56 s, 1.53 s (median 1.56 s); `plan.improvement_plan`: 1.75 s, 1.90 s, 2.43 s (median 1.90 s).
+
+First new test failing (2026-11-04, before the change): `uv run pytest tests/core/test_rules.py -q -k more_sessions`
+
+```
+>       assert hit["diagnosis"] == "more_sessions"
+               ^^^^^^^^^^^^^^^^
+E       KeyError: 'diagnosis'
+tests/core/test_rules.py:428: KeyError
+FAILED tests/core/test_rules.py::test_tokens_jump_more_sessions_names_the_three_projects_with_the_largest_rise
+1 failed, 44 deselected in 0.77s
+```
+
+**AFTER** (2026-11-04, same store copy, same command `uv run easy-personal warnings`; the same single hit, `measured` 2.026 unchanged; abstained ['context_index_stale']):
+
+```
+[
+ {
+  "cache_read_share": 0.9691,
+  "causes": [
+   {
+    "kind": "project",
+    "name": "easy-verifier-mcp",
+    "new": false,
+    "sessions_before": 2,
+    "sessions_now": 11,
+    "text": "easy-verifier-mcp: 8.6M \u2192 429.8M tokens, 2 \u2192 11 sessions",
+    "tokens_before": 8644070,
+    "tokens_now": 429793012
+   },
+   {
+    "kind": "project",
+    "name": "personal-agentic-claude",
+    "new": false,
+    "sessions_before": 39,
+    "sessions_now": 89,
+    "text": "personal-agentic-claude: 500.6M \u2192 919.4M tokens, 39 \u2192 89 sessions",
+    "tokens_before": 500612368,
+    "tokens_now": 919382006
+   },
+   {
+    "kind": "project",
+    "name": "idea-radar",
+    "new": true,
+    "sessions_before": 0,
+    "sessions_now": 42,
+    "text": "idea-radar: 0 \u2192 376.1M tokens, 0 \u2192 42 sessions (new)",
+    "tokens_before": 0,
+    "tokens_now": 376132068
+   }
+  ],
+  "diagnosis": "more_sessions",
+  "fix": "The rise comes from more sessions (100 \u2192 395), not bigger ones: tokens per session went from 12.5M to 9.6M. New since the period before: idea-radar. Check that it should run this often. Biggest rise: easy-verifier-mcp (+421.1M tokens). Decide if that pace is intended before it becomes your baseline.",
+  "label": "aware",
+  "measured": 2.026,
+  "priority": 3,
+  "rule_id": "tokens_jump",
+  "steps": [
+   "The rise comes from more sessions (100 \u2192 395), not bigger ones: tokens per session went from 12.5M to 9.6M.",
+   "New since the period before: idea-radar. Check that it should run this often.",
+   "Biggest rise: easy-verifier-mcp (+421.1M tokens). Decide if that pace is intended before it becomes your baseline."
+  ],
+  "summary": "Token use rose 202.6% in the last 7 days against the 7 days before; target 50% or less",
+  "threshold": 0.5,
+  "title": "Token use jumped",
+  "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost.",
+  "window_days": 7
+ }
+]
+```
+
+Timings: CLI 3 runs incl. `uv` start 2.16 s, 2.10 s, 2.21 s (before 4.29, 3.47, 5.12 s on a busier machine). In-process `rules.evaluate`: 1.43 s, 1.04 s, 1.04 s (median 1.04 s; before 1.56 s); `plan.improvement_plan`: 1.03 s, 0.94 s, 0.95 s (median 0.95 s; before 1.90 s). The token rules now share two window scans, so the run is faster than before although it names causes.
+
+**DELTA**: The owner sees, for the `tokens_jump` hit, that the rise is 100 -> 395 sessions (not bigger ones), which 3 projects drove it and that `idea-radar` is new, with fix lines that say so, instead of the generic line.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-214.jsonl`, never the
 implementing agent alone]

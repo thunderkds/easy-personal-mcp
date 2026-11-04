@@ -378,6 +378,46 @@ def tokens_by_project(
     return totals
 
 
+def session_tokens(
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
+) -> list[dict]:
+    """Token sums of the messages in [since, until) per (session, stored project path), for rule causes (FR-073).
+
+    Same message selection as `token_total`, so the sums add up to it (messages with no session id come back with
+    `session_id` None). `models` = distinct models the session used in the period.
+    """
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    inner, inner_params = _inner_window(since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
+    where, params = _period("ts", since_utc, until_utc)
+    rows = conn.execute(
+        "SELECT sid, project_path, SUM(i), SUM(o), SUM(cc), SUM(cr), COUNT(DISTINCT model) FROM ("
+        "  SELECT MIN(ts_utc) AS ts, MAX(session_id) AS sid, MAX(project_path) AS project_path,"
+        "         MAX(model) AS model, MAX(input_tokens) AS i, MAX(output_tokens) AS o,"
+        "         MAX(cache_creation_input_tokens) AS cc, MAX(cache_read_input_tokens) AS cr"
+        "  FROM events WHERE abstained = 0 AND message_id IS NOT NULL"
+        f"  AND input_tokens IS NOT NULL AND {inner} AND {scope} GROUP BY message_id"
+        f") WHERE {where} GROUP BY sid, project_path",
+        inner_params + scope_params + params,
+    ).fetchall()
+    return [
+        {
+            "session_id": sid,
+            "project_path": path,
+            "input": i or 0,
+            "output": o or 0,
+            "cache_creation": cc or 0,
+            "cache_read": cr or 0,
+            "models": models,
+        }
+        for sid, path, i, o, cc, cr, models in rows
+    ]
+
+
 def session_outliers(
     conn: sqlite3.Connection,
     since: str | None = None,
@@ -607,3 +647,21 @@ def record_readability(
             params + scope_params,
         )
     }
+
+
+def unreadable_records(
+    conn: sqlite3.Connection,
+    since: str | None = None,
+    until: str | None = None,
+    workspace: str | None = None,
+    account: str | None = None,
+) -> list[tuple[str | None, str, int]]:
+    """(record type, source version, abstained records) with a timestamp in [since, until), most records first."""
+    since_utc, until_utc = _utc_bound(since), _utc_bound(until)
+    where, params = _period("ts_utc", since_utc, until_utc)
+    scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
+    return conn.execute(
+        "SELECT record_type, COALESCE(version, 'unknown'), COUNT(*) FROM events "
+        f"WHERE abstained = 1 AND {where} AND {scope} GROUP BY 1, 2 ORDER BY 3 DESC, 1, 2",
+        params + scope_params,
+    ).fetchall()

@@ -10,8 +10,9 @@ def improvement_plan(
 ) -> dict:
     groups: dict[int, list[dict]] = {}
     for hit in rule_engine.evaluate(conn, now, rules, workspace, account)["hits"]:
-        item = {k: hit[k] for k in ("rule_id", "label", "measured", "threshold", "fix", "title", "why", "steps", "summary")}
-        if "detail" in hit:
-            item["detail"] = hit["detail"]
+        item = {k: hit[k] for k in ("rule_id", "label", "measured", "threshold", "fix", "title", "why", "steps", "summary", "causes", "diagnosis")}
+        for key in ("detail", "cache_read_share"):
+            if key in hit:
+                item[key] = hit[key]
         groups.setdefault(hit["priority"], []).append(item)
     return {"groups": [{"priority": p, "items": groups[p]} for p in sorted(groups)]}
