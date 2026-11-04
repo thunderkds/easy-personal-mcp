@@ -89,6 +89,7 @@
 - [git kit part + `--remotes` owner check](learnings.md#2026-10-22--git-kit-part-query-time-run_git-and-an-open-owner-check-on---remotes) — query time via hardened `run_git`; `--remotes` may count others' commits; all-time counts.
 - [easy-context spike facts](learnings.md#2026-10-22--easy-context-facts-from-the-hun-41-spike) — root header always needed; 300 s auto-refresh makes stale rare; exact-root matching; tests use a dead port.
 - [Always run easy-verifier score](learnings.md#2026-10-22--run-the-easy-verifier-score-on-every-task-even-when-it-repeats) — advisory but listed; never skip to save time.
+- [Kit update drops project edits (HUN-205)](learnings.md#2026-11-04--a-kit-update-overwrites-project-edits-to-kit-files-check-the-bak-commit-copies-hun-205) — diff `.bak-<commit>` copies after a kit update; easy-verifier Stage 4 rule re-applied + pinned by `tests/test_kit_local_edits.py`; kit now 04b019a.
 - [kit_summary shape](learnings.md#2026-10-22--kit_summary-shape-after-hun-39404143) — parts kernel/git/context/verifier per project + top-level `ui`.
 - [Partial role-guide reads recur](learnings.md#2026-10-22--implementers-keep-reading-their-role-guide-partially) — HUN-49/41/51/42/56; conformance check; next: Read tool without limit or paste key rules.
 - [Connector verify recipe](learnings.md#2026-10-22--connector-verify-fresh-install-fake-claude-fake-keychain) — `--reinstall --no-cache`; fake `claude` + throwaway keyring; never the owner's config.
