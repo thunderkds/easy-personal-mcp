@@ -84,6 +84,8 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Habit** — the fixed text a kit finding carries when the server side is better by at least 5 % (`kitperf.MIN_GAP_PCT`); Claude follows it in that session only and edits no file. *(built HUN-193, 2026-11-03)*
 - **Gone project** — a stored project path (`events.project_path`) whose folder no longer exists on disk (e.g. a deleted `/tmp` test folder). Hidden from the Board, Kit and Memory lists (FR-054); its usage history is still counted.
 - **Owner project** — the stored repo that a gone worktree or subfolder belongs to (FR-057): by path when a parent folder is still a git repo, else by its git branch name found in exactly one stored repo. Usage by project and the project lists count it there; stored events keep their own path.
+- **Scratch folder** — a stored project path that is under the system temp folder, gone, not inside a git repo, or inside a hidden folder, and has no owner project. Every project list shows all scratch folders as one `Scratch` row that opens to list them (FR-069). A *real project* is every other path (a git repo). *(planned HUN-206, 2026-11-04)*
+- **Unassigned repo** — a real project with stored usage whose path is not equal to or under any workspace repo path; listed on the Workspaces page with an `Add to` control (FR-070). *(planned HUN-206/HUN-207, 2026-11-04)*
 - **Dangling link** — a `[[name]]` in a memory note that resolves to no memory note in the same project; drawn as an empty node.
 - **Live tail** — the background reader `core/live.py` that follows transcripts while `easy-personal dashboard` runs (FR-043). Not the scheduled ingest, though both share one cursor.
 - **Stream** — one transcript file of a session: the main thread or one subagent (`subagents/*.jsonl`). Subagent records share the parent's session id, so failure streaks and open calls are kept per stream. *(planned, 2026-11-02)*
@@ -262,6 +264,9 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-200 | Dashboard form UX, floating toasts, floating loading pill (FR-065) | Done (merged 2026-11-03) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-202 | Toasts inside the page box; loading pill in the content middle (FR-065 follow-up) | Done (merged 2026-11-03) | Frontend-Implementer | C1 | Low | P1 |
 | HUN-203 | Repos folder browser + gap above Save (FR-068) | Done (merged 2026-11-03) | Frontend-Implementer | C2 | Medium | P1 |
+| HUN-205 | Easy Kit update 75040d9 → 04b019a (minimal track) | Done (merged 2026-11-04) | Supervisor | C1 | Low | P1 |
+| HUN-206 | Scratch row in project lists + `GET /api/workspaces/unassigned` (FR-069, FR-070 read side) | Todo | Backend-Implementer | C2 | Medium | P1 |
+| HUN-207 | Usage opens Scratch; Workspaces page lists repos in no workspace + Add to (FR-069 UI, FR-070; after HUN-206) | Todo | Frontend-Implementer | C2 | Medium | P1 |
 | HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).

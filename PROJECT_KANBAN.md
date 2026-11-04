@@ -9,6 +9,8 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-206** — Scratch row in project lists + unassigned-repos read route (FR-069, FR-070 read side) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-206.md`
+- [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
 
 ### In Progress
 
