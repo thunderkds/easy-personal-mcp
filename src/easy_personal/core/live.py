@@ -1,10 +1,12 @@
 """Live tail (FR-043): follows every confirmed Claude account's transcripts while the dashboard runs.
 
-One thread polls each account's `projects/` tree about every 100 ms and reads only complete new lines
-from the offsets the store already holds (the scheduled ingest and the tail share one cursor). Lines
-go through `store.save_file`, the normal ingest path, with the single-writer lock taken only for that
-one short batch and never kept between batches, so the scheduled ingest still runs. The same lines
-become metadata events in a bounded in-memory buffer that the SSE route (next task) reads.
+One thread polls each account's `projects/` tree about every 100 ms and reads only complete new lines.
+The tail keeps its own read offset per file; a file first seen starts at the store cursor (no history
+replay). A line from the store cursor on goes through `store.save_file`, the normal ingest path, with the
+single-writer lock taken only for that one short batch and never kept between batches, so the scheduled
+ingest still runs. A line below the cursor was stored by another process (a second dashboard, the
+scheduled ingest): it is published and not stored again (FR-071). Every published line becomes a
+metadata event in a bounded in-memory buffer that the SSE route reads.
 
 Read-only on every source (NFR-003). Nothing is written to any Claude config. An event holds names,
 ids, numbers and timestamps only: message text, tool input and tool output are never read (FR-002).
