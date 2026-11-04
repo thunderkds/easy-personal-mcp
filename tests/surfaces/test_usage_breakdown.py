@@ -36,7 +36,8 @@ def test_fixture_model_is_unpriced_and_project_is_folder(ingested, capsys):
     assert models[0]["key"] == "claude-fixture-model-1"
     assert models[0]["api_equivalent_cost"]["usd"] is None
     projects = _cli_json(capsys, ["usage", "--by", "project"])["groups"]
-    assert [g["key"] for g in projects] == ["demo-app"]
+    assert [g["key"] for g in projects] == ["Scratch"]  # /work/demo-app is gone: a scratch folder (FR-069)
+    assert [f["key"] for f in projects[0]["folders"]] == ["demo-app"]
 
 
 def test_mcp_and_cli_outliers_identical(ingested, capsys):

@@ -69,3 +69,15 @@ def _isolated_agent_root(monkeypatch, tmp_path_factory):
 def _isolated_easy_memory_home(monkeypatch, tmp_path_factory):
     """HUN-184: tests never read the owner's ~/.easy-memory; tests that plant a store override this."""
     monkeypatch.setenv("EASY_MEMORY_HOME", str(tmp_path_factory.mktemp("em-none")))
+
+
+@pytest.fixture
+def real_projects(monkeypatch):
+    """Every stored project path counts as a real project, never Scratch (FR-069).
+
+    For tests that use made-up or temp-folder project paths and check something else (FR-057 owners,
+    rules, filters, golden files). Tests of the Scratch rule itself do not use it.
+    """
+    from easy_personal.core import owners
+
+    monkeypatch.setattr(owners, "_is_scratch", lambda path: False)

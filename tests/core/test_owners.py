@@ -8,6 +8,8 @@ import pytest
 
 from easy_personal.core import board, discovery, kit, memgraph, metrics, owners, rules, workspaces
 
+pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
+
 TOKENS = 15  # every event below: input 10 + output 5
 CANARY = "LEAKCANARY-owner-0123456789"
 

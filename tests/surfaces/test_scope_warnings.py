@@ -13,6 +13,8 @@ from easy_personal.core import kit, plan, rules, store
 from easy_personal.surfaces import api, cli
 from easy_personal.surfaces import mcp as mcp_surface
 
+pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
+
 GOLDEN = json.loads((Path(__file__).parent / "scope_golden.json").read_text())
 TOKEN, PORT = "tok-117", 5555
 AUTH = {api.TOKEN_HEADER: TOKEN}

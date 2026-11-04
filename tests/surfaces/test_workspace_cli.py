@@ -94,6 +94,7 @@ def test_usage_workspace_counts_repos_and_subfolders_only(capsys, tmp_path):
     assert run_json(capsys, "usage", "--workspace", "company")["messages"] == 3
     assert run_json(capsys, "usage", "--workspace", "empty")["messages"] == 0
     by = run_json(capsys, "usage", "--workspace", "company", "--by", "project")
-    assert by["total"]["messages"] == 3 and {g["key"] for g in by["groups"]} == {"a", "pkg", "b"}
+    (scratch,) = by["groups"]  # the fake paths are gone folders: one Scratch group (FR-069)
+    assert by["total"]["messages"] == 3 and {f["key"] for f in scratch["folders"]} == {"a", "pkg", "b"}
     assert run_json(capsys, "outliers", "--workspace", "company")["sessions"] == []
     run(capsys, "usage", "--workspace", "nope", code=2)

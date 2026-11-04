@@ -6,6 +6,8 @@ import pytest
 from easy_personal.core import metrics, prices
 from easy_personal.sources import claude_code
 
+pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
+
 TABLE = prices.PriceTable(
     as_of="2026-01-01",
     models={"m-a": prices.Price(input=1.0, output=2.0, cache_write=0.0, cache_read=0.0)},
