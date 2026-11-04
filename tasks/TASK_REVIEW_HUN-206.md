@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_scratch.py` (AC 1-6; 15 tests), `tests/surfaces/test_api_unassigned.py` (AC 6-7; 4 tests), `tests/test_readme.py::test_scratch_group_is_documented_and_in_the_mcp_description` (AC 9), `tests/leak/harness.py` `API_CALLS` entry for `/api/workspaces/unassigned` (AC 8, run by `tests/leak/`). `uv run pytest -q tests/core/test_scratch.py tests/surfaces/test_api_unassigned.py` -> `19 passed` |
+| Verification command run | ☑ pass | `uv run pytest -q` -> `1352 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 243.55s (0:04:03)` (2026-11-04, worktree HUN-206, commit after `HUN-206: existing tests ...`). Real run on the store COPY: see Demonstration AFTER. |
+| Negative cases hold | ☑ pass | no/wrong token and wrong Host -> 403 on the new route (`test_route_refuses_no_token_wrong_token_and_wrong_host`; also real server: curl without token -> 403); `/…/repo` does not cover `/…/repo2`; relative / empty / NULL stored path -> Scratch / `(unknown)`, no crash; a folder under the temp folder runs no git call (`test_ac4_...`); `by=day/model/tool` outputs byte-identical to the pre-change code on the store copy (`cmp`). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | backend only (UI is HUN-207) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | backend only (UI is HUN-207) |
+| **UI: Responsiveness at target viewports** | ☑ N/A | backend only (UI is HUN-207) |
 
 ---
 
@@ -75,9 +75,27 @@ $ GET /api/workspaces/unassigned  (TestClient on the copy, valid token, 2026-11-
 routes with "workspaces": /api/workspaces, /api/workspaces, /api/workspaces/{id}, /api/workspaces/{id}, /api/accounts/{id}/workspaces
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-04T04:00:23Z, same store COPY, `EASY_PERSONAL_HOME=<worktree>/.verify-copy`, worktree code):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ uv run easy-personal usage --by project         # 4.8 s wall
+groups: 13   (was 127)
+first keys: ['orderly', 'personal-agentic-claude', 'easy-verifier-mcp', 'easy-personal-mcp', 'idea-radar',
+ 'easy-memory-mcp', 'easy-context-mcp', 'kitchd', 'idea-ladder', 'easy-ui-mcp', 'java-training',
+ 'Scratch', 'tapchat-apis']
+Scratch: scratch=true, folders=115, messages=1091, tokens=34,827,268, api-equivalent cost usd 23.010823
+  top folders: hungnguyen111 4,565,152 | proj 3,578,874 | kit 1,556,900 | v149 1,433,597 | vt 913,837
+total identical to BEFORE: True; sum(group tokens) == total tokens: True; sum(group messages) == total messages: True
+by=day / model / tool: byte-identical to the pre-change code (git archive HEAD~1, `cmp`: 19518 / 2896 / 47943 bytes)
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-206.jsonl`, never the
-implementing agent alone]
+$ real uvicorn server on the copy (127.0.0.1:48206, token header), 2026-11-04T04:01:19Z
+GET /api/workspaces/unassigned  -> 200, 10 repos:
+ easy-verifier-mcp, personal-agentic-claude, easy-memory-mcp, idea-ladder, idea-radar, easy-ui-mcp,
+ kitchd, easy-context-mcp, tapchat-apis, java-training     (newest last_used_utc first: 2026-11-03 ... 2026-10-05)
+GET without token -> 403
+```
+Note: the guide expected about 9 repos; the copy gives 10 (`tapchat-apis` is the extra one, 8 sessions, $3.05).
+
+**DELTA**: A project list now shows 13 rows instead of 127 (116 throwaway folders sit in one openable `Scratch` row with the same totals), and the dashboard API can list the 10 real repos that no workspace covers.
+
+**WITNESS**: backend-developer agent, 2026-11-04 03:49Z (BEFORE) and 04:00-04:01Z (AFTER); to be confirmed by the Supervisor from `memory/event-trace/HUN-206.jsonl`.
