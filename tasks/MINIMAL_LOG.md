@@ -3,6 +3,18 @@
 > One Decision record per minimal-track task (`docs/claude-md/tracks.md`), **newest first**: insert each
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
+## HUN-217 — Warnings page "new" cause chip shows amber, not grey · minimal
+**Asked:** "fix small"
+**Decisions:**
+- Selector `.chip-new` → `.chip.chip-new` — `.chip` is declared later in `app.css` with equal specificity, so it overrode the amber colours; raising specificity is a one-word change and does not move rules around.
+- Assumed: amber is the intended colour (the HUN-216 rule already named `--color-amber-soft` / `--color-amber`) — the fix only makes that rule apply.
+**Checked:**
+- New test `WarningsPlanView.test.jsx` › `HUN-217: the "new" cause chip` › `wins over the base .chip colours (selector .chip.chip-new, amber)` — failed before the change (`1 failed | 26 passed (27)`), passes after.
+- Suite: `cd web && npx vitest run` — `Test Files 21 passed (21) / Tests 600 passed (600)`; `npm run build` — `✓ built in 184ms`
+- Real run: headless Chrome on the built CSS bundle with `<span class="chip">` and `<span class="chip chip-new">` — printed `plain rgb(140, 149, 144) | new rgb(227, 182, 107) bg rgba(227, 182, 107, 0.12)` (`--color-amber:#e3b66b`).
+**Files:** `web/src/app.css`, `web/src/WarningsPlanView.test.jsx`
+**Not done:** merge (the user decides)
+
 ## HUN-205 — Commit the Easy Kit update 75040d9 → 04b019a (kit files only) · minimal
 **Asked:** "yes" — answer to: "Should I start with option 1?" (commit the kit update on its own branch, check the 3 `.bak-75040d9` backups against the new versions, delete the backups, run the tests; merge waits for the owner).
 **Decisions:**
