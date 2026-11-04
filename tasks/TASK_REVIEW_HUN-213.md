@@ -61,8 +61,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-04T11:11:09Z, before any implementation commit; only the two new failing tests existed):
+
+```
+$ cd web && npx vitest run src/LiveView.test.jsx -t "rows"
+ FAIL  src/LiveView.test.jsx > rows (FR-072) > AC1: three sessions give three rows with project, 8-char id, active/idle text and three bars; no feed is drawn
+AssertionError: expected [] to have a length of 3 but got +0
+    553|     ]))
+    554|     expect(rowsOf()).toHaveLength(3)
+
+ FAIL  src/LiveView.test.jsx > rows (FR-072) > AC8: at most one .live-feed list is in the DOM, and only for the open session
+AssertionError: expected <ol class="live-feed" …(3)></ol>
+…(1) to have a length of +0 but got 2
+    566|     expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed | 43 skipped (47)
+   Start at  18:11:11
+```
+
+BEFORE screenshot of the current Live view (real `easy-personal dashboard` run on the old build, throwaway store, 7 fabricated metadata-only sessions in 2 accounts, taken 2026-11-04T11:14:58Z): `reports/HUN-213/before-1280x720.png` in the task worktree. It shows one tall card per session with its own feed area ("No tool calls seen since this page opened."): about 3 sessions fit on screen.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

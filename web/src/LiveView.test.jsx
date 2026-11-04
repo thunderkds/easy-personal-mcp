@@ -540,3 +540,33 @@ describe('design', () => {
     expect(screen.getByRole('region', { name: 'All sessions' })).toBeInTheDocument()
   })
 })
+
+describe('rows (FR-072)', () => {
+  const rowsOf = () => [...document.querySelectorAll('.live-row')]
+
+  it('AC1: three sessions give three rows with project, 8-char id, active/idle text and three bars; no feed is drawn', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { project: 'alpha', tool_calls: 4, tokens_in: 1000, tokens_out: 200, cost_usd: 0.5 }),
+      session('bbbbbbbb-2', { project: 'beta', last_ts: new Date(Date.now() - 400_000).toISOString() }),
+      session('cccccccc-3', { project: 'gamma' }),
+    ]))
+    expect(rowsOf()).toHaveLength(3)
+    const first = rowsOf().find((r) => r.textContent.includes('aaaaaaaa'))
+    expect(first).toHaveTextContent('alpha')
+    expect(first).toHaveTextContent(/active/)
+    expect(rowsOf().find((r) => r.textContent.includes('bbbbbbbb'))).toHaveTextContent(/idle/)
+    expect(first.closest('li').querySelectorAll('.live-bar')).toHaveLength(3)
+    expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
+  })
+
+  it('AC8: at most one .live-feed list is in the DOM, and only for the open session', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })]))
+    expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
+    fireEvent.click(rowsOf()[0])
+    expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
+    fireEvent.click(rowsOf()[1])
+    expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
+  })
+})
