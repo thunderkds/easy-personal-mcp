@@ -1,8 +1,8 @@
 """Live tail (FR-043): follows every confirmed Claude account's transcripts while the dashboard runs.
 
 One thread polls each account's `projects/` tree about every 100 ms and reads only complete new lines.
-The tail keeps its own read offset per file; a file first seen starts at the store cursor (no history
-replay). A line from the store cursor on goes through `store.save_file`, the normal ingest path, with the
+The tail keeps its own read offset per file. A file of the tail's first scan starts at the store cursor
+(no history replay); a file that appears later is read from its start. A line from the store cursor on goes through `store.save_file`, the normal ingest path, with the
 single-writer lock taken only for that one short batch and never kept between batches, so the scheduled
 ingest still runs. A line below the cursor was stored by another process (a second dashboard, the
 scheduled ingest): it is published and not stored again (FR-071). Every published line becomes a
@@ -192,6 +192,7 @@ class LiveTail:
         self._store_path, self._lock_path = config.store_path(), config.data_dir() / "ingest.lock"
         self._projects: dict[str, str] = {}
         self._offsets: dict[str, tuple[int, int]] = {}  # path -> (inode, next byte this tail has not published)
+        self._primed = False  # True once a first full scan has finished (no early return)
         self._roots: list[tuple[int | None, Path]] = []
         self._labels: dict[int | None, str] = {}
         self._roots_at = float("-inf")
@@ -319,8 +320,13 @@ class LiveTail:
                 seen.add(path)
                 own = self._offsets.get(path)
                 if own is None or own[0] != inode or size < own[1]:
-                    # First sight, a replaced file or a truncated one: start where the store cursor stands.
-                    own = (inode, _cursor(known.get(path), inode, size))
+                    # A file of the first scan (history, not live), or a truncated one, starts where the
+                    # store cursor stands. A file first seen later, or one replaced by a new inode, is
+                    # new content written while the tail runs: read it from byte 0, so a line another
+                    # process stored first is still published (never stored twice). Claude Code appends
+                    # to transcripts and never rewrites them, so a new inode means a genuinely new file.
+                    fresh = self._primed and (own is None or own[0] != inode)
+                    own = (inode, 0 if fresh else _cursor(known.get(path), inode, size))
                     self._offsets[path] = own
                 if size <= own[1]:
                     continue
@@ -333,6 +339,7 @@ class LiveTail:
                     continue  # removed by cleanup mid-read
         for path in self._offsets.keys() - seen:
             del self._offsets[path]  # the file is gone: memory stays bounded
+        self._primed = True  # the files of this first full scan are history; every later file is live
 
     def _refresh_roots(self, conn: sqlite3.Connection) -> None:
         if time.monotonic() - self._roots_at < ROOTS_REFRESH_S:

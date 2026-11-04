@@ -823,9 +823,42 @@ def test_a_replaced_file_is_followed_by_both_tails_without_publishing_old_lines_
     write_line(clock, projects, 1, tool="Next")
     first.poll_once()
     second.poll_once()
-    assert [e["tool"] for e in tool_events(first, "sess1")] == ["Old", "New", "Next"]
-    # the second tail restarts the new file at the store cursor, which the first tail already moved
-    assert [e["tool"] for e in tool_events(second, "sess1")] == ["Old", "Next"]
+    for tail in (first, second):  # a replaced file is new content: read from its start, publish only below the cursor
+        assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Old", "New", "Next"]
+
+
+def test_a_file_created_after_both_tails_started_is_published_by_both_and_stored_once(projects, manual, clock):
+    first, second = seed_three(projects, manual, clock)
+    for tool in ("Read", "Grep", "Edit"):
+        write_line(clock, projects, 4, tool=tool)  # a new session: a file neither tail has seen
+    first.poll_once()  # the first tail stores the three lines and moves the cursor to the end
+    second.poll_once()
+    for tail in (first, second):
+        assert [e["tool"] for e in tool_events(tail, "sess4")] == ["Read", "Grep", "Edit"]
+    assert len(store_rows("SELECT 1 FROM events")) == 3 + 3
+
+
+def test_a_new_subagent_file_is_published_by_both_tails(projects, manual, clock):
+    first, second = seed_three(projects, manual, clock)
+    sub = projects / "proj1" / "sess1" / "subagents" / "agent-a1.jsonl"
+    append(sub, assistant(session="sess1", tools=("Task",), sidechain=True, message="msg_sub", ts=clock.stamp()))
+    first.poll_once()
+    second.poll_once()
+    for tail in (first, second):
+        assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Task"]
+
+
+def test_a_file_with_history_seen_in_a_tails_first_scan_publishes_nothing_from_it(projects, manual, clock):
+    first, _second = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1)  # stored by the first tail
+    first.poll_once()
+    late = manual()  # starts after history exists: its first scan primes it at the store cursor
+    late.poll_once()
+    assert late.events_since(0) == []
+    write_line(clock, projects, 1, tool="Next")
+    first.poll_once()
+    late.poll_once()
+    assert [e["tool"] for e in tool_events(late, "sess1")] == ["Next"]
 
 
 def test_a_truncated_file_is_followed_by_both_tails_without_an_error_or_a_second_publish(projects, manual, clock):
