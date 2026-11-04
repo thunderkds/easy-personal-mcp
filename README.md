@@ -103,6 +103,10 @@ The server has 11 tools. None of them writes config or returns a secret.
 - `connector_status`
 - `connector_suggestions`
 
+### MCP prompt
+
+The server also offers one prompt, `investigate`. In Claude Code, type `/mcp__easy-personal__investigate` (optional arguments `workspace` and `account`). It asks your own Claude session to read the warnings, the plan, usage by project and model for the last 7 days, and the session outliers. Then it explains what caused each warning and suggests at most 5 fixes, each with a number from a tool result. The prompt text is fixed. The server calls no model and no network; your Claude Code session does the reasoning.
+
 ### Dashboard
 
 ```bash

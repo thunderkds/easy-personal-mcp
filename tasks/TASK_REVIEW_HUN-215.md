@@ -41,9 +41,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/surfaces/test_mcp_investigate.py` (11 tests, AC 1-5 + edge cases); `uv run pytest tests/surfaces/test_mcp_investigate.py -q` -> `11 passed in 1.56s` |
+| Verification command run | ☑ pass | `uv run pytest tests -q -k mcp` -> `47 passed, 1340 deselected, 1 warning in 7.97s`; `uv run pytest -q` -> `1378 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 255.59s` |
+| Negative cases hold | ☑ pass | quotes/newlines/backslash scope values stay on one JSON-quoted line; unknown workspace still returns; no scope names no scope; socket.connect guarded |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -82,9 +82,13 @@ First new test, failing (2026-11-04T11:50:45Z):
 `FAILED tests/surfaces/test_mcp_investigate.py::test_prompt_is_listed_with_two_optional_arguments`
 (without `-x`: `11 failed in 2.08s`)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-04T11:55:18Z, isolated `uv tool install --reinstall --no-cache .` with UV_TOOL_DIR/UV_TOOL_BIN_DIR in a temp dir, EASY_PERSONAL_HOME an empty temp dir; same stdio probe):
+`prompts/list` -> `{"prompts":[{"name":"investigate","description":"Investigate your Claude Code usage: causes of each warning and up to 5 ranked fixes.","arguments":[{"name":"workspace","required":false},{"name":"account","required":false}]}]}`
+`prompts/get investigate` with workspace=`Acme "x"\nline2`, account=`work` -> one `user` text message: the fixed 6-step text, ending with
+`Scope: pass workspace="Acme \"x\"\nline2" and account="work" to every tool call that takes a scope (`warnings`, `improvement_plan`).`
+`prompts/get investigate` with no arguments -> the same text without the Scope line.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: In Claude Code the owner can run `/mcp__easy-personal__investigate` and have their own session investigate the usage data and suggest ranked fixes; before, `prompts/list` was empty.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-215.jsonl`, never the
 implementing agent alone]
