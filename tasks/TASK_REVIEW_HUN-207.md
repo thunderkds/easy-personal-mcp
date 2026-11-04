@@ -37,6 +37,13 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Auto decisions
+
+Mode: auto
+1. HUN-207 not started in this run; it stays in Todo until the owner merges HUN-206 — DEBATED: stop after HUN-206 (Advocate 1: stack HUN-207 on the HUN-206 branch; Advocate 2: stop after HUN-206) ⚠ decided for you — please review
+Checks: none — no HUN-207 code was written (auto-checked, not /verify)
+Not done: all of HUN-207 (starts after the owner merges HUN-206); merge (yours); /verify (yours)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
