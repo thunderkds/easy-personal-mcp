@@ -10,8 +10,6 @@
 
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
-- [ ] **HUN-214** — Warning hits carry causes from the owner's data + a diagnosis that picks the fix (FR-073) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-214.md`
-- [ ] **HUN-215** — MCP prompt \`investigate\`: the owner's Claude Code session investigates usage (FR-075) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-215.md`
 - [ ] **HUN-216** — Warnings & plan page: one list with "Why this happened" and matching fixes (FR-074) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-216.md`
 
 ### In Progress
@@ -113,6 +111,8 @@
 - [x] **HUN-209** — Store migration 9: clear the stale abstained flag on Claude Code metadata rows (false \`records_unreadable\` warning) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-209.md`
 - [x] **HUN-212** — Live tail shows lines another process stored first (FR-071) | Backend-Implementer | C2 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-212.md`
 - [x] **HUN-213** — Live view session rows with bars + one session panel (FR-072, NFR-015) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-213.md`
+- [x] **HUN-214** — Warning hits carry causes from the owner's data + a diagnosis that picks the fix (FR-073) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-214.md`
+- [x] **HUN-215** — MCP prompt \`investigate\`: the owner's Claude Code session investigates usage (FR-075) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-215.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
