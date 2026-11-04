@@ -281,3 +281,74 @@ def test_thirty_day_summary_over_a_million_events_is_under_500ms(tmp_path):
     assert out["messages"] > 0
     assert min(timings) < 0.5, timings
     conn.close()
+
+
+# Migration 9 (HUN-209): stale `abstained = 1` on metadata rows stored before HUN-175 listed them.
+_FROZEN_METADATA_TYPES = (
+    "agent-name", "custom-title", "last-prompt", "atis-latch", "queue-operation", "cost-state",
+    "file-history-snapshot", "file-history-delta", "artifact-comment-monitor",
+    "artifact-autoreact-ledger", "frame-link", "api-request", "api-request-blob",
+    "api-request-shape", "tools-used", "ai-title", "mode", "permission-mode", "bridge-session",
+)  # fmt: skip
+
+
+def _v8_store_with_abstained_rows(path: Path) -> list[tuple]:
+    """A v8 store: one abstained row per (source, record_type) case; returns the rows as (source, type)."""
+    store.connect(path).close()
+    raw = sqlite3.connect(path)
+    raw.execute("PRAGMA user_version = 8")
+    cases = [("claude_code", t) for t in _FROZEN_METADATA_TYPES]
+    cases += [("claude_code", t) for t in ("user", "assistant", "attachment", "system", "mystery", None)]
+    cases += [("kit_trace", "api-request"), ("git_local", "api-request-shape")]
+    for n, (source, rtype) in enumerate(cases):
+        raw.execute(
+            "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, record_type,"
+            " version, ts_utc, session_id, project_path, tool_error_count) VALUES"
+            " ('m', ?, '/f', 1, ?, 1, ?, '2.1.312', '2026-10-30T10:00:00.000Z', 's1', '/p', 2)",
+            (source, n, rtype),
+        )
+    raw.commit()
+    raw.close()
+    return cases
+
+
+def test_migration_9_clears_stale_metadata_rows_and_nothing_else(tmp_path):
+    path = tmp_path / "store.sqlite"
+    cases = _v8_store_with_abstained_rows(path)
+    raw = sqlite3.connect(path)
+    before = raw.execute("SELECT * FROM events ORDER BY id").fetchall()
+    columns = [c[1] for c in raw.execute("PRAGMA table_info(events)")]
+    raw.close()
+
+    conn = store.connect(path)  # AC 1: v8 -> latest, with a backup
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST >= 9
+    assert (tmp_path / "store.sqlite.bak-v8").exists()
+    after = conn.execute("SELECT * FROM events ORDER BY id").fetchall()
+    assert len(after) == len(before) == len(cases)  # AC 4: no row added or deleted
+
+    flag = columns.index("abstained")
+    for (source, rtype), old, new in zip(cases, before, after, strict=True):
+        cleared = source == "claude_code" and rtype in _FROZEN_METADATA_TYPES
+        assert new[flag] == (0 if cleared else 1), (source, rtype)  # AC 2 and AC 3
+        assert [v for i, v in enumerate(new) if i != flag] == [v for i, v in enumerate(old) if i != flag]
+    conn.close()
+
+
+def test_migration_9_is_idempotent_and_a_v9_store_is_not_touched(tmp_path):
+    from easy_personal.core.migrations import m0009_metadata_abstained as m9
+
+    path = tmp_path / "store.sqlite"
+    _v8_store_with_abstained_rows(path)
+    conn = store.connect(path)
+    first = conn.execute("SELECT id, abstained FROM events ORDER BY id").fetchall()
+    m9.apply(conn)
+    m9.apply(conn)
+    assert conn.execute("SELECT id, abstained FROM events ORDER BY id").fetchall() == first
+    conn.close()
+    store.connect(path).close()  # already at the latest version: no second backup, no change
+    assert sorted(p.name for p in tmp_path.glob("*.bak-v*")) == ["store.sqlite.bak-v8"]
+
+
+def test_migration_9_frozen_list_is_part_of_the_parser_list():
+    # The migration keeps its own copy (frozen in time); the parser list may grow later, never lose these.
+    assert set(_FROZEN_METADATA_TYPES) <= claude_code.METADATA_TYPES
