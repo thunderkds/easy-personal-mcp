@@ -400,3 +400,255 @@ def test_records_unreadable_ignores_stale_abstained_metadata_rows_after_migratio
     conn = store.connect(path)  # the v8 -> v9 upgrade clears the stale flag
     assert _result(conn, "records_unreadable") == ("ok", None)
     conn.close()
+
+
+# --- HUN-214: causes + diagnosis + fix lines per hit (FR-073) ----------------------------------
+
+
+def _many(n_from, specs, ago, tokens, **kw):
+    """`specs` = [(project, sessions)]; one message of `tokens` input tokens per session."""
+    records, n = [], n_from
+    for project, sessions in specs:
+        for k in range(sessions):
+            records.append(_msg(n, ago, i=tokens, session=f"{project}-{ago.days}-{k}", cwd=f"/work/{project}", **kw))
+            n += 1
+    return records
+
+
+def _jump_more_sessions():
+    prev = _many(100, [("alpha", 2), ("beta", 1), ("delta", 1)], 10 * DAY, 1000)
+    now = _many(200, [("alpha", 8), ("gamma", 6), ("beta", 4), ("epsilon", 2)], DAY, 500)
+    return prev + now
+
+
+def test_tokens_jump_more_sessions_names_the_three_projects_with_the_largest_rise(conn, tmp_path):
+    _load(conn, tmp_path, _jump_more_sessions())
+    _, hit = _result(conn, "tokens_jump")
+    assert hit["measured"] == 1.5  # unchanged: 10000 / 4000 - 1
+    assert hit["diagnosis"] == "more_sessions"
+    causes = hit["causes"]
+    assert [c["name"] for c in causes] == ["gamma", "alpha", "beta"]  # delta fell and epsilon ties beta: never listed
+    assert all(c["kind"] == "project" and c["text"] for c in causes)
+    gamma, alpha, _ = causes
+    assert gamma["new"] is True and alpha["new"] is False
+    assert (gamma["tokens_before"], gamma["tokens_now"]) == (0, 3000)
+    assert (alpha["sessions_before"], alpha["sessions_now"]) == (2, 8)
+    steps = " ".join(hit["steps"])
+    assert "more sessions" in steps and "4 → 20" in steps and "gamma" in steps
+    assert hit["fix"] == " ".join(hit["steps"]) and 1 <= len(hit["steps"]) <= 3
+
+
+def _custom(**thresholds):
+    pack = {r.id: r for r in rules.load_rules()}
+    for rule_id, value in thresholds.items():
+        pack[rule_id] = pack[rule_id].with_threshold(value)
+    return list(pack.values())
+
+
+def _sessions(n_from, specs, ago, **kw):
+    """`specs` = [(project, session id, input tokens, cache read)]; one message per session."""
+    return [
+        _msg(n_from + k, ago, i=i, cr=cr, session=sid, cwd=f"/work/{project}", **kw)
+        for k, (project, sid, i, cr) in enumerate(specs)
+    ]
+
+
+def test_tokens_jump_bigger_sessions_names_the_three_largest_sessions(conn, tmp_path):
+    prev = _sessions(100, [("alpha", f"p{k}", 1000, 0) for k in range(4)], 10 * DAY)  # 4 sessions, 1000 each
+    now = _sessions(
+        200,
+        [("alpha", "big", 2500, 0), ("beta", "mid", 2000, 0), ("alpha", "low", 1500, 0), ("beta", "min", 1200, 0)],
+        DAY,
+    )
+    _load(conn, tmp_path, prev + now)
+    _, hit = _result(conn, "tokens_jump")
+    assert hit["measured"] == 0.8 and hit["diagnosis"] == "bigger_sessions"  # same 4 sessions, 1000 -> 1800 per session
+    assert [(c["name"], c["kind"], c["project"], c["tokens"]) for c in hit["causes"]] == [
+        ("big", "session", "alpha", 2500),
+        ("mid", "session", "beta", 2000),
+        ("low", "session", "alpha", 1500),
+    ]
+    assert "bigger" in hit["steps"][0] and "big in alpha" in " ".join(hit["steps"])
+
+
+@pytest.mark.parametrize(("now_tokens", "diagnosis"), [(11_000, "more_sessions"), (11_100, "bigger_sessions")])
+def test_tokens_jump_diagnosis_flips_above_ten_percent_more_per_session(conn, tmp_path, now_tokens, diagnosis):
+    prev = _sessions(100, [("alpha", f"p{k}", 1000, 0) for k in range(10)], 10 * DAY)
+    now = _sessions(200, [("alpha", f"n{k}", now_tokens // 10, 0) for k in range(10)], DAY)
+    _load(conn, tmp_path, prev + now)
+    _, hit = _result(conn, "tokens_jump", rules=_custom(tokens_jump=0.05))
+    assert hit["diagnosis"] == diagnosis
+
+
+def test_tokens_jump_with_fewer_than_three_rising_projects_is_not_padded(conn, tmp_path):
+    prev = _many(100, [("alpha", 1), ("gone", 1)], 10 * DAY, 1000)
+    now = _many(200, [("alpha", 3), ("beta", 3)], DAY, 1000)
+    _load(conn, tmp_path, prev + now)
+    _, hit = _result(conn, "tokens_jump")
+    assert [c["name"] for c in hit["causes"]] == ["beta", "alpha"]  # `gone` fell to nothing: no negative rise
+    assert [c["new"] for c in hit["causes"]] == [True, False]
+
+
+def test_every_hit_carries_cache_read_share_only_when_the_rule_counts_tokens(conn, tmp_path):
+    records = [_msg(1, DAY, i=60, cr=40, cwd="/work/big"), _msg(2, DAY, i=1000, cr=0, session="s2", cwd="/work/small")]
+    _load(conn, tmp_path, records)
+    out = rules.evaluate(conn, now=NOW)
+    assert out["hits"]
+    for hit in out["hits"]:
+        assert hit["diagnosis"] and len(hit["causes"]) <= 3 and hit["steps"]
+        assert ("cache_read_share" in hit) == (hit["rule_id"] != "records_unreadable")
+    cache = {h["rule_id"]: h for h in out["hits"]}["cache_hit_low"]
+    assert cache["cache_read_share"] == round(40 / 1100, 4)
+
+
+def _model(record, model):
+    record["message"]["model"] = model
+    return record
+
+
+def test_cache_hit_low_model_switching_names_multi_model_sessions_then_low_reuse_projects(conn, tmp_path):
+    records = [
+        _model(_msg(1, DAY, i=900, cr=100, session="mix", cwd="/work/alpha"), "m-a"),
+        _model(_msg(2, DAY, i=900, cr=100, session="mix", cwd="/work/alpha"), "m-b"),  # same session, a second model
+        _msg(3, DAY, i=200, cr=800, session="steady", cwd="/work/beta"),  # 80% from cache, one model
+    ]
+    _load(conn, tmp_path, records)
+    _, hit = _result(conn, "cache_hit_low")
+    assert hit["diagnosis"] == "model_switching"
+    first = hit["causes"][0]
+    assert (first["name"], first["kind"], first["project"], first["models"]) == ("mix", "session", "alpha", 2)
+    assert [c["kind"] for c in hit["causes"]] == ["session", "project", "project"]
+    assert hit["causes"][1]["name"] == "alpha"  # lowest reuse first
+    assert "2 or more models" in hit["steps"][0] and "mix" in hit["steps"][1]
+
+
+def test_cache_hit_low_unstable_prefix_names_projects_with_5_percent_of_tokens_lowest_reuse_first(conn, tmp_path):
+    specs = [("alpha", "a", 800, 200), ("beta", "b", 600, 400), ("tiny", "t", 10, 0), ("gamma", "c", 900, 100)]
+    _load(conn, tmp_path, _sessions(1, specs, DAY))
+    _, hit = _result(conn, "cache_hit_low")
+    assert hit["diagnosis"] == "unstable_prefix"
+    assert [c["name"] for c in hit["causes"]] == ["gamma", "alpha", "beta"]  # `tiny` is under 5% of tokens
+    assert all(c["kind"] == "project" and c["cache_reuse"] is not None for c in hit["causes"])
+    assert "gamma" in hit["steps"][0]
+
+
+def test_session_huge_names_the_three_largest_open_sessions(conn, tmp_path):
+    specs = [("alpha", "s400", 400_000, 0), ("beta", "s300", 300_000, 0), ("alpha", "s200", 200_000, 0), ("beta", "s160", 160_000, 0)]
+    records = _sessions(1, specs, DAY)
+    records += [_msg(9, 2 * DAY, i=900_000, session="packed"), _msg(10, DAY, i=1000, session="packed")]  # compacted: not a cause
+    _load(conn, tmp_path, records)
+    _, hit = _result(conn, "session_huge_no_compact")
+    assert hit["diagnosis"] == "huge_sessions"
+    assert [(c["name"], c["project"], c["context_tokens"]) for c in hit["causes"]] == [
+        ("s400", "alpha", 400_000),
+        ("s300", "beta", 300_000),
+        ("s200", "alpha", 200_000),
+    ]
+    assert "s400" in hit["steps"][0] and "150,000" in hit["steps"][2]
+
+
+def test_project_dominates_names_the_projects_three_largest_sessions(conn, tmp_path):
+    specs = [("big", f"b{k}", 100 * (k + 1), 0) for k in range(4)] + [("small", "x", 50, 0)]
+    _load(conn, tmp_path, _sessions(1, specs, DAY))
+    _, hit = _result(conn, "project_dominates")
+    assert hit["diagnosis"] == "dominant_project" and hit["detail"] == {"project": "big"}
+    assert [(c["name"], c["project"], c["tokens"]) for c in hit["causes"]] == [
+        ("b3", "big", 400),
+        ("b2", "big", 300),
+        ("b1", "big", 200),
+    ]
+    assert hit["causes"][0]["token_share"] == round(400 / 1050, 4)
+    assert "big used 95.2%" in hit["steps"][0]
+
+
+def _trace(conn, rows):
+    for n, (project, tool, is_error) in enumerate(rows):
+        conn.execute(
+            "INSERT INTO kit_trace_events (machine_id, source_path, inode, byte_offset, project_path, kit_task_id,"
+            " abstained, ts_utc, tool_name, is_error) VALUES ('m', ?, 1, ?, ?, 'T001', 0, ?, ?, ?)",
+            (f"{project}/t.jsonl", n, project, _ts(DAY), tool, is_error),
+        )
+    conn.commit()
+
+
+def test_tool_errors_high_one_tool_names_the_tools_with_the_most_failed_results(conn, tmp_path):
+    _load(conn, tmp_path, [_msg(1, DAY, i=1)])  # the rule needs some stored history
+    rows = [("/work/alpha", "Bash", 1)] * 6 + [("/work/beta", "Edit", 1)] * 2
+    _trace(conn, rows + [("/work/beta", "Read", 1)] + [("/work/beta", "Read", 0)] * 3)
+    _, hit = _result(conn, "tool_errors_high")
+    assert hit["diagnosis"] == "one_tool_fails"
+    assert [(c["name"], c["kind"], c["errors"], c["calls"]) for c in hit["causes"]] == [
+        ("Bash", "tool", 6, 6),
+        ("Edit", "tool", 2, 2),
+        ("Read", "tool", 1, 4),
+    ]
+    assert "Bash caused 6 of the 9" in hit["steps"][0]
+
+
+def test_tool_errors_high_spread_names_projects(conn, tmp_path):
+    _load(conn, tmp_path, [_msg(1, DAY, i=1)])
+    rows = [("/work/alpha", "Bash", 1)] * 2 + [("/work/alpha", "Edit", 1)] * 2
+    _trace(conn, rows + [("/work/beta", "Read", 1)] * 3 + [("/work/beta", "Grep", 1)])
+    _, hit = _result(conn, "tool_errors_high")
+    assert hit["diagnosis"] == "errors_spread"
+    assert [(c["name"], c["kind"], c["errors"]) for c in hit["causes"]] == [("alpha", "project", 4), ("beta", "project", 4)]
+    assert "alpha" in hit["steps"][0]
+
+
+def test_records_unreadable_names_the_record_types_and_versions(conn, tmp_path):
+    good = [{**_msg(k, DAY), "type": "user", "message": None, "version": "9.9.9"} for k in range(90)]
+    junk = [{"type": "mystery", "version": "9.9.9", "timestamp": _ts(DAY)}] * 5
+    junk += [{"type": "weird", "version": "9.9.8", "timestamp": _ts(DAY)}] * 2
+    _load(conn, tmp_path, good + junk)
+    _, hit = _result(conn, "records_unreadable")
+    assert hit["diagnosis"] == "unreadable_records"
+    assert [(c["name"], c["kind"], c["version"], c["unreadable"]) for c in hit["causes"]] == [
+        ("mystery", "record_type", "9.9.9", 5),
+        ("weird", "record_type", "9.9.8", 2),
+    ]
+    assert "mystery" in hit["steps"][0] and "cache_read_share" not in hit
+
+
+def test_context_index_stale_names_the_stale_projects(conn, tmp_path):
+    import subprocess
+
+    env = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null", "PATH": "/usr/bin:/bin"}
+    commit = ["git", "-c", "user.email=t@e.invalid", "-c", "user.name=t"]
+    _load(conn, tmp_path, [_msg(1, DAY, i=1)])
+    for name in ("one", "two", "three", "four"):
+        repo = tmp_path / name
+        repo.mkdir()
+        subprocess.run(["git", "-C", str(repo), "init", "-q", "-b", "main"], check=True, env=env)
+        subprocess.run([*commit, "-C", str(repo), "commit", "-q", "--allow-empty", "-m", "c"], check=True, env=env)
+        conn.execute(
+            "INSERT INTO context_index (project_path, last_index_at_utc) VALUES (?, ?)", (str(repo), _ts(3 * DAY))
+        )
+    conn.commit()
+    status, hit = _result(conn, "context_index_stale")
+    assert status == "fired" and hit["measured"] == 4
+    assert hit["diagnosis"] == "stale_index"
+    assert len(hit["causes"]) == 3  # at most 3
+    assert all(c["kind"] == "project" and c["last_index_at"] and c["latest_commit_utc"] for c in hit["causes"])
+    assert "(4 in all)" in hit["steps"][0]
+
+
+def test_plan_items_carry_the_same_causes_diagnosis_and_steps_as_the_warning(conn, tmp_path):
+    _load(conn, tmp_path, _jump_more_sessions())
+    hits = {h["rule_id"]: h for h in rules.evaluate(conn, now=NOW)["hits"]}
+    items = {i["rule_id"]: i for g in plan.improvement_plan(conn, now=NOW)["groups"] for i in g["items"]}
+    assert set(items) == set(hits)
+    for rule_id, item in items.items():
+        for key in ("causes", "diagnosis", "steps", "fix", "cache_read_share"):
+            assert item.get(key) == hits[rule_id].get(key), (rule_id, key)
+    assert items["tokens_jump"]["diagnosis"] == "more_sessions"
+
+
+def test_causes_hold_only_names_ids_and_numbers(conn, tmp_path):
+    canary = "SECRET-CANARY-7731"
+    records = _many(100, [("alpha", 2)], 10 * DAY, 1000) + _many(200, [("alpha", 4), ("beta", 4)], DAY, 1000)
+    for record in records:
+        record["message"]["content"] = [{"type": "text", "text": canary}]
+    _load(conn, tmp_path, records)
+    out = rules.evaluate(conn, now=NOW)
+    assert out["hits"]
+    assert canary not in json.dumps(out) and canary not in json.dumps(plan.improvement_plan(conn, now=NOW))

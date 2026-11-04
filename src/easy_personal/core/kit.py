@@ -48,6 +48,20 @@ def scoped_projects(
     return sorted({owner.get(p, p) for p in paths})
 
 
+def _trace_window(
+    conn: sqlite3.Connection, since: str, until: str, workspace: str | None, account: str | None
+) -> tuple[str, list] | None:
+    """WHERE clause + params for the trace rows of [since, until) in scope; None = the scope has no project."""
+    where, params = "abstained = 0 AND ts_utc >= ? AND ts_utc < ?", [since, until]
+    if workspace is not None or account is not None:
+        paths = _stored_projects(conn, workspace, account)  # trace rows keep their own stored path
+        if not paths:
+            return None
+        where += f" AND project_path IN ({', '.join('?' * len(paths))})"
+        params += paths
+    return where, params
+
+
 def kernel_error_rate(
     conn: sqlite3.Connection,
     since: str,
@@ -59,17 +73,33 @@ def kernel_error_rate(
 
     All projects, or only those of the `workspace` / `account` scope.
     """
-    where, params = "abstained = 0 AND ts_utc >= ? AND ts_utc < ?", [since, until]
-    if workspace is not None or account is not None:
-        paths = _stored_projects(conn, workspace, account)  # trace rows keep their own stored path
-        if not paths:
-            return 0.0, 0
-        where += f" AND project_path IN ({', '.join('?' * len(paths))})"
-        params += paths
+    window = _trace_window(conn, since, until, workspace, account)
+    if window is None:
+        return 0.0, 0
+    where, params = window
     calls, errors = conn.execute(
         f"SELECT COUNT(*), COALESCE(SUM(is_error), 0) FROM kit_trace_events WHERE {where}", params
     ).fetchone()
     return (errors / calls if calls else 0.0), calls
+
+
+def kernel_errors_by_tool(
+    conn: sqlite3.Connection,
+    since: str,
+    until: str,
+    workspace: str | None = None,
+    account: str | None = None,
+) -> list[tuple[str | None, str, int, int]]:
+    """(tool name, stored project path, calls, failed calls) for [since, until) in scope, for rule causes (FR-073)."""
+    window = _trace_window(conn, since, until, workspace, account)
+    if window is None:
+        return []
+    where, params = window
+    return conn.execute(
+        "SELECT tool_name, project_path, COUNT(*), COALESCE(SUM(is_error), 0) "
+        f"FROM kit_trace_events WHERE {where} GROUP BY 1, 2",
+        params,
+    ).fetchall()
 
 
 def _kernel_by_project(conn) -> dict[str, dict]:

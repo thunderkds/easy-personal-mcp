@@ -585,11 +585,24 @@
    {
     "items": [
      {
-      "fix": "Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
+      "cache_read_share": 0.1707,
+      "causes": [
+       {
+        "cache_reuse": 0.1669,
+        "kind": "project",
+        "name": "alive-a",
+        "text": "alive-a read 16.7% of its prompt tokens from cache (98.7% of all tokens)",
+        "token_share": 0.9874,
+        "tokens": 300229
+       }
+      ],
+      "diagnosis": "unstable_prefix",
+      "fix": "Lowest cache reuse by project: alive-a (16.7% of its prompt tokens came from cache). Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
       "label": "warning",
       "measured": 0.1713,
       "rule_id": "cache_hit_low",
       "steps": [
+       "Lowest cache reuse by project: alive-a (16.7% of its prompt tokens came from cache).",
        "Keep the start of your prompts the same from one turn to the next.",
        "Avoid editing CLAUDE.md or switching models in the middle of a session."
       ],
@@ -604,16 +617,27 @@
    {
     "items": [
      {
+      "causes": [
+       {
+        "kind": "record_type",
+        "name": "assistant",
+        "text": "assistant records from Claude Code 9.9.9: 1 could not be read",
+        "unreadable": 1,
+        "version": "9.9.9"
+       }
+      ],
       "detail": {
        "version": "9.9.9"
       },
-      "fix": "Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer which Claude Code version writes the records.",
+      "diagnosis": "unreadable_records",
+      "fix": "Most unreadable records are assistant records from Claude Code 9.9.9 (1 records). Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer about assistant records from Claude Code 9.9.9.",
       "label": "aware",
       "measured": 1.0,
       "rule_id": "records_unreadable",
       "steps": [
+       "Most unreadable records are assistant records from Claude Code 9.9.9 (1 records).",
        "Update easy-personal to the latest version.",
-       "If it stays high, tell the easy-personal maintainer which Claude Code version writes the records."
+       "If it stays high, tell the easy-personal maintainer about assistant records from Claude Code 9.9.9."
       ],
       "summary": "100% of records from Claude Code 9.9.9 could not be read; target 2% or less, last 7 days",
       "threshold": 0.02,
@@ -621,13 +645,24 @@
       "why": "Records the parser cannot read are left out of every number you see, so the totals are too low."
      },
      {
-      "fix": "Read the failing tool calls in memory/event-trace/. Fix the command or permission that keeps failing.",
+      "causes": [
+       {
+        "calls": 17,
+        "error_rate": 0.2941,
+        "errors": 5,
+        "kind": "tool",
+        "name": "Bash",
+        "text": "Bash: 5 of 17 calls failed (29.4%)"
+       }
+      ],
+      "diagnosis": "one_tool_fails",
+      "fix": "Bash caused 5 of the 5 failed calls (100%). Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing.",
       "label": "warning",
       "measured": 0.2941,
       "rule_id": "tool_errors_high",
       "steps": [
-       "Read the failing tool calls in memory/event-trace/.",
-       "Fix the command or permission that keeps failing."
+       "Bash caused 5 of the 5 failed calls (100%).",
+       "Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing."
       ],
       "summary": "29.4% of kernel-trace tool calls failed; target 10% or less, last 7 days",
       "threshold": 0.1,
@@ -640,14 +675,43 @@
    {
     "items": [
      {
+      "cache_read_share": 0.1707,
+      "causes": [
+       {
+        "kind": "session",
+        "name": "a2",
+        "project": "alive-a",
+        "text": "a2 in alive-a used 300.0k tokens",
+        "token_share": 0.9867,
+        "tokens": 300024
+       },
+       {
+        "kind": "session",
+        "name": "a1",
+        "project": "alive-a",
+        "text": "a1 in alive-a used 160 tokens",
+        "token_share": 0.0005,
+        "tokens": 160
+       },
+       {
+        "kind": "session",
+        "name": "a3",
+        "project": "alive-a",
+        "text": "a3 in alive-a used 30 tokens",
+        "token_share": 0.0001,
+        "tokens": 30
+       }
+      ],
       "detail": {
        "project": "alive-a"
       },
-      "fix": "Confirm that this project should take most of your effort. Split long-running work into shorter sessions.",
+      "diagnosis": "dominant_project",
+      "fix": "alive-a used 98.7% of tokens; its largest session, a2, alone used 98.7% of all tokens. Confirm that this project should take most of your effort. Split long-running work into shorter sessions.",
       "label": "aware",
       "measured": 0.9874,
       "rule_id": "project_dominates",
       "steps": [
+       "alive-a used 98.7% of tokens; its largest session, a2, alone used 98.7% of all tokens.",
        "Confirm that this project should take most of your effort.",
        "Split long-running work into shorter sessions."
       ],
@@ -657,12 +721,41 @@
       "why": "A single project that crowds out the rest can hide waste, and your limit runs out sooner."
      },
      {
-      "fix": "Open Usage and find which project or session drove the rise. Decide if the rise is intended before it becomes your baseline.",
+      "cache_read_share": 0.1707,
+      "causes": [
+       {
+        "kind": "session",
+        "name": "a2",
+        "project": "alive-a",
+        "text": "a2 in alive-a used 300.0k tokens",
+        "token_share": 0.9867,
+        "tokens": 300024
+       },
+       {
+        "kind": "session",
+        "name": "gx1",
+        "project": "gone-x",
+        "text": "gx1 in gone-x used 2.0k tokens",
+        "token_share": 0.0066,
+        "tokens": 2000
+       },
+       {
+        "kind": "session",
+        "name": "b1",
+        "project": "alive-b",
+        "text": "b1 in alive-b used 1.8k tokens",
+        "token_share": 0.006,
+        "tokens": 1830
+       }
+      ],
+      "diagnosis": "bigger_sessions",
+      "fix": "Each session got bigger: tokens per session went from 200 to 43.4k (2 \u2192 7 sessions). The largest session, a2 in alive-a, used 300.0k tokens. Run /compact in long sessions or start a new one. Decide if the rise is intended before it becomes your baseline.",
       "label": "aware",
       "measured": 759.185,
       "rule_id": "tokens_jump",
       "steps": [
-       "Open Usage and find which project or session drove the rise.",
+       "Each session got bigger: tokens per session went from 200 to 43.4k (2 \u2192 7 sessions).",
+       "The largest session, a2 in alive-a, used 300.0k tokens. Run /compact in long sessions or start a new one.",
        "Decide if the rise is intended before it becomes your baseline."
       ],
       "summary": "Token use rose 75,918.5% in the last 7 days against the 7 days before; target 50% or less",
@@ -1296,12 +1389,25 @@
   "as_of_utc": "2026-10-20T00:00:00+00:00",
   "hits": [
    {
-    "fix": "Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
+    "cache_read_share": 0.1707,
+    "causes": [
+     {
+      "cache_reuse": 0.1669,
+      "kind": "project",
+      "name": "alive-a",
+      "text": "alive-a read 16.7% of its prompt tokens from cache (98.7% of all tokens)",
+      "token_share": 0.9874,
+      "tokens": 300229
+     }
+    ],
+    "diagnosis": "unstable_prefix",
+    "fix": "Lowest cache reuse by project: alive-a (16.7% of its prompt tokens came from cache). Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
     "label": "warning",
     "measured": 0.1713,
     "priority": 1,
     "rule_id": "cache_hit_low",
     "steps": [
+     "Lowest cache reuse by project: alive-a (16.7% of its prompt tokens came from cache).",
      "Keep the start of your prompts the same from one turn to the next.",
      "Avoid editing CLAUDE.md or switching models in the middle of a session."
     ],
@@ -1312,17 +1418,28 @@
     "window_days": 7
    },
    {
+    "causes": [
+     {
+      "kind": "record_type",
+      "name": "assistant",
+      "text": "assistant records from Claude Code 9.9.9: 1 could not be read",
+      "unreadable": 1,
+      "version": "9.9.9"
+     }
+    ],
     "detail": {
      "version": "9.9.9"
     },
-    "fix": "Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer which Claude Code version writes the records.",
+    "diagnosis": "unreadable_records",
+    "fix": "Most unreadable records are assistant records from Claude Code 9.9.9 (1 records). Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer about assistant records from Claude Code 9.9.9.",
     "label": "aware",
     "measured": 1.0,
     "priority": 2,
     "rule_id": "records_unreadable",
     "steps": [
+     "Most unreadable records are assistant records from Claude Code 9.9.9 (1 records).",
      "Update easy-personal to the latest version.",
-     "If it stays high, tell the easy-personal maintainer which Claude Code version writes the records."
+     "If it stays high, tell the easy-personal maintainer about assistant records from Claude Code 9.9.9."
     ],
     "summary": "100% of records from Claude Code 9.9.9 could not be read; target 2% or less, last 7 days",
     "threshold": 0.02,
@@ -1331,14 +1448,25 @@
     "window_days": 7
    },
    {
-    "fix": "Read the failing tool calls in memory/event-trace/. Fix the command or permission that keeps failing.",
+    "causes": [
+     {
+      "calls": 17,
+      "error_rate": 0.2941,
+      "errors": 5,
+      "kind": "tool",
+      "name": "Bash",
+      "text": "Bash: 5 of 17 calls failed (29.4%)"
+     }
+    ],
+    "diagnosis": "one_tool_fails",
+    "fix": "Bash caused 5 of the 5 failed calls (100%). Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing.",
     "label": "warning",
     "measured": 0.2941,
     "priority": 2,
     "rule_id": "tool_errors_high",
     "steps": [
-     "Read the failing tool calls in memory/event-trace/.",
-     "Fix the command or permission that keeps failing."
+     "Bash caused 5 of the 5 failed calls (100%).",
+     "Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing."
     ],
     "summary": "29.4% of kernel-trace tool calls failed; target 10% or less, last 7 days",
     "threshold": 0.1,
@@ -1347,15 +1475,44 @@
     "window_days": 7
    },
    {
+    "cache_read_share": 0.1707,
+    "causes": [
+     {
+      "kind": "session",
+      "name": "a2",
+      "project": "alive-a",
+      "text": "a2 in alive-a used 300.0k tokens",
+      "token_share": 0.9867,
+      "tokens": 300024
+     },
+     {
+      "kind": "session",
+      "name": "a1",
+      "project": "alive-a",
+      "text": "a1 in alive-a used 160 tokens",
+      "token_share": 0.0005,
+      "tokens": 160
+     },
+     {
+      "kind": "session",
+      "name": "a3",
+      "project": "alive-a",
+      "text": "a3 in alive-a used 30 tokens",
+      "token_share": 0.0001,
+      "tokens": 30
+     }
+    ],
     "detail": {
      "project": "alive-a"
     },
-    "fix": "Confirm that this project should take most of your effort. Split long-running work into shorter sessions.",
+    "diagnosis": "dominant_project",
+    "fix": "alive-a used 98.7% of tokens; its largest session, a2, alone used 98.7% of all tokens. Confirm that this project should take most of your effort. Split long-running work into shorter sessions.",
     "label": "aware",
     "measured": 0.9874,
     "priority": 3,
     "rule_id": "project_dominates",
     "steps": [
+     "alive-a used 98.7% of tokens; its largest session, a2, alone used 98.7% of all tokens.",
      "Confirm that this project should take most of your effort.",
      "Split long-running work into shorter sessions."
     ],
@@ -1366,13 +1523,42 @@
     "window_days": 7
    },
    {
-    "fix": "Open Usage and find which project or session drove the rise. Decide if the rise is intended before it becomes your baseline.",
+    "cache_read_share": 0.1707,
+    "causes": [
+     {
+      "kind": "session",
+      "name": "a2",
+      "project": "alive-a",
+      "text": "a2 in alive-a used 300.0k tokens",
+      "token_share": 0.9867,
+      "tokens": 300024
+     },
+     {
+      "kind": "session",
+      "name": "gx1",
+      "project": "gone-x",
+      "text": "gx1 in gone-x used 2.0k tokens",
+      "token_share": 0.0066,
+      "tokens": 2000
+     },
+     {
+      "kind": "session",
+      "name": "b1",
+      "project": "alive-b",
+      "text": "b1 in alive-b used 1.8k tokens",
+      "token_share": 0.006,
+      "tokens": 1830
+     }
+    ],
+    "diagnosis": "bigger_sessions",
+    "fix": "Each session got bigger: tokens per session went from 200 to 43.4k (2 \u2192 7 sessions). The largest session, a2 in alive-a, used 300.0k tokens. Run /compact in long sessions or start a new one. Decide if the rise is intended before it becomes your baseline.",
     "label": "aware",
     "measured": 759.185,
     "priority": 3,
     "rule_id": "tokens_jump",
     "steps": [
-     "Open Usage and find which project or session drove the rise.",
+     "Each session got bigger: tokens per session went from 200 to 43.4k (2 \u2192 7 sessions).",
+     "The largest session, a2 in alive-a, used 300.0k tokens. Run /compact in long sessions or start a new one.",
      "Decide if the rise is intended before it becomes your baseline."
     ],
     "summary": "Token use rose 75,918.5% in the last 7 days against the 7 days before; target 50% or less",

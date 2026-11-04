@@ -219,3 +219,19 @@ def test_mcp_tools_accept_scope_and_match_cli(conn, capsys):
     assert got == json.loads(run(capsys, "plan", "--account", "2").out)
     _, noargs = asyncio.run(app.call_tool("kit_summary", {}))
     assert projects(noargs) == ["a", "b", "c"]
+
+
+# HUN-214 (FR-073): causes come only from the scope's events
+def test_causes_follow_the_account_and_workspace_scope(conn):
+    def projects(**scope):
+        causes = hits(rules.evaluate(conn, NOW, **scope))["tokens_jump"]["causes"]
+        return {c["project"] if c["kind"] == "session" else c["name"] for c in causes}
+
+    assert projects() == {"a", "b", "c"}
+    assert projects(account="2") == {"b", "c"}  # account 2 never used /work/a
+    assert projects(account="1") == {"a", "b"}
+    items = plan.improvement_plan(conn, NOW, account="2")["groups"]
+    jump = next(i for g in items for i in g["items"] if i["rule_id"] == "tokens_jump")
+    assert {c["project"] if c["kind"] == "session" else c["name"] for c in jump["causes"]} == {"b", "c"}
+    errors = hits(rules.evaluate(conn, NOW, workspace="wc"))["tool_errors_high"]
+    assert [c["name"] for c in errors["causes"]] == ["Bash"] and errors["causes"][0]["calls"] == 10  # only /work/c's calls

@@ -103,3 +103,20 @@ def test_bad_config_threshold_is_a_clean_cli_error(tmp_path, monkeypatch, capsys
     assert cli.main([command]) == 2
     err = capsys.readouterr().err.strip()
     assert err.count("\n") == 0 and "config" in err
+
+
+def test_hits_and_plan_items_carry_causes_and_diagnosis_on_every_surface(recent, capsys):
+    """HUN-214 (FR-073): CLI and MCP give the same causes, diagnosis and fix lines; the plan repeats them."""
+    app = mcp_surface.create_app()
+    warnings = _cli_json(capsys, ["warnings"])
+    _, mcp_warnings = asyncio.run(app.call_tool("warnings", {}))
+    assert _without_time(warnings) == _without_time(mcp_warnings)
+    by_id = {h["rule_id"]: h for h in warnings["hits"]}
+    huge = by_id["session_huge_no_compact"]
+    assert huge["diagnosis"] == "huge_sessions" and huge["causes"][0]["name"] == "s2"
+    assert huge["causes"][0]["context_tokens"] == 160_000 and huge["fix"] == " ".join(huge["steps"])
+    assert "s2" in huge["steps"][0]
+    items = {i["rule_id"]: i for g in _cli_json(capsys, ["plan"])["groups"] for i in g["items"]}
+    for rule_id, hit in by_id.items():
+        for key in ("causes", "diagnosis", "steps"):
+            assert items[rule_id][key] == hit[key]

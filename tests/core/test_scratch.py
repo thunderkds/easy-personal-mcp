@@ -214,3 +214,27 @@ def test_unassigned_never_lists_scratch_or_a_sibling_prefix(conn, world):
     add(conn, 1, world["plain"])
     make_ws(conn, world["repo"])
     assert [r["path"] for r in workspaces.unassigned(conn)] == [str(sibling)]
+
+
+def test_rule_causes_group_scratch_folders_as_one_project(conn, world):
+    """HUN-214 (FR-073, FR-069): causes name the one `Scratch` project, never its separate folders."""
+    from datetime import UTC, datetime
+
+    from easy_personal.core import rules
+
+    (world["tmp"]).mkdir()
+    add(conn, 0, world["repo"], session="old", ts="2026-01-01T00:00:00.000000Z")  # gives the store 9 days of history
+    stamp = "2026-01-08T00:00:%02d.000000Z"
+    add(conn, 1, world["repo"], session="r1", ts=stamp % 1)
+    add(conn, 2, world["tmp"], session="t1", ts=stamp % 2)
+    add(conn, 3, world["gone"], session="g1", ts=stamp % 3)
+    add(conn, 4, world["gone"], session="g2", ts=stamp % 4)
+    out = rules.evaluate(conn, now=datetime(2026, 1, 10, tzinfo=UTC))
+    hit = {h["rule_id"]: h for h in out["hits"]}["project_dominates"]
+    assert hit["detail"] == {"project": "Scratch"}  # 45 of 60 tokens
+    assert [(c["name"], c["project"]) for c in hit["causes"]] == [
+        ("g1", "Scratch"),
+        ("g2", "Scratch"),
+        ("t1", "Scratch"),
+    ]
+    assert "Scratch used 75%" in hit["steps"][0]
