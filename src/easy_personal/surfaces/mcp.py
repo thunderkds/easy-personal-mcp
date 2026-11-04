@@ -1,3 +1,4 @@
+import json
 from importlib.metadata import version
 from typing import Any
 
@@ -7,6 +8,20 @@ from easy_personal import core
 from easy_personal.core import config, kit, kitperf, metrics, plan, rules, store
 
 LOOPBACK = "127.0.0.1"
+
+# Fixed text of the `investigate` prompt (FR-075). The client's own model does the reasoning; this server runs none.
+INVESTIGATE_PROMPT = """\
+Investigate my Claude Code usage with the easy-personal tools and tell me what to change. Use only numbers the tools return.
+
+1. Call `warnings` and `improvement_plan`. Use the same scope for both.
+2. Call `usage_breakdown` with by="project" and again with by="model", for the last 7 days (set since to the date 7 days ago).
+3. Call `session_outliers` for the last 7 days.
+4. For each warning that fired, explain in plain words what caused it. Read the hit's causes when it has them. Tie it to the projects, models or sessions you found in steps 2 and 3.
+5. Suggest at most 5 fixes, ranked by expected saving (largest first). Cite one number from a tool result for each fix, and name the tool it came from.
+6. Say plainly when a change looks intended rather than wasteful (for example, one big project that I am working on right now). Do not suggest a fix for it.
+
+Do not guess. If a tool returns no data or abstains, say so. Do not change any file.
+"""
 
 
 def validate_host(host: str) -> str:
@@ -115,6 +130,17 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
 
         with store.opened(config.store_path()) as conn:
             return suggestions.suggestions(conn)
+
+    @app.prompt(
+        name="investigate",
+        description="Investigate your Claude Code usage: causes of each warning and up to 5 ranked fixes.",
+    )
+    def investigate(workspace: str | None = None, account: str | None = None) -> str:
+        scope = [f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in (("workspace", workspace), ("account", account)) if v]
+        text = INVESTIGATE_PROMPT
+        if scope:
+            text += f"\nScope: pass {' and '.join(scope)} to every tool call that takes a scope (`warnings`, `improvement_plan`).\n"
+        return text
 
     return app
 
