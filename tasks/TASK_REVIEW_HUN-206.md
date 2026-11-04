@@ -61,8 +61,19 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-04T03:49:38Z, before any implementation commit; store COPY made with `sqlite3 ~/.easy-personal/store.sqlite ".backup <worktree>/.verify-copy/store.sqlite"`, `EASY_PERSONAL_HOME=<worktree>/.verify-copy`):
+
+```
+$ uv run easy-personal usage --by project        # group count = len(groups)
+127
+first 15 keys: ['orderly', 'personal-agentic-claude', 'easy-verifier-mcp', 'easy-personal-mcp', 'idea-radar',
+'easy-memory-mcp', 'easy-context-mcp', 'kitchd', 'idea-ladder', 'easy-ui-mcp', 'java-training',
+'hungnguyen111', 'proj', 'tapchat-apis', 'kit']        (total.messages 49517)
+
+$ GET /api/workspaces/unassigned  (TestClient on the copy, valid token, 2026-11-04T03:49:48Z)
+405 Method Not Allowed      # no such route: only /api/workspaces/{id} (PATCH/DELETE) matches the path
+routes with "workspaces": /api/workspaces, /api/workspaces, /api/workspaces/{id}, /api/workspaces/{id}, /api/accounts/{id}/workspaces
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
