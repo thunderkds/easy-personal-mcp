@@ -45,12 +45,22 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Verification command run | ☑ pass | `uv run pytest -q` -> `1352 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 243.55s (0:04:03)` (2026-11-04, worktree HUN-206, commit after `HUN-206: existing tests ...`). Real run on the store COPY: see Demonstration AFTER. |
 | Negative cases hold | ☑ pass | no/wrong token and wrong Host -> 403 on the new route (`test_route_refuses_no_token_wrong_token_and_wrong_host`; also real server: curl without token -> 403); `/…/repo` does not cover `/…/repo2`; relative / empty / NULL stored path -> Scratch / `(unknown)`, no crash; a folder under the temp folder runs no git call (`test_ac4_...`); `by=day/model/tool` outputs byte-identical to the pre-change code on the store copy (`cmp`). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor `code-review` 2026-11-04: `git diff main...HEAD` (22 files) + direct callers of `owner_map`/`tokens_by_project`/`usage_breakdown` (`rules._top_project_share`, `workspaces.project_paths`, `kit.py`, `kitperf.py` — unchanged, still `owner_map`). Lane: `C2, 21 files, 480 lines, EXCEEDS (files 21 > 14); unpredicted: tests/conftest.py, tests/test_readme.py` — the extra files are test opt-ins, not product code. Findings: P0 0, P1 0, P2 2, P3 1 (below). Security (Medium risk, manual — built-in `security-review` needs an `origin` remote): new route is GET-only through `_query` (token + Host), SQL takes no request input, response = repo paths/counts/cost (dashboard-only), leak `API_CALLS` entry added — no finding. Speed: `usage --by project` on the store copy 1.37 s (main) vs 1.38 s (HUN-206), warm. |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` → `1352 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 243.55s (0:04:03)` |
+| **Companion score (easy-verifier)** | ☑ pass | overall 56 (advisory — no blocking minimum set, `docs/claude-md/pipeline-stages.md` step 4b), change_risk 100, scope changes, ref `main...HUN-206`; security 18 = the known SQL/lockfile false positives (memory: easy-verifier score output); 6 dimensions abstain. report: `/home/hungnguyenhuu/.easy-verifier-reports/HUN-206/evidence-report-changes-20261104T041806-780491Z.html` |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | backend only (UI is HUN-207) |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | backend only (UI is HUN-207) |
 | **UI: Responsiveness at target viewports** | ☑ N/A | backend only (UI is HUN-207) |
+
+### Code-review findings (Supervisor, 2026-11-04)
+
+| Sev | File | Finding | Conf | Action |
+| -- | -- | -- | -- | -- |
+| P2 | `src/easy_personal/core/workspaces.py` `unassigned` | Re-states the per-message query of `metrics._messages` (same filters, `GROUP BY message_id`) instead of reusing it | 75 | Suggestion only; keep — the shapes differ (per path, all time) |
+| P2 | `tests/conftest.py` `real_projects` | 7 modules (incl. `test_dashboard_speed`) patch `_is_scratch` to False, so the speed test does not time the scratch rule | 75 | Accepted: measured on the real store copy instead (1.37 s → 1.38 s); the Scratch rule has its own 15 tests |
+| P3 | `src/easy_personal/core/metrics.py` | A real repo whose folder is named `Scratch` merges into the Scratch row | 100 | Accepted, noted |
+
+Process: the agent wrote code before tests (it says so); every AC has a test and BEFORE was captured before the first implementation commit — Gate 5 met. Startup reads line names `PROJECT_SPEC.md`, the guide and `agents/backend.md` — no process finding.
 
 ---
 
