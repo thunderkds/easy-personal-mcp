@@ -10,6 +10,9 @@
 
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
+- [ ] **HUN-214** — Warning hits carry causes from the owner's data + a diagnosis that picks the fix (FR-073) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-214.md`
+- [ ] **HUN-215** — MCP prompt \`investigate\`: the owner's Claude Code session investigates usage (FR-075) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-215.md`
+- [ ] **HUN-216** — Warnings & plan page: one list with "Why this happened" and matching fixes (FR-074) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-216.md`
 
 ### In Progress
 
