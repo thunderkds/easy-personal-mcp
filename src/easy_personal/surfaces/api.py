@@ -637,6 +637,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         ),
         Route("/api/dirs", dirs_list),
         Route("/api/workspaces", _query(lambda c, q: {"workspaces": workspaces.list_all(c)})),
+        Route("/api/workspaces/unassigned", _query(lambda c, q: {"repos": workspaces.unassigned(c)})),
         Route("/api/workspaces", workspaces_add, methods=["POST"]),
         Route("/api/workspaces/{id}", workspaces_edit, methods=["PATCH"]),
         Route("/api/workspaces/{id}", workspaces_delete, methods=["DELETE"]),

@@ -59,9 +59,9 @@ easy-personal kit
 easy-personal kit-findings --json
 ```
 
-`kit-findings` compares sessions with and without each Easy Kit MCP server (see Kit performance below; `--limit`, `--since`). `usage --by` takes `day`, `model`, `project` or `tool`. `usage` and `outliers` take `--since` and `--until` (ISO dates). `ingest --retention-days N` deletes events older than N days.
+`kit-findings` compares sessions with and without each Easy Kit MCP server (see Kit performance below; `--limit`, `--since`). `usage --by` takes `day`, `model`, `project` or `tool`. `usage --by project` and the MCP tool `usage_breakdown` put every scratch folder into one group named `Scratch` (with `scratch: true` and a `folders` list of the same numbers per folder name). A scratch folder is a project path under the system temp folder, a folder that no longer exists, a folder outside any git repo, or one inside a hidden folder; a gone worktree is still counted under its repo. The totals do not change. `usage` and `outliers` take `--since` and `--until` (ISO dates). `ingest --retention-days N` deletes events older than N days.
 
-Group repos into workspaces and filter usage by one. A workspace counts events whose project path equals or sits under one of its repo paths. The name is a slug (`orphan` is reserved for the built-in workspace). The email is information only.
+Group repos into workspaces and filter usage by one. A workspace counts events whose project path equals or sits under one of its repo paths. The name is a slug (`orphan` is reserved for the built-in workspace). The email is information only. The dashboard also serves the real projects that have usage but sit in no workspace at `GET /api/workspaces/unassigned` (all stored time, newest use first; read only).
 
 ```bash
 easy-personal workspace add company --repo ~/work/app --repo ~/work/api
