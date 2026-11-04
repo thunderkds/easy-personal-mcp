@@ -37,6 +37,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Auto decisions
+
+Mode: auto
+Auto mode began after Stage 4 (owner, 2026-11-04: "you can run [auto]"); Stages 0.5–4 ran with the owner's answers.
+1. Stage 4 security review done by hand, not by the built-in skill — FACT: the built-in `security-review` failed with `fatal: ambiguous argument 'origin/HEAD...': unknown revision or path not in the working tree.` (this repo's only remote is `github`), as recorded in `memory/MEMORY.md` "built-in security-review needs an `origin` remote"
+2. P2/P3 findings left as suggestions, not fixed — RULE: `skills/code-review/SKILL.md` § Phase 4 "Do not apply P2/P3 fixes automatically"
+3. No Ready for Review move and no auto `/verify` — FACT: the Linear team's statuses are Backlog, Todo, In Progress, Done, Canceled, Duplicate (no review state; `.claude/board.json` `status_map` is `{}`), and the auto-verify hook acts only on a `### Ready for Review` row (`docs/claude-md/tracks.md` `### Auto verify (Stop hook)` condition 1); the row stays In Progress
+Checks: tests `uv run pytest -q` — `1352 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning`; reviews code-review — P0 0 / P1 0 / P2 2 / P3 1, security (manual) — no finding, easy-verifier overall 56 / change_risk 100; real run `uv run easy-personal usage --by project` on a store COPY — printed 13 groups (was 127), Scratch 115 folders, totals identical; speed 1.37 s (main) vs 1.38 s (HUN-206) (auto-checked, not /verify)
+Not done: merge (yours); /verify (yours) — the board has no Ready for Review state, so the auto-verify hook cannot fire
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
