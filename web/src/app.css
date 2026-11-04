@@ -337,7 +337,7 @@ ol.steps li + li { margin-top: var(--space-1); }
 .card-causes strong { font-weight: 500; color: var(--color-secondary); }
 .card-causes li + li { margin-top: var(--space-1); }
 .card-cache { color: var(--color-muted); }
-.chip-new { margin-left: var(--space-2); background: var(--color-amber-soft); color: var(--color-amber); }
+.chip.chip-new { margin-left: var(--space-2); background: var(--color-amber-soft); color: var(--color-amber); }
 .investigate-hint { margin-top: var(--space-4); color: var(--color-muted); font-size: var(--fs-cell); overflow-wrap: anywhere; }
 .investigate-hint code { font-family: var(--font-mono); color: var(--color-text); }
 .chip, .label { display: inline-block; padding: 0 var(--space-2); border-radius: 4px; background: var(--color-selected); color: var(--color-muted); font-family: var(--font-mono); font-size: var(--fs-label); font-weight: 500; }

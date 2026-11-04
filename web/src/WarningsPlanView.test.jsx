@@ -278,3 +278,12 @@ describe('abstained list and investigate hint (HUN-216 AC4, AC5, AC6)', () => {
     expect(await within(screen.getByTestId('toasts')).findByRole('alert')).toHaveTextContent('copy it by hand')
   })
 })
+
+describe('HUN-217: the "new" cause chip', () => {
+  it('wins over the base .chip colours (selector .chip.chip-new, amber)', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    expect(css).toMatch(/\n\.chip\.chip-new\s*\{[^}]*background: var\(--color-amber-soft\);[^}]*color: var\(--color-amber\)/)
+  })
+})
