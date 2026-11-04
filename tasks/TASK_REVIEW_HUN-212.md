@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_live.py`: two_tails_on_one_store (AC1, AC3), a_line_stored_by_another_caller_between_two_polls + mixed batch (AC2, AC3), tail_started_with_the_cursor_at_the_end (AC4), replaced_file / truncated_file followed by both tails (AC5), file_created_after_both_tails_started (review fix), new_subagent_file_published_by_both_tails, file_with_history_seen_in_a_tails_first_scan, cursor moved backwards, offset map forgets a vanished file. Supervisor rerun 2026-11-04: `uv run pytest tests -q -k live` → `85 passed, 1291 deselected, 1 warning in 40.39s` |
+| Verification command run | ☑ pass | agent, final tree 381913f: `uv run pytest tests -q -k live` → 85 passed; `uv run pytest -q` → `1367 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 267.39s`; Supervisor rerun of the live set: 85 passed |
+| Negative cases hold | ☑ pass | lock busy → nothing published, retried next poll (existing busy-lock test); cursor moved backwards → no history replay (new test); tail started late → no history from first-scan files (new test); leak suite `tests/leak/test_live_leak.py` passes |
+| verify | ☑ pass | Supervisor ran the project verify skill 2026-11-04 (owner said "merge"): isolated `uv tool install .` -> `0.4.0`, `ping` -> `easy-personal core ok`, MCP stdio `tools/call ping` -> result ok, `dashboard --host 0.0.0.0` -> exit 2. Two-dashboard live run (scratchpad realrun.py, temp store): both dashboards listed sess1..sess4 (sess4 created after both started), 12 tool events each; store 15 rows, 15 distinct (path,inode,offset). — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Stage 4 code-review (Supervisor, 2026-11-04): diff 69791fb..381913f = src/easy_personal/core/live.py, tests/core/test_live.py; callers `LiveTail.poll_once` (dashboard start) and `GET /api/live` read path unchanged. lane_check: `lane: C2, 2 files, 269 lines, FITS`. Startup reads line present with all three Permanent-Rule reads. Findings: P0 0, P1 0 (the first-report gap — a file created while the tail runs started at the store cursor — was fixed in 381913f with tests), P2 1 follow-up: a Claude account confirmed while a dashboard runs has its existing files first seen after priming, so they are read from byte 0; old sessions can reach the page as idle rows until the next snapshot, and one with an open call < 24 h old could show `needs attention`. Rare; suggested fix: prime per account root. Security review (manual; built-in `security-review` needs `origin/HEAD`, absent here): no new input, route or file path; same roots and `_jsonl_files` walk (no dir symlink follow); `_item` unchanged, so metadata only (FR-002); lock still per batch; memory bounded (offset map pruned on vanished files). No finding. |
+| Full smoke suite still green (no regression) | ☑ pass | agent full suite on 381913f: `1367 passed, 2 skipped, 6 deselected, 1 xfailed` |
+| **Companion score (easy-verifier)** | ☑ pass | advisory: `score` scope=changes ref=69791fb task_id=HUN-212 → overall 50 (blast-radius 46, requirement-fidelity 67, security 30, test-strategy 55; others abstained); change_risk: rating_abstention ("all declared rating metrics abstained"). Same figures as HUN-213, so repo-level, not this diff. Not gating. report: /home/hungnguyenhuu/.claude-hung2/projects/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/92fb1d94-3cb3-4b8e-920b-9d813a38e38e/tool-results/mcp-easy-verifier-score-1793792028877.txt |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ N/A | backend only (guide: UI / Design Evidence N/A) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ N/A | backend only (guide: UI / Design Evidence N/A) |
+| **UI: Responsiveness at target viewports** | ☐ N/A | backend only (guide: UI / Design Evidence N/A) |
 
 ---
 
@@ -61,12 +61,46 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-04T11:10:50Z / re-run 2026-11-04T11:11:31Z, before any change to `src/`.
+Command: `uv run pytest tests/core/test_live.py -q -k "two_tails or another_caller or cursor_at_the_end or replaced_file_is_followed or truncated_file_is_followed" --tb=line`
+Failure of AC 1 (two `LiveTail` objects on one store; the first poll wins the store cursor, the second tail lists no session):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+>           assert {s["session_id"] for s in tail.snapshot(now=clock())["sessions"]} == {"sess1", "sess2", "sess3"}
+E           AssertionError: assert set() == {'sess1', 'sess2', 'sess3'}
+E             Extra items in the right set:
+E             'sess2'
+E             'sess3'
+E             'sess1'
+tests/core/test_live.py:770: AssertionError
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Full summary of the run:
+
+```
+AssertionError: assert [] == ['Old', 'New']
+AssertionError: assert (0 == 3)
+FAILED tests/core/test_live.py::test_two_tails_on_one_store_each_list_every_session_and_every_tool_event_once_in_the_store
+FAILED tests/core/test_live.py::test_a_line_stored_by_another_caller_between_two_polls_is_still_published_and_not_stored_again
+FAILED tests/core/test_live.py::test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_nothing_until_a_new_line
+FAILED tests/core/test_live.py::test_a_replaced_file_is_followed_by_both_tails_without_publishing_old_lines_twice
+FAILED tests/core/test_live.py::test_a_truncated_file_is_followed_by_both_tails_without_an_error_or_a_second_publish
+5 failed, 38 deselected in 1.04s
+```
+
+**AFTER**: same pytest command, 2026-11-04 (after the change; the test file also holds extra edge tests). After the Supervisor's review fix (a file created while the tail runs, or a replaced file, is read from byte 0; only files of the tail's first scan start at the store cursor), `uv run pytest tests/core/test_live.py -q` printed `49 passed in 6.16s`. The review-fix tests failed first (2026-11-04T11:24:29Z, 3 failed, 46 passed): new-file-both-tails, new-subagent-file-both-tails, replaced-file-both-tails.
+Real run (AC 7, simulated sessions: fixture lines appended to 3 transcript files under a temp account root, plus a 4th session file created AFTER both dashboards started; two real `easy-personal dashboard` processes on one temp store, `/api/live` read from each; started 2026-11-04T11:25:19Z):
+
+```
+dashboard 1 (port 43809) snapshot sessions: [('sess1', 'repo-1', 3), ('sess2', 'repo-2', 3), ('sess3', 'repo-3', 3), ('sess4', 'repo-4', 3)]
+dashboard 1 live tool_use events: 12 [('sess1', 'Bash'), ('sess2', 'Bash'), ('sess3', 'Bash'), ('sess4', 'Grep')]
+dashboard 2 (port 33499) snapshot sessions: [('sess1', 'repo-1', 3), ('sess2', 'repo-2', 3), ('sess3', 'repo-3', 3), ('sess4', 'repo-4', 3)]
+dashboard 2 live tool_use events: 12 [('sess1', 'Bash'), ('sess2', 'Bash'), ('sess3', 'Bash'), ('sess4', 'Grep')]
+store events rows: 15 (3 seed + 9 new + 3 in the new file = 15 expected)
+distinct (path,inode,offset): 15
+```
+
+**DELTA**: two dashboards (or a dashboard plus the scheduled ingest) now each show every running session, including a session or subagent file that starts after the dashboards, and the store still holds each line once.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-212.jsonl`, never the
 implementing agent alone]

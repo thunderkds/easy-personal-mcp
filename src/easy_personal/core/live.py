@@ -1,10 +1,12 @@
 """Live tail (FR-043): follows every confirmed Claude account's transcripts while the dashboard runs.
 
-One thread polls each account's `projects/` tree about every 100 ms and reads only complete new lines
-from the offsets the store already holds (the scheduled ingest and the tail share one cursor). Lines
-go through `store.save_file`, the normal ingest path, with the single-writer lock taken only for that
-one short batch and never kept between batches, so the scheduled ingest still runs. The same lines
-become metadata events in a bounded in-memory buffer that the SSE route (next task) reads.
+One thread polls each account's `projects/` tree about every 100 ms and reads only complete new lines.
+The tail keeps its own read offset per file. A file of the tail's first scan starts at the store cursor
+(no history replay); a file that appears later is read from its start. A line from the store cursor on goes through `store.save_file`, the normal ingest path, with the
+single-writer lock taken only for that one short batch and never kept between batches, so the scheduled
+ingest still runs. A line below the cursor was stored by another process (a second dashboard, the
+scheduled ingest): it is published and not stored again (FR-071). Every published line becomes a
+metadata event in a bounded in-memory buffer that the SSE route reads.
 
 Read-only on every source (NFR-003). Nothing is written to any Claude config. An event holds names,
 ids, numbers and timestamps only: message text, tool input and tool output are never read (FR-002).
@@ -65,6 +67,11 @@ def _jsonl_files(root: Path) -> Iterator[tuple[str, int, int]]:
                         yield entry.path, info.st_ino, info.st_size
                 except OSError:
                     continue  # vanished between listing and stat
+
+
+def _cursor(state: tuple[int, int] | None, inode: int, size: int) -> int:
+    """Where the store cursor stands for this file: 0 when the file is unknown, replaced or shorter."""
+    return state[1] if state and state[0] == inode and state[1] <= size else 0
 
 
 def _item(record, parsed: dict) -> dict | None:
@@ -184,6 +191,8 @@ class LiveTail:
         self._thread: threading.Thread | None = None
         self._store_path, self._lock_path = config.store_path(), config.data_dir() / "ingest.lock"
         self._projects: dict[str, str] = {}
+        self._offsets: dict[str, tuple[int, int]] = {}  # path -> (inode, next byte this tail has not published)
+        self._primed = False  # True once a first full scan has finished (no early return)
         self._roots: list[tuple[int | None, Path]] = []
         self._labels: dict[int | None, str] = {}
         self._roots_at = float("-inf")
@@ -304,20 +313,33 @@ class LiveTail:
     def _scan(self, conn: sqlite3.Connection) -> None:
         self._refresh_roots(conn)
         known = store.file_offsets(conn, claude_code.SOURCE)
+        seen: set[str] = set()
         for account_id, root in self._roots:
             label = self._labels.get(account_id, accounts.DEFAULT_LABEL)
             for path, inode, size in _jsonl_files(root):
-                state = known.get(path)
-                offset = state[1] if state and state[0] == inode and state[1] <= size else 0
-                if size <= offset:
+                seen.add(path)
+                own = self._offsets.get(path)
+                if own is None or own[0] != inode or size < own[1]:
+                    # A file of the first scan (history, not live), or a truncated one, starts where the
+                    # store cursor stands. A file first seen later, or one replaced by a new inode, is
+                    # new content written while the tail runs: read it from byte 0, so a line another
+                    # process stored first is still published (never stored twice). Claude Code appends
+                    # to transcripts and never rewrites them, so a new inode means a genuinely new file.
+                    fresh = self._primed and (own is None or own[0] != inode)
+                    own = (inode, 0 if fresh else _cursor(known.get(path), inode, size))
+                    self._offsets[path] = own
+                if size <= own[1]:
                     continue
                 if self._stop.is_set():
                     return
                 try:
-                    if not self._follow(conn, account_id, label, path, inode, offset, state):
+                    if not self._follow(conn, account_id, label, path, inode, size, known.get(path)):
                         return  # lock busy: the scheduled ingest is writing; try again next poll
                 except FileNotFoundError:
                     continue  # removed by cleanup mid-read
+        for path in self._offsets.keys() - seen:
+            del self._offsets[path]  # the file is gone: memory stays bounded
+        self._primed = True  # the files of this first full scan are history; every later file is live
 
     def _refresh_roots(self, conn: sqlite3.Connection) -> None:
         if time.monotonic() - self._roots_at < ROOTS_REFRESH_S:
@@ -332,12 +354,20 @@ class LiveTail:
             self._projects[cwd] = discovery.resolve_project(cwd)
         return self._projects[cwd]
 
-    def _follow(self, conn, account_id, label, path, inode, offset, state) -> bool:
-        """Read and store a file's new complete lines in short batches; False when the lock was busy."""
+    def _follow(self, conn, account_id, label, path, inode, size, state) -> bool:
+        """Read a file's new complete lines in short batches; False when the lock was busy.
+
+        The tail's own offset says what it has published; the store cursor says what is stored. A line
+        below the cursor was stored by someone else: it is published only. A line from the cursor on is
+        stored (lock held for this batch only), then published. A batch starts at the lower of the two.
+        """
+        own = self._offsets[path][1]
+        cursor = _cursor(state, inode, size)
         while True:
+            start = min(own, cursor)
             rows, items = [], []
             for line_offset, line, next_offset in itertools.islice(
-                claude_code.read_complete_lines(Path(path), offset), MAX_BATCH_LINES
+                claude_code.read_complete_lines(Path(path), start), MAX_BATCH_LINES
             ):
                 if not line.strip():
                     rows.append((line_offset, next_offset, None))
@@ -348,21 +378,27 @@ class LiveTail:
                     record = None
                 parsed = claude_code.parse_record(record, self._project_of)
                 rows.append((line_offset, next_offset, parsed))
-                if isinstance(record, dict) and (item := _item(record, parsed)):
+                if line_offset >= own and isinstance(record, dict) and (item := _item(record, parsed)):
                     item["path"] = path
                     items.append(item)
             if not rows:
                 return True
-            try:
-                with lock.ingest_lock(self._lock_path, 0):  # held for this batch only
-                    if store.file_offsets(conn, claude_code.SOURCE).get(path) != state:
-                        return True  # the scheduled ingest moved the cursor first: read again next poll
-                    store.save_file(conn, claude_code.SOURCE, path, inode, offset, rows, account_id)
-            except lock.LockBusy:
-                return False
+            if rows[-1][1] > cursor:  # some line is not stored yet
+                try:
+                    with lock.ingest_lock(self._lock_path, 0):  # held for this batch only
+                        fresh = store.file_offsets(conn, claude_code.SOURCE).get(path)
+                        cursor = _cursor(fresh, inode, os.stat(path).st_size)  # the file may have grown since the scan
+                        if cursor < start:
+                            return True  # the cursor went back (store reset): read again next poll
+                        to_store = [row for row in rows if row[0] >= cursor]
+                        if to_store:  # the other process may have stored part of the batch since
+                            store.save_file(conn, claude_code.SOURCE, path, inode, to_store[0][0], to_store, account_id)
+                            cursor = to_store[-1][1]
+                except lock.LockBusy:
+                    return False
             self._publish(label, items)
-            offset = rows[-1][1]
-            state = (inode, offset)
+            own = rows[-1][1]
+            self._offsets[path] = (inode, own)
             if len(rows) < MAX_BATCH_LINES:
                 return True
 

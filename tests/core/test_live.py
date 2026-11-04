@@ -727,3 +727,192 @@ def test_a_call_or_result_without_a_block_id_shows_no_state_and_is_logged_once_b
     assert attention(tail) == []
     assert sum("has no id" in r.getMessage() for r in caplog.records) == 2  # one line per block type
 
+
+# -- several readers of one store (HUN-212, FR-071) --------------------------------------------------
+
+
+def session_file(n: int) -> str:
+    return f"proj{n}/sess{n}.jsonl"
+
+
+def write_line(clock, projects, n, tool="Bash"):
+    """One tool call of session n in its own project (distinct cwd)."""
+    record = use(clock, [f"call_{n}_{next(_ids)}"], tools=(tool,), session=f"sess{n}", message=f"msg_{next(_ids)}")
+    record["cwd"] = f"/work/app-{n}"
+    append(projects / session_file(n), record)
+
+
+def tool_events(tail, session):
+    return [e for e in tail.events_since(0) if e["kind"] == "tool_use" and e["session_id"] == session]
+
+
+def seed_three(projects, manual, clock):
+    """Three sessions in three projects, one old record each, then two tails that start on that store.
+
+    Each tail polls once (it sees the three files at the store cursor), as a running dashboard would.
+    """
+    for n in (1, 2, 3):
+        record = assistant(session=f"sess{n}", tools=(), ts=clock.stamp())
+        record["cwd"] = f"/work/app-{n}"
+        append(projects / session_file(n), record)
+    tails = manual(), manual()
+    for tail in tails:
+        tail.poll_once()
+    return tails
+
+
+def test_two_tails_on_one_store_each_list_every_session_and_every_tool_event_once_in_the_store(
+    projects, manual, clock
+):
+    first, second = seed_three(projects, manual, clock)
+    written = 0
+    for _round in range(3):
+        for n in (1, 2, 3):
+            write_line(clock, projects, n)
+            written += 1
+            first.poll_once()  # the first tail always wins the store cursor
+            second.poll_once()
+    for tail in (first, second):
+        assert {s["session_id"] for s in tail.snapshot(now=clock())["sessions"]} == {"sess1", "sess2", "sess3"}
+        assert [len(tool_events(tail, f"sess{n}")) for n in (1, 2, 3)] == [3, 3, 3]
+    assert len(store_rows("SELECT 1 FROM events")) == 3 + written  # 3 seed lines + every new line once
+
+
+def test_a_line_stored_by_another_caller_between_two_polls_is_still_published_and_not_stored_again(
+    projects, manual, clock
+):
+    tail, _other = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1, tool="Read")
+    with store.opened(config.store_path()) as conn:
+        claude_code.ingest_accounts(conn)  # what the scheduled ingest does
+    assert len(store_rows("SELECT 1 FROM events")) == 4
+    tail.poll_once()
+    assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Read"]
+    assert len(store_rows("SELECT 1 FROM events")) == 4  # published, not stored twice
+    write_line(clock, projects, 1, tool="Write")  # now past the cursor: stored and published as before
+    tail.poll_once()
+    assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Read", "Write"]
+    assert len(store_rows("SELECT 1 FROM events")) == 5
+
+
+def test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_nothing_until_a_new_line(
+    projects, manual, clock
+):
+    first, second = seed_three(projects, manual, clock)
+    first.poll_once()
+    second.poll_once()
+    second.poll_once()
+    for tail in (first, second):
+        assert tail.events_since(0) == [] and tail.snapshot(now=clock())["sessions"] == []  # no history replay
+    write_line(clock, projects, 2)
+    first.poll_once()
+    second.poll_once()
+    for tail in (first, second):
+        assert len(tool_events(tail, "sess2")) == 1 and tail.last_id == 2  # one tool_use, one usage; no more
+
+
+def test_a_replaced_file_is_followed_by_both_tails_without_publishing_old_lines_twice(projects, manual, clock):
+    first, second = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1, tool="Old")
+    first.poll_once()
+    second.poll_once()
+    (projects / session_file(1)).unlink()
+    write_line(clock, projects, 1, tool="New")  # new inode, shorter than the old offset
+    first.poll_once()
+    second.poll_once()
+    write_line(clock, projects, 1, tool="Next")
+    first.poll_once()
+    second.poll_once()
+    for tail in (first, second):  # a replaced file is new content: read from its start, publish only below the cursor
+        assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Old", "New", "Next"]
+
+
+def test_a_file_created_after_both_tails_started_is_published_by_both_and_stored_once(projects, manual, clock):
+    first, second = seed_three(projects, manual, clock)
+    for tool in ("Read", "Grep", "Edit"):
+        write_line(clock, projects, 4, tool=tool)  # a new session: a file neither tail has seen
+    first.poll_once()  # the first tail stores the three lines and moves the cursor to the end
+    second.poll_once()
+    for tail in (first, second):
+        assert [e["tool"] for e in tool_events(tail, "sess4")] == ["Read", "Grep", "Edit"]
+    assert len(store_rows("SELECT 1 FROM events")) == 3 + 3
+
+
+def test_a_new_subagent_file_is_published_by_both_tails(projects, manual, clock):
+    first, second = seed_three(projects, manual, clock)
+    sub = projects / "proj1" / "sess1" / "subagents" / "agent-a1.jsonl"
+    append(sub, assistant(session="sess1", tools=("Task",), sidechain=True, message="msg_sub", ts=clock.stamp()))
+    first.poll_once()
+    second.poll_once()
+    for tail in (first, second):
+        assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Task"]
+
+
+def test_a_file_with_history_seen_in_a_tails_first_scan_publishes_nothing_from_it(projects, manual, clock):
+    first, _second = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1)  # stored by the first tail
+    first.poll_once()
+    late = manual()  # starts after history exists: its first scan primes it at the store cursor
+    late.poll_once()
+    assert late.events_since(0) == []
+    write_line(clock, projects, 1, tool="Next")
+    first.poll_once()
+    late.poll_once()
+    assert [e["tool"] for e in tool_events(late, "sess1")] == ["Next"]
+
+
+def test_a_truncated_file_is_followed_by_both_tails_without_an_error_or_a_second_publish(projects, manual, clock):
+    first, second = seed_three(projects, manual, clock)
+    for _ in range(3):
+        write_line(clock, projects, 1, tool="Old")
+    first.poll_once()
+    second.poll_once()
+    (projects / session_file(1)).write_text("")  # same inode, now smaller than both offsets
+    write_line(clock, projects, 1, tool="New")
+    first.poll_once()
+    second.poll_once()
+    write_line(clock, projects, 1, tool="Newer")
+    first.poll_once()
+    second.poll_once()
+    for tail in (first, second):
+        tools = [e["tool"] for e in tool_events(tail, "sess1")]
+        assert tools.count("Old") == 3 and tools.count("Newer") == 1 and tools.count("New") <= 1
+    assert tool_events(second, "sess1")[-1]["tool"] == "Newer"
+
+
+
+def test_one_batch_with_a_line_stored_by_another_caller_and_a_new_line_publishes_both_and_stores_the_new_one(
+    projects, manual, clock
+):
+    tail, _other = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1, tool="Read")
+    with store.opened(config.store_path()) as conn:
+        claude_code.ingest_accounts(conn)  # stores "Read" only
+    write_line(clock, projects, 1, tool="Write")  # the tail now reads both in one batch
+    tail.poll_once()
+    assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Read", "Write"]
+    assert len(store_rows("SELECT 1 FROM events")) == 5
+    assert store_rows("SELECT byte_offset FROM source_files WHERE path LIKE '%sess1.jsonl'") == [
+        ((projects / session_file(1)).stat().st_size,)
+    ]
+
+
+def test_a_store_cursor_that_goes_back_does_not_make_the_tail_publish_history_again(projects, manual, clock):
+    tail, _other = seed_three(projects, manual, clock)
+    write_line(clock, projects, 1, tool="Read")
+    tail.poll_once()
+    with store.opened(config.store_path()) as conn, conn:
+        conn.execute("UPDATE source_files SET byte_offset = 0")  # what a re-read migration does
+    tail.poll_once()
+    write_line(clock, projects, 1, tool="Write")
+    tail.poll_once()
+    assert [e["tool"] for e in tool_events(tail, "sess1")] == ["Read", "Write"]
+    assert len(store_rows("SELECT 1 FROM events")) == 5  # a re-read adds no row (same file, same offsets)
+
+
+def test_the_tails_offset_map_forgets_a_file_that_is_gone(projects, manual, clock):
+    tail, _other = seed_three(projects, manual, clock)
+    assert len(tail._offsets) == 3
+    (projects / session_file(3)).unlink()
+    tail.poll_once()
+    assert len(tail._offsets) == 2
