@@ -254,6 +254,17 @@ def _finish(group: dict, as_of: str) -> dict:
     return group
 
 
+def _by_tokens(rows: list[dict]) -> list[dict]:
+    """Most tokens first, ties by key."""
+    return sorted(
+        rows,
+        key=lambda r: (
+            -(r["input_tokens"] + r["output_tokens"] + r["cache_creation_input_tokens"] + r["cache_read_input_tokens"]),
+            r["key"],
+        ),
+    )
+
+
 def usage_breakdown(
     conn: sqlite3.Connection,
     by: str,
@@ -264,6 +275,9 @@ def usage_breakdown(
     account: str | None = None,
 ) -> dict:
     """Tokens per day (OS local) / model / project (folder name of the owner project, FR-057) / tool for [since, until).
+
+    Scratch folders (FR-069) are one `project` group, key `Scratch`, `scratch: true`, with `folders`: the
+    same fields per scratch folder name.
 
     `total` counts each message once, so it equals `usage_summary`. Tool groups overlap: a
     message that used several tools appears in each. Cost is API-equivalent, never a bill; a
@@ -276,30 +290,26 @@ def usage_breakdown(
     since_utc, until_utc = _utc_bound(since), _utc_bound(until)
     groups: dict[str, dict] = {}
     total = _new_group()
-    owner = owners.owner_map(conn) if by == "project" else {}  # a gone worktree counts under its owner (FR-057)
+    pmap = owners.project_map(conn) if by == "project" else {}  # owner project (FR-057) or Scratch (FR-069)
+    folders: dict[str, dict] = {}
     for ts, model, project_path, tools, i, o, cc, cr, sc, ep in _messages(
         conn, since_utc, until_utc, workspace, account
     ):
-        project_path = owner.get(project_path, project_path)
         usd, kind = prices.cost(model, i, o, cc, cr), work_kind(sc, ep)
         _add(total, model, i, o, cc, cr, usd, kind)
+        if pmap.get(project_path) == owners.SCRATCH:
+            _add(folders.setdefault(_folder(project_path), _new_group()), model, i, o, cc, cr, usd, kind)
+            project_path = owners.SCRATCH
+        else:
+            project_path = pmap.get(project_path, project_path)
         for key in _keys(by, ts, model, project_path, tools):
             _add(groups.setdefault(key, _new_group()), model, i, o, cc, cr, usd, kind)
     rows = [{"key": key, **_finish(group, prices.as_of)} for key, group in groups.items()]
-    if by == "day":
-        rows.sort(key=lambda r: r["key"])
-    else:
-        rows.sort(
-            key=lambda r: (
-                -(
-                    r["input_tokens"]
-                    + r["output_tokens"]
-                    + r["cache_creation_input_tokens"]
-                    + r["cache_read_input_tokens"]
-                ),
-                r["key"],
-            )
-        )
+    if folders:
+        scratch = next(r for r in rows if r["key"] == owners.SCRATCH)
+        scratch["scratch"] = True
+        scratch["folders"] = _by_tokens([{"key": k, **_finish(g, prices.as_of)} for k, g in folders.items()])
+    rows = sorted(rows, key=lambda r: r["key"]) if by == "day" else _by_tokens(rows)
     return {
         "by": by,
         "period": {"since_utc": since_utc, "until_utc": until_utc},
@@ -361,9 +371,9 @@ def tokens_by_project(
 ) -> dict[str, int]:
     """All tokens per project folder name in [since, until); the `project` groups of `usage_breakdown`, in one query."""
     totals: dict[str, int] = {}
-    owner = owners.owner_map(conn)
+    pmap = owners.project_map(conn)
     for path, *sums in _message_sums(conn, since, until, workspace, account, by_project=True):
-        key = _folder(owner.get(path, path))
+        key = _folder(pmap.get(path, path))
         totals[key] = totals.get(key, 0) + sum(sums)
     return totals
 

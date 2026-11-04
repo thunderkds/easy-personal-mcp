@@ -8,6 +8,8 @@ from easy_personal.core import accounts, metrics, store, workspaces
 from easy_personal.core.migrations import MIGRATIONS
 from tests_helpers import add_event
 
+pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
+
 LABELS = ("Claude default", "Claude work")
 
 

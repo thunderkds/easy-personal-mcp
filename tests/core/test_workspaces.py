@@ -9,6 +9,8 @@ from easy_personal.core import metrics, workspaces
 from easy_personal.core.workspaces import WorkspaceError
 from tests_helpers import add_event
 
+pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
+
 
 def make(conn, name="acme", **kw):
     return workspaces.add(conn, name, **kw)

@@ -41,7 +41,9 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         """Tokens grouped by day (OS local time), model, project (folder name) or tool for
         [since, until), with an API-equivalent cost (price-table date shown; a model missing
         from the table abstains). Each group has the same typed / agent / unknown `split`. `total`
-        equals usage_summary; tool groups overlap."""
+        equals usage_summary; tool groups overlap. Project groups put every scratch folder (temp,
+        gone, not in a git repo, or hidden) into one group `Scratch` (`scratch: true`) that lists
+        them in `folders`."""
         with store.opened(config.store_path()) as conn:
             return metrics.usage_breakdown(conn, by, since, until)
 

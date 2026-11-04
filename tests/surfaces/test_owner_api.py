@@ -31,7 +31,8 @@ def _event(conn, n, path, branch=None):
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(tmp_path, monkeypatch):
+    monkeypatch.setattr(owners, "_tmp_roots", lambda: ())  # the repo lives under pytest's temp folder: not scratch here
     owners.clear_cache()
     repo = (tmp_path / "repo").resolve()
     repo.mkdir()
@@ -50,7 +51,7 @@ def client(tmp_path):
 def test_usage_by_project_route_merges_the_owner_rows(client):
     body = client.get("/api/usage/breakdown?by=project", headers=AUTH).json()
     tokens = {g["key"]: g["input_tokens"] + g["output_tokens"] for g in body["groups"]}
-    assert tokens == {"repo": 45, "wt-other": 15}
+    assert tokens == {"repo": 45, "Scratch": 15}  # `wt-other` is gone with no owner: a scratch folder (FR-069)
     assert body["total"]["input_tokens"] + body["total"]["output_tokens"] == 60
 
 

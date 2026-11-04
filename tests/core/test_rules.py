@@ -6,6 +6,8 @@ import pytest
 from easy_personal.core import plan, rules
 from easy_personal.sources import claude_code
 
+pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
+
 
 @pytest.fixture(autouse=True)
 def _home(tmp_path, monkeypatch):

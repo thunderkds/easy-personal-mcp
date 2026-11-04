@@ -16,6 +16,8 @@ from easy_personal.core import board, config, kit, memgraph, metrics, store, wor
 from easy_personal.surfaces import api
 from tests_helpers import add_event
 
+pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
+
 GOLDEN = json.loads((Path(__file__).parent / "hun186_golden.json").read_text())
 TOKEN, PORT = "tok-186", 5586
 AUTH = {api.TOKEN_HEADER: TOKEN}

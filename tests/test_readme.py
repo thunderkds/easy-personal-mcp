@@ -229,3 +229,10 @@ def test_easy_kit_links_kept():
 def test_checker_rejects_unknown_command(tokens):
     with pytest.raises(AssertionError):
         check_cli_line(tokens)
+
+
+def test_scratch_group_is_documented_and_in_the_mcp_description():  # HUN-206, FR-069
+    for text in ("`Scratch`", "`scratch: true`", "`folders`", "`usage --by project`", "hidden folder", "totals do not change"):
+        assert text in README, text
+    tool = next(t for t in asyncio.run(mcp.create_app().list_tools()) if t.name == "usage_breakdown")
+    assert "Scratch" in tool.description and "`folders`" in tool.description

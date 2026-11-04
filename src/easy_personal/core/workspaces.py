@@ -10,6 +10,7 @@ import sqlite3
 from pathlib import Path
 
 from easy_personal.core import discovery, owners
+from easy_personal.core import prices as price_table
 
 ORPHAN = "orphan"
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")
@@ -200,3 +201,49 @@ def project_paths(
     )  # fmt: skip
     owner = owners.owner_map(conn)  # a gone worktree counts for its owner's workspace (FR-057)
     return sorted(p for p in stored if any(_under(owner.get(p, p), root) or _under(p, root) for root in roots))
+
+
+def unassigned(conn: sqlite3.Connection, prices: price_table.PriceTable | None = None) -> list[dict]:
+    """Real projects (FR-069) with stored usage that no workspace repo covers (FR-070), newest use first.
+
+    A project is covered when its path equals or sits under a workspace repo path (`_under`). Every row is
+    `{path, name, sessions, api_equivalent_cost, last_used_utc}` over all stored time. Cost is per API
+    message, as in `metrics.usage_breakdown`; a model missing from the price table abstains.
+    """
+    prices = prices or price_table.load()
+    roots = [r for ws in list_all(conn) for r in ws["repos"]]
+    pmap = owners.project_map(conn)
+    projects: dict[str, dict] = {}
+    for path, session, last, model, i, o, cc, cr in conn.execute(
+        "SELECT MAX(project_path), MAX(session_id), MIN(ts_utc), MAX(model), MAX(input_tokens),"
+        " MAX(output_tokens), MAX(cache_creation_input_tokens), MAX(cache_read_input_tokens)"
+        " FROM events WHERE abstained = 0 AND message_id IS NOT NULL AND input_tokens IS NOT NULL"
+        " AND project_path IS NOT NULL GROUP BY message_id"
+    ):
+        key = pmap.get(path, path)
+        if key == owners.SCRATCH or any(_under(key, root) for root in roots):
+            continue
+        row = projects.setdefault(key, {"sessions": set(), "last": "", "usd": 0.0, "priced": 0, "abstained": set()})
+        row["sessions"].add(session)
+        row["last"] = max(row["last"], last)
+        usd = prices.cost(model, i, o, cc, cr)
+        if usd is None:
+            row["abstained"].add(model or "(unknown)")
+        else:
+            row["usd"] += usd
+            row["priced"] += 1
+    repos = [
+        {
+            "path": key,
+            "name": Path(key).name or key,
+            "sessions": len(row["sessions"]),
+            "api_equivalent_cost": {
+                "usd": round(row["usd"], 6) if row["priced"] or not row["abstained"] else None,
+                "abstained_models": sorted(row["abstained"]),
+                "price_table_date": prices.as_of,
+            },
+            "last_used_utc": row["last"],
+        }
+        for key, row in projects.items()
+    ]
+    return sorted(repos, key=lambda r: (r["last_used_utc"], r["path"]), reverse=True)
