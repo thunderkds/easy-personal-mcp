@@ -61,8 +61,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-04T11:50:02Z, current code, no implementation commit yet): stdio probe
+`EASY_PERSONAL_HOME=<empty temp dir> uv run python <scratchpad>/stdio_prompts.py uv run easy-personal mcp`
+(initialize, then `prompts/list`, then `prompts/get investigate`):
+
+```
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "prompts": []
+  }
+}
+stderr tail: ... ValueError: Unknown prompt: investigate
+```
+
+First new test, failing (2026-11-04T11:50:45Z):
+`uv run pytest tests/surfaces/test_mcp_investigate.py -q -x` ->
+`E       KeyError: 'investigate'`
+`FAILED tests/surfaces/test_mcp_investigate.py::test_prompt_is_listed_with_two_optional_arguments`
+(without `-x`: `11 failed in 2.08s`)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
