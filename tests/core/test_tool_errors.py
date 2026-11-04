@@ -61,7 +61,7 @@ def test_v7_store_upgrades_resets_claude_offsets_and_keeps_the_backup(tmp_path):
     conn = store.connect(path)
     columns = {r[1]: r for r in conn.execute("PRAGMA table_info(events)")}
     assert "tool_error_count" in columns and columns["tool_error_count"][3] == 0  # nullable
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 8
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == max(n for n, _ in MIGRATIONS)
     assert list(tmp_path.glob("*.bak-v7"))
     assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == rows > 0
     assert conn.execute("SELECT COUNT(*) FROM events WHERE tool_error_count IS NOT NULL").fetchone()[0] == 0
@@ -128,12 +128,12 @@ def test_migration_8_is_idempotent(conn):
     assert names.count("tool_error_count") == 1
 
 
-def test_store_already_at_v8_is_left_alone(tmp_path):
+def test_store_already_at_the_latest_version_is_left_alone(tmp_path):
     path = tmp_path / "store.sqlite"
     store.connect(path).close()
     store.connect(path).close()
     assert not list(tmp_path.glob("*.bak-v*"))
-    assert sqlite3.connect(path).execute("PRAGMA user_version").fetchone()[0] == 8
+    assert sqlite3.connect(path).execute("PRAGMA user_version").fetchone()[0] == max(n for n, _ in MIGRATIONS)
 
 
 def test_an_older_program_refuses_a_v8_store(tmp_path):

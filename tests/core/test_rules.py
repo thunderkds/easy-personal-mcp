@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from easy_personal.core import plan, rules
+from easy_personal.core import plan, rules, store
 from easy_personal.sources import claude_code
 
 pytestmark = pytest.mark.usefixtures("real_projects")  # these tests are not about Scratch (FR-069)
@@ -381,3 +381,22 @@ def test_summary_per_metric_kind(rule_id, measured, detail, expected):
 def test_summary_uses_the_owner_threshold():
     custom = _by_id()["cache_hit_low"].with_threshold(0.7)
     assert rules.summary(custom, 0.6, None).endswith("target 70% or more, last 7 days")
+
+
+def test_records_unreadable_ignores_stale_abstained_metadata_rows_after_migration_9(tmp_path):
+    # HUN-209: rows stored before `api-request` was a known metadata type kept `abstained = 1` for good.
+    path = tmp_path / "stale.sqlite"
+    conn = store.connect(path)
+    good = [{**_msg(k, DAY), "version": "2.1.312"} for k in range(70)]
+    meta = [{"type": "api-request", "version": "2.1.312", "timestamp": _ts(DAY)} for _ in range(30)]
+    _load(conn, tmp_path, good + meta)
+    conn.execute("UPDATE events SET abstained = 1 WHERE record_type = 'api-request'")
+    conn.execute("PRAGMA user_version = 8")
+    conn.commit()
+    status, hit = _result(conn, "records_unreadable")
+    assert status == "fired" and hit["measured"] == 0.3
+    conn.close()
+
+    conn = store.connect(path)  # the v8 -> v9 upgrade clears the stale flag
+    assert _result(conn, "records_unreadable") == ("ok", None)
+    conn.close()
