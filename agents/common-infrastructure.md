@@ -1,8 +1,9 @@
 ---
 name: common-infrastructure
-description: Environment and shared-config specialist. Handles worktree setup, migrations, shared services, and anything that cuts across backend and frontend. Always runs first before implementers start.
-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__easy-context__search_semantic, mcp__easy-context__get_slice, mcp__easy-context__get_related, mcp__easy-context__get_stats
+description: "Use when a task needs worktree setup, dependency installs, migrations or shared config. Environment specialist across backend and frontend; always runs first before implementers start."
+tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
+color: orange
 ---
 
 ## Role
@@ -17,7 +18,7 @@ Before doing anything else, execute in this order:
 2. Read `memory/MEMORY.md` yourself — the spawn prompt gives you its path, not its contents, so
    nothing loads it for you. Follow its links into cold files only when relevant to your task
 3. Read assigned `tasks/TASK_GUIDE_Txxx.md` — scope, acceptance criteria, files to touch / not touch
-4. Read `agents/general-agent-template.md` — Base Rules and the Search-Before-You-Build
+4. Read `templates/general-agent-template.md` — Base Rules and the Search-Before-You-Build
    ladder. The Karpathy Engineering Principles are **not** there: they are in this guide, above
 5. **If your task is C2/C3 or touches multiple files**: read `memory/codebase-map.md` (if it exists)
    for directory layout, entry points, and blast-radius hotspots
@@ -114,6 +115,7 @@ Task: T[NNN] — [short title]
 Status: [in-progress | environment-ready | ready-for-review | blocked]
 Changed files: [list]
 Blockers / notes: [any]
+Question (if blocked): [fact|choice] <question>
 ```
 
 ## Output Format

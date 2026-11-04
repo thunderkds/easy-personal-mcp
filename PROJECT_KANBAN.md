@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-03
+**Last updated**: 2026-11-04
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **HUN-205** — Commit the Easy Kit update 75040d9 → 04b019a (kit files only) | Supervisor | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-205.md`
 
 ### Ready for Review
 

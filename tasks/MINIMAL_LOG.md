@@ -3,6 +3,21 @@
 > One Decision record per minimal-track task (`docs/claude-md/tracks.md`), **newest first**: insert each
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
+## HUN-205 — Commit the Easy Kit update 75040d9 → 04b019a (kit files only) · minimal
+**Asked:** "yes" — answer to: "Should I start with option 1?" (commit the kit update on its own branch, check the 3 `.bak-75040d9` backups against the new versions, delete the backups, run the tests; merge waits for the owner).
+**Decisions:**
+- Re-applied one project edit the update dropped: Stage 4 "easy-verifier MCP `score` (`scope="changes"`, advisory) always" in `AGENTS.md`, and step 4b in `docs/claude-md/pipeline-stages.md` — the backups are labelled "your edits"; memory says never skip the score.
+- Step 4b now points at the kit's new TASK_REVIEW row "Companion score (easy-verifier)" and its shape, and says the merge gate blocks on a ☑ fail row — the new kit's `pre_bash_block_unsafe_merge.py` reads that row; the old "never blocks merge" is no longer true.
+- Every other line in the 3 backups is old upstream text that the update reworded (CLAUDE.md → `@AGENTS.md` import, auto-mode notes, `templates/general-agent-template.md` path) — nothing else lost; backups deleted.
+- Left out of the commit: `.claude/verify-runs/*.log` (old `/verify` runtime output, HUN-113..121) and `tasks/TASK_GUIDE_HUN-198.md` / `HUN-201.md` (board-pull cache changes) — not part of the kit update.
+- Assumed: the working-tree kit files are exactly the 04b019a update (`.claude/harness-lock.json` `kit_commit` and `.claude/update-log.md` say so) — safe because the full suite and the hooks run clean.
+**Checked:**
+- New test `tests/test_kit_local_edits.py::test_stage4_always_runs_the_easy_verifier_score` — failed before the re-applied edit (`AssertionError` at line 17), passes after (`1 passed in 0.10s`).
+- Suite: `uv run pytest -q` — `1334 passed, 6 deselected, 1 xfailed, 1 warning in 282.19s (0:04:42)`
+- Real run: the 3 Stop hooks wired in `.claude/settings.json` (`stop_review_reminder.py`, `stop_auto_mode_check.py`, `stop_auto_verify.py`) and `pre_bash_block_unsafe_merge.py`, each fed a sample hook event — all printed nothing and exited 0.
+**Files:** 37 modified kit files + new `.claude/hooks/lib/auto_mode.py`, `.claude/hooks/lib/verify_record.py`, `.claude/hooks/stop_auto_mode_check.py`, `.claude/hooks/stop_auto_verify.py`, `.claude/update-log.md`, `docs/claude-md/tracks.md`, `skills/resolve-question/`, `templates/MINIMAL_LOG_template.md`, `templates/general-agent-template.md`; deleted `agents/general-agent-template.md`; `tests/test_kit_local_edits.py`, `tasks/TASK_GUIDE_HUN-205.md`, `tasks/MINIMAL_LOG.md`
+**Not done:** merge and `/verify` (the user decides); `.claude/verify-runs/` is not gitignored (left as is)
+
 ## HUN-195 — kit_findings: a finding needs a gap of at least 5% to carry a habit · minimal
 **Asked:** "Yes, at least 5% (Recommended)" — answer to: "The first real findings show small gaps (3.6% to 9.4%) on 12 to 24 kit sessions. Should a finding need a minimum gap before it carries a habit?"
 **Decisions:**
