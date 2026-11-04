@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-03
+**Last updated**: 2026-11-04
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -104,6 +104,7 @@
 - [x] **HUN-201** — Easy Kit link → easy-kits.vercel.app; landing page flow made visual (SVG system diagram + quick-start strip) | ? | ? | Risk: ? | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-201.md`
 - [x] **HUN-202** — Toasts stay inside the page box; loading indicator in the middle of the content area (FR-065 follow-up) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-202.md`
 - [x] **HUN-203** — Repos folder browser in the workspace form + gap above Save (FR-068) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-203.md`
+- [x] **HUN-205** — Commit the Easy Kit update 75040d9 → 04b019a (kit files only) | Supervisor | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-205.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
