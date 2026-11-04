@@ -457,14 +457,34 @@ main.live { max-width: none; }
 .live-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: var(--space-2) var(--space-4); }
 .live-totals dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .live-totals dd { font-size: var(--fs-body); color: var(--color-heading); overflow-wrap: anywhere; }
-.live-sessions { display: flex; flex-direction: column; gap: var(--space-5); max-height: 70vh; overflow-y: auto; padding-right: var(--space-2); }
+/* HUN-213 (FR-072): one row per session, one side panel for the open one; the panel sits below the rows under 48rem (768 px) */
+.live-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+@media (min-width: 48rem) { .live-body[data-panel] { grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem); align-items: start; } }
+.live-sessions { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; max-height: 70vh; overflow-y: auto; padding-right: var(--space-2); }
 .live-sessions > section { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.live-project { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.live-list { display: flex; flex-direction: column; gap: var(--space-2); }
 .live-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-link); }
-.live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: var(--space-3); }
-.live-session { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-raised); }
-.live-session .card-head { flex-wrap: wrap; row-gap: var(--space-1); }
-.live-session .count { margin-left: auto; }
+.live-session { position: relative; container-type: inline-size; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-raised); }
+.live-session:hover, .live-session[data-open] { background: var(--color-selected); }
+main button.live-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; text-align: left; cursor: pointer; }
+main button.live-row:hover { background: none; }
+main button.live-row:focus-visible { outline: none; }
+.live-row::after { content: ''; position: absolute; inset: 0; border-radius: var(--radius); }
+.live-row:focus-visible::after { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.live-row .live-name { flex: 1 1 6rem; position: relative; z-index: 1; }
+.live-row .count { margin-left: auto; }
+.live-bars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.live-bar { display: grid; grid-template-areas: 'label num' 'track track'; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--space-2); min-width: 0; font-family: var(--font-mono); font-size: var(--fs-label); }
+.live-bar-label { grid-area: label; white-space: nowrap; color: var(--color-muted); }
+.live-bar-num { grid-area: num; min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-heading); }
+.live-bar-track { grid-area: track; height: 6px; border-radius: var(--radius-bar); background: var(--color-track); overflow: hidden; }
+.live-bar-fill { display: block; height: 100%; background: var(--color-accent); }
+/* A row narrower than 28rem (a phone, or beside the open panel) stacks its three bars, one per line */
+@container (max-width: 28rem) { .live-bars { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); } .live-bar { grid-template-areas: 'label track num'; grid-template-columns: 4.75rem minmax(0, 1fr) minmax(3.5rem, auto); align-items: center; } }
+.live-panel { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.live-panel .card-head { justify-content: space-between; align-items: center; }
+@media (min-width: 48rem) { .live-panel { position: sticky; top: var(--space-4); } }
+.live-panel .live-feed { max-height: min(24rem, 50vh); }
 .live-session[data-state='failing'] { border-color: var(--color-red); }
 .live-session[data-state='waiting'] { border-color: var(--color-accent); }
 .live-session[data-state='needs_attention'] { border-color: var(--color-amber); }

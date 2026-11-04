@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/LiveView.test.jsx` (68 tests; AC1 rows, AC2 widths, AC3 unknown price / $0, AC4 open/close/switch/aria, AC5 live into panel + leaving, AC6 attention tests adapted, AC7 batching + memo via Profiler and `ago` spy, AC8 one `.live-feed`). AC1 and AC8 failed before the change (see BEFORE). Enter/Space: jsdom cannot press keys on a native button, so the test asserts the row is a `<button type=button>`; the keys themselves were pressed in the real run (see Visual regression). |
+| Verification command run | ☑ pass | 2026-11-04T11:24:08Z `cd web && npx vitest run src/LiveView.test.jsx && npx vitest run && npm run build`: LiveView.test.jsx "Test Files 1 passed (1), Tests 68 passed (68)"; full suite "Test Files 21 passed (21), Tests 589 passed (589)"; build "✓ built in 422ms" and check_static stamp written. |
+| Negative cases hold | ☑ pass | tests: malformed message ignored; duplicate id inside one batch counted once; snapshot flushes queued events first; unmount drops the queued batch (no timers left); planted SECRET text in an event and in an attention state never on the page, panel open or closed; all-zero measures give 0% bars (no NaN); last session leaving still shows the panel notice. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real run (`easy-personal dashboard`, throwaway store, 7 fabricated metadata-only sessions in 2 accounts, headless Chrome). BEFORE `reports/HUN-213/before-1280x720.png`. AFTER `reports/HUN-213/after-rows-1280x720.png`, `reports/HUN-213/after-panel-1280x720.png`, `reports/HUN-213/after-panel-feed-1280x900.png` (live tool calls appended while the panel was open: 6 feed items, 1 `.live-feed` in the DOM), `reports/HUN-213/after-rows-375x812.png`, `reports/HUN-213/after-panel-375x812.png`. Keyboard in that browser: Enter on row 1 opened its panel; Space on row 2 closed row 1 and opened row 2 (1 panel); Close returned focus to a row. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Tests in LiveView.test.jsx `design`: live rules have no hex/rgb/hsl; bars use `--color-track` / `--color-accent`; text colours ≥ 4.5:1 on bg, raised and selected; row focus ring. Rows are buttons with aria-expanded/aria-controls; bars are `role=img` with "tokens 1.2M"-style names; one `aria-live` region on the page (test). |
+| **UI: Responsiveness at target viewports** | ☑ pass | Real run, `document.documentElement.scrollWidth` vs `clientWidth`: 1280 = 1280/1280; 768 = 768/768 (panel right of rows); 767 = 767/767 (panel below rows); 375 = 375/375 (panel below rows at y 1022 vs rows end 1006). Long project name is cut with an ellipsis at 375 (full name in `title`). Bars stack one per line in a row narrower than 28rem (container query). |
 
 ---
 
@@ -82,9 +82,9 @@ AssertionError: expected <ol class="live-feed" …(3)></ol>
 
 BEFORE screenshot of the current Live view (real `easy-personal dashboard` run on the old build, throwaway store, 7 fabricated metadata-only sessions in 2 accounts, taken 2026-11-04T11:14:58Z): `reports/HUN-213/before-1280x720.png` in the task worktree. It shows one tall card per session with its own feed area ("No tool calls seen since this page opened."): about 3 sessions fit on screen.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-04T11:24:08Z, same suite after the change): `npx vitest run src/LiveView.test.jsx` gives "Test Files 1 passed (1) / Tests 68 passed (68)", including the two tests that failed in BEFORE. AFTER screenshots: `reports/HUN-213/after-rows-1280x720.png` (7 rows in 2 accounts, 3 bars each, no feed), `reports/HUN-213/after-panel-feed-1280x900.png` (one open session: totals + live feed, panel right of the rows), `reports/HUN-213/after-panel-375x812.png` (panel below the rows).
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The Live view shows every active session as one short row with token, cost and tool-call bars (instead of a tall card with its own feed), and opens one session's totals and feed on click, so the page draws one feed and updates at most four times a second.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-213.jsonl`, never the
 implementing agent alone]
