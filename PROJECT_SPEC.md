@@ -272,7 +272,7 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-213 | Live view session rows with bars + one session panel, batched render (FR-072, NFR-015) | Done (merged 2026-11-04) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-214 | Warning hits carry causes from the owner's data + diagnosis-picked fixes (FR-073) | Done (merged 2026-11-04) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-215 | MCP prompt `investigate`: owner's Claude Code session investigates usage (FR-075) | Done (merged 2026-11-04) | Backend-Implementer | C1 | Low | P1 |
-| HUN-216 | Warnings & plan page: one list, "Why this happened", matching fixes, investigate hint (FR-074; after HUN-214) | Todo | Frontend-Implementer | C2 | Low | P1 |
+| HUN-216 | Warnings & plan page: one list, "Why this happened", matching fixes, investigate hint (FR-074; after HUN-214) | Done (merged 2026-11-04) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
