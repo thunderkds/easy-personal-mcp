@@ -44,8 +44,14 @@ Not done: merge (yours); auto verify: running (T182)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-05T15:26:29Z, before any implementation commit; `uv run python <scratchpad>/demo232.py`, tmp store, `~/.easy-personal/` untouched):
+
+```
+(a) connect() raised after 5.01s: database is locked
+(b) user_version 10 indexes ['events_account_ts', 'events_message', 'events_ts', 'events_ts_message']
+    backups []
+```
+(a) = second connection holds `BEGIN IMMEDIATE` on an up-to-date store; (b) = v10 store with `events_ts`, after `connect()` it is still v10 and still has `events_ts`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
