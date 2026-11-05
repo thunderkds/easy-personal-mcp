@@ -10,8 +10,6 @@
 
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
-- [ ] **HUN-225** — easy-context not in use → context_index_stale left out of warnings, plan, checked, saved reports; kit context part "not in use" (FR-080 server) | Backend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-225.md`
-- [ ] **HUN-226** — Kit page hides the Code index part when easy-context is not in use (FR-080 UI) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-226.md`
 
 ### In Progress
 
@@ -120,6 +118,8 @@
 - [x] **HUN-222** — Warnings & plan page: Saved reports section with before / now per rule (FR-078 UI; after HUN-221) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-222.md`
 - [x] **HUN-223** — Saved report snapshot keeps the full warning hit; get_report fills old snapshots from rule config (FR-079 server) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-223.md`
 - [x] **HUN-224** — Opened saved report uses Warnings & plan cards + Now line; other rules in a closed list (FR-079 UI) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-224.md`
+- [x] **HUN-225** — easy-context not in use → context_index_stale left out of warnings, plan, checked, saved reports; kit context part "not in use" (FR-080 server) | Backend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-225.md`
+- [x] **HUN-226** — Kit page hides the Code index part when easy-context is not in use (FR-080 UI) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-226.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
