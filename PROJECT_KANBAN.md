@@ -10,7 +10,6 @@
 
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
-- [ ] **HUN-229** — Saved reports use the floating loading indicator; every loading indicator adds one random funny line (FR-065) | Frontend-Implementer | C2 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-229.md`
 
 ### In Progress
 
@@ -123,6 +122,7 @@
 - [x] **HUN-226** — Kit page hides the Code index part when easy-context is not in use (FR-080 UI) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-226.md`
 - [x] **HUN-227** — Share repeated store computations across dashboard reads (single-flight memo keyed by PRAGMA data_version) (NFR-013 server side) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-227.md`
 - [x] **HUN-228** — Usage page shows each card when its own data arrives; one minute-rounded \`since\` per load (NFR-013 page side) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-228.md`
+- [x] **HUN-229** — Saved reports use the floating loading indicator; every loading indicator adds one random funny line (FR-065) | Frontend-Implementer | C2 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-229.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`

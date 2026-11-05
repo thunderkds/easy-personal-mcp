@@ -116,7 +116,7 @@ Real run: `sqlite3 ~/.easy-personal/store.sqlite ".backup <dir>/store.sqlite"`, 
 
 - [ ] Click a report, then click it again (close) before it loads: no indicator left on screen
 - [ ] Switch between two reports quickly: only the current one's indicator / data shows
-- [ ] Warnings list and Saved reports loading at the same time: one pill only (AC 3b); overlapping pills were seen in Stage 3 (screenshots h229-both-*)
+- [ ] Warnings list and Saved reports loading at the same time: one pill only (AC 3b); overlapping pills were seen in Stage 3 (screenshots h229-both-\*)
 - [ ] Planted secret/text fixtures never appear on the page
 
 ---
