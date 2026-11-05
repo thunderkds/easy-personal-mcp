@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/Loading.test.jsx` (AC4, AC5: label first, exactly one `.loading-line` from the list, stubbed `Math.random` 0 / 0.999999, line kept on re-render with one `Math.random` call, 12 lines each ≤ 40 chars, CSS rule uses tokens only; view table: each pill starts with its label and has one line). `web/src/WarningsPlanView.test.jsx`, describe `saved reports loading indicator (HUN-229)` (AC1, AC2, AC3 and the edge cases: close before load, switch between two reports, list error, two pills together). Written first: 7 of the new WarningsPlanView tests failed and Loading.test.jsx failed to import `loadingLines.js` before the implementation. |
+| Verification command run | ☑ pass | 2026-11-05T11:23:28Z `cd web && npx vitest run src/WarningsPlanView.test.jsx src/Loading.test.jsx && npx vitest run && npm run build`: `Test Files 2 passed (2) / Tests 82 passed (82)`; full run `Test Files 21 passed (21) / Tests 663 passed (663)`; build `built in 531ms` (JS 325.90 kB before, 326.45 kB after). |
+| Negative cases hold | ☑ pass | Failed list and failed report (404 and 500) remove the pill and show the inline error line; closing a row before load leaves no pill; a late answer of a closed or replaced report shows nothing; the old `.report-wait` line is gone. Changed existing test: the `Loading warnings` row of the view table in `Loading.test.jsx` used `getByRole('status')` (one pill); Warnings & plan now has two pills when all requests hang (warnings + saved reports list), so it takes the pill whose text starts with the label. No test in `WarningsPlanView.test.jsx` asserted the old text lines. |
+| verify | ☐ N/A | Not run by the implementer: left to the Supervisor's Stage 4/5 `code-review` and `verify`. Implementer's real run: see below (pass). |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ N/A | `Loading` is a hub component (11 uses). All 21 web test files run (663 pass); `Loading` consumers are covered by the view table in `Loading.test.jsx`. `code-review` is left to the Supervisor. |
+| Full smoke suite still green (no regression) | ☑ pass | `npx vitest run`: 21 files, 663 tests passed. No Python change. |
+| **Companion score (easy-verifier)** | ☑ N/A | Not run by the implementer (no easy-verifier MCP call made); the Supervisor scores at Stage 4. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real run, dashboard from this worktree on a store copy, headless Chrome with `GET /api/reports/1` held. AFTER pending 1280x720: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-after-1280-pending.png` (floating pill "Loading report" + line "Stacking tokens into tidy piles…", centred; no text line; the report row and list do not move). Console: `pills: [{"text":"Loading reportStacking tokens into tidy piles…"...}]`, `old line: []`. Opened report, BEFORE vs AFTER: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-before-1280-done.png` and `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-after-1280-done.png`: same layout, only live-ingest numbers differ (store copy ingests the owner's real transcripts). BEFORE pending: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-before-1280-pending.png` (text line, no pill). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Reuses `Loading`; one new rule `.loading-line { display: block; color: var(--color-muted); font-size: var(--fs-small); }` plus `.loading-text { min-width: 0; }`; no colour literal (asserted in `Loading.test.jsx`). Pill keeps `role="status"` and starts with its label (asserted). |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280: pill centred in the content area (x 635..861 of the main column; `hscroll: 1265 vs 1265`, the page scrollbar). 375x700: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-after-375-pending.png`, pill 187 px wide, line fits on its own row, `hscroll: 375 vs 375` (no horizontal scroll). Overlap finding (not fixed, see report): Warnings request and saved-reports list request pending together show two pills at the same fixed spot, drawn on top of each other: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-both-1280-pending.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-both-375-pending.png`. |
 
 ---
 
@@ -80,9 +80,18 @@ saved h229-before-1280-pending.png 2026-11-05T11:17:00.201Z
 ```
 Screenshot: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-before-1280-pending.png` (final take, 2026-11-05T11:17:31Z; shows the plain "Loading report" text line under the row, no floating pill. An earlier take at 11:16:29Z, taken while the real `/api/warnings` was still slow, also showed a `Loading warnings` pill next to the text line.)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same real run after the change, 2026-11-05T11:21:25Z, `GET /api/reports/1` held):
+```
+row: clicked
+held http://127.0.0.1:49309/api/reports/1
+pills: [{"text":"Loading reportStacking tokens into tidy piles…","rect":{"x":635.6,"y":334.5,"width":225.8,"height":51}}]
+old line: []
+hscroll: 1265 vs 1265
+saved h229-after-1280-pending.png 2026-11-05T11:21:25.888Z
+```
+Verification command part 1 after the change (2026-11-05T11:23:28Z): `Test Files 2 passed (2) / Tests 82 passed (82)` (was 70).
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: Clicking a saved report (or opening Warnings & plan) now shows the same floating loading indicator as every other page, and every indicator shows one random funny line under its label.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-229.jsonl`, never the
 implementing agent alone]

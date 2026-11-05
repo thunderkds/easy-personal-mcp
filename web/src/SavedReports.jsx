@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getReport, getReports } from './api.js'
 import { fmt, localTime } from './format.js'
+import Loading from './Loading.jsx'
 import { useLoad } from './useLoad.js'
 import { Card, byPriority } from './WarningsPlanView.jsx'
 
@@ -56,7 +57,7 @@ function Now({ ruleId, now }) {
 
 function ReportOpen({ id }) {
   const state = useLoad(() => getReport(id), [id])
-  if (state.status === 'loading') return <p className="muted report-wait">Loading report</p>
+  if (state.status === 'loading') return <Loading label="Loading report" />
   if (state.status === 'error') {
     return <p className="error">{/status 404$/.test(state.message) ? 'Report not found' : `Could not load the report: ${state.message}`}</p>
   }
@@ -136,7 +137,7 @@ export default function SavedReports({ command }) {
   return (
     <section aria-labelledby="h-saved-reports" className="saved-reports">
       <h2 id="h-saved-reports">Saved reports</h2>
-      {state.status === 'loading' && <p className="muted">Loading saved reports</p>}
+      {state.status === 'loading' && <Loading label="Loading saved reports" />}
       {state.status === 'error' && <p className="error">Could not load saved reports: {state.message}</p>}
       {state.status === 'ready' && state.data.reports.length === 0 && (
         <p className="muted">

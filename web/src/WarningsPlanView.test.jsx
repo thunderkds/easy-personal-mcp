@@ -663,3 +663,135 @@ describe('saved reports style (HUN-222)', () => {
     expect(css).toMatch(/\.report-line[^}]*text-overflow: ellipsis/)
   })
 })
+
+// HUN-229: saved reports use the floating loading indicator (FR-065)
+// A fetch that answers everything through `fakeFetch`, except the requests `hold` names: those wait until `release` / `fail`.
+function heldFetch(hold, overrides = {}) {
+  const base = fakeFetch(overrides)
+  const waiting = []
+  const fn = async (url, init) => {
+    if (!hold(String(url))) return base(url, init)
+    base.calls.push({ url: String(url), init })
+    return new Promise((resolve) => waiting.push({ url: String(url), answer: () => base(url, init), resolve }))
+  }
+  fn.calls = base.calls
+  fn.release = async (url) => {
+    for (const w of waiting.filter((x) => x.url === url)) w.resolve(await w.answer())
+  }
+  fn.fail = (url, status) => {
+    for (const w of waiting.filter((x) => x.url === url)) w.resolve({ ok: false, status, json: async () => ({}) })
+  }
+  return fn
+}
+const isReportItem = (u) => /^\/api\/reports\/\d+$/.test(u)
+const pills = () => [...document.querySelectorAll('.loading-pill')]
+
+describe('saved reports loading indicator (HUN-229)', () => {
+  const openRows = async (f) => {
+    vi.stubGlobal('fetch', f)
+    render(withToasts(<WarningsPlanView />))
+    const section = await screen.findByRole('region', { name: 'Saved reports' })
+    return { section, rows: await within(section).findAllByRole('button') }
+  }
+
+  it('AC1, AC2: a clicked report shows the floating "Loading report" indicator, not the text line, until the data arrives', async () => {
+    const f = heldFetch(isReportItem, { reports: reportList })
+    const { section, rows } = await openRows(f)
+    await screen.findByTestId('headline')
+    expect(pills()).toHaveLength(0)
+    fireEvent.click(rows[0])
+    const status = await within(section).findByRole('status')
+    expect(status).toHaveClass('loading-pill')
+    expect(status).toHaveTextContent('Loading report')
+    expect(status.textContent.startsWith('Loading report')).toBe(true)
+    expect(status.tagName).not.toBe('P')
+    expect(section.querySelector('.report-wait')).toBeNull()
+    expect(within(section).queryByRole('heading', { name: 'Summary' })).toBeNull()
+    await f.release('/api/reports/2')
+    expect(await within(section).findByRole('heading', { name: 'Summary' })).toBeInTheDocument()
+    expect(pills()).toHaveLength(0)
+  })
+
+  it('AC2: a failed report load removes the indicator and shows the inline error line (404, then other errors)', async () => {
+    const f = heldFetch(isReportItem, { reports: reportList })
+    const { section, rows } = await openRows(f)
+    fireEvent.click(rows[0])
+    await within(section).findByRole('status')
+    f.fail('/api/reports/2', 404)
+    expect(await within(section).findByText('Report not found')).toHaveClass('error')
+    expect(pills()).toHaveLength(0)
+    fireEvent.click(rows[0]) // close
+    fireEvent.click(rows[1])
+    await within(section).findByRole('status')
+    f.fail('/api/reports/1', 500)
+    expect(await within(section).findByText(/Could not load the report: /)).toHaveClass('error')
+    expect(pills()).toHaveLength(0)
+  })
+
+  it('edge: closing the row before the report loads leaves no indicator', async () => {
+    const f = heldFetch(isReportItem, { reports: reportList })
+    const { section, rows } = await openRows(f)
+    fireEvent.click(rows[0])
+    await within(section).findByRole('status')
+    fireEvent.click(rows[0])
+    expect(pills()).toHaveLength(0)
+    await f.release('/api/reports/2')
+    expect(pills()).toHaveLength(0)
+    expect(within(section).queryByRole('heading', { name: 'Summary' })).toBeNull()
+  })
+
+  it('edge: switching between two reports shows one indicator and only the current report', async () => {
+    const f = heldFetch(isReportItem, { reports: reportList })
+    const { section, rows } = await openRows(f)
+    fireEvent.click(rows[0])
+    await within(section).findByRole('status')
+    fireEvent.click(rows[1])
+    expect(pills()).toHaveLength(1)
+    await f.release('/api/reports/2') // the first one answers late
+    expect(within(section).queryByRole('heading', { name: 'Summary' })).toBeNull()
+    expect(pills()).toHaveLength(1)
+    await f.release('/api/reports/1')
+    expect(await within(section).findByRole('heading', { name: 'Summary' })).toBeInTheDocument()
+    expect(pills()).toHaveLength(0)
+  })
+
+  it('AC3: the list shows the floating "Loading saved reports" indicator while /api/reports is pending', async () => {
+    const f = heldFetch((u) => u === '/api/reports', { reports: reportList })
+    vi.stubGlobal('fetch', f)
+    render(withToasts(<WarningsPlanView />))
+    await screen.findByTestId('headline')
+    const section = screen.getByRole('region', { name: 'Saved reports' })
+    const status = within(section).getByRole('status')
+    expect(status).toHaveClass('loading-pill')
+    expect(status).toHaveTextContent('Loading saved reports')
+    expect(section.querySelector('p.muted')).toBeNull()
+    await f.release('/api/reports')
+    expect(await within(section).findAllByRole('button')).toHaveLength(2)
+    expect(pills()).toHaveLength(0)
+  })
+
+  it('AC3: a failed list removes the indicator and keeps the inline error line', async () => {
+    const f = heldFetch((u) => u === '/api/reports', { reports: reportList })
+    vi.stubGlobal('fetch', f)
+    render(withToasts(<WarningsPlanView />))
+    await screen.findByTestId('headline')
+    const section = screen.getByRole('region', { name: 'Saved reports' })
+    within(section).getByRole('status')
+    f.fail('/api/reports', 500)
+    expect(await within(section).findByText(/Could not load saved reports: /)).toHaveClass('error')
+    expect(pills()).toHaveLength(0)
+  })
+
+  it('edge: the warnings list and the saved reports list loading together show two indicators, each with its own label', async () => {
+    const f = heldFetch((u) => u === '/api/warnings' || u === '/api/reports', { reports: reportList })
+    vi.stubGlobal('fetch', f)
+    render(withToasts(<WarningsPlanView />))
+    const labels = await waitFor(() => {
+      const found = pills().map((p) => p.textContent)
+      expect(found.length).toBe(2)
+      return found
+    })
+    expect(labels.some((t) => t.startsWith('Loading warnings'))).toBe(true)
+    expect(labels.some((t) => t.startsWith('Loading saved reports'))).toBe(true)
+  })
+})
