@@ -23,7 +23,7 @@ function headline(hits) {
 }
 
 // Plan priority, 1 first; the sort is stable, so equal priorities keep the server's order.
-const byPriority = (hits) => [...hits].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+export const byPriority = (hits) => [...hits].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
 const steps = (hit) => hit.steps ?? (hit.fix ? [hit.fix] : [])
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1)
 // "no stored history", "no sessions in the window" ... : the rule found nothing to read.
@@ -46,13 +46,15 @@ function Causes({ causes, id }) {
   )
 }
 
-function Card({ hit, rank }) {
+// `idPrefix` keeps element ids unique when a second list of cards is on the page (an open saved report, HUN-224);
+// `children` is extra body content under the steps (the report's "Now:" line).
+export function Card({ hit, rank, idPrefix = '', children }) {
   const list = steps(hit)
   const title = hit.title ?? hit.rule_id
   return (
     <li>
       <FeedCard
-        id={`action-${rank}`}
+        id={`${idPrefix}action-${rank}`}
         className="action-card"
         data-rule={hit.rule_id}
         icon={String(rank)}
@@ -68,7 +70,7 @@ function Card({ hit, rank }) {
             <strong>Why it matters</strong> {hit.why}
           </p>
         )}
-        <Causes causes={hit.causes} id={`why-${rank}`} />
+        <Causes causes={hit.causes} id={`${idPrefix}why-${rank}`} />
         {typeof hit.cache_read_share === 'number' && (
           <p className="card-cache">{Math.round(hit.cache_read_share * 100)}% of these tokens are cache reads</p>
         )}
@@ -90,6 +92,7 @@ function Card({ hit, rank }) {
               </ul>
             </div>
           ))}
+        {children}
       </FeedCard>
     </li>
   )

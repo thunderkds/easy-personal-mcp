@@ -380,8 +380,24 @@ export const reportList = {
     { id: 1, saved_utc: '2026-10-29T08:00:00Z', workspace: 'Acme Co', account: null, fired_count: 0, summary_first_line: 'All clear for Acme.' },
   ],
 }
-const fired = (measured, threshold) => ({ state: 'fired', measured, threshold, fired: true })
+const fired = (measured, threshold, hit = {}) => ({ state: 'fired', measured, threshold, fired: true, ...hit })
 const clear = (measured, threshold) => ({ state: 'clear', measured, threshold, fired: false })
+// HUN-224 (HUN-223 shape): a rule that fired at save time keeps its full warning hit in `before`.
+export const jumpHit = {
+  rule_id: 'tokens_jump', label: 'aware', priority: 2, measured: 2.18, threshold: 0.5, window_days: 7, title: 'Token use jumped',
+  why: 'A sudden rise is easy to miss.', fix: 'Decide if that pace is intended.', diagnosis: 'more_sessions', cache_read_share: 0.9691,
+  summary: 'Token use rose 218% in the last 7 days against the 7 days before; target 50% or less',
+  steps: ['The rise comes from more sessions (81 → 396), not bigger ones.', 'Biggest rise: alpha. Decide if that pace is intended.'],
+  causes: [
+    { kind: 'project', name: 'alpha', new: false, text: 'alpha: 476.4k → 443.1M tokens, 2 → 11 sessions' },
+    { kind: 'project', name: 'fresh-repo', new: true, text: 'fresh-repo: 0 → 12.5M tokens, 0 → 3 sessions' },
+  ],
+}
+export const hugeHit = {
+  rule_id: 'session_huge_no_compact', label: 'improve', priority: 3, measured: 212345, threshold: 150000, window_days: 7, title: 'Sessions grow too large',
+  why: 'Long sessions re-read a large context every turn.', fix: 'Compact earlier.', steps: ['Start a new session per task.'],
+  summary: 'One session reached 212,345 context tokens; target 150,000 or less',
+}
 export const reportOne = {
   id: 2,
   saved_utc: '2026-11-05T01:40:00Z',
@@ -393,11 +409,20 @@ export const reportOne = {
   as_of_utc: '2026-11-05T01:40:00Z',
   now_as_of_utc: '2026-11-05T09:00:00Z',
   rules: [
-    { rule_id: 'cache_hit_low', title: 'Low cache reuse', before: clear(0.969, 0.5), now: clear(0.971, 0.5) },
+    { rule_id: 'cache_hit_low', title: 'Low cache reuse', before: fired(0.31, 0.5, warnings.hits[0]), now: clear(0.4, 0.5) },
     { rule_id: 'context_index_stale', title: 'Code index is out of date', before: { state: 'abstained', reason: 'easy-context is down' }, now: { state: 'abstained', reason: 'easy-context is down' } },
-    { rule_id: 'session_huge_no_compact', title: 'Sessions grow too large', before: fired(212345, 150000), now: clear(98000, 150000) },
-    { rule_id: 'tokens_jump', title: 'Token use jumped', before: fired(2.18, 0.5), now: clear(0.4, 0.5) },
+    { rule_id: 'session_huge_no_compact', title: 'Sessions grow too large', before: fired(212345, 150000, hugeHit), now: clear(98000, 150000) },
+    { rule_id: 'tokens_jump', title: 'Token use jumped', before: fired(2.18, 0.5, jumpHit), now: fired(2.231, 0.5) },
     { rule_id: 'tool_errors_high', title: 'Many tool calls fail', before: clear(0.02, 0.1), now: { state: 'not_measured', reason: 'not measured now' } },
+    { rule_id: 'top_project_share', title: 'One project uses most of your tokens', before: clear(0.238, 0.8), now: clear(0.237, 0.8) },
+  ],
+}
+// A report saved before HUN-223: a fired rule's `before` has label, priority, why, fix and window_days from the rule config; no steps, title or summary.
+export const reportOld = {
+  ...reportOne,
+  rules: [
+    { rule_id: 'tokens_jump', title: 'Token use jumped', before: fired(2.18, 0.5, { label: 'aware', priority: 3, why: 'A sudden rise is easy to miss.', fix: 'Check which project drove the rise.', window_days: 7 }), now: clear(0.4, 0.5) },
+    { rule_id: 'cache_hit_low', title: 'Low cache reuse', before: clear(0.969, 0.5), now: clear(0.971, 0.5) },
   ],
 }
 

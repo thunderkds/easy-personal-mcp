@@ -2,7 +2,7 @@ import { render, screen, within, waitFor, fireEvent } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import { ToastProvider } from './Toast.jsx'
-import { fakeFetch, reportList, reportOne, warnings } from './test/fixtures.js'
+import { fakeFetch, jumpHit, reportList, reportOld, reportOne, warnings } from './test/fixtures.js'
 
 // The copy button notifies through the toast host App provides.
 const withToasts = (ui) => <ToastProvider>{ui}</ToastProvider>
@@ -291,7 +291,6 @@ describe('HUN-217: the "new" cause chip', () => {
 
 // HUN-222: Saved reports (FR-078 UI)
 const EMPTY = 'No saved reports yet. Run /mcp__easy-personal__investigate in Claude Code.'
-const LINES = 'Before and now, one line per rule'
 const flat = (el) => el.textContent.replace(/\s+/g, ' ')
 const renderReports = async (overrides = {}) => {
   const f = await renderView({ reports: reportList, ...overrides })
@@ -302,8 +301,8 @@ const renderReports = async (overrides = {}) => {
 const reportCalls = (f) => f.calls.map((c) => c.url).filter((u) => /^\/api\/reports\/\d+$/.test(u))
 const openFirst = async (section) => {
   fireEvent.click(within(section).getAllByRole('button')[0])
-  await within(section).findByRole('list', { name: LINES })
-  return within(within(section).getByRole('list', { name: LINES })).getAllByRole('listitem')
+  await within(section).findByRole('heading', { name: 'Summary' })
+  return section.querySelector('.report-open')
 }
 
 describe('saved reports list (HUN-222 AC1)', () => {
@@ -374,12 +373,12 @@ describe('open a saved report (HUN-222 AC2, AC3, AC4, AC7)', () => {
     expect(first).toHaveAttribute('type', 'button')
     fireEvent.click(first)
     expect(first).toHaveAttribute('aria-expanded', 'true')
-    await within(section).findByText('Start a new session per task.')
+    await within(section).findByRole('heading', { name: 'Summary' })
     expect(reportCalls(f)).toEqual(['/api/reports/2'])
     fireEvent.click(second)
     expect(first).toHaveAttribute('aria-expanded', 'false')
     expect(second).toHaveAttribute('aria-expanded', 'true')
-    expect(within(section).queryByText('Start a new session per task.')).toBeNull()
+    expect(within(section).queryByRole('heading', { name: 'Summary' })).toBeNull()
     expect(reportCalls(f)).toEqual(['/api/reports/2', '/api/reports/1'])
     expect(section.querySelectorAll('[aria-expanded="true"]')).toHaveLength(1)
   })
@@ -390,49 +389,27 @@ describe('open a saved report (HUN-222 AC2, AC3, AC4, AC7)', () => {
     await openFirst(section)
     fireEvent.click(first)
     expect(first).toHaveAttribute('aria-expanded', 'false')
-    expect(within(section).queryByRole('list', { name: LINES })).toBeNull()
+    expect(section.querySelector('.report-open')).toBeNull()
   })
 
-  it('AC3: shows summary, fixes with tool and number, and one before / now line per rule', async () => {
+  it('FR-078: shows the summary text, then fixes, then the cards, then the other rules', async () => {
     const { section } = await renderReports()
-    const lines = await openFirst(section)
+    const open = await openFirst(section)
     expect(section).toHaveTextContent('Use <b>smaller</b> sessions.')
-    const fixes = [...section.querySelectorAll('ol.report-fixes > li')]
-    expect(fixes).toHaveLength(2)
-    expect(fixes[0]).toHaveTextContent('Start a new session per task.')
-    expect(fixes[0]).toHaveTextContent('session_outliers: 645,301')
-    expect(fixes[1].textContent).toBe('Compact earlier.')
-    expect(section).toHaveTextContent('now = last 7 days')
-    expect(lines).toHaveLength(5)
-    const line = (title) => lines.find((li) => li.textContent.includes(title))
-    expect(flat(line('Token use jumped'))).toContain('then 218% fired → now 40% clear')
-    expect(flat(line('Sessions grow too large'))).toContain('then 212,345 tokens fired → now 98,000 tokens clear')
-    expect(flat(line('Low cache reuse'))).toContain('then 96.9% clear → now 97.1% clear')
-    const jump = line('Token use jumped')
-    expect(within(jump).getByText('→')).toHaveAttribute('aria-hidden', 'true')
-    expect(within(jump).getByText('fired')).toHaveClass('chip-warning')
-    expect(within(jump).getByText('clear')).toHaveClass('chip-ok')
-  })
-
-  it('AC4: an abstaining rule shows its reason, a rule not measured now says so; never a blank or 0', async () => {
-    const { section } = await renderReports()
-    const lines = await openFirst(section)
-    const line = (title) => lines.find((li) => li.textContent.includes(title))
-    expect(flat(line('Code index is out of date'))).toContain('then abstained: easy-context is down → now abstained: easy-context is down')
-    const errors = line('Many tool calls fail')
-    expect(flat(errors)).toContain('then 2% clear → now not measured now')
-    for (const li of lines) expect(li.textContent).not.toMatch(/NaN|undefined|null/)
+    const heads = [...open.querySelectorAll(':scope > h3')].map((h) => h.textContent)
+    expect(heads).toEqual(['Summary', 'Fixes', '3 to watch then'])
+    expect(screen.queryByText(/Before \/ now/)).toBeNull()
   })
 
   it('a count rule shows its count, and a measured 0 shows 0, not blank', async () => {
     const rules = [
-      { rule_id: 'context_index_stale', title: 'Code index is out of date', before: { state: 'fired', measured: 2, threshold: 0, fired: true }, now: { state: 'clear', measured: 0, threshold: 0, fired: false } },
+      { rule_id: 'context_index_stale', title: 'Code index is out of date', before: { state: 'fired', measured: 2, threshold: 0, fired: true, ...hit({ rule_id: 'context_index_stale', title: 'Code index is out of date' }) }, now: { state: 'clear', measured: 0, threshold: 0, fired: false } },
       { rule_id: 'tool_errors_high', title: 'Many tool calls fail', before: { state: 'clear', measured: 0, threshold: 0.1, fired: false }, now: { state: 'clear', measured: 0, threshold: 0.1, fired: false } },
     ]
     const { section } = await renderReports({ report: { ...reportOne, rules } })
-    const lines = await openFirst(section)
-    expect(flat(lines[0])).toContain('then 2 stale fired → now 0 stale clear')
-    expect(flat(lines[1])).toContain('then 0% clear → now 0% clear')
+    const open = await openFirst(section)
+    expect(flat(open.querySelector('.card-now'))).toBe('Now: 0 stale · clear now')
+    expect(flat(open.querySelector('details'))).toContain('then 0% clear → now 0% clear')
   })
 
   it('shows no fixes block when the report has none', async () => {
@@ -477,12 +454,185 @@ describe('open a saved report (HUN-222 AC2, AC3, AC4, AC7)', () => {
   })
 })
 
+// HUN-224: an opened report uses the Warnings & plan cards (FR-079).
+const jumpSteps = jumpHit.steps
+const withRules = (rules) => ({ ...reportOne, rules })
+const ruleOf = (id, over = {}) => reportOne.rules.find((r) => r.rule_id === id) && { ...reportOne.rules.find((r) => r.rule_id === id), ...over }
+const cardsIn = (open) => [...open.querySelectorAll('article')]
+const noIds = (html) => html.replace(/ (id|aria-labelledby)="[^"]*"/g, '')
+
+describe('saved report as warning cards (HUN-224)', () => {
+  it('AC1: summary, fixes with a tool · number chip, then the "N to watch then" cards, then the closed Other rules', async () => {
+    const { section } = await renderReports()
+    const open = await openFirst(section)
+    const fixes = [...open.querySelectorAll('ol.report-fixes > li')]
+    expect(fixes).toHaveLength(2)
+    expect(fixes[0]).toHaveTextContent('Start a new session per task.')
+    expect(fixes[0].querySelector('.chip')).toHaveTextContent('session_outliers · 645,301')
+    expect(fixes[1].textContent).toBe('Compact earlier.')
+    expect(fixes[1].querySelector('.chip')).toBeNull()
+    const after = (a, b) => expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const [summary, fixesHead, watch] = [...open.querySelectorAll(':scope > h3')]
+    const cards = open.querySelector('ol.actions')
+    const other = open.querySelector('details')
+    after(summary, fixesHead)
+    after(fixesHead, watch)
+    after(watch, cards)
+    after(cards, other)
+    expect(watch).toHaveTextContent('3 to watch then')
+  })
+
+  it('AC2: a rule that fired then is the same Card as in the warnings list, plus its Now line', async () => {
+    const { section } = await renderReports()
+    const open = await openFirst(section)
+    const listCard = screen.getByRole('list', { name: 'Things to do, first one first' }).querySelector('[data-rule="cache_hit_low"]')
+    const reportCard = cardsIn(open).find((c) => c.dataset.rule === 'cache_hit_low')
+    const clone = reportCard.cloneNode(true)
+    clone.querySelector('.card-now').remove()
+    expect(noIds(clone.outerHTML)).toBe(noIds(listCard.outerHTML))
+    expect(within(reportCard).getByText('Fix now')).toBeInTheDocument()
+    expect(within(reportCard).getByRole('heading', { name: 'Low cache reuse' })).toBeInTheDocument()
+    expect(reportCard).toHaveTextContent('31% of prompt tokens came from cache')
+    expect(reportCard).toHaveTextContent('A prompt read from cache costs far less.')
+    expect(reportCard.querySelectorAll('ol.steps > li')).toHaveLength(2)
+  })
+
+  it('AC2: causes, the cache-read share and steps show on a report card', async () => {
+    const { section } = await renderReports()
+    const open = await openFirst(section)
+    const card = cardsIn(open).find((c) => c.dataset.rule === 'tokens_jump')
+    const why = within(card).getByRole('group', { name: 'Why this happened' })
+    expect(within(why).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(why).getByText('new')).toBeInTheDocument()
+    expect(card).toHaveTextContent('97% of these tokens are cache reads')
+    expect([...card.querySelectorAll('ol.steps > li')].map((li) => li.textContent)).toEqual(jumpSteps)
+  })
+
+  it('AC2: SavedReports imports Card from WarningsPlanView and keeps no card markup of its own', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const src = readFileSync(resolve(process.cwd(), 'src/SavedReports.jsx'), 'utf8')
+    expect(src).toMatch(/import \{[^}]*\bCard\b[^}]*\} from '\.\/WarningsPlanView\.jsx'/)
+    expect(src).not.toMatch(/FeedCard|feed-card|Why this happened|Why it matters/)
+  })
+
+  it('the page keeps unique element ids with the warnings list and an open report together', async () => {
+    const { section } = await renderReports()
+    await openFirst(section)
+    const ids = [...document.querySelectorAll('[id]')].map((e) => e.id)
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([])
+    for (const card of section.querySelectorAll('article')) {
+      expect(document.getElementById(card.getAttribute('aria-labelledby'))).toBeInTheDocument()
+    }
+  })
+
+  it('AC3: the Now line shows the value with "still firing" or "clear now"', async () => {
+    const { section } = await renderReports()
+    const open = await openFirst(section)
+    const now = (rule) => flat(cardsIn(open).find((c) => c.dataset.rule === rule).querySelector('.card-now'))
+    expect(now('tokens_jump')).toBe('Now: 223.1% · still firing')
+    expect(now('cache_hit_low')).toBe('Now: 40% · clear now')
+    expect(now('session_huge_no_compact')).toBe('Now: 98,000 tokens · clear now')
+    const jump = cardsIn(open).find((c) => c.dataset.rule === 'tokens_jump')
+    expect(within(jump).getByText('still firing')).toHaveClass('chip-warning')
+    const cache = cardsIn(open).find((c) => c.dataset.rule === 'cache_hit_low')
+    expect(within(cache).getByText('clear now')).toHaveClass('chip-ok')
+  })
+
+  it('AC3: a rule that abstains or is not measured now shows its reason, never a number or 0', async () => {
+    const rules = [
+      ruleOf('tokens_jump', { now: { state: 'abstained', reason: 'no sessions in the window' } }),
+      ruleOf('session_huge_no_compact', { now: { state: 'not_measured', reason: 'not measured now' } }),
+    ]
+    const { section } = await renderReports({ report: withRules(rules) })
+    const open = await openFirst(section)
+    const now = (rule) => flat(cardsIn(open).find((c) => c.dataset.rule === rule).querySelector('.card-now'))
+    expect(now('tokens_jump')).toBe('Now: abstained: no sessions in the window')
+    expect(now('session_huge_no_compact')).toBe('Now: not measured now')
+    expect(open.textContent).not.toMatch(/NaN|undefined|null/)
+  })
+
+  it('AC4: two fired rules sort by priority, 1 first, and rank by position', async () => {
+    const { section } = await renderReports()
+    const open = await openFirst(section)
+    const cards = cardsIn(open)
+    expect(cards.map((c) => c.dataset.rule)).toEqual(['cache_hit_low', 'tokens_jump', 'session_huge_no_compact'])
+    expect(cards.map((c) => c.querySelector('.feed-icon').textContent)).toEqual(['1', '2', '3'])
+  })
+
+  it('AC5: Other rules is closed, counts the rest, and lists title, then and now with the existing value text', async () => {
+    const { section } = await renderReports()
+    const open = await openFirst(section)
+    const details = open.querySelector('details')
+    expect(details).toHaveClass('not-checked')
+    expect(details.open).toBe(false)
+    expect(details.querySelector('summary')).toHaveTextContent('Other rules (3)')
+    const items = [...details.querySelectorAll('li')]
+    expect(items).toHaveLength(3)
+    const line = (title) => flat(items.find((li) => li.textContent.includes(title)))
+    expect(line('Code index is out of date')).toContain('then abstained: easy-context is down → now abstained: easy-context is down')
+    expect(line('Many tool calls fail')).toContain('then 2% clear → now not measured now')
+    expect(line('One project uses most')).toContain('then 23.8% clear → now 23.7% clear')
+    expect(within(items[0]).getByText('→')).toHaveAttribute('aria-hidden', 'true')
+    for (const li of items) expect(li.textContent).not.toMatch(/NaN|undefined|null/)
+  })
+
+  it('AC5: a fired rule is not repeated in Other rules', async () => {
+    const { section } = await renderReports()
+    const open = await openFirst(section)
+    expect(open.querySelector('details')).not.toHaveTextContent('Low cache reuse')
+    expect(open.querySelector('details')).not.toHaveTextContent('Token use jumped')
+  })
+
+  it('AC6: when nothing fired then, the heading says so, there are no cards and Other rules lists every rule', async () => {
+    const rules = reportOne.rules.map((r) => ({ ...r, before: { state: 'clear', measured: 0.1, threshold: 0.5, fired: false } }))
+    const { section } = await renderReports({ report: withRules(rules) })
+    const open = await openFirst(section)
+    expect(within(open).getByRole('heading', { name: 'Nothing fired then' })).toBeInTheDocument()
+    expect(open.textContent).not.toMatch(/to watch then/)
+    expect(open.querySelector('ol.actions')).toBeNull()
+    expect(open.querySelectorAll('article')).toHaveLength(0)
+    expect(open.querySelector('details > summary')).toHaveTextContent('Other rules (6)')
+  })
+
+  it('AC7: an old report (no steps, no title, no summary) shows the fix line and does not crash', async () => {
+    const { section } = await renderReports({ report: reportOld })
+    const open = await openFirst(section)
+    const cards = cardsIn(open)
+    expect(cards).toHaveLength(1)
+    expect(within(cards[0]).getByRole('heading', { name: 'Token use jumped' })).toBeInTheDocument()
+    expect(within(cards[0]).getByText('Watch')).toBeInTheDocument()
+    expect(cards[0]).toHaveTextContent('A sudden rise is easy to miss.')
+    expect([...cards[0].querySelectorAll('ol.steps > li')].map((li) => li.textContent)).toEqual(['Check which project drove the rise.'])
+    expect(cards[0].querySelector('.card-summary')).toBeNull()
+    expect(cards[0].querySelector('.card-causes')).toBeNull()
+    expect(flat(cards[0].querySelector('.card-now'))).toBe('Now: 40% · clear now')
+    expect(open.querySelector('details > summary')).toHaveTextContent('Other rules (1)')
+  })
+
+  it('edge: a fired rule with no causes shows no "Why this happened" block', async () => {
+    const rules = [ruleOf('tokens_jump', { before: { ...reportOne.rules[3].before, causes: [] } })]
+    const { section } = await renderReports({ report: withRules(rules) })
+    const open = await openFirst(section)
+    expect(within(open).queryByText('Why this happened')).toBeNull()
+    expect(open.querySelectorAll('ol.steps > li')).toHaveLength(2)
+  })
+
+  it('edge: report text in a rule hit renders as text, never as markup', async () => {
+    const before = { ...reportOne.rules[3].before, summary: 'Use <img src=x onerror=alert(1)> now' }
+    const { section } = await renderReports({ report: withRules([ruleOf('tokens_jump', { before })]) })
+    const open = await openFirst(section)
+    expect(open).toHaveTextContent('Use <img src=x onerror=alert(1)> now')
+    expect(open.querySelector('img')).toBeNull()
+  })
+})
+
 describe('saved reports style (HUN-222)', () => {
   it('uses tokens only: no colour literal in the new rules; the row line clips with an ellipsis', async () => {
     const { readFileSync } = await import('node:fs')
     const { resolve } = await import('node:path')
     const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
-    const rules = css.split('\n').filter((l) => /\.report-|\.ba-/.test(l))
+    const rules = css.split('\n').filter((l) => /\.report-|\.ba-|\.card-now/.test(l))
     expect(rules.length).toBeGreaterThan(3)
     for (const l of rules) expect(l).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i)
     expect(css).toMatch(/\.report-line[^}]*text-overflow: ellipsis/)
