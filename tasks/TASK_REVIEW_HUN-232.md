@@ -19,7 +19,7 @@ Owner instruction (not a decision): run HUN-231 and HUN-232 in parallel, auto mo
 3. built in parallel with HUN-231 but merged after it — FACT: tasks/TASK_GUIDE_HUN-232.md:54 "**Depends on**: HUN-231 — backup cleanup must be merged first"
 4. migration 11 dry-run on a copy of the owner's real store (copy deleted afterwards), not on the store itself — RULE: tasks/TASK_GUIDE_HUN-232.md "Files Must NOT Touch" `~/.easy-personal/*`
 Checks: tests `uv run pytest tests/core/test_store.py tests/core/test_migrations.py -q` — 34 passed, 1 deselected (Supervisor re-run); perf `-m perf` — 1 passed (implementer); full suite — 1541 passed, 2 skipped, 1 xfailed (implementer); reviews code-review — 0 P0, 0 P1, 0 P2, 1 P3 (implementer read only the first 40 lines of `agents/backend.md`), lane `C1, 4 files, 105 lines, FITS`; migration-safety Stage 4 — GO (only op `DROP INDEX IF EXISTS events_ts`, superseded by `events_ts_message`; restore path `bak-v10`); real run: copy of the owner's v10 store (474,642 events) → `migrate+connect 0.33s`, v11, `events_ts` gone, every table's row count equal, `bak-v10` is v10 with equal counts (auto-checked, not /verify)
-Not done: merge (yours); auto verify: running (T182)
+Not done: merge (yours); /verify (yours) — the auto-verify hook acts only on Ready for Review rows, and this Linear board has no such status, so the task stays In Progress (memory/learnings.md:190); memory update; Done
 
 ## Evidence
 
