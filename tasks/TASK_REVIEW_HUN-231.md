@@ -21,6 +21,7 @@ Owner instruction (not a decision): run HUN-231 and HUN-232 in parallel, auto mo
 5. README.md:318–337 still tells users to restore from `.bak-v7`; left as a P2 suggestion, not fixed — RULE: skills/code-review/SKILL.md:142 "Do not apply P2/P3 fixes automatically"
 Checks: tests `uv run pytest tests/core/test_migrations.py tests/core/test_store.py -q` — 37 passed, 1 deselected (Supervisor re-run); full suite `uv run pytest -q` — 1544 passed, 2 skipped, 1 xfailed (implementer); reviews code-review — 0 P0, 0 P1, 1 P2 (README `.bak-v7`), lane `C2, 3 files, 169 lines, FITS`; security-review — the built-in skill failed (`fatal: ambiguous argument 'origin/HEAD...'`, no origin remote), so the Supervisor did a manual pass: deletes confined to the 0700 store folder by an anchored name pattern, a symlink named like a backup loses only the link (target kept), a folder named like a backup is skipped — no findings; real run: tmp store at latest-1 with bak-v0/bak-v3(+wal/shm)/pre-v0.4.0 → after `store.connect()` `['store.sqlite', 'store.sqlite.bak-v9', 'store.sqlite.pre-v0.4.0']` (auto-checked, not /verify)
 Not done: merge (yours); /verify: ☑ pass (owner-requested run, see Evidence); memory update; Done
+Paused: auto-mode check — the trace has no `security-review` Skill call: the built-in skill fails here (`fatal: ambiguous argument 'origin/HEAD...'`, the repo has no `origin` remote); the Supervisor's manual security pass under Checks found nothing
 
 ## Evidence
 
