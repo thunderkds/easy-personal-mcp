@@ -26,16 +26,23 @@ Not done: merge (yours); auto verify: running (T182)
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/UsageView.test.jsx` (describe "each part renders when its data arrives (HUN-228, NFR-013)": AC1 sessions held, per-part order, pill only while nothing arrived, AC2 outliers failing, AC3 badges loading/then filled and failed, AC4 late old-period answer dropped (mutation check: removing the guard makes it fail), AC5 `sinceOf` + one `since` per load, All time) and `web/src/Rail.test.jsx` (describe "Rail and Usage ask the same question": same summary and model URLs, `since` seconds 00 / ms 000). Output below. |
+| Verification command run | ☑ pass | `cd web && npx vitest run src/UsageView.test.jsx src/Rail.test.jsx && npx vitest run && npm run build` -> `Test Files 2 passed (2) / Tests 109 passed (109)`; `Test Files 21 passed (21) / Tests 651 passed (651)`; `✓ built in 528ms` (run 2026-11-05 after the commit, task state file rewritten before the run). |
+| Negative cases hold | ☑ pass | outliers 500 -> exactly one alert "Could not load outlier sessions: … 500", all other parts render; 403 on everything -> one error line per part; previous failed -> "no previous data", no alert; All time -> 7 requests, no `since`, no `until`; old-period answer never shown. |
+| verify | ☐ pass / ☐ fail / ☐ N/A | not run by the implementer (Supervisor Stage 5). Real run on a store copy: see Demonstration, pass. |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | Stage 4 (Supervisor). Blast radius: `UsageView.jsx` (consumers: `App.jsx`, `Rail.jsx` imports `PERIODS` + new `sinceOf`), `Rail.jsx`. Full web suite run (21 files). |
+| Full smoke suite still green (no regression) | ☑ pass | `npx vitest run` -> `Test Files 21 passed (21), Tests 651 passed (651)` |
+| **Companion score (easy-verifier)** | ☑ N/A | not run by the implementer; Stage 4 Supervisor step |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | 1280x720, all loaded, BEFORE `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/before-1.png` vs AFTER `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/after-1.png`: same layout (same cards, order, spacing; the top 700 px side by side differ only in live numbers because the store is live and the window moved; full-page height 6771 vs 6786 px from different data, not layout). Sessions still loading: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/after-7-partial.png` (cropped bottom: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/after-7-partial-bottom.png`) shows all cards with "Loading usage by tool" in the pending part's place; the first-card state: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/after-4-firstcard.png`. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | one CSS rule added (`.part-loading`: flex + `gap: var(--space-2)`), no colour literal; reuses `.card`, `.muted`, `.error`, `.spinner`; page-wide `Loading` pill kept while nothing has arrived. Vitest: each loading line is `role="status"` with text "Loading <part>" (e.g. "Loading sessions"); each error line is `role="alert"` `.error`. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280 px: `hscroll: 1265 vs 1265` (no horizontal scroll; layout unchanged). 375 px: `hscroll: 375 vs 375`; loading-state screenshot `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/after-375-firstcard.png`. |
+
+**Existing tests changed (AC6)**, in `web/src/UsageView.test.jsx` only, both because they asserted all-at-once behaviour:
+1. "shows an error when the API refuses": was `findByRole('alert')` (one page-wide alert); now `findAllByRole('alert')`, more than one, each shows 403 (each part has its own error line).
+2. "previous period is [now - 2 days, now - days) …": the `since`/`until` tolerance 5000 ms -> 65000 ms (since is rounded down to the whole minute); the "current `since` equals previous `until`" check is now exact equality.
+Not changed: `Loading.test.jsx` and `neon.test.jsx` pass unchanged (the Usage view shows only the page-wide pill while no answer has arrived; a part shows no heading until it has data, so a heading on screen still means the data is there).
+
+---
 
 ---
 
@@ -66,9 +73,24 @@ Time to first KPI card = time to Totals = time to Timeline = 6.0 / 6.2 / 6.8 s (
 
 BEFORE screenshot (all data loaded, identical-layout reference): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/before-1.png` (also before-2.png, before-3.png).
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same dashboard run on the same store copy (415 MB, ingested again at start), same script and headless Chrome 1280x720, rebuilt web at commit 548bc3a; captured 2026-11-05T08:47Z..08:49Z. Time (ms after navigation) to first card (first Usage heading on screen), to the KPI strip + Totals, and to the Session timeline (= full page):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+run   firstCard   KPI strip + Totals   Timeline (full page)
+ 1       -           4622               6737        (first-card probe added from run 4)
+ 2       -           3311               6520
+ 3       -           3853               6424
+ 4     1637          5079               7199
+ 5     1707          4051               6868
+ 6     1839          4229               6558
+ 7     1438          3755               6201        (375 px run: 1627 / 3929 / 6344)
+BEFORE (3 runs): first KPI = Totals = Timeline = 6020 / 6244 / 6793 ms
+```
+Median time to KPI strip: BEFORE 6244 ms, AFTER 4051 ms (7 runs: 3311 3755 3853 4051 4229 4622 5079). Time to the first card on screen: BEFORE 6.0-6.8 s (nothing until the end), AFTER 1.4-1.8 s. Time to full page: unchanged (6.2-7.2 s), set by the server. Each answer shows when it arrives; responses logged per run, e.g. run 2: summary 1135, outliers 1432, day 3284, prev-day 3588, model 3772, tool 4073, project 4404, sessions 6493 ms.
+Same URLs: the Usage view's and the rail's `/api/usage/summary?since=…` now carry the same whole-minute `since` (unit test `Rail.test.jsx`).
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/after-1.png` .. `after-7.png`, partial states `after-*-partial.png`, `after-*-firstcard.png`.
+
+**DELTA**: The owner sees the Usage cards one by one from about 1.5 s (outliers, breakdowns) and the KPI strip at about 4 s instead of a blank page until about 6 s; each pending part shows its own loading line and a failed part its own error line.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
