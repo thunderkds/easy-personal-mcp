@@ -53,9 +53,15 @@ Not done: merge (yours); auto verify: running (T182)
 ```
 (a) = second connection holds `BEGIN IMMEDIATE` on an up-to-date store; (b) = v10 store with `events_ts`, after `connect()` it is still v10 and still has `events_ts`.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (captured 2026-11-05T15:30:31Z, same script, after the change):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+(a) connect() returned in 0.00s
+(b) user_version 11 indexes ['events_account_ts', 'events_message', 'events_ts_message']
+    backups ['store.sqlite.bak-v10']
+```
+
+**DELTA**: Reads (MCP tools, `/api/*`) no longer queue behind the live ingest writer when they open the store, and a store that still has the stale `events_ts` index loses it on the next open.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

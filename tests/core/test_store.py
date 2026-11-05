@@ -1,5 +1,7 @@
 import json
 import re
+import sqlite3
+import time
 
 from easy_personal.core import store
 from easy_personal.sources import claude_code
@@ -96,6 +98,30 @@ def test_machine_id_is_stable_across_reopen(tmp_path):
     first.close()
     again = store.connect(path)
     assert store.machine_id(again) == mid
+    again.close()
+
+
+def test_opening_an_up_to_date_store_takes_no_write_lock(tmp_path):
+    path = tmp_path / "store.sqlite"
+    store.connect(path).close()
+    writer = sqlite3.connect(path, isolation_level=None)
+    writer.execute("BEGIN IMMEDIATE")  # the live ingest writer holds the write lock
+    try:
+        started = time.monotonic()
+        reader = store.connect(path)
+        assert time.monotonic() - started < 1  # AC 1: no wait for busy_timeout (5 s)
+        assert store.machine_id(reader)
+        reader.close()
+    finally:
+        writer.execute("ROLLBACK")
+        writer.close()
+
+
+def test_a_new_store_gets_exactly_one_machine_id(tmp_path):
+    path = tmp_path / "store.sqlite"
+    store.connect(path).close()
+    again = store.connect(path)
+    assert again.execute("SELECT COUNT(*) FROM meta WHERE key = 'machine_id'").fetchone()[0] == 1
     again.close()
 
 

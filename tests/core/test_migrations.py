@@ -408,3 +408,56 @@ def test_migration_10_is_idempotent_and_a_v10_store_is_not_touched(tmp_path, fix
     conn.close()
     store.connect(path).close()
     assert sorted(p.name for p in tmp_path.glob("*.bak-v*")) == ["store.sqlite.bak-v9"]
+
+
+def _v10_store(path: Path, fixtures_root: Path, with_events_ts: bool) -> None:
+    """A store as HUN-221 left it (v10); an old install may have recreated `events_ts` on it."""
+    conn = store.connect(path)
+    claude_code.ingest(conn, fixtures_root)
+    conn.close()
+    raw = sqlite3.connect(path)
+    raw.execute("DROP INDEX IF EXISTS events_ts")
+    if with_events_ts:
+        raw.execute("CREATE INDEX events_ts ON events (ts_utc)")
+    raw.execute("PRAGMA user_version = 10")
+    raw.commit()
+    raw.close()
+
+
+def _index_names(conn) -> set[str]:
+    return {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}
+
+
+def _row_counts(conn) -> dict[str, int]:
+    tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")]
+    return {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in tables}
+
+
+def test_migration_11_drops_events_ts_keeps_other_indexes_and_every_row(tmp_path, fixtures_root):
+    path = tmp_path / "store.sqlite"
+    _v10_store(path, fixtures_root, with_events_ts=True)
+    raw = sqlite3.connect(path)
+    before = _row_counts(raw)
+    assert "events_ts" in _index_names(raw)
+    raw.close()
+
+    conn = store.connect(path)  # AC 3
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST >= 11
+    names = _index_names(conn)
+    assert "events_ts" not in names and {"events_ts_message", "events_account_ts"} <= names
+    assert _row_counts(conn) == before and before["events"] > 0
+    conn.close()
+    assert (tmp_path / "store.sqlite.bak-v10").exists()
+
+
+def test_migration_11_on_a_v10_store_without_events_ts_is_a_noop_and_idempotent(tmp_path, fixtures_root):
+    from easy_personal.core.migrations import m0011_drop_events_ts as m11
+
+    path = tmp_path / "store.sqlite"
+    _v10_store(path, fixtures_root, with_events_ts=False)
+    conn = store.connect(path)  # AC 4: no error
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST >= 11
+    before = _index_names(conn)
+    m11.apply(conn)  # a second run changes nothing
+    assert _index_names(conn) == before and "events_ts" not in before
+    conn.close()
