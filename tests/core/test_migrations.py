@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from easy_personal.core import metrics, store
+from easy_personal.core import memo, metrics, store
 from easy_personal.core.migrations import MIGRATIONS
 from easy_personal.sources import claude_code
 
@@ -215,6 +215,7 @@ def test_time_first_numbers_equal_the_group_everything_numbers(conn, monkeypatch
     claude_code.ingest(conn, Path(__file__).parents[1] / "fixtures" / "claude_code")
     new = _all_numbers(conn, since, until)
     monkeypatch.setattr(metrics, "_inner_window", lambda s, u: ("1", []))  # legacy semantics
+    memo.reset()  # recompute with the legacy query, not from the shared cache (HUN-227)
     assert _all_numbers(conn, since, until) == new
 
 
@@ -222,6 +223,7 @@ def test_fixture_store_numbers_are_unchanged(conn, fixtures_root, monkeypatch):
     claude_code.ingest(conn, fixtures_root)
     new = _all_numbers(conn, "2026-01-15", "2026-01-16")
     monkeypatch.setattr(metrics, "_inner_window", lambda s, u: ("1", []))
+    memo.reset()  # recompute with the legacy query, not from the shared cache (HUN-227)
     assert _all_numbers(conn, "2026-01-15", "2026-01-16") == new
     assert new[0]["messages"] == 3
 
