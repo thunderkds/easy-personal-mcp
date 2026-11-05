@@ -18,6 +18,7 @@ import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
+from easy_personal.core import metrics
 from easy_personal.core.discovery import run_git
 
 ALLOWED_TOOLS = frozenset({"list_indexes", "get_stats"})
@@ -26,6 +27,8 @@ DEFAULT_URL = "http://127.0.0.1:8767/mcp"
 TIMEOUT_S = 3.0
 ROOT_TRIES = 3
 SKEW_S = 60  # an index this close to a commit, or ahead of our clock, is not called stale
+TOOL_PREFIX = "mcp__easy-context__"  # a call to this server's tools shows easy-context is in use (FR-080)
+IN_USE_DAYS = 7  # look-back for "in use"
 
 
 class Refused(Exception):
@@ -187,6 +190,27 @@ def freshness(conn: sqlite3.Connection, project: str, now: float | None = None) 
         "latest_commit_utc": _iso(commit) if commit is not None else None,
         "stale": stale,
     }
+
+
+def in_use(conn: sqlite3.Connection, since: str, until: str, workspace: str | None = None,
+           account: str | None = None) -> bool:  # fmt: skip
+    """True when the scope's stored events in [since, until) hold a call to a tool of easy-context (FR-080).
+
+    A call is a tool name that starts with `mcp__easy-context__`; `tool_names` is a comma list, so the
+    name can be anywhere in it. Nothing outside the store is read. `since` / `until` are ISO times;
+    `workspace` / `account` limit the events like every other metric (unknown ones raise ValueError).
+    """
+    since_utc, until_utc = metrics._utc_bound(since), metrics._utc_bound(until)
+    scope, scope_params = metrics._scope(conn, workspace, since_utc, until_utc, account)
+    period, period_params = metrics._period("ts_utc", since_utc, until_utc)
+    return (
+        conn.execute(
+            f"SELECT 1 FROM events WHERE abstained = 0 AND {period} AND {scope} "
+            f"AND (tool_names GLOB '{TOOL_PREFIX}*' OR tool_names GLOB '*,{TOOL_PREFIX}*') LIMIT 1",
+            period_params + scope_params,
+        ).fetchone()
+        is not None
+    )
 
 
 def context_part(conn: sqlite3.Connection, project: str) -> dict:

@@ -656,6 +656,17 @@ def _explain(rule: Rule, conn, now, measured, detail, win, scope: dict) -> dict:
     return found
 
 
+def left_out(rule: Rule, conn, now: datetime, scope: dict) -> bool:
+    """True when the rule is left out because the kit part it checks is not in use in this scope (FR-080).
+
+    Only `context_stale_indexes` can be: easy-context counts as in use with a tool call in the last 7 days.
+    """
+    if rule.metric != "context_stale_indexes":
+        return False
+    since = _iso(now - timedelta(days=context.IN_USE_DAYS))
+    return not context.in_use(conn, since, _iso(now), **scope)
+
+
 def _measure(rule: Rule, conn, now, win, scope: dict):
     start = metrics.history_start(conn)
     needed = now - timedelta(days=rule.min_history_days)
@@ -678,6 +689,7 @@ def evaluate(
     """Run every rule; `hits` are the fired rules, `abstained` the ones that could not be measured.
 
     Hits are ordered by priority, then rule id, so the same store gives the same output.
+    A rule about a kit part that is not in use is in none of the lists (`left_out`).
     `workspace` (a name) and `account` (id or label) limit every metric to that scope; an unknown
     one raises ValueError, even when the store has too little history to measure anything.
     `checked=True` adds a `checked` list (by rule id): every measured rule with its `title`, `measured`,
@@ -691,6 +703,8 @@ def evaluate(
     hits, abstained, measured_rules = [], [], []
     win = _Windows(conn, scope)
     for rule in rules if rules is not None else load_rules(config.config_path()):
+        if left_out(rule, conn, now, scope):  # not in use: not a hit, not abstained, not checked (FR-080)
+            continue
         try:
             measured, detail = _measure(rule, conn, now, win, scope)
         except Abstain as why:
