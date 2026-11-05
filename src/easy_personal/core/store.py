@@ -105,10 +105,13 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
     migrate(conn, path)
-    with conn:
-        conn.execute(
-            "INSERT OR IGNORE INTO meta (key, value) VALUES ('machine_id', ?)", (str(uuid.uuid4()),)
-        )
+    # Read first: even an INSERT OR IGNORE that changes nothing takes the write lock, so every read
+    # would queue behind the live ingest writer. OR IGNORE stays: two processes may create a store at once.
+    if conn.execute("SELECT 1 FROM meta WHERE key = 'machine_id'").fetchone() is None:
+        with conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO meta (key, value) VALUES ('machine_id', ?)", (str(uuid.uuid4()),)
+            )
     return conn
 
 
