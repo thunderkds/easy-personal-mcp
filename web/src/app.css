@@ -601,6 +601,8 @@ main button.live-row:focus-visible { outline: none; }
 @media (min-width: 64rem) {
   .loading-pill { left: calc(50% + var(--sidebar-width) / 2); }
 }
+.loading-text { min-width: 0; }
+.loading-line { display: block; color: var(--color-muted); font-size: var(--fs-small); }
 .part-loading { display: flex; align-items: center; gap: var(--space-2); }
 .spinner { flex: none; width: 0.875rem; height: 0.875rem; border: 2px solid var(--color-track); border-top-color: var(--color-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

@@ -172,7 +172,7 @@ export default function WarningsPlanView({ scope = NO_SCOPE, onOpenAgents }) {
           <InvestigateHint />
         </>
       )}
-      <SavedReports command={INVESTIGATE} />
+      <SavedReports command={INVESTIGATE} waiting={state.status === 'loading'} />
     </main>
   )
 }

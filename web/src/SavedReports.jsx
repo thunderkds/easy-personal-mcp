@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getReport, getReports } from './api.js'
 import { fmt, localTime } from './format.js'
+import Loading from './Loading.jsx'
 import { useLoad } from './useLoad.js'
 import { Card, byPriority } from './WarningsPlanView.jsx'
 
@@ -54,9 +55,10 @@ function Now({ ruleId, now }) {
   )
 }
 
-function ReportOpen({ id }) {
+// `waiting`: the Warnings list above is still loading and shows the one pill (AC 3b), so this section shows none.
+function ReportOpen({ id, waiting }) {
   const state = useLoad(() => getReport(id), [id])
-  if (state.status === 'loading') return <p className="muted report-wait">Loading report</p>
+  if (state.status === 'loading') return waiting ? null : <Loading label="Loading report" />
   if (state.status === 'error') {
     return <p className="error">{/status 404$/.test(state.message) ? 'Report not found' : `Could not load the report: ${state.message}`}</p>
   }
@@ -130,13 +132,13 @@ function ReportOpen({ id }) {
 const scopeText = (r) => [r.workspace, r.account && `account ${r.account}`].filter(Boolean).join(' / ') || 'all workspaces'
 
 /** The Saved reports section of Warnings & plan; `command` is the investigate prompt the empty text names. */
-export default function SavedReports({ command }) {
+export default function SavedReports({ command, waiting = false }) {
   const state = useLoad(getReports, [])
   const [open, setOpen] = useState(null) // the id of the one open report
   return (
     <section aria-labelledby="h-saved-reports" className="saved-reports">
       <h2 id="h-saved-reports">Saved reports</h2>
-      {state.status === 'loading' && <p className="muted">Loading saved reports</p>}
+      {state.status === 'loading' && !waiting && <Loading label="Loading saved reports" />}
       {state.status === 'error' && <p className="error">Could not load saved reports: {state.message}</p>}
       {state.status === 'ready' && state.data.reports.length === 0 && (
         <p className="muted">
@@ -164,7 +166,7 @@ export default function SavedReports({ command }) {
                     {isOpen ? '▾' : '▸'}
                   </span>
                 </button>
-                {isOpen && <ReportOpen id={r.id} />}
+                {isOpen && <ReportOpen id={r.id} waiting={waiting} />}
               </li>
             )
           })}
