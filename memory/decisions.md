@@ -144,3 +144,11 @@
 **Why**: owner saw "always 1 number". Measured 2026-11-03: the ratio is correct but steady (days 96.0–97.9 %, 7d/30d/all 97.4/97.4/97.5 %); the rail card ignored the picker. Per model it differs (Opus 5.5 97.8 %, Sonnet 5.5 95.2 %, Haiku 5.5 82.5 %); cache writes 2.64 % of prompt tokens (30 days).
 **Approved by**: owner, 2026-11-03 ("let do it" + "Follow period + detail" mockup).
 **Files**: `web/src/Rail.jsx`, `web/src/UsageView.jsx`, `web/src/App.jsx`, `PRD.md` US-027, FR-064
+
+## 2026-11-05 — Dashboard reads share repeated work: single-flight memo keyed by `PRAGMA data_version` (HUN-227, HUN-228)
+
+**Decision**: `core/memo.py` caches `metrics._messages` and `owners._stored_branches` per (store file identity, data version, function, arguments), with single flight and immutable results (tuples, frozensets, `MappingProxyType`); at most 32 entries and 8 watcher connections. The data version is `PRAGMA data_version` on one long-lived watcher connection per store, which changes on every commit by any other connection in any process. No caching when the watcher fails, the store is in memory, or the caller's connection is in a transaction. The Usage page renders each part when its own read answers, and Usage and the rail use one `since` rounded down to the whole minute.
+**Why**: owner, 2026-11-05: "the data loading take so long". Measured on a store copy (462k events): ~14 parallel reads, page 5.1–6.0 s; `_messages` 0.31 s ran ~7×/page, `_stored_branches` 0.26 s per caller; mostly GIL-bound Python, so threads did not overlap. Debate (2 Advocates): whole-response cache in `api.py` rejected (live ingest invalidates it, cold page unchanged); `MAX(events.id)` key rejected (misses upserts, updates, deletes, workspace / account edits).
+**Result**: page on a store copy 6.0–6.8 s → 2.4–2.6 s full, first card ~1 s (`/verify`, 2026-11-05). `/api/warnings` and `/api/usage/sessions` stay ~2.4 s in the cold parallel page (follow-up candidates).
+**Approved by**: owner, 2026-11-05 ("yes, investigate and fix them [auto]"; merge).
+**Files**: `src/easy_personal/core/memo.py`, `src/easy_personal/core/metrics.py`, `src/easy_personal/core/owners.py`, `web/src/UsageView.jsx`, `web/src/Rail.jsx`, `BRAINSTORMING_LOG_PERF.md`

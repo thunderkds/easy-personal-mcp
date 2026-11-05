@@ -310,3 +310,13 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **Gotcha**: saved report text is the model's own words and cannot be edited, so report 1's summary still names `context_index_stale`; only the server's before/now list drops it.
 - **Gotcha**: the shared `active_task` state file was overwritten when two agents ran verification at once; the step-limit hook then charged the other task. Expect this with parallel Stage 3 agents.
 - **Proof**: combined real run on a store copy (scratch detached worktree + `git show` of the other branch's src): warnings `abstained: []`, report 1 has 6 rules, Kit text has no "Code index". main after merge: pytest 1514 passed, vitest 640 passed.
+
+### 2026-11-05 — Slow dashboard: shared memo gotchas and auto-mode limits on this repo (HUN-227, HUN-228)
+- **Gotcha**: a test that monkeypatches a query helper (e.g. `metrics._inner_window`) between two `_messages` calls now gets the second result from the cache; call `memo.reset()` after the monkeypatch (fixed in `tests/core/test_migrations.py`).
+- **Gotcha**: the memo's data version does not see disk / git state; a workspace-scoped `_messages` can lag a folder change until the next store commit. The bound is 32 entries, not bytes (one all-time result ~28 MB).
+- **Gotcha**: the built-in `security-review` skill runs `git diff origin/HEAD...`; this repo's only remote is `github`, so the skill fails. Do the review by hand and say so; do not add an `origin` remote.
+- **Gotcha**: the Linear team has no review status (Backlog, Todo, In Progress, Done, Duplicate, Canceled), so `board_sync.py push status … ready-for-review` fails and the auto-verify Stop hook never fires; `/verify` stays with the owner.
+- **Gotcha**: Advocate `Agent` calls are traced under whatever task the shared `active_task` file names; write it for the task before starting a Debate. The step-limit hook also counts the Supervisor's own calls against that task.
+- **Gotcha**: dashboards paused with Ctrl-Z (`ps` state `Tl`) keep their port and memory; on the owner's machine three of them plus 16 GB swap made loading slower. `kill -9` is needed for a stopped process.
+- **Proof**: `/verify` combined run on a store copy: first card 969–1193 ms, full page 2377–2628 ms (was 6020–6793 ms). main after merge: pytest 1539 passed, vitest 651 passed.
+**Files**: `src/easy_personal/core/memo.py`, `tests/core/test_migrations.py`, `.claude/board.json`

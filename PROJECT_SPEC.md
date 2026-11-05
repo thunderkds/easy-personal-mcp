@@ -283,8 +283,8 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-224 | Opened saved report uses Warnings & plan cards + Now line; other rules in a closed list (FR-079 UI) | Done (merged 2026-11-05) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-225 | easy-context not in use → context_index_stale left out of warnings, plan, checked, saved reports; kit context part "not in use" (FR-080 server) | Done (merged 2026-11-05) | Backend-Implementer | C2 | Low | P1 |
 | HUN-226 | Kit page hides the Code index part when easy-context is not in use (FR-080 UI) | Done (merged 2026-11-05) | Frontend-Implementer | C1 | Low | P1 |
-| HUN-227 | Share repeated store computations across dashboard reads: single-flight memo keyed by PRAGMA data_version (NFR-013 server) | In Progress | Backend-Implementer | C2 | Medium | P1 |
-| HUN-228 | Usage page shows each card when its data arrives; one minute-rounded `since` per load (NFR-013 page) | In Progress | Frontend-Implementer | C2 | Low | P1 |
+| HUN-227 | Share repeated store computations across dashboard reads: single-flight memo keyed by PRAGMA data_version (NFR-013 server) | Done (merged 2026-11-05) | Backend-Implementer | C2 | Medium | P1 |
+| HUN-228 | Usage page shows each card when its data arrives; one minute-rounded `since` per load (NFR-013 page) | Done (merged 2026-11-05) | Frontend-Implementer | C2 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
