@@ -20,7 +20,8 @@ Mode: auto
 5. Spawn model `claude-sonnet-5-5` (C2) — FACT: `PROJECT_SPEC.md:165`
 6. Companion-score row marked pass though overall is 75 (below the 80 example line), because the only failing input is lock-file hash hits outside this diff — SAFER OPTION: not blocking the merge gate on an input this change cannot affect; the number and reason are in the row ⚠ decided for you — please review
 Checks: tests `cd web && npx vitest run src/UsageView.test.jsx src/Rail.test.jsx && npx vitest run && npm run build` — 109 passed, 651 passed, built; reviews code-review — P0 0 / P1 0 / P2 0 / P3 0; easy-verifier overall 75 (advisory); real run on a store copy (implementer) — first card ~1.5 s (was ~6 s, nothing before the end), KPI strip median 4.05 s (was 6.24 s), full page ~6.2–7.2 s (unchanged, set by the server: HUN-227) (auto-checked, not /verify)
-Not done: merge (yours); auto verify: running (T182)
+7. Task left In Progress, not moved to Ready for Review — FACT: the Linear team has no review status (Backlog, Todo, In Progress, Done, Duplicate, Canceled) and `.claude/board.json` has `"status_map": {}`; `board_sync.py push status HUN-228 ready-for-review` printed "this board has no status with that name"
+Not done: merge (yours); /verify (yours) — the auto-verify hook needs a Ready for Review row, which this board cannot hold
 
 
 ## Evidence
