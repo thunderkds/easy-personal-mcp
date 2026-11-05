@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_reports.py` (6 new: full hit stored, card fields in `before`, clear rule has none, old shape filled without `steps`, new shape not overwritten, rule gone keeps stored fields), `tests/surfaces/test_api_reports.py` (2 new over the API). 6 red before the change. |
+| Verification command run | ☑ pass | Supervisor re-run 2026-11-05: `uv run pytest tests -q -k "report or leak"` → `194 passed, 1305 deselected`; agent full run `1490 passed, 2 skipped, 6 deselected, 1 xfailed`. |
+| Negative cases hold | ☑ pass | Old shape with rule removed from config → stored fields only, no crash; unreadable config → stored fields (ValueError swallowed, same as `evaluate` path); `steps` never invented for an old snapshot. |
+| verify | ☑ pass | Combined real run 2026-11-05T04:20Z: scratch worktree of HUN-224 + HUN-223's `reports.py`, fresh `.backup` copy of the owner store (report 1, old shape), real `easy-personal dashboard`: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/integ-open-1280.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/integ-open-375.png` (hscroll 1265 = 1265, 375 = 375). `GET /api/reports/1` old-shape `before` now carries `label` aware, `priority` 3, `why`, `fix`, `window_days` 7, no `steps` (agent run 04:10Z); the page draws the full card from it (Watch chip, Why it matters, causes, fix line as step 1, `Now: 245.4% · still firing`) — pass. |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor `code-review` of `git diff main...HEAD -- src/` (`core/reports.py` only: `save` stores `found["hits"]`, `_fill_from_config`, `_before` returns `(title, state)`) + callers `get_report` → `GET /api/reports/{id}`. P0 0, P1 0, P2 0. Note: new saves store the full hit incl. `steps`/`why` text — all server-written fixed text (NFR-004), no model text added. Startup reads complete for the Permanent-Rule set (PROJECT_SPEC full, guide full, `agents/backend.md` full no limit). |
+| Full smoke suite still green (no regression) | ☑ pass | Agent full run `1490 passed, 2 skipped, 6 deselected, 1 xfailed`. |
+| **Companion score (easy-verifier)** | ☑ N/A | Advisory; one-file diff, same scope HUN-221 scored 72 with 9 of 13 dimensions abstained. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Backend only. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Backend only. |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Backend only. |
 
 ---
 
