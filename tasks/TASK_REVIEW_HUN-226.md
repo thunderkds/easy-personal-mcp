@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/KitView.test.jsx` (+6: AC1 no part line/footer/stale chip/column/intro; AC2 projectHealth; AC3 in-use stale kept; mixed, missing key, stale flag edge cases), `web/src/WarningsPlanView.test.jsx` (+2: Now `not in use`, Other rules then/now not in use). Red before change (6 Kit tests failed) |
+| Verification command run | ☑ pass | Supervisor rerun on dc2f606: `npx vitest run` -> `Test Files 21 passed (21)`, `Tests 640 passed (640)`; `npm run build` built (combined tree) |
+| Negative cases hold | ☑ pass | in-use stale index still shows reason; project with part in use keeps column; missing `context` key behaves as before |
+| verify | ☑ pass | Supervisor combined real run 2026-11-05T07:45-08:00Z: detached scratch tree of HUN-226 + HUN-225 src files, dashboard on a fresh backup of ~/.easy-personal/store.sqlite. /api/warnings abstained: []; /api/reports/1 rules = cache_hit_low, project_dominates, records_unreadable, session_huge_no_compact, tokens_jump, tool_errors_high (no context_index_stale); Kit page: 'Code index' in text false; screenshots /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-kit-1280.png, combo-kit-375.png, combo-report-1280.png — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor Stage 4 code-review inline: KitView.jsx diff (notInUse helper, hasData, Part, ProjectCard shownKeys, DetailsTable column filter, intro text) + tests. lane_check: `lane: C1, 3 files, 117 lines, FITS`. P0-P3: none. Agent decisions accepted: generic column drop, empty cell when mixed, intro text. Pass |
+| Full smoke suite still green (no regression) | ☑ pass | 640/640 vitest (630 before + 10 new) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier score not run for this C1 Low-risk UI change |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | combined real data, 1280x720: /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-kit-1280.png (no Code index line, footer 'Not set up here: Verifier'); opened report 1: /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-report-1280.png (1 to watch then + Other rules (5), no Code index card) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | no CSS change, no new colours (diff touches only KitView.jsx logic) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375x812: /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-kit-375.png, hscroll 375 vs 375; 1280: 1265 vs 1265 |
 
 ---
 
