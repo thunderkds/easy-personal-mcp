@@ -219,8 +219,9 @@ def test_cost_is_api_equivalent():
 
 
 def test_easy_kit_links_kept():
-    for repo in ("personal-agentic-claude", "easy-ui-mcp", "easy-verifier-mcp", "easy-context-mcp"):
+    for repo in ("easy-kit", "easy-ui-mcp", "easy-verifier-mcp", "easy-context-mcp"):
         assert f"https://github.com/thunderkds/{repo}" in README
+    assert "personal-agentic-claude" not in README  # kernel repo renamed to easy-kit
 
 
 @pytest.mark.parametrize(
