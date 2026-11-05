@@ -16,9 +16,11 @@ import sqlite3
 import subprocess
 import tempfile
 import time
+from collections.abc import Mapping
 from pathlib import Path
+from types import MappingProxyType
 
-from easy_personal.core import discovery
+from easy_personal.core import discovery, memo
 
 SCRATCH = "Scratch"
 IGNORED_BRANCHES = frozenset({"", "main", "master", "HEAD"})
@@ -91,14 +93,18 @@ def _repo_of_parent(path: str) -> str | None:
     return owner if owner and Path(owner).is_dir() else None
 
 
-def _stored_branches(conn: sqlite3.Connection) -> dict[str, set[str]]:
-    """Stored project path -> the git branches of its events (`""` for none)."""
+@memo.memoized
+def _stored_branches(conn: sqlite3.Connection) -> MappingProxyType:
+    """Stored project path -> the git branches of its events (`""` for none).
+
+    Read-only (mapping and frozensets): the result is shared between calls while the store is unchanged.
+    """
     branches: dict[str, set[str]] = {}
     for path, branch in conn.execute(
         "SELECT DISTINCT project_path, git_branch FROM events WHERE project_path IS NOT NULL"
     ):
         branches.setdefault(path, set()).add(branch or "")
-    return branches
+    return MappingProxyType({path: frozenset(names) for path, names in branches.items()})
 
 
 def owner_map(conn: sqlite3.Connection) -> dict[str, str]:
@@ -106,7 +112,7 @@ def owner_map(conn: sqlite3.Connection) -> dict[str, str]:
     return _owners(_stored_branches(conn))
 
 
-def _owners(branches: dict[str, set[str]]) -> dict[str, str]:
+def _owners(branches: Mapping[str, frozenset[str]]) -> dict[str, str]:
     mapping: dict[str, str] = {}
     candidates = None
     for path in sorted(p for p in branches if not Path(p).is_dir()):

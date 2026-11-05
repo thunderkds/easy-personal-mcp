@@ -6,7 +6,7 @@ from functools import lru_cache
 from itertools import pairwise
 from pathlib import Path
 
-from easy_personal.core import accounts, owners, workspaces
+from easy_personal.core import accounts, memo, owners, workspaces
 from easy_personal.core import prices as price_table
 
 DIMENSIONS = ("day", "model", "project", "tool")
@@ -180,6 +180,7 @@ def _folder(project_path: str | None) -> str:
     return Path(project_path).name or project_path if project_path else "(unknown)"
 
 
+@memo.memoized
 def _messages(
     conn: sqlite3.Connection,
     since_utc: str | None,
@@ -187,11 +188,14 @@ def _messages(
     workspace: str | None = None,
     account: str | None = None,
 ):
-    """One row per API message in the period, same selection as `usage_summary`."""
+    """One row per API message in the period, same selection as `usage_summary`.
+
+    A tuple of rows: the result is shared between calls while the store is unchanged (`core/memo.py`).
+    """
     inner, inner_params = _inner_window(since_utc, until_utc)
     scope, scope_params = _scope(conn, workspace, since_utc, until_utc, account)
     where, params = _period("ts", since_utc, until_utc)
-    return conn.execute(
+    return tuple(conn.execute(
         "SELECT ts, model, project_path, tools, i, o, cc, cr, sc, ep FROM ("
         "  SELECT MIN(ts_utc) AS ts, MAX(model) AS model, MAX(project_path) AS project_path,"
         "         GROUP_CONCAT(tool_names) AS tools, MAX(input_tokens) AS i,"
@@ -202,7 +206,7 @@ def _messages(
         f"  AND input_tokens IS NOT NULL AND {inner} AND {scope} GROUP BY message_id"
         f") WHERE {where} ORDER BY ts",
         inner_params + scope_params + params,
-    ).fetchall()
+    ))
 
 
 def _keys(by: str, ts: str, model, project_path, tools) -> list[str]:
