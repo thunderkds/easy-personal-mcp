@@ -61,10 +61,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-05T04:07:07Z (UTC), before any implementation commit. Store: `sqlite3 ~/.easy-personal/store.sqlite ".backup <scratchpad>/copy/store.sqlite"`, `EASY_PERSONAL_HOME=<scratchpad>/copy`; the copy holds report 1 (saved 2026-11-05T03:10:55Z, old shape). Command: `uv run python show.py <copy>` which prints `reports.get_report(conn, 1)` for rule `tokens_jump`, `before`:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+rule_id: tokens_jump   title: "Token use jumped"
+before keys: ['causes', 'diagnosis', 'fired', 'measured', 'state', 'summary', 'threshold']
+before: state "fired", fired true, measured 2.2253, threshold 0.5, diagnosis "more_sessions",
+        summary "Token use rose 222.5% in the last 7 days against the 7 days before; target 50% or less",
+        causes [3 project entries, e.g. "easy-verifier-mcp: 267.9k -> 452.8M tokens, 1 -> 12 sessions", ...]
+has label/why/steps: [False, False, False]
+```
+
+**AFTER**: same copy, same command, 2026-11-05T04:10:33Z (UTC), after the change:
+
+```
+before keys: ['causes', 'diagnosis', 'fired', 'fix', 'label', 'measured', 'priority', 'rule_id', 'state', 'summary', 'threshold', 'why', 'window_days']
+has label/why/steps: [True, True, False]
+label "aware", priority 3, window_days 7, why "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost.",
+fix "Open Usage and find which project or session drove the rise. ..." (from the current config; no `steps`, old shape)
+```
+`GET /api/reports/1` through the Starlette test client on the copy, 2026-11-05T04:10:47Z: status 200, same fields, `steps in before: False`.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

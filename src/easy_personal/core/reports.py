@@ -13,7 +13,7 @@ import sqlite3
 from datetime import UTC, datetime
 from importlib.metadata import version
 
-from easy_personal.core import metrics, rules
+from easy_personal.core import config, metrics, rules
 
 SUMMARY_MAX = 2000
 FIXES_MAX = 5
@@ -110,7 +110,7 @@ def save(
     snapshot = {
         "as_of_utc": found["as_of_utc"],
         "checked": found["checked"],
-        "fired": [{k: hit[k] for k in ("rule_id", "summary", "diagnosis", "causes")} for hit in found["hits"]],
+        "fired": found["hits"],  # the whole warning hit: the page draws the Warnings & plan card from it (FR-079)
         "abstained": found["abstained"],
     }
     saved_utc = now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -153,17 +153,32 @@ def list_reports(conn: sqlite3.Connection) -> dict:
     }
 
 
-def _before(snapshot: dict) -> dict[str, dict]:
+def _fill_from_config(entry: dict, current: dict[str, rules.Rule]) -> dict:
+    """A fired entry saved before FR-079 has no `label`: fill what the config says now, never `steps`."""
+    rule = current.get(entry["rule_id"])
+    if "label" in entry or rule is None:
+        return entry
+    filled = {k: getattr(rule, k) for k in ("label", "priority", "why", "fix", "window_days")}
+    return {**entry, **filled}
+
+
+def _before(snapshot: dict) -> dict[str, tuple[str, dict]]:
     fired = {f["rule_id"]: f for f in snapshot["fired"]}
+    current = {}
+    if any("label" not in f for f in fired.values()):
+        try:
+            current = {r.id: r for r in rules.load_rules(config.config_path())}
+        except ValueError:  # an unreadable config: the stored fields are all there is
+            pass
     out = {}
     for rule in snapshot["checked"]:
         state = {"state": "fired" if rule["fired"] else "clear"}
         state.update({k: rule[k] for k in ("measured", "threshold", "fired")})
         if rule["fired"] and rule["rule_id"] in fired:
-            state.update({k: fired[rule["rule_id"]][k] for k in ("summary", "diagnosis", "causes")})
-        out[rule["rule_id"]] = {"title": rule["title"], **state}
+            state.update(_fill_from_config(fired[rule["rule_id"]], current))
+        out[rule["rule_id"]] = (rule["title"], state)
     for rule in snapshot["abstained"]:
-        out[rule["rule_id"]] = {"title": rule["title"], "state": "abstained", "reason": rule["reason"]}
+        out[rule["rule_id"]] = (rule["title"], {"state": "abstained", "reason": rule["reason"]})
     return out
 
 
@@ -216,7 +231,7 @@ def get_report(conn: sqlite3.Connection, report_id: int, now: datetime | None = 
         "as_of_utc": snapshot["as_of_utc"],
         "now_as_of_utc": found["as_of_utc"] if found else None,
         "rules": [
-            {"rule_id": rule_id, "title": before.pop("title"), "before": before, "now": after.get(rule_id, missing)}
-            for rule_id, before in sorted(_before(snapshot).items())
+            {"rule_id": rule_id, "title": title, "before": before, "now": after.get(rule_id, missing)}
+            for rule_id, (title, before) in sorted(_before(snapshot).items())
         ],
     }
