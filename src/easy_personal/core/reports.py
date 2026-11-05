@@ -60,9 +60,10 @@ def validate(summary, fixes) -> tuple[str, list[dict]]:
         if not isinstance(fix, dict) or not FIX_KEYS.issuperset(fix) or "text" not in fix:
             raise ValueError(f"{name}: must be an object with `text` and optional `tool`, `number`; nothing was saved")
         item = {"text": _check_text(f"{name}.text", fix["text"], FIX_TEXT_MAX)}
-        if fix.get("tool") is not None:
+        # an optional field sent as "" (models often fill optional arguments that way) counts as absent
+        if fix.get("tool") not in (None, ""):
             item["tool"] = _check_text(f"{name}.tool", fix["tool"], CITE_MAX)
-        number = fix.get("number")
+        number = None if fix.get("number") == "" else fix.get("number")
         if number is not None:
             if isinstance(number, bool) or not isinstance(number, str | int | float):
                 raise ValueError(f"{name}.number: must be a number or text; nothing was saved")

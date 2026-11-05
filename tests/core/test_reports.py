@@ -301,3 +301,9 @@ def test_a_failed_snapshot_stores_no_row(loaded, monkeypatch):
         _save(loaded)
     assert _rows(loaded) == 0
     assert store.machine_id(loaded)  # the connection is still usable
+
+
+def test_empty_optional_fix_fields_count_as_absent():
+    """Stage 4 review: a model often sends "" for an optional argument; that must not refuse the whole save."""
+    _, fixes = reports.validate("Summary.", [{"text": "Start a new session per task", "tool": "", "number": ""}])
+    assert fixes == [{"text": "Start a new session per task"}]
