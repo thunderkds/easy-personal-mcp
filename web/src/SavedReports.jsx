@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getReport, getReports } from './api.js'
 import { fmt, localTime } from './format.js'
 import { useLoad } from './useLoad.js'
+import { Card, byPriority } from './WarningsPlanView.jsx'
 
 // Saved reports (FR-078). The server measures every number; the page only words it. A rule's measured value is a
 // ratio shown as a percent, except these two.
@@ -27,11 +28,31 @@ function Side({ ruleId, side }) {
   return <span className="ba-none">{side.state === 'abstained' ? `abstained: ${side.reason}` : side.reason}</span>
 }
 
+// A fix's cited tool and number, as one chip: `session_outliers · 645,301`.
 const cite = (fix) =>
   [fix.tool, fix.number]
     .filter((v) => v != null && v !== '')
     .map((v) => (typeof v === 'number' ? fmt(v) : v))
-    .join(': ')
+    .join(' · ')
+
+// "Now:" under a card: the value measured now and what it means, or the reason it could not be measured.
+function Now({ ruleId, now }) {
+  const measured = now.state === 'fired' || now.state === 'clear'
+  const firing = now.state === 'fired'
+  return (
+    <p className="card-now">
+      <strong>Now:</strong>{' '}
+      {measured ? (
+        <>
+          <span className="ba-num">{valueText(ruleId, now.measured)}</span> ·{' '}
+          <span className={`chip ${firing ? 'chip-warning' : 'chip-ok'}`}>{firing ? 'still firing' : 'clear now'}</span>
+        </>
+      ) : (
+        <span className="ba-none">{now.state === 'abstained' ? `abstained: ${now.reason}` : now.reason}</span>
+      )}
+    </p>
+  )
+}
 
 function ReportOpen({ id }) {
   const state = useLoad(() => getReport(id), [id])
@@ -40,6 +61,11 @@ function ReportOpen({ id }) {
     return <p className="error">{/status 404$/.test(state.message) ? 'Report not found' : `Could not load the report: ${state.message}`}</p>
   }
   const report = state.data
+  // `before` of a rule that fired then is its full warning hit (an old report has less), so the rule fills id and title.
+  const firedThen = byPriority(
+    report.rules.filter((r) => r.before.state === 'fired').map((r) => ({ ...r.before, rule_id: r.rule_id, title: r.before.title ?? r.title, rule: r })),
+  )
+  const others = report.rules.filter((r) => r.before.state !== 'fired')
   return (
     <div className="report-open" id={`report-${id}`}>
       <h3>Summary</h3>
@@ -51,35 +77,52 @@ function ReportOpen({ id }) {
             {report.fixes.map((fix, i) => (
               <li key={i}>
                 {fix.text}
-                {cite(fix) && <span className="muted"> ({cite(fix)})</span>}
+                {cite(fix) && (
+                  <>
+                    {' '}
+                    <span className="chip">{cite(fix)}</span>
+                  </>
+                )}
               </li>
             ))}
           </ol>
         </>
       )}
-      <h3>
-        Before / now <span className="muted">(now = last 7 days)</span>
-      </h3>
-      <ul className="ba-list" aria-label="Before and now, one line per rule">
-        {report.rules.map((rule) => (
-          <li key={rule.rule_id} className="ba-rule">
-            <span className="ba-title">{rule.title}</span>
-            <span className="ba-values">
-              <span className="ba-side">
-                <span className="sr-only">then </span>
-                <Side ruleId={rule.rule_id} side={rule.before} />
-              </span>{' '}
-              <span className="ba-arrow" aria-hidden="true">
-                →
-              </span>{' '}
-              <span className="ba-side">
-                <span className="sr-only">now </span>
-                <Side ruleId={rule.rule_id} side={rule.now} />
-              </span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <h3>{firedThen.length > 0 ? `${firedThen.length} to watch then` : 'Nothing fired then'}</h3>
+      {firedThen.length > 0 && (
+        <ol className="actions" aria-label="Rules that fired when the report was saved, first one first">
+          {firedThen.map(({ rule, ...hit }, i) => (
+            <Card key={rule.rule_id} hit={hit} rank={i + 1} idPrefix={`report-${id}-`}>
+              <Now ruleId={rule.rule_id} now={rule.now} />
+            </Card>
+          ))}
+        </ol>
+      )}
+      {others.length > 0 && (
+        <details className="not-checked">
+          <summary>Other rules ({others.length})</summary>
+          <ul className="ba-list" aria-label="Before and now, one line per rule">
+            {others.map((rule) => (
+              <li key={rule.rule_id} className="ba-rule">
+                <span className="ba-title">{rule.title}</span>
+                <span className="ba-values">
+                  <span className="ba-side">
+                    <span className="sr-only">then </span>
+                    <Side ruleId={rule.rule_id} side={rule.before} />
+                  </span>{' '}
+                  <span className="ba-arrow" aria-hidden="true">
+                    →
+                  </span>{' '}
+                  <span className="ba-side">
+                    <span className="sr-only">now </span>
+                    <Side ruleId={rule.rule_id} side={rule.now} />
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   )
 }

@@ -61,12 +61,21 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-05T04:09:11Z, before any implementation commit; HEAD `7cb1159`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+- Command: `node h224-shoot.mjs "http://127.0.0.1:56641/#<token>" .../scratchpad/h224-before-1280.png 1280 720 fired` (headless Chrome, CDP) against `easy-personal dashboard` run from this worktree's source on a store copy (`EASY_PERSONAL_HOME=.../scratchpad/h224home`, made with `sqlite3 ~/.easy-personal/store.sqlite ".backup ..."`), Warnings & plan, saved report 1 open.
+- Output: `nav: clicked`, `row: clicked`, `hscroll: 1265 vs 1265`, `has Saved reports: true`, `saved /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h224-before-1280.png 2026-11-05T04:09:11.616Z`
+- Observed in the screenshot: opened report = Summary, Fixes (cite as grey text in brackets, `(session_outliers: 645,301)`), then a "Before / now (now = last 7 days)" table with 6 rule rows (`97.5% clear -> 97.5% clear`, `222.5% fired -> 239.8% fired`, ...). No warning card, no "Now:" line, no "Other rules" disclosure.
+- Vitest before: `cd web && npx vitest run` at 2026-11-05T04:07Z printed `Tests  617 passed (617)`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER** (2026-11-05T04:13:16Z, same command and store copy; server is pre-HUN-223, so `before` has the old shape, which is AC 7):
+
+- `hscroll: 1265 vs 1265` (1280 px), `hscroll: 375 vs 375` (375 px); screenshots `.../scratchpad/h224-after-open-1280.png`, `.../scratchpad/h224-after-open-375.png` (scratchpad = `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/`).
+- Observed: Summary; Fixes with chips `session_outliers · 645,301`, `usage_breakdown · $2,261.62`; heading "1 to watch then"; one `Token use jumped` card (same markup as the list card above, with "Why this happened"); `Now: 242.1% · still firing`; closed "Other rules (6)". On the old-shape snapshot the card has no label chip and no steps (the server sends no `label`/`why`/`fix` before HUN-223), so the chip row is empty. That gap closes when HUN-223 merges.
+- Patching the store copy's `snapshot_json` to the full-hit shape changed nothing on the page: the pre-HUN-223 server builds `before` from `checked` plus only causes/summary/diagnosis of `fired`. The full-hit card is therefore proven by vitest fixtures only (`reportOne`, HUN-223 shape), not by a real run. Re-shoot after HUN-223 merges.
+- Vitest after: `cd web && npx vitest run` printed `Test Files  21 passed (21)`, `Tests  630 passed (630)` (before: 617); `npx vitest run src/WarningsPlanView.test.jsx` printed `Tests  57 passed (57)`; `npm run build` printed `built in 233ms`.
+
+**DELTA**: An owner opening a saved report now reads it as the Warnings & plan page does: summary, fixes with cited-number chips, a warning card per rule that fired then with a "Now:" line, and the other rules in a closed list.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

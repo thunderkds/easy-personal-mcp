@@ -352,7 +352,9 @@ main button.report-row { display: grid; grid-template-columns: minmax(0, 1fr) au
 .report-line { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); }
 .report-caret { grid-column: 2; grid-row: 1 / span 2; color: var(--color-accent); }
 .report-open { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-4); border-top: 1px solid var(--color-divider); }
-.report-open h3 { margin-top: var(--space-2); font-size: var(--fs-cell); color: var(--color-secondary); }
+.report-open > h3 { margin-top: var(--space-2); font-size: var(--fs-cell); color: var(--color-secondary); }
+.card-now { color: var(--color-text); }
+.card-now strong { font-weight: 500; color: var(--color-secondary); }
 .report-summary { white-space: pre-wrap; color: var(--color-text); }
 ol.report-fixes { padding-left: var(--space-5); list-style: decimal; }
 ol.report-fixes li::marker { font-family: var(--font-mono); color: var(--color-accent); }
