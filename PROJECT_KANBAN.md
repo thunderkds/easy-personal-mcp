@@ -10,6 +10,8 @@
 
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
+- [ ] **HUN-223** — Saved report snapshot keeps the full warning hit; get_report fills old snapshots from rule config (FR-079 server) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-223.md`
+- [ ] **HUN-224** — Opened saved report uses Warnings & plan cards + Now line; other rules in a closed list (FR-079 UI) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-224.md`
 
 ### In Progress
 

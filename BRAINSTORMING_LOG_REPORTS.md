@@ -96,3 +96,7 @@ Saved reports
 ## User Selection
 
 **Option A** — owner, 2026-11-05: "as you recommend". Tasks HUN-221 (backend), HUN-222 (page, after HUN-221).
+
+## Follow-up 2026-11-05 — Report look (FR-079), Lightweight tier
+
+The owner reported that the opened report "is not good" and chose "Warning cards" (AskUserQuestion with mockups) over "Keep table, polish it". Recommended path: store each fired rule's full `evaluate` hit in the snapshot. `get_report` passes it as `before`. The page reuses the existing `Card` from `WarningsPlanView.jsx` (exported, not copied), plus a "Now:" line. Old snapshots get label, priority, why and fix from the current rule config. 50% check: copying the card markup would duplicate about 50 lines, so exporting `Card` is the smaller path. Tasks: backend (C1) and page (C2), run in parallel against the API shape fixed in both guides.
