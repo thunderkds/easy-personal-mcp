@@ -12,6 +12,8 @@
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
 
 ### In Progress
+- [ ] **HUN-227** — Share repeated store computations across dashboard reads (single-flight memo keyed by PRAGMA data_version) (NFR-013 server side) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-227.md`
+- [ ] **HUN-228** — Usage page shows each card when its own data arrives; one minute-rounded \`since\` per load (NFR-013 page side) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-228.md`
 
 ### Ready for Review
 
