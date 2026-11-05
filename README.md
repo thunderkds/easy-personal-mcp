@@ -89,7 +89,7 @@ It binds `127.0.0.1` and port 8765 unless you pass `--port`.
 
 ### MCP tools
 
-The server has 11 tools. None of them writes config or returns a secret.
+The server has 12 tools. None of them writes config or returns a secret. Only `save_report` writes, and only a report to the store (see the prompt below).
 
 - `ping`
 - `usage_summary`
@@ -102,10 +102,11 @@ The server has 11 tools. None of them writes config or returns a secret.
 - `connector_catalog`
 - `connector_status`
 - `connector_suggestions`
+- `save_report`
 
 ### MCP prompt
 
-The server also offers one prompt, `investigate`. In Claude Code, type `/mcp__easy-personal__investigate` (optional arguments `workspace` and `account`). It asks your own Claude session to read the warnings, the plan, usage by project and model for the last 7 days, and the session outliers. Then it explains what caused each warning and suggests at most 5 fixes, each with a number from a tool result. The prompt text is fixed. The server calls no model and no network; your Claude Code session does the reasoning.
+The server also offers one prompt, `investigate`. In Claude Code, type `/mcp__easy-personal__investigate` (optional arguments `workspace` and `account`). It asks your own Claude session to read the warnings, the plan, usage by project and model for the last 7 days, and the session outliers. Then it explains what caused each warning and suggests at most 5 fixes, each with a number from a tool result. The last step asks your session to call `save_report` once with its summary (at most 2,000 characters) and fixes (at most 5, each at most 300 characters). The server refuses the whole call, naming the field, when a limit is passed, the scope is unknown or the text looks like a secret (a key prefix such as `sk-` or `AKIA`, a private-key header, or a run of 32 or more letters and digits). It then stores the report with its own numbers for every rule at that moment, and `GET /api/reports` and `GET /api/reports/{id}` (dashboard token needed) serve them with a before / now line per rule. This report text is the one text the store keeps, and it stays on your machine. The prompt text is fixed. The server calls no model and no network; your Claude Code session does the reasoning.
 
 ### Dashboard
 

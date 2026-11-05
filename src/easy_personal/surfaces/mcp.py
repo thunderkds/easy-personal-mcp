@@ -5,7 +5,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from easy_personal import core
-from easy_personal.core import config, kit, kitperf, metrics, plan, rules, store
+from easy_personal.core import config, kit, kitperf, metrics, plan, reports, rules, store
 
 LOOPBACK = "127.0.0.1"
 
@@ -21,6 +21,11 @@ Investigate my Claude Code usage with the easy-personal tools and tell me what t
 6. Say plainly when a change looks intended rather than wasteful (for example, one big project that I am working on right now). Do not suggest a fix for it.
 
 Do not guess. If a tool returns no data or abstains, say so. Do not change any file.
+"""
+
+# Last step of the prompt (FR-077). Kept apart so the scope line comes before it and the prompt still ends with this step.
+SAVE_REPORT_STEP = """\
+7. Save the report: call `save_report` once, with a summary of what you found (at most 2,000 characters), the fixes from step 5 (at most 5, each with its text and the tool and number it cites) and the same scope you used above. Do not put keys, tokens or message text in it; the tool refuses them. Then tell me the report id it returns. If `save_report` is not available, tell me to reconnect the easy-personal server in /mcp, and do not retry.
 """
 
 
@@ -131,6 +136,20 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         with store.opened(config.store_path()) as conn:
             return suggestions.suggestions(conn)
 
+    @app.tool()
+    def save_report(
+        summary: str, fixes: list[dict[str, Any]], workspace: str | None = None, account: str | None = None
+    ) -> dict[str, Any]:
+        """Save an `investigate` report on the dashboard's Warnings & plan page. `summary` is at most 2,000
+        characters; `fixes` is at most 5 items, each `text` (at most 300 characters) with an optional `tool`
+        and `number` it cites. Pass the same `workspace` (name) and `account` (id or label) you used for
+        `warnings`. The server adds its own numbers for every rule at this moment (the rule snapshot), so
+        the page can later show before / now per warning. Refuses the whole call, naming the field, when a
+        limit is passed, the scope is unknown or any text looks like a secret; nothing is stored then.
+        Returns `{id, saved_utc}`. The only tool that writes, and only to the store."""
+        with store.opened(config.store_path()) as conn:
+            return reports.save(conn, summary, fixes, workspace, account)
+
     @app.prompt(
         name="investigate",
         description="Investigate your Claude Code usage: causes of each warning and up to 5 ranked fixes.",
@@ -139,8 +158,8 @@ def create_app(host: str = LOOPBACK, port: int = 8765) -> FastMCP:
         scope = [f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in (("workspace", workspace), ("account", account)) if v]
         text = INVESTIGATE_PROMPT
         if scope:
-            text += f"\nScope: pass {' and '.join(scope)} to every tool call that takes a scope (`warnings`, `improvement_plan`).\n"
-        return text
+            text += f"\nScope: pass {' and '.join(scope)} to every tool call that takes a scope (`warnings`, `improvement_plan`, `save_report`).\n"
+        return text + "\n" + SAVE_REPORT_STEP
 
     return app
 

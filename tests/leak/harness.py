@@ -44,6 +44,16 @@ MCP_CALLS: dict[str, list[dict]] = {
     "connector_catalog": [{}],
     "connector_status": [{}],
     "connector_suggestions": [{}],
+    # HUN-221: the only MCP tool that writes. Valid calls store a report (its text is the DDR-0003 exception); the
+    # refused ones must store nothing. A planted secret sent to it is in tests/leak/test_report_leak.py.
+    "save_report": [
+        {"summary": "Leak suite report.\nSecond line.", "fixes": [{"text": "Start a new session per task", "tool": "session_outliers", "number": "645301"}]},
+        {"summary": "Scoped report.", "fixes": [], "workspace": "acme"},
+        {"summary": "Scoped report.", "fixes": [], "account": "1"},
+        {"summary": "Unknown scope.", "fixes": [], "workspace": "nope"},
+        {"summary": "x" * 2001, "fixes": []},
+        {"summary": "Fix too long.", "fixes": [{"text": "y" * 301}]},
+    ],
 }
 # CLI command -> list of argv tails. `{projects}` is the planted transcript root.
 CLI_CALLS: dict[str, list[list[str]]] = {
@@ -103,6 +113,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/workspaces": [""],
     "/api/workspaces/unassigned": [""],  # HUN-206: repo paths, counts and cost only
+    "/api/reports": [""],  # HUN-221: the newest saved reports (the one table with model-written text); each id is fetched via API_WRITE_CALLS below
     "/api/warnings": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
@@ -205,6 +216,13 @@ API_WRITE_CALLS: dict[str, list[tuple[str, str, dict]]] = {
         ("GET", "/api/sync", {}),
     ],
 }  # fmt: skip
+API_WRITE_CALLS["/api/reports/{id}"] = [  # HUN-221: GETs; ids 1..3 are saved by the `save_report` calls above
+    ("GET", "/api/reports/1", {}),
+    ("GET", "/api/reports/2", {}),
+    ("GET", "/api/reports/3", {}),
+    ("GET", "/api/reports/99999", {}),
+    ("GET", "/api/reports/{secret}", {}),
+]
 _FAKE_CLAUDE = """#!{python}
 import json, os, sys
 open(os.environ["FAKE_CLAUDE_LOG"], "a").write(json.dumps(sys.argv[1:]) + "\\n")

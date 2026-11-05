@@ -56,7 +56,11 @@ def test_events_schema_is_explicit_metadata_only(conn):
         "connectors",
         "account_workspaces",
         "account_registrations",
+        "investigate_reports",  # DDR-0003: the one table with model-written text (see below)
     }
+    assert _columns(conn, "investigate_reports") == {
+        "id", "saved_utc", "server_version", "workspace", "account", "summary", "fixes_json", "snapshot_json",
+    }  # fmt: skip
 
 
 def test_store_uses_wal(conn):

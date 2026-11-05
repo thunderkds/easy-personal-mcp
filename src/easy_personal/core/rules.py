@@ -673,18 +673,22 @@ def evaluate(
     rules: list[Rule] | None = None,
     workspace: str | None = None,
     account: str | None = None,
+    checked: bool = False,
 ) -> dict:
     """Run every rule; `hits` are the fired rules, `abstained` the ones that could not be measured.
 
     Hits are ordered by priority, then rule id, so the same store gives the same output.
     `workspace` (a name) and `account` (id or label) limit every metric to that scope; an unknown
     one raises ValueError, even when the store has too little history to measure anything.
+    `checked=True` adds a `checked` list (by rule id): every measured rule with its `title`, `measured`,
+    `threshold` and `fired`, so a rule that did not fire still has its value (FR-076). Off by default:
+    the output is then exactly what it was before.
     """
     now = now or datetime.now(UTC)
     scope = {"workspace": workspace, "account": account}
     if workspace is not None or account is not None:
         metrics._scope(conn, workspace, None, None, account)
-    hits, abstained = [], []
+    hits, abstained, measured_rules = [], [], []
     win = _Windows(conn, scope)
     for rule in rules if rules is not None else load_rules(config.config_path()):
         try:
@@ -692,7 +696,11 @@ def evaluate(
         except Abstain as why:
             abstained.append({"rule_id": rule.id, "title": rule.title, "reason": str(why)})
             continue
-        if OPS[rule.op](measured, rule.threshold):
+        fired = OPS[rule.op](measured, rule.threshold)
+        measured_rules.append(
+            {"rule_id": rule.id, "title": rule.title, "measured": measured, "threshold": rule.threshold, "fired": fired}
+        )
+        if fired:
             hit = {
                 "rule_id": rule.id,
                 "label": rule.label,
@@ -712,4 +720,7 @@ def evaluate(
             hits.append(hit)
     hits.sort(key=lambda h: (h["priority"], h["rule_id"]))
     abstained.sort(key=lambda a: a["rule_id"])
-    return {"as_of_utc": _iso(now), "hits": hits, "abstained": abstained}
+    result = {"as_of_utc": _iso(now), "hits": hits, "abstained": abstained}
+    if checked:
+        result["checked"] = sorted(measured_rules, key=lambda r: r["rule_id"])
+    return result
