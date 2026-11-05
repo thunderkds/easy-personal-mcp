@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getJson } from './api.js'
 import Breakdown from './Breakdown.jsx'
 import Cost from './Cost.jsx'
@@ -13,58 +13,93 @@ export const PERIODS = [
   { id: '30', label: 'Last 30 days', days: 30 },
   { id: 'all', label: 'All time', days: null },
 ]
-const DIMENSIONS = ['day', 'model', 'project', 'tool']
 
 const DAY_MS = 86400000
+const MINUTE_MS = 60000
 
-/** Query string for the current period (`since`), or for the previous equal period (`since` and `until`). */
-function query(days, workspace, account, previous = false) {
-  const parts = []
-  const now = Date.now()
-  if (days !== null) {
-    const back = previous ? 2 * days : days
-    parts.push(`since=${encodeURIComponent(new Date(now - back * DAY_MS).toISOString())}`)
-    if (previous) parts.push(`until=${encodeURIComponent(new Date(now - days * DAY_MS).toISOString())}`)
-  }
-  if (workspace) parts.push(`workspace=${encodeURIComponent(workspace)}`)
-  if (account) parts.push(`account=${encodeURIComponent(account)}`)
-  return parts.join('&')
+/**
+ * `since` for a window of `days` ending now, rounded down to the whole minute (ISO, UTC), so every request of
+ * one Usage load and the side rail's Cache reuse card ask the same question with the same URL (NFR-013).
+ */
+export function sinceOf(days, now = Date.now()) {
+  return new Date(Math.floor((now - days * DAY_MS) / MINUTE_MS) * MINUTE_MS).toISOString()
 }
 
-async function load(days, workspace, account) {
-  const q = query(days, workspace, account)
-  const url = (path, extra = '') => `${path}?${[extra, q].filter(Boolean).join('&')}`
-  const [previous, summary, outliers, sessions, ...breakdowns] = await Promise.all([
-    loadPrevious(days, workspace, account),
-    getJson(url('/api/usage/summary')),
-    getJson(url('/api/usage/outliers')),
-    getJson(url('/api/usage/sessions')),
-    ...DIMENSIONS.map((by) => getJson(url('/api/usage/breakdown', `by=${by}`))),
-  ])
-  return { previous, summary, outliers, sessions, breakdowns: Object.fromEntries(DIMENSIONS.map((d, i) => [d, breakdowns[i]])) }
+/** The URL of every read the Usage page makes for one period + scope; `previous` is null for All time. */
+function usageUrls(days, workspace, account) {
+  const scope = [workspace && `workspace=${encodeURIComponent(workspace)}`, account && `account=${encodeURIComponent(account)}`]
+  const url = (path, ...parts) => `${path}?${[...parts, ...scope].filter(Boolean).join('&')}`
+  const since = days === null ? null : `since=${encodeURIComponent(sinceOf(days))}`
+  const previous = days === null ? null : [`since=${encodeURIComponent(sinceOf(2 * days))}`, `until=${encodeURIComponent(sinceOf(days))}`]
+  return {
+    summary: url('/api/usage/summary', since),
+    outliers: url('/api/usage/outliers', since),
+    sessions: url('/api/usage/sessions', since),
+    day: url('/api/usage/breakdown', 'by=day', since),
+    model: url('/api/usage/breakdown', 'by=model', since),
+    project: url('/api/usage/breakdown', 'by=project', since),
+    tool: url('/api/usage/breakdown', 'by=tool', since),
+    previous: previous && url('/api/usage/breakdown', 'by=day', ...previous),
+  }
 }
 
-/** Totals of the previous equal period, or null (All time, or the request failed: badges say "no previous data"). */
-async function loadPrevious(days, workspace, account) {
-  if (days === null) return null
-  try {
-    return (await getJson(`/api/usage/breakdown?by=day&${query(days, workspace, account, true)}`)).total
-  } catch {
-    return null
+/**
+ * One read of one URL: {status: 'loading' | 'ready' | 'error' | 'none', data, message}; `null` = no request ('none').
+ * The answer is keyed by its URL, so a late answer from an older period or scope is dropped and never shown.
+ */
+function useGet(url) {
+  const [state, setState] = useState({ url: null })
+  useEffect(() => {
+    if (url === null) return undefined
+    let current = true
+    getJson(url).then(
+      (data) => current && setState({ url, status: 'ready', data }),
+      (error) => current && setState({ url, status: 'error', message: error.message }),
+    )
+    return () => {
+      current = false
+    }
+  }, [url])
+  if (url === null) return { status: 'none' }
+  return state.url === url ? state : { status: 'loading' }
+}
+
+/** One part of the page (no heading until it has data, so a heading on screen means the data is there): its own loading line or error line until every read it needs is there, then `children(...data)`. */
+function Part({ label, reads, children }) {
+  const failed = reads.find((r) => r.status === 'error')
+  if (failed) {
+    return (
+      <section className="card">
+        <p role="alert" className="error">
+          Could not load {label}: {failed.message}
+        </p>
+      </section>
+    )
   }
+  if (reads.some((r) => r.status !== 'ready')) {
+    return (
+      <section className="card" aria-busy="true">
+        <p role="status" className="part-loading muted">
+          <span className="spinner" aria-hidden="true" />
+          Loading {label}
+        </p>
+      </section>
+    )
+  }
+  return children(...reads.map((r) => r.data))
 }
 
 const sumTokens = (row) => (row ? totalTokens(row) : null)
 const usdOf = (cost) => (cost && cost.usd !== null && cost.abstained_models.length === 0 ? cost.usd : null)
 
-function Kpi({ name, value, note, current, previous, spark, sparkLabel }) {
+function Kpi({ name, value, note, current, previous, waiting, spark, sparkLabel }) {
   const id = `kpi-${name.replace(/\W+/g, '-').toLowerCase()}`
   return (
     <section className="kpi" aria-labelledby={id}>
       <h2 id={id} className="kpi-name">{name}</h2>
       <div className="kpi-head">
         {typeof value === 'number' ? <Compact n={value} className="kpi-value" /> : <span className="kpi-value">{value}</span>}
-        <Trend current={current} previous={previous} />
+        {waiting ? <span className="trend trend-none">loading previous period</span> : <Trend current={current} previous={previous} />}
       </div>
       {note && <span className="kpi-note">{note}</span>}
       <Sparkline values={spark} label={sparkLabel} />
@@ -72,7 +107,10 @@ function Kpi({ name, value, note, current, previous, spark, sparkLabel }) {
   )
 }
 
-function Widgets({ summary, day, previous, period }) {
+/** `previousRead` is the previous-period read: its badges say "loading" until it ends, "no previous data" if it failed or there is none. */
+function Widgets({ summary, day, previousRead, period }) {
+  const previous = previousRead.status === 'ready' ? previousRead.data.total : null
+  const waiting = previousRead.status === 'loading'
   const groups = day.groups
   const peakOf = (values, show) => show(Math.max(...values))
   const perDay = (name, values, show) =>
@@ -91,6 +129,7 @@ function Widgets({ summary, day, previous, period }) {
           value={totalTokens(summary)}
           current={totalTokens(summary)}
           previous={sumTokens(previous)}
+          waiting={waiting}
           spark={tokens}
           sparkLabel={perDay('Total tokens', tokens, fmt)}
         />
@@ -99,6 +138,7 @@ function Widgets({ summary, day, previous, period }) {
           value={summary.messages}
           current={summary.messages}
           previous={previous ? previous.messages : null}
+          waiting={waiting}
           spark={messages}
           sparkLabel={perDay('Messages', messages, fmt)}
         />
@@ -108,6 +148,7 @@ function Widgets({ summary, day, previous, period }) {
           note={abstainedText(cost)}
           current={usdOf(cost)}
           previous={usdOf(previous?.api_equivalent_cost)}
+          waiting={waiting}
           spark={usd}
           sparkLabel={`${perDay('API-equivalent cost', usd, (n) => `$${n.toFixed(2)}`)}${abstained.length ? `, abstained: ${abstained.join(', ')}` : ''}`}
         />
@@ -281,19 +322,18 @@ function Outliers({ data }) {
 /** The period is app-wide (HUN-196): App owns it and the right rail reads it too. */
 export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgents = () => {}, period = '7', onPeriodChange = () => {} }) {
   const { workspace, account } = scope
-  const [state, setState] = useState({ status: 'loading' })
-
-  useEffect(() => {
-    let current = true
-    setState({ status: 'loading' })
-    load(PERIODS.find((p) => p.id === period).days, workspace, account).then(
-      (data) => current && setState({ status: 'ready', data }),
-      (error) => current && setState({ status: 'error', message: error.message }),
-    )
-    return () => {
-      current = false
-    }
-  }, [period, workspace, account])
+  const days = PERIODS.find((p) => p.id === period).days
+  // The URLs are worked out once per period + scope, so `since` stays the same while the answers come in.
+  const urls = useMemo(() => usageUrls(days, workspace, account), [days, workspace, account])
+  const summary = useGet(urls.summary)
+  const day = useGet(urls.day)
+  const model = useGet(urls.model)
+  const project = useGet(urls.project)
+  const tool = useGet(urls.tool)
+  const outliers = useGet(urls.outliers)
+  const sessions = useGet(urls.sessions)
+  const previous = useGet(urls.previous)
+  const nothingYet = [summary, day, model, project, tool, outliers, sessions].every((r) => r.status === 'loading')
 
   const selectedWorkspace = options?.workspaces.find((w) => w.name === workspace)
   const chosen = PERIODS.find((p) => p.id === period)
@@ -330,27 +370,25 @@ export default function UsageView({ scope = NO_SCOPE, options = null, onOpenAgen
           </button>
         ))}
       </div>
-      {state.status === 'loading' && <Loading label="Loading usage" />}
-      {state.status === 'error' && (
-        <p role="alert" className="error">
-          Could not load usage: {state.message}
-        </p>
-      )}
-      {state.status === 'ready' && (
+      {nothingYet ? (
+        <Loading label="Loading usage" />
+      ) : (
         <>
-          <Widgets summary={state.data.summary} day={state.data.breakdowns.day} previous={state.data.previous} period={chosen} />
+          <Part label="key figures" reads={[summary, day]}>
+            {(s, d) => <Widgets summary={s} day={d} previousRead={previous} period={chosen} />}
+          </Part>
           <div className="grid-2">
-            <Breakdown by="day" data={state.data.breakdowns.day} />
-            <Breakdown by="model" data={state.data.breakdowns.model} />
+            <Part label="usage by day" reads={[day]}>{(d) => <Breakdown by="day" data={d} />}</Part>
+            <Part label="usage by model" reads={[model]}>{(d) => <Breakdown by="model" data={d} />}</Part>
           </div>
-          <WorkSplit day={state.data.breakdowns.day} />
+          <Part label="you and agents" reads={[day]}>{(d) => <WorkSplit day={d} />}</Part>
           <div className="grid-2">
-            <Breakdown by="project" data={state.data.breakdowns.project} />
-            <Outliers data={state.data.outliers} />
+            <Part label="usage by project" reads={[project]}>{(d) => <Breakdown by="project" data={d} />}</Part>
+            <Part label="outlier sessions" reads={[outliers]}>{(d) => <Outliers data={d} />}</Part>
           </div>
-          <Totals summary={state.data.summary} total={state.data.breakdowns.day.total} />
-          <Breakdown by="tool" data={state.data.breakdowns.tool} />
-          <Timeline data={state.data.sessions} />
+          <Part label="totals" reads={[summary, day]}>{(s, d) => <Totals summary={s} total={d.total} />}</Part>
+          <Part label="usage by tool" reads={[tool]}>{(d) => <Breakdown by="tool" data={d} />}</Part>
+          <Part label="sessions" reads={[sessions]}>{(d) => <Timeline data={d} />}</Part>
         </>
       )}
     </main>

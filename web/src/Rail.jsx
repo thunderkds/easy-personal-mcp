@@ -1,12 +1,11 @@
 import { getJson } from './api.js'
 import { limitTone, percent, until } from './format.js'
 import { scopeQuery } from './Scope.jsx'
-import { PERIODS } from './UsageView.jsx'
+import { PERIODS, sinceOf } from './UsageView.jsx'
 import { useLoad } from './useLoad.js'
 import { Progress, Ring } from './Widgets.jsx'
 
 const TOP = 3
-const DAY_MS = 86400000
 const hasPct = (w) => Boolean(w) && !w.stale && typeof w.used_percentage === 'number'
 
 /** The right rail: three cards from data the views already load (summary, warnings, accounts). */
@@ -38,7 +37,7 @@ function lowestModel(groups) {
 function CacheReuse({ scope, period }) {
   const chosen = PERIODS.find((p) => p.id === period) ?? PERIODS[0]
   const state = useLoad(async () => {
-    const since = chosen.days === null ? '' : `since=${encodeURIComponent(new Date(Date.now() - chosen.days * DAY_MS).toISOString())}`
+    const since = chosen.days === null ? '' : `since=${encodeURIComponent(sinceOf(chosen.days))}`
     const url = (path, extra = '') => {
       const query = [extra, since, scopeQuery(scope)].filter(Boolean).join('&')
       return query ? `${path}?${query}` : path
