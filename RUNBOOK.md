@@ -17,7 +17,7 @@
 
 ## Deploy Procedure
 
-Run from the repo root. Schema changes are numbered migrations (`core/migrations/mNNNN_*.py`, `PRAGMA user_version`). The first command that opens the store applies every pending migration, each in one transaction, and leaves `store.sqlite.bak-v<N>` (the store as it was at version N) beside it. v0.3.0 moves a store from version 6 to 7 (`m0007_entrypoint`, HUN-161: adds `events.entrypoint`, resets claude_code offsets to 0; the next ingest re-reads and backfills, adding no rows). On the owner's machine the store is already at 7 (a main build migrated it 2026-10-31 21:50; `store.sqlite.bak-v6` exists), so no migration runs there.
+Run from the repo root. Schema changes are numbered migrations (`core/migrations/mNNNN_*.py`, `PRAGMA user_version`). The first command that opens the store applies every pending migration, each in one transaction, and leaves `store.sqlite.bak-v<N>` (the store as it was at version N) beside it. After the last migration commits, it deletes every older `store.sqlite.bak-v<N>` (and its `-wal`/`-shm` files): only the newest backup is kept, and a failed migration deletes nothing. `store.sqlite.pre-v*` copies are never touched. So a `bak-v<N>` file named in the rollback steps below may no longer exist; check with `ls ~/.easy-personal/`, and use a `pre-v*` copy if you made one. v0.3.0 moves a store from version 6 to 7 (`m0007_entrypoint`, HUN-161: adds `events.entrypoint`, resets claude_code offsets to 0; the next ingest re-reads and backfills, adding no rows). On the owner's machine the store is already at 7 (a main build migrated it 2026-10-31 21:50; `store.sqlite.bak-v6` exists), so no migration runs there.
 
 v0.4.0 (approved for `385dbed`, owner 2026-11-03; first approved at `373d007`, re-approved to add HUN-196). It moves a store from version 7 to 8 (`m0008_tool_errors`, HUN-192: adds `events.tool_error_count`, resets claude_code offsets to 0; the next ingest or the dashboard's live tail re-reads every transcript on disk, adding no rows, about 20–45 s). **On the owner's machine this already happened**: the owner reinstalled from `main` at 2026-11-03 10:54 +07 (before the 0.4.0 version bump, so `--version` still says 0.3.0) and started the dashboard; the store is at 8 (393,188 events, 47,614 user rows with a count) and `store.sqlite.bak-v7` (386,360 events, 10:54:23) exists. So no migration runs at step 4; the reinstall only brings the 0.4.0 code (HUN-183 docs, HUN-195 5 % gap rule, HUN-196 cache reuse card) and version.
 
@@ -124,7 +124,7 @@ v0.3.0 (approved for `1c80450`; superseded by v0.4.0, never tagged):
 
 - **v0.4.0 reverse steps** (in order). The 0.3.0 code refuses a schema-8 store ("schema v8, newer than this program (v7): upgrade easy-personal" — tested 2026-11-03), so restore the store first:
   1. Stop the dashboard (Ctrl-C) and the timer: `systemctl --user stop easy-personal-ingest.timer`.
-  2. Restore schema 7: `cp -p ~/.easy-personal/store.sqlite.bak-v7 ~/.easy-personal/store.sqlite && rm -f ~/.easy-personal/store.sqlite-wal ~/.easy-personal/store.sqlite-shm` (events ingested after the migration come back on the next ingest from transcripts still on disk).
+  2. Restore schema 7 (only if `store.sqlite.bak-v7` still exists; a later migration deletes it): `cp -p ~/.easy-personal/store.sqlite.bak-v7 ~/.easy-personal/store.sqlite && rm -f ~/.easy-personal/store.sqlite-wal ~/.easy-personal/store.sqlite-shm` (events ingested after the migration come back on the next ingest from transcripts still on disk).
   3. Install the 0.3.0 code: `git checkout 1c80450 && npm --prefix web ci && npm --prefix web run build && uv tool install --reinstall --no-cache . && git checkout main`.
   4. If the tag was pushed: `git push github :refs/tags/v0.4.0 && git tag -d v0.4.0`.
   5. Verify: `easy-personal --version` prints 0.3.0; `pragma user_version` is 7; `easy-personal usage` prints totals.
@@ -133,7 +133,7 @@ v0.3.0 (approved for `1c80450`; superseded by v0.4.0, never tagged):
   1. Install the previous known-good build (last pushed `main` before the Live work, schema 7): `git checkout 1550317 && npm --prefix web ci && npm --prefix web run build && uv tool install --reinstall --no-cache . && git checkout main`.
   2. Only if the store is damaged: `cp -p ~/.easy-personal/store.sqlite.pre-v0.3.0 ~/.easy-personal/store.sqlite && rm -f ~/.easy-personal/store.sqlite-wal ~/.easy-personal/store.sqlite-shm`.
   3. If the tag was pushed: `git push github :refs/tags/v0.3.0 && git tag -d v0.3.0`.
-  4. Do **not** install the `v0.2.0` tag: its code refuses a schema-7 store. Going back to v0.2.0 needs `store.sqlite.bak-v6` (2026-10-31 21:50), which loses events ingested since then.
+  4. Do **not** install the `v0.2.0` tag: its code refuses a schema-7 store. Going back to v0.2.0 needs `store.sqlite.bak-v6` (2026-10-31 21:50; it may no longer exist), which loses events ingested since then.
 - **Verify rollback**: `easy-personal ping` exits 0; `easy-personal dashboard` has no Live tab; `pragma user_version` is still 7.
 
 ---
@@ -169,7 +169,7 @@ v0.3.0 (approved for `1c80450`; superseded by v0.4.0, never tagged):
 | Live tab says "reconnecting" and never recovers | Dashboard stopped or restarted (new port and token) | Open the new URL the dashboard printed; the old page cannot reconnect |
 | Live feed empty while Claude Code runs | Account not confirmed, or the session is in a folder of an unconfirmed account | `easy-personal account list`; `easy-personal account confirm <folder>` |
 | `.bak-v7` exists but `--version` says 0.3.0 | Reinstalled from `main` between the v8 merge and the version bump (owner, 2026-11-03) | Harmless: code is v8-aware; reinstall at the tagged commit (step 4) |
-| Migration fails on open | Disk full or store locked | Store is unchanged (one transaction per migration); free space or stop other `easy-personal` processes, then retry. Older copies: `store.sqlite.bak-v<N>` |
+| Migration fails on open | Disk full or store locked | Store is unchanged (one transaction per migration); free space or stop other `easy-personal` processes, then retry. Newest copy: `store.sqlite.bak-v<N>` (older ones are deleted after a successful migration) |
 
 ---
 

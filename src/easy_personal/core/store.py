@@ -3,10 +3,11 @@
 No column holds a raw record, message text or tool input/output (FR-002, NFR-002).
 """
 
+import re
 import sqlite3
 import uuid
 from collections.abc import Iterator
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, suppress
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -42,12 +43,24 @@ def _has_tables(conn: sqlite3.Connection) -> bool:
     return conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone() is not None
 
 
+def _delete_other_backups(path: Path, keep: Path) -> None:
+    """Delete every `<store>.bak-v<N>` (and its `-wal`/`-shm`) except the file `keep`. Never raises."""
+    pattern = re.compile(re.escape(path.name) + r"\.bak-v\d+(-wal|-shm)?")
+    with suppress(OSError):
+        for entry in path.parent.iterdir():
+            if entry.name != keep.name and pattern.fullmatch(entry.name):
+                with suppress(OSError):
+                    entry.unlink()
+
+
 def migrate(conn: sqlite3.Connection, path: Path, migrations=MIGRATIONS) -> None:
     """Apply pending numbered migrations in order; a migration's number is its `user_version`.
 
     Each one runs in its own `BEGIN IMMEDIATE` transaction together with its `user_version` bump, so a
     failure rolls back fully. Before the first pending migration on a non-empty store the file is copied
-    to `<path>.bak-v<N>` (restore path: put that copy back). A store newer than this code is refused.
+    to `<path>.bak-v<N>` (restore path: put that copy back). Once every migration has committed, all older
+    `<path>.bak-v*` copies (and their `-wal`/`-shm` files) are deleted: only this run's backup stays, and a
+    failed run deletes nothing. A store newer than this code is refused.
     """
     latest = max((number for number, _ in migrations), default=0)
     version = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -59,9 +72,14 @@ def migrate(conn: sqlite3.Connection, path: Path, migrations=MIGRATIONS) -> None
         return
     previous = conn.isolation_level
     conn.isolation_level = None  # explicit BEGIN/COMMIT: DDL must roll back with the version bump
+    kept = None  # the backup this run wrote
     try:
         if version < latest and _has_tables(conn):
-            with closing(sqlite3.connect(f"{path}.bak-v{version}")) as backup:
+            kept = Path(f"{path}.bak-v{version}")
+            for side in ("-wal", "-shm"):  # left by an earlier open of a same-numbered copy: not this content
+                with suppress(OSError):
+                    Path(f"{kept}{side}").unlink()
+            with closing(sqlite3.connect(kept)) as backup:
                 conn.backup(backup)
         for number, apply in sorted(migrations, key=lambda m: m[0]):
             conn.execute("BEGIN IMMEDIATE")
@@ -74,6 +92,8 @@ def migrate(conn: sqlite3.Connection, path: Path, migrations=MIGRATIONS) -> None
             except BaseException:
                 conn.execute("ROLLBACK")
                 raise
+        if kept is not None:
+            _delete_other_backups(path, kept)
     finally:
         conn.isolation_level = previous
 

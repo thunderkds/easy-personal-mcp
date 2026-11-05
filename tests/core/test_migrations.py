@@ -408,3 +408,138 @@ def test_migration_10_is_idempotent_and_a_v10_store_is_not_touched(tmp_path, fix
     conn.close()
     store.connect(path).close()
     assert sorted(p.name for p in tmp_path.glob("*.bak-v*")) == ["store.sqlite.bak-v9"]
+
+
+# --- HUN-231: after a successful migration only the newest backup stays ---
+
+OLD_BACKUPS = ("bak-v0", "bak-v3", "bak-v3-wal", "bak-v3-shm")
+
+
+def _names(folder: Path) -> list[str]:
+    return sorted(p.name for p in folder.iterdir())
+
+
+def _store_one_version_behind(path: Path) -> int:
+    """A store with data whose user_version is latest - 1 (the last migration is safe to run again)."""
+    conn = store.connect(path)
+    conn.execute("INSERT INTO meta (key, value) VALUES ('marker', 'kept')")
+    conn.commit()
+    conn.close()
+    raw = sqlite3.connect(path)
+    raw.execute(f"PRAGMA user_version = {LATEST - 1}")
+    raw.commit()
+    raw.close()
+    return LATEST - 1
+
+
+def _plant_file(file: Path, content: bytes = b"old") -> None:
+    """An old backup: a real (empty) database file, or junk bytes for a `-wal`/`-shm` side file."""
+    if file.name.endswith(("-wal", "-shm")):
+        file.write_bytes(content)
+    else:
+        raw = sqlite3.connect(file)
+        raw.execute("CREATE TABLE stale (x)")
+        raw.commit()
+        raw.close()
+
+
+def _plant(folder: Path, names, content=b"old") -> None:
+    for name in names:
+        _plant_file(folder / f"store.sqlite.{name}", content)
+
+
+def test_connect_keeps_only_the_newest_backup_and_leaves_other_files(tmp_path):
+    path = tmp_path / "store.sqlite"
+    n = _store_one_version_behind(path)
+    _plant(tmp_path, OLD_BACKUPS)
+    _plant(tmp_path, ["pre-v0.4.0", "bak-vX"])  # not backups of this store
+    (tmp_path / "other.sqlite.bak-v1").write_bytes(b"other")
+    store.connect(path).close()
+    assert _names(tmp_path) == [
+        "other.sqlite.bak-v1", "store.sqlite", f"store.sqlite.bak-v{n}", "store.sqlite.bak-vX",
+        "store.sqlite.pre-v0.4.0",
+    ]  # fmt: skip
+    backup = sqlite3.connect(tmp_path / f"store.sqlite.bak-v{n}")
+    assert backup.execute("PRAGMA user_version").fetchone()[0] == n
+    assert backup.execute("SELECT value FROM meta WHERE key = 'marker'").fetchone()[0] == "kept"
+    backup.close()
+
+
+def test_stale_backup_of_the_same_number_is_replaced_and_its_side_files_and_higher_numbers_go(tmp_path):
+    path = tmp_path / "store.sqlite"
+    n = _store_one_version_behind(path)
+    _plant(tmp_path, [f"bak-v{n}", f"bak-v{n}-wal", f"bak-v{n}-shm", f"bak-v{n + 5}"], b"stale")
+    store.connect(path).close()
+    assert _names(tmp_path) == ["store.sqlite", f"store.sqlite.bak-v{n}"]
+    backup = sqlite3.connect(tmp_path / f"store.sqlite.bak-v{n}")
+    assert backup.execute("SELECT value FROM meta WHERE key = 'marker'").fetchone()[0] == "kept"
+    backup.close()
+
+
+def test_backup_names_with_regex_characters_in_the_store_name(tmp_path):
+    path = tmp_path / "st+re (1).sqlite"
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE t (x)")
+    conn.commit()
+
+    def noop(c):
+        c.execute("INSERT INTO t VALUES (1)")
+
+    _plant_named = [f"{path.name}.bak-v0", f"{path.name}.bak-v1-wal", "stXre (1).sqlite.bak-v1"]
+    for name in _plant_named:
+        _plant_file(tmp_path / name)
+    store.migrate(conn, path, [(1, noop)])
+    conn.close()
+    assert _names(tmp_path) == [path.name, f"{path.name}.bak-v0", "stXre (1).sqlite.bak-v1"]
+
+
+def test_failing_migration_deletes_no_old_backup(tmp_path):
+    path = tmp_path / "store.sqlite"
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE t (x)")
+    conn.commit()
+    _plant(tmp_path, OLD_BACKUPS)
+
+    def good(c):
+        c.execute("INSERT INTO t VALUES (1)")
+
+    def bad(c):
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        store.migrate(conn, path, [(1, good), (2, bad)])
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert _names(tmp_path) == sorted(["store.sqlite", "store.sqlite.bak-v0", *(f"store.sqlite.{b}" for b in OLD_BACKUPS[1:])])
+    conn.close()
+
+
+def test_up_to_date_store_deletes_nothing(tmp_path):
+    path = tmp_path / "store.sqlite"
+    store.connect(path).close()
+    _plant(tmp_path, OLD_BACKUPS)
+    store.connect(path).close()
+    assert [n for n in _names(tmp_path) if ".bak-v" in n] == sorted(f"store.sqlite.{b}" for b in OLD_BACKUPS)
+
+
+def test_a_failing_delete_never_fails_connect(tmp_path, monkeypatch):
+    path = tmp_path / "store.sqlite"
+    _store_one_version_behind(path)
+    _plant(tmp_path, OLD_BACKUPS)
+
+    def refuse(*args, **kwargs):
+        raise PermissionError("no")
+
+    monkeypatch.setattr("os.remove", refuse)
+    monkeypatch.setattr("os.unlink", refuse)
+    monkeypatch.setattr("pathlib.Path.unlink", refuse)
+    conn = store.connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
+    conn.close()
+    assert (tmp_path / "store.sqlite.bak-v0").exists()  # nothing could be deleted, and that was fine
+
+
+def test_new_store_deletes_nothing(tmp_path):
+    path = tmp_path / "store.sqlite"
+    _plant(tmp_path, OLD_BACKUPS)  # stray backups beside a store with no tables: no backup written, no cleanup
+    store.connect(path).close()
+    assert [n for n in _names(tmp_path) if ".bak-v" in n] == sorted(f"store.sqlite.{b}" for b in OLD_BACKUPS)
