@@ -112,7 +112,7 @@ def test_kit_summary_counts_and_no_data(conn, repo, tmp_path):
             "parts": {
                 "kernel": {"status": "no data"},
                 "git": {"status": "no data"},
-                "context": {"status": "no data"},
+                "context": {"status": "not in use"},  # no easy-context call stored (FR-080)
                 "verifier": {"status": "no data"},
             },
         }

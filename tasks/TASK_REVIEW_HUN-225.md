@@ -41,9 +41,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_context_in_use.py` (22 tests: AC 1-6), plus `tests/sources/test_context.py`, `tests/core/test_rules.py`, `tests/core/test_reports.py`, `tests/surfaces/test_warnings.py`, `tests/sources/test_kit_trace.py` updated and the context lines of `tests/surfaces/scope_golden.json` / `hun186_golden.json` (AC 7). Implementer run: `uv run pytest tests -q -k "rules or plan or warnings or kit or report or context or leak"` -> `426 passed, 1095 deselected`; `uv run pytest -q` -> see next row |
+| Verification command run | ☑ pass | implementer, 2026-11-05: full suite `1512 passed, 2 skipped, 6 deselected, 1 xfailed` (baseline before the change: `1490 passed, 2 skipped, 6 deselected, 1 xfailed`; +22 new tests) |
+| Negative cases hold | ☑ pass | call 8 days old, call after `now`, `mcp__easy-context-old__`, `mcp__easy-contextual__`, `mcp__easy-memory__`, abstained row, call in another workspace/account: all "not in use" |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -61,12 +61,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-05T05:21Z UTC, on a `.backup` copy of the owner store, `EASY_PERSONAL_HOME` = that copy's dir, code at commit 18ae74b, before any implementation commit):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+`easy-personal warnings` (as_of 2026-11-05T05:21:26Z), `abstained` list:
+```
+"abstained": [
+  {"reason": "no easy-context data (service down or no index for a known project)",
+   "rule_id": "context_index_stale", "title": "Code index is out of date"}
+]
+```
+`reports.get_report(conn, 1)`, the `context_index_stale` entry (rule ids in the report: cache_hit_low, context_index_stale, project_dominates, records_unreadable, session_huge_no_compact, tokens_jump, tool_errors_high):
+```
+{"rule_id": "context_index_stale",
+ "before": {"state": "abstained", "reason": "no easy-context data (service down or no index for a known project)"},
+ "now":    {"state": "abstained", "reason": "no easy-context data (service down or no index for a known project)"}}
+```
+`kit.kit_summary(conn)`, project `easy-personal-mcp` (144 projects; all 144 had the same part): `"context": {"status": "no data"}`
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER** (captured 2026-11-05T05:33Z UTC, fresh `.backup` copy of the owner store, same `EASY_PERSONAL_HOME` method):
+
+`easy-personal warnings`: `"abstained": []`; the text `context_index_stale` appears 0 times in it; `easy-personal plan` also 0 times.
+`GET /api/reports/1` (Starlette TestClient on `api.create_app`, token header) -> 200; rule ids: `['cache_hit_low', 'project_dominates', 'records_unreadable', 'session_huge_no_compact', 'tokens_jump', 'tool_errors_high']`; `context_index_stale present: False` (it was abstained then and is not in use now).
+`GET /api/kit`: 20 projects (dashboard view, gone folders hidden); `easy-personal-mcp` -> `"context": {"status": "not in use"}`; the only distinct context part is `{"status": "not in use"}`.
+
+**DELTA**: With no easy-context tool call in the last 7 days, the owner no longer sees the "Code index is out of date" warning, plan item, abstained entry, saved-report line or Kit context part; they all return on their own after the next call.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

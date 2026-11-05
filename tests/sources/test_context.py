@@ -47,6 +47,16 @@ def _iso(moment):
     return moment.isoformat()
 
 
+def _in_use(conn, project):
+    """One stored easy-context tool call an hour ago: easy-context counts as in use now (FR-080)."""
+    conn.execute(
+        "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, project_path, ts_utc,"
+        " tool_names) VALUES ('m', 'claude_code', 'p', 0, 987654, 0, ?, ?, 'mcp__easy-context__search_semantic')",
+        (str(project), (datetime.now(UTC) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")),
+    )
+    conn.commit()
+
+
 # AC1: allow-list
 def test_only_read_tools_can_be_sent():
     assert context.ALLOWED_TOOLS == {"list_indexes", "get_stats"}
@@ -138,6 +148,7 @@ def test_next_root_is_tried_when_the_service_rejects_one(conn, repo, tmp_path):
 def test_stale_index_fires_the_rule_with_the_index_path_fix(conn, repo):
     _git_commit(repo, NOW - timedelta(hours=1))
     _known(conn, repo)
+    _in_use(conn, repo)
     with fake_context([index_entry(str(repo), _iso(NOW - timedelta(days=2)))]) as (url, *_):
         context.ingest(conn, url=url)
     part = kit.kit_summary(conn)["projects"][0]["parts"]["context"]
@@ -163,6 +174,7 @@ def test_fresh_index_does_not_fire(conn, repo):
 
 def test_rule_abstains_without_context_data(conn, repo):
     _known(conn, repo)
+    _in_use(conn, repo)
     out = rules.evaluate(conn, now=datetime.now(UTC))
     assert {"rule_id": "context_index_stale", "title": "Code index is out of date",
             "reason": "no easy-context data (service down or no index for a known project)"} in out["abstained"]  # fmt: skip

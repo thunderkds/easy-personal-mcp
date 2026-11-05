@@ -159,14 +159,14 @@ def test_too_little_history_abstains(conn, tmp_path):
     assert out["hits"] == []
     assert {a["rule_id"] for a in out["abstained"]} == {
         r.id for r in rules.load_rules() if r.min_history_days
-    } | {"tool_errors_high", "context_index_stale"}  # no kernel-trace calls in this store
+    } | {"tool_errors_high"}  # no kernel-trace calls in this store; no `context_index_stale`: easy-context is not in use (FR-080)
     assert all(a["reason"] for a in out["abstained"])
 
 
 def test_empty_store_abstains_everything(conn):
     out = rules.evaluate(conn, now=NOW)
     assert out["hits"] == []
-    assert len(out["abstained"]) == 7
+    assert len(out["abstained"]) == 6  # all but `context_index_stale`: easy-context is not in use (FR-080)
 
 
 def test_hit_carries_id_label_measured_threshold_fix(conn, tmp_path):
@@ -615,6 +615,7 @@ def test_context_index_stale_names_the_stale_projects(conn, tmp_path):
     env = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null", "PATH": "/usr/bin:/bin"}
     commit = ["git", "-c", "user.email=t@e.invalid", "-c", "user.name=t"]
     _load(conn, tmp_path, [_msg(1, DAY, i=1)])
+    conn.execute("UPDATE events SET tool_names = 'mcp__easy-context__search_semantic' WHERE message_id = 'msg1'")  # in use
     for name in ("one", "two", "three", "four"):
         repo = tmp_path / name
         repo.mkdir()

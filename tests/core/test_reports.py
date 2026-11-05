@@ -69,7 +69,7 @@ def test_save_stores_one_row_with_the_rule_snapshot(loaded):
     assert row[1:6] == ("2026-10-21T12:00:00Z", row[2], None, None, "Token use rose because of more sessions.\nSecond line.")
     assert json.loads(row[6]) == [FIX, {"text": "Compact earlier"}]
     snapshot = json.loads(row[7])
-    ids = {r.id for r in rules.load_rules()}
+    ids = {r.id for r in rules.load_rules()} - {"context_index_stale"}  # easy-context is not in use here (FR-080)
     seen = {r["rule_id"] for r in snapshot["checked"]} | {r["rule_id"] for r in snapshot["abstained"]}
     assert seen == ids  # every declared rule: fired, not fired, abstained
     assert snapshot["abstained"] and any(r["fired"] for r in snapshot["checked"]) and any(not r["fired"] for r in snapshot["checked"])

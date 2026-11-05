@@ -9,15 +9,17 @@ later parts add keys next to them. A part with nothing to read is `{"status": "n
 
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from easy_personal.core import metrics, owners
-from easy_personal.sources.context import context_part
+from easy_personal.sources.context import IN_USE_DAYS, context_part, in_use
 from easy_personal.sources.git_local import git_part
 from easy_personal.sources.ui import ui_part
 from easy_personal.sources.verifier import verifier_part
 
 NO_DATA = {"status": "no data"}
+NOT_IN_USE = {"status": "not in use"}
 GIT_WORKERS = 8  # `git rev-list` runs in parallel: it is a subprocess wait, and a big repo takes 100+ ms
 
 
@@ -137,8 +139,12 @@ def kit_summary(
     workspace: str | None = None,
     account: str | None = None,
     hide_gone: bool = False,
+    now: datetime | None = None,
 ) -> dict:
     """Every project seen in usage, by folder name, with its kit parts.
+
+    Every `context` part is `{"status": "not in use"}` when the scope holds no easy-context tool call in the
+    7 days ending at `now` (FR-080).
 
     `workspace` / `account` keep only the projects of that workspace or with events of that account.
     `hide_gone` (the dashboard) drops projects whose folder is missing and adds a top-level `gone` count;
@@ -148,6 +154,9 @@ def kit_summary(
     gone = None
     if hide_gone:
         projects, gone = split_gone(projects)
+    now = now or datetime.now(UTC)
+    since = (now - timedelta(days=IN_USE_DAYS)).isoformat()
+    context_used = in_use(conn, since, now.isoformat(), workspace=workspace, account=account)
     kernel = _kernel_by_project(conn)
     present = [p for p in projects if Path(p).is_dir()]
     with ThreadPoolExecutor(max_workers=GIT_WORKERS) as pool:
@@ -160,7 +169,7 @@ def kit_summary(
                 "parts": {
                     "kernel": kernel.get(p) or dict(NO_DATA),
                     "git": git.get(p) or dict(NO_DATA),  # git on a missing folder says "no data" too
-                    "context": context_part(conn, p),
+                    "context": context_part(conn, p) if context_used else dict(NOT_IN_USE),
                     "verifier": verifier_part(conn, p),
                 },
             }

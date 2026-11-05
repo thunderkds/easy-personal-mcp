@@ -452,7 +452,7 @@
     "missing_on_disk": false,
     "parts": {
      "context": {
-      "status": "no data"
+      "status": "not in use"
      },
      "git": {
       "status": "no data"
@@ -477,7 +477,7 @@
     "missing_on_disk": false,
     "parts": {
      "context": {
-      "status": "no data"
+      "status": "not in use"
      },
      "git": {
       "status": "no data"
@@ -495,7 +495,7 @@
     "missing_on_disk": true,
     "parts": {
      "context": {
-      "status": "no data"
+      "status": "not in use"
      },
      "git": {
       "status": "no data"
@@ -520,7 +520,7 @@
     "missing_on_disk": true,
     "parts": {
      "context": {
-      "status": "no data"
+      "status": "not in use"
      },
      "git": {
       "status": "no data"
@@ -1379,13 +1379,7 @@
   }
  },
  "warnings": {
-  "abstained": [
-   {
-    "reason": "no easy-context data (service down or no index for a known project)",
-    "rule_id": "context_index_stale",
-    "title": "Code index is out of date"
-   }
-  ],
+  "abstained": [],
   "as_of_utc": "2026-10-20T00:00:00+00:00",
   "hits": [
    {

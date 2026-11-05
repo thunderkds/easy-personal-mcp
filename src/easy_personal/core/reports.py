@@ -21,6 +21,7 @@ FIX_TEXT_MAX = 300
 CITE_MAX = 100  # `tool` and `number` of a fix: short names, not prose
 LIST_LIMIT = 50
 NOT_MEASURED = "not measured now"
+NOT_IN_USE = {"state": "not_in_use", "reason": "not in use"}  # FR-080
 FIX_KEYS = {"text", "tool", "number"}
 
 # Secret-looking text is refused (FR-076): key prefixes, a PEM header, or a 32+ character letter-and-digit run.
@@ -219,6 +220,13 @@ def get_report(conn: sqlite3.Connection, report_id: int, now: datetime | None = 
     except ValueError:  # the saved workspace or account no longer exists
         found = None
     after = _now(found)
+    scope = {"workspace": workspace, "account": account}
+    # a rule evaluate left out because its kit part is not in use: `not in use` now (FR-080)
+    not_in_use = set()
+    if found:  # the same moment `evaluate` measured at
+        moment = datetime.fromisoformat(found["as_of_utc"])
+        not_in_use = {r.id for r in rules.load_rules(config.config_path()) if rules.left_out(r, conn, moment, scope)}
+    after.update({rule_id: NOT_IN_USE for rule_id in not_in_use})
     missing = {"state": "not_measured", "reason": NOT_MEASURED}
     return {
         "id": id_,
@@ -233,5 +241,6 @@ def get_report(conn: sqlite3.Connection, report_id: int, now: datetime | None = 
         "rules": [
             {"rule_id": rule_id, "title": title, "before": before, "now": after.get(rule_id, missing)}
             for rule_id, (title, before) in sorted(_before(snapshot).items())
+            if not (rule_id in not_in_use and before["state"] == "abstained")  # nothing worth showing (FR-080)
         ],
     }
