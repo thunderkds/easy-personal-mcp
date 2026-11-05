@@ -320,3 +320,8 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **Gotcha**: dashboards paused with Ctrl-Z (`ps` state `Tl`) keep their port and memory; on the owner's machine three of them plus 16 GB swap made loading slower. `kill -9` is needed for a stopped process.
 - **Proof**: `/verify` combined run on a store copy: first card 969–1193 ms, full page 2377–2628 ms (was 6020–6793 ms). main after merge: pytest 1539 passed, vitest 651 passed.
 **Files**: `src/easy_personal/core/memo.py`, `tests/core/test_migrations.py`, `.claude/board.json`
+
+### 2026-11-05 — Loading pill funny line + one pill per view (HUN-229)
+- `Loading.jsx` adds one random line from `web/src/loadingLines.js` (picked once per mount, `aria-hidden`); the label stays first, so tests matching the label still pass.
+- Two `Loading` pills in one view draw on top of each other (same fixed spot). A child section must stay silent while its parent view loads: `SavedReports` takes `waiting` from `WarningsPlanView`. Apply the same when adding a pill inside another view.
+- The `pre_agent_step_limit` hook (90 calls) can stop an agent mid follow-up after a heavy real-run pass; resume it with a lean, scoped go-ahead. Board pull escapes `*` in guides (`\*`), which conflicts with a branch copy of the guide at merge: keep main's (board) version.
