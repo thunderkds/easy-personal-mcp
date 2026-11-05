@@ -2,7 +2,7 @@ import { render, screen, within, waitFor, fireEvent } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import { ToastProvider } from './Toast.jsx'
-import { fakeFetch, warnings } from './test/fixtures.js'
+import { fakeFetch, reportList, reportOne, warnings } from './test/fixtures.js'
 
 // The copy button notifies through the toast host App provides.
 const withToasts = (ui) => <ToastProvider>{ui}</ToastProvider>
@@ -133,7 +133,7 @@ describe('errors and token', () => {
 describe('scope (HUN-118)', () => {
   it('sends no params without a scope (the header names the scope, see App.test.jsx)', async () => {
     const f = await renderView()
-    expect(f.calls.map((c) => c.url)).toEqual(['/api/warnings'])
+    expect(f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/reports'))).toEqual(['/api/warnings'])
   })
 
   it('sends workspace= and account= to warnings and plan, and refetches on change', async () => {
@@ -141,11 +141,12 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     const view = render(withToasts(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '' }} />))
     await screen.findByTestId('headline')
-    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/warnings?workspace=Acme%20Co'])
+    const warningCalls = () => f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/reports')).sort()
+    expect(warningCalls()).toEqual(['/api/warnings?workspace=Acme%20Co'])
     f.calls.length = 0
     view.rerender(withToasts(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '2' }} />))
-    await waitFor(() => expect(f.calls.length).toBe(1))
-    expect(f.calls.map((c) => c.url).sort()).toEqual(['/api/warnings?workspace=Acme%20Co&account=2'])
+    await waitFor(() => expect(warningCalls().length).toBe(1))
+    expect(warningCalls()).toEqual(['/api/warnings?workspace=Acme%20Co&account=2'])
   })
 })
 
@@ -285,5 +286,205 @@ describe('HUN-217: the "new" cause chip', () => {
     const { resolve } = await import('node:path')
     const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
     expect(css).toMatch(/\n\.chip\.chip-new\s*\{[^}]*background: var\(--color-amber-soft\);[^}]*color: var\(--color-amber\)/)
+  })
+})
+
+// HUN-222: Saved reports (FR-078 UI)
+const EMPTY = 'No saved reports yet. Run /mcp__easy-personal__investigate in Claude Code.'
+const LINES = 'Before and now, one line per rule'
+const flat = (el) => el.textContent.replace(/\s+/g, ' ')
+const renderReports = async (overrides = {}) => {
+  const f = await renderView({ reports: reportList, ...overrides })
+  const section = await screen.findByRole('region', { name: 'Saved reports' })
+  await within(section).findAllByRole('button')
+  return { f, section }
+}
+const reportCalls = (f) => f.calls.map((c) => c.url).filter((u) => /^\/api\/reports\/\d+$/.test(u))
+const openFirst = async (section) => {
+  fireEvent.click(within(section).getAllByRole('button')[0])
+  await within(section).findByRole('list', { name: LINES })
+  return within(within(section).getByRole('list', { name: LINES })).getAllByRole('listitem')
+}
+
+describe('saved reports list (HUN-222 AC1)', () => {
+  it('lists both reports newest first with date, scope, fired count and the summary first line', async () => {
+    const { f, section } = await renderReports()
+    expect(f.calls.map((c) => c.url)).toContain('/api/reports')
+    const rows = within(section).getAllByRole('button')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent(new Date('2026-11-05T01:40:00Z').toLocaleString())
+    expect(rows[0]).toHaveTextContent('all workspaces')
+    expect(rows[0]).toHaveTextContent('1 rule fired')
+    expect(rows[0]).toHaveTextContent('Token use rose 218% from more sessions, not bigger ones.')
+    expect(rows[1]).toHaveTextContent(new Date('2026-10-29T08:00:00Z').toLocaleString())
+    expect(rows[1]).toHaveTextContent('Acme Co')
+    expect(rows[1]).toHaveTextContent('0 rules fired')
+    expect(rows[0]).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('names the account when an account was saved', async () => {
+    const list = { reports: [{ ...reportList.reports[0], workspace: 'Acme Co', account: '2' }, { ...reportList.reports[1], workspace: null, account: '3' }] }
+    const { section } = await renderReports({ reports: list })
+    const rows = within(section).getAllByRole('button')
+    expect(rows[0]).toHaveTextContent('Acme Co / account 2')
+    expect(rows[1]).toHaveTextContent('account 3')
+  })
+
+  it('AC5: an empty list shows the exact empty text and no rows', async () => {
+    const f = fakeFetch({ reports: { reports: [] } })
+    vi.stubGlobal('fetch', f)
+    render(withToasts(<WarningsPlanView />))
+    const section = await screen.findByRole('region', { name: 'Saved reports' })
+    expect(await within(section).findByText(/No saved reports yet/)).toHaveTextContent(EMPTY)
+    expect(within(section).queryAllByRole('button')).toHaveLength(0)
+  })
+
+  it('AC6: sits under the warnings list; the warnings and the investigate hint are unchanged', async () => {
+    const { section } = await renderReports()
+    const card = screen.getAllByRole('article')[0]
+    expect(card.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('headline')).toHaveTextContent('2 things to fix, 1 to watch')
+    expect(screen.getByTestId('investigate-hint')).toHaveTextContent(`Ask Claude to investigate: run ${COMMAND} in Claude Code.`)
+  })
+
+  it('AC6: the section has no control that writes, closed or open', async () => {
+    const { section } = await renderReports()
+    await openFirst(section)
+    for (const b of within(section).getAllByRole('button')) expect(b).toHaveAttribute('aria-expanded')
+    expect(section.querySelector('input, textarea, select, form, a[href]')).toBeNull()
+  })
+
+  it('a list error says so in the section and leaves the warnings list shown', async () => {
+    const f = fakeFetch()
+    const failing = async (url, init) => (String(url).startsWith('/api/reports') ? { ok: false, status: 500, json: async () => ({}) } : f(url, init))
+    vi.stubGlobal('fetch', failing)
+    render(withToasts(<WarningsPlanView />))
+    await screen.findByTestId('headline')
+    const section = await screen.findByRole('region', { name: 'Saved reports' })
+    expect(await within(section).findByText(/Could not load saved reports/)).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(3)
+  })
+})
+
+describe('open a saved report (HUN-222 AC2, AC3, AC4, AC7)', () => {
+  it('AC2: rows are real buttons (Enter and Space work); click loads the report; opening another closes the first', async () => {
+    const { f, section } = await renderReports()
+    const [first, second] = within(section).getAllByRole('button')
+    expect(first.tagName).toBe('BUTTON')
+    expect(first).toHaveAttribute('type', 'button')
+    fireEvent.click(first)
+    expect(first).toHaveAttribute('aria-expanded', 'true')
+    await within(section).findByText('Start a new session per task.')
+    expect(reportCalls(f)).toEqual(['/api/reports/2'])
+    fireEvent.click(second)
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(second).toHaveAttribute('aria-expanded', 'true')
+    expect(within(section).queryByText('Start a new session per task.')).toBeNull()
+    expect(reportCalls(f)).toEqual(['/api/reports/2', '/api/reports/1'])
+    expect(section.querySelectorAll('[aria-expanded="true"]')).toHaveLength(1)
+  })
+
+  it('a second click on the open row closes it', async () => {
+    const { section } = await renderReports()
+    const [first] = within(section).getAllByRole('button')
+    await openFirst(section)
+    fireEvent.click(first)
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(within(section).queryByRole('list', { name: LINES })).toBeNull()
+  })
+
+  it('AC3: shows summary, fixes with tool and number, and one before / now line per rule', async () => {
+    const { section } = await renderReports()
+    const lines = await openFirst(section)
+    expect(section).toHaveTextContent('Use <b>smaller</b> sessions.')
+    const fixes = [...section.querySelectorAll('ol.report-fixes > li')]
+    expect(fixes).toHaveLength(2)
+    expect(fixes[0]).toHaveTextContent('Start a new session per task.')
+    expect(fixes[0]).toHaveTextContent('session_outliers: 645,301')
+    expect(fixes[1].textContent).toBe('Compact earlier.')
+    expect(section).toHaveTextContent('now = last 7 days')
+    expect(lines).toHaveLength(5)
+    const line = (title) => lines.find((li) => li.textContent.includes(title))
+    expect(flat(line('Token use jumped'))).toContain('then 218% fired → now 40% clear')
+    expect(flat(line('Sessions grow too large'))).toContain('then 212,345 tokens fired → now 98,000 tokens clear')
+    expect(flat(line('Low cache reuse'))).toContain('then 96.9% clear → now 97.1% clear')
+    const jump = line('Token use jumped')
+    expect(within(jump).getByText('→')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(jump).getByText('fired')).toHaveClass('chip-warning')
+    expect(within(jump).getByText('clear')).toHaveClass('chip-ok')
+  })
+
+  it('AC4: an abstaining rule shows its reason, a rule not measured now says so; never a blank or 0', async () => {
+    const { section } = await renderReports()
+    const lines = await openFirst(section)
+    const line = (title) => lines.find((li) => li.textContent.includes(title))
+    expect(flat(line('Code index is out of date'))).toContain('then abstained: easy-context is down → now abstained: easy-context is down')
+    const errors = line('Many tool calls fail')
+    expect(flat(errors)).toContain('then 2% clear → now not measured now')
+    for (const li of lines) expect(li.textContent).not.toMatch(/NaN|undefined|null/)
+  })
+
+  it('a count rule shows its count, and a measured 0 shows 0, not blank', async () => {
+    const rules = [
+      { rule_id: 'context_index_stale', title: 'Code index is out of date', before: { state: 'fired', measured: 2, threshold: 0, fired: true }, now: { state: 'clear', measured: 0, threshold: 0, fired: false } },
+      { rule_id: 'tool_errors_high', title: 'Many tool calls fail', before: { state: 'clear', measured: 0, threshold: 0.1, fired: false }, now: { state: 'clear', measured: 0, threshold: 0.1, fired: false } },
+    ]
+    const { section } = await renderReports({ report: { ...reportOne, rules } })
+    const lines = await openFirst(section)
+    expect(flat(lines[0])).toContain('then 2 stale fired → now 0 stale clear')
+    expect(flat(lines[1])).toContain('then 0% clear → now 0% clear')
+  })
+
+  it('shows no fixes block when the report has none', async () => {
+    const { section } = await renderReports({ report: { ...reportOne, fixes: [] } })
+    await openFirst(section)
+    expect(section.querySelector('ol.report-fixes')).toBeNull()
+    expect(within(section).queryByText('Fixes')).toBeNull()
+  })
+
+  it('edge: a report gone (404) shows "Report not found" inline and the list stays', async () => {
+    const { section } = await renderReports({ report: 404 })
+    fireEvent.click(within(section).getAllByRole('button')[0])
+    expect(await within(section).findByText('Report not found')).toBeInTheDocument()
+    expect(within(section).getAllByRole('button')).toHaveLength(2)
+  })
+
+  it('edge: another load error says it could not load the report', async () => {
+    const f = fakeFetch({ reports: reportList })
+    const failing = async (url, init) => (/^\/api\/reports\/\d+$/.test(String(url)) ? { ok: false, status: 500, json: async () => ({}) } : f(url, init))
+    vi.stubGlobal('fetch', failing)
+    render(withToasts(<WarningsPlanView />))
+    const section = await screen.findByRole('region', { name: 'Saved reports' })
+    fireEvent.click((await within(section).findAllByRole('button'))[0])
+    expect(await within(section).findByText(/Could not load the report/)).toBeInTheDocument()
+  })
+
+  it('AC7: report text renders as text; a <b> in the summary shows literally', async () => {
+    const { section } = await renderReports({ report: { ...reportOne, summary: 'Use <b>bold</b> <img src=x onerror=alert(1)>' } })
+    await openFirst(section)
+    expect(section).toHaveTextContent('Use <b>bold</b> <img src=x onerror=alert(1)>')
+    expect(section.querySelector('b, img')).toBeNull()
+  })
+
+  it('edge: a very long first line sits in the clipped row line, and is shown in full when open', async () => {
+    const long = 'Very long first line '.repeat(30).trim()
+    const list = { reports: [{ ...reportList.reports[0], summary_first_line: long }] }
+    const { section } = await renderReports({ reports: list, report: { ...reportOne, summary: long } })
+    const row = within(section).getAllByRole('button')[0]
+    expect(row.querySelector('.report-line')).toHaveTextContent(long)
+    await openFirst(section)
+    expect(section.querySelector('.report-summary')).toHaveTextContent(long)
+  })
+})
+
+describe('saved reports style (HUN-222)', () => {
+  it('uses tokens only: no colour literal in the new rules; the row line clips with an ellipsis', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    const rules = css.split('\n').filter((l) => /\.report-|\.ba-/.test(l))
+    expect(rules.length).toBeGreaterThan(3)
+    for (const l of rules) expect(l).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i)
+    expect(css).toMatch(/\.report-line[^}]*text-overflow: ellipsis/)
   })
 })

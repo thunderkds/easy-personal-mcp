@@ -22,3 +22,7 @@ export async function sendJson(method, path, body) {
   if (!response.ok) throw new Error(data.error || `${path} failed with status ${response.status}`)
   return data
 }
+
+/** Saved investigate reports (FR-078): the list, newest first, and one report with its before / now per rule. */
+export const getReports = () => getJson('/api/reports')
+export const getReport = (id) => getJson(`/api/reports/${id}`)

@@ -373,6 +373,34 @@ export const firstRun = {
   ],
 }
 
+// HUN-222: shaped like HUN-221's GET /api/reports and GET /api/reports/{id}.
+export const reportList = {
+  reports: [
+    { id: 2, saved_utc: '2026-11-05T01:40:00Z', workspace: null, account: null, fired_count: 1, summary_first_line: 'Token use rose 218% from more sessions, not bigger ones.' },
+    { id: 1, saved_utc: '2026-10-29T08:00:00Z', workspace: 'Acme Co', account: null, fired_count: 0, summary_first_line: 'All clear for Acme.' },
+  ],
+}
+const fired = (measured, threshold) => ({ state: 'fired', measured, threshold, fired: true })
+const clear = (measured, threshold) => ({ state: 'clear', measured, threshold, fired: false })
+export const reportOne = {
+  id: 2,
+  saved_utc: '2026-11-05T01:40:00Z',
+  server_version: '0.4.0',
+  workspace: null,
+  account: null,
+  summary: 'Token use rose 218% from more sessions, not bigger ones.\nUse <b>smaller</b> sessions.',
+  fixes: [{ text: 'Start a new session per task.', tool: 'session_outliers', number: 645301 }, { text: 'Compact earlier.' }],
+  as_of_utc: '2026-11-05T01:40:00Z',
+  now_as_of_utc: '2026-11-05T09:00:00Z',
+  rules: [
+    { rule_id: 'cache_hit_low', title: 'Low cache reuse', before: clear(0.969, 0.5), now: clear(0.971, 0.5) },
+    { rule_id: 'context_index_stale', title: 'Code index is out of date', before: { state: 'abstained', reason: 'easy-context is down' }, now: { state: 'abstained', reason: 'easy-context is down' } },
+    { rule_id: 'session_huge_no_compact', title: 'Sessions grow too large', before: fired(212345, 150000), now: clear(98000, 150000) },
+    { rule_id: 'tokens_jump', title: 'Token use jumped', before: fired(2.18, 0.5), now: clear(0.4, 0.5) },
+    { rule_id: 'tool_errors_high', title: 'Many tool calls fail', before: clear(0.02, 0.1), now: { state: 'not_measured', reason: 'not measured now' } },
+  ],
+}
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -387,7 +415,12 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/usage/outliers') body = overrides.outliers ?? outliers
     else if (path === '/api/usage/sessions') body = overrides.sessions ?? sessions
     else if (path === '/api/warnings') body = overrides.warnings ?? warnings
-    else if (path === '/api/plan') body = overrides.plan ?? plan
+    else if (path === '/api/reports') body = overrides.reports ?? { reports: [] }
+    else if (path.startsWith('/api/reports/')) {
+      const found = overrides.report ?? reportOne
+      if (found === 404) return { ok: false, status: 404, json: async () => ({ error: 'no such report' }) }
+      body = found
+    } else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
     else if (path === '/api/first-run') body = overrides.firstRun ?? firstRun
     else if (path === '/api/accounts' && !init.method)

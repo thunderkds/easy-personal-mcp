@@ -61,12 +61,17 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-05T03:05Z, before any implementation commit; worktree branch at `26e5f6c`, web built from it):
+Store copy (`sqlite3 ~/.easy-personal/store.sqlite ".backup <copy>"`, `EASY_PERSONAL_HOME=<copy>`) holds 1 report, saved over MCP stdio:
+`tools/call save_report` -> `{"id": 1, "saved_utc": "2026-11-05T03:04:33Z"}`.
+`BROWSER=true easy-personal dashboard` -> `dashboard: http://127.0.0.1:60589/#<token>`. Headless Chrome (CDP), 1280x720, Warnings & plan opened, 2026-11-05T03:05:55Z:
+`nav: clicked / hscroll: 1265 vs 1265 / has Saved reports: false`; screenshot `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/before-1280.png` shows the page ending at "Not checked (1)" and the investigate hint, no Saved reports section, although the store holds 1 report.
+Vitest baseline, 2026-11-05T03:05:17Z: `npx vitest run src/WarningsPlanView.test.jsx` -> `Test Files 1 passed (1) / Tests 27 passed (27)`.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-05T03:11Z to 03:13Z, same store copy and dashboard): headless Chrome, Warnings & plan, `has Saved reports: true`, `hscroll: 1265 vs 1265` at 1280x720 and `hscroll: 375 vs 375` at 375x812 (no page-wide horizontal scroll). Screenshots (scratchpad): `after-closed-1280.png`, `after-open-1280.png`, `after-closed-375.png`, `after-open-375.png`, all under `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/`. The open report shows summary, 2 fixes (`session_outliers: 645,301`), and 7 before / now lines (e.g. `Token use jumped 217.2% fired -> 222.6% fired`, abstained rules show their reason).
+Vitest, 2026-11-05T03:13:54Z: `npx vitest run src/WarningsPlanView.test.jsx` -> 44 passed (44); `npx vitest run` -> Test Files 21 passed, Tests 617 passed; `npm run build` -> built.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: the owner can now read each saved investigate report on the Warnings & plan page and see, rule by rule, how the saved number compares with the same rule measured now.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

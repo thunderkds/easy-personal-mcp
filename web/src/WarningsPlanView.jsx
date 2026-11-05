@@ -4,6 +4,7 @@ import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 import Loading from './Loading.jsx'
 import { useNotify } from './Toast.jsx'
+import SavedReports from './SavedReports.jsx'
 
 const load = (scope) => getJson(scopedPath('/api/warnings', scope))
 
@@ -168,6 +169,7 @@ export default function WarningsPlanView({ scope = NO_SCOPE, onOpenAgents }) {
           <InvestigateHint />
         </>
       )}
+      <SavedReports command={INVESTIGATE} />
     </main>
   )
 }
