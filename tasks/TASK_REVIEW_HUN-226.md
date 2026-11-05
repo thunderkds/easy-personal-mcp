@@ -61,12 +61,43 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-05, before any implementation commit; `main` at 18ae74b):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ cd web && npx vitest run
+      Tests  630 passed (630)
+2026-11-05T05:21:16Z
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Real run: web build of the unchanged sources, dashboard from this worktree's `src` on a fresh copy of the owner's store (`$SCRATCH/h226home/store.sqlite`), Kit page, headless Chrome 1280x720 (`h226-shoot.mjs`, 2026-11-05T07:40:59Z):
+
+```
+Context column header: true
+Code index in text: true
+"code index is out of date" in text: false
+hscroll: 1265 vs 1265
+```
+
+Screenshot: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h226-before-1280.png`. It shows the footer line "Not set up here: Code index, Verifier" on the project cards and a "Context" column ("no data") in the details table. The real server still sends `context: {"status": "no data"}` (HUN-225 is not merged), so the part is shown as a "no data" Code index.
+
+**AFTER** (implementer, 2026-11-05):
+
+```
+$ cd web && npx vitest run
+ Test Files  21 passed (21)
+      Tests  640 passed (640)      # 630 before + 10 new
+```
+
+Real run: `npm run build`, then the dashboard from this worktree on the same store copy. HUN-225 is not merged, so the real server still sends `context: {"status": "no data"}`. The run script (`h226-after-main.py`, outside the repo) wraps `kit.kit_summary` to send HUN-225's shape `context: {"status": "not in use"}` for every project. This simulates the server; the Supervisor re-shoots after HUN-225 merges.
+
+```
+1280x720 (2026-11-05T07:43:22Z)  Context column header: false | Code index in text: false | "code index is out of date" in text: false | hscroll: 1265 vs 1265
+375x812  (2026-11-05T07:43:30Z)  Context column header: false | Code index in text: false | "code index is out of date" in text: false | hscroll: 375 vs 375
+```
+
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h226-after-1280.png`, `.../h226-after-375.png`. Cards read "Not set up here: Verifier" (no Code index); the details table has Kernel, Verifier, Git columns only; the intro reads "How the agent kit and verifier are doing in each project."
+
+**DELTA**: a Kit page for a machine where easy-context is not in use no longer shows a Code index part, column, "not set up" entry or stale reason.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
