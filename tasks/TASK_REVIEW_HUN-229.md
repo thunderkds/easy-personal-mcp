@@ -61,8 +61,24 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (main code, worktree `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/worktrees/agent-a0483c7617b4d9479`, no implementation commit yet; captured 2026-11-05 UTC):
+
+Verification command part 1 on unchanged code (`cd web && npx vitest run src/WarningsPlanView.test.jsx src/Loading.test.jsx`, started 2026-11-05T11:13:36Z):
+```
+ Test Files  2 passed (2)
+      Tests  70 passed (70)
+```
+Real run (dashboard from the worktree source on a store copy; `GET /api/reports/1` held with headless Chrome CDP `Fetch` while the report row was clicked, 2026-11-05T11:17:00Z):
+```
+nav: clicked
+row: clicked
+held http://127.0.0.1:49309/api/reports/1
+pills: []                                   <- no floating loading indicator
+old line: ["Loading report"]                <- the plain text line `p.report-wait` pushes under the row
+hscroll: 1265 vs 1265
+saved h229-before-1280-pending.png 2026-11-05T11:17:00.201Z
+```
+Screenshot: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h229-before-1280-pending.png` (final take, 2026-11-05T11:17:31Z; shows the plain "Loading report" text line under the row, no floating pill. An earlier take at 11:16:29Z, taken while the real `/api/warnings` was still slow, also showed a `Loading warnings` pill next to the text line.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
