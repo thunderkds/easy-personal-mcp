@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/WarningsPlanView.test.jsx` describe "saved report as warning cards (HUN-224)": 15 tests (order, card `outerHTML` equal to the list card, Now line states, priority sort, closed Other rules, Nothing fired then, old shape without steps, unique ids); red first (15 failing). |
+| Verification command run | ☑ pass | Supervisor re-run 2026-11-05: `npx vitest run` → one run `1 failed | 629 passed` (test name not captured; run overlapped a `git worktree remove` and a pytest run), then 3 consecutive runs `Tests 630 passed (630)`; treated as a flaky test under load, not a defect of this diff. `npm run build` → `✓ built`. |
+| Negative cases hold | ☑ pass | Abstained / not-measured now → reason text, never `0`; no fired rule → "Nothing fired then"; old-shape `before` without `title`/`steps` → card with top-level title and `fix` line. |
+| verify | ☑ pass | Combined real run 2026-11-05T04:20Z: scratch worktree of HUN-224 + HUN-223's `reports.py`, fresh `.backup` copy of the owner store (report 1, old shape), real `easy-personal dashboard`: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/integ-open-1280.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/integ-open-375.png` (hscroll 1265 = 1265, 375 = 375). Opened report: Summary, 4 fixes with `tool · number` chips, "1 to watch then" card identical to the list card above (rank 1, Token use jumped, Watch chip, summary, Why it matters, Why this happened ×3, step), `Now: 245.4% · still firing`, "Other rules (6)" closed — pass. |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor `code-review` of 5 web files. P0 0, P1 0, P2 0. P3 1: `SavedReports.jsx` ↔ `WarningsPlanView.jsx` import cycle (safe: render-time use only; moving `Card` to its own file would remove it). Card gained optional `idPrefix`/`children` (defaults keep the list identical; unique-id test). Startup reads: Permanent-Rule set complete (PROJECT_SPEC full, `agents/frontend.md` full no limit); some supporting files read in part, stated by the agent. |
+| Full smoke suite still green (no regression) | ☑ pass | `Tests 630 passed (630)` ×3 (617 before + 13 net new); no server file in this diff. |
+| **Companion score (easy-verifier)** | ☑ N/A | Advisory; web-only diff. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | BEFORE `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h224-before-1280.png` (table layout); AFTER `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/integ-open-1280.png` (cards). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Reuses `Card` (imported, not copied); Other rules reuses `details.not-checked`; new `.card-now` rule uses tokens only. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375×812 `integ-open-375.png`: card and chips wrap; no page-wide horizontal scroll (375 = 375). |
 
 ---
 
