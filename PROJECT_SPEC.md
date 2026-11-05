@@ -279,8 +279,8 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
 | HUN-221 | Saved investigate reports: store m0010, MCP save_report + rule snapshot, prompt step, /api/reports (FR-076, FR-077, FR-078 API) | Done (merged 2026-11-05) | Backend-Implementer | C2 | Medium | P1 |
 | HUN-222 | Warnings & plan page: Saved reports section with before / now per rule (FR-078 UI; after HUN-221) | Done (merged 2026-11-05) | Frontend-Implementer | C2 | Low | P1 |
-| HUN-223 | Saved report snapshot keeps the full warning hit; get_report fills old snapshots from rule config (FR-079 server) | Todo | Backend-Implementer | C1 | Low | P1 |
-| HUN-224 | Opened saved report uses Warnings & plan cards + Now line; other rules in a closed list (FR-079 UI) | Todo | Frontend-Implementer | C2 | Low | P1 |
+| HUN-223 | Saved report snapshot keeps the full warning hit; get_report fills old snapshots from rule config (FR-079 server) | Done (merged 2026-11-05) | Backend-Implementer | C1 | Low | P1 |
+| HUN-224 | Opened saved report uses Warnings & plan cards + Now line; other rules in a closed list (FR-079 UI) | Done (merged 2026-11-05) | Frontend-Implementer | C2 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
