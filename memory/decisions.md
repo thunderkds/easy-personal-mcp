@@ -46,6 +46,11 @@
 **Why**: Owner 2026-11-05 "log this report to the dashboard … trace the improvement"; chose report + numbers, before / now, narrow NFR-002 exception, Warnings page, Option A. Option C (store warnings output verbatim) loses the "now" number for a rule that stopped firing.
 **Files**: `src/easy_personal/core/reports.py`, `src/easy_personal/core/rules.py`, `src/easy_personal/core/migrations/m0010_investigate_reports.py`, `src/easy_personal/surfaces/mcp.py`, `src/easy_personal/surfaces/api.py`, `web/src/WarningsPlanView.jsx`, `PRD.md`, `docs/ddr/0003-store-owner-saved-investigate-reports.md`
 
+### 2026-11-05 — easy-context out of the family: hide when not in use (FR-080)
+**Decision**: easy-context is "in use" when the scope's stored events have an `mcp__easy-context__*` tool call in the last 7 days. When it is not in use, `context_index_stale` is left out of warnings, plan and `checked` (not listed as abstained); saved reports drop an abstained-then rule and show `not_in_use` for a measured-then one; the Kit page hides the Code index part. Nothing is deleted; a new call brings it all back. HUN-225 + HUN-226.
+**Why**: Owner 2026-11-05 "I removed the context out of family", chose "Hide when not in use" over removing support or a per-rule config switch. Signal from stored metadata, so no Claude config file is read (accounts.py reads only 3 `oauthAccount` keys).
+**Files**: `src/easy_personal/sources/context.py`, `src/easy_personal/core/rules.py`, `src/easy_personal/core/reports.py`, `src/easy_personal/core/kit.py`, `web/src/KitView.jsx`
+
 ## Infrastructure
 
 ### 2026-10-21 — Board scoped to Linear project easy-personal-mcp (P-HUN-3)
