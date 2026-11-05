@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Rail from './Rail.jsx'
+import UsageView from './UsageView.jsx'
 import { NO_SCOPE } from './Scope.jsx'
 import { accountsStatus, breakdowns, emptySummary, fakeFetch, statusLine, summary, warnings } from './test/fixtures.js'
 
@@ -282,5 +283,34 @@ describe('cache reuse follows the app-wide period (HUN-196, FR-064)', () => {
     render(<Rail scope={NO_SCOPE} />)
     await waitFor(() => expect(within(card()).getByText('no data')).toBeInTheDocument())
     expect(screen.queryByText(/Lowest/)).toBeNull()
+  })
+})
+
+describe('Rail and Usage ask the same question (HUN-228, NFR-013)', () => {
+  const pathOf = (c) => c.url.split('?')[0]
+  const urlsOf = (f, path, by) =>
+    f.calls.filter((c) => pathOf(c) === path && !c.url.includes('until=') && (by === undefined || c.url.includes(`by=${by}`))).map((c) => c.url)
+
+  it('AC5: the Usage summary and model breakdown URLs equal the rail ones; since is a whole minute', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-05T10:20:33.456Z'))
+    const f = stub()
+    render(
+      <>
+        <UsageView scope={NO_SCOPE} period="7" />
+        <Rail scope={NO_SCOPE} period="7" />
+      </>,
+    )
+    await screen.findByRole('heading', { name: 'Totals' })
+    await screen.findByRole('img', { name: 'Cache reuse 91.8%, last 7 days' })
+    vi.useRealTimers()
+    const summaryUrls = urlsOf(f, '/api/usage/summary')
+    expect(summaryUrls).toHaveLength(2) // one from Usage, one from the rail
+    expect(summaryUrls[0]).toBe(summaryUrls[1])
+    expect(summaryUrls[0]).toBe('/api/usage/summary?since=2026-10-29T10%3A20%3A00.000Z')
+    const modelUrls = urlsOf(f, '/api/usage/breakdown', 'model')
+    expect(modelUrls).toHaveLength(2)
+    expect(modelUrls[0]).toBe(modelUrls[1])
+    expect(modelUrls[0]).toMatch(/since=[^&]+T\d\d%3A\d\d%3A00\.000Z$/)
   })
 })

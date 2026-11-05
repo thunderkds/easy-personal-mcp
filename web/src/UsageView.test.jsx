@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { useState } from 'react'
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import UsageView from './UsageView.jsx'
+import UsageView, { sinceOf } from './UsageView.jsx'
 import { fakeFetch as baseFakeFetch, usageWorkspaces, usageAccounts, emptySummary, emptyBreakdown, emptyOutliers, emptySessions, breakdowns, summary, previousDay } from './test/fixtures.js'
 
 const fakeFetch = (overrides = {}) =>
@@ -220,7 +220,10 @@ describe('empty and error states', () => {
   it('shows an error when the API refuses', async () => {
     vi.stubGlobal('fetch', fakeFetch({ status: 403 }))
     render(<UsageView />)
-    expect(await screen.findByRole('alert')).toHaveTextContent(/403/)
+    // HUN-228: every part shows its own error line (there is no single page-wide one)
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts.length).toBeGreaterThan(1)
+    for (const alert of alerts) expect(alert).toHaveTextContent(/403/)
   })
 })
 
@@ -341,11 +344,12 @@ describe('widgets (HUN-83)', () => {
     expect(params.get('workspace')).toBe('Acme')
     expect(params.get('account')).toBe('1')
     const week = 7 * 86400000
-    expect(Math.abs(Date.parse(params.get('since')) - (Date.now() - 2 * week))).toBeLessThan(5000)
-    expect(Math.abs(Date.parse(params.get('until')) - (Date.now() - week))).toBeLessThan(5000)
+    // HUN-228: `since` is rounded down to the whole minute, so it is up to 60 s older than now - n days
+    expect(Math.abs(Date.parse(params.get('since')) - (Date.now() - 2 * week))).toBeLessThan(65000)
+    expect(Math.abs(Date.parse(params.get('until')) - (Date.now() - week))).toBeLessThan(65000)
     // the current period's own requests keep their `since` equal to the previous `until`
     const cur = usageCalls(f).filter((c) => !c.url.includes('until=')).at(-1)
-    expect(Math.abs(Date.parse(new URL(cur.url, 'http://x').searchParams.get('since')) - Date.parse(params.get('until')))).toBeLessThan(5000)
+    expect(new URL(cur.url, 'http://x').searchParams.get('since')).toBe(params.get('until'))
   })
 
   it('a failing previous-period request still renders the view with no previous data', async () => {
@@ -711,5 +715,151 @@ describe('top 10 lists (HUN-190, FR-058)', () => {
     expect(btn).toHaveClass('details-toggle')
     btn.focus()
     expect(btn).toHaveFocus()
+  })
+})
+
+describe('each part renders when its data arrives (HUN-228, NFR-013)', () => {
+  /** fakeFetch where a request whose URL contains one of `held` stays pending until `release(part)`. */
+  function holdFetch(held, overrides = {}, fail = []) {
+    const base = fakeFetch(overrides)
+    const waiting = []
+    const fn = (url, init) => {
+      const u = String(url)
+      if (fail.some((part) => u.includes(part))) {
+        base.calls.push({ url: u, init })
+        return Promise.resolve({ ok: false, status: 500, json: async () => ({}) })
+      }
+      if (held.some((part) => u.includes(part))) return new Promise((resolve) => waiting.push({ u, go: () => resolve(base(u, init)) }))
+      return base(u, init)
+    }
+    fn.calls = base.calls
+    fn.release = (part) => {
+      held.splice(held.indexOf(part), 1)
+      waiting.filter((w) => w.u.includes(part)).forEach((w) => w.go())
+    }
+    return fn
+  }
+  const region = (name) => screen.getByRole('region', { name })
+
+  it('AC1: with sessions pending, the cards are on screen and the Timeline shows its own loading line', async () => {
+    const f = holdFetch(['/api/usage/sessions'])
+    vi.stubGlobal('fetch', f)
+    render(<WithPeriod scope={NONE} />)
+    await screen.findByRole('heading', { name: 'Totals' })
+    for (const name of ['Total tokens', 'Messages', 'API-equivalent cost', 'Cache hit ratio', 'By day', 'By model', 'By project', 'By tool', 'Outlier sessions', 'Totals']) {
+      expect(region(name)).toBeInTheDocument()
+    }
+    expect(screen.getByRole('status')).toHaveTextContent('Loading sessions')
+    expect(screen.queryByRole('heading', { name: /Session timeline \(/ })).toBeNull()
+    f.release('/api/usage/sessions')
+    await screen.findByRole('heading', { name: /Session timeline \(/ })
+    expect(screen.queryByText('Loading sessions')).toBeNull()
+  })
+
+  it('shows each part as its own answer arrives, in any order', async () => {
+    const f = holdFetch(['/api/usage/summary', 'by=day', 'by=tool'])
+    vi.stubGlobal('fetch', f)
+    render(<WithPeriod scope={NONE} />)
+    await screen.findByRole('region', { name: 'By model' })
+    expect(screen.getByText('Loading key figures')).toBeInTheDocument()
+    expect(screen.getByText('Loading totals')).toBeInTheDocument()
+    expect(screen.getByText('Loading usage by day')).toBeInTheDocument()
+    expect(screen.getByText('Loading usage by tool')).toBeInTheDocument()
+    f.release('by=tool')
+    await screen.findByRole('region', { name: 'By tool' })
+    expect(screen.getByText('Loading key figures')).toBeInTheDocument()
+    f.release('/api/usage/summary') // key figures and Totals also need the day read
+    await screen.findByRole('heading', { name: 'By tool' })
+    expect(screen.getByText('Loading totals')).toBeInTheDocument()
+    f.release('by=day')
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(screen.queryByText(/^Loading /)).toBeNull()
+    expect(region('Total tokens')).toBeInTheDocument()
+  })
+
+  it('shows the page-wide pill only while nothing has arrived', async () => {
+    const f = holdFetch(['/api/usage/'])
+    vi.stubGlobal('fetch', f)
+    render(<WithPeriod scope={NONE} />)
+    expect(screen.getByText('Loading usage')).toBeInTheDocument()
+    f.release('/api/usage/')
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(screen.queryByText('Loading usage')).toBeNull()
+  })
+
+  it('AC2: with outliers failing, every other part renders and Outliers shows its own error line', async () => {
+    vi.stubGlobal('fetch', holdFetch([], {}, ['/api/usage/outliers']))
+    render(<WithPeriod scope={NONE} />)
+    await screen.findByRole('heading', { name: /Session timeline \(/ })
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(/Could not load outlier sessions: .*500/)
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    for (const name of ['Total tokens', 'By day', 'By model', 'By project', 'By tool', 'Totals']) expect(region(name)).toBeInTheDocument()
+  })
+
+  it('AC3: previous-period badges say loading until the previous request returns, then fill in', async () => {
+    const f = holdFetch(['until='])
+    vi.stubGlobal('fetch', f)
+    render(<WithPeriod scope={NONE} />)
+    await screen.findByRole('heading', { name: 'Totals' })
+    for (const name of ['Total tokens', 'Messages', 'API-equivalent cost']) {
+      expect(within(region(name)).getByText('loading previous period')).toBeInTheDocument()
+      expect(within(region(name)).queryByText('no previous data')).toBeNull()
+    }
+    f.release('until=')
+    expect(await within(region('Total tokens')).findByText('↑ 100.0%')).toBeInTheDocument()
+    expect(screen.queryByText('loading previous period')).toBeNull()
+  })
+
+  it('AC3: a failed previous request says no previous data, only after it ended', async () => {
+    vi.stubGlobal('fetch', holdFetch([], {}, ['until=']))
+    render(<WithPeriod scope={NONE} />)
+    await screen.findByRole('heading', { name: 'Totals' })
+    await waitFor(() => expect(within(region('Total tokens')).getByText('no previous data')).toBeInTheDocument())
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('AC4: a late answer of the old period never appears after the period changed', async () => {
+    const base = fakeFetch()
+    let releaseOld
+    vi.stubGlobal('fetch', (url, init) => {
+      if (String(url).startsWith('/api/usage/summary') && String(url).includes('since=')) {
+        return new Promise((resolve) => {
+          releaseOld = () => resolve({ ok: true, status: 200, json: async () => ({ ...summary, messages: 4242, input_tokens: 4242 }) })
+        })
+      }
+      return base(url, init)
+    })
+    render(<WithPeriod scope={NONE} />)
+    await screen.findByText('Loading key figures') // the 7-day summary is pending
+    fireEvent.click(screen.getByRole('button', { name: 'All time' }))
+    await screen.findByRole('heading', { name: 'Totals' }) // All time answers, no `since`
+    releaseOld() // the Last 7 days answer arrives late
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(document.body.textContent).not.toContain('4,242')
+    expect(within(region('Messages')).getByText('20')).toBeInTheDocument()
+  })
+
+  it('AC5: sinceOf rounds down to the whole minute (seconds 00, ms 000)', () => {
+    expect(sinceOf(7, Date.parse('2026-11-05T10:20:33.456Z'))).toBe('2026-10-29T10:20:00.000Z')
+    expect(sinceOf(30, Date.parse('2026-11-05T10:20:59.999Z'))).toBe('2026-10-06T10:20:00.000Z')
+    expect(sinceOf(1, Date.parse('2026-11-05T10:20:00.000Z'))).toBe('2026-11-04T10:20:00.000Z')
+  })
+
+  it('AC5: every request of one load uses the same since, whole minute', async () => {
+    const f = await renderView()
+    const sinces = new Set(usageCalls(f).filter((c) => !c.url.includes('until=')).map((c) => new URL(c.url, 'http://x').searchParams.get('since')))
+    expect(sinces.size).toBe(1)
+    expect([...sinces][0]).toMatch(/T\d\d:\d\d:00\.000Z$/)
+  })
+
+  it('All time: no since, no previous request', async () => {
+    const f = holdFetch([])
+    vi.stubGlobal('fetch', f)
+    render(<UsageView period="all" />)
+    await screen.findByRole('heading', { name: 'Totals' })
+    expect(usageCalls(f).length).toBe(7)
+    expect(usageCalls(f).some((c) => c.url.includes('since=') || c.url.includes('until='))).toBe(false)
+    expect(within(region('Total tokens')).getByText('no previous data')).toBeInTheDocument()
   })
 })
