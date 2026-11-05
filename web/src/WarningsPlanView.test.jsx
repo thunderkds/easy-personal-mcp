@@ -552,6 +552,31 @@ describe('saved report as warning cards (HUN-224)', () => {
     expect(open.textContent).not.toMatch(/NaN|undefined|null/)
   })
 
+  // HUN-226 AC4 (FR-080): the server sends now {state: 'not_in_use', reason: 'not in use'}
+  it('HUN-226 AC4: a Now of state not_in_use shows its reason "not in use", never a number or 0', async () => {
+    const rules = [ruleOf('tokens_jump', { now: { state: 'not_in_use', reason: 'not in use' } })]
+    const { section } = await renderReports({ report: withRules(rules) })
+    const open = await openFirst(section)
+    const now = flat(cardsIn(open).find((c) => c.dataset.rule === 'tokens_jump').querySelector('.card-now'))
+    expect(now).toBe('Now: not in use')
+    expect(now).not.toMatch(/\d|still firing|clear now|abstained/)
+  })
+
+  it('HUN-226 AC4: in the Other rules list a not_in_use side shows "not in use", never a number or 0', async () => {
+    const rules = [
+      ruleOf('top_project_share', { before: { state: 'clear', measured: 0.2, threshold: 0.8 }, now: { state: 'not_in_use', reason: 'not in use' } }),
+      ruleOf('context_index_stale', { before: { state: 'not_in_use', reason: 'not in use' }, now: { state: 'not_in_use', reason: 'not in use' } }),
+    ]
+    const { section } = await renderReports({ report: withRules(rules) })
+    const open = await openFirst(section)
+    const lines = [...open.querySelectorAll('li.ba-rule')]
+    expect(lines).toHaveLength(2)
+    expect(flat(lines[0].querySelector('.ba-values'))).toBe('then 20% clear → now not in use')
+    expect(flat(lines[1].querySelector('.ba-values'))).toBe('then not in use → now not in use')
+    expect(lines[1].querySelectorAll('.ba-num')).toHaveLength(0)
+    expect(open.textContent).not.toMatch(/NaN|undefined|null/)
+  })
+
   it('AC4: two fired rules sort by priority, 1 first, and rank by position', async () => {
     const { section } = await renderReports()
     const open = await openFirst(section)

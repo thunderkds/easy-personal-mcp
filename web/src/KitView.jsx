@@ -28,7 +28,9 @@ const PART_NAMES = {
 }
 const PART_ORDER = ['kernel', 'context', 'verifier', 'git']
 
-const hasData = (part) => Boolean(part) && part.status !== 'no data' && part.status !== 'abstained'
+/** A part the kit does not use here (FR-080): shown nowhere and never counted. */
+const notInUse = (part) => Boolean(part) && part.status === 'not in use'
+const hasData = (part) => Boolean(part) && part.status !== 'no data' && part.status !== 'abstained' && !notInUse(part)
 const pad = (n) => String(n).padStart(2, '0')
 /** 'YYYY-MM-DD' of a Date in local time. */
 const localDay = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
@@ -129,6 +131,7 @@ function Generic({ part }) {
 }
 
 function Part({ name, part }) {
+  if (notInUse(part)) return null
   if (!part || part.status === 'no data') return 'no data'
   if (part.status === 'abstained') return 'abstained'
   if (name === 'kernel') return <Kernel part={part} />
@@ -183,8 +186,9 @@ function ProjectCard({ project, active, health, now }) {
   const { git } = project.parts
   const stats = hasData(git) ? commitStats(git.commits_by_day ?? {}, now) : null
   const keys = [...PART_ORDER, ...Object.keys(project.parts).filter((k) => !PART_ORDER.includes(k)).sort()]
-  const present = keys.filter((k) => project.parts[k] && project.parts[k].status !== 'no data')
-  const missing = keys.filter((k) => !present.includes(k)).map((k) => PART_NAMES[k]?.short ?? k)
+  const shownKeys = keys.filter((k) => !notInUse(project.parts[k]))
+  const present = shownKeys.filter((k) => project.parts[k] && project.parts[k].status !== 'no data')
+  const missing = shownKeys.filter((k) => !present.includes(k)).map((k) => PART_NAMES[k]?.short ?? k)
   const label = stats && `Commits per day, last ${DAYS} days: ${fmt(stats.last30)} in total, peak ${fmt(stats.peak)} in one day`
   return (
     <li>
@@ -249,7 +253,7 @@ function DetailsTable({ projects }) {
   const [descending, setDescending] = useState(false)
   const known = new Set(COLUMNS.map(([k]) => k))
   const extra = [...new Set(projects.flatMap((p) => Object.keys(p.parts)))].filter((k) => !known.has(k)).sort()
-  const columns = [...COLUMNS, ...extra.map((k) => [k, k])]
+  const columns = [...COLUMNS, ...extra.map((k) => [k, k])].filter(([k]) => !projects.every((p) => notInUse(p.parts[k])))
   const sorted = [...projects].sort((a, b) => a.project.localeCompare(b.project) * (descending ? -1 : 1))
   return (
     <div className="table-wrap table-frame">
@@ -349,7 +353,11 @@ export default function KitView({ scope = NO_SCOPE }) {
             <h2 id="h-kit">
               Kit by project <span className="count">{`(${state.data.projects.length})`}</span>
             </h2>
-            <p className="muted">How the agent kit, code index and verifier are doing in each project.</p>
+            <p className="muted">
+              {state.data.projects.length > 0 && state.data.projects.every((p) => notInUse(p.parts.context))
+                ? 'How the agent kit and verifier are doing in each project.'
+                : 'How the agent kit, code index and verifier are doing in each project.'}
+            </p>
             {state.data.gone > 0 && <p className="muted gone-note">{plural(state.data.gone, 'gone folder')} hidden</p>}
             <Projects projects={state.data.projects} />
           </section>

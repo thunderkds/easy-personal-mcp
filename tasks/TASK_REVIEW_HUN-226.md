@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/KitView.test.jsx` (+6: AC1 no part line/footer/stale chip/column/intro; AC2 projectHealth; AC3 in-use stale kept; mixed, missing key, stale flag edge cases), `web/src/WarningsPlanView.test.jsx` (+2: Now `not in use`, Other rules then/now not in use). Red before change (6 Kit tests failed) |
+| Verification command run | ☑ pass | Supervisor rerun on dc2f606: `npx vitest run` -> `Test Files 21 passed (21)`, `Tests 640 passed (640)`; `npm run build` built (combined tree) |
+| Negative cases hold | ☑ pass | in-use stale index still shows reason; project with part in use keeps column; missing `context` key behaves as before |
+| verify | ☑ pass | Supervisor combined real run 2026-11-05T07:45-08:00Z: detached scratch tree of HUN-226 + HUN-225 src files, dashboard on a fresh backup of ~/.easy-personal/store.sqlite. /api/warnings abstained: []; /api/reports/1 rules = cache_hit_low, project_dominates, records_unreadable, session_huge_no_compact, tokens_jump, tool_errors_high (no context_index_stale); Kit page: 'Code index' in text false; screenshots /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-kit-1280.png, combo-kit-375.png, combo-report-1280.png — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Supervisor Stage 4 code-review inline: KitView.jsx diff (notInUse helper, hasData, Part, ProjectCard shownKeys, DetailsTable column filter, intro text) + tests. lane_check: `lane: C1, 3 files, 117 lines, FITS`. P0-P3: none. Agent decisions accepted: generic column drop, empty cell when mixed, intro text. Pass |
+| Full smoke suite still green (no regression) | ☑ pass | 640/640 vitest (630 before + 10 new) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier score not run for this C1 Low-risk UI change |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | combined real data, 1280x720: /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-kit-1280.png (no Code index line, footer 'Not set up here: Verifier'); opened report 1: /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-report-1280.png (1 to watch then + Other rules (5), no Code index card) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | no CSS change, no new colours (diff touches only KitView.jsx logic) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375x812: /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/combo-kit-375.png, hscroll 375 vs 375; 1280: 1265 vs 1265 |
 
 ---
 
@@ -61,12 +61,43 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-05, before any implementation commit; `main` at 18ae74b):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ cd web && npx vitest run
+      Tests  630 passed (630)
+2026-11-05T05:21:16Z
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Real run: web build of the unchanged sources, dashboard from this worktree's `src` on a fresh copy of the owner's store (`$SCRATCH/h226home/store.sqlite`), Kit page, headless Chrome 1280x720 (`h226-shoot.mjs`, 2026-11-05T07:40:59Z):
+
+```
+Context column header: true
+Code index in text: true
+"code index is out of date" in text: false
+hscroll: 1265 vs 1265
+```
+
+Screenshot: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h226-before-1280.png`. It shows the footer line "Not set up here: Code index, Verifier" on the project cards and a "Context" column ("no data") in the details table. The real server still sends `context: {"status": "no data"}` (HUN-225 is not merged), so the part is shown as a "no data" Code index.
+
+**AFTER** (implementer, 2026-11-05):
+
+```
+$ cd web && npx vitest run
+ Test Files  21 passed (21)
+      Tests  640 passed (640)      # 630 before + 10 new
+```
+
+Real run: `npm run build`, then the dashboard from this worktree on the same store copy. HUN-225 is not merged, so the real server still sends `context: {"status": "no data"}`. The run script (`h226-after-main.py`, outside the repo) wraps `kit.kit_summary` to send HUN-225's shape `context: {"status": "not in use"}` for every project. This simulates the server; the Supervisor re-shoots after HUN-225 merges.
+
+```
+1280x720 (2026-11-05T07:43:22Z)  Context column header: false | Code index in text: false | "code index is out of date" in text: false | hscroll: 1265 vs 1265
+375x812  (2026-11-05T07:43:30Z)  Context column header: false | Code index in text: false | "code index is out of date" in text: false | hscroll: 375 vs 375
+```
+
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h226-after-1280.png`, `.../h226-after-375.png`. Cards read "Not set up here: Verifier" (no Code index); the details table has Kernel, Verifier, Git columns only; the intro reads "How the agent kit and verifier are doing in each project."
+
+**DELTA**: a Kit page for a machine where easy-context is not in use no longer shows a Code index part, column, "not set up" entry or stale reason.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

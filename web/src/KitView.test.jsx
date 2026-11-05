@@ -406,3 +406,77 @@ describe('recent projects first, the rest folded (HUN-188 AC5, AC6)', () => {
     expect(screen.queryByText(/gone folder/)).toBeNull()
   })
 })
+
+// HUN-226: a part whose status is "not in use" is not shown and never counted (FR-080)
+describe('part "not in use" (HUN-226)', () => {
+  const NOT_IN_USE = { status: 'not in use' }
+  const unused = (name) => {
+    const p = project(name)
+    p.parts.context = { ...NOT_IN_USE }
+    return p
+  }
+
+  it('AC2: projectHealth ignores a "not in use" part: alone it gives "No kit data", with a healthy kernel "Healthy"', () => {
+    expect(projectHealth({ parts: { context: NOT_IN_USE } })).toEqual({ level: 'none', text: 'No kit data' })
+    expect(projectHealth({ parts: { kernel: { status: 'ok', error_rate: 0 }, context: NOT_IN_USE } })).toEqual({ level: 'healthy', text: 'Healthy' })
+  })
+  it('AC2: a "not in use" part never adds the stale reason, even if a stale flag came with it', () => {
+    const health = projectHealth({ parts: { kernel: { status: 'ok', error_rate: 0.5 }, context: { status: 'not in use', stale: true } } })
+    expect(health.text).toBe('Needs attention: 50% of tool calls failed')
+  })
+  it('AC3: an in-use stale index still gives the "code index is out of date" reason', () => {
+    expect(projectHealth({ parts: { context: { status: 'ok', stale: true } } }).text).toBe('Needs attention: code index is out of date')
+  })
+
+  it('AC1: cards show no Code index line, no "Not set up here" entry and no stale chip for a "not in use" project', async () => {
+    await renderView(withProjects(unused('alpha'), unused('delta')))
+    for (const name of ['alpha', 'delta']) {
+      expect(card(name)).not.toHaveTextContent(/Code index|code index|easy-context|stale|out of date/)
+    }
+    expect(card('alpha')).toHaveTextContent('Not set up here: Verifier')
+    expect(card('alpha')).toHaveTextContent('Healthy')
+    expect(card('delta')).toHaveTextContent('Agent kit (tool calls the kit traced) — 9 kit tasks')
+    expect(card('delta')).toHaveTextContent('Verifier score — 82/100')
+    expect(card('delta')).not.toHaveTextContent('Not set up here')
+  })
+
+  it('AC1: when every project is "not in use" the Context column and the intro mention disappear from the page', async () => {
+    await renderView(withProjects(unused('alpha'), unused('delta')))
+    await openDetails()
+    expect(screen.queryByRole('columnheader', { name: 'Context' })).toBeNull()
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent.replace(/\s*[▲▼]$/, ''))).toEqual(['Project', 'Kernel', 'Verifier', 'Git'])
+    expect(within(row('alpha')).getAllByRole('cell')).toHaveLength(3)
+    expect(document.body).not.toHaveTextContent(/Code index|code index|Context/)
+    expect(screen.getByText('How the agent kit and verifier are doing in each project.')).toBeInTheDocument()
+  })
+
+  it('mixed: only the "not in use" project hides the part; the column and the intro stay while another project has it', async () => {
+    await renderView(withProjects(unused('alpha'), project('delta')))
+    expect(card('alpha')).not.toHaveTextContent(/Code index|out of date/)
+    expect(card('alpha')).toHaveTextContent('Healthy')
+    expect(card('delta')).toHaveTextContent('Code index (easy-context) — indexed 2 days ago, fresh')
+    expect(screen.getByText('How the agent kit, code index and verifier are doing in each project.')).toBeInTheDocument()
+    await openDetails()
+    expect(screen.getByRole('columnheader', { name: 'Context' })).toBeInTheDocument()
+    expect(within(row('alpha')).getAllByRole('cell')[2].textContent).toBe('')
+    expect(within(row('delta')).getAllByRole('cell')[2]).toHaveTextContent('fresh')
+  })
+
+  it('a context key missing from every project is treated as today: no data, the column stays', async () => {
+    const a = project('alpha')
+    delete a.parts.context
+    await renderView(withProjects(a))
+    await openDetails()
+    expect(screen.getByRole('columnheader', { name: 'Context' })).toBeInTheDocument()
+    expect(within(row('alpha')).getAllByRole('cell')[2]).toHaveTextContent('no data')
+    expect(screen.getByText('How the agent kit, code index and verifier are doing in each project.')).toBeInTheDocument()
+  })
+
+  it('the "not in use" part never counts as data: an unused-only project reads "No kit data"', async () => {
+    const p = { project: 'solo', missing_on_disk: false, parts: { context: { ...NOT_IN_USE } } }
+    await renderView(withProjects(p))
+    expect(card('solo')).toHaveTextContent('No kit data')
+    expect(card('solo')).not.toHaveTextContent('Healthy')
+    expect(card('solo')).not.toHaveTextContent(/Code index/)
+  })
+})
