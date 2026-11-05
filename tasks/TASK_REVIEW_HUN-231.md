@@ -44,12 +44,20 @@ Not done: merge (yours); auto verify: running (T182)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-05T15:26:25Z (`date -u`) on branch HUN-231 before any implementation commit. Script (scratchpad `demo231.py`): builds a tmp store, sets `user_version` to latest-1 (9), adds `bak-v0`, `bak-v3`, `bak-v3-wal`, `bak-v3-shm`, `pre-v0.4.0`, opens it with `store.connect()`, lists the folder.
+```
+before connect: ['store.sqlite', 'store.sqlite.bak-v0', 'store.sqlite.bak-v3', 'store.sqlite.bak-v3-shm', 'store.sqlite.bak-v3-wal', 'store.sqlite.pre-v0.4.0']
+after  connect: ['store.sqlite', 'store.sqlite.bak-v0', 'store.sqlite.bak-v3', 'store.sqlite.bak-v3-shm', 'store.sqlite.bak-v3-wal', 'store.sqlite.bak-v9', 'store.sqlite.pre-v0.4.0']
+```
+All old backups stay; each migration run adds one more.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same script, 2026-11-05T15:31:04Z (`date -u`), after the change:
+```
+before connect: ['store.sqlite', 'store.sqlite.bak-v0', 'store.sqlite.bak-v3', 'store.sqlite.bak-v3-shm', 'store.sqlite.bak-v3-wal', 'store.sqlite.pre-v0.4.0']
+after  connect: ['store.sqlite', 'store.sqlite.bak-v9', 'store.sqlite.pre-v0.4.0']
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: After a migration the store folder keeps one `bak-v<N>` (the one just written) instead of growing by about one full store copy per migration.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
