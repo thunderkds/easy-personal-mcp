@@ -10,6 +10,7 @@
 
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
+- [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
 
 ### In Progress
 
@@ -123,6 +124,8 @@
 - [x] **HUN-227** — Share repeated store computations across dashboard reads (single-flight memo keyed by PRAGMA data_version) (NFR-013 server side) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-227.md`
 - [x] **HUN-228** — Usage page shows each card when its own data arrives; one minute-rounded \`since\` per load (NFR-013 page side) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-228.md`
 - [x] **HUN-229** — Saved reports use the floating loading indicator; every loading indicator adds one random funny line (FR-065) | Frontend-Implementer | C2 | Risk: Low | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-229.md`
+- [x] **HUN-231** — Migration backups: keep only the newest store.sqlite.bak-v<N> after a successful migration | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-231.md`
+- [x] **HUN-232** — Store reads take no write lock in connect(); migration 11 drops the stale events_ts index | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-232.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`
