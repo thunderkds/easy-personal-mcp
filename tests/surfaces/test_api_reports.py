@@ -148,3 +148,31 @@ def test_a_store_older_than_v10_is_migrated_by_the_read(client, home):
     raw.commit()
     raw.close()
     assert client.get("/api/reports", headers=AUTH).json() == {"reports": []}
+
+
+# HUN-223 (FR-079)
+def test_one_report_before_carries_the_full_warning_hit(client, home, monkeypatch):
+    save(home)
+    with store.opened(home / "store.sqlite") as conn:
+        hit = next(h for h in rules.evaluate(conn, NOW)["hits"] if h["rule_id"] == "tokens_jump")
+    _freeze(monkeypatch, NOW + 7 * DAY)
+    body = client.get("/api/reports/1", headers=AUTH).json()
+    before = next(r for r in body["rules"] if r["rule_id"] == "tokens_jump")["before"]
+    assert {k: before[k] for k in hit} == json.loads(json.dumps(hit))
+    assert before["state"] == "fired"
+
+
+def test_an_old_shape_report_is_filled_from_the_config_over_the_api(client, home):
+    import sqlite3
+
+    save(home)
+    raw = sqlite3.connect(home / "store.sqlite")
+    snapshot = json.loads(raw.execute("SELECT snapshot_json FROM investigate_reports").fetchone()[0])
+    snapshot["fired"] = [{k: f[k] for k in ("rule_id", "summary", "diagnosis", "causes")} for f in snapshot["fired"]]
+    raw.execute("UPDATE investigate_reports SET snapshot_json = ?", (json.dumps(snapshot),))
+    raw.commit()
+    raw.close()
+    before = next(r for r in client.get("/api/reports/1", headers=AUTH).json()["rules"] if r["rule_id"] == "tokens_jump")["before"]
+    rule = next(r for r in rules.load_rules() if r.id == "tokens_jump")
+    assert (before["label"], before["priority"], before["why"], before["fix"]) == (rule.label, rule.priority, rule.why, rule.fix)
+    assert "steps" not in before

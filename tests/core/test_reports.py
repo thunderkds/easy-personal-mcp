@@ -307,3 +307,72 @@ def test_empty_optional_fix_fields_count_as_absent():
     """Stage 4 review: a model often sends "" for an optional argument; that must not refuse the whole save."""
     _, fixes = reports.validate("Summary.", [{"text": "Start a new session per task", "tool": "", "number": ""}])
     assert fixes == [{"text": "Start a new session per task"}]
+
+
+# HUN-223 (FR-079): the snapshot keeps the full warning hit; an old-shape snapshot is filled from the config
+OLD_SHAPE = ("rule_id", "summary", "diagnosis", "causes")
+
+
+def _make_old_shape(conn):
+    """Rewrite the stored snapshot the way HUN-221 saved it: a fired entry holds only four keys."""
+    row = conn.execute("SELECT snapshot_json FROM investigate_reports").fetchone()
+    snapshot = json.loads(row[0])
+    snapshot["fired"] = [{k: f[k] for k in OLD_SHAPE} for f in snapshot["fired"]]
+    with conn:
+        conn.execute("UPDATE investigate_reports SET snapshot_json = ?", (json.dumps(snapshot, sort_keys=True),))
+
+
+# AC 1
+def test_save_stores_the_full_fired_hit(loaded):
+    _save(loaded)
+    snapshot = json.loads(loaded.execute("SELECT snapshot_json FROM investigate_reports").fetchone()[0])
+    hits = json.loads(json.dumps(rules.evaluate(loaded, NOW)["hits"]))
+    assert snapshot["fired"] == hits  # every key of the hit, `detail` / `cache_read_share` only where the hit has them
+    jump = next(f for f in snapshot["fired"] if f["rule_id"] == "tokens_jump")
+    assert {"label", "priority", "window_days", "fix", "title", "why", "steps", "summary", "causes", "diagnosis"} <= set(jump)
+
+
+def test_before_of_a_new_save_carries_the_warning_card_fields(loaded):
+    saved = _save(loaded)
+    hit = next(h for h in rules.evaluate(loaded, NOW)["hits"] if h["rule_id"] == "tokens_jump")
+    before = _rule(reports.get_report(loaded, saved["id"], now=LATER), "tokens_jump")["before"]
+    for key, value in hit.items():
+        assert before[key] == json.loads(json.dumps(value)), key
+    assert before["state"] == "fired" and before["fired"] is True and before["measured"] == hit["measured"]
+
+
+def test_a_clear_rule_before_has_no_warning_card_fields(loaded):
+    saved = _save(loaded)
+    clear = next(r for r in reports.get_report(loaded, saved["id"], now=LATER)["rules"] if r["before"]["state"] == "clear")
+    assert set(clear["before"]) == {"state", "measured", "threshold", "fired"}
+
+
+# AC 2
+def test_an_old_shape_snapshot_is_filled_from_the_current_config_without_steps(loaded):
+    saved = _save(loaded)
+    _make_old_shape(loaded)
+    rule = next(r for r in rules.load_rules() if r.id == "tokens_jump")
+    before = _rule(reports.get_report(loaded, saved["id"], now=LATER), "tokens_jump")["before"]
+    assert before["label"] == rule.label and before["priority"] == rule.priority
+    assert before["why"] == rule.why and before["fix"] == rule.fix and before["window_days"] == rule.window_days
+    assert "steps" not in before
+    assert before["state"] == "fired" and before["measured"] == 1.5 and before["causes"] and before["diagnosis"] and before["summary"]
+
+
+def test_a_new_shape_snapshot_is_not_overwritten_by_the_config(loaded, tmp_path):
+    saved = _save(loaded)
+    (tmp_path / "home").mkdir(exist_ok=True)
+    (tmp_path / "home" / "config.yaml").write_text("thresholds:\n  tokens_jump: 3\n")
+    before = _rule(reports.get_report(loaded, saved["id"], now=NOW), "tokens_jump")["before"]
+    assert before["threshold"] == 0.5 and before["steps"]  # as saved, not as configured now
+
+
+# AC 3
+def test_an_old_shape_snapshot_whose_rule_left_the_config_keeps_its_stored_fields(loaded, monkeypatch):
+    saved = _save(loaded)
+    _make_old_shape(loaded)
+    kept = [r for r in rules.load_rules() if r.id != "tokens_jump"]
+    monkeypatch.setattr(rules, "load_rules", lambda *_a, **_k: kept)
+    before = _rule(reports.get_report(loaded, saved["id"], now=NOW), "tokens_jump")["before"]
+    assert not {"label", "priority", "why", "fix", "window_days", "steps"} & set(before)
+    assert before["state"] == "fired" and before["summary"] and before["causes"] and before["diagnosis"]
