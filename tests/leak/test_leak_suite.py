@@ -234,3 +234,16 @@ def test_easy_memory_report_really_ran_and_kept_its_other_text_out(leak_run, can
     assert '"report":{"state":"ok"' in body and '"tokens_all_median":18658261' in body
     for name in ("easymem_prompt", "easymem_answer", "easymem_session"):
         assert canaries.values[name] not in body, name
+
+
+def test_saved_reports_really_ran(leak_run):
+    """HUN-221: guards against a vacuous pass. `save_report` stored the valid calls, the routes served them, the refused calls stored nothing."""
+    dump = leak_run.outputs["store .dump"]
+    assert dump.count('INSERT INTO "investigate_reports"') == 6  # the in-process and the stdio run each save the 3 valid calls; the 3 refused store nothing
+    assert "Leak suite report." in dump  # the DDR-0003 exception: this text is stored on purpose
+    assert "x" * 2001 not in dump and "y" * 301 not in dump
+    one = leak_run.outputs["api GET /api/reports/{id}"]
+    assert one.startswith("200 ") and '"before"' in one and '"now"' in one
+    listing = leak_run.outputs["api /api/reports"]
+    assert '"summary_first_line":"Leak suite report."' in listing
+    assert any(label.startswith("api GET /api/reports/{id}") and blob.startswith("404 ") for label, blob in leak_run.outputs.items())

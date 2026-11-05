@@ -313,7 +313,7 @@
     <button type="button" class="copy" data-copy="install-cmd" aria-live="polite" hidden>Copy</button>
   </div>
   <ul class="stats">
-    <li data-stat="tools"><span class="stat-num">11</span><span class="stat-label">MCP tools</span></li>
+    <li data-stat="tools"><span class="stat-num">12</span><span class="stat-label">MCP tools</span></li>
     <li data-stat="connectors"><span class="stat-num">5</span><span class="stat-label">connector providers</span></li>
     <li data-stat="views"><span class="stat-num">9</span><span class="stat-label">dashboard views</span></li>
   </ul>
@@ -583,7 +583,7 @@ cp -p ~/.easy-personal/store.sqlite.backup ~/.easy-personal/store.sqlite</pre>
 </section>
 
 <section id="tools">
-  <h2>Ten MCP tools</h2>
+  <h2>Twelve MCP tools</h2>
   <p class="muted">None of them writes config or returns a secret.</p>
   <div class="table-wrap">
     <table>
@@ -600,6 +600,7 @@ cp -p ~/.easy-personal/store.sqlite.backup ~/.easy-personal/store.sqlite</pre>
         <tr data-tool="connector_catalog"><td><code>connector_catalog</code></td><td>The provider catalog. Never a secret value.</td></tr>
         <tr data-tool="connector_status"><td><code>connector_status</code></td><td>Whether each connector is set up, as yes or no.</td></tr>
         <tr data-tool="connector_suggestions"><td><code>connector_suggestions</code></td><td>Providers your usage points to, with the counts behind each.</td></tr>
+        <tr data-tool="save_report"><td><code>save_report</code></td><td>Saves an investigate report, with the server's own numbers, to the store.</td></tr>
       </tbody>
     </table>
   </div>

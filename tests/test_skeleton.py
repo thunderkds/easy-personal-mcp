@@ -37,6 +37,7 @@ def test_cli_and_mcp_return_same_core_value(capsys):
         "connector_catalog",
         "connector_status",
         "connector_suggestions",
+        "save_report",
     ]
     _, structured = asyncio.run(app.call_tool("ping", {}))
     assert cli_out == core.ping() == structured["result"]

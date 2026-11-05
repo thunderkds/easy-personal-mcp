@@ -42,6 +42,7 @@ from easy_personal.core import (
     memgraph,
     metrics,
     plan,
+    reports,
     rules,
     store,
     workspaces,
@@ -206,6 +207,14 @@ def _who(q):
 def _scope(q):
     """`since`, `until` and the optional `workspace` name and `account` id or label (empty = no filter)."""
     return *_period(q), (q.get("workspace") or None), (q.get("account") or None)
+
+
+def report_one(request):
+    """`GET /api/reports/{id}`: one saved report with before / now per rule; unknown or non-numeric id -> 404."""
+    raw = request.path_params["id"]
+    with store.opened(config.store_path()) as conn:
+        found = reports.get_report(conn, int(raw)) if raw.isascii() and raw.isdecimal() and len(raw) < 19 else None
+    return JSONResponse(found) if found else JSONResponse({"error": "no such report"}, status_code=404)
 
 
 def _memory_graph(conn, q):
@@ -643,6 +652,8 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/workspaces/{id}", workspaces_delete, methods=["DELETE"]),
         Route("/api/warnings", _query(lambda c, q: rules.evaluate(c, **_who(q)))),
         Route("/api/plan", _query(lambda c, q: plan.improvement_plan(c, **_who(q)))),
+        Route("/api/reports", _query(lambda c, q: reports.list_reports(c))),
+        Route("/api/reports/{id}", report_one),
         Route("/api/kit", _query(lambda c, q: kit.kit_summary(c, **_who(q), hide_gone=True))),
         Route("/api/board", _query(lambda c, q: board.board(c, **_who(q)))),
         Route("/api/accounts", _query(lambda c, q: accounts.grouped(c, q.get("by", "account")))),

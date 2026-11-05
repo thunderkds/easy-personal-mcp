@@ -352,3 +352,57 @@ def test_migration_9_is_idempotent_and_a_v9_store_is_not_touched(tmp_path):
 def test_migration_9_frozen_list_is_part_of_the_parser_list():
     # The migration keeps its own copy (frozen in time); the parser list may grow later, never lose these.
     assert set(_FROZEN_METADATA_TYPES) <= claude_code.METADATA_TYPES
+
+
+def _v9_store(path: Path, fixtures_root: Path) -> int:
+    """A store as HUN-209 left it: full schema without `investigate_reports`, rows, user_version 9."""
+    conn = store.connect(path)
+    claude_code.ingest(conn, fixtures_root)
+    n = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    conn.close()
+    raw = sqlite3.connect(path)
+    raw.execute("DROP TABLE investigate_reports")
+    raw.execute("PRAGMA user_version = 9")
+    raw.commit()
+    raw.close()
+    return n
+
+
+def test_migration_10_adds_the_reports_table_keeps_every_row_and_leaves_a_backup(tmp_path, fixtures_root):
+    path = tmp_path / "store.sqlite"
+    n = _v9_store(path, fixtures_root)
+    raw = sqlite3.connect(path)
+    before = raw.execute("SELECT * FROM events ORDER BY id").fetchall()
+    raw.close()
+
+    conn = store.connect(path)  # AC 1: v9 -> latest, with a backup
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST >= 10
+    assert (tmp_path / "store.sqlite.bak-v9").exists()
+    assert conn.execute("SELECT * FROM events ORDER BY id").fetchall() == before and len(before) == n > 0
+    assert [c[1] for c in conn.execute("PRAGMA table_info(investigate_reports)")] == [
+        "id", "saved_utc", "server_version", "workspace", "account", "summary", "fixes_json", "snapshot_json",
+    ]  # fmt: skip
+    assert conn.execute("SELECT COUNT(*) FROM investigate_reports").fetchone()[0] == 0
+    conn.close()
+    backup = sqlite3.connect(tmp_path / "store.sqlite.bak-v9")  # the rollback copy is the v9 store, rows intact
+    assert backup.execute("PRAGMA user_version").fetchone()[0] == 9
+    assert backup.execute("SELECT COUNT(*) FROM events").fetchone()[0] == n
+    backup.close()
+
+
+def test_migration_10_is_idempotent_and_a_v10_store_is_not_touched(tmp_path, fixtures_root):
+    from easy_personal.core.migrations import m0010_investigate_reports as m10
+
+    path = tmp_path / "store.sqlite"
+    _v9_store(path, fixtures_root)
+    conn = store.connect(path)
+    conn.execute(
+        "INSERT INTO investigate_reports (saved_utc, server_version, summary, fixes_json, snapshot_json)"
+        " VALUES ('2026-11-05T00:00:00Z', '0', 's', '[]', '{}')"
+    )
+    conn.commit()
+    m10.apply(conn)  # CREATE TABLE IF NOT EXISTS: the saved row survives a repeated run
+    assert conn.execute("SELECT COUNT(*) FROM investigate_reports").fetchone()[0] == 1
+    conn.close()
+    store.connect(path).close()
+    assert sorted(p.name for p in tmp_path.glob("*.bak-v*")) == ["store.sqlite.bak-v9"]
