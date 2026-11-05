@@ -46,8 +46,25 @@ Not done: merge (yours); auto verify: running (T182)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: unchanged code (commit 3eca522), `npm run build`, real dashboard on a store copy (`sqlite3 ~/.easy-personal/store.sqlite ".backup <dir>/store.sqlite"`, 415 MB, `EASY_PERSONAL_HOME=<dir> uv run easy-personal dashboard`), headless Chrome 1280x720, Usage page (Last 7 days), polled every 25 ms. Script: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/measure.mjs`. Captured 2026-11-05T08:40:49Z..08:41:12Z, before any implementation commit.
+
+```
+== BEFORE run 1   start 2026-11-05T08:40:49.039Z
+  response   910 ms  /api/usage/summary            (first answer)
+  response  1423 ms  /api/usage/breakdown?by=day&until=…   (previous)
+  response  1975 ms  /api/usage/outliers
+  response  2590 ms  /api/usage/summary            (rail)
+  response  3636 ms  /api/usage/breakdown?by=day
+  ... model 3816, tool 4791, project 5300, rail model 5642
+  response  5978 ms  /api/usage/sessions            (last)
+marks: {"firstKpi":6020,"totals":6020,"timeline":6020}
+== BEFORE run 2   marks: {"firstKpi":6244,"totals":6244,"timeline":6244}   (last response 6218 ms)
+== BEFORE run 3   marks: {"firstKpi":6793,"totals":6793,"timeline":6793}   (last response 6748 ms)
+```
+
+Time to first KPI card = time to Totals = time to Timeline = 6.0 / 6.2 / 6.8 s (median 6.2 s): nothing is on screen until the last request returns, although the summary answered at ~0.9-1.0 s and the day breakdown at 3.6-4.5 s. The rail's `/api/usage/summary?since=…` and `/api/usage/breakdown?by=model&since=…` URLs differ from the Usage view's by milliseconds in `since`.
+
+BEFORE screenshot (all data loaded, identical-layout reference): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/a1aae442-7832-4f99-88fb-167a44a3581f/scratchpad/h228/before-1.png` (also before-2.png, before-3.png).
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
