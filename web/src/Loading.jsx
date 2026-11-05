@@ -9,7 +9,7 @@ export default function Loading({ label }) {
       <span className="spinner" aria-hidden="true" />
       <span className="loading-text">
         {label}
-        <span className="loading-line">{line}</span>
+        <span className="loading-line" aria-hidden="true">{line}</span>
       </span>
     </div>
   )

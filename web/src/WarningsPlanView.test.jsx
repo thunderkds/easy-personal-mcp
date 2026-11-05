@@ -1,4 +1,4 @@
-import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
+import { act, render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import { ToastProvider } from './Toast.jsx'
@@ -690,6 +690,7 @@ describe('saved reports loading indicator (HUN-229)', () => {
   const openRows = async (f) => {
     vi.stubGlobal('fetch', f)
     render(withToasts(<WarningsPlanView />))
+    await screen.findByTestId('headline') // Warnings first: while it loads, the saved-report pills wait (AC 3b)
     const section = await screen.findByRole('region', { name: 'Saved reports' })
     return { section, rows: await within(section).findAllByRole('button') }
   }
@@ -782,16 +783,50 @@ describe('saved reports loading indicator (HUN-229)', () => {
     expect(pills()).toHaveLength(0)
   })
 
-  it('edge: the warnings list and the saved reports list loading together show two indicators, each with its own label', async () => {
+  // AC 3b: one indicator at a time on Warnings & plan
+  const flush = () => act(() => new Promise((r) => setTimeout(r, 20)))
+
+  it('AC3b: Warnings pending and the list pending show exactly one pill: the warnings one', async () => {
     const f = heldFetch((u) => u === '/api/warnings' || u === '/api/reports', { reports: reportList })
     vi.stubGlobal('fetch', f)
     render(withToasts(<WarningsPlanView />))
-    const labels = await waitFor(() => {
-      const found = pills().map((p) => p.textContent)
-      expect(found.length).toBe(2)
-      return found
-    })
-    expect(labels.some((t) => t.startsWith('Loading warnings'))).toBe(true)
-    expect(labels.some((t) => t.startsWith('Loading saved reports'))).toBe(true)
+    await waitFor(() => expect(pills()).toHaveLength(1))
+    await flush()
+    expect(pills()).toHaveLength(1)
+    expect(pills()[0].textContent.startsWith('Loading warnings')).toBe(true)
+    await f.release('/api/reports')
+    await within(screen.getByRole('region', { name: 'Saved reports' })).findAllByRole('button')
+    expect(pills()).toHaveLength(1)
+    await f.release('/api/warnings')
+    await screen.findByTestId('headline')
+    expect(pills()).toHaveLength(0)
+  })
+
+  it('AC3b: Warnings pending, list ready, a report clicked: one pill; the report pill shows once the warnings have loaded', async () => {
+    const f = heldFetch((u) => u === '/api/warnings' || isReportItem(u), { reports: reportList })
+    vi.stubGlobal('fetch', f)
+    render(withToasts(<WarningsPlanView />))
+    const section = await screen.findByRole('region', { name: 'Saved reports' })
+    const rows = await within(section).findAllByRole('button')
+    fireEvent.click(rows[0])
+    await flush()
+    expect(pills()).toHaveLength(1)
+    expect(pills()[0].textContent.startsWith('Loading warnings')).toBe(true)
+    await f.release('/api/warnings')
+    await screen.findByTestId('headline')
+    await waitFor(() => expect(pills()).toHaveLength(1))
+    expect(pills()[0].textContent.startsWith('Loading report')).toBe(true)
+    await f.release('/api/reports/2')
+    expect(await within(section).findByRole('heading', { name: 'Summary' })).toBeInTheDocument()
+    expect(pills()).toHaveLength(0)
+  })
+
+  it('AC3b: a Warnings list that failed no longer holds the saved-report pills back', async () => {
+    const f = heldFetch((u) => u === '/api/reports', { reports: reportList })
+    const failing = async (url, init) => (String(url).startsWith('/api/warnings') ? { ok: false, status: 500, json: async () => ({}) } : f(url, init))
+    vi.stubGlobal('fetch', failing)
+    render(withToasts(<WarningsPlanView />))
+    await screen.findByText(/Could not load/i)
+    await waitFor(() => expect(pills().map((p) => p.textContent.startsWith('Loading saved reports'))).toEqual([true]))
   })
 })

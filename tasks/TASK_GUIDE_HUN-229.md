@@ -26,7 +26,7 @@ Owner, 2026-11-05: "when click on the report, should show the loading indicator 
 
 > When the owner clicks a saved report, the floating loading indicator (`<Loading label="Loading report" />`) shows until that report's data arrives or fails, instead of the text line. The Saved reports list loading uses the same indicator (`<Loading label="Loading saved reports" />`). A failed load still shows its inline error line as now ("Report not found" / "Could not load the report: …" / "Could not load saved reports: …"). Nothing else on the page changes. No API change.
 >
-> Funny line: the shared `Loading` component (all 11 uses: Usage, Board, Jobs, Kit, Warnings, Workspaces, Memory, FirstRun, Agents, App, and the two new saved-report uses) keeps its real label as now and adds one funny line under it, picked at random from a fixed list when the indicator appears. The line stays the same while that indicator is on screen (no rotation). The label stays first in the pill's text, so a screen reader and the existing tests still read "Loading report" etc. The list lives in one small module (e.g. `web/src/loadingLines.js`), \~12 short original lines, friendly and on-theme (tokens, sessions, cache, workspaces), English, no names of people or brands, no jokes about the user. Examples: "Counting tokens one by one…", "Asking the cache nicely…", "Herding stray sessions…", "Dusting off old transcripts…", "Bribing the database with coffee…", "Sorting receipts from your robots…". A test can make the pick deterministic (e.g. a `pick` argument or a stubbed `Math.random`).
+> Funny line: the shared `Loading` component (all 11 uses: Usage, Board, Jobs, Kit, Warnings, Workspaces, Memory, FirstRun, Agents, App, and the two new saved-report uses) keeps its real label as now and adds one funny line under it (`aria-hidden="true"`, so a screen reader reads only the label), picked at random from a fixed list when the indicator appears. The line stays the same while that indicator is on screen (no rotation). The label stays first in the pill's text, so a screen reader and the existing tests still read "Loading report" etc. The list lives in one small module (e.g. `web/src/loadingLines.js`), \~12 short original lines, friendly and on-theme (tokens, sessions, cache, workspaces), English, no names of people or brands, no jokes about the user. Examples: "Counting tokens one by one…", "Asking the cache nicely…", "Herding stray sessions…", "Dusting off old transcripts…", "Bribing the database with coffee…", "Sorting receipts from your robots…". A test can make the pick deterministic (e.g. a `pick` argument or a stubbed `Math.random`).
 
 **Out of scope**:
 
@@ -61,6 +61,7 @@ Owner, 2026-11-05: "when click on the report, should show the loading indicator 
 | 1 | With `/api/reports/{id}` held pending, clicking a report row shows `role="status"` "Loading report" rendered by the `Loading` component (class `loading-pill`); the old `.report-wait` text line is gone | FR-065 |
 | 2 | When the report resolves, the indicator disappears and the report shows; when it fails (404 / other), the indicator disappears and the existing inline error line shows | FR-065 |
 | 3 | With `/api/reports` held pending, the Saved reports section shows the `Loading` indicator "Loading saved reports"; on error the inline error line still shows | FR-065 |
+| 3b | Only one loading indicator shows on Warnings & plan at a time: while the Warnings list is loading, `SavedReports` renders neither its list pill nor its report pill (a `waiting` prop from `WarningsPlanView`); when the Warnings list has loaded, the saved-report pills show as in AC 1 and 3. Tested with Warnings held pending + list pending, and Warnings pending + a report clicked | FR-065 (Supervisor, from the Stage 3 overlap finding) |
 | 4 | `Loading` renders its label plus exactly one line from the fixed list (`.loading-line`); with a stubbed random source, the chosen line is the expected one; the line does not change on re-render while shown; every line in the list is ≤ 40 characters | FR-065 (owner ask) |
 | 5 | `Loading.test.jsx` view table still passes: each view's pill still contains its label | FR-065 |
 | 6 | Existing Warnings & plan / saved-report tests still pass (changed only where they assert the old text line; say which in the review file) | FR-065 |
@@ -115,7 +116,7 @@ Real run: `sqlite3 ~/.easy-personal/store.sqlite ".backup <dir>/store.sqlite"`, 
 
 - [ ] Click a report, then click it again (close) before it loads: no indicator left on screen
 - [ ] Switch between two reports quickly: only the current one's indicator / data shows
-- [ ] Warnings list and Saved reports loading at the same time: two pills may stack — check it looks acceptable and say so in the review file
+- [ ] Warnings list and Saved reports loading at the same time: one pill only (AC 3b); overlapping pills were seen in Stage 3 (screenshots h229-both-*)
 - [ ] Planted secret/text fixtures never appear on the page
 
 ---

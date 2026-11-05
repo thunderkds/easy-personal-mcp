@@ -50,6 +50,11 @@ describe('Loading pill (AC7)', () => {
     expect(pill.textContent).toBe(`Loading usage${lines[0].textContent}`)
   })
 
+  it('hides the funny line from a screen reader so it reads only the label (HUN-229)', () => {
+    const { container } = render(<Loading label="Loading usage" />)
+    expect(container.querySelector('.loading-line')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('picks the line with the random source: 0 is the first line, just under 1 is the last (HUN-229 AC4)', () => {
     const random = vi.spyOn(Math, 'random')
     random.mockReturnValue(0)
