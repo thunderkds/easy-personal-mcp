@@ -350,7 +350,7 @@ Tests never touch your real `~/.claude/`, keychain or `~/.easy-personal/`. The t
 
 ## Easy Kit
 
-Part of the Easy Kit family: kernel [personal-agentic-claude](https://github.com/thunderkds/personal-agentic-claude),
+Part of the Easy Kit family: kernel [easy-kit](https://github.com/thunderkds/easy-kit),
 plug-ins [easy-ui-mcp](https://github.com/thunderkds/easy-ui-mcp),
 [easy-verifier-mcp](https://github.com/thunderkds/easy-verifier-mcp),
 [easy-context-mcp](https://github.com/thunderkds/easy-context-mcp).
