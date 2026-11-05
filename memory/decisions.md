@@ -41,6 +41,11 @@
 **Why**: owner 2026-11-03: Repos should be a button that opens the current directory; a browser cannot return an absolute path from the OS dialog, so the server lists names. Accepted residual: an explicit `?path=` into a hidden folder lists its sub-folder names (token-gated, names only). The built-in `security-review` skill needs an `origin` remote (this repo has `github`), so HUN-203's security review was done by hand.
 **Files**: `src/easy_personal/core/folders.py`, `src/easy_personal/surfaces/api.py`, `tests/surfaces/test_api_dirs.py`, `tests/leak/harness.py`, `web/src/FolderPicker.jsx`, `web/src/WorkspacesView.jsx`, `web/src/app.css`
 
+### 2026-11-05 — Saved investigate reports = Option A (report + server rule snapshot)
+**Decision**: MCP `save_report` stores the owner session's `investigate` summary (≤ 2,000 chars) and ≤ 5 fixes (≤ 300 chars) plus a server-taken rule snapshot of every declared rule, in one table (m0010, JSON columns); `rules.evaluate(checked=True)` lists every measured rule; the Warnings & plan page shows Saved reports with before / now per rule, "now" computed on load. Secret-looking text is refused. HUN-221 → HUN-222. → see DDR-0003, BRAINSTORMING_LOG_REPORTS.md
+**Why**: Owner 2026-11-05 "log this report to the dashboard … trace the improvement"; chose report + numbers, before / now, narrow NFR-002 exception, Warnings page, Option A. Option C (store warnings output verbatim) loses the "now" number for a rule that stopped firing.
+**Files**: `src/easy_personal/core/reports.py`, `src/easy_personal/core/rules.py`, `src/easy_personal/core/migrations/m0010_investigate_reports.py`, `src/easy_personal/surfaces/mcp.py`, `src/easy_personal/surfaces/api.py`, `web/src/WarningsPlanView.jsx`, `PRD.md`, `docs/ddr/0003-store-owner-saved-investigate-reports.md`
+
 ## Infrastructure
 
 ### 2026-10-21 — Board scoped to Linear project easy-personal-mcp (P-HUN-3)

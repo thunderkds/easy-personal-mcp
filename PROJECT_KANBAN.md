@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-04
+**Last updated**: 2026-11-05
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -10,6 +10,8 @@
 
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
+- [ ] **HUN-221** — Saved investigate reports: store m0010, MCP save_report + rule snapshot, prompt step, /api/reports (FR-076, FR-077, FR-078 API) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-221.md`
+- [ ] **HUN-222** — Warnings & plan page: Saved reports section with before / now per rule (FR-078 UI; after HUN-221) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-222.md`
 
 ### In Progress
 

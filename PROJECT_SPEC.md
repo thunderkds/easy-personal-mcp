@@ -92,6 +92,9 @@ Milestones inside v1: **M1** usage → **M2** kit → **M3** connectors → **M4
 - **Open call** — a `tool_use` block whose `tool_result` has not arrived yet, paired by block id (held in memory only, never stored or sent). A later assistant message in the same stream also closes it. *(planned, 2026-11-02)*
 - **Attention state** — one of three marks on a live session (FR-048/049): **failing** (a stream's last N results all failed, default 3), **waiting for you** (an open `AskUserQuestion` / `ExitPlanMode`), **needs attention** (another open call ≥ N min, default 10, while the whole session wrote nothing). Worked out in the live tail; the page only renders it. Not a **Rule** (no weekly window, not in `rules.yaml`). *(planned, 2026-11-02)*
 - **First-run checklist** — the `// system` panel that shows done / not done for: first ingest, ingest timer, agent accounts confirmed, first workspace. Links to existing commands and buttons; adds no write.
+- **Saved report** — one `investigate` report the owner's own Claude Code session sent to MCP `save_report`: summary, ≤ 5 fixes, scope, save time, plus its rule snapshot (FR-076). The only store row that holds model-written text (DDR-0003). *(planned HUN-221/HUN-222, 2026-11-05)*
+- **Rule snapshot** — the server's own record, taken at save time, of every declared rule for the report's scope: measured value, threshold, fired or not, causes + diagnosis for a fired rule, or the abstain reason. Numbers only from the server (NFR-004).
+- **Before / now** — per rule of a saved report: the rule snapshot's value next to the same rule measured on page load for the same scope; "now" is never stored (FR-078).
 
 ## Kit performance (HUN-193, FR-060..FR-063, NFR-014)
 
@@ -121,7 +124,7 @@ Rules of `core/kitperf.py`, computed on every call from `events` (nothing stored
 - No MCP tool may write config, create a connector or return a secret value. Dashboard writes need the per-launch token and a matching `Host`/`Origin`.
 - `launch.py` imports only stdlib + `keyring`; secrets reach the child process only through its environment, never argv.
 - Sibling repos are conventions-only references; never import or vendor their code. Cross-repo needs go to that repo's board (XR-1).
-- Tool surface is frozen once approved; new tools need owner approval. Approved 2026-10-31: `usage_summary` / `usage_breakdown` gain typed / agent / unknown token fields (FR-039); no new tools.
+- Tool surface is frozen once approved; new tools need owner approval. Approved 2026-10-31: `usage_summary` / `usage_breakdown` gain typed / agent / unknown token fields (FR-039); no new tools. Approved 2026-11-05: MCP `save_report` (FR-076), the only MCP tool that writes, and only to the store; its report text is the named exception to metadata-only (DDR-0003).
 - npm: exact versions in `package-lock.json`, `npm ci` only; the built page ships in the package so install needs no Node.
 
 ---
@@ -274,6 +277,8 @@ Owner run request 2026-10-29: "do all by parallel with tag [auto], merge to main
 | HUN-215 | MCP prompt `investigate`: owner's Claude Code session investigates usage (FR-075) | Done (merged 2026-11-04) | Backend-Implementer | C1 | Low | P1 |
 | HUN-216 | Warnings & plan page: one list, "Why this happened", matching fixes, investigate hint (FR-074; after HUN-214) | Done (merged 2026-11-04) | Frontend-Implementer | C2 | Low | P1 |
 | HUN-194 | Release 0.5.0 kit performance: version, README, site (after HUN-193 and HUN-183) | Closed (duplicate of HUN-183, 2026-11-03) | Backend-Implementer | C1 | Low | P1 |
+| HUN-221 | Saved investigate reports: store m0010, MCP save_report + rule snapshot, prompt step, /api/reports (FR-076, FR-077, FR-078 API) | Todo | Backend-Implementer | C2 | Medium | P1 |
+| HUN-222 | Warnings & plan page: Saved reports section with before / now per rule (FR-078 UI; after HUN-221) | Todo | Frontend-Implementer | C2 | Low | P1 |
 
 Cross-repo: **XR-1** = easy-verifier-mcp **T120** (`../easy-verifier-mcp/tasks/TASK_GUIDE_T120.md`, its local board) — score JSON sidecar next to each HTML report — **Done 2026-10-21**. Needed by FR-011 / HUN-42 (M2).
 
