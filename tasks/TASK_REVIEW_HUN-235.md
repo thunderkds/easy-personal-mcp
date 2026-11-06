@@ -19,7 +19,7 @@ Owner instruction (not a decision): fix the `tool_signals` secret leak first, au
    Trace note: both Advocate `Agent` calls ran at 2026-11-06T11:39:12Z ("Advocate 1: ingest check only", "Advocate 2: ingest check + m0012 purge") but were logged to `memory/event-trace/HUN-233.jsonl`, because the active-task file still named HUN-233 then; the auto-mode check reads only HUN-235's trace. Records left unedited (audit trail).
 3. spawned on claude · C1 → claude-sonnet-5-5 — FACT: PROJECT_SPEC.md:165 "| claude | `claude` | `claude-haiku-5-5` | `claude-sonnet-5-5` |"
 Checks: tests `uv run pytest tests/sources tests/connectors/test_mcp_tools.py tests/leak -q` — 207 passed; full suite — 1612 passed, 2 skipped (web/ not built), 1 xfailed; ruff clean (Supervisor re-run on 6d2b809); reviews code-review — 0 P0, 0 P1, 0 P2, 1 P3 (`live._safe` still reaches the alias `reports._SECRET`; move to `secretlike.SECRET` later), lane `C1, 6 files, 141 lines, FITS`; security-review (built-in Skill, `origin/HEAD` refreshed to main 9b44ac0) — no high-confidence vulnerabilities (pattern byte-identical, FR-076 and live labels unchanged, `_bash_word` only gets stricter); easy-verifier — N/A (MCP refuses worktree paths, see HUN-233); real run: `easy-personal ingest` on a temp home with `sk-ant-api03-VERIFYSECRETKEY run` + `cd /x && git status` → `tool_signals` = `bash|cd` only, VERIFYSECRET in dump 0 (auto-checked, not /verify)
-Not done: merge (yours); /verify (yours); memory update; Done
+Not done: merge (yours); memory update; Done
 
 ## Evidence
 
@@ -28,7 +28,7 @@ Not done: merge (yours); /verify (yours); memory update; Done
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/sources/test_claude_code.py` (AC 1-2, edge cases), `tests/leak/test_leak_suite.py::test_secret_looking_bash_first_word_is_not_in_the_store_dump` (AC 4) |
 | Verification command run | ☑ pass | `uv run pytest tests/sources tests/connectors/test_mcp_tools.py tests/leak -q` -> 207 passed, 1 deselected; `uv run pytest -q` -> 1612 passed, 2 skipped, 6 deselected, 1 xfailed (2026-11-06) |
 | Negative cases hold | ☑ pass | `git`, `uv`, `python3`, `task-runner`, `bash -c "sk-…"` → `bash` still stored; domain signals and other words of the same message kept; `sk-learn` dropped (accepted) |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| verify | ☑ pass | owner-invoked `/verify HUN-235` 2026-11-06 on 931774a, temp install (0.4.0): `ping` ok; MCP stdio 12 tools + ping ok; `--host 0.0.0.0/localhost/::1` exit 2; installed `easy-personal ingest` of `sk-ant-api03-VERIFYSECRETKEY run`, `ghp_VERIFYSECRET… x`, `git status`, WebFetch `https://api.slack.com/x` → `tool_signals` = `bash|git`, `domain|api.slack.com`; VERIFYSECRET in store dump 0 — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `main...HEAD` diff + callers of the pattern (`reports._check_text`, `live._safe`) and of `_bash_word` (`_signals` → `parse_record`); suggestions/store untouched |
 | Full smoke suite still green (no regression) | ☑ pass | `1612 passed, 2 skipped, 6 deselected, 1 xfailed` (2 skips = web/ not built) |
 | **Companion score (easy-verifier)** | ☑ N/A | not scored: the MCP refuses worktree paths (`target repository path does not exist`, HUN-233) |
