@@ -44,10 +44,10 @@
 
 ### Diagnosis Gates (Pillar 1 — must pass before any fix)
 
-- [x] Phase 1 feedback loop built and running (a test that parses a planted `Bash` line and reads `tool_signals`)
-- [x] Bug reproduces deterministically on the loop
-- [x] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
-- [x] Correct hypothesis identified via Phase 4 instrumentation
+- [X] Phase 1 feedback loop built and running (a test that parses a planted `Bash` line and reads `tool_signals`)
+- [X] Bug reproduces deterministically on the loop
+- [X] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
+- [X] Correct hypothesis identified via Phase 4 instrumentation
 
 ### Attempts Log (filled live during diagnosis — required if >1 hypothesis tested)
 
@@ -61,17 +61,17 @@
 
 ### Fix Gates (Pillar 2)
 
-- [x] Regression test written before the fix
-- [x] Fix applied; regression test passes
-- [x] Phase 1 loop no longer reproduces the bug
-- [x] Fix matches the "Expected" definition above
+- [X] Regression test written before the fix
+- [X] Fix applied; regression test passes
+- [X] Phase 1 loop no longer reproduces the bug
+- [X] Fix matches the "Expected" definition above
 
 ### Cleanup Checklist (Pillar 3)
 
-- [x] All \[DEBUG-...\] instrumentation removed (grep verified)
-- [x] Throwaway prototypes deleted
-- [x] Correct hypothesis stated in commit message
-- [x] Post-mortem: what would have prevented this?
+- [X] All \[DEBUG-...\] instrumentation removed (grep verified)
+- [X] Throwaway prototypes deleted
+- [X] Correct hypothesis stated in commit message
+- [X] Post-mortem: what would have prevented this?
 
 ---
 
@@ -120,9 +120,9 @@ uv run pytest tests/sources tests/connectors/test_mcp_tools.py tests/leak -q && 
 
 ## Edge Case Checklist
 
-- [x] A word that only *contains* a short `sk-` later (e.g. `task-runner`) is still stored (the pattern has `\b` anchors; prove with a test)
-- [x] `sk-learn`-like words are dropped (accepted loss; no reader uses bash rows)
-- [x] `bash -c "sk-…"`: `_bash_word` takes the literal first word (`bash`), unchanged
+- [X] A word that only *contains* a short `sk-` later (e.g. `task-runner`) is still stored (the pattern has `\b` anchors; prove with a test)
+- [X] `sk-learn`-like words are dropped (accepted loss; no reader uses bash rows)
+- [X] `bash -c "sk-…"`: `_bash_word` takes the literal first word (`bash`), unchanged
 
 ---
 

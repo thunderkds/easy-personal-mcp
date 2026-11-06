@@ -346,3 +346,10 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - Auto mode: write `.claude/hooks/.state/active_task` for the task **before** starting Advocates. HUN-235's two Advocates ran while the file still named HUN-233, so they were logged to `memory/event-trace/HUN-233.jsonl` and `stop_auto_mode_check` kept flagging HUN-235's `DEBATED` line until Done. Never edit trace files to fix this; note it in the report.
 - Before merging, discard the stop hook's `Paused:` line from main's copy of the review file (again, as in HUN-233).
 **Files**: `src/easy_personal/core/secretlike.py`, `src/easy_personal/sources/claude_code.py`, `src/easy_personal/core/reports.py`, `src/easy_personal/core/live.py`, `tests/sources/test_claude_code.py`, `tests/leak/test_leak_suite.py`
+
+### 2026-11-06 — Live stage chip + feed labels (HUN-234): feed shows only calls since the page opened; board pull reverts a merged guide
+- The Live page now draws HUN-233's fields: a row chip `Stage <n> · <skill>` from the snapshot (`stage`/`stage_skill` in `SAME_KEYS`), and feed rows `<who> <tool> <label>`, where who = `agent`, else "sub-agent" when `is_sidechain`, else "main"; MCP labels read `server · tool`. P3 left: an MCP row repeats the raw tool name before its label.
+- Verify gotcha: the feed lists only `live` events received while the page is open (no history; "No tool calls seen since this page opened"). To verify, append transcript lines **after** opening the row's panel; with lines appended first, the chip shows but the feed is empty. A CDP row click right after a reload can miss; check `aria-expanded` before reading the feed.
+- After merging a branch that edited its own guide (gate ticks), a later `board_sync.py pull` rewrote the guide from the board's older copy. Fix: `git checkout -- tasks/TASK_GUIDE_<ID>.md`, then `board_sync.py update --guide <ID>`. The board then normalises `[x]` → `[X]` (cosmetic).
+- Owner's dashboard shows the change only after `npm --prefix web run build` + `uv tool install --reinstall .` + a dashboard restart.
+**Files**: `web/src/LiveView.jsx`, `web/src/LiveView.test.jsx`, `web/src/app.css`
