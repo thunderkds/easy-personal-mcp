@@ -46,8 +46,27 @@ Not done: merge (yours); auto verify: running (T182)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-06T12:45:28Z (UTC) on branch `HUN-236`, before any change to `web/src/LiveView.jsx` / `app.css`. AC 1–7 tests written first (`web/src/LiveView.test.jsx`), run against the unchanged side-panel code:
+
+```
+$ cd web && npx vitest run src/LiveView.test.jsx
+ FAIL  ... inline expand (FR-085) > AC1: a row is a native button; a click expands its feed inside its own card; aria-expanded and aria-controls follow
+ FAIL  ... inline expand (FR-085) > AC1: opening another row closes the first; at most one .live-feed and one aria-live region
+ FAIL  ... inline expand (FR-085) > AC2: Escape on the row collapses it and the focus stays on the row button
+ FAIL  ... inline expand (FR-085) > AC2: Escape from inside the expanded area, and its Close control, collapse it and put the focus on that row button
+ FAIL  ... inline expand (FR-085) > AC3: no side panel and no two-column grid; opening a row leaves a sibling row's markup unchanged and does not draw it again
+ FAIL  ... inline expand (FR-085) > AC4: the row shows an arrow, closed then open, hidden from assistive technology
+ FAIL  ... inline expand (FR-085) > AC5: an MCP call shows only "server · tool", never the raw name; the raw name is in the row title; the time is HH:MM:SS 24 h
+ FAIL  ... inline expand (FR-085) > AC6: every feed cell is one line with an ellipsis, and the feed row is a grid; the feed scrolls inside a max height
+ FAIL  ... rows (FR-072) > AC7: when the open session leaves the list nothing is drawn for it and the open id resets
+ FAIL  ... design > has no side-panel grid: the list keeps one width whether a session is open or not (FR-085)
+ (37 failing in all, incl. the adapted feed/label tests)
+ Test Files  1 failed (1)
+      Tests  37 failed | 60 passed (97)
+   Start at  19:45:28
+```
+
+BEFORE screenshots of the old side panel (session open, 2 sessions; calls appended after opening; the feed in the panel wraps to 2-3 lines, MCP row prints the raw name and the label, time is 12 h "7:42:53 PM", list squeezed to a narrow column): `reports/HUN-236/before-w1280-closed.png`, `before-w1280-open.png`, `before-w375-closed.png`, `before-w375-open.png` (under the worktree; `/reports/` is gitignored). Measured in headless Chrome at 375 px: feed row heights 73,25,73,25,25,25 px (wrapped rows), at 1280 px: 73,25,49,25,25,25.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
