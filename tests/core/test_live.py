@@ -1039,8 +1039,25 @@ def test_label_failing_the_pattern_or_from_another_tool_is_dropped(projects, man
 
 
 def test_label_of_64_characters_is_kept_and_unchanged(projects, manual, clock):
-    name = "a" + "b" * 63
+    name = "tdd-" + "ab-" * 20  # 64 characters; hyphens keep it from looking like a key (see the secret test)
+    assert len(name) == 64
     assert one_label(projects, manual, clock, "Skill", {"skill": name}) == name
+
+
+@pytest.mark.parametrize(
+    "name, tool_input",
+    [
+        ("Bash", {"command": "sk-ant-api03-abcdef run"}),  # a pasted key run as a command
+        ("Bash", {"command": "ghp_abcdefghijklmnop"}),
+        ("Bash", {"command": "AKIAABCDEFGHIJKL --x"}),
+        ("Bash", {"command": "A" * 40}),  # a 32+ letter-and-digit run
+        ("Skill", {"skill": "xoxb-1234567890"}),
+        ("Agent", {"subagent_type": "a" + "b" * 40}),
+    ],
+)
+def test_label_that_looks_like_a_secret_is_dropped(projects, manual, clock, name, tool_input):
+    """Security review HUN-233: no secret on the page (PROJECT_SPEC Critical Constraints); same check as FR-076."""
+    assert one_label(projects, manual, clock, name, tool_input) is None
 
 
 def test_label_results_and_usage_events_carry_none(projects, manual, clock):

@@ -28,7 +28,17 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from easy_personal.core import accounts, config, discovery, jobs, lock, prices, rules, store
+from easy_personal.core import (
+    accounts,
+    config,
+    discovery,
+    jobs,
+    lock,
+    prices,
+    reports,
+    rules,
+    store,
+)
 from easy_personal.sources import claude_code
 
 log = logging.getLogger(__name__)
@@ -94,8 +104,13 @@ def _cursor(state: tuple[int, int] | None, inode: int, size: int) -> int:
 
 
 def _safe(value) -> str | None:
-    """`value` when it is a string that passes the FR-081 label pattern, else None."""
-    return value if isinstance(value, str) and LABEL_PATTERN.fullmatch(value) else None
+    """`value` when it is a string that passes the FR-081 label pattern and does not look like a secret, else None.
+
+    The secret check is the FR-076 one (`reports._SECRET`): no secret on the page (PROJECT_SPEC Critical Constraints).
+    """
+    if not isinstance(value, str) or not LABEL_PATTERN.fullmatch(value):
+        return None
+    return None if reports._SECRET.search(value) else value
 
 
 def _bash_label(command) -> str | None:
