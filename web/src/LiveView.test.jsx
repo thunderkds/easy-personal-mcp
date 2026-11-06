@@ -473,7 +473,7 @@ describe('feed', () => {
     expect(items[0]).toMatch(/Bash/)
     expect(items[0]).toMatch(/error/)
     expect(items[1]).toMatch(/Task/)
-    expect(items[1]).toMatch(/agent/)
+    expect(items[1]).toMatch(/sub-agent/) // a sidechain call whose type the tail did not send (HUN-234)
     expect(panelOf('aaaaaaaa').getByText('Tool calls').nextSibling).toHaveTextContent('1')
   })
 
@@ -795,7 +795,7 @@ describe('attention (FR-050)', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     send(live('aaaaaaaa-1', { kind: 'tool_result', tool: 'Edit', is_error: true, is_sidechain: true }))
-    expect(feedOf('aaaaaaaa')[0]).toMatch(/Edit.*agent.*error/)
+    expect(feedOf('aaaaaaaa')[0]).toMatch(/sub-agent.*Edit.*error/)
     expect(feedOf('aaaaaaaa')[0]).not.toContain('tool_result')
   })
 
@@ -803,6 +803,178 @@ describe('attention (FR-050)', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [{ ...failing, input: 'SECRET-planted', text: 'SECRET-planted' }] })]))
     expect(document.body.textContent).not.toContain('SECRET')
+  })
+})
+
+describe('kit stage chip and call labels (FR-084)', () => {
+  const chip = (idPrefix) => card(idPrefix).querySelector('.live-stage')
+  const who = (li) => li.querySelector('.live-who')?.textContent
+  const feedLis = (idPrefix) => {
+    openRow(idPrefix)
+    return [...document.querySelectorAll('#live-panel .live-feed > li')]
+  }
+
+  it('AC1: a session with a stage shows "Stage 4 · code-review" as real text in its row button; no stage, no chip', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { stage: '4', stage_skill: 'code-review' }),
+      session('bbbbbbbb-2', { project: 'beta', stage: null, stage_skill: null }),
+      session('cccccccc-3', { project: 'gamma' }), // an older server: no stage field at all
+    ]))
+    expect(chip('aaaaaaaa')).toHaveTextContent('Stage 4 · code-review')
+    expect(chip('aaaaaaaa').closest('button.live-row')).not.toBeNull()
+    expect(chip('bbbbbbbb')).toBeNull()
+    expect(chip('cccccccc')).toBeNull()
+    expect(card('bbbbbbbb')).not.toHaveTextContent('Stage')
+  })
+
+  it('AC1: a half stage and a stage without a skill name read as the server sent them', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { stage: '0.5', stage_skill: 'brainstorming' }),
+      session('bbbbbbbb-2', { project: 'beta', stage: '3', stage_skill: null }),
+    ]))
+    expect(chip('aaaaaaaa')).toHaveTextContent('Stage 0.5 · brainstorming')
+    expect(chip('bbbbbbbb').textContent).toBe('Stage 3')
+  })
+
+  it('AC1: a row made by a live event before any snapshot lists it has no chip', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([]))
+    send(live('dddddddd-4', { stage: '4', stage_skill: 'code-review' })) // the page reads stage from snapshots only
+    expect(chip('dddddddd')).toBeNull()
+  })
+
+  it('AC2: a new snapshot with a new stage updates the chip, and a snapshot that clears the stage removes it', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { stage: '3', stage_skill: 'tdd' })], 1))
+    expect(chip('aaaaaaaa')).toHaveTextContent('Stage 3 · tdd')
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { stage: '4', stage_skill: 'code-review' })], 2))
+    expect(chip('aaaaaaaa')).toHaveTextContent('Stage 4 · code-review')
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { stage: null, stage_skill: null })], 3))
+    expect(chip('aaaaaaaa')).toBeNull()
+  })
+
+  it('AC2: a snapshot that changes only one session\'s stage draws only that row; live events do not touch the chip', () => {
+    render(<LiveView />)
+    const quiet = new Date(Date.now() - 60_000).toISOString()
+    const a = session('aaaaaaaa-1', { stage: '3', stage_skill: 'tdd' })
+    const b = session('bbbbbbbb-2', { project: 'beta', last_ts: quiet, stage: '4', stage_skill: 'code-review' })
+    stream().emit('snapshot', snapshot([a, b], 1))
+    ago.mockClear()
+    stream().emit('snapshot', snapshot([{ ...a, stage: '4', stage_skill: 'verify' }, { ...b }], 2))
+    const drawn = ago.mock.calls.map(([ts]) => ts)
+    expect(drawn).toContain(a.last_ts) // its stage changed: its row draws again
+    expect(drawn).not.toContain(quiet) // the unchanged row does not
+    expect(chip('aaaaaaaa')).toHaveTextContent('Stage 4 · verify')
+    send(live('aaaaaaaa-1', { tool: 'Read' }))
+    expect(chip('aaaaaaaa')).toHaveTextContent('Stage 4 · verify')
+    expect(chip('bbbbbbbb')).toHaveTextContent('Stage 4 · code-review')
+  })
+
+  it('AC3: a Skill call from the main thread reads "main", the tool and the label', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { tool: 'Skill', label: 'tdd', agent: null }))
+    const [li] = feedLis('aaaaaaaa')
+    expect(who(li)).toBe('main')
+    expect(li.querySelector('.live-tool')).toHaveTextContent('Skill')
+    expect(li.querySelector('.live-label')).toHaveTextContent('tdd')
+    expect(li.textContent).toMatch(/main.*Skill.*tdd/)
+  })
+
+  it('AC3: a call from a sub-agent shows its type, the tool and the label', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { tool: 'Bash', label: 'pytest', agent: 'backend-developer', is_sidechain: true }))
+    const [li] = feedLis('aaaaaaaa')
+    expect(who(li)).toBe('backend-developer')
+    expect(li).toHaveTextContent('Bash')
+    expect(li.querySelector('.live-label')).toHaveTextContent('pytest')
+  })
+
+  it('AC3: an MCP label reads "server · tool"', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { tool: 'mcp__easy-verifier__score', label: { server: 'easy-verifier', tool: 'score' } }))
+    const [li] = feedLis('aaaaaaaa')
+    expect(li.querySelector('.live-label').textContent).toBe('easy-verifier · score')
+  })
+
+  it('AC3: a call without a label looks as before: who, tool, no label', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { tool: 'Read', label: null }))
+    send(live('aaaaaaaa-1', { tool: 'Edit' })) // an older server: no label field at all
+    const lis = feedLis('aaaaaaaa')
+    expect(lis).toHaveLength(2)
+    for (const li of lis) expect(li.querySelector('.live-label')).toBeNull()
+    expect(lis[0]).toHaveTextContent('Edit')
+  })
+
+  it('AC3: a failed result keeps its error tag next to who, tool and label', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { kind: 'tool_result', tool: 'Bash', is_error: true, label: 'uv', agent: 'qa-expert', is_sidechain: true }))
+    const [li] = feedLis('aaaaaaaa')
+    expect(li.textContent).toMatch(/qa-expert.*Bash.*uv.*error/)
+  })
+
+  it('edge: agent null but is_sidechain true reads "sub-agent", never "main"', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { tool: 'Grep', agent: null, is_sidechain: true }))
+    expect(who(feedLis('aaaaaaaa')[0])).toBe('sub-agent')
+  })
+
+  it('edge: a label of an unexpected shape shows no label', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    for (const label of [42, true, ['x'], { server: 'only-server' }, { server: 1, tool: 2 }, {}, '']) send(live('aaaaaaaa-1', { tool: 'Bash', label }))
+    const lis = feedLis('aaaaaaaa')
+    expect(lis).toHaveLength(7)
+    for (const li of lis) expect(li.querySelector('.live-label')).toBeNull()
+  })
+
+  it('AC4: text from any other event field never appears, in the row or the panel', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { stage: '4', stage_skill: 'code-review', prompt: 'SECRET-planted' })]))
+    send({
+      ...live('aaaaaaaa-1', { tool: 'Bash', label: 'pytest', agent: 'backend-developer', is_sidechain: true }),
+      input: { command: 'cat SECRET-planted' }, text: 'SECRET-planted body', description: 'SECRET-planted', prompt: 'SECRET-planted',
+      label_extra: 'SECRET-planted', agent_meta: { description: 'SECRET-planted' },
+    })
+    send(live('aaaaaaaa-1', { tool: 'mcp__s__t', label: { server: 's', tool: 't', args: 'SECRET-planted' } }))
+    expect(document.body.textContent).not.toContain('SECRET')
+    openRow('aaaaaaaa')
+    expect(document.body.textContent).not.toContain('SECRET')
+    expect(document.body.textContent).toContain('pytest')
+  })
+
+  it('AC5: the footnote names the shown names and still says no message or tool content', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    const note = screen.getByText(/tokens times the API price table/).textContent
+    expect(note).toMatch(/tool names, skill, sub-agent, MCP and command names, counts and times are shown/)
+    expect(note).toMatch(/never message or tool content/)
+  })
+
+  it('a long label and a long sub-agent type wrap instead of widening the panel', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    expect(css).toMatch(/\.live-who[^\n]*overflow-wrap: anywhere/)
+    expect(css).toMatch(/\.live-label[^\n]*overflow-wrap: anywhere/)
+  })
+
+  it('the chip is drawn from tokens only, in the label font, and the feed stays one aria-live region', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    const rule = css.split('\n').filter((l) => /^\.live-stage\b/.test(l)).join('\n')
+    expect(rule).toMatch(/color: var\(--color-[a-z-]+\)/)
+    expect(rule).toMatch(/font-family: var\(--font-mono\)/)
+    expect(rule).not.toMatch(/#[0-9a-fA-F]{3,8}\b|\b(rgb|rgba|hsl|hsla)\(/)
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { stage: '4', stage_skill: 'code-review' })]))
+    openRow('aaaaaaaa')
+    expect(document.querySelectorAll('[aria-live]')).toHaveLength(1)
   })
 })
 
