@@ -53,6 +53,11 @@
 
 ## Infrastructure
 
+### 2026-11-06 — Live call labels + kit stage: show, never store (FR-081..FR-084)
+**Decision**: The live tail reads `Skill.skill`, `Agent`/`Task` `subagent_type`, Bash first word, MCP server/tool, and sub-agent `agentType` (meta file) as call labels; stage = newest `Skill` call in a fixed code map; sent on `/api/live` only, never stored. Page: stage chip on the session row, labels in the panel feed. → see DDR-0004
+**Why**: Owner 2026-11-06 "don't know what is agent doing … which tools, which steps of the kits"; chose Safe labels only, fixed map, agentType only, row chip + panel feed.
+**Files**: `src/easy_personal/core/live.py`, `src/easy_personal/core/jobs.py`, `web/src/LiveView.jsx`, `docs/ddr/0004-live-call-labels-show-never-store.md`, `PRD.md`, `PROJECT_SPEC.md`
+
 ### 2026-10-21 — Board scoped to Linear project easy-personal-mcp (P-HUN-3)
 **Decision**: `.claude/board.json` `project` = `2a59e842-7dd5-483b-9bdb-f2287019e3f3`; the trashed first project (HUN-21…29) does not carry over.
 **Why**: An empty `project` made `board_sync.py pull` fetch the whole HUN team, mixing in easy-context-mcp tasks (one-project-per-board rule).

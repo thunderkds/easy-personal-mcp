@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [Live call labels + kit stage (FR-081..084)](decisions.md#2026-11-06--live-call-labels--kit-stage-show-never-store-fr-081fr-084) — show, never store: Skill/Agent/Bash first word/MCP split + sub-agent `agentType`; stage = newest mapped Skill call (fixed map); row chip + panel feed; DDR-0004.
 - [Kit performance = session findings, Option A](decisions.md#2026-11-03--kit-performance-session-findings-read-by-wake-requirement-grill) — main goal = kit performance; per kit MCP server, pooled like-with-like sessions (≥ 10/side, "linked to"); good result = branch commit + error rate; `kit_findings` MCP + CLI, ≤ 3 findings + habit; store v8 `tool_error_count`; `wake` change = XR-2 (kernel); HUN-192 → 193 → 194.
 - [easy-memory layer = Option A](decisions.md#2026-11-02--easy-memory-layer-in-the-memory-view--one-graph-response-option-a) — `~/.easy-memory` read as files (no MCP), metadata only; top-30 cited-file nodes + stale mark + 30-day panel in `/api/memory-graph`; HUN-184 → HUN-185.
 - [v0.4.0 live attention = Option C](decisions.md#2026-11-02--v040-live-attention-states--snapshot-pushed-state-option-c) — failing / waiting for you / needs attention worked out in the live tail; snapshot re-sent only on a state change; no new dep, nothing stored.

@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-05
+**Last updated**: 2026-11-06
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -11,6 +11,8 @@
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
+- [ ] **HUN-233** — Live tail call labels, sub-agent type and kit stage, shown never stored (FR-081..FR-083) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-233.md`
+- [ ] **HUN-234** — Live view kit stage chip and call labels in the session feed (FR-084) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-234.md`
 
 ### In Progress
 
