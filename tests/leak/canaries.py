@@ -58,7 +58,14 @@ PATTERNS = {
     "easymem_answer": "INVENTED_easymem-answer-{t}",
     "easymem_session": "INVENTED_easymem-session-{t}",
     "easymem_trash": "INVENTED_easymem-trash-{t}",
+    "skill_args": "LEAKCANARY skill-args {t}",  # HUN-233: input fields of a Skill / Agent call and a sub-agent meta file that no label reads
+    "agent_prompt": "LEAKCANARY agent-prompt {t}",
+    "agent_description": "LEAKCANARY agent-description {t}",
+    "meta_description": "LEAKCANARY meta-description {t}",
 }
+# HUN-233: the live call labels the planted live-label transcript produces. Shown on /api/live only (DDR-0004).
+LIVE_LABELS = ("leak-skill-name", "leak-agent-type", "leak-meta-agent")
+LIVE_SESSION = "00000000-0000-4000-8000-0000000000cc"
 ACCOUNT_EMAIL = "owner@example.invalid"  # the one `.claude.json` value the Agents page shows on purpose
 
 
@@ -104,11 +111,44 @@ class Canaries:
         project = dest / "-work-leak-demo"
         project.mkdir(parents=True)
         (project / "session.jsonl").write_text(text)
+        self._render_live_labels(project)
         # invalid UTF-8 after a canary: the decoder error must not echo the line anywhere
         (project / "binary.jsonl").write_bytes(
             b'{"type":"user","x":"' + self.values["binary"].encode() + b'\xff\xfe"}\n'
         )
         return dest
+
+    def _render_live_labels(self, project: Path) -> None:
+        """Plant a session whose Skill / Agent / Bash / MCP calls have labels, a sub-agent file and its meta file (HUN-233)."""
+        v = self.values
+
+        def line(blocks, ts, sidechain, mid):
+            return json.dumps({
+                "isSidechain": sidechain, "entrypoint": "cli", "cwd": "/work/leak-demo", "sessionId": LIVE_SESSION,
+                "version": "2.1.295", "timestamp": ts, "type": "assistant",
+                "message": {"id": mid, "role": "assistant", "model": "claude-fixture-model-1", "content": blocks,
+                            "usage": {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}},
+            }) + "\n"  # fmt: skip
+
+        def use(n, name, tool_input):
+            return {"type": "tool_use", "id": f"toolu_live_{n}", "name": name, "input": tool_input}
+
+        main = line([
+            use(1, "Skill", {"skill": "leak-skill-name", "args": v["skill_args"]}),
+            use(2, "Skill", {"skill": "easy-kit:code-review", "args": v["skill_args"]}),
+            use(3, "Agent", {"subagent_type": "leak-agent-type", "prompt": v["agent_prompt"], "description": v["agent_description"]}),
+            use(4, "Bash", {"command": f"cd /work/leak-demo && uv run pytest {v['tool_input']}", "description": v["agent_description"]}),
+        ], "2026-02-01T09:10:00.000Z", False, "msg_live_main")  # fmt: skip
+        (project / "live-labels.jsonl").write_text(main)
+        sub = project / LIVE_SESSION / "subagents"
+        sub.mkdir(parents=True)
+        (sub / "agent-leak1.jsonl").write_text(line([
+            use(5, "Read", {"file_path": v["file_path"]}),
+            use(6, "mcp__easy-verifier__score", {"scope": v["tool_input"]}),
+        ], "2026-02-01T09:11:00.000Z", True, "msg_live_sub"))  # fmt: skip
+        (sub / "agent-leak1.meta.json").write_text(json.dumps(
+            {"agentType": "leak-meta-agent", "description": v["meta_description"], "toolUseId": "toolu_live_3"}
+        ))
 
     def render_kit_trace(self, repo: Path) -> Path:
         """Write a project with kernel traces whose `summary` holds a canary; return its path."""

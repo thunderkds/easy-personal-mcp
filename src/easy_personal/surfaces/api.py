@@ -125,9 +125,9 @@ def _sse(event: str, data: dict, event_id: int | None = None) -> bytes:
 
 
 _SESSION_KEYS = ("session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd",
-                 "attention")  # fmt: skip
+                 "attention", "stage", "stage_skill")  # fmt: skip
 _EVENT_KEYS = ("id", "session_id", "account", "project", "ts", "kind", "tool", "is_error", "is_sidechain",
-               "tokens_in", "tokens_out", "cost_usd")  # fmt: skip  (the cache counts stay out of the contract)
+               "label", "agent", "tokens_in", "tokens_out", "cost_usd")  # fmt: skip  (the cache counts stay out of the contract)
 
 
 def _snapshot_data(snapshot: dict) -> dict:

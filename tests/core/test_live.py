@@ -972,7 +972,7 @@ def test_label_skill_and_agent_calls_carry_the_safe_field_and_no_canary(projects
         ("/usr/bin/env python3 x.py", "python3"),
         ("", None),
         ("   ", None),
-        ("cd /x", None),
+        ("cd /x", "cd"),  # nothing follows the cd, so it is the command
     ],
 )
 def test_label_bash_is_the_first_word_after_a_leading_cd(projects, manual, clock, command, expected):
@@ -1002,7 +1002,7 @@ def test_label_mcp_tool_is_split_at_the_first_two_double_underscores_without_rea
         call_record(clock, "mcp__a__b__c", "not even a dict"),
         call_record(clock, "mcp__only-server", {}),
         call_record(clock, "mcp____tool", {}),
-        call_record(clock, "mcp__bad server__tool", {}),
+        call_record(clock, "mcp__-server__tool", {}),  # a leading "-" fails the label pattern
     )
     tail.poll_once()
     assert [e["label"] for e in tool_uses(tail)] == [
@@ -1234,7 +1234,7 @@ def test_stage_changes_bump_state_version_once_each_and_other_calls_do_not(proje
 
 def test_stage_is_dropped_with_its_session(projects, manual, clock):
     tail = seeded(projects, manual, clock, MAIN)
-    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}))
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}, use_id="u1"), result(clock, "u1"))
     tail.poll_once()
     assert snap(tail)["stage"] == "3"
     clock.advance(seconds=live.FORGET_AFTER_S + 1)
