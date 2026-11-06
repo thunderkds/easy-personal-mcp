@@ -9,7 +9,9 @@ scheduled ingest): it is published and not stored again (FR-071). Every publishe
 metadata event in a bounded in-memory buffer that the SSE route reads.
 
 Read-only on every source (NFR-003). Nothing is written to any Claude config. An event holds names,
-ids, numbers and timestamps only: message text, tool input and tool output are never read (FR-002).
+ids, numbers and timestamps only: message text and tool output are never read (FR-002). Of a tool call's
+input, only the fields `_call_label` names are read, and only to show a label on the page (FR-081,
+DDR-0004); labels, sub-agent types and the kit stage live in memory and are never stored.
 """
 
 import contextlib
@@ -17,6 +19,7 @@ import itertools
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -25,7 +28,17 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from easy_personal.core import accounts, config, discovery, lock, prices, rules, store
+from easy_personal.core import (
+    accounts,
+    config,
+    discovery,
+    jobs,
+    lock,
+    prices,
+    reports,
+    rules,
+    store,
+)
 from easy_personal.sources import claude_code
 
 log = logging.getLogger(__name__)
@@ -39,6 +52,22 @@ ROOTS_REFRESH_S = 1.0
 OPEN_CALL_MAX_S = 24 * 3600  # an open call older than a day is dropped (the session ended without a result)
 WAITING_TOOLS = frozenset({"AskUserQuestion", "ExitPlanMode"})  # an open one waits for the owner (FR-049)
 THREAD_NAME = "easy-personal-live-tail"
+LABEL_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._-]{0,63}$")  # FR-081: anything else is no label
+COMMAND_READ_CHARS = 4096  # a Bash command is cut here before its first word is looked for
+META_MAX_BYTES = 4096  # FR-082: a sub-agent meta file larger than this is not read
+META_WAIT_S = 30  # a meta file still missing or unusable this long after the first look gives SUB_AGENT for good
+SUB_AGENT = "sub-agent"
+# FR-083: the kit stage of a skill (owner choice 2026-11-06); a skill not listed leaves the stage unchanged.
+STAGE_MAP = {
+    **dict.fromkeys(("brainstorming", "ideate"), "0.5"),
+    **dict.fromkeys(("git-guardrails-claude-code", "map-codebase"), "1"),
+    "craft-agent": "1.5",
+    **dict.fromkeys(("grill-with-docs", "to-issues"), "2"),
+    **dict.fromkeys(("tdd", "bugfix", "diagnose", "craft-spawn-prompt", "migration-safety"), "3"),
+    **dict.fromkeys(("code-review", "security-review", "blast-radius", "html-report"), "4"),
+    **dict.fromkeys(("verify", "ship", "delivery-report"), "5"),
+}
+_CD_PREFIX = re.compile(r"""\s*cd\s+(?:"[^"]*"|'[^']*'|[^\s;&|]+)\s*(?:&&|;)\s*""")
 _STAMP = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 _current: "LiveTail | None" = None
@@ -74,12 +103,67 @@ def _cursor(state: tuple[int, int] | None, inode: int, size: int) -> int:
     return state[1] if state and state[0] == inode and state[1] <= size else 0
 
 
+def _safe(value) -> str | None:
+    """`value` when it is a string that passes the FR-081 label pattern and does not look like a secret, else None.
+
+    The secret check is the FR-076 one (`reports._SECRET`): no secret on the page (PROJECT_SPEC Critical Constraints).
+    """
+    if not isinstance(value, str) or not LABEL_PATTERN.fullmatch(value):
+        return None
+    return None if reports._SECRET.search(value) else value
+
+
+def _bash_label(command) -> str | None:
+    """First word of a Bash command after any leading `cd <dir> &&` / `cd <dir>;` (live-only wrapper)."""
+    if not isinstance(command, str):
+        return None
+    command = command[:COMMAND_READ_CHARS]
+    while match := _CD_PREFIX.match(command):
+        command = command[match.end() :]
+    return _safe(jobs.command_name(command))
+
+
+def _call_label(name: str, tool_input) -> str | dict | None:
+    """The FR-081 call label of one `tool_use` block. The only place a tool's input is read.
+
+    Reads `skill` (Skill), `subagent_type` (Agent, Task) or the first word of `command` (Bash); an MCP
+    tool is split from its name and its input is not read. Every other field and tool gives no label.
+    """
+    if name.startswith("mcp__"):
+        server, _, tool = name[len("mcp__") :].partition("__")
+        server, tool = _safe(server), _safe(tool)
+        return {"server": server, "tool": tool} if server and tool else None
+    field = {"Skill": "skill", "Agent": "subagent_type", "Task": "subagent_type", "Bash": "command"}.get(name)
+    if field is None or not isinstance(tool_input, dict):
+        return None
+    value = tool_input.get(field)
+    return _bash_label(value) if name == "Bash" else _safe(value)
+
+
+def _meta_agent_type(stream_path: str) -> str | None:
+    """`agentType` of `<stream>.meta.json` beside a sub-agent stream file, else None (FR-082).
+
+    Reads at most META_MAX_BYTES of a regular file (a symlink is not followed) and takes that one field.
+    """
+    meta = stream_path[: -len(".jsonl")] + ".meta.json"
+    try:
+        fd = os.open(meta, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as handle:
+            raw = handle.read(META_MAX_BYTES + 1)
+        data = json.loads(raw) if len(raw) <= META_MAX_BYTES else None
+    except (OSError, ValueError, RecursionError):
+        return None
+    return _safe(data.get("agentType")) if isinstance(data, dict) else None
+
+
 def _item(record, parsed: dict) -> dict | None:
     """Metadata of one decoded record for the buffer, or None when it has no session or time.
 
     Only `parse_record`'s label-checked fields and, from content blocks, `type`, `id`, `tool_use_id`,
-    `name` and `is_error` are read: the blocks' `content`, `input` and `text` are never touched. A block
-    id (`block_id`) is kept to pair a call with its result in memory; it never reaches a buffered event.
+    `name` and `is_error` are read: the blocks' `content` and `text` are never touched. A `tool_use`
+    block's `input` goes to `_call_label` alone (DDR-0004), which reads `skill`, `subagent_type` or a
+    Bash command's first word and nothing else. A block id (`block_id`) is kept to pair a call with its
+    result in memory; it never reaches a buffered event.
     """
     session, ts = parsed["session_id"], parsed["ts_utc"]
     if parsed["abstained"] or session is None or ts is None:
@@ -101,8 +185,9 @@ def _item(record, parsed: dict) -> dict | None:
         if block.get("type") == "tool_use" and parsed["record_type"] == "assistant":
             if name := claude_code._label(block.get("name")):
                 events.append(
-                    {"kind": "tool_use", "tool": name, "is_error": False, "block_id": claude_code._label(block.get("id"))}
-                )
+                    {"kind": "tool_use", "tool": name, "is_error": False, "block_id": claude_code._label(block.get("id")),
+                     "label": _call_label(name, block.get("input"))}
+                )  # fmt: skip
         elif block.get("type") == "tool_result" and parsed["record_type"] == "user":
             events.append(
                 {
@@ -140,6 +225,9 @@ class _Stream:
 
     def __init__(self):
         self.is_sidechain = False
+        self.sub_agent = False  # a file under `subagents/`: its calls carry an agent type (FR-082)
+        self.agent: str | None = None  # settled type: from the meta file, or SUB_AGENT after META_WAIT_S
+        self.meta_since: datetime | None = None  # when the meta file was first looked for
         self.open: dict[str, _Call] = {}
         self.streak = 0
         self.streak_tool: str | None = None
@@ -157,6 +245,9 @@ class _Session:
         self.messages: dict[str, tuple[int, int, int, int, float | None]] = {}
         self.streams: dict[str, _Stream] = {}  # by transcript file path: subagents share the session id
         self.attention: list[dict] = []
+        self.stage: str | None = None  # FR-083: stage of the newest mapped Skill call, and that skill's bare name
+        self.stage_skill: str | None = None
+        self.stage_ts = ""
 
     @property
     def has_open_call(self) -> bool:
@@ -247,7 +338,7 @@ class LiveTail:
 
     @property
     def state_version(self) -> int:
-        """Counts changes of any session's attention states; an ordinary tool call never moves it."""
+        """Counts changes of any session's attention states or kit stage; an ordinary tool call never moves it."""
         with self._mutex:
             return self._state_version
 
@@ -287,6 +378,8 @@ class LiveTail:
                         "cache_read": sum(f[3] for f in figures),
                         "cost_usd": None if None in costs else sum(costs),  # one unpriced model: abstain
                         "attention": [dict(a) for a in s.attention],
+                        "stage": s.stage,
+                        "stage_skill": s.stage_skill,
                     }
                 )
             sessions.sort(key=lambda s: s["last_ts"], reverse=True)
@@ -406,21 +499,51 @@ class LiveTail:
 
     def _publish(self, account: str, items: list[dict]) -> None:
         """Append the stored lines' events and update running totals, in one step for readers."""
+        tried: set[str] = set()  # sub-agent streams whose meta file was looked for in this step
         with self._mutex:
             for item in items:
                 session = self._sessions.setdefault(item["session_id"], _Session(account))
                 session.last_ts = max(session.last_ts, item["ts"])
                 session.project = item["project"] or session.project
                 stream = session.streams.setdefault(item["path"], _Stream())
-                stream.is_sidechain = item["is_sidechain"] or "subagents" in Path(item["path"]).parts
+                stream.sub_agent = "subagents" in Path(item["path"]).parts
+                stream.is_sidechain = item["is_sidechain"] or stream.sub_agent
+                item["agent"] = self._agent_of(stream, item["path"], tried)
                 self._close_on_new_message(stream, item)
                 for event in item["events"]:
                     session.tool_calls += event["kind"] == "tool_use"
+                    if event["kind"] == "tool_use" and event["tool"] == "Skill":
+                        self._set_stage(session, event["label"], item["ts"])
                     event = self._pair(stream, item, event)
                     self._append(account, item, event)
                 if item["usage"]:
                     self._count_usage(session, account, item)
         self._evaluate()
+
+    def _agent_of(self, stream: _Stream, path: str, tried: set[str]) -> str | None:
+        """FR-082: None on the main thread, else the stream's agent type (SUB_AGENT while it is not known).
+
+        The meta file is looked for at most once per stream per step, until it gives a type or META_WAIT_S
+        has passed since the first look. A settled type is never read again.
+        """
+        if not stream.sub_agent:
+            return None
+        if stream.agent is None and path not in tried:
+            tried.add(path)
+            now = self._clock()
+            stream.meta_since = stream.meta_since or now
+            if agent := _meta_agent_type(path):
+                stream.agent = agent
+            elif now - stream.meta_since >= timedelta(seconds=META_WAIT_S):
+                stream.agent = SUB_AGENT
+        return stream.agent or SUB_AGENT
+
+    def _set_stage(self, session: _Session, skill: str | None, ts: str) -> None:
+        """FR-083: a mapped Skill call not older than the current one sets the stage; a change moves `state_version`."""
+        bare = skill.rsplit(":", 1)[-1] if skill else None
+        if bare in STAGE_MAP and ts >= session.stage_ts and (STAGE_MAP[bare], bare) != (session.stage, session.stage_skill):
+            session.stage, session.stage_skill, session.stage_ts = STAGE_MAP[bare], bare, ts
+            self._state_version += 1
 
     def _warn_once(self, kind: str) -> None:
         if kind not in self._warned:
@@ -536,6 +659,8 @@ class LiveTail:
                 "tool": event["tool"],
                 "is_error": event["is_error"],
                 "is_sidechain": item["is_sidechain"],
+                "label": event.get("label"),
+                "agent": item["agent"],
                 "tokens_in": tokens[0],
                 "tokens_out": tokens[1],
                 "cache_creation": tokens[2],

@@ -16,23 +16,28 @@ Mode: auto
 Owner instruction (not a decision): commit the plan and start HUN-233 in auto mode ("yes, commit and start HUN-233 [auto]", 2026-11-06).
 1. Requirement Fidelity Gate stays signed by the owner (four AskUserQuestion choices + path A, 2026-11-06) — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule` row 13
 2. spawned on claude · C2 → claude-sonnet-5-5 — FACT: PROJECT_SPEC.md:165 "| claude | `claude` | `claude-haiku-5-5` | `claude-sonnet-5-5` | `claude-sonnet-5-5` |"
-Checks: pending
-Not done: merge (yours); auto verify: running (T182)
+3. touched `src/easy_personal/surfaces/api.py` (two whitelist tuples) though the guide's Files table did not list it — FACT: tasks/TASK_GUIDE_HUN-233.md:68 "pasted `/api/live` lines show `label`, `agent` and a snapshot `stage`"; src/easy_personal/surfaces/api.py:129 "_EVENT_KEYS = (" (the route copies only these keys)
+4. Stage 4 security fix applied: a label that looks like a secret is dropped, with the FR-076 check `reports._SECRET` (fdcc0e1) — RULE: PROJECT_SPEC.md:118 "no message text, tool input/output, trace `summary`, easy-ui `target`, file contents or secrets in the store, MCP/API responses, page, or logs"
+5. security review: first done inline when the built-in skill failed (`fatal: ambiguous argument 'origin/HEAD...'`), then re-run as the built-in `security-review` Skill after the owner approved a local `refs/remotes/origin/HEAD` → main (`0e90796`) — RULE: memory/learnings.md:31 "built-in `security-review` diffs `origin/HEAD` (remote here is `github`)"; owner instruction 2026-11-06 ("yes, your turn")
+6. board not moved to Ready for Review — FACT: memory/MEMORY.md:55 "Linear has no review state → push `done`, pull, merge" (the owner moves it to Done after /verify)
+Checks: tests `uv run pytest tests/core/test_live.py tests/surfaces/test_api_live.py tests/leak -q` — 176 passed (Supervisor re-run after the fix); full suite — 1609 passed, 2 skipped (web/ not built), 1 xfailed (Supervisor re-run on fdcc0e1); ruff clean; reviews code-review — 0 P0, 0 P1, 1 P2 (guide Files table missed `api.py`), 2 P3 (meta read under `_mutex`; sidechain line in a main file shows `agent: null` → handle in HUN-234), lane `C2, 6 files, 606 lines, EXCEEDS (lines 606 > 500); unpredicted: src/easy_personal/surfaces/api.py` (339 of the lines are tests); security-review (inline) — 1 Medium fixed; built-in `security-review` Skill re-run on fdcc0e1+ — no high-confidence vulnerabilities (meta read, tool input/secrets on `/api/live`, store/MCP/CLI/logs, auth, XSS, injection all ruled out) (secret-looking Bash first word reached `/api/live`), probes clean (pattern + 64-char cap, `O_NOFOLLOW` 4 KB meta read, `cd` regex ≈ 1.5 ms on 4 KB, `RecursionError` caught, no new route); easy-verifier — N/A (`target repository path does not exist` for the worktree path); real run by the implementer: dashboard on temp homes, `/api/live` carried `"label":"easy-kit:tdd"`, `"label":"uv"` (input `cd /work/demo-app && uv run pytest SECRET-arg`), `"agent":"backend-developer"`, `{"server":"easy-verifier","tool":"score"}`, snapshot `"stage":"3","stage_skill":"tdd"`, `SECRET in output: False` (auto-checked, not /verify)
+Found during /verify (not HUN-233, pre-existing since HUN-47): ingest stores a Bash first word in `tool_signals` without a secret check — `sk-ant-api03-VERIFYSECRETKEY` was stored as a `bash` signal. HUN-233 adds nothing to the store. Needs its own bugfix task (PROJECT_SPEC.md:118 bans secrets in the store).
+Not done: merge (yours); memory update; Done; HUN-234 (frontend, after merge)
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/core/test_live.py` (AC 1–6 + secret-label test), `tests/surfaces/test_api_live.py` (wire keys, resume), `tests/leak/test_live_leak.py` + `tests/leak/canaries.py` (AC 7): `176 passed, 1 warning in 59.58s` |
+| Verification command run | ☑ pass | `uv run pytest tests/core/test_live.py tests/surfaces/test_api_live.py tests/leak -q && uv run pytest -q` → `176 passed` and `1609 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 162.21s` (Supervisor, fdcc0e1) |
+| Negative cases hold | ☑ pass | pattern rejects (65 chars, leading `-`/`.`, newline, non-string), other tools no label, secret-looking labels dropped, bad/missing/oversized/symlinked meta → `sub-agent`, canaries in `args`/`prompt`/`description`/meta `description`/Bash args never on any surface |
+| verify | ☑ pass | owner-invoked `/verify HUN-233` 2026-11-06 on d6c24bc, temp install (0.4.0): `ping` ok; MCP stdio 12 tools + ping ok; `--host 0.0.0.0/localhost/::1` exit 2; dashboard on temp homes, live lines appended: `/api/live` gave Skill `code-review`, Agent `qa-expert`, Bash `uv` (for `cd /work/demo && uv run pytest …`), Bash `sk-ant-api03-…` → no label, sub-agent MCP `{server: easy-verifier, tool: score}` agent `qa-expert`, snapshot `stage 4 · code-review`; planted VERIFYSECRET in /api/live 0, dashboard log 0 — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `main...HEAD` diff (live.py, api.py, tests) + callers `surfaces/api.py` `/api/live`, `surfaces/cli.py:399` tail start; web/ skipped (unchanged, HUN-234) |
+| Full smoke suite still green (no regression) | ☑ pass | `1609 passed, 2 skipped, 6 deselected, 1 xfailed` (2 skips = `tests/test_web_toolchain.py`, web/ not built) |
+| **Companion score (easy-verifier)** | ☑ N/A | not scored: the MCP refused the worktree path (`target repository path does not exist`), known since 2026-11-01 |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | pure backend task; the page change is HUN-234 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | pure backend task; the page change is HUN-234 |
+| **UI: Responsiveness at target viewports** | ☑ N/A | pure backend task; the page change is HUN-234 |
 
 ---
 
@@ -43,12 +48,32 @@ Not done: merge (yours); auto verify: running (T182)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE** (command: `uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"` with the new AC 1–6 tests written, before any implementation change): [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (command: `uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"` with the new AC 1–6 tests written, before any implementation change):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ date -u +%Y-%m-%dT%H:%M:%SZ
+2026-11-06T11:03:26Z
+$ uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"
+...
+>       resumed = [(e["label"], e["agent"]) for e in tail.events_since(0) if e["kind"] == "tool_use"]
+E       KeyError: 'label'
+tests/core/test_live.py:1249: KeyError
+FAILED tests/core/test_live.py::test_label_skill_and_agent_calls_carry_the_safe_field_and_no_canary
+FAILED tests/core/test_live.py::test_label_bash_is_the_first_word_after_a_leading_cd[cd /x && uv run pytest-uv]
+FAILED tests/core/test_live.py::test_label_mcp_tool_is_split_at_the_first_two_double_underscores_without_reading_input
+FAILED tests/core/test_live.py::test_agent_type_of_a_subagent_stream_comes_from_its_meta_file_and_the_main_thread_has_none
+FAILED tests/core/test_live.py::test_agent_type_meta_file_is_read_once_per_stream
+FAILED tests/core/test_live.py::test_stage_follows_the_newest_mapped_skill_and_keeps_unmapped_ones_out
+FAILED tests/core/test_live.py::test_stage_map_is_the_fixed_prd_table - Attri...
+FAILED tests/core/test_live.py::test_stage_changes_bump_state_version_once_each_and_other_calls_do_not
+FAILED tests/core/test_live.py::test_label_and_agent_reach_the_buffer_for_resume_and_the_snapshot_carries_the_stage
+(... 51 failed in total, listed in full by pytest)
+51 failed, 1 passed, 48 deselected in 2.43s
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: same command, post-change (backend-developer run, 2026-11-06): `uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"` passes; verification command `uv run pytest tests/core/test_live.py tests/surfaces/test_api_live.py tests/leak -q` gave `170 passed`; full `uv run pytest -q` gave `1603 passed, 2 skipped, 6 deselected, 1 xfailed`. Real run: `/api/live` event `{"kind":"tool_use","tool":"Skill",...,"label":"easy-kit:tdd","agent":null}`, a sub-agent event `"label":{"server":"easy-verifier","tool":"score"},"agent":"backend-developer"`, snapshot `"stage":"3","stage_skill":"tdd"`.
+
+**DELTA**: The `/api/live` stream now tells which skill, sub-agent type, Bash command name or MCP tool each call is, which sub-agent made it, and which kit stage the session is in, with nothing stored.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
