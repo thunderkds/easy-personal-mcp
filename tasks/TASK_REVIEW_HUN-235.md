@@ -16,6 +16,7 @@ Mode: auto
 Owner instruction (not a decision): fix the `tool_signals` secret leak first, auto mode ("bugfix first [auto]", 2026-11-06).
 1. Mental model signed `auto (Supervisor)`, not by the owner — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule` row 2
 2. no migration to delete stored rows; ingest check only — DEBATED: (A) ingest check only (Advocate 1: (A) ingest check only; Advocate 2: (B) also ship m0012 delete migration) ⚠ decided for you — please review
+   Trace note: both Advocate `Agent` calls ran at 2026-11-06T11:39:12Z ("Advocate 1: ingest check only", "Advocate 2: ingest check + m0012 purge") but were logged to `memory/event-trace/HUN-233.jsonl`, because the active-task file still named HUN-233 then; the auto-mode check reads only HUN-235's trace. Records left unedited (audit trail).
 3. spawned on claude · C1 → claude-sonnet-5-5 — FACT: PROJECT_SPEC.md:165 "| claude | `claude` | `claude-haiku-5-5` | `claude-sonnet-5-5` |"
 Checks: pending
 Not done: merge (yours); auto verify: running (T182)
