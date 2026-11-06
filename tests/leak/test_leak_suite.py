@@ -247,3 +247,27 @@ def test_saved_reports_really_ran(leak_run):
     listing = leak_run.outputs["api /api/reports"]
     assert '"summary_first_line":"Leak suite report."' in listing
     assert any(label.startswith("api GET /api/reports/{id}") and blob.startswith("404 ") for label, blob in leak_run.outputs.items())
+
+
+def test_secret_looking_bash_first_word_is_not_in_the_store_dump(canaries, tmp_path):
+    """HUN-235: a planted key as the first word of a Bash command (`sk-... run`) reaches no `tool_signals` row and no dump line."""
+    import json
+
+    from easy_personal.core import store
+    from easy_personal.sources import claude_code
+
+    projects = tmp_path / "projects" / "-work-leak-demo"
+    projects.mkdir(parents=True)
+    blocks = [
+        {"type": "tool_use", "id": "toolu_k1", "name": "Bash", "input": {"command": f"{canaries.values['api_key']} run"}},
+        {"type": "tool_use", "id": "toolu_k2", "name": "Bash", "input": {"command": "uv run pytest"}},
+    ]
+    record = {"type": "assistant", "version": "2.1.295", "cwd": "/work/leak-demo", "sessionId": "s-key", "isSidechain": False,
+              "timestamp": "2026-02-01T09:00:00.000Z",
+              "message": {"id": "msg_key", "model": "claude-fixture-model-1", "content": blocks,
+                          "usage": {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}}  # fmt: skip
+    (projects / "s.jsonl").write_text(json.dumps(record) + "\n")
+    conn = store.connect(tmp_path / "store.sqlite")
+    claude_code.ingest(conn, tmp_path / "projects")
+    assert conn.execute("SELECT kind, value FROM tool_signals").fetchall() == [("bash", "uv")]  # not vacuous: the ordinary word is stored
+    canaries.assert_clean("store dump", "\n".join(conn.iterdump()))

@@ -44,29 +44,34 @@
 
 ### Diagnosis Gates (Pillar 1 — must pass before any fix)
 
-- [ ] Phase 1 feedback loop built and running (a test that parses a planted `Bash` line and reads `tool_signals`)
-- [ ] Bug reproduces deterministically on the loop
-- [ ] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
-- [ ] Correct hypothesis identified via Phase 4 instrumentation
+- [x] Phase 1 feedback loop built and running (a test that parses a planted `Bash` line and reads `tool_signals`)
+- [x] Bug reproduces deterministically on the loop
+- [x] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
+- [x] Correct hypothesis identified via Phase 4 instrumentation
 
 ### Attempts Log (filled live during diagnosis — required if >1 hypothesis tested)
 
 | \# | Hypothesis | Predicted signal | Actual result | Verdict |
 | -- | -- | -- | -- | -- |
+| 1 | `_bash_word`'s `_WORD` regex accepts a key-shaped first word and nothing else checks it | The loop stores `sk-ant-api03-abcdef`, `AKIAABCDEFGHIJKL`, `xoxb-1234567890`, `ghp_…`, a 40-char run; fails before the fix | 5 of 6 planted words stored (the `/tmp/sk-ant…` one included, its path dropped); 2 tests failed | Confirmed. Fixed here |
+| 2 | A second writer of `tool_signals` skips `_bash_word` (live tail, store) | `grep` finds another producer of `("bash", …)` rows | Only `claude_code._signals` produces signals (`store.py:167` only reads `event["signals"]`); the live tail uses the same `parse_record` | Rejected |
+| 3 | `store.save_file` adds the word after parse | A stored word differs from the parsed one | Stored value equals the parsed word (loop output) | Rejected |
+| 4 | The pattern is too narrow to match the planted words | `SECRET.search` is None for a planted word | Each planted word matches (`sk-` prefix, `AKIA`, `xox`, `ghp_`, 32+ run); after the fix 0 rows | Rejected |
+| 5 | Importing `reports` into `claude_code` is safe | `import easy_personal.sources.claude_code` works | `ImportError` (cycle `reports` → `rules` → `kit` → `sources.ui` → `claude_code`) | Rejected: pattern moved to `core/secretlike.py` |
 
 ### Fix Gates (Pillar 2)
 
-- [ ] Regression test written before the fix
-- [ ] Fix applied; regression test passes
-- [ ] Phase 1 loop no longer reproduces the bug
-- [ ] Fix matches the "Expected" definition above
+- [x] Regression test written before the fix
+- [x] Fix applied; regression test passes
+- [x] Phase 1 loop no longer reproduces the bug
+- [x] Fix matches the "Expected" definition above
 
 ### Cleanup Checklist (Pillar 3)
 
-- [ ] All \[DEBUG-...\] instrumentation removed (grep verified)
-- [ ] Throwaway prototypes deleted
-- [ ] Correct hypothesis stated in commit message
-- [ ] Post-mortem: what would have prevented this?
+- [x] All \[DEBUG-...\] instrumentation removed (grep verified)
+- [x] Throwaway prototypes deleted
+- [x] Correct hypothesis stated in commit message
+- [x] Post-mortem: what would have prevented this?
 
 ---
 
@@ -115,9 +120,9 @@ uv run pytest tests/sources tests/connectors/test_mcp_tools.py tests/leak -q && 
 
 ## Edge Case Checklist
 
-- [ ] A word that only *contains* a short `sk-` later (e.g. `task-runner`) is still stored (the pattern has `\b` anchors; prove with a test)
-- [ ] `sk-learn`-like words are dropped (accepted loss; no reader uses bash rows)
-- [ ] `bash -c "sk-…"`: `_bash_word` takes the literal first word (`bash`), unchanged
+- [x] A word that only *contains* a short `sk-` later (e.g. `task-runner`) is still stored (the pattern has `\b` anchors; prove with a test)
+- [x] `sk-learn`-like words are dropped (accepted loss; no reader uses bash rows)
+- [x] `bash -c "sk-…"`: `_bash_word` takes the literal first word (`bash`), unchanged
 
 ---
 
@@ -129,6 +134,7 @@ uv run pytest tests/sources tests/connectors/test_mcp_tools.py tests/leak -q && 
 | `tests/sources/test_claude_code.py` (or the existing parser test file) | AC 1–2 |
 | `tests/leak/` | AC 4 |
 | `src/easy_personal/core/reports.py`, `src/easy_personal/core/live.py` | only if the pattern must move to avoid an import cycle |
+| `src/easy_personal/core/secretlike.py` (new) | the shared pattern (import cycle forced the move); `reports._SECRET` is now an alias of it, `live.py` unchanged |
 
 ## Files Must NOT Touch
 

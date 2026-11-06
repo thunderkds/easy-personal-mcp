@@ -8,12 +8,12 @@ text of its own. "Now" for the before / now view is worked out on every read and
 
 import json
 import math
-import re
 import sqlite3
 from datetime import UTC, datetime
 from importlib.metadata import version
 
 from easy_personal.core import config, metrics, rules
+from easy_personal.core.secretlike import SECRET
 
 SUMMARY_MAX = 2000
 FIXES_MAX = 5
@@ -24,16 +24,7 @@ NOT_MEASURED = "not measured now"
 NOT_IN_USE = {"state": "not_in_use", "reason": "not in use"}  # FR-080
 FIX_KEYS = {"text", "tool", "number"}
 
-# Secret-looking text is refused (FR-076): key prefixes, a PEM header, or a 32+ character letter-and-digit run.
-# A UUID (hyphens split it into runs of at most 12) and a file path (slashes split it) never match.
-_SECRET = re.compile(
-    r"\bsk-[A-Za-z0-9]"
-    r"|\bgh[pousr]_[A-Za-z0-9]|\bgithub_pat_"
-    r"|\bxox[A-Za-z]?[-_]?[A-Za-z0-9]{4,}"
-    r"|\b(?:AKIA|ASIA)[A-Z0-9]{4,}"
-    r"|-----BEGIN"
-    r"|[A-Za-z0-9]{32,}"
-)
+_SECRET = SECRET  # secret-looking text is refused (FR-076); the pattern is shared, see `core/secretlike.py`
 
 
 def _check_text(field: str, value, limit: int | None) -> str:

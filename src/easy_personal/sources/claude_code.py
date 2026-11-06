@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from easy_personal.core import accounts, config, discovery, store
+from easy_personal.core.secretlike import SECRET
 
 SOURCE = "claude_code"
 
@@ -66,12 +67,13 @@ def _label(value) -> str | None:
 def _bash_word(command) -> str | None:
     """First word of a command, as its program name (no path, no arguments); else None.
 
-    The 64-char cap plus the `_WORD` regex are the only guard against a token-like first word.
+    The 64-char cap plus the `_WORD` regex keep out free text; the FR-076 secret check (`core/secretlike.py`, the one
+    pattern `reports` and `live._safe` use) keeps out a token-like first word, e.g. `sk-ant-...`: no secret in the store.
     """
     if not isinstance(command, str) or not command.split():
         return None
     word = command.split()[0].rsplit("/", 1)[-1]
-    return word if _WORD.fullmatch(word) else None
+    return word if _WORD.fullmatch(word) and not SECRET.search(word) else None
 
 
 def _host(url) -> str | None:
