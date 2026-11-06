@@ -451,6 +451,7 @@ export function fakeFetch(overrides = {}) {
     else if (path === '/api/accounts' && !init.method)
       body = (u.searchParams.get('by') === 'provider' ? overrides.accountsByProvider : overrides.accounts) ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
     else if (path === '/api/workspaces' && !init.method) body = overrides.workspaces ?? workspaceList
+    else if (path === '/api/workspaces/unassigned' && !init.method) body = overrides.unassigned ?? { repos: [] }
     else if (path === '/api/connectors/legacy' && !init.method) body = overrides.legacy ?? { legacy: [] }
     else if (path === '/api/connectors' && !init.method) body = overrides.connectors ?? connectors
     if (overrides.status) return { ok: false, status: overrides.status, json: async () => ({ error: 'forbidden' }) }

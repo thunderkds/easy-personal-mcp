@@ -3,6 +3,7 @@ import { getJson, sendJson } from './api.js'
 import FolderPicker from './FolderPicker.jsx'
 import Loading from './Loading.jsx'
 import { useNotify } from './Toast.jsx'
+import UnassignedRepos, { useUnassigned } from './UnassignedRepos.jsx'
 
 const optional = (promise, fallback) => promise.catch(() => fallback)
 const emptyToNull = (text) => (text.trim() === '' ? null : text.trim())
@@ -637,6 +638,7 @@ function LegacyBanner({ legacy, act }) {
 }
 
 export default function WorkspacesView() {
+  const unassigned = useUnassigned() // its own read, started with the page's reads; the page never waits for it
   const [state, reload] = useWorkspaceData()
   const [mode, setMode] = useState(null) // null = cards; 'new'; or { id }
   const act = useAction(async (body) => {
@@ -708,6 +710,7 @@ export default function WorkspacesView() {
               />
             ))}
           </div>
+          <UnassignedRepos unassigned={unassigned} workspaces={data.workspaces} onAdded={reload} />
         </>
       )}
     </main>

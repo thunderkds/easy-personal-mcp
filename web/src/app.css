@@ -638,3 +638,16 @@ main .folder-list button { display: flex; justify-content: space-between; align-
 main button.primary { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); font-weight: 500; }
 main button.primary:hover { background: var(--color-accent-bar); }
 main button.primary:disabled { border-color: var(--color-control); background: none; color: var(--color-faint); }
+
+/* Scratch group in By project + repos not in a workspace (HUN-207, FR-069, FR-070) */
+main button.bar-row-toggle { display: flex; flex-direction: column; gap: 6px; width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; text-align: left; color: inherit; font-size: inherit; cursor: pointer; }
+main button.bar-row-toggle:hover { background: none; }
+.bar-row-toggle .bar-row-head { display: flex; justify-content: space-between; gap: var(--space-3); }
+.bar-row-toggle .bar-row-head::before { content: '▸'; flex: none; color: var(--color-muted); }
+.bar-row-toggle[aria-expanded='true'] .bar-row-head::before { content: '▾'; }
+.bar-row-toggle .mono-ellipsis { flex: 1; }
+.bar-row-toggle .bar-track, .bar-row-toggle .bar-fill { display: block; }
+.bar-rows-nested { margin: var(--space-3) 0 0 var(--space-5); }
+ul.unassigned { display: flex; flex-direction: column; gap: var(--space-3); }
+ul.unassigned > li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); min-width: 0; padding-top: var(--space-3); border-top: 1px solid var(--color-divider); }
+.unassigned-info { display: flex; flex-direction: column; gap: var(--space-1); flex: 1 1 16rem; min-width: 0; }
