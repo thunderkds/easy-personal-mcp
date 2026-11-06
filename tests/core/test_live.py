@@ -68,6 +68,12 @@ def append(path: Path, *records, raw: str = "") -> None:
         handle.write("".join(json.dumps(r) + "\n" for r in records) + raw)
 
 
+def stale(path: Path) -> None:
+    """Make a file look idle for two FORGET_AFTER_S, so the tail's warm start (FR-086) leaves it alone."""
+    old = time.time() - 2 * live.FORGET_AFTER_S
+    os.utime(path, (old, old))
+
+
 def wait_until(predicate, timeout=3.0, step=0.01):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -346,7 +352,9 @@ def test_ids_are_monotonic_and_events_since_reports_a_rolled_buffer(projects, st
 def test_snapshot_totals_count_a_message_once_and_cover_active_sessions_only(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
     # one message written as two records (thinking/tool_use blocks): same message id, growing output
     append(path, assistant(message="msg_dup", tools=(), out=3), assistant(message="msg_dup", tools=("Bash",), out=9))
     append(path, assistant(session="s-old", tools=(), ts=now_ts(-3600), message="msg_old"))
@@ -374,7 +382,9 @@ def _sums(events):
 def test_usage_delta_events_keep_live_totals_equal_to_the_snapshot(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
 
     def message(out, cache_read=3, model="claude-sonnet-5-5"):
         record = assistant(message="msg_grow", tools=(), out=out)
@@ -407,7 +417,9 @@ def test_usage_delta_events_keep_live_totals_equal_to_the_snapshot(projects, sta
 def test_unpriced_model_growth_keeps_cost_unknown_in_deltas_and_snapshot(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
     append(path, assistant(message="msg_u", tools=(), out=2))
     time.sleep(0.2)
     append(path, assistant(message="msg_u", tools=(), out=9))
@@ -421,7 +433,9 @@ def test_unpriced_model_growth_keeps_cost_unknown_in_deltas_and_snapshot(project
 def test_idle_sessions_are_forgotten_so_memory_stays_bounded(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
     append(path, assistant(session="s-stale", tools=(), ts=now_ts(-2 * live.FORGET_AFTER_S)))
     append(path, assistant(session="s-fresh"))
     assert wait_until(lambda: tail.last_id >= 3)
@@ -796,7 +810,7 @@ def test_a_line_stored_by_another_caller_between_two_polls_is_still_published_an
     assert len(store_rows("SELECT 1 FROM events")) == 5
 
 
-def test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_nothing_until_a_new_line(
+def test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_no_event_until_a_new_line(
     projects, manual, clock
 ):
     first, second = seed_three(projects, manual, clock)
@@ -804,7 +818,8 @@ def test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_nothing_u
     second.poll_once()
     second.poll_once()
     for tail in (first, second):
-        assert tail.events_since(0) == [] and tail.snapshot(now=clock())["sessions"] == []  # no history replay
+        assert tail.events_since(0) == []  # no history in the feed
+        assert {s["session_id"] for s in tail.snapshot(now=clock())["sessions"]} == {"sess1", "sess2", "sess3"}  # FR-086: state is warm
     write_line(clock, projects, 2)
     first.poll_once()
     second.poll_once()
@@ -1314,7 +1329,8 @@ def test_warm_start_appends_no_event_and_the_next_line_gets_id_one(projects, man
     assert tail.events_since(0) == [] and tail.last_id == 0
     append(projects / MAIN, use(clock, ["live1"], message="mlive"))
     tail.poll_once()
-    assert [(e["id"], e["kind"]) for e in tail.events_since(0)][0] == (1, "tool_use")
+    first = tail.events_since(0)[0]
+    assert (first["id"], first["kind"]) == (1, "tool_use")
     assert warm_session(tail)["tool_calls"] == 4  # the replayed three plus the new one
 
 
@@ -1355,7 +1371,8 @@ def test_warm_start_rebuilds_stage_waiting_and_sub_agent_type_and_leaves_answere
         result(clock, "b1", plus_s=-1300),  # answered later in the file: not open
         use(clock, ["q1"], tools=("AskUserQuestion",), message="m3", plus_s=-1200),  # 20 min old, unanswered
     )
-    append(projects / SUB, use(clock, ["sub1"], message="msub", sidechain=True, plus_s=-1250))
+    append(projects / SUB, use(clock, ["sub1"], message="msub", sidechain=True, plus_s=-1250),
+           result(clock, "sub1", sidechain=True, plus_s=-1249))  # fmt: skip
     (projects / SUB).with_name("agent-a1.meta.json").write_text(json.dumps({"agentType": "qa-expert"}))
     for rel in (MAIN, SUB):
         age(projects / rel, clock, 1200)

@@ -1,8 +1,12 @@
 """Live tail (FR-043): follows every confirmed Claude account's transcripts while the dashboard runs.
 
 One thread polls each account's `projects/` tree about every 100 ms and reads only complete new lines.
-The tail keeps its own read offset per file. A file of the tail's first scan starts at the store cursor
-(no history replay); a file that appears later is read from its start. A line from the store cursor on goes through `store.save_file`, the normal ingest path, with the
+The tail keeps its own read offset per file. A file of the tail's first scan starts at the store cursor;
+a file that appears later is read from its start. Warm start (FR-086): on the first scan, each file
+modified within FORGET_AFTER_S is first replayed up to the store cursor into session state only (totals,
+stage, open calls, streaks, sub-agent types), so a restarted dashboard lists its active sessions at once.
+Replayed lines are not buffered and not stored. A line from the store cursor on goes through
+`store.save_file`, the normal ingest path, with the
 single-writer lock taken only for that one short batch and never kept between batches, so the scheduled
 ingest still runs. A line below the cursor was stored by another process (a second dashboard, the
 scheduled ingest): it is published and not stored again (FR-071). Every published line becomes a
@@ -47,6 +51,7 @@ POLL_SECONDS = 0.1
 BUFFER_SIZE = 2000
 ACTIVE_WINDOW_S = 300  # FR-044: a session is active when it wrote a record in the last 5 minutes
 FORGET_AFTER_S = 3600  # an idle session's running totals are dropped after an hour (bounded memory)
+WARM_MAX_BYTES = 64 * 1024 * 1024  # FR-086: the warm start replays at most this many trailing bytes of one file
 MAX_BATCH_LINES = 500  # one lock hold = at most this many lines of one file
 ROOTS_REFRESH_S = 1.0
 OPEN_CALL_MAX_S = 24 * 3600  # an open call older than a day is dropped (the session ended without a result)
@@ -78,8 +83,8 @@ def current() -> "LiveTail | None":
     return _current
 
 
-def _jsonl_files(root: Path) -> Iterator[tuple[str, int, int]]:
-    """(path, inode, size) of every *.jsonl under `root`: main files and `subagents/` files alike."""
+def _jsonl_files(root: Path) -> Iterator[tuple[str, int, int, float]]:
+    """(path, inode, size, mtime) of every *.jsonl under `root`: main files and `subagents/` files alike."""
     stack = [str(root)]
     while stack:
         try:
@@ -93,7 +98,7 @@ def _jsonl_files(root: Path) -> Iterator[tuple[str, int, int]]:
                         stack.append(entry.path)
                     elif entry.name.endswith(".jsonl") and entry.is_file():
                         info = entry.stat()
-                        yield entry.path, info.st_ino, info.st_size
+                        yield entry.path, info.st_ino, info.st_size, info.st_mtime
                 except OSError:
                     continue  # vanished between listing and stat
 
@@ -284,6 +289,7 @@ class LiveTail:
         self._projects: dict[str, str] = {}
         self._offsets: dict[str, tuple[int, int]] = {}  # path -> (inode, next byte this tail has not published)
         self._primed = False  # True once a first full scan has finished (no early return)
+        self._replaying = False  # True while the warm start feeds state: nothing is buffered (FR-086)
         self._roots: list[tuple[int | None, Path]] = []
         self._labels: dict[int | None, str] = {}
         self._roots_at = float("-inf")
@@ -409,18 +415,26 @@ class LiveTail:
         seen: set[str] = set()
         for account_id, root in self._roots:
             label = self._labels.get(account_id, accounts.DEFAULT_LABEL)
-            for path, inode, size in _jsonl_files(root):
+            for path, inode, size, mtime in _jsonl_files(root):
                 seen.add(path)
                 own = self._offsets.get(path)
                 if own is None or own[0] != inode or size < own[1]:
                     # A file of the first scan (history, not live), or a truncated one, starts where the
-                    # store cursor stands. A file first seen later, or one replaced by a new inode, is
+                    # store cursor stands; its history below the cursor is replayed into state only when it
+                    # was written within the last FORGET_AFTER_S (warm start, FR-086). A file first seen
+                    # later, or one replaced by a new inode, is
                     # new content written while the tail runs: read it from byte 0, so a line another
                     # process stored first is still published (never stored twice). Claude Code appends
                     # to transcripts and never rewrites them, so a new inode means a genuinely new file.
                     fresh = self._primed and (own is None or own[0] != inode)
+                    warm = not self._primed and own is None
                     own = (inode, 0 if fresh else _cursor(known.get(path), inode, size))
-                    self._offsets[path] = own
+                    self._offsets[path] = own  # set first: an early return later must not replay this file again
+                    if warm and own[1] and self._clock().timestamp() - mtime <= FORGET_AFTER_S:
+                        try:
+                            self._warm(label, path, size, own[1])
+                        except OSError:
+                            continue  # removed or unreadable mid-replay: skipped, as in a normal read
                 if size <= own[1]:
                     continue
                 if self._stop.is_set():
@@ -446,6 +460,35 @@ class LiveTail:
         if cwd not in self._projects:
             self._projects[cwd] = discovery.resolve_project(cwd)
         return self._projects[cwd]
+
+    def _warm(self, account: str, path: str, size: int, cursor: int) -> None:
+        """FR-086: replay the complete lines below the store cursor into session state only.
+
+        Starts at the last WARM_MAX_BYTES of the file as scanned (moved to the next line start when that is
+        not byte 0). Same parse and same rules as a live line, but no event is buffered and nothing is stored.
+        """
+        start = max(0, size - WARM_MAX_BYTES)
+        if start:
+            with open(path, "rb") as handle:
+                handle.seek(start - 1)
+                start += len(handle.readline()) - 1  # the first line start at or after `start`
+        below = itertools.takewhile(lambda row: row[0] < cursor, claude_code.read_complete_lines(Path(path), start))
+        self._replaying = True
+        try:
+            while batch := list(itertools.islice(below, MAX_BATCH_LINES)):
+                items = []
+                for _offset, line, _next in batch:
+                    try:
+                        record = json.loads(line)
+                    except ValueError:
+                        continue
+                    parsed = claude_code.parse_record(record, self._project_of)
+                    if isinstance(record, dict) and (item := _item(record, parsed)):
+                        item["path"] = path
+                        items.append(item)
+                self._publish(account, items)
+        finally:
+            self._replaying = False
 
     def _follow(self, conn, account_id, label, path, inode, size, state) -> bool:
         """Read a file's new complete lines in short batches; False when the lock was busy.
@@ -518,7 +561,8 @@ class LiveTail:
                     self._append(account, item, event)
                 if item["usage"]:
                     self._count_usage(session, account, item)
-        self._evaluate()
+        if not self._replaying:  # a replayed file may start long ago: the scan's end evaluates once (FR-086)
+            self._evaluate()
 
     def _agent_of(self, stream: _Stream, path: str, tried: set[str]) -> str | None:
         """FR-082: None on the main thread, else the stream's agent type (SUB_AGENT while it is not known).
@@ -647,6 +691,8 @@ class LiveTail:
         session.messages[message_id] = (*largest, cost)
 
     def _append(self, account: str, item: dict, event: dict, tokens=(None, None, None, None, None)) -> None:
+        if self._replaying:
+            return  # warm start: state only, no id consumed (FR-086)
         self._last_id = next(self._ids)
         self._buffer.append(
             {
