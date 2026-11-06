@@ -60,8 +60,23 @@ Not done: merge (yours); /verify (yours)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-06 14:49:31 UTC (`date -u`), AC 1-6 tests written first, no implementation yet:
+
+```
+$ date -u; uv run pytest tests/core/test_live.py -q -k warm
+Fri Nov  6 02:49:31 PM UTC 2026
+FAILED tests/core/test_live.py::test_warm_start_lists_a_stored_session_with_whole_totals_before_any_new_line
+FAILED tests/core/test_live.py::test_warm_start_appends_no_event_and_the_next_line_gets_id_one
+FAILED tests/core/test_live.py::test_warm_start_of_a_partly_stored_file_replays_below_the_cursor_and_stores_the_rest_once
+FAILED tests/core/test_live.py::test_warm_start_rebuilds_stage_waiting_and_sub_agent_type_and_leaves_answered_calls_closed
+FAILED tests/core/test_live.py::test_warm_start_rebuilds_a_failure_streak - V...
+FAILED tests/core/test_live.py::test_warm_start_of_a_huge_file_replays_the_last_cap_bytes_from_a_line_start[boundary]
+FAILED tests/core/test_live.py::test_warm_start_of_a_huge_file_replays_the_last_cap_bytes_from_a_line_start[inside-line-4]
+FAILED tests/core/test_live.py::test_warm_start_of_a_huge_file_replays_the_last_cap_bytes_from_a_line_start[whole-line-4]
+FAILED tests/core/test_live.py::test_warm_start_does_not_replay_a_file_twice_when_the_first_scan_ended_early
+9 failed, 2 passed, 106 deselected in 1.20s
+```
+(Typical failure: `ValueError: not enough values to unpack (expected 1, got 0)` in `warm_session` = the stored session is absent from `snapshot()` after the first poll; the cap tests: `AttributeError: module 'easy_personal.core.live' has no attribute 'WARM_MAX_BYTES'`. The 2 passing tests are the "stores nothing" and the "outside the window / first seen later" guards, which hold today and must keep holding.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
