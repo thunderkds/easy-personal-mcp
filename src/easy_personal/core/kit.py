@@ -5,6 +5,7 @@ Parts: `kernel` (kernel traces), `git` (local commits per day, read from git at 
 `verifier` (newest easy-verifier score JSON per project);
 later parts add keys next to them. A part with nothing to read is `{"status": "no data"}`, never zero-filled.
 `ui` (easy-ui checks, FR-013) is overall, not per project: a top-level key next to `projects`.
+`workspace_rollup` (FR-087, FR-088) groups the verifier scores and the easy-ui calls by workspace.
 """
 
 import sqlite3
@@ -12,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from easy_personal.core import metrics, owners
+from easy_personal.core import discovery, metrics, owners, workspaces
 from easy_personal.sources.context import IN_USE_DAYS, context_part, in_use
 from easy_personal.sources.git_local import git_part
 from easy_personal.sources.ui import ui_part
@@ -180,3 +181,97 @@ def kit_summary(
     if gone is not None:
         summary["gone"] = gone
     return summary
+
+
+UI_PREFIX = "mcp__easy-ui__"  # a call to this server's tools shows easy-ui use (FR-088, FR-060)
+NO_UI = {"status": "not used", "sessions": 0, "calls": 0, "last_utc": None}
+
+
+def _ui_calls(conn: sqlite3.Connection, since: str | None, until: str | None, account: str | None) -> dict[str, tuple]:
+    """Stored project path -> (session ids, easy-ui call count, newest call time) over the events with such a call."""
+    since_utc, until_utc = metrics._utc_bound(since), metrics._utc_bound(until)
+    scope, scope_params = metrics._scope(conn, None, since_utc, until_utc, account)  # raises on an unknown account
+    period, period_params = metrics._period("ts_utc", since_utc, until_utc)
+    found: dict[str, tuple] = {}
+    for path, session, tool_names, ts in conn.execute(
+        "SELECT project_path, session_id, tool_names, ts_utc FROM events WHERE abstained = 0 "
+        f"AND source = 'claude_code' AND project_path IS NOT NULL AND {period} AND {scope} "
+        f"AND (tool_names GLOB '{UI_PREFIX}*' OR tool_names GLOB '*,{UI_PREFIX}*')",
+        period_params + scope_params,
+    ):
+        calls = sum(name.startswith(UI_PREFIX) for name in tool_names.split(","))
+        sessions, total, last = found.get(path, (set(), 0, ""))
+        sessions.add(session)
+        found[path] = (sessions, total + calls, max(last, ts))
+    return found
+
+
+def _verifier_part(roots_by_repo: dict[str, set[str]], covers, scored: list[tuple]) -> dict:
+    """Verifier entry of one workspace: each existing repo takes its newest scored row; the others are no score."""
+    total = sum(Path(repo).is_dir() for repo in roots_by_repo)
+    per_repo = []  # (value, folder name, generated time) of the scored repos
+    for repo, roots in roots_by_repo.items():
+        if not Path(repo).is_dir():
+            continue
+        matched = [row for row in scored if covers(row[0], roots)]
+        if matched:
+            _, value, generated = max(matched, key=lambda row: (row[2], row[0]))
+            per_repo.append((value, Path(repo).name or "/", generated))
+    if not per_repo:
+        return {"status": "no data", "repos_scored": 0, "repos_total": total, "mean": None, "lowest": None,
+                "newest_utc": None}  # fmt: skip
+    value, name, _ = min(per_repo, key=lambda item: (item[0], item[1]))
+    return {
+        "status": "ok",
+        "repos_scored": len(per_repo),
+        "repos_total": total,
+        "mean": round(sum(item[0] for item in per_repo) / len(per_repo), 1),
+        "lowest": {"project": name, "value": value},
+        "newest_utc": max(item[2] for item in per_repo),
+    }
+
+
+def workspace_rollup(
+    conn: sqlite3.Connection, since: str | None = None, until: str | None = None, account: str | None = None
+) -> dict:
+    """The Kit view's by-workspace block (FR-087, FR-088): one entry per non-orphan workspace, `list_all` order.
+
+    `verifier`: from the stored `verifier_scores` rows only; a row with a number is a score, an abstained,
+    unknown-schema or missing one is no score and never 0. It ignores `since`, `until` and `account`.
+    `ui`: easy-ui use from stored Claude events in [since, until) of the account: sessions with a call,
+    the calls, the newest call. A project counts for a repo when its path (or its FR-057 owner project) equals
+    or sits under the repo path, as in `workspaces.project_paths`. The easy-ui check results stay overall
+    in `ui_checks`. An unknown `account` raises `AccountError`.
+    """
+    ui_found = _ui_calls(conn, since, until, account)
+    scored = conn.execute(
+        "SELECT project_path, overall_value, generated_at_utc FROM verifier_scores "
+        "WHERE status = 'ok' AND overall_abstained = 0 AND overall_value IS NOT NULL"
+    ).fetchall()
+    owner = owners.owner_map(conn)
+
+    def covers(path: str, roots: set[str]) -> bool:
+        return any(workspaces._under(owner.get(path, path), root) or workspaces._under(path, root) for root in roots)
+
+    entries = []
+    for workspace in workspaces.list_all(conn):
+        if workspace["is_orphan"]:
+            continue
+        roots_by_repo = {repo: {repo, discovery.resolve_project(repo)} for repo in workspace["repos"]}
+        every_root = set().union(*roots_by_repo.values())
+        sessions, calls, last = set(), 0, ""
+        for path, (path_sessions, path_calls, path_last) in ui_found.items():
+            if covers(path, every_root):
+                sessions |= path_sessions
+                calls += path_calls
+                last = max(last, path_last)
+        entries.append(
+            {
+                "name": workspace["name"],
+                "color": workspace["color"],
+                "repos": len(workspace["repos"]),
+                "verifier": _verifier_part(roots_by_repo, covers, scored),
+                "ui": {"status": "ok", "sessions": len(sessions), "calls": calls, "last_utc": last} if calls else dict(NO_UI),
+            }
+        )
+    return {"workspaces": entries, "ui_checks": ui_part(conn)}
