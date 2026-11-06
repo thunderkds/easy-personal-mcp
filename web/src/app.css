@@ -493,8 +493,6 @@ main.live { max-width: none; }
 .live-totals dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .live-totals dd { font-size: var(--fs-body); color: var(--color-heading); overflow-wrap: anywhere; }
 /* HUN-213 (FR-072): one row per session, one side panel for the open one; the panel sits below the rows under 48rem (768 px) */
-.live-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
-@media (min-width: 48rem) { .live-body[data-panel] { grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem); align-items: start; } }
 .live-sessions { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; max-height: 70vh; overflow-y: auto; padding-right: var(--space-2); }
 .live-sessions > section { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .live-list { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -516,10 +514,9 @@ main button.live-row:focus-visible { outline: none; }
 .live-bar-fill { display: block; height: 100%; background: var(--color-accent); }
 /* A row narrower than 28rem (a phone, or beside the open panel) stacks its three bars, one per line */
 @container (max-width: 28rem) { .live-bars { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); } .live-bar { grid-template-areas: 'label track num'; grid-template-columns: 4.75rem minmax(0, 1fr) minmax(3.5rem, auto); align-items: center; } }
-.live-panel { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.live-panel .card-head { justify-content: space-between; align-items: center; }
-@media (min-width: 48rem) { .live-panel { position: sticky; top: var(--space-4); } }
-.live-panel .live-feed { max-height: min(24rem, 50vh); }
+.live-arrow { font-family: var(--font-mono); color: var(--color-muted); }
+.live-expanded { position: relative; z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding-top: var(--space-2); border-top: 1px solid var(--color-divider); }
+.live-expanded .live-close { align-self: flex-end; min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
 .live-session[data-state='failing'] { border-color: var(--color-red); }
 .live-session[data-state='waiting'] { border-color: var(--color-accent); }
 .live-session[data-state='needs_attention'] { border-color: var(--color-amber); }
@@ -530,13 +527,15 @@ main button.live-row:focus-visible { outline: none; }
 .live-session[data-idle] .live-id { color: var(--color-muted); }
 .live-stage { box-sizing: border-box; min-width: 0; max-width: 100%; padding: 0 var(--space-2); border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); overflow-wrap: anywhere; position: relative; z-index: 1; }
 .live-id { margin: 0; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-accent); }
-.live-feed { display: flex; flex-direction: column; gap: var(--space-1); max-height: 14rem; overflow-y: auto; font-size: var(--fs-note); }
-.live-feed > li { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; padding-block: var(--space-1); border-top: 1px solid var(--color-divider); }
-.live-time { font-family: var(--font-mono); color: var(--color-muted); }
-.live-tool { font-family: var(--font-mono); color: var(--color-text); overflow-wrap: anywhere; }
-.live-who { font-family: var(--font-mono); color: var(--color-secondary); overflow-wrap: anywhere; }
-.live-label { font-family: var(--font-mono); color: var(--color-accent); overflow-wrap: anywhere; }
-.live-tag { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
+.live-feed { display: flex; flex-direction: column; gap: var(--space-1); max-height: min(20rem, 50vh); overflow-y: auto; font-size: var(--fs-note); }
+.live-feed > li { display: grid; grid-template-columns: auto minmax(0, 8rem) minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-2); min-width: 0; padding-block: var(--space-1); border-top: 1px solid var(--color-divider); }
+.live-time, .live-who, .live-call, .live-tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.live-time { color: var(--color-muted); }
+.live-who { color: var(--color-secondary); }
+.live-tool { color: var(--color-text); }
+.live-label { color: var(--color-accent); }
+.live-tag { font-size: var(--fs-label); color: var(--color-muted); }
+@container (max-width: 28rem) { .live-feed > li { grid-template-columns: auto minmax(0, 5rem) minmax(0, 1fr) auto; } }
 .live-tag.error { color: var(--color-red); }
 
 /* Usage, Memory, Kit UX */

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { readToken } from './api.js'
 import Cost from './Cost.jsx'
 import { ago, compact, fmt } from './format.js'
@@ -9,7 +9,6 @@ const CLOSED = 2 // EventSource.readyState: the browser gave up and will not ret
 const TICK_MS = 15_000 // how often "active" and "idle" are worked out again
 const BATCH_MS = 250 // live events wait at most this long, then reach the page as one update (NFR-015)
 const ID_CHARS = 8
-const PANEL_ID = 'live-panel'
 
 const EMPTY = { sessions: {}, lastId: 0, windowS: DEFAULT_WINDOW_S }
 
@@ -54,10 +53,12 @@ function pillText(a) {
 
 const isName = (v) => typeof v === 'string' && v !== ''
 
+const isMcp = (label) => Boolean(label) && typeof label === 'object' && isName(label.server) && isName(label.tool)
+
 /** The call label as one line of text: a name, or "server · tool" for MCP. Any other shape gives no label. */
 function labelText(label) {
   if (isName(label)) return label
-  if (label && typeof label === 'object' && isName(label.server) && isName(label.tool)) return `${label.server} · ${label.tool}`
+  if (isMcp(label)) return `${label.server} · ${label.tool}`
   return null
 }
 
@@ -67,7 +68,7 @@ const whoMade = (e) => (isName(e.agent) ? e.agent : e.is_sidechain ? 'sub-agent'
 /** A feed row is a tool call, or a tool result that failed. Everything else only moves the totals. */
 const feedItem = (e) =>
   e.kind === 'tool_use' || (e.kind === 'tool_result' && e.is_error)
-    ? [{ id: e.id, ts: e.ts, kind: e.kind, tool: e.tool ?? e.kind, is_error: Boolean(e.is_error), who: whoMade(e), label: labelText(e.label) }]
+    ? [{ id: e.id, ts: e.ts, kind: e.kind, tool: e.tool ?? e.kind, is_error: Boolean(e.is_error), who: whoMade(e), label: labelText(e.label), mcp: isMcp(e.label) }]
     : []
 
 function applyLive(state, e) {
@@ -153,22 +154,46 @@ function Totals({ total }) {
   )
 }
 
-const clock = (ts) => new Date(ts).toLocaleTimeString()
+const pad = (n) => String(n).padStart(2, '0')
+/** Local time, 24 h, as HH:MM:SS. */
+const clock = (ts) => {
+  const d = new Date(ts)
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
 
+/** One line per call: time, who, then the call. An MCP call shows only "server · tool"; any other shows the tool name and its label.
+ * Every cell is cut with an ellipsis; the row's title holds the full text. */
 function Feed({ items }) {
   return (
     <>
       {items.length === 0 && <p className="muted">No tool calls seen since this page opened.</p>}
       <ol className="live-feed" aria-live="polite" aria-relevant="additions" aria-label="Tool calls, newest first">
-        {items.map((i) => (
-          <li key={i.id}>
-            <span className="live-time">{clock(i.ts)}</span>
-            <span className="live-who">{i.who}</span>
-            <span className="live-tool">{i.tool}</span>
-            {i.label && <span className="live-label">{i.label}</span>}
-            {i.is_error && <span className="live-tag error"> error</span>}
-          </li>
-        ))}
+        {items.map((i) => {
+          const time = clock(i.ts)
+          const title = [time, i.who, i.tool, i.label, i.is_error ? 'error' : null].filter(Boolean).join(' · ')
+          return (
+            <li key={i.id} title={title}>
+              <span className="live-time">{time}</span>
+              <span className="live-who">{i.who}</span>
+              <span className="live-call">
+                {i.mcp ? (
+                  <span className="live-label">{i.label}</span>
+                ) : (
+                  <>
+                    <span className="live-tool">{i.tool}</span>
+                    {i.label && (
+                      <>
+                        {' '}
+                        <span className="live-label">{i.label}</span>
+                      </>
+                    )}
+                  </>
+                )}
+              </span>
+              {i.is_error && <span className="live-tag error">error</span>}
+            </li>
+          )
+        })}
       </ol>
     </>
   )
@@ -196,15 +221,33 @@ function Bar({ label, text, ratio }) {
   )
 }
 
-/** One session: a button (id, project, states, time) with its three bars. Memoized: it draws again only when its own figures change. */
+/** One session: a button (arrow, id, project, states, time) with its three bars; open, its feed is drawn under the row in the same card.
+ * Memoized: it draws again only when its own figures (or its open state) change. */
 const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, tokensPct, costPct, callsPct }) {
+  const button = useRef(null)
   const states = statesOf(s)
   const idle = states.length === 0 && now - Date.parse(s.last_ts) > windowS * 1000 // a session with a state is never idle
   const tokens = s.tokens_in + s.tokens_out
   const unknown = s.unpriced && s.cost === 0
+  const regionId = `live-feed-${s.session_id}`
+  const collapse = () => {
+    button.current?.focus() // the keyboard stays on the row
+    onToggle(s.session_id)
+  }
   return (
-    <li className="live-session" data-idle={idle || undefined} data-state={states[0]?.state} data-open={open || undefined}>
-      <button type="button" id={`live-row-${s.session_id}`} className="live-row" aria-expanded={open} aria-controls={PANEL_ID} onClick={() => onToggle(s.session_id)}>
+    <li
+      className="live-session"
+      data-idle={idle || undefined}
+      data-state={states[0]?.state}
+      data-open={open || undefined}
+      onKeyDown={(e) => {
+        if (open && e.key === 'Escape') collapse()
+      }}
+    >
+      <button ref={button} type="button" id={`live-row-${s.session_id}`} className="live-row" aria-expanded={open} aria-controls={regionId} onClick={() => onToggle(s.session_id)}>
+        <span className="live-arrow" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
         <span className="live-id" title={s.session_id}>
           {s.session_id.slice(0, ID_CHARS)}
         </span>
@@ -230,34 +273,17 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, t
         />
         <Bar label="tool calls" text={fmt(s.tool_calls)} ratio={callsPct} />
       </span>
+      {open && (
+        <div id={regionId} className="live-expanded" role="region" aria-label={`Session ${s.session_id.slice(0, ID_CHARS)} tool calls`}>
+          <button type="button" className="live-close" onClick={collapse}>
+            Close
+          </button>
+          <Feed items={s.feed} />
+        </div>
+      )}
     </li>
   )
 })
-
-/** The one open session: its totals and its recent tool calls. `s` is undefined once the session left the list. */
-function SessionPanel({ s, onClose }) {
-  return (
-    <section id={PANEL_ID} className="card live-panel" aria-labelledby="live-panel-title">
-      <div className="card-head">
-        <h2 id="live-panel-title">{s ? `Session ${s.session_id.slice(0, ID_CHARS)}` : 'Session'}</h2>
-        <button type="button" className="live-close" onClick={onClose}>
-          Close
-        </button>
-      </div>
-      {s ? (
-        <>
-          <p className="live-name" title={s.project}>
-            {s.project}
-          </p>
-          <Totals total={s} />
-          <Feed items={s.feed} />
-        </>
-      ) : (
-        <p className="muted">This session is no longer active.</p>
-      )}
-    </section>
-  )
-}
 
 const STATUS = {
   connecting: 'Connecting to the live stream',
@@ -314,7 +340,7 @@ function useLive(attempt) {
   return [state, link]
 }
 
-/** `// work` › Live: active Claude Code sessions as rows with three bars; one open session shows its totals and tool feed. Metadata only. */
+/** `// work` › Live: active Claude Code sessions as rows with three bars; one open session shows its tool feed under its row. Metadata only. */
 export default function LiveView() {
   const [attempt, setAttempt] = useState(0)
   const [state, link] = useLive(attempt)
@@ -325,16 +351,15 @@ export default function LiveView() {
     return () => clearInterval(timer)
   }, [])
   const onToggle = useCallback((id) => setOpenId((current) => (current === id ? null : id)), [])
+  useEffect(() => {
+    if (openId !== null && !state.sessions[openId]) setOpenId(null) // the open session left the list: nothing is drawn for it
+  }, [openId, state.sessions])
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
   const groups = useMemo(() => group(sessions), [sessions])
   const needing = sessions.filter(needsYou).length
   const maxTokens = Math.max(0, ...sessions.map((s) => s.tokens_in + s.tokens_out))
   const maxCost = Math.max(0, ...sessions.map((s) => s.cost))
   const maxCalls = Math.max(0, ...sessions.map((s) => s.tool_calls))
-  const closePanel = () => {
-    document.getElementById(`live-row-${openId}`)?.focus() // keep the keyboard where it was
-    setOpenId(null)
-  }
   return (
     <main className="live">
       <div className="live-head">
@@ -363,31 +388,28 @@ export default function LiveView() {
       {sessions.length === 0 && (
         <p className="muted">{`No active sessions. A session appears here when it wrote a record in the last ${Math.round(state.windowS / 60)} minutes.`}</p>
       )}
-      {(sessions.length > 0 || openId !== null) && (
-        <div className="live-body" data-panel={openId !== null || undefined}>
-          <div className="live-sessions">
-            {groups.map((a, i) => (
-              <section key={a.account} aria-labelledby={`live-acc-${i}`}>
-                <h2 id={`live-acc-${i}`}>{a.account}</h2>
-                <ul className="live-list">
-                  {a.sessions.map((s) => (
-                    <SessionRow
-                      key={s.session_id}
-                      s={s}
-                      now={now}
-                      windowS={state.windowS}
-                      open={s.session_id === openId}
-                      onToggle={onToggle}
-                      tokensPct={share(s.tokens_in + s.tokens_out, maxTokens)}
-                      costPct={share(s.cost, maxCost)}
-                      callsPct={share(s.tool_calls, maxCalls)}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-          {openId !== null && <SessionPanel s={state.sessions[openId]} onClose={closePanel} />}
+      {sessions.length > 0 && (
+        <div className="live-sessions">
+          {groups.map((a, i) => (
+            <section key={a.account} aria-labelledby={`live-acc-${i}`}>
+              <h2 id={`live-acc-${i}`}>{a.account}</h2>
+              <ul className="live-list">
+                {a.sessions.map((s) => (
+                  <SessionRow
+                    key={s.session_id}
+                    s={s}
+                    now={now}
+                    windowS={state.windowS}
+                    open={s.session_id === openId}
+                    onToggle={onToggle}
+                    tokensPct={share(s.tokens_in + s.tokens_out, maxTokens)}
+                    costPct={share(s.cost, maxCost)}
+                    callsPct={share(s.tool_calls, maxCalls)}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
       )}
     </main>

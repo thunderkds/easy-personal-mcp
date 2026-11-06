@@ -63,18 +63,21 @@ const send = (event) => {
 const card = (idPrefix) => screen.getByText(idPrefix, { selector: '.live-id' }).closest('li')
 const rowButton = (idPrefix) => card(idPrefix).querySelector('button.live-row')
 const rows = () => [...document.querySelectorAll('.live-row')]
-// The feed and the totals of one session live in the side panel: these open its row first (a second call keeps it open).
+// The feed of one session is drawn under its row when it is open (FR-085): these open the row first (a second call keeps it open).
 const openRow = (idPrefix) => {
   const button = rowButton(idPrefix)
   if (button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button)
 }
-const panelOf = (idPrefix) => {
+// A session's totals are its row bars (the expanded area shows only the feed): the bar named `<measure> <number>`.
+const barOf = (idPrefix, name) => within(card(idPrefix)).getByRole('img', { name })
+const feedLisOf = (idPrefix) => {
   openRow(idPrefix)
-  return within(document.getElementById('live-panel'))
+  return [...card(idPrefix).querySelectorAll('.live-feed > li')]
 }
-const feedOf = (idPrefix) => {
-  openRow(idPrefix)
-  return [...document.querySelectorAll('#live-panel .live-feed > li')].map((li) => li.textContent)
+const feedOf = (idPrefix) => feedLisOf(idPrefix).map((li) => li.textContent)
+const hhmmss = (ts) => {
+  const d = new Date(ts)
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':')
 }
 
 beforeEach(() => {
@@ -134,7 +137,7 @@ describe('sessions', () => {
     stream().emit('snapshot', snapshot([]))
     expect(screen.getByText(/No active sessions/)).toHaveTextContent('last 5 minutes')
     expect(rows()).toHaveLength(0)
-    expect(document.getElementById('live-panel')).toBeNull()
+    expect(document.querySelector('.live-feed')).toBeNull()
   })
 
   it('groups sessions by account; a row names its project', () => {
@@ -273,36 +276,6 @@ describe('rows (FR-072)', () => {
     expect(new Set(widths)).toEqual(new Set(['0%']))
   })
 
-  it('AC4: a row is a button that opens its panel (Enter and Space click a native button); aria-expanded and aria-controls follow', () => {
-    render(<LiveView />)
-    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { project: 'alpha' }), session('bbbbbbbb-2', { project: 'beta' })]))
-    const a = rowButton('aaaaaaaa')
-    const b = rowButton('bbbbbbbb')
-    expect(a.tagName).toBe('BUTTON')
-    expect(a).toHaveAttribute('type', 'button')
-    expect(a).toHaveAttribute('aria-expanded', 'false')
-    expect(a).toHaveAttribute('aria-controls', 'live-panel')
-    expect(document.getElementById('live-panel')).toBeNull()
-
-    fireEvent.click(a)
-    expect(a).toHaveAttribute('aria-expanded', 'true')
-    const panel = screen.getByRole('region', { name: /Session aaaaaaaa/ })
-    expect(panel).toBe(document.getElementById('live-panel'))
-    expect(within(panel).getByText('Tool calls')).toBeInTheDocument() // the session's Totals
-    expect(within(panel).getByRole('list', { name: /Tool calls, newest first/ })).toBeInTheDocument() // and its Feed
-
-    fireEvent.click(b) // another row closes the first
-    expect(a).toHaveAttribute('aria-expanded', 'false')
-    expect(b).toHaveAttribute('aria-expanded', 'true')
-    expect(document.querySelectorAll('.live-panel')).toHaveLength(1)
-    expect(screen.getByRole('region', { name: /Session bbbbbbbb/ })).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-    expect(document.getElementById('live-panel')).toBeNull()
-    expect(b).toHaveAttribute('aria-expanded', 'false')
-    expect(b).toHaveFocus() // the keyboard stays where it was
-  })
-
   it('AC4: the panel feed is newest first and holds at most FEED_MAX items', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
@@ -313,42 +286,42 @@ describe('rows (FR-072)', () => {
     expect(items[0]).toContain(`T${FEED_MAX + 4}`)
   })
 
-  it('AC5: live events for the open session appear in its panel; other sessions do not', () => {
+  it('AC1: live events for the open session appear in its feed; other sessions do not', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })]))
     openRow('aaaaaaaa')
     send(live('aaaaaaaa-1', { tool: 'Edit' }))
     send(live('bbbbbbbb-2', { tool: 'Grep' }))
-    const items = [...document.querySelectorAll('#live-panel .live-feed > li')].map((li) => li.textContent)
+    const items = [...document.querySelectorAll('.live-feed > li')].map((li) => li.textContent)
     expect(items).toHaveLength(1)
     expect(items[0]).toContain('Edit')
+    expect(card('aaaaaaaa').querySelector('.live-feed')).not.toBeNull()
   })
 
-  it('AC5: when the open session leaves the list the panel says so, and a later snapshot that lists it brings it back', () => {
+  it('AC7: when the open session leaves the list nothing is drawn for it and the open id resets', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })], 1))
     openRow('aaaaaaaa')
+    expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
     stream().emit('snapshot', snapshot([session('bbbbbbbb-2', { project: 'beta' })], 2))
-    const panel = document.getElementById('live-panel')
-    expect(panel).toHaveTextContent('This session is no longer active.')
     expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
-    expect(within(panel).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+    expect(document.querySelector('.live-expanded')).toBeNull()
+    // the id was reset: the session coming back is closed, not re-opened by a stale id
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })], 3))
-    expect(document.getElementById('live-panel')).not.toHaveTextContent('no longer active')
-    fireEvent.click(within(document.getElementById('live-panel')).getByRole('button', { name: 'Close' }))
-    expect(document.getElementById('live-panel')).toBeNull()
+    expect(rowButton('aaaaaaaa')).toHaveAttribute('aria-expanded', 'false')
+    expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
   })
 
-  it('AC5: the last session leaving still shows the panel notice', () => {
+  it('AC7: the last session leaving draws no expanded area; the empty notice shows', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 1))
     openRow('aaaaaaaa')
     stream().emit('snapshot', snapshot([], 2))
-    expect(document.getElementById('live-panel')).toHaveTextContent('This session is no longer active.')
+    expect(document.querySelector('.live-expanded')).toBeNull()
     expect(screen.getByText(/No active sessions/)).toBeInTheDocument()
   })
 
-  it('a dropped and resumed stream keeps the panel on the same session, feed included', () => {
+  it('a dropped and resumed stream keeps the feed open on the same session, feed included', () => {
     render(<LiveView />)
     stream().open()
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })]))
@@ -356,7 +329,7 @@ describe('rows (FR-072)', () => {
     send(live('bbbbbbbb-2', { tool: 'Read' }))
     stream().drop(0)
     stream().open()
-    expect(screen.getByRole('region', { name: /Session bbbbbbbb/ })).toBeInTheDocument()
+    expect(within(card('bbbbbbbb')).getByRole('region', { name: /Session bbbbbbbb/ })).toBeInTheDocument()
     expect(feedOf('bbbbbbbb')).toHaveLength(1)
   })
 
@@ -377,7 +350,7 @@ describe('rows (FR-072)', () => {
     act(() => vi.advanceTimersByTime(1))
     expect(commits.length - drawn).toBeLessThanOrEqual(2)
     expect(commits.length - drawn).toBeGreaterThan(0)
-    expect(panelOf('aaaaaaaa').getByText('Tool calls').nextSibling).toHaveTextContent('100')
+    expect(barOf('aaaaaaaa', 'tool calls 100')).toBeInTheDocument()
     const rowsDrawn = ago.mock.calls.map(([ts]) => ts)
     expect(rowsDrawn.length).toBeGreaterThan(0)
     expect(rowsDrawn).not.toContain(quiet) // session b had no event in the batch
@@ -402,7 +375,7 @@ describe('rows (FR-072)', () => {
     stream().emit('live', live('aaaaaaaa-1', { tool: 'Old' }), '1')
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 1 })], 1)) // covers event 1
     flush()
-    expect(panelOf('aaaaaaaa').getByText('Tool calls').nextSibling).toHaveTextContent('1')
+    expect(barOf('aaaaaaaa', 'tool calls 1')).toBeInTheDocument()
   })
 
   it('AC7: leaving the view drops events still waiting for their batch', () => {
@@ -426,12 +399,211 @@ describe('rows (FR-072)', () => {
     expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
   })
 
-  it('the overall totals stay when a panel is open', () => {
+  it('the overall totals stay when a feed is open', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 3 }), session('bbbbbbbb-2', { project: 'beta', tool_calls: 4 })]))
     openRow('aaaaaaaa')
     const total = screen.getByRole('region', { name: 'All sessions' })
     expect(within(total).getByText('Tool calls').nextSibling).toHaveTextContent('7')
+  })
+})
+
+describe('inline expand (FR-085)', () => {
+  const two = () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { project: 'alpha' }), session('bbbbbbbb-2', { project: 'beta' })]))
+  }
+  const key = (el, key) => fireEvent.keyDown(el, { key })
+
+  it('AC1: a row is a native button; a click expands its feed inside its own card; aria-expanded and aria-controls follow', () => {
+    two()
+    const a = rowButton('aaaaaaaa')
+    expect(a.tagName).toBe('BUTTON') // Enter and Space click a native button
+    expect(a).toHaveAttribute('type', 'button')
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(document.querySelector('.live-feed')).toBeNull()
+
+    fireEvent.click(a)
+    expect(a).toHaveAttribute('aria-expanded', 'true')
+    const region = screen.getByRole('region', { name: /Session aaaaaaaa/ })
+    expect(a.getAttribute('aria-controls')).toBe(region.id)
+    expect(region.id).not.toBe('')
+    expect(card('aaaaaaaa').contains(region)).toBe(true) // the same li as the row
+    expect(card('aaaaaaaa').querySelector('.live-feed')).not.toBeNull()
+    expect(within(region).getByRole('list', { name: /Tool calls, newest first/ })).toBeInTheDocument()
+    expect(within(region).queryByText('Tokens in')).toBeNull() // the row bars carry the totals: the area shows only the feed
+
+    fireEvent.click(a) // the same row again collapses it
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(document.querySelector('.live-expanded')).toBeNull()
+  })
+
+  it('AC1: opening another row closes the first; at most one .live-feed and one aria-live region', () => {
+    two()
+    const a = rowButton('aaaaaaaa')
+    const b = rowButton('bbbbbbbb')
+    fireEvent.click(a)
+    fireEvent.click(b)
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(b).toHaveAttribute('aria-expanded', 'true')
+    expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
+    expect(document.querySelectorAll('[aria-live]')).toHaveLength(1)
+    expect(card('bbbbbbbb').querySelector('.live-feed')).not.toBeNull()
+    expect(card('aaaaaaaa').querySelector('.live-feed')).toBeNull()
+  })
+
+  it('AC2: Escape on the row collapses it and the focus stays on the row button', () => {
+    two()
+    const a = rowButton('aaaaaaaa')
+    fireEvent.click(a)
+    a.focus()
+    key(a, 'Escape')
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(a).toHaveFocus()
+  })
+
+  it('AC2: Escape from inside the expanded area, and its Close control, collapse it and put the focus on that row button', () => {
+    two()
+    const a = rowButton('aaaaaaaa')
+    fireEvent.click(a)
+    const close = within(card('aaaaaaaa')).getByRole('button', { name: 'Close' })
+    close.focus()
+    key(close, 'Escape')
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(a).toHaveFocus()
+
+    fireEvent.click(a)
+    ;(document.activeElement ?? document.body).blur()
+    fireEvent.click(within(card('aaaaaaaa')).getByRole('button', { name: 'Close' }))
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(a).toHaveFocus()
+  })
+
+  it('AC2: Escape with nothing open does nothing', () => {
+    two()
+    const a = rowButton('aaaaaaaa')
+    a.focus()
+    key(a, 'Escape')
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(rows()).toHaveLength(2)
+  })
+
+  it('AC2: another key does not collapse an open row', () => {
+    two()
+    const a = rowButton('aaaaaaaa')
+    fireEvent.click(a)
+    key(a, 'a')
+    expect(a).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('AC3: no side panel and no two-column grid; opening a row leaves a sibling row\'s markup unchanged and does not draw it again', () => {
+    render(<LiveView />)
+    const quiet = new Date(Date.now() - 60_000).toISOString()
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta', last_ts: quiet })]))
+    const siblingBefore = card('bbbbbbbb').outerHTML
+    ago.mockClear()
+    fireEvent.click(rowButton('aaaaaaaa'))
+    expect(document.querySelector('.live-panel')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
+    expect(document.querySelector('[data-panel]')).toBeNull()
+    expect(card('bbbbbbbb').outerHTML).toBe(siblingBefore)
+    expect(ago.mock.calls.map(([ts]) => ts)).not.toContain(quiet) // the sibling did not draw again
+    expect(rows()[0].closest('.live-sessions')).toBe(rows()[1].closest('.live-sessions')) // one list, one width
+  })
+
+  it('AC3: a live event for the open session draws only its row', () => {
+    render(<LiveView />)
+    const quiet = new Date(Date.now() - 60_000).toISOString()
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta', last_ts: quiet })]))
+    openRow('aaaaaaaa')
+    ago.mockClear()
+    send(live('aaaaaaaa-1', { tool: 'Edit' }))
+    expect(ago.mock.calls.map(([ts]) => ts)).not.toContain(quiet)
+    expect(feedOf('aaaaaaaa')[0]).toContain('Edit')
+  })
+
+  it('AC4: the row shows an arrow, closed then open, hidden from assistive technology', () => {
+    two()
+    const arrow = (idPrefix) => rowButton(idPrefix).querySelector('.live-arrow')
+    expect(arrow('aaaaaaaa')).toHaveAttribute('aria-hidden', 'true')
+    expect(arrow('aaaaaaaa').textContent).toBe('▸')
+    expect(arrow('bbbbbbbb').textContent).toBe('▸')
+    fireEvent.click(rowButton('aaaaaaaa'))
+    expect(arrow('aaaaaaaa').textContent).toBe('▾')
+    expect(arrow('aaaaaaaa')).toHaveAttribute('aria-hidden', 'true')
+    expect(arrow('bbbbbbbb').textContent).toBe('▸')
+    expect(screen.queryByRole('button', { name: /▸|▾/ })).toBeNull() // the arrow is not part of the accessible name
+  })
+
+  it('AC5: an MCP call shows only "server · tool", never the raw name; the raw name is in the row title; the time is HH:MM:SS 24 h', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    const ts = '2026-11-06T19:05:09.000Z'
+    send(live('aaaaaaaa-1', { ts, tool: 'mcp__easy-verifier__score', label: { server: 'easy-verifier', tool: 'score' }, agent: 'qa-expert', is_sidechain: true }))
+    const [li] = feedLisOf('aaaaaaaa')
+    expect(li.textContent).toContain('easy-verifier · score')
+    expect(li.textContent).not.toContain('mcp__easy-verifier__score')
+    expect(li.querySelector('.live-tool')).toBeNull()
+    expect(li.querySelector('.live-time').textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
+    expect(li.querySelector('.live-time').textContent).toBe(hhmmss(ts))
+    expect(li.getAttribute('title')).toContain('mcp__easy-verifier__score')
+    expect(li.getAttribute('title')).toContain('easy-verifier · score')
+    expect(li.getAttribute('title')).toContain('qa-expert')
+    expect(li.getAttribute('title')).toContain(hhmmss(ts))
+  })
+
+  it('AC5: a Bash call shows the tool name and its label; the title holds the full text', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    send(live('aaaaaaaa-1', { tool: 'Bash', label: 'uv' }))
+    const [li] = feedLisOf('aaaaaaaa')
+    expect(li.querySelector('.live-tool')).toHaveTextContent('Bash')
+    expect(li.querySelector('.live-label')).toHaveTextContent('uv')
+    expect(li.textContent).toMatch(/main.*Bash.*uv/)
+    expect(li.getAttribute('title')).toMatch(/main.*Bash.*uv/)
+  })
+
+  it('AC5: the time is zero-padded 24 h local time', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    const early = new Date(2026, 10, 6, 3, 4, 5).toISOString() // 03:04:05 local
+    const late = new Date(2026, 10, 6, 23, 59, 58).toISOString()
+    send(live('aaaaaaaa-1', { ts: early }))
+    send(live('aaaaaaaa-1', { ts: late }))
+    const times = feedLisOf('aaaaaaaa').map((li) => li.querySelector('.live-time').textContent)
+    expect(times).toEqual(['23:59:58', '03:04:05'])
+  })
+
+  it('AC6: every feed cell is one line with an ellipsis, and the feed row is a grid; the feed scrolls inside a max height', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    const live = css.split('\n').filter((l) => /^[^/]*\.live-/.test(l))
+    for (const cell of ['live-time', 'live-who', 'live-call', 'live-tag']) {
+      const rule = live.find((l) => new RegExp(`\\.${cell}\\b[^{]*\\{`).test(l))
+      expect(rule, cell).toBeDefined()
+      expect(rule, cell).toMatch(/white-space: nowrap/)
+      expect(rule, cell).toMatch(/text-overflow: ellipsis/)
+      expect(rule, cell).toMatch(/overflow: hidden/)
+    }
+    expect(live.join('\n')).toMatch(/\.live-feed > li \{[^}]*display: grid[^}]*grid-template-columns:[^;]*minmax\(0, [^;]*\)/)
+    expect(live.join('\n')).toMatch(/\.live-feed \{[^}]*max-height:[^}]*overflow-y: auto/)
+    const feedRules = live.filter((l) => /\.live-(feed|time|who|call|tool|label|tag)\b/.test(l)).join('\n')
+    expect(feedRules).not.toMatch(/overflow-wrap: anywhere/) // a long cell is cut, never wrapped to a second line
+  })
+
+  it('AC6: a long who and a long label stay in one cell each and put their full text in the row title', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    const who = 'a-sub-agent-type-with-a-very-long-name-that-cannot-fit-in-a-phone-row'
+    const label = { server: 'a-very-long-mcp-server-name-for-a-phone', tool: 'a_very_long_tool_name_that_cannot_fit' }
+    send(live('aaaaaaaa-1', { tool: 'mcp__s__t', label, agent: who, is_sidechain: true }))
+    const [li] = feedLisOf('aaaaaaaa')
+    expect(li.children.length).toBeLessThanOrEqual(4) // time, who, call, (error)
+    expect(li.querySelector('.live-who')).toHaveTextContent(who)
+    expect(li.getAttribute('title')).toContain(who)
+    expect(li.getAttribute('title')).toContain(`${label.server} · ${label.tool}`)
   })
 })
 
@@ -474,19 +646,21 @@ describe('feed', () => {
     expect(items[0]).toMatch(/error/)
     expect(items[1]).toMatch(/Task/)
     expect(items[1]).toMatch(/sub-agent/) // a sidechain call whose type the tail did not send (HUN-234)
-    expect(panelOf('aaaaaaaa').getByText('Tool calls').nextSibling).toHaveTextContent('1')
+    expect(barOf('aaaaaaaa', 'tool calls 1')).toBeInTheDocument()
   })
 
   it('says the feed only holds calls seen since the page opened (the snapshot carries no history)', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 7 })]))
-    expect(panelOf('aaaaaaaa').getByText('No tool calls seen since this page opened.')).toBeInTheDocument()
+    openRow('aaaaaaaa')
+    expect(within(card('aaaaaaaa')).getByText('No tool calls seen since this page opened.')).toBeInTheDocument()
   })
 
   it('announces new items politely and labels the feed', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
-    const feed = panelOf('aaaaaaaa').getByRole('list', { name: /Tool calls, newest first/ })
+    openRow('aaaaaaaa')
+    const feed = within(card('aaaaaaaa')).getByRole('list', { name: /Tool calls, newest first/ })
     expect(feed).toHaveAttribute('aria-live', 'polite')
   })
 
@@ -497,7 +671,7 @@ describe('feed', () => {
     send(event)
     send(event)
     expect(feedOf('aaaaaaaa')).toHaveLength(1)
-    expect(panelOf('aaaaaaaa').getByText('Tokens in').nextSibling).toHaveTextContent('10')
+    expect(barOf('aaaaaaaa', 'tokens 10')).toBeInTheDocument()
   })
 
   it('the same event twice inside one batch is counted once', () => {
@@ -534,12 +708,11 @@ describe('totals', () => {
 
     send(live('aaaaaaaa-1', { kind: 'usage', tool: null, tokens_in: 100, tokens_out: 50, cost_usd: 0.1 }))
     send(live('aaaaaaaa-1', { tool: 'Read' }))
-    const a = panelOf('aaaaaaaa')
-    expect(a.getByText('Tool calls').nextSibling).toHaveTextContent('4')
-    expect(a.getByText('Tokens in').nextSibling).toHaveTextContent('1,100')
-    expect(a.getByText('Tokens out').nextSibling).toHaveTextContent('250')
-    expect(a.getByText('API-equivalent cost').nextSibling).toHaveTextContent('$0.60')
-    expect(panelOf('bbbbbbbb').getByText('API-equivalent cost').nextSibling).toHaveTextContent('$0.25')
+    // a session's own totals are its row bars: tokens = in + out
+    expect(barOf('aaaaaaaa', 'tool calls 4')).toBeInTheDocument()
+    expect(barOf('aaaaaaaa', 'tokens 1,350')).toBeInTheDocument()
+    expect(barOf('aaaaaaaa', 'cost $0.60')).toBeInTheDocument()
+    expect(barOf('bbbbbbbb', 'cost $0.25')).toBeInTheDocument()
     expect(within(total).getByText('Tool calls').nextSibling).toHaveTextContent('5')
     expect(within(total).getByText('Tokens in').nextSibling).toHaveTextContent('1,110')
     expect(within(total).getByText('API-equivalent cost').nextSibling).toHaveTextContent('$0.85')
@@ -555,11 +728,11 @@ describe('totals', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     send(live('aaaaaaaa-1', { kind: 'usage', tool: null, tokens_in: 100, tokens_out: 50, cost_usd: null }))
-    const text = panelOf('aaaaaaaa').getByText('API-equivalent cost').nextSibling.textContent
-    expect(text).toContain('abstained')
-    expect(text).not.toContain('$0')
+    const bar = barOf('aaaaaaaa', 'cost unknown price')
+    expect(bar).toHaveTextContent('unknown price')
+    expect(bar).not.toHaveTextContent('$0')
     send(live('aaaaaaaa-1', { kind: 'usage', tool: null, tokens_in: 1, tokens_out: 1, cost_usd: 0.4 }))
-    expect(panelOf('aaaaaaaa').getByText('API-equivalent cost').nextSibling.textContent).toMatch(/^\$0\.40 \+ abstained/)
+    expect(barOf('aaaaaaaa', 'cost $0.40 + unknown price')).toBeInTheDocument()
   })
 
   it('a fresh snapshot replaces the totals and keeps the feed of a session it still lists', () => {
@@ -568,8 +741,8 @@ describe('totals', () => {
     send(live('aaaaaaaa-1', { tool: 'Read', tokens_in: 5, tokens_out: 5, cost_usd: 0.05 }))
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 9, tokens_in: 900, tokens_out: 100, cost_usd: 2 })], 1)) // the snapshot covers event 1
     expect(feedOf('aaaaaaaa')).toHaveLength(1)
-    expect(panelOf('aaaaaaaa').getByText('Tool calls').nextSibling).toHaveTextContent('9')
-    expect(panelOf('aaaaaaaa').getByText('API-equivalent cost').nextSibling).toHaveTextContent('$2.00')
+    expect(barOf('aaaaaaaa', 'tool calls 9')).toBeInTheDocument()
+    expect(barOf('aaaaaaaa', 'cost $2.00')).toBeInTheDocument()
     send(live('aaaaaaaa-1', { tool: 'Edit' }))
     expect(feedOf('aaaaaaaa')).toHaveLength(2)
   })
@@ -581,10 +754,9 @@ describe('resume after a snapshot (last_id)', () => {
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 4, tokens_in: 100, tokens_out: 0, cost_usd: 1 })], 10))
     send(live('aaaaaaaa-1', { id: 9, tool: 'Old', tokens_in: 50, tokens_out: 0, cost_usd: 0.5 }))
     send(live('aaaaaaaa-1', { id: 10, tool: 'Old2', tokens_in: 50, tokens_out: 0, cost_usd: 0.5 }))
-    const a = panelOf('aaaaaaaa')
-    expect(a.getByText('Tool calls').nextSibling).toHaveTextContent('4')
-    expect(a.getByText('Tokens in').nextSibling).toHaveTextContent('100')
-    expect(a.getByText('API-equivalent cost').nextSibling).toHaveTextContent('$1.00')
+    expect(barOf('aaaaaaaa', 'tool calls 4')).toBeInTheDocument()
+    expect(barOf('aaaaaaaa', 'tokens 100')).toBeInTheDocument()
+    expect(barOf('aaaaaaaa', 'cost $1.00')).toBeInTheDocument()
     expect(screen.queryByText('Old')).toBeNull()
   })
 
@@ -594,10 +766,9 @@ describe('resume after a snapshot (last_id)', () => {
     const event = live('aaaaaaaa-1', { id: 11, tool: 'New', tokens_in: 50, tokens_out: 0, cost_usd: 0.5 })
     send(event)
     send(event)
-    const a = panelOf('aaaaaaaa')
-    expect(a.getByText('Tool calls').nextSibling).toHaveTextContent('5')
-    expect(a.getByText('Tokens in').nextSibling).toHaveTextContent('150')
-    expect(a.getByText('API-equivalent cost').nextSibling).toHaveTextContent('$1.50')
+    expect(barOf('aaaaaaaa', 'tool calls 5')).toBeInTheDocument()
+    expect(barOf('aaaaaaaa', 'tokens 150')).toBeInTheDocument()
+    expect(barOf('aaaaaaaa', 'cost $1.50')).toBeInTheDocument()
     expect(feedOf('aaaaaaaa')).toHaveLength(1)
   })
 
@@ -608,7 +779,7 @@ describe('resume after a snapshot (last_id)', () => {
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 8 })], 20))
     send(live('aaaaaaaa-1', { id: 7 })) // covered by the new snapshot
     send(live('aaaaaaaa-1', { id: 21 }))
-    expect(panelOf('aaaaaaaa').getByText('Tool calls').nextSibling).toHaveTextContent('9')
+    expect(barOf('aaaaaaaa', 'tool calls 9')).toBeInTheDocument()
   })
 })
 
@@ -617,7 +788,7 @@ describe('server restart', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 5))
     send(live('aaaaaaaa-1', { id: 6, tool: 'Before' }))
-    expect(feedOf('aaaaaaaa')[0]).toContain('Before') // the panel is open on it
+    expect(feedOf('aaaaaaaa')[0]).toContain('Before') // the feed is open on it
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 1))
     expect(screen.queryByText('Before')).toBeNull()
     send(live('aaaaaaaa-1', { id: 2, tool: 'After' }))
@@ -632,7 +803,7 @@ describe('no content', () => {
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     send({ ...live('aaaaaaaa-1', { tool: 'Bash' }), input: { command: 'cat SECRET-planted' }, text: 'SECRET-planted body' })
     expect(document.body.textContent).not.toContain('SECRET')
-    openRow('aaaaaaaa') // and not in the panel either
+    openRow('aaaaaaaa') // and not in the expanded feed either
     expect(document.body.textContent).not.toContain('SECRET')
   })
 })
@@ -809,10 +980,7 @@ describe('attention (FR-050)', () => {
 describe('kit stage chip and call labels (FR-084)', () => {
   const chip = (idPrefix) => card(idPrefix).querySelector('.live-stage')
   const who = (li) => li.querySelector('.live-who')?.textContent
-  const feedLis = (idPrefix) => {
-    openRow(idPrefix)
-    return [...document.querySelectorAll('#live-panel .live-feed > li')]
-  }
+  const feedLis = feedLisOf
 
   it('AC1: a session with a stage shows "Stage 4 · code-review" as real text in its row button; no stage, no chip', () => {
     render(<LiveView />)
@@ -936,7 +1104,7 @@ describe('kit stage chip and call labels (FR-084)', () => {
     for (const li of lis) expect(li.querySelector('.live-label')).toBeNull()
   })
 
-  it('AC4: text from any other event field never appears, in the row or the panel', () => {
+  it('AC4: text from any other event field never appears, in the row or the expanded feed', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { stage: '4', stage_skill: 'code-review', prompt: 'SECRET-planted' })]))
     send({
@@ -959,10 +1127,10 @@ describe('kit stage chip and call labels (FR-084)', () => {
     expect(note).toMatch(/never message or tool content/)
   })
 
-  it('a long label and a long sub-agent type wrap instead of widening the panel', () => {
+  it('a long label and a long sub-agent type are cut with an ellipsis in their one-line cell (FR-085)', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
-    expect(css).toMatch(/\.live-who[^\n]*overflow-wrap: anywhere/)
-    expect(css).toMatch(/\.live-label[^\n]*overflow-wrap: anywhere/)
+    expect(css).toMatch(/\.live-who[^\n]*white-space: nowrap/)
+    expect(css).toMatch(/\.live-call[^\n]*text-overflow: ellipsis/)
   })
 
   it('the chip is drawn from tokens only, in the label font, and the feed stays one aria-live region', () => {
@@ -1001,15 +1169,16 @@ describe('design', () => {
     expect(liveCss).toMatch(/\.live-bar-fill[^\n]*background: var\(--color-accent\)/)
   })
 
-  it('stacks the three bars of a row narrower than 28rem (a phone, or a row beside the open panel)', () => {
+  it('stacks the three bars of a row narrower than 28rem (a phone)', () => {
     expect(liveCss).toMatch(/\.live-session \{[^}]*container-type: inline-size/)
     expect(liveCss).toMatch(/@container \(max-width: 28rem\) \{ \.live-bars \{[^}]*grid-template-columns: minmax\(0, 1fr\)/)
     expect(liveCss).toMatch(/\.live-bar-num \{[^}]*white-space: nowrap/) // a number never breaks across two lines
   })
 
-  it('puts the panel right of the rows from 48rem (768 px) and below them under it', () => {
-    expect(liveCss).toMatch(/\.live-body \{[^}]*grid-template-columns: minmax\(0, 1fr\);/) // one column: the panel is below the rows
-    expect(liveCss).toMatch(/@media \(min-width: 48rem\) \{ \.live-body\[data-panel\] \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(16rem, 22rem\)/)
+  it('has no side-panel grid: the list keeps one width whether a session is open or not (FR-085)', () => {
+    expect(liveCss).not.toMatch(/data-panel/)
+    expect(liveCss).not.toMatch(/\.live-panel|\.live-body/)
+    expect(liveCss).toMatch(/\.live-expanded \{[^}]*position: relative[^}]*z-index: 1/) // above the row's click overlay
   })
 
   it('keeps every text color of the view at 4.5:1 or more on the card and page backgrounds', () => {
