@@ -68,9 +68,35 @@ $ cd web && npx vitest run src/LiveView.test.jsx
 
 BEFORE screenshots of the old side panel (session open, 2 sessions; calls appended after opening; the feed in the panel wraps to 2-3 lines, MCP row prints the raw name and the label, time is 12 h "7:42:53 PM", list squeezed to a narrow column): `reports/HUN-236/before-w1280-closed.png`, `before-w1280-open.png`, `before-w375-closed.png`, `before-w375-open.png` (under the worktree; `/reports/` is gitignored). Measured in headless Chrome at 375 px: feed row heights 73,25,73,25,25,25 px (wrapped rows), at 1280 px: 73,25,49,25,25,25.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-11-06T12:49:35Z, same command after the change:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ cd web && npx vitest run src/LiveView.test.jsx && npx vitest run && npm run build
+ Test Files  1 passed (1)
+      Tests  97 passed (97)
+ Test Files  21 passed (21)
+      Tests  695 passed (695)
+✓ built in 204ms
+```
+
+Real run (`easy-personal dashboard` on temp homes; transcript line written first, row opened, `aria-expanded` true, then Skill/Agent/Bash/MCP calls and a sub-agent file call appended; two sessions), headless Chrome over CDP:
+
+```
+w1280 expanded: true
+w1280 feed inside open card: true | aria-controls target exists: true
+w1280 arrows: ▸▾        feed rows: 6        feed row heights: 25,25,25,25,25,25
+w1280 feed text: 19:48:05 backend-developer claude_ai_Linear · save_issue | ... main easy-verifier · score | main Bash uv | main Agent backend-developer | main Skill code-review
+w1280 feed titles: 19:48:05 · main · mcp__easy-verifier__score · easy-verifier · score | ...
+w1280 second row opened, first closed: false,true feeds=1
+w1280 after Escape: false,false feeds=0 focusIsRow=true
+w375  scrollWidth/clientWidth: 375/375     row widths closed -> open: 335,335 -> 335,335
+w375  feed row heights: 25,25,25,25,25,25  (cells cut with an ellipsis: live-who, live-call)
+w375  after Escape: false,false feeds=0 focusIsRow=true
+```
+
+Screenshots (worktree, gitignored): `reports/HUN-236/after-w1280-closed.png`, `after-w1280-open.png`, `after-w1280-second-open.png`, `after-w375-closed.png`, `after-w375-open.png`, `after-w375-second-open.png`.
+
+**DELTA**: The owner opens a Live session under its own row at full list width (arrow, Close, Escape, one open at a time), and each call is one 24 h `HH:MM:SS` line that ends with an ellipsis instead of wrapping to 2-3 lines.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-236.jsonl`, never the
 implementing agent alone]

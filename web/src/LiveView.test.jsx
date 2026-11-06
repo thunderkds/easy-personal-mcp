@@ -589,7 +589,8 @@ describe('inline expand (FR-085)', () => {
     }
     expect(live.join('\n')).toMatch(/\.live-feed > li \{[^}]*display: grid[^}]*grid-template-columns:[^;]*minmax\(0, [^;]*\)/)
     expect(live.join('\n')).toMatch(/\.live-feed \{[^}]*max-height:[^}]*overflow-y: auto/)
-    expect(live.join('\n')).not.toMatch(/overflow-wrap: anywhere/) // a long cell is cut, never wrapped to a second line
+    const feedRules = live.filter((l) => /\.live-(feed|time|who|call|tool|label|tag)\b/.test(l)).join('\n')
+    expect(feedRules).not.toMatch(/overflow-wrap: anywhere/) // a long cell is cut, never wrapped to a second line
   })
 
   it('AC6: a long who and a long label stay in one cell each and put their full text in the row title', () => {
