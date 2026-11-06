@@ -43,8 +43,28 @@ Not done: merge (yours); auto verify: running (T182)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE** (command: `uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"` with the new AC 1–6 tests written, before any implementation change): [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (command: `uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"` with the new AC 1–6 tests written, before any implementation change):
+
+```
+$ date -u +%Y-%m-%dT%H:%M:%SZ
+2026-11-06T11:03:26Z
+$ uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"
+...
+>       resumed = [(e["label"], e["agent"]) for e in tail.events_since(0) if e["kind"] == "tool_use"]
+E       KeyError: 'label'
+tests/core/test_live.py:1249: KeyError
+FAILED tests/core/test_live.py::test_label_skill_and_agent_calls_carry_the_safe_field_and_no_canary
+FAILED tests/core/test_live.py::test_label_bash_is_the_first_word_after_a_leading_cd[cd /x && uv run pytest-uv]
+FAILED tests/core/test_live.py::test_label_mcp_tool_is_split_at_the_first_two_double_underscores_without_reading_input
+FAILED tests/core/test_live.py::test_agent_type_of_a_subagent_stream_comes_from_its_meta_file_and_the_main_thread_has_none
+FAILED tests/core/test_live.py::test_agent_type_meta_file_is_read_once_per_stream
+FAILED tests/core/test_live.py::test_stage_follows_the_newest_mapped_skill_and_keeps_unmapped_ones_out
+FAILED tests/core/test_live.py::test_stage_map_is_the_fixed_prd_table - Attri...
+FAILED tests/core/test_live.py::test_stage_changes_bump_state_version_once_each_and_other_calls_do_not
+FAILED tests/core/test_live.py::test_label_and_agent_reach_the_buffer_for_resume_and_the_snapshot_carries_the_stage
+(... 51 failed in total, listed in full by pytest)
+51 failed, 1 passed, 48 deselected in 2.43s
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

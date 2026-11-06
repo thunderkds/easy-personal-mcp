@@ -20,10 +20,11 @@ HOST = f"127.0.0.1:{PORT}"
 SECRET = "SECRET-TEXT-do-not-leak"
 CONTRACT_EVENT = {
     "id", "session_id", "account", "project", "ts", "kind", "tool", "is_error", "is_sidechain",
-    "tokens_in", "tokens_out", "cost_usd",
+    "tokens_in", "tokens_out", "cost_usd", "label", "agent",
 }  # fmt: skip
 CONTRACT_SESSION = {
     "session_id", "account", "project", "last_ts", "tool_calls", "tokens_in", "tokens_out", "cost_usd", "attention",
+    "stage", "stage_skill",
 }  # fmt: skip
 
 
@@ -360,6 +361,51 @@ def test_live_resends_a_snapshot_with_attention_after_a_state_change_and_keeps_e
     after = got[[m["event"] for m in got].index("snapshot", 1) :]
     assert second["last_id"] == max(i for i in ids if i <= second["last_id"])
     assert all(m["data"]["id"] > second["last_id"] for m in after if m["event"] == "live")
+
+
+# -- call labels, sub-agent type and kit stage (HUN-233, FR-081..FR-083) ----------------------------
+
+
+def skill_record(skill, message, use_id, args=SECRET):
+    rec = record(message=message, tool="Skill", use_id=use_id)
+    rec["message"]["content"][1]["input"] = {"skill": skill, "args": args}
+    return rec
+
+
+def test_live_event_carries_label_and_agent_and_the_snapshot_carries_the_stage(app, tail, add):
+    add(record(message="msg_old"))
+    tail.poll_once()
+    state = {"added": False}
+
+    def step(text):
+        got = messages(text)
+        if got and not state["added"]:
+            state["added"] = True
+            add(skill_record("tdd", "msg_skill", "toolu_skill"))
+            tail.poll_once()
+        return sum(m["event"] == "snapshot" for m in got) >= 2 and sum(m["event"] == "live" for m in got) >= 2
+
+    out = get(app, step=step)
+    got = messages(out["text"])
+    first, second = [m["data"] for m in got if m["event"] == "snapshot"]
+    assert (first["sessions"][0]["stage"], first["sessions"][0]["stage_skill"]) == (None, None)
+    assert (second["sessions"][0]["stage"], second["sessions"][0]["stage_skill"]) == ("3", "tdd")
+    [use] = [m["data"] for m in got if m["event"] == "live" and m["data"]["kind"] == "tool_use"]
+    assert (use["tool"], use["label"], use["agent"]) == ("Skill", "tdd", None)
+    assert SECRET not in out["text"]
+
+
+def test_live_resume_replays_labels_from_the_buffer(app, tail, add):
+    add(record(message="msg_old"))
+    tail.poll_once()
+    newest = tail.last_id
+    add(skill_record("code-review", "msg_skill", "toolu_skill"))
+    tail.poll_once()
+    out = get(app, hdrs=headers(extra=[("last-event-id", str(newest))]), step=count("snapshot"))
+    got = messages(out["text"])
+    [use] = [m["data"] for m in got if m["event"] == "live" and m["data"]["kind"] == "tool_use"]
+    assert use["label"] == "code-review"
+    assert got[-1]["data"]["sessions"][0]["stage"] == "4"  # the reconnect snapshot has the stage
 
 
 # -- lifetime, logs (edge cases, AC 5) --------------------------------------------------------------

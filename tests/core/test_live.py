@@ -23,7 +23,7 @@ SECRET_INPUT = "SECRET-TOOL-INPUT-do-not-leak"
 SECRET_OUTPUT = "SECRET-TOOL-OUTPUT-do-not-leak"
 EVENT_KEYS = {
     "id", "session_id", "account", "project", "ts", "kind", "tool", "is_error", "is_sidechain",
-    "tokens_in", "tokens_out", "cache_creation", "cache_read", "cost_usd",
+    "tokens_in", "tokens_out", "cache_creation", "cache_read", "cost_usd", "label", "agent",
 }  # fmt: skip
 
 _ids = itertools.count(1)
@@ -359,8 +359,8 @@ def test_snapshot_totals_count_a_message_once_and_cover_active_sessions_only(pro
     assert (session["tokens_in"], session["tokens_out"]) == (10, 9)  # max of the two records, once
     assert session["last_ts"].endswith("Z")
     assert set(session) == {"session_id", "account", "project", "last_ts", "tool_calls", "tokens_in",
-                            "tokens_out", "cache_creation", "cache_read", "cost_usd", "attention"}  # fmt: skip
-    assert session["attention"] == []
+                            "tokens_out", "cache_creation", "cache_read", "cost_usd", "attention", "stage", "stage_skill"}  # fmt: skip
+    assert session["attention"] == [] and session["stage"] is None and session["stage_skill"] is None
     usage_events = [e for e in tail.events_since(0) if e["kind"] == "usage" and e["session_id"] == "s1"]
     assert [e["tokens_out"] for e in usage_events] == [3, 6]  # first sight, then the growth (delta)
 
@@ -916,3 +916,336 @@ def test_the_tails_offset_map_forgets_a_file_that_is_gone(projects, manual, cloc
     (projects / session_file(3)).unlink()
     tail.poll_once()
     assert len(tail._offsets) == 2
+
+
+# -- call labels, sub-agent type and kit stage (HUN-233, FR-081..FR-083, DDR-0004) --------------------
+
+CANARY = "CANARY-LABEL-do-not-leak"
+SUBDIR = "demo/s1/subagents"
+
+
+def call_record(clock, name, tool_input, sidechain=False, session="s1", use_id=None, message=None, plus_s=0.0):
+    """One assistant record with a single tool_use block whose `input` is exactly `tool_input`."""
+    ids = [use_id or f"toolu_{next(_ids)}"]
+    record = use(clock, ids, tools=(name,), message=message, session=session, sidechain=sidechain, plus_s=plus_s)
+    record["message"]["content"][1]["input"] = tool_input
+    return record
+
+
+def tool_uses(tail):
+    return [e for e in tail.events_since(0) if e["kind"] == "tool_use"]
+
+
+def one_label(projects, manual, clock, name, tool_input):
+    """Label of one call of `name` with `tool_input`, run through a fresh tail."""
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, call_record(clock, name, tool_input))
+    tail.poll_once()
+    [event] = tool_uses(tail)
+    return event["label"]
+
+
+def test_label_skill_and_agent_calls_carry_the_safe_field_and_no_canary(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(
+        projects / MAIN,
+        call_record(clock, "Skill", {"skill": "code-review", "args": CANARY}),
+        call_record(clock, "Agent", {"subagent_type": "qa-expert", "prompt": CANARY, "description": CANARY}),
+        call_record(clock, "Task", {"subagent_type": "backend-developer", "prompt": CANARY, "description": CANARY}),
+    )
+    tail.poll_once()
+    assert [(e["tool"], e["label"]) for e in tool_uses(tail)] == [
+        ("Skill", "code-review"), ("Agent", "qa-expert"), ("Task", "backend-developer"),
+    ]  # fmt: skip
+    assert CANARY not in json.dumps(tail.events_since(0)) + json.dumps(tail.snapshot())
+
+
+@pytest.mark.parametrize(
+    "command, expected",
+    [
+        ("cd /x && uv run pytest", "uv"),
+        ("cd /x; uv run pytest", "uv"),
+        ("cd '/my dir' && cd sub && uv run pytest", "uv"),
+        ("FOO=1 pytest -q", "pytest"),
+        ('bash -c "git status"', "git"),
+        (f"git status {CANARY}", "git"),
+        ("/usr/bin/env python3 x.py", "python3"),
+        ("", None),
+        ("   ", None),
+        ("cd /x", None),
+    ],
+)
+def test_label_bash_is_the_first_word_after_a_leading_cd(projects, manual, clock, command, expected):
+    label = one_label(projects, manual, clock, "Bash", {"command": command, "description": CANARY})
+    assert label == expected
+
+
+def test_label_bash_with_no_command_field_or_a_non_string_command_has_no_label(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(
+        projects / MAIN,
+        call_record(clock, "Bash", {}),
+        call_record(clock, "Bash", {"command": 5}),
+        call_record(clock, "Bash", {"command": ["ls"]}),
+        call_record(clock, "Bash", None),
+        call_record(clock, "Bash", "ls"),
+    )
+    tail.poll_once()
+    assert [e["label"] for e in tool_uses(tail)] == [None] * 5
+
+
+def test_label_mcp_tool_is_split_at_the_first_two_double_underscores_without_reading_input(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(
+        projects / MAIN,
+        call_record(clock, "mcp__easy-verifier__score", {"scope": CANARY}),
+        call_record(clock, "mcp__a__b__c", "not even a dict"),
+        call_record(clock, "mcp__only-server", {}),
+        call_record(clock, "mcp____tool", {}),
+        call_record(clock, "mcp__bad server__tool", {}),
+    )
+    tail.poll_once()
+    assert [e["label"] for e in tool_uses(tail)] == [
+        {"server": "easy-verifier", "tool": "score"},
+        {"server": "a", "tool": "b__c"},
+        None, None, None,
+    ]  # fmt: skip
+    assert CANARY not in json.dumps(tail.events_since(0))
+
+
+@pytest.mark.parametrize(
+    "name, tool_input",
+    [
+        ("Skill", {"skill": "has space"}),
+        ("Skill", {"skill": "x" * 65}),
+        ("Skill", {"skill": "-leading"}),
+        ("Skill", {"skill": ".dot"}),
+        ("Skill", {"skill": "line\nbreak"}),
+        ("Skill", {"skill": "end\n"}),
+        ("Skill", {"skill": 7}),
+        ("Skill", {"skill": ["tdd"]}),
+        ("Skill", {"skill": None}),
+        ("Skill", {}),
+        ("Skill", ["tdd"]),
+        ("Agent", {"subagent_type": "a/b"}),
+        ("Agent", {"description": CANARY}),
+        ("Read", {"file_path": CANARY, "skill": "tdd"}),
+        ("Edit", {"file_path": CANARY, "subagent_type": "qa-expert"}),
+        ("Write", {"content": CANARY}),
+    ],
+)
+def test_label_failing_the_pattern_or_from_another_tool_is_dropped(projects, manual, clock, name, tool_input):
+    assert one_label(projects, manual, clock, name, tool_input) is None
+
+
+def test_label_of_64_characters_is_kept_and_unchanged(projects, manual, clock):
+    name = "a" + "b" * 63
+    assert one_label(projects, manual, clock, "Skill", {"skill": name}) == name
+
+
+def test_label_results_and_usage_events_carry_none(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}, use_id="u1"), result(clock, "u1"))
+    tail.poll_once()
+    by_kind = {e["kind"]: e for e in tail.events_since(0)}
+    assert by_kind["tool_use"]["label"] == "tdd"
+    assert by_kind["tool_result"]["label"] is None and by_kind["usage"]["label"] is None
+
+
+def meta_path(n=1):
+    return f"{SUBDIR}/agent-a{n}.meta.json"
+
+
+def sub_events(tail):
+    return [e for e in tool_uses(tail) if e["is_sidechain"]]
+
+
+def test_agent_type_of_a_subagent_stream_comes_from_its_meta_file_and_the_main_thread_has_none(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    (projects / meta_path()).write_text(
+        json.dumps({"agentType": "backend-developer", "description": CANARY, "toolUseId": "toolu_x"})
+    )
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    append(projects / MAIN, call_record(clock, "Read", {}))
+    tail.poll_once()
+    assert {e["is_sidechain"]: e["agent"] for e in tool_uses(tail)} == {True: "backend-developer", False: None}
+    assert all("agent" in e for e in tail.events_since(0))  # usage events too
+    assert CANARY not in json.dumps(tail.events_since(0)) + json.dumps(tail.snapshot())
+
+
+def test_agent_type_meta_file_is_read_once_per_stream(projects, manual, clock, monkeypatch):
+    opened = []
+    real = live._meta_agent_type
+    monkeypatch.setattr(live, "_meta_agent_type", lambda path: opened.append(path) or real(path))
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    (projects / meta_path()).write_text(json.dumps({"agentType": "qa-expert"}))
+    for _ in range(3):
+        append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+        tail.poll_once()
+    append(projects / MAIN, call_record(clock, "Read", {}))
+    tail.poll_once()
+    assert len(opened) == 1 and opened[0].endswith("agent-a1.jsonl")
+    assert [e["agent"] for e in sub_events(tail)] == ["qa-expert"] * 3
+
+
+def test_agent_type_meta_file_written_after_the_first_line_is_retried_not_cached_as_sub_agent(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()
+    assert [e["agent"] for e in sub_events(tail)] == ["sub-agent"]  # not known yet
+    clock.advance(seconds=29)
+    (projects / meta_path()).write_text(json.dumps({"agentType": "frontend-developer"}))
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()
+    assert [e["agent"] for e in sub_events(tail)] == ["sub-agent", "frontend-developer"]
+
+
+def test_agent_type_stays_sub_agent_after_30_seconds_without_a_meta_file(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()
+    clock.advance(seconds=30)
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()  # the last try fails: the answer is final
+    (projects / meta_path()).write_text(json.dumps({"agentType": "frontend-developer"}))
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()
+    assert [e["agent"] for e in sub_events(tail)] == ["sub-agent"] * 3
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "not json {",
+        json.dumps({"agentType": "x" * 65}),
+        json.dumps({"agentType": "has space"}),
+        json.dumps({"agentType": 5}),
+        json.dumps({"description": CANARY}),
+        json.dumps(["agentType"]),
+        json.dumps({"agentType": "ok-type", "pad": "y" * 5000}),  # over 4 KB: not read
+        "[" * 5000,
+    ],
+    ids=["invalid-json", "type-too-long", "type-has-space", "type-not-string", "no-type", "not-a-dict", "over-4kb", "deep-nesting"],
+)
+def test_agent_type_unusable_meta_gives_sub_agent_and_no_canary(projects, manual, clock, content):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    (projects / meta_path()).write_text(content)
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()
+    clock.advance(seconds=31)
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()
+    assert [e["agent"] for e in sub_events(tail)] == ["sub-agent", "sub-agent"]
+    assert CANARY not in json.dumps(tail.events_since(0))
+
+
+def test_agent_type_a_symlinked_meta_file_is_not_followed(projects, manual, clock, tmp_path):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    target = tmp_path / "elsewhere.json"
+    target.write_text(json.dumps({"agentType": "stolen-type"}))
+    (projects / meta_path()).symlink_to(target)
+    append(projects / SUB, call_record(clock, "Read", {}, sidechain=True))
+    tail.poll_once()
+    assert [e["agent"] for e in sub_events(tail)] == ["sub-agent"]
+
+
+def snap(tail, session="s1"):
+    [s] = [s for s in tail.snapshot(now=tail._clock())["sessions"] if s["session_id"] == session]
+    return s
+
+
+def test_stage_follows_the_newest_mapped_skill_and_keeps_unmapped_ones_out(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, call_record(clock, "Read", {}))
+    tail.poll_once()
+    assert (snap(tail)["stage"], snap(tail)["stage_skill"]) == (None, None)  # nothing known yet
+    steps = [("tdd", "3", "tdd"), ("wake", "3", "tdd"), ("easy-kit:code-review", "4", "code-review"),
+             ("not-a-kit-skill", "4", "code-review"), ("brainstorming", "0.5", "brainstorming"),
+             ("craft-agent", "1.5", "craft-agent"), ("ship", "5", "ship")]  # fmt: skip
+    for skill, stage, stage_skill in steps:
+        clock.advance(seconds=1)
+        append(projects / MAIN, call_record(clock, "Skill", {"skill": skill, "args": CANARY}))
+        tail.poll_once()
+        assert (snap(tail)["stage"], snap(tail)["stage_skill"]) == (stage, stage_skill), skill
+    assert CANARY not in json.dumps(tail.snapshot())
+
+
+def test_stage_map_is_the_fixed_prd_table():
+    expected = {
+        "0.5": ["brainstorming", "ideate"], "1": ["git-guardrails-claude-code", "map-codebase"],
+        "1.5": ["craft-agent"], "2": ["grill-with-docs", "to-issues"],
+        "3": ["tdd", "bugfix", "diagnose", "craft-spawn-prompt", "migration-safety"],
+        "4": ["code-review", "security-review", "blast-radius", "html-report"],
+        "5": ["verify", "ship", "delivery-report"],
+    }  # fmt: skip
+    assert {skill: stage for stage, skills in expected.items() for skill in skills} == live.STAGE_MAP
+
+
+def test_stage_from_a_mapped_skill_in_a_subagent_stream_counts_and_the_newest_wins(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}))
+    tail.poll_once()
+    clock.advance(seconds=1)
+    append(projects / SUB, call_record(clock, "Skill", {"skill": "verify"}, sidechain=True))
+    tail.poll_once()
+    assert snap(tail)["stage"] == "5"
+    clock.advance(seconds=1)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "map-codebase"}))
+    tail.poll_once()
+    assert snap(tail)["stage"] == "1"
+
+
+def test_stage_an_older_call_read_later_does_not_replace_a_newer_stage(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN, SUB)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "ship"}))
+    tail.poll_once()
+    append(projects / SUB, call_record(clock, "Skill", {"skill": "ideate"}, sidechain=True, plus_s=-60))
+    tail.poll_once()
+    assert (snap(tail)["stage"], snap(tail)["stage_skill"]) == ("5", "ship")
+
+
+def test_stage_changes_bump_state_version_once_each_and_other_calls_do_not(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    before = tail.state_version
+    for i in range(20):
+        append(projects / MAIN, call_record(clock, "Read", {"file_path": CANARY}, message=f"mr{i}"))
+        tail.poll_once()
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "wake"}))  # unmapped
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "has space"}))  # no label
+    tail.poll_once()
+    assert tail.state_version == before
+    clock.advance(seconds=1)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}))
+    tail.poll_once()
+    assert tail.state_version == before + 1
+    clock.advance(seconds=1)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}))  # same stage, same skill
+    tail.poll_once()
+    assert tail.state_version == before + 1
+    clock.advance(seconds=1)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "easy-kit:tdd"}))  # same bare skill
+    tail.poll_once()
+    assert tail.state_version == before + 1
+    clock.advance(seconds=1)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "verify"}))
+    tail.poll_once()
+    assert tail.state_version == before + 2
+
+
+def test_stage_is_dropped_with_its_session(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}))
+    tail.poll_once()
+    assert snap(tail)["stage"] == "3"
+    clock.advance(seconds=live.FORGET_AFTER_S + 1)
+    tail.poll_once()
+    assert tail._sessions == {}
+
+
+def test_label_and_agent_reach_the_buffer_for_resume_and_the_snapshot_carries_the_stage(projects, manual, clock):
+    tail = seeded(projects, manual, clock, MAIN)
+    append(projects / MAIN, call_record(clock, "Skill", {"skill": "tdd"}), call_record(clock, "Bash", {"command": "ls -l"}))
+    tail.poll_once()
+    resumed = [(e["label"], e["agent"]) for e in tail.events_since(0) if e["kind"] == "tool_use"]
+    assert resumed == [("tdd", None), ("ls", None)]
+    assert snap(tail)["stage"] == "3"  # a reconnect sees the stage in the snapshot
