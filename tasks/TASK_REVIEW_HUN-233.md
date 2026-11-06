@@ -66,9 +66,9 @@ FAILED tests/core/test_live.py::test_label_and_agent_reach_the_buffer_for_resume
 51 failed, 1 passed, 48 deselected in 2.43s
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same command, post-change (backend-developer run, 2026-11-06): `uv run pytest tests/core/test_live.py -q -k "label or stage or agent_type"` passes; verification command `uv run pytest tests/core/test_live.py tests/surfaces/test_api_live.py tests/leak -q` gave `170 passed`; full `uv run pytest -q` gave `1603 passed, 2 skipped, 6 deselected, 1 xfailed`. Real run: `/api/live` event `{"kind":"tool_use","tool":"Skill",...,"label":"easy-kit:tdd","agent":null}`, a sub-agent event `"label":{"server":"easy-verifier","tool":"score"},"agent":"backend-developer"`, snapshot `"stage":"3","stage_skill":"tdd"`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The `/api/live` stream now tells which skill, sub-agent type, Bash command name or MCP tool each call is, which sub-agent made it, and which kit stage the session is in, with nothing stored.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
