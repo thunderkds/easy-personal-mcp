@@ -128,3 +128,31 @@ def test_attention_states_leak_no_planted_block_id_or_content(tmp_path, monkeypa
     blob = json.dumps(tail.events_since(0)) + json.dumps(snapshot) + wire + dump + caplog.text
     for planted in (*secrets, *ids):
         assert planted not in blob, planted
+
+
+def test_warm_start_replay_leaks_no_canary_and_reads_only_what_the_live_path_reads(
+    canaries, tmp_path, monkeypatch, caplog
+):
+    """HUN-237 (FR-086, AC 7): planted text, tool input and output of stored, replayed lines stay out of every live output."""
+    import json
+
+    from easy_personal.sources import claude_code
+
+    caplog.set_level(logging.DEBUG)
+    projects = canaries.render_fixture(tmp_path / "projects")
+    monkeypatch.setenv(config.CLAUDE_PROJECTS_ENV, str(projects))
+    monkeypatch.setattr(live, "ACTIVE_WINDOW_S", 10**9)  # the planted transcripts are old: list their sessions
+    monkeypatch.setattr(live, "FORGET_AFTER_S", 10**9)
+    with store.opened(config.store_path()) as conn:
+        claude_code.ingest_accounts(conn)  # every planted line is stored first: the tail's first scan only replays
+        before = "\n".join(conn.iterdump())
+    tail = live.LiveTail()
+    tail.poll_once()
+    snapshot = tail.snapshot()
+    assert tail.events_since(0) == [] and tail.last_id == 0  # replay buffers nothing
+    assert "4" in {s["stage"] for s in snapshot["sessions"]}  # not vacuous: the planted Skill calls set a stage
+    assert any(s["tool_calls"] for s in snapshot["sessions"])
+    with store.opened(config.store_path()) as conn:
+        assert "\n".join(conn.iterdump()) == before  # nothing stored by the replay
+    for surface, blob in (("warm snapshot", json.dumps(snapshot)), ("log records", caplog.text)):
+        canaries.assert_clean(surface, blob)

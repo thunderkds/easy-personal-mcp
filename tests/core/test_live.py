@@ -7,6 +7,7 @@ isolated `EASY_PERSONAL_HOME` from conftest: nothing here reads a real Claude fo
 import itertools
 import json
 import logging
+import os
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -65,6 +66,12 @@ def append(path: Path, *records, raw: str = "") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a") as handle:
         handle.write("".join(json.dumps(r) + "\n" for r in records) + raw)
+
+
+def stale(path: Path) -> None:
+    """Make a file look idle for two FORGET_AFTER_S, so the tail's warm start (FR-086) leaves it alone."""
+    old = time.time() - 2 * live.FORGET_AFTER_S
+    os.utime(path, (old, old))
 
 
 def wait_until(predicate, timeout=3.0, step=0.01):
@@ -345,7 +352,9 @@ def test_ids_are_monotonic_and_events_since_reports_a_rolled_buffer(projects, st
 def test_snapshot_totals_count_a_message_once_and_cover_active_sessions_only(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
     # one message written as two records (thinking/tool_use blocks): same message id, growing output
     append(path, assistant(message="msg_dup", tools=(), out=3), assistant(message="msg_dup", tools=("Bash",), out=9))
     append(path, assistant(session="s-old", tools=(), ts=now_ts(-3600), message="msg_old"))
@@ -373,7 +382,9 @@ def _sums(events):
 def test_usage_delta_events_keep_live_totals_equal_to_the_snapshot(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
 
     def message(out, cache_read=3, model="claude-sonnet-5-5"):
         record = assistant(message="msg_grow", tools=(), out=out)
@@ -406,7 +417,9 @@ def test_usage_delta_events_keep_live_totals_equal_to_the_snapshot(projects, sta
 def test_unpriced_model_growth_keeps_cost_unknown_in_deltas_and_snapshot(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
     append(path, assistant(message="msg_u", tools=(), out=2))
     time.sleep(0.2)
     append(path, assistant(message="msg_u", tools=(), out=9))
@@ -420,7 +433,9 @@ def test_unpriced_model_growth_keeps_cost_unknown_in_deltas_and_snapshot(project
 def test_idle_sessions_are_forgotten_so_memory_stays_bounded(projects, start):
     path = projects / "demo" / "s1.jsonl"
     append(path, assistant())
+    stale(path)  # older than the warm-start window (FR-086): this test counts live lines only
     tail = start()
+    assert wait_until(lambda: tail._primed)  # the first scan is over before this test appends (a fresh mtime would warm the seed)
     append(path, assistant(session="s-stale", tools=(), ts=now_ts(-2 * live.FORGET_AFTER_S)))
     append(path, assistant(session="s-fresh"))
     assert wait_until(lambda: tail.last_id >= 3)
@@ -697,6 +712,7 @@ def test_a_session_with_an_open_call_stays_listed_past_five_minutes_and_one_hour
 
 def test_state_version_ignores_ordinary_tool_calls_and_moves_once_per_state_set_change(projects, manual, clock):
     tail = seeded(projects, manual, clock, MAIN)
+    tail.poll_once()  # the first scan: its warm start moves state_version once (FR-086)
     before = tail.state_version
     for i in range(100):
         append(projects / MAIN, use(clock, [f"ok{i}"], tools=("Read",), message=f"m{i}"), result(clock, f"ok{i}"))
@@ -795,7 +811,7 @@ def test_a_line_stored_by_another_caller_between_two_polls_is_still_published_an
     assert len(store_rows("SELECT 1 FROM events")) == 5
 
 
-def test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_nothing_until_a_new_line(
+def test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_no_event_until_a_new_line(
     projects, manual, clock
 ):
     first, second = seed_three(projects, manual, clock)
@@ -803,7 +819,8 @@ def test_a_tail_started_with_the_cursor_at_the_end_of_a_file_publishes_nothing_u
     second.poll_once()
     second.poll_once()
     for tail in (first, second):
-        assert tail.events_since(0) == [] and tail.snapshot(now=clock())["sessions"] == []  # no history replay
+        assert tail.events_since(0) == []  # no history in the feed
+        assert {s["session_id"] for s in tail.snapshot(now=clock())["sessions"]} == {"sess1", "sess2", "sess3"}  # FR-086: state is warm
     write_line(clock, projects, 2)
     first.poll_once()
     second.poll_once()
@@ -1223,6 +1240,7 @@ def test_stage_an_older_call_read_later_does_not_replace_a_newer_stage(projects,
 
 def test_stage_changes_bump_state_version_once_each_and_other_calls_do_not(projects, manual, clock):
     tail = seeded(projects, manual, clock, MAIN)
+    tail.poll_once()  # the first scan: its warm start moves state_version once (FR-086)
     before = tail.state_version
     for i in range(20):
         append(projects / MAIN, call_record(clock, "Read", {"file_path": CANARY}, message=f"mr{i}"))
@@ -1266,3 +1284,175 @@ def test_label_and_agent_reach_the_buffer_for_resume_and_the_snapshot_carries_th
     resumed = [(e["label"], e["agent"]) for e in tail.events_since(0) if e["kind"] == "tool_use"]
     assert resumed == [("tdd", None), ("ls", None)]
     assert snap(tail)["stage"] == "3"  # a reconnect sees the stage in the snapshot
+
+
+# -- warm start (HUN-237, FR-086): the first scan rebuilds session state from stored history --------------
+
+
+def age(path: Path, clock, seconds: float) -> None:
+    """Set a file's mtime `seconds` before the tail clock."""
+    stamp = clock.at.timestamp() - seconds
+    os.utime(path, (stamp, stamp))
+
+
+def stored_history(projects, clock, n=3, rel=MAIN, session="s1", age_s=60, start_s=-60):
+    """A transcript of n answered Bash calls (one message each), already stored, last written `age_s` ago."""
+    records = []
+    for i in range(n):
+        record = use(clock, [f"w{i}"], message=f"mw{i}", session=session, plus_s=start_s + i)
+        record["message"]["model"] = "claude-sonnet-5-5"
+        records += [record, result(clock, f"w{i}", session=session, plus_s=start_s + i)]
+    append(projects / rel, *records)
+    age(projects / rel, clock, age_s)
+
+
+def warm_session(tail, session="s1"):
+    [s] = [s for s in tail.snapshot(now=tail._clock())["sessions"] if s["session_id"] == session]
+    return s
+
+
+def test_warm_start_lists_a_stored_session_with_whole_totals_before_any_new_line(projects, manual, clock):
+    from easy_personal.core import prices
+
+    stored_history(projects, clock, n=3)
+    tail = manual()
+    tail.poll_once()
+    s = warm_session(tail)
+    assert s["tool_calls"] == 3
+    assert (s["tokens_in"], s["tokens_out"], s["cache_creation"], s["cache_read"]) == (30, 15, 6, 9)
+    assert s["cost_usd"] == pytest.approx(3 * prices.load().cost("claude-sonnet-5-5", 10, 5, 2, 3))
+    assert s["project"] == "demo-app"
+
+
+def test_warm_start_moves_state_version_so_a_page_connected_before_the_replay_gets_a_new_snapshot(projects, manual, clock):
+    """The SSE route re-sends the snapshot only when `state_version` moves; a replayed session with no stage and no
+    attention must still reach a page that connected before the first scan (an EventSource reconnect after restart)."""
+    stored_history(projects, clock, n=3)  # Bash calls only: no Skill, no open call
+    tail = manual()
+    seen = tail.snapshot()["state_version"]
+    tail.poll_once()
+    assert tail.state_version != seen
+    assert warm_session(tail)["tool_calls"] == 3
+
+
+def test_warm_start_appends_no_event_and_the_next_line_gets_id_one(projects, manual, clock):
+    stored_history(projects, clock, n=3)
+    tail = manual()
+    tail.poll_once()
+    assert tail.events_since(0) == [] and tail.last_id == 0
+    append(projects / MAIN, use(clock, ["live1"], message="mlive"))
+    tail.poll_once()
+    first = tail.events_since(0)[0]
+    assert (first["id"], first["kind"]) == (1, "tool_use")
+    assert warm_session(tail)["tool_calls"] == 4  # the replayed three plus the new one
+
+
+def test_warm_start_stores_nothing_for_stored_files(projects, manual, clock):
+    stored_history(projects, clock, n=3)
+    tail = manual()
+    rows, offsets = store_rows(), store_rows("SELECT path, inode, byte_offset FROM source_files")
+    tail.poll_once()
+    assert store_rows() == rows
+    assert store_rows("SELECT path, inode, byte_offset FROM source_files") == offsets
+
+
+def test_warm_start_of_a_partly_stored_file_replays_below_the_cursor_and_stores_the_rest_once(projects, clock):
+    stored_history(projects, clock, n=2)  # 4 lines
+    with store.opened(config.store_path()) as conn:
+        claude_code.ingest_accounts(conn)
+    stored = len(store_rows())
+    cursor = store_rows("SELECT byte_offset FROM source_files")[0][0]
+    append(projects / MAIN, use(clock, ["late0"], message="mlate0"), use(clock, ["late1"], message="mlate1"))
+    tail = live.LiveTail(clock=clock)
+    tail.poll_once()
+    assert warm_session(tail)["tool_calls"] == 4  # 2 replayed + 2 followed
+    assert [e["tool"] for e in tail.events_since(0) if e["kind"] == "tool_use"] == ["Bash", "Bash"]  # only the followed two
+    assert len(store_rows()) == stored + 2  # each followed line stored once, the replayed ones not again
+    assert store_rows("SELECT byte_offset FROM source_files")[0][0] == (projects / MAIN).stat().st_size > cursor
+    tail.poll_once()
+    assert len(store_rows()) == stored + 2 and warm_session(tail)["tool_calls"] == 4
+
+
+def test_warm_start_rebuilds_stage_waiting_and_sub_agent_type_and_leaves_answered_calls_closed(
+    projects, manual, clock
+):
+    append(
+        projects / MAIN,
+        call_record(clock, "Skill", {"skill": "code-review"}, use_id="sk", message="m1", plus_s=-1500),
+        result(clock, "sk", plus_s=-1499),
+        use(clock, ["b1"], message="m2", plus_s=-1400),
+        result(clock, "b1", plus_s=-1300),  # answered later in the file: not open
+        use(clock, ["q1"], tools=("AskUserQuestion",), message="m3", plus_s=-1200),  # 20 min old, unanswered
+    )
+    append(projects / SUB, use(clock, ["sub1"], message="msub", sidechain=True, plus_s=-1250),
+           result(clock, "sub1", sidechain=True, plus_s=-1249))  # fmt: skip
+    (projects / SUB).with_name("agent-a1.meta.json").write_text(json.dumps({"agentType": "qa-expert"}))
+    for rel in (MAIN, SUB):
+        age(projects / rel, clock, 1200)
+    tail = manual()
+    tail.poll_once()
+    s = warm_session(tail)  # listed although its last line is 20 minutes old, because a call is open
+    assert (s["stage"], s["stage_skill"]) == ("4", "code-review")
+    assert [(a["state"], a["tool"]) for a in s["attention"]] == [("waiting", "AskUserQuestion")]
+    session = tail._sessions["s1"]
+    assert sorted(c.tool for c in session.streams[str(projects / MAIN)].open.values()) == ["AskUserQuestion"]
+    assert session.streams[str(projects / SUB)].agent == "qa-expert"
+    assert tail.state_version > 0
+
+
+def test_warm_start_rebuilds_a_failure_streak(projects, manual, clock):
+    for i in range(3):
+        append(projects / MAIN, use(clock, [f"f{i}"], message=f"mf{i}", plus_s=-30 + i),
+               result(clock, f"f{i}", error=True, plus_s=-30 + i))  # fmt: skip
+    age(projects / MAIN, clock, 30)
+    tail = manual()
+    tail.poll_once()
+    assert [(a["state"], a["count"]) for a in warm_session(tail)["attention"]] == [("failing", 3)]
+
+
+def test_warm_start_skips_a_file_older_than_the_window_and_reads_a_file_first_seen_later_from_zero(
+    projects, manual, clock
+):
+    stored_history(projects, clock, n=3, age_s=live.FORGET_AFTER_S + 10)
+    tail = manual()
+    tail.poll_once()
+    assert tail._sessions == {} and tail.snapshot(now=clock())["sessions"] == []  # not replayed
+    append(projects / MAIN, use(clock, ["now1"], message="mnow"))
+    tail.poll_once()
+    assert warm_session(tail)["tool_calls"] == 1  # counted from this line on, as before FR-086
+    before = len(store_rows())
+    late = projects / "demo" / "late.jsonl"  # first seen after the first scan
+    append(late, use(clock, ["l1"], message="ml1", session="s-late"), use(clock, ["l2"], message="ml2", session="s-late"))
+    age(late, clock, 5)
+    tail.poll_once()
+    assert warm_session(tail, "s-late")["tool_calls"] == 2
+    assert len([e for e in tail.events_since(0) if e["session_id"] == "s-late" and e["kind"] == "tool_use"]) == 2
+    assert len(store_rows()) == before + 2  # stored once each, as today
+
+
+@pytest.mark.parametrize("extra", ["boundary", "inside-line-4", "whole-line-4"])
+def test_warm_start_of_a_huge_file_replays_the_last_cap_bytes_from_a_line_start(
+    projects, manual, clock, monkeypatch, extra
+):
+    append(projects / MAIN, *[use(clock, [f"c{i}"], message=f"mc{i}", plus_s=-60 + i) for i in range(6)])
+    age(projects / MAIN, clock, 60)
+    lines = (projects / MAIN).read_bytes().splitlines(keepends=True)
+    cap = len(lines[4]) + len(lines[5]) + {"boundary": 0, "inside-line-4": 7, "whole-line-4": len(lines[3])}[extra]
+    monkeypatch.setattr(live, "WARM_MAX_BYTES", cap)
+    tail = manual()
+    tail.poll_once()
+    assert warm_session(tail)["tool_calls"] == (3 if extra == "whole-line-4" else 2)
+
+
+def test_warm_start_does_not_replay_a_file_twice_when_the_first_scan_ended_early(projects, manual, clock):
+    for n in (1, 2):
+        stored_history(projects, clock, n=3, rel=f"demo/s{n}.jsonl", session=f"s{n}")
+    with store.opened(config.store_path()) as conn:
+        claude_code.ingest_accounts(conn)
+    append(projects / "demo" / "s2.jsonl", use(clock, ["late"], message="mlate", session="s2"))  # unstored: needs the lock
+    tail = live.LiveTail(clock=clock)
+    with lock.ingest_lock(config.data_dir() / "ingest.lock", timeout=1):
+        tail.poll_once()  # the scan stops at s2's batch: the lock is busy
+    assert tail._primed is False
+    tail.poll_once()
+    assert warm_session(tail, "s1")["tool_calls"] == 3 and warm_session(tail, "s2")["tool_calls"] == 4
