@@ -13,7 +13,6 @@
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
 
 ### In Progress
-- [ ] **HUN-236** — Live view opens a session inline with one-line feed rows (FR-085) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-236.md`
 
 ### Ready for Review
 
@@ -130,6 +129,7 @@
 - [x] **HUN-233** — Live tail call labels, sub-agent type and kit stage, shown never stored (FR-081..FR-083) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-233.md`
 - [x] **HUN-234** — Live view kit stage chip and call labels in the session feed (FR-084) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-234.md`
 - [x] **HUN-235** — Ingest stores secret-looking Bash first words in tool_signals (no secret check) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-235.md`
+- [x] **HUN-236** — Live view opens a session inline with one-line feed rows (FR-085) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-236.md`
 
 ### Closed (will not do)
 - [~] **HUN-194** — Release 0.5.0 kit performance: version, README kit_findings + migration note, site (after HUN-193 and HUN-183) | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-194.md`

@@ -353,3 +353,11 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - After merging a branch that edited its own guide (gate ticks), a later `board_sync.py pull` rewrote the guide from the board's older copy. Fix: `git checkout -- tasks/TASK_GUIDE_<ID>.md`, then `board_sync.py update --guide <ID>`. The board then normalises `[x]` → `[X]` (cosmetic).
 - Owner's dashboard shows the change only after `npm --prefix web run build` + `uv tool install --reinstall .` + a dashboard restart.
 **Files**: `web/src/LiveView.jsx`, `web/src/LiveView.test.jsx`, `web/src/app.css`
+
+### 2026-11-06 — Live inline expand + one-line feed rows (HUN-236): side panel gone; verify open/close by aria and focus
+- FR-085 (amends FR-072): a session opens inside its own `.live-session` `li` (`div#live-feed-<id>.live-expanded`, role=region), not in a side panel; `SessionPanel`, `PANEL_ID`, `.live-panel` and the `data-panel` grid are removed. Close = row again, Close button, or Escape (on the `li`); focus returns to the row button. One open at a time; `openId` resets when the session leaves the list. Arrow ▸/▾ is `aria-hidden`.
+- Feed row = one CSS grid line `time · who · call` (`minmax(0, …)` columns, nowrap + ellipsis, full text in `title`); time is zero-padded local `HH:MM:SS`; an MCP row shows only `server · tool` (raw name only in `title`). This closes HUN-234's P3 (raw name repeated).
+- Verify recipe that worked: headless Chrome via CDP, 2 sessions; check `aria-expanded`, region inside the row `li`, `.live-feed` count = 1, other row class/width unchanged, CDP `Input.dispatchKeyEvent` Escape → `document.activeElement` is the row, `scrollWidth == clientWidth`.
+- The `pre_agent_step_limit` hook counts every Supervisor call while `active_task` names the task (90 calls), including /verify and merge steps: it killed the post-merge memory commit once. Re-running is safe (the counter resets).
+- P3 left: who/MCP cells cut on phones (no hover for `title`); stale "side panel" CSS comments in `app.css`; open question 29 (inline expand replacing the 2026-11-04 side-panel choice) awaits owner review.
+**Files**: `web/src/LiveView.jsx`, `web/src/LiveView.test.jsx`, `web/src/app.css`, `.claude/hooks/pre_agent_step_limit.py`
