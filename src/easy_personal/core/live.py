@@ -489,6 +489,8 @@ class LiveTail:
                 self._publish(account, items)
         finally:
             self._replaying = False
+            with self._mutex:  # replay adds no event: a page that connected before it needs a new snapshot
+                self._state_version += 1
 
     def _follow(self, conn, account_id, label, path, inode, size, state) -> bool:
         """Read a file's new complete lines in short batches; False when the lock was busy.

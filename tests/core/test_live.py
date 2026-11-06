@@ -712,6 +712,7 @@ def test_a_session_with_an_open_call_stays_listed_past_five_minutes_and_one_hour
 
 def test_state_version_ignores_ordinary_tool_calls_and_moves_once_per_state_set_change(projects, manual, clock):
     tail = seeded(projects, manual, clock, MAIN)
+    tail.poll_once()  # the first scan: its warm start moves state_version once (FR-086)
     before = tail.state_version
     for i in range(100):
         append(projects / MAIN, use(clock, [f"ok{i}"], tools=("Read",), message=f"m{i}"), result(clock, f"ok{i}"))
@@ -1239,6 +1240,7 @@ def test_stage_an_older_call_read_later_does_not_replace_a_newer_stage(projects,
 
 def test_stage_changes_bump_state_version_once_each_and_other_calls_do_not(projects, manual, clock):
     tail = seeded(projects, manual, clock, MAIN)
+    tail.poll_once()  # the first scan: its warm start moves state_version once (FR-086)
     before = tail.state_version
     for i in range(20):
         append(projects / MAIN, call_record(clock, "Read", {"file_path": CANARY}, message=f"mr{i}"))
@@ -1320,6 +1322,17 @@ def test_warm_start_lists_a_stored_session_with_whole_totals_before_any_new_line
     assert (s["tokens_in"], s["tokens_out"], s["cache_creation"], s["cache_read"]) == (30, 15, 6, 9)
     assert s["cost_usd"] == pytest.approx(3 * prices.load().cost("claude-sonnet-5-5", 10, 5, 2, 3))
     assert s["project"] == "demo-app"
+
+
+def test_warm_start_moves_state_version_so_a_page_connected_before_the_replay_gets_a_new_snapshot(projects, manual, clock):
+    """The SSE route re-sends the snapshot only when `state_version` moves; a replayed session with no stage and no
+    attention must still reach a page that connected before the first scan (an EventSource reconnect after restart)."""
+    stored_history(projects, clock, n=3)  # Bash calls only: no Skill, no open call
+    tail = manual()
+    seen = tail.snapshot()["state_version"]
+    tail.poll_once()
+    assert tail.state_version != seen
+    assert warm_session(tail)["tool_calls"] == 3
 
 
 def test_warm_start_appends_no_event_and_the_next_line_gets_id_one(projects, manual, clock):
