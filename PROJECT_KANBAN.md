@@ -11,9 +11,9 @@
 ### Todo
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
-- [ ] **HUN-234** — Live view kit stage chip and call labels in the session feed (FR-084) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-234.md`
 
 ### In Progress
+- [ ] **HUN-234** — Live view kit stage chip and call labels in the session feed (FR-084) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-234.md`
 
 ### Ready for Review
 

@@ -26,6 +26,10 @@ Owner, 2026-11-06: "from the tools logs for the live, it just show the simple, d
 
 > Each session row shows a stage chip "Stage <stage> · <stage_skill>" from the snapshot, and no chip while `stage` is null. In the session panel feed, each call row shows who made it ("main", or the event's `agent` sub-agent type), the tool name, and its `label` beside it; MCP labels as "server · tool". Events without a label look as today. The page only renders what the tail sends; it works out nothing. Update the metadata-only footnote to say tool names, skill / sub-agent / MCP / command names, counts and times are shown, never message or tool content.
 
+Wire shapes (HUN-233, merged 2026-11-06; `surfaces/api.py` `_EVENT_KEYS` / `_SESSION_KEYS` already carry them — no server change): a `live` event has `label` = a string (`"tdd"`, `"uv"`, `"qa-expert"`), an object `{"server": "easy-verifier", "tool": "score"}` for MCP, or `null`; and `agent` = `null` (main thread) or a sub-agent type string (`"backend-developer"`, or `"sub-agent"` while the type is unknown). A snapshot session has `stage` (`"0.5"`…`"5"` or `null`) and `stage_skill` (bare skill name or `null`).
+
+Owner, 2026-11-06 (after HUN-233 merged): "seem like it can not show the subagent also" — the page ignores `agent` today and only shows " agent" for `is_sidechain`.
+
 **Out of scope**:
 
 * Any server change (HUN-233)
@@ -108,6 +112,7 @@ cd web && npx vitest run src/LiveView.test.jsx && npx vitest run && npm run buil
 
 ## Edge Case Checklist
 
+- [ ] `agent` null but `is_sidechain` true (a sidechain line in a main transcript file, HUN-233 code-review P3) → show "sub-agent", not "main"
 - [ ] Label object vs string handled; unexpected shape → no label shown
 - [ ] Session row from a `live` event before any snapshot → no chip
 - [ ] Server restart snapshot clears feed as today
