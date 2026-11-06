@@ -19,23 +19,23 @@ Owner instruction (not a decision): "look good now, but the line is too long wit
 3. the expanded area shows the feed only (row bars already show the session's totals) — SAFER OPTION: smaller change, no lost data (totals stay on the row) ⚠ decided for you — please review
 4. Complexity C2 (restructure of the Live view open/close), Risk Low (UI only, no data) — RULE: `agents/frontend.md` Complexity matrix
 5. spawned on claude · C2 → claude-sonnet-5-5 — FACT: PROJECT_SPEC.md:165 "| claude | `claude` | `claude-haiku-5-5` | `claude-sonnet-5-5` | `claude-sonnet-5-5` |"
-Checks: pending
-Not done: merge (yours); auto verify: running (T182)
+Checks: tests vitest 695 passed, build ok, pytest 1614 passed (Supervisor re-run on 6854a37); reviews code-review — 0 P0, 0 P1, 0 P2, 3 P3 (stale "side panel" CSS comments; who column cut on phones with no hover; page scrollbar narrows the list 15 px at 1280), lane `C2, 3 files, 544 lines, EXCEEDS (lines 544 > 500)` (mostly tests); security-review not required (Risk Low); easy-verifier — N/A; real run by the implementer, screenshots checked by the Supervisor (auto-checked, not /verify)
+Not done: merge (yours); /verify (yours); memory update; Done
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/LiveView.test.jsx` (inline expand, Escape/close/focus, one open, no side panel, arrow, one-line rows, MCP `server · tool`, `HH:MM:SS`, session leaving); BEFORE 37 failed / 60 passed (97), AFTER 97 passed |
+| Verification command run | ☑ pass | `cd web && npx vitest run src/LiveView.test.jsx && npx vitest run && npm run build` → 97 passed, 695 passed (21 files), built (Supervisor re-run on 6854a37) |
+| Negative cases hold | ☑ pass | Escape with nothing open does nothing; opening another row closes the first; the open session leaving resets the open id and draws nothing; unexpected label shapes show no label; `agent` null + `is_sidechain` → sub-agent |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `main...HEAD` diff (`LiveView.jsx`, its test, `app.css` `.live-*`) + entry `App.jsx:25`; server untouched |
+| Full smoke suite still green (no regression) | ☑ pass | vitest 695 passed; pytest `1614 passed, 6 deselected, 1 xfailed` (Supervisor, 6854a37) |
+| **Companion score (easy-verifier)** | ☑ N/A | not scored: the MCP refuses worktree paths (`target repository path does not exist`, HUN-233) |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | BEFORE/AFTER screenshots in `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/worktrees/agent-ae2e9dc40b73c81aa/reports/HUN-236/` (before-w1280-open.png → after-w1280-open.png, before-w375-open.png → after-w375-open.png); Supervisor verdict: feed under the open row at full width, one line per call (rows 25 px, were 73/49/25 px), MCP rows `easy-verifier · score` only, arrow ▸/▾ |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | new rules `.live-arrow`, `.live-expanded`, `.live-feed > li` grid, cells use `var(--…)` tokens only (diff read by the Supervisor); one `aria-live` feed; arrow `aria-hidden`; row `aria-expanded`/`aria-controls` |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280×720 and 375×812: no page-wide horizontal scroll (375/375); row widths unchanged on open at 375 (335 → 335); at 1280 a long feed adds the page scrollbar (−15 px, no re-layout, P3) |
 
 ---
 
@@ -98,5 +98,4 @@ Screenshots (worktree, gitignored): `reports/HUN-236/after-w1280-closed.png`, `a
 
 **DELTA**: The owner opens a Live session under its own row at full list width (arrow, Close, Escape, one open at a time), and each call is one 24 h `HH:MM:SS` line that ends with an ellipsis instead of wrapping to 2-3 lines.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-236.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor (main session), 2026-11-06 — re-ran vitest, the build and the full Python suite on 6854a37 and checked the AFTER screenshots in the task worktree's `reports/HUN-236/` (trace `memory/event-trace/HUN-236.jsonl`)
