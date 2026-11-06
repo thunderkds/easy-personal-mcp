@@ -14,6 +14,7 @@
 - [ ] **HUN-234** — Live view kit stage chip and call labels in the session feed (FR-084) | Frontend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-234.md`
 
 ### In Progress
+- [ ] **HUN-235** — Ingest stores secret-looking Bash first words in tool_signals (no secret check) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-235.md`
 
 ### Ready for Review
 
