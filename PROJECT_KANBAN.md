@@ -13,6 +13,7 @@
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
 
 ### In Progress
+- [ ] **HUN-236** — Live view opens a session inline with one-line feed rows (FR-085) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-236.md`
 
 ### Ready for Review
 
