@@ -30,8 +30,8 @@ Mode: auto
 Owner instruction (not a decision): "yes, start HUN-237 [auto]" (2026-11-06), after the Supervisor proposed: on start, load the sessions that wrote in the last 5 minutes, with their full totals.
 1. Rebuild state by replaying transcripts (publish-to-state only), not by seeding from the store — FACT: src/easy_personal/core/live.py:14 "labels, sub-agent types and the kit stage live in memory and are never stored." (the store cannot give the stage, block ids or open calls)
 2. Replay files modified within FORGET_AFTER_S (1 h), last WARM_MAX_BYTES = 64 MiB each — DEBATED: 1 h + cap (Advocate 1: 1 h + 64 MiB cap; Advocate 2: 5 min, whole file) ⚠ decided for you — please review. Deciding Citation: PRD.md:132 "A session is *active* when it wrote a record in the last 5 minutes, or when it has an *open call* (FR-047)"; cap kept by rule 2 (bounded start); cost: totals of a file > 64 MiB are partial
-3. FR-086 amends FR-071 and FR-083 "no history replay" for in-memory state only (feed and store unchanged) — SAFER OPTION: keeps the feed and the store exactly as today ⚠ decided for you — please review
-4. C2 / Risk Medium — RULE: agents/backend.md Complexity matrix; Medium because the store write path (FR-071 offsets) is next to the change
+3. Replay changes in-memory state only: the feed and the store stay as today — FACT: web/src/LiveView.jsx:169 "No tool calls seen since this page opened." (the feed is defined as since-page-open); PRD.md:159 "The event count in the store is the same as with one writer."
+4. C2 / Risk Medium — RULE: agents/backend.md:92 "| **C2** Moderate | 3+ files, *or* a design choice, *or* a new component |"; agents/backend.md:106 "Risk Medium/High (auth, schema, shared services)" (the live tail shares the store write path, FR-071)
 5. spawned on claude · C2 → claude-sonnet-5-5 — FACT: PROJECT_SPEC.md:165 "| claude | `claude` | `claude-haiku-5-5` | `claude-sonnet-5-5` | `claude-sonnet-5-5` | `claude-opus-5-5` |"
 Checks: pending
 Not done: merge (yours); /verify (yours)
