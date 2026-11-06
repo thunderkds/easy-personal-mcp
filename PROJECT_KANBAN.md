@@ -10,10 +10,10 @@
 
 ### Todo
 - [ ] **HUN-239** — Kit view "By workspace" block — verifier and easy-ui rows per workspace (FR-087, FR-088) | Frontend-Implementer | C2 | Risk: Medium | P1
-- [ ] **HUN-238** — Kit by workspace — read: easy-verifier scores and easy-ui use per workspace (FR-087, FR-088) | Backend-Implementer | C2 | Risk: Medium | P1
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
 
 ### In Progress
+- [ ] **HUN-238** — Kit by workspace — read: easy-verifier scores and easy-ui use per workspace (FR-087, FR-088) | Backend-Implementer | C2 | Risk: Medium | P1
 - [ ] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
 
 ### Ready for Review

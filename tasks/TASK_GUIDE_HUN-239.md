@@ -135,4 +135,4 @@ Plus a real run: dashboard from the branch on a COPY of the owner store with HUN
 
 ## Questions Log
 
-* 2026-11-07 DEBATE (Supervisor, auto) place the block on the Kit view or the Workspaces page → Kit view (the Workspaces page is being edited by HUN-207; the data is kit data) ⚠ decided for you — please review (PRD open question 30)
+* 2026-11-07 DEBATE place the block on the Kit view or the Workspaces page → Kit view (Advocate 1 argued Kit view, high confidence: `web/src/KitView.jsx:339` takes `scope`, US-034/FR-087 name the Kit view, avoids a clash with HUN-207; Advocate 2 argued Workspaces page and conceded low confidence: `web/src/WorkspacesView.jsx:639` takes no scope or period, which FR-087 requires; decided by rule 1: only the Kit view has the scope and period) ⚠ decided for you — please review

@@ -142,4 +142,4 @@ uv run pytest tests/core tests/surfaces tests/leak -q && uv run pytest -q
 
 ## Questions Log
 
-* 2026-11-07 DEBATE (Supervisor, auto) easy-ui check results by workspace: time overlap, hash of `target`, new easy-ui field, or keep overall → keep overall; show events-based use per workspace (safer-option rule: no guess, no change to FR-013/NFR-002) ⚠ decided for you — please review (PRD open question 30)
+* 2026-11-07 DEBATE easy-ui check results by workspace: keep overall, time overlap, hash of `target`, or new easy-ui field → keep overall; per-workspace use only from stored events (Advocate 1 argued keep-overall, high confidence: `src/easy_personal/sources/ui.py:6` "Sessions are overall, never attributed to a project.", FR-013; Advocate 2 argued time overlap and conceded low confidence: a wrong count looks authoritative, concurrent workspaces overlap; decided by rule 1/2: overlap is a guess, a `target` hash breaks FR-013/NFR-002, keep-overall can be undone) ⚠ decided for you — please review
