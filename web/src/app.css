@@ -528,11 +528,14 @@ main button.live-row:focus-visible { outline: none; }
 .live-pill[data-state='waiting'] { color: var(--color-accent); }
 .live-pill[data-state='needs_attention'] { color: var(--color-amber); }
 .live-session[data-idle] .live-id { color: var(--color-muted); }
+.live-stage { box-sizing: border-box; min-width: 0; max-width: 100%; padding: 0 var(--space-2); border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); overflow-wrap: anywhere; position: relative; z-index: 1; }
 .live-id { margin: 0; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-accent); }
 .live-feed { display: flex; flex-direction: column; gap: var(--space-1); max-height: 14rem; overflow-y: auto; font-size: var(--fs-note); }
 .live-feed > li { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; padding-block: var(--space-1); border-top: 1px solid var(--color-divider); }
 .live-time { font-family: var(--font-mono); color: var(--color-muted); }
 .live-tool { font-family: var(--font-mono); color: var(--color-text); overflow-wrap: anywhere; }
+.live-who { font-family: var(--font-mono); color: var(--color-secondary); overflow-wrap: anywhere; }
+.live-label { font-family: var(--font-mono); color: var(--color-accent); overflow-wrap: anywhere; }
 .live-tag { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .live-tag.error { color: var(--color-red); }
 

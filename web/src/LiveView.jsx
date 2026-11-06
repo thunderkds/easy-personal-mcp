@@ -16,7 +16,7 @@ const EMPTY = { sessions: {}, lastId: 0, windowS: DEFAULT_WINDOW_S }
 const priced = (cost) => cost !== null && cost !== undefined
 const hasTokens = (tokensIn, tokensOut) => (tokensIn ?? 0) + (tokensOut ?? 0) > 0
 
-const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced']
+const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced', 'stage', 'stage_skill']
 
 function fromSnapshot(s, old) {
   const next = {
@@ -29,6 +29,8 @@ function fromSnapshot(s, old) {
     tokens_out: s.tokens_out,
     cost: s.cost_usd ?? 0,
     unpriced: !priced(s.cost_usd) && hasTokens(s.tokens_in, s.tokens_out),
+    stage: s.stage ?? null, // the kit stage and its skill come from the server's snapshot (FR-083); the page never works one out
+    stage_skill: s.stage_skill ?? null,
     attention: s.attention ?? [], // the server's states; the page never works one out itself
     feed: old?.feed ?? [],
   }
@@ -50,15 +52,27 @@ function pillText(a) {
   return `needs attention: ${a.tool ?? 'unknown tool'}${agent} · hung or waiting for permission`
 }
 
+const isName = (v) => typeof v === 'string' && v !== ''
+
+/** The call label as one line of text: a name, or "server · tool" for MCP. Any other shape gives no label. */
+function labelText(label) {
+  if (isName(label)) return label
+  if (label && typeof label === 'object' && isName(label.server) && isName(label.tool)) return `${label.server} · ${label.tool}`
+  return null
+}
+
+/** Who made the call: the sub-agent type, "sub-agent" for a sidechain call whose type is unknown, else "main". */
+const whoMade = (e) => (isName(e.agent) ? e.agent : e.is_sidechain ? 'sub-agent' : 'main')
+
 /** A feed row is a tool call, or a tool result that failed. Everything else only moves the totals. */
 const feedItem = (e) =>
   e.kind === 'tool_use' || (e.kind === 'tool_result' && e.is_error)
-    ? [{ id: e.id, ts: e.ts, kind: e.kind, tool: e.tool ?? e.kind, is_error: Boolean(e.is_error), is_sidechain: Boolean(e.is_sidechain) }]
+    ? [{ id: e.id, ts: e.ts, kind: e.kind, tool: e.tool ?? e.kind, is_error: Boolean(e.is_error), who: whoMade(e), label: labelText(e.label) }]
     : []
 
 function applyLive(state, e) {
   if (e.id <= state.lastId) return state // already seen
-  const s = state.sessions[e.session_id] ?? fromSnapshot({ ...e, last_ts: e.ts, tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0 })
+  const s = state.sessions[e.session_id] ?? fromSnapshot({ ...e, last_ts: e.ts, tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0, stage: null, stage_skill: null }) // stage only comes in a snapshot
   const next = {
     ...s,
     last_ts: e.ts,
@@ -149,8 +163,9 @@ function Feed({ items }) {
         {items.map((i) => (
           <li key={i.id}>
             <span className="live-time">{clock(i.ts)}</span>
+            <span className="live-who">{i.who}</span>
             <span className="live-tool">{i.tool}</span>
-            {i.is_sidechain && <span className="live-tag"> agent</span>}
+            {i.label && <span className="live-label">{i.label}</span>}
             {i.is_error && <span className="live-tag error"> error</span>}
           </li>
         ))}
@@ -196,6 +211,9 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, t
         <span className="live-name" title={s.project}>
           {s.project}
         </span>
+        {s.stage !== null && (
+          <span className="live-stage">{s.stage_skill ? `Stage ${s.stage} · ${s.stage_skill}` : `Stage ${s.stage}`}</span>
+        )}
         {states.map((a, i) => (
           <span key={`${a.state}-${i}`} className="live-pill" data-state={a.state} title={pillText(a)}>
             {pillText(a)}
@@ -339,7 +357,7 @@ export default function LiveView() {
         <h2 id="h-live-all">All sessions</h2>
         <Totals total={sum(sessions)} />
         <p className="footnote">
-          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, counts and times are shown, never message or tool content.
+          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, never message or tool content.
         </p>
       </section>
       {sessions.length === 0 && (

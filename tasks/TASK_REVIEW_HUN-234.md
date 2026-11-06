@@ -24,16 +24,16 @@ Not done: merge (yours); auto verify: running (T182)
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/LiveView.test.jsx` — new `describe('kit stage chip and call labels (FR-084)')` (15 tests: AC1 chip / null / half stage / live event before snapshot, AC2 chip update + memo, AC3 main / sub-agent / MCP / no label / error, AC4 planted fields, AC5 footnote, edge cases, CSS tokens) plus 2 adapted sidechain tests. 84 pass (69 before, 15 were failing). |
+| Verification command run | ☑ pass | 2026-11-06T12:11:19Z `cd web && npx vitest run src/LiveView.test.jsx && npx vitest run && npm run build` → `Test Files 1 passed (1) / Tests 84 passed (84)`; full suite `Tests 682 passed (682)`; build `✓ built in 136ms` (`index-DY_TcM5v.js 327.08 kB │ gzip: 98.74 kB`, before: 326.54 kB). |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real run, headless Chrome 157, throwaway store, 2 fabricated sessions (planted `SECRET-planted` in every tool input and meta `description`; `document.body.textContent.includes('SECRET')` = false at both widths). BEFORE `reports/HUN-234/before-rows-1280x720.png`, `before-panel-1280x720.png`. AFTER `reports/HUN-234/after-rows-1280x720.png`, `after-panel-1280x720.png`, `after-rows-375x812.png`, `after-panel-375x812.png` (worktree `reports/`, gitignored). Observed: row shows chip "Stage 3 · tdd" beside id/project (it showed "Stage 4 · code-review" until a `tdd` Skill call arrived while the page was open, then updated); row height unchanged at 1280 (chip fits the header line); panel feed rows: `main Skill tdd`, `main Agent backend-developer`, `main Bash pytest`, `backend-developer mcp__easy-verifier__score` + `easy-verifier · score`, `backend-developer Bash uv`; plain session has no chip. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `.live-stage`, `.live-who`, `.live-label` in `web/src/app.css` use only `var(--…)` (`--color-accent-line`, `--color-secondary`, `--color-accent`, `--font-mono`, `--fs-label`, `--radius-sm`, `--space-2`); vitest `design` block (no hex/rgb in `.live-` rules, 4.5:1 contrast for every `.live-` text colour on bg/raised/selected) and the new chip-token test pass. Chip is real text; feed stays one `aria-live` region (test). |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280×720 and 375×812 in the real run: `documentElement.scrollWidth/clientWidth` = 1265/1265 and 375/375 with the panel open (no horizontal scroll). At 375 the chip stays on the project line (it fits; the row is `flex-wrap`, so it wraps under the name when the project name is long); long MCP tool name wraps in the feed (`overflow-wrap: anywhere`). |
 
 ---
 
@@ -68,9 +68,9 @@ Not done: merge (yours); auto verify: running (T182)
 
 BEFORE screenshots (real `easy-personal dashboard` run on the unchanged page, throwaway store, 2 fabricated metadata-only sessions, taken 2026-11-06T12:10Z; HUN-233 server already sends `label`, `agent`, `stage`): `reports/HUN-234/before-rows-1280x720.png`, `before-panel-1280x720.png`, `before-rows-375x812.png`, `before-panel-375x812.png` in the task worktree (`reports/` is gitignored). Observed: the row has no stage chip although session kitrun01 ran a `code-review` Skill call; the open panel's feed reads "Bash agent", "mcp__easy-verifier__score agent", "Bash", "Agent", "Skill" — no label, no sub-agent type, no "main"; the footnote says "Only tool names, counts and times are shown".
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-06T12:11:19Z, same command): `Test Files 1 passed (1) / Tests 84 passed (84)`; full suite `Tests 682 passed (682)`. Real run 2026-11-06T12:11:27Z: page text of the open panel `main Skill tdd || main Agent backend-developer || main Bash pytest || backend-developer mcp__easy-verifier__score easy-verifier · score || backend-developer Bash uv`; row `kitrun01 demo-app Stage 3 · tdd active · just now`; footnote "Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, never message or tool content."; screenshots under `reports/HUN-234/after-*.png`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner can see on each Live row which kit stage a session is in, and in the panel feed who made each call (main or the sub-agent type) and what it was (skill, sub-agent, command, MCP server · tool).
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/HUN-234.jsonl`, never the
 implementing agent alone]
