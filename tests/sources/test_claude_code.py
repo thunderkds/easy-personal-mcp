@@ -336,3 +336,47 @@ def test_file_vanishing_mid_ingest_is_skipped(conn, tmp_path, monkeypatch):
 
     monkeypatch.setattr(claude_code, "read_complete_lines", flaky)
     assert claude_code.ingest(conn, root) == {"files": 1, "new_events": 1}
+
+
+# --- HUN-235: a secret-looking Bash first word is not stored in tool_signals (PROJECT_SPEC.md:118, FR-076 check) ---
+
+
+def _bash_ingest(tmp_path, *commands: str):
+    blocks = [{"type": "tool_use", "id": f"t{i}", "name": "Bash", "input": {"command": c}} for i, c in enumerate(commands)]
+    root = tmp_path / "projects"
+    root.mkdir(parents=True)
+    (root / "s.jsonl").write_bytes(_line(1, message={**_record(1)["message"], "content": blocks}))
+    conn = store.connect(tmp_path / "store.sqlite")
+    claude_code.ingest(conn, root)
+    return conn
+
+
+def _bash_words(conn) -> list[str]:
+    return sorted(v for (v,) in conn.execute("SELECT value FROM tool_signals WHERE kind = 'bash'"))
+
+
+SECRET_FIRST_WORDS = (
+    "sk-ant-api03-abcdef run",
+    "ghp_abcdefghijklmnop",
+    "AKIAABCDEFGHIJKL x",
+    "xoxb-1234567890 y",
+    "a1b2c3d4e5" * 4 + " z",  # 40 letters and digits
+    "/tmp/sk-ant-api03-abcdef run",  # the path is dropped; the word that is left is still a key
+)
+
+
+def test_secret_looking_bash_first_word_stores_no_signal_row(tmp_path):
+    conn = _bash_ingest(tmp_path, *SECRET_FIRST_WORDS)
+    assert _bash_words(conn) == []
+    dump = "\n".join(conn.iterdump())
+    for leak in ("sk-ant", "ghp_", "AKIA", "xoxb", "a1b2c3d4e5"):
+        assert leak not in dump
+
+
+def test_ordinary_bash_first_words_are_stored_as_before(tmp_path):
+    conn = _bash_ingest(tmp_path, "git status", "uv run pytest", "/usr/bin/python3 x.py", "FOO=1 pytest", "task-runner go",
+                       'bash -c "sk-ant-api03-abcdef"', "sk-learn fit")  # fmt: skip
+    # `bash -c "sk-..."` keeps its literal first word; `sk-learn` is dropped (accepted loss: no reader uses bash rows)
+    assert _bash_words(conn) == ["bash", "git", "python3", "task-runner", "uv"]  # `FOO=1` is an env-assign word: dropped as before
+    conn2 = _bash_ingest(tmp_path / "b", "sk-ant-api03-abcdef run", "git log")  # the other signals of the message stay
+    assert _bash_words(conn2) == ["git"]

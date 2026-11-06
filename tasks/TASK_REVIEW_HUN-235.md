@@ -24,8 +24,8 @@ Not done: merge (yours); auto verify: running (T182)
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/sources/test_claude_code.py` (AC 1-2, edge cases), `tests/leak/test_leak_suite.py::test_secret_looking_bash_first_word_is_not_in_the_store_dump` (AC 4) |
+| Verification command run | ☑ pass | `uv run pytest tests/sources tests/connectors/test_mcp_tools.py tests/leak -q` -> 207 passed, 1 deselected; `uv run pytest -q` -> 1612 passed, 2 skipped, 6 deselected, 1 xfailed (2026-11-06) |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
@@ -34,8 +34,8 @@ Not done: merge (yours); auto verify: running (T182)
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
-| Repro loop | ☐ pass / ☐ fail | [command/observation that reproduced the bug before the fix] |
-| Regression test | ☐ pass / ☐ fail | [test file path(s) added to lock the fix in] |
+| Repro loop | ☑ pass | `uv run pytest tests/sources/test_claude_code.py -q -k "bash"` (2 failed before the fix, 2026-11-06T11:43:33Z) |
+| Regression test | ☑ pass | `tests/sources/test_claude_code.py` (two `_bash_` tests), `tests/leak/test_leak_suite.py` |
 | Smoke suite | ☐ pass / ☐ fail | [bug-specific smoke check beyond the full suite row above] |
 
 ---
@@ -47,8 +47,19 @@ Not done: merge (yours); auto verify: running (T182)
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: see Phase 1 repro loop. Captured 2026-11-06T11:43:33Z, before any fix edit or commit
+(`uv run pytest tests/sources/test_claude_code.py -q -k "bash"`):
+
+```
+>       assert _bash_words(conn) == []
+E       AssertionError: assert ['AKIAABCDEFG...b-1234567890'] == []
+E         Left contains 5 more items, first extra item: 'AKIAABCDEFGHIJKL'
+>       assert _bash_words(conn2) == ["git"]
+E       AssertionError: assert ['git', 'sk-ant-api03-abcdef'] == ['git']
+FAILED tests/sources/test_claude_code.py::test_secret_looking_bash_first_word_stores_no_signal_row
+FAILED tests/sources/test_claude_code.py::test_ordinary_bash_first_words_are_stored_as_before
+2 failed, 21 deselected in 0.10s
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
