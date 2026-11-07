@@ -29,7 +29,7 @@ At Risk Medium or High, a `RULE:` counts only when it names a written rule (`pat
 Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its option>; Advocate 2: <its option>) ⚠ decided for you — please review
+3. <what was decided> — DEBATED: <option> (Advocate 1: <its option>; Advocate 2: <its option>) ⚠ decided for you — please review. Advocate calls: `memory/event-trace/HUN-207.jsonl` 2026-11-06T23:48:52Z–23:48:58Z (4 `Advocate` Agent calls; the shared active-task file pointed at HUN-207, so the trace holds them there)
 4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
 Paused: <only when a stop that stays paused the task: which one, and why>
 Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
@@ -43,8 +43,8 @@ Mode: auto
 1. Put the block above the project list (the guide let the implementer choose and note why) — FACT: tasks/TASK_GUIDE_HUN-239.md:27 "Under the project list (or above it, the implementer chooses what reads best at 1280×720 and notes why)"
 2. Used the app-wide period (default 7 days) for the block, not a new control on the Kit view — FACT: web/src/App.jsx:114 "const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064)"
 3. Did not send the workspace filter in the request; it only marks the selected row — FACT: tasks/TASK_GUIDE_HUN-239.md:27 "the block still lists all workspaces and marks the selected one"
-4. Edited `web/src/App.test.jsx` (one regex) and `web/src/test/fixtures.js` (one fixture, one route line), which the guide did not list — SAFER OPTION: the smaller change that keeps the existing and new tests green; test files only, no source behaviour ⚠ decided for you — please review
-5. Placed the block on the Kit view, not the Workspaces page — DEBATED: Kit view (Advocate 1: Kit view, `web/src/KitView.jsx:339`; Advocate 2: Workspaces page, conceded low confidence) ⚠ decided for you — please review (see the guide's Questions Log)
+4. Edited `web/src/App.test.jsx` (one regex) and `web/src/test/fixtures.js` (one fixture, one route line), which the guide did not list — FACT: web/src/App.test.jsx:245 (at bc9581c) "const kitCalls = f.calls.filter((c) => c.url.startsWith('/api/kit'))" took the by-workspace call as the page read once the block existed (before the edit), so the test had to change; the fixture is the only way the new block's route answers in `fakeFetch`
+5. Placed the block on the Kit view, not the Workspaces page — DEBATED: Kit view (Advocate 1: Kit view, `web/src/KitView.jsx:339`; Advocate 2: Workspaces page, conceded low confidence) ⚠ decided for you — please review (see the guide's Questions Log) Advocate calls: `memory/event-trace/HUN-207.jsonl` 2026-11-06T23:48:52Z–23:48:58Z (4 `Advocate` Agent calls; the shared active-task file pointed at HUN-207, so the trace holds them there)
 6. Did not run `/verify` (only the user can) — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule`
 7. Did not merge, push or move the task to Done — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule`
 Checks: tests `cd web && npx vitest run && cd .. && npm --prefix web run build && uv run pytest -q` — 724 passed, build ok, 1660 passed (agent run 2026-11-07); reviews code-review — 0 P0, 0 P1, 0 P2, 2 P3; security-review — no finding at confidence 8 or above; easy-verifier changes score — overall 75, change_risk 100 (advisory); real run — dashboard from the branch on a COPY of the owner store, headless Chrome at 1280×720 and 375×812, printed `block:true, rows:3`, scrollWidth = clientWidth in both (auto-checked, not /verify)
