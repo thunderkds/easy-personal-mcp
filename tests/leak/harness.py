@@ -117,6 +117,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/warnings": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
+    "/api/kit/workspaces": ["", "?since=2026-01-01", "?until=2027-01-01", "?account=1", "?account=nope"],  # HUN-238: folder names, scores and counts only
     "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
     "/api/board": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],  # HUN-162: titles are shown, never stored
     "/api/jobs": [""],  # HUN-163: fake systemctl/crontab with a planted canary in arguments (see leak conftest)

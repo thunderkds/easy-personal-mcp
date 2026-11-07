@@ -48,6 +48,16 @@ Mode: auto
 Checks: tests `uv run pytest tests/core tests/surfaces tests/leak -q && uv run pytest -q` — 1181 passed, then 1658 passed, 2 skipped (agent run 2026-11-06T23:5xZ); reviews code-review — 0 P0, 0 P1, 0 P2, 2 P3; security-review — no finding at confidence 8 or above; easy-verifier changes score — overall 60, change_risk 100 (advisory); real run — `easy-personal dashboard` on a temp store with fixtures, `curl` of `/api/kit/workspaces` printed the JSON in the Demonstration AFTER block, 400 for an unknown account, 403 without a token (auto-checked, not /verify)
 Not done: merge (yours); /verify (yours)
 
+## Auto decisions
+
+Mode: auto
+1. Kept the easy-ui check results (passed, failed) overall, one `ui_checks` entry for the whole response, and showed per-workspace easy-ui use only from stored events — DEBATED: keep overall (Advocate 1: keep overall, `src/easy_personal/sources/ui.py:6` "Sessions are overall, never attributed to a project."; Advocate 2: attribute by time overlap, conceded low confidence) ⚠ decided for you — please review
+2. Ran HUN-238 (backend) in parallel with HUN-207 (web): their file lists do not overlap — FACT: tasks/TASK_GUIDE_HUN-207.md:127 "| `src/easy_personal/` | backend is HUN-206 |"
+3. Did not run `/verify` (only the user can) — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule`
+4. Did not merge, push or move the task to Done — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule`
+Checks: tests `uv run pytest tests/core tests/surfaces tests/leak -q && uv run pytest -q` — 1181 passed, then 1658 passed, 2 skipped (agent run 2026-11-06T23:5xZ); reviews code-review — 0 P0, 0 P1, 0 P2, 2 P3; security-review — no finding at confidence 8 or above; easy-verifier changes score — overall 60, change_risk 100 (advisory); real run — `easy-personal dashboard` on a temp store with fixtures, `curl` of `/api/kit/workspaces` printed the JSON in the Demonstration AFTER block, 400 for an unknown account, 403 without a token (auto-checked, not /verify)
+Not done: merge (yours); /verify (yours)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
