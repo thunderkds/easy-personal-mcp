@@ -157,3 +157,11 @@
 **Result**: page on a store copy 6.0–6.8 s → 2.4–2.6 s full, first card ~1 s (`/verify`, 2026-11-05). `/api/warnings` and `/api/usage/sessions` stay ~2.4 s in the cold parallel page (follow-up candidates).
 **Approved by**: owner, 2026-11-05 ("yes, investigate and fix them [auto]"; merge).
 **Files**: `src/easy_personal/core/memo.py`, `src/easy_personal/core/metrics.py`, `src/easy_personal/core/owners.py`, `web/src/UsageView.jsx`, `web/src/Rail.jsx`, `BRAINSTORMING_LOG_PERF.md`
+
+## 2026-11-07 — Kit by workspace: easy-ui check results stay overall; the block lives on the Kit view (HUN-238, HUN-239; PRD open question 30)
+
+**Decision**: `kit.workspace_rollup` + `GET /api/kit/workspaces` show per-workspace easy-verifier scores (from `verifier_scores`) and easy-ui use (sessions, calls, last call from stored `events`). easy-ui check results (passed/failed) stay in one overall `ui_checks`. The page block "Kit by workspace" sits above the project list in the Kit view and uses the app-wide period and account, not the workspace filter.
+**Why**: owner, 2026-11-07: "for verifier mcp, let collect and show the report by workspace to the dashboard ... for ui mcp, do the same stuffs". `ui_sessions` stores no project and `target` is never stored (FR-013, NFR-002), so a per-workspace check would be a guess (time overlap) or a schema/privacy change. Two Debates of 2 Advocates each (Medium risk) chose keep-overall and the Kit view.
+**Result**: median read 0.34 s on 160 projects / 10 workspaces; merged after `/verify` (2026-11-07).
+**Approved by**: owner asked for the work in `[auto]` mode and later for verify and merge; the two debated choices still await the owner's review.
+**Files**: `src/easy_personal/core/kit.py`, `src/easy_personal/surfaces/api.py`, `web/src/KitView.jsx`, `web/src/WorkspaceKit.jsx`, `BRAINSTORMING_LOG_KITWS.md`

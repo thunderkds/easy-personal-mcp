@@ -370,7 +370,7 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - Verify recipe: temp homes, write transcript, `easy-personal ingest`, start dashboard, `curl -N` `/api/live?token=` with `Host: 127.0.0.1:<port>` → first snapshot `last_id 0` with full totals and stage; append a line → event ids 1 (tool_use) and 2 (usage). Store file is `$EASY_PERSONAL_HOME/store.sqlite`.
 **Files**: `src/easy_personal/core/live.py`, `tests/core/test_live.py`, `tests/leak/test_live_leak.py`
 
-### 2026-11-07 — Kit by workspace (HUN-238 backend, HUN-239 page) and Workspaces polish (HUN-207): run under `[auto]`, not merged yet
+### 2026-11-07 — Kit by workspace (HUN-238 backend, HUN-239 page) and Workspaces polish (HUN-207): run under `[auto]`, merged 2026-11-07 on the owner's request after `/verify`
 - `kit.workspace_rollup` + `GET /api/kit/workspaces` (FR-087/088): verifier scores and easy-ui use per non-orphan workspace from stored rows only. easy-ui check results (passed/failed) stay overall in `ui_checks`: per-workspace attribution would be a guess or break FR-013/NFR-002 (Decision 30, debated by 2 Advocates, owner review open). Median read 0.344 s on 160 projects / 10 workspaces.
 - Page: block "Kit by workspace" above the project list in `web/src/KitView.jsx`; uses the app-wide `period` (App.jsx:114) and `account`, never the workspace filter (that only marks `aria-current`). Merge order: HUN-238, then HUN-239 (its branch holds HUN-238's commits); HUN-207 and HUN-239 both append to `web/src/app.css`, expect a small conflict.
 - Gotcha (zsh): `$br:tasks/...` is a history modifier, not a path join; it truncated two review files on main. Use `${br}:tasks/...` and check the copy is non-empty.
