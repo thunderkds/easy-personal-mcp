@@ -6,6 +6,7 @@ import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 import Loading from './Loading.jsx'
 import { Sparkline } from './Widgets.jsx'
+import WorkspaceKit, { workspaceKitPath } from './WorkspaceKit.jsx'
 
 const load = (scope) => getJson(scopedPath('/api/kit', scope))
 const COLUMNS = [
@@ -336,8 +337,10 @@ function Ui({ ui }) {
   )
 }
 
-export default function KitView({ scope = NO_SCOPE }) {
+export default function KitView({ scope = NO_SCOPE, period = '7', onOpenWorkspaces }) {
   const state = useLoad(() => load(scope), [scope.workspace, scope.account])
+  // The by-workspace block (FR-087/088) reads in parallel with the page and never holds it up; the page's period and account, not its workspace filter.
+  const byWorkspace = useLoad(() => getJson(workspaceKitPath(period, scope.account)), [period, scope.account])
   return (
     <main>
       <h1>Easy Kit</h1>
@@ -349,6 +352,7 @@ export default function KitView({ scope = NO_SCOPE }) {
       )}
       {state.status === 'ready' && (
         <>
+          <WorkspaceKit state={byWorkspace} selected={scope.workspace} period={period} onOpenWorkspaces={onOpenWorkspaces} />
           <section aria-labelledby="h-kit">
             <h2 id="h-kit">
               Kit by project <span className="count">{`(${state.data.projects.length})`}</span>

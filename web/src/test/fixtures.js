@@ -426,6 +426,27 @@ export const reportOld = {
   ],
 }
 
+// HUN-239: GET /api/kit/workspaces (shape of tasks/TASK_GUIDE_HUN-238.md).
+export const workspaceKit = {
+  workspaces: [
+    {
+      name: 'acme',
+      color: '#0b5fd6',
+      repos: 3,
+      verifier: { status: 'ok', repos_scored: 2, repos_total: 3, mean: 70.0, lowest: { project: 'api', value: 60.0 }, newest_utc: '2026-11-04T12:00:00.000000Z' },
+      ui: { status: 'ok', sessions: 2, calls: 4, last_utc: '2026-11-06T12:00:00.000000Z' },
+    },
+    {
+      name: 'beta',
+      color: null,
+      repos: 1,
+      verifier: { status: 'no data', repos_scored: 0, repos_total: 1, mean: null, lowest: null, newest_utc: null },
+      ui: { status: 'not used', sessions: 0, calls: 0, last_utc: null },
+    },
+  ],
+  ui_checks: { status: 'ok', sessions: 3, passed: 2, failed: 1, other: 0, actions: 9, first_utc: '2026-11-01T10:00:00.000000Z', last_utc: '2026-11-03T10:00:00.000000Z' },
+}
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -447,6 +468,7 @@ export function fakeFetch(overrides = {}) {
       body = found
     } else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
+    else if (path === '/api/kit/workspaces') body = overrides.workspaceKit ?? workspaceKit
     else if (path === '/api/first-run') body = overrides.firstRun ?? firstRun
     else if (path === '/api/accounts' && !init.method)
       body = (u.searchParams.get('by') === 'provider' ? overrides.accountsByProvider : overrides.accounts) ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)

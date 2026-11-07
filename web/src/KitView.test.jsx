@@ -1,7 +1,7 @@
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import KitView, { commitStats, projectHealth } from './KitView.jsx'
-import { fakeFetch, kit } from './test/fixtures.js'
+import { fakeFetch, kit, workspaceKit } from './test/fixtures.js'
 
 // "Now" is pinned to local noon on 2026-10-21; only Date is faked so timers keep working.
 const NOW = new Date(2026, 9, 21, 12, 0, 0)
@@ -299,7 +299,9 @@ describe('errors', () => {
   it('reports a failed request', async () => {
     vi.stubGlobal('fetch', fakeFetch({ status: 403 }))
     render(<KitView />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('403')
+    // The page read and the by-workspace block each report their own failure.
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts[0]).toHaveTextContent('Could not load kit: /api/kit failed with status 403')
   })
 })
 
@@ -309,7 +311,7 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     render(<KitView />)
     await screen.findByRole('heading', { name: /^Kit by project/ })
-    expect(f.calls.map((c) => c.url)).toEqual(['/api/kit'])
+    expect(f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/kit/workspaces'))).toEqual(['/api/kit'])
   })
 
   it('sends workspace= and account= and refetches on change', async () => {
@@ -317,9 +319,10 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     const view = render(<KitView scope={{ workspace: 'Acme', account: '' }} />)
     await screen.findByRole('heading', { name: /^Kit by project/ })
-    expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme'])
+    const pageCalls = () => f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/kit/workspaces'))
+    expect(pageCalls()).toEqual(['/api/kit?workspace=Acme'])
     view.rerender(<KitView scope={{ workspace: 'Acme', account: '1' }} />)
-    await waitFor(() => expect(f.calls.map((c) => c.url)).toEqual(['/api/kit?workspace=Acme', '/api/kit?workspace=Acme&account=1']))
+    await waitFor(() => expect(pageCalls()).toEqual(['/api/kit?workspace=Acme', '/api/kit?workspace=Acme&account=1']))
   })
 
   it('ignores a slow answer for an older scope', async () => {
@@ -478,5 +481,104 @@ describe('part "not in use" (HUN-226)', () => {
     expect(card('solo')).toHaveTextContent('No kit data')
     expect(card('solo')).not.toHaveTextContent('Healthy')
     expect(card('solo')).not.toHaveTextContent(/Code index/)
+  })
+})
+
+// HUN-239: the by-workspace block (FR-087, FR-088, FR-065); the block itself is tested in WorkspaceKit.test.jsx
+describe('by workspace block (HUN-239)', () => {
+  const MINUTE = 60000
+  const sinceNow = (days) => new Date(Math.floor((NOW.getTime() - days * 86400000) / MINUTE) * MINUTE).toISOString()
+  const wsUrls = (f) => f.calls.map((c) => c.url).filter((u) => u.startsWith('/api/kit/workspaces'))
+  const blockHeading = () => screen.findByRole('heading', { name: /^Kit by workspace/ })
+
+  it('AC1: shows one row per workspace from /api/kit/workspaces, above the project list', async () => {
+    await renderView()
+    const block = await blockHeading()
+    expect(screen.getAllByRole('listitem', { name: /^(acme|beta)$/ })).toHaveLength(2)
+    const projects = screen.getByRole('heading', { name: /^Kit by project/ })
+    expect(block.compareDocumentPosition(projects) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('AC4: the project list renders while /api/kit/workspaces is pending, with the block loading', async () => {
+    const base = fakeFetch()
+    vi.stubGlobal('fetch', vi.fn((url, init) => (String(url).startsWith('/api/kit/workspaces') ? new Promise(() => {}) : base(url, init))))
+    render(<KitView />)
+    await screen.findByRole('heading', { name: /^Kit by project/ })
+    expect(screen.getAllByRole('article').length).toBeGreaterThan(0)
+    expect(screen.getByRole('status')).toHaveTextContent('Loading kit by workspace')
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+  })
+
+  it('AC4: a failed block read shows an inline alert inside the block only; the project list stays', async () => {
+    const base = fakeFetch()
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => (String(url).startsWith('/api/kit/workspaces') ? { ok: false, status: 500, json: async () => ({}) } : base(url, init))))
+    render(<KitView />)
+    await screen.findByRole('heading', { name: /^Kit by project/ })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load kit by workspace')
+    expect(screen.getByRole('region', { name: /^Kit by workspace/ })).toContainElement(alert)
+    expect(screen.getAllByRole('article').length).toBeGreaterThan(0)
+  })
+
+  it('AC5: the request carries the period as since and the account', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    render(<KitView scope={{ workspace: '', account: '3' }} period="7" />)
+    await blockHeading()
+    expect(wsUrls(f)).toEqual([`/api/kit/workspaces?since=${encodeURIComponent(sinceNow(7))}&account=3`])
+  })
+
+  it('AC5: changing the period refetches the block with the new since, All time sends none, the page read does not repeat', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    const view = render(<KitView period="7" />)
+    await blockHeading()
+    view.rerender(<KitView period="30" />)
+    await waitFor(() => expect(wsUrls(f)).toHaveLength(2))
+    expect(wsUrls(f)[1]).toBe(`/api/kit/workspaces?since=${encodeURIComponent(sinceNow(30))}`)
+    view.rerender(<KitView period="all" />)
+    await waitFor(() => expect(wsUrls(f)).toHaveLength(3))
+    expect(wsUrls(f)[2]).toBe('/api/kit/workspaces')
+    expect(f.calls.filter((c) => c.url === '/api/kit')).toHaveLength(1)
+  })
+
+  it('AC5: a late answer for an older period does not overwrite the newer one', async () => {
+    const answer = (name) => ({ ok: true, status: 200, json: async () => ({ workspaces: [{ name }], ui_checks: { status: 'no data' } }) })
+    const base = fakeFetch()
+    let releaseOld
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url, init) => {
+        const u = String(url)
+        if (!u.startsWith('/api/kit/workspaces')) return base(url, init)
+        return u.includes(encodeURIComponent(sinceNow(7))) ? new Promise((resolve) => (releaseOld = () => resolve(answer('old-period')))) : Promise.resolve(answer('new-period'))
+      }),
+    )
+    const view = render(<KitView period="7" />)
+    view.rerender(<KitView period="30" />)
+    expect(await screen.findByRole('listitem', { name: 'new-period' })).toBeInTheDocument()
+    releaseOld()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByText('old-period')).toBeNull()
+    expect(screen.getByRole('listitem', { name: 'new-period' })).toBeInTheDocument()
+  })
+
+  it('AC6: the workspace filter marks its row, every workspace stays listed, and the filter is not sent', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    render(<KitView scope={{ workspace: 'beta', account: '' }} />)
+    await blockHeading()
+    expect(screen.getByRole('listitem', { name: 'beta' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('listitem', { name: 'acme' })).not.toHaveAttribute('aria-current')
+    expect(wsUrls(f)[0]).not.toContain('workspace=')
+  })
+
+  it('AC7: no workspaces gives the plain message and the Workspaces link', async () => {
+    const open = vi.fn()
+    vi.stubGlobal('fetch', fakeFetch({ workspaceKit: { workspaces: [], ui_checks: workspaceKit.ui_checks } }))
+    render(<KitView onOpenWorkspaces={open} />)
+    expect(await screen.findByText(/No workspaces yet\./)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Workspaces' }))
+    expect(open).toHaveBeenCalledTimes(1)
   })
 })
