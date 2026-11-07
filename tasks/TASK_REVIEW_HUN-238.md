@@ -37,6 +37,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Auto decisions
+
+Mode: auto
+1. Kept the easy-ui check results (passed, failed) overall, one `ui_checks` entry for the whole response, and showed per-workspace easy-ui use only from stored events — DEBATED: keep overall (Advocate 1: keep overall, `src/easy_personal/sources/ui.py:6` "Sessions are overall, never attributed to a project."; Advocate 2: attribute by time overlap, conceded low confidence) ⚠ decided for you — please review
+2. Ran HUN-238 (backend) in parallel with HUN-207 (web): their file lists do not overlap — FACT: tasks/TASK_GUIDE_HUN-207.md:127 "| `src/easy_personal/` | backend is HUN-206 |"
+3. Did not run `/verify` (only the user can) — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule`
+4. Did not merge, push or move the task to Done — RULE: `docs/claude-md/tracks.md` `### Every user stop and its auto rule`
+Checks: tests `uv run pytest tests/core tests/surfaces tests/leak -q && uv run pytest -q` — 1181 passed, then 1658 passed, 2 skipped (agent run 2026-11-06T23:5xZ); reviews code-review — 0 P0, 0 P1, 0 P2, 2 P3; security-review — no finding at confidence 8 or above; easy-verifier changes score — overall 60, change_risk 100 (advisory); real run — `easy-personal dashboard` on a temp store with fixtures, `curl` of `/api/kit/workspaces` printed the JSON in the Demonstration AFTER block, 400 for an unknown account, 403 without a token (auto-checked, not /verify)
+Not done: merge (yours); /verify (yours)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
@@ -45,12 +55,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Verification command run | ☑ pass | `uv run pytest tests/core tests/surfaces tests/leak -q` -> `1181 passed, 5 deselected, 1 warning in 76.29s`; `uv run pytest -q` -> `1658 passed, 2 skipped, 6 deselected, 1 xfailed, 1 warning in 151.05s`; `uv run ruff check src tests` -> `All checks passed!` |
 | Negative cases hold | ☑ pass | abstained and unknown-schema rows are no score (never 0); orphan not listed; `/b` vs `/bc`; `mcp__easy-uix__`/`mcp__claude_ai_easy-ui__` not counted; NULL/empty `tool_names`; unknown account -> 400 without echo; no token/wrong token/wrong Host -> 403; POST -> 405; canaries (reason_code, scope, description, email, ui `target`) and full repo paths absent from response and logs |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed `core/kit.py` (new functions), the one-line route in `surfaces/api.py`, and the 4 test files; read the callers it reuses (`workspaces._under`, `owners.owner_map`, `metrics._scope/_period`, `ui_part`). Skipped the HUN-237 files that appear in the diff against the stale `origin/HEAD`. Lane check: `EXCEEDS (lines 598 > 500)` — tests are 500 of the lines. Findings: P3 `tests/surfaces/test_api_kit_workspaces.py` written after the 3-line route edit, not red first (core tests were red first: 24 failed); P3 the guide said one SELECT per workspace, the code uses one `events` query for all (same result, fewer queries). Checked and suppressed: NULL `ts_utc` cannot reach `_ui_calls` (`sources/claude_code.py:160` abstains such events). |
 | Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q` -> `1658 passed, 2 skipped, 6 deselected, 1 xfailed`; README/site drift tests passed with no edit |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **Companion score (easy-verifier)** | ☑ pass | overall 60 (advisory, no gate), change_risk 100, scope changes, ref `main...HEAD`, report: /home/hungnguyenhuu/.easy-verifier-reports/agent-a05e748ab0a0a8cba/evidence-report-changes-20261107T000023-304074Z.html |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | No UI in this task (the page is HUN-239); the guide's UI section is N/A. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | No UI in this task (the page is HUN-239); the guide's UI section is N/A. |
+| **UI: Responsiveness at target viewports** | ☑ N/A | No UI in this task (the page is HUN-239); the guide's UI section is N/A. |
 
 ---
 
