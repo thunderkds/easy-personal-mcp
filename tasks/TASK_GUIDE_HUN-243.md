@@ -64,7 +64,8 @@ Owner, 2026-11-07: "should be clickable, not only show as readonly, it's useless
 | 5 | On a failed file fetch the blank tab is closed and "cannot open this file" shows beside the row; when `window.open` returns null "allow pop-ups to open the file" shows and no fetch is made | FR-090 |
 | 6 | A folder, repo, file path or workspace name with markup (`<img onerror>`, `&`, `#`, `?`, spaces) renders as text and reaches the request correctly encoded (assert the exact query string); a long text is ellipsised with the full text in `title` | FR-090, NFR-002 |
 | 7 | The rows and the project list of the block render while the report-files request is pending; changing the period refetches nothing for report files; keyboard: Enter/Space on the folder button and on a file button work (native button) and both show a visible focus ring from tokens | FR-090 |
-| 8 | Existing vitest + pytest pass; the build passes | — |
+| 8 | Real-run security check (headless Chrome, not jsdom): a fixture report `evil.html` holds `<script>` that sets `document.title="PWNED"`, calls `fetch("/api/workspaces")` and writes `window.opener`/`localStorage` reads to the page. After the click, the new tab's title is NOT `PWNED`, no request to `/api/*` is made from it, and the tab's `window.opener` is null. If the script runs (the blob tab does not inherit the CSP), STOP and report `Status: blocked` with `Question: [choice]` — do not ship an HTML open that can run a repo's script in the dashboard origin | FR-090, NFR-002 |
+| 9 | Existing vitest + pytest pass; the build passes | — |
 
 ---
 
