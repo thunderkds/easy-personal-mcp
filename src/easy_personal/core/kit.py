@@ -291,12 +291,16 @@ def _report_stats(folder: str) -> dict | None:
     """
     files, sessions, newest, capped = 0, 0, None, False
     try:
-        top = os.scandir(folder)
+        os.scandir(folder).close()
     except OSError:
         return None
-    pending = [(top, 1)]
+    pending = [(folder, 1)]  # paths, not open handles: a folder with thousands of sub-folders holds one handle
     while pending and not capped:
-        entries, depth = pending.pop()
+        path, depth = pending.pop()
+        try:
+            entries = os.scandir(path)
+        except OSError:
+            continue
         with entries:
             for entry in entries:
                 try:
@@ -309,11 +313,9 @@ def _report_stats(folder: str) -> dict | None:
                         sessions += entry.name.startswith("session-") and entry.name.endswith(".json")
                         newest = mtime if newest is None else max(newest, mtime)
                     elif depth < REPORT_DEPTH and entry.is_dir(follow_symlinks=False):
-                        pending.append((os.scandir(entry.path), depth + 1))
+                        pending.append((entry.path, depth + 1))
                 except OSError:
                     continue
-    for entries, _ in pending:
-        entries.close()
     return {
         "files": files,
         "files_capped": capped,

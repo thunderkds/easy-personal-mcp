@@ -123,6 +123,23 @@ def test_ac5_cap_empty_folder_and_depth(conn, tmp_path):
     assert found[("app", "reports")]["files"] == 3  # one + two + three; four sits at depth 4
 
 
+def test_many_subfolders_never_exhaust_file_descriptors(conn, tmp_path):
+    """Review finding: a report folder with many sub-folders must not hold one open handle per sub-folder."""
+    import resource
+
+    app = _repo(tmp_path, "app")
+    for n in range(300):
+        _files(app / "reports" / f"d{n}", "a.txt")
+    workspaces.add(conn, "w", repos=[str(app)])
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (min(soft, 120), hard))
+    try:
+        found = _folders(kit.report_folders(conn), "w")
+    finally:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+    assert found[("app", "reports")]["files"] == 300
+
+
 def test_ac6_a_repo_in_two_workspaces_is_in_both_and_at_most_eight_folders_sorted(conn, tmp_path):
     app, other = _repo(tmp_path, "app"), _repo(tmp_path, "other")
     for n in range(10):
