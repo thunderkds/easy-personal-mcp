@@ -9,13 +9,13 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | Depends on HUN-242 (waits) | WAITS: needs HUN-242 merged into its base; not started (auto mode never merges)
 - [ ] **HUN-230** — EPIC (split 2026-11-08, never picked up): three owner notes → note 1 "push online" = no task (84 commits to push to `github/main`, owner's action); note 2 "check db effectively" = FR-091 `tasks/DRAFT_store_health.md` (C2, Risk Medium, P1); note 3 "button to send command to claude" = FR-092 `tasks/DRAFT_claude_command_button.md` (C2, Risk High, P2, blocked on the execution-model choice) | none | C3 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-230.md` | Drafts need board IDs: `LINEAR_API_KEY` unset, board unreachable
 
 ### In Progress
-- [ ] **HUN-242** — GET /api/kit/report-files and /api/kit/report-file — list and read-only serve of report files (FR-090) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-242.md`
-- [ ] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | Depends on HUN-242 (waits)
 
 ### Ready for Review
+- [ ] **HUN-242** — GET /api/kit/report-files and /api/kit/report-file — list and read-only serve of report files (FR-090) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-242.md`
 
 ### Done
 - [x] **HUN-32** — Spike: inventory Claude Code transcript shapes and real volume → synthetic fixtures | QA-Automation-Agent | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-32.md`

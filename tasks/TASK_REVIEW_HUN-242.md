@@ -10,47 +10,35 @@
 
 ---
 
-<!-- Optional: the final report, only for a task run in auto mode (the user's `[auto]` tag,
-`docs/claude-md/tracks.md` `## Auto mode`). To use it, copy the block below out of this comment, to this
-place, and replace every <...>. Keep `Mode: auto` as its first line, exactly as written: T182's hook reads
-it. Write it to this file before the run ends; the chat message is a copy, not the report. The same
-block is the Supervisor's final chat message. It is not the `delivery-report` page and not
-Evidence. A taste decision (what the user wants) also ends with the flag. Write `DEBATED` only when ≥2
-Advocate `Agent` calls ran for that question, naming each Advocate's option. A decision with no Advocates is
-labelled `RULE`, `FACT` or `SAFER OPTION`, never `DEBATED`. A decision flagged `⚠ decided for you` is a choice, and is never labelled `FACT`. A
-safety action a rule requires (for example the backup before a delete) is `RULE` without the flag.
-At Risk Medium or High, a `RULE:` counts only when it names a written rule (`path:line`,
-`path § <heading>`, or `docs/claude-md/tracks.md` `### <section>`), and a `FACT:` needs a Citation
-(`path:line "quoted text"`); without one it is a choice and must be `DEBATED`. Good: `2. backed up the CSV
-— RULE: `docs/claude-md/tracks.md` `### Stops that stay``. Bad: `1. kept recurring.csv — RULE: Surgical Changes`.
-
 ## Auto decisions
 
 Mode: auto
-1. <what was decided> — RULE: <the rule>
-2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its option>; Advocate 2: <its option>) ⚠ decided for you — please review
-4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
-Paused: <only when a stop that stays paused the task: which one, and why>
-Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
-Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | /verify (yours)>
-
--->
+1. `GET /api/kit/report-file` serves a `.html` report as `text/html; charset=utf-8` from the fixed extension table, with `nosniff`, `Cache-Control: no-store` and `Content-Disposition: inline`, and no sandbox CSP on the route — DEBATED: text/html (Advocate 1: `text/html` as the guide's table says; Advocate 2: `text/plain` so no script can ever parse; Advocate 3: `text/html` plus `Content-Security-Policy: sandbox`) ⚠ decided for you — please review
+2. Advocate 3's option was eliminated on fact, not preference: `Guard.send_csp` strips any `content-security-policy` a route sets and overwrites it with the constant `CSP`, so the route cannot emit `sandbox` without the `Guard` change this task forbids — FACT: `src/easy_personal/surfaces/api.py`:98 "*(h for h in message[\"headers\"] if h[0].lower() != b\"content-security-policy\"),"
+3. The implementer kept the task after the step-limit hook stopped it once, instead of the task pausing — RULE: `docs/claude-md/tracks.md` `### Stops that stay` (it pauses on "the same sub-agent hitting the step limit twice", not the first)
+4. The implementer was told not to run `code-review` itself; Stage 4 ran at Supervisor level — RULE: `AGENTS.md` `## 5-Stage Agentic Pipeline` (Stage 4 is the Supervisor's stage)
+5. The P1 startup-reads finding (the agent did not read `agents/backend.md`, and read `PROJECT_SPEC.md` by line count only) is recorded, not fixed — RULE: `.claude/skills/code-review/SKILL.md` `#### Phase 4 — Apply Safe Fixes` (it applies code fixes that are unambiguous and safe; a process finding has none). Mitigation checked — FACT: `agents/backend.md`:92 "| **C2** Moderate | 3+ files, *or* a design choice, *or* a new component | plan before coding; `brainstorming` when >1 viable approach; `code-review` + `verify` |" — one viable approach was fixed by the guide, so no `brainstorming` was owed, and `code-review`/`verify` are not the agent's
+6. The two P3 findings (an unreachable 8-component check, and `REPORT_FILE_CAP` reused with a second meaning) were left unapplied — RULE: `.claude/skills/code-review/SKILL.md` `#### Phase 4 — Apply Safe Fixes` ("Do not apply P2/P3 fixes automatically")
+7. The companion score row is ☑ N/A — RULE: `tasks/TASK_REVIEW_HUN-242.md` `## Evidence` (the row's own rule: "☑ N/A with a reason when neither companion tool was run"); the easy-verifier MCP server is not loaded in this session
+8. HUN-243 was not started this run — FACT: `tasks/TASK_GUIDE_HUN-243.md` "**Depends on**: HUN-242 (the routes) merged into the base of this task's branch before it goes In Progress", and a merge is never done in auto mode (RULE: `docs/claude-md/tracks.md` `### Never in auto mode`)
+Paused: partly — the board log could not be written. `python3 scripts/board_sync.py push comment` and `decide` both failed with "LINEAR_API_KEY is not set", a secret the Supervisor does not have and that is never stored in a file. The Debate is logged in this file and under the guide's `## Questions Log` instead; the board comment and the Decision Log entry are still owed. Nothing else paused: the step-limit stop was the first one, so it did not pause the task.
+Checks: tests `uv run pytest tests/core tests/surfaces tests/leak -q` — 1272 passed, 5 deselected, and `uv run pytest -q` — 1749 passed, 2 skipped, 6 deselected, 1 xfailed; reviews `code-review` — 0 P0, 0 P1 code findings, 1 P1 process finding, 2 P3, 0 fixes applied; `security-review` — "No findings at or above the reporting bar", with the auth channel, the `O_NOFOLLOW` walk, the extension allow-list and the error/log paths each verified sound; real run `scratchpad/realrun.sh` under `timeout 100` — printed `repo_no` on each folder entry, `a.html` and `sub/b.md` in the file list, `200` with `content-type: text/html; charset=utf-8`, `x-content-type-options: nosniff`, `cache-control: no-store`, `content-disposition: inline` for the read, `404 {"error":"not found"}` for the traversal try and `403` with no token (auto-checked, not /verify)
+Not done: merge (yours); auto verify: running (T182)
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | tests/core/test_kit_report_files.py (AC 1-3, 4, 5, 6, 7, 10), tests/surfaces/test_api_kit_report_files.py (AC 1 route, 4 headers, 5-8), tests/leak/test_kit_report_files_leak.py (AC 9), harness API_CALLS entries; tests/core/test_kit_reports.py updated for repo_no. `uv run pytest tests/core tests/surfaces tests/leak -q`: 1272 passed, 5 deselected |
+| Verification command run | ☑ pass | `uv run pytest tests/core tests/surfaces tests/leak -q`: 1272 passed, 5 deselected. `uv run pytest -q`: 1749 passed, 2 skipped, 6 deselected, 1 xfailed |
+| Negative cases hold | ☑ pass | path attacks, resolution attacks, extensions, 413 / exact 10 MB, chmod 000, FIFO, symlinks, 403/405, token query param: all in the new tests, passing; real-run traversal gave 404 and no token gave 403 (see Demonstration AFTER) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed: the 9 files of `git diff main...HEAD` (`src/easy_personal/core/kit.py`, `src/easy_personal/surfaces/api.py`, `tests/leak/harness.py`, 3 new test files, 2 updated test files) plus the direct callers of the changed functions — `_query` and the `Guard` class in `api.py` (read, not changed, to confirm the new routes match the existing endpoint shape and the token rule), and `workspaces.list_all` (read, the only source of a repo path). Skipped: the rest of the repo, `web/` and the other sources, because nothing outside the diff calls `report_files`, `report_file` or `_report_names` — `grep -rn "report_files\|report_file\|_report_names\|ReportNotFound\|ReportTooLarge" --include="*.py" --include="*.js" --include="*.jsx" src web tests scripts` returns, outside `kit.py`, `api.py` and the three new test files, only `tests/leak/harness.py:122` — which is itself in the reviewed set, so nothing outside the reviewed set calls the new code. `scripts/lane_check.py`: `lane: C2, 8 files, 604 lines, EXCEEDS (lines 604 > 500); unpredicted: tests/surfaces/test_api_kit_reports.py` — warn-only; 416 of the 604 lines are the new tests, and the unpredicted file is the one-line `repo_no` assertion AC 1 itself requires, so the C2 label stands |
+| Full smoke suite still green (no regression) | ☑ pass | full `uv run pytest -q`: 1749 passed |
+| **Companion score (easy-verifier)** | ☑ N/A | The easy-verifier MCP server is not loaded in this session (no `score` tool is available; the server at `127.0.0.1:8766` was not reachable), so no scoring session ran. Per the row's own rule the merge gate blocks on ☑ fail only, never on an N/A row. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no page change (HUN-243) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no page change (HUN-243) |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no page change (HUN-243) |
 
 ---
 
@@ -61,12 +49,59 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: real run (AC 11 script: temp EASY_PERSONAL_HOME, workspace acme with repo app having reports/a.html, reports/sub/b.md, smoke-reports/s.txt; `easy-personal dashboard`; curl with X-Dashboard-Token), captured before any implementation commit:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+date: 2026-11-07T23:17:49Z
+--- list folders
+HTTP/1.1 200 OK
+{"workspaces":[{"name":"acme","folders":[{"repo":"app","folder":"reports","files":2,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:17:48Z"},{"repo":"app","folder":"smoke-reports","files":1,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:17:48Z"}]}]}--- list files
+HTTP/1.1 404 Not Found
+Not Found--- read a.html
+HTTP/1.1 404 Not Found
+date: Sat, 07 Nov 2026 23:17:49 GMT
+server: uvicorn
+content-length: 9
+content-type: text/plain; charset=utf-8
+content-security-policy: default-src 'self'; frame-ancestors 'none'
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Not Found
+--- traversal
+HTTP/1.1 404 Not Found
+Not Found--- no token
+HTTP/1.1 403 Forbidden
+{"error":"forbidden"}```
+
+(`/api/kit/reports` has no `repo_no`; both new routes are 404.)
+
+**AFTER**: same script, post-change:
+
+```
+date: 2026-11-07T23:32:12Z
+--- list folders
+HTTP/1.1 200 OK
+{"workspaces":[{"name":"acme","folders":[{"repo":"app","repo_no":0,"folder":"reports","files":2,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:32:11Z"},{"repo":"app","repo_no":0,"folder":"smoke-reports","files":1,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:32:11Z"}]}]}--- list files
+HTTP/1.1 200 OK
+{"files":[{"path":"a.html","size":12,"openable":true,"mtime_utc":"2026-11-07T23:32:11Z"},{"path":"sub/b.md","size":4,"openable":true,"mtime_utc":"2026-11-07T23:32:11Z"}],"truncated":false}--- read a.html
+HTTP/1.1 200 OK
+date: Sat, 07 Nov 2026 23:32:12 GMT
+server: uvicorn
+content-type: text/html; charset=utf-8
+x-content-type-options: nosniff
+cache-control: no-store
+content-disposition: inline
+content-length: 12
+content-security-policy: default-src 'self'; frame-ancestors 'none'
+
+<h1>hi</h1>
+
+--- traversal
+HTTP/1.1 404 Not Found
+{"error":"not found"}--- no token
+HTTP/1.1 403 Forbidden
+{"error":"forbidden"}```
+
+**DELTA**: A user can list the files of a report folder and open one file in a browser tab, with every path attack answered by a fixed 404.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
