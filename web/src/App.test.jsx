@@ -242,7 +242,7 @@ describe('global scope selector (HUN-118)', () => {
     go('Kit')
     expect(await screen.findByRole('heading', { name: /^Kit by project/ })).toBeInTheDocument()
     expect(await select('workspace')).toHaveValue('personal')
-    const kitCalls = f.calls.filter((c) => c.url.startsWith('/api/kit'))
+    const kitCalls = f.calls.filter((c) => /^\/api\/kit(\?|$)/.test(c.url)) // the page read, not the by-workspace block (HUN-239)
     expect(kitCalls.at(-1).url).toBe('/api/kit?workspace=personal')
   })
 

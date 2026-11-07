@@ -395,6 +395,19 @@ ul.part-lines { font-size: var(--fs-note); }
 ul.part-lines > li { padding: var(--space-1) 0; border-top: 1px solid var(--color-divider); }
 .details-toggle { align-self: flex-start; }
 
+/* Kit by workspace (HUN-239): name | verifier | easy-ui, stacked on a phone; a long name is cut with an ellipsis (full name in the title) */
+ul.ws-rows { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: var(--radius); }
+.ws-row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.8fr) minmax(0, 1.4fr); gap: var(--space-2) var(--space-4); padding: var(--space-3) var(--space-4); font-size: var(--fs-cell); }
+.ws-row + .ws-row { border-top: 1px solid var(--color-divider); }
+.ws-row[aria-current='true'] { background: var(--color-selected); box-shadow: inset 2px 0 0 var(--color-accent); }
+.ws-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.ws-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--color-dot); }
+.ws-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--color-heading); }
+.ws-cell { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; color: var(--color-secondary); overflow-wrap: anywhere; }
+.ws-label { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
+.ws-mean .progress { margin-top: var(--space-1); }
+@media (max-width: 39.999rem) { .ws-row { grid-template-columns: minmax(0, 1fr); } }
+
 /* Right rail */
 .rail-card { gap: var(--space-3); padding: var(--space-5); }
 .rail-card > h2 { font-size: 0.875rem; }
