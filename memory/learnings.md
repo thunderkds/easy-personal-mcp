@@ -377,3 +377,10 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - Gotcha: parallel agents share one `.claude/hooks/.state/active_task` file; the step-limit hook then counts calls against the wrong task. Rewrite it before each test run and before each Stage 4 skill.
 - Gotcha: an `[auto]` Debate at Risk Medium needs 2 real `Explore` Advocates; a Supervisor-only line is not a Debate.
 - The T182 hook auto-runs a verify on main after a commit and writes its verdict into the main copy of `tasks/TASK_REVIEW_<ID>.md`. It can leave main's file different from the branch's, so commit or discard that line before merging.
+
+### 2026-11-07 — Report folders per workspace (HUN-240 backend, HUN-241 page): not `[auto]`, merged on the owner's "merge both" after `/verify`
+- Where reports live: inside each repo, `reports/` (most repos) or `smoke-reports/` (orderly); easy-ui writes `session-*.json` there. The dashboard needs no config for this: it scans depth 1 of the workspace repos (`kit.report_folders`). The easy-ui CHECK numbers (passed/failed) still need `ui: reports_dir:` in `~/.easy-personal/config.yaml` or `EASY_PERSONAL_UI_REPORTS`, and stay overall (Decision 30).
+- Gotcha: a directory walk that keeps `os.scandir` handles open per sub-folder runs out of file descriptors on a folder with many sub-folders, and an `except OSError` hides it as an undercount. Queue paths, open one folder at a time. Test with `resource.setrlimit(RLIMIT_NOFILE, ...)`.
+- Gotcha: the reads of a page block must start in `KitView` (which mounts first), not inside the block (mounted after the Kit read ends), or they are not parallel.
+- Gotcha: `/security-review` and `/code-review` read the checked-out branch; switch the shell into the task's worktree first (a `cd` into `.claude/worktrees/<agent>` changes the primary directory).
+- easy-verifier `score` output is about 1 MB: read it with `jq` (`.overall.value`, `.change_risk.value`, `.ratings[]`); `write_report` with `findings: []` gives the report path.

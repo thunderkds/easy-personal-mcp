@@ -165,3 +165,11 @@
 **Result**: median read 0.34 s on 160 projects / 10 workspaces; merged after `/verify` (2026-11-07).
 **Approved by**: owner asked for the work in `[auto]` mode and later for verify and merge; the two debated choices still await the owner's review.
 **Files**: `src/easy_personal/core/kit.py`, `src/easy_personal/surfaces/api.py`, `web/src/KitView.jsx`, `web/src/WorkspaceKit.jsx`, `BRAINSTORMING_LOG_KITWS.md`
+
+## 2026-11-07 — Report folders per workspace: depth 1, name contains "report", relative path only, own route (HUN-240, HUN-241; FR-089, PRD question 31)
+
+**Decision**: `kit.report_folders` + `GET /api/kit/reports` list, per non-orphan workspace, the report folders of its repos: a directory directly inside a repo root (no symlink followed) whose lowercase name contains `report` (`reports`, `smoke-reports`), at most 8 per repo, with file count (cap 2000), count of `session-*.json` files, and newest file time. The Kit view shows them as plain text under each workspace row of "Kit by workspace". Reference only: nothing is opened, parsed, stored or acted on. The read is its own route, so `/api/kit/workspaces` keeps its no-file-read guarantee.
+**Why**: owner, 2026-11-07: "you can depend on the path of projects in the workspace, and mapping the folder reports, report, or something like that to the dashboard, we just show to easy refer, not manage it in anyway". Owner choice (asked): show the relative path `<repo folder>/<report folder>`, not the full path, so NFR-002 and the leak tests stay as they are. The substring match and the separate route are the Supervisor's choice (smaller change, can be undone; PRD question 31 stays open for the owner's review of the match).
+**Result**: median read 0.03 s on 160 repos / 10 workspaces; review found one P1 (one open `scandir` handle per sub-folder; fixed, test under a low `RLIMIT_NOFILE`); merged after `/verify` (2026-11-07).
+**Approved by**: owner asked for the feature, chose the relative path, and asked to merge both tasks.
+**Files**: `src/easy_personal/core/kit.py`, `src/easy_personal/surfaces/api.py`, `web/src/KitView.jsx`, `web/src/WorkspaceKit.jsx`, `tests/leak/harness.py`

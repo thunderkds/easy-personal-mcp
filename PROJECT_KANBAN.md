@@ -9,8 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-240** — GET /api/kit/reports — report folders of each workspace's repos, relative path only (FR-089) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-240.md`
-- [ ] **HUN-241** — Kit view: report folders under each workspace row (FR-089) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-241.md`
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
 
 ### In Progress
@@ -134,6 +132,8 @@
 - [x] **HUN-237** — Live tail warm start — active sessions listed with full totals after a dashboard restart (FR-086) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-237.md`
 - [x] **HUN-238** — Kit by workspace — read: easy-verifier scores and easy-ui use per workspace (FR-087, FR-088) | Backend-Implementer | C2 | Risk: Medium | P1
 - [x] **HUN-239** — Kit view "By workspace" block — verifier and easy-ui rows per workspace (FR-087, FR-088) | Frontend-Implementer | C2 | Risk: Medium | P1
+- [x] **HUN-240** — GET /api/kit/reports — report folders of each workspace's repos, relative path only (FR-089) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-240.md`
+- [x] **HUN-241** — Kit view: report folders under each workspace row (FR-089) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-241.md`
 - [x] **HUN-207** — Usage opens the Scratch row; Workspaces page lists repos in no workspace with Add to (FR-069 UI, FR-070) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-207.md`
 
 ### Closed (will not do)
