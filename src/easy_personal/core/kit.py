@@ -6,8 +6,10 @@ Parts: `kernel` (kernel traces), `git` (local commits per day, read from git at 
 later parts add keys next to them. A part with nothing to read is `{"status": "no data"}`, never zero-filled.
 `ui` (easy-ui checks, FR-013) is overall, not per project: a top-level key next to `projects`.
 `workspace_rollup` (FR-087, FR-088) groups the verifier scores and the easy-ui calls by workspace.
+`report_folders` (FR-089) lists the report folders of each workspace's repos, by name and counts only.
 """
 
+import os
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -21,6 +23,10 @@ from easy_personal.sources.verifier import verifier_part
 
 NO_DATA = {"status": "no data"}
 NOT_IN_USE = {"status": "not in use"}
+REPORT_WORD = "report"  # a report folder name contains this (lowercase compare)
+REPORT_FOLDERS_PER_REPO = 8
+REPORT_FILE_CAP = 2000  # files counted per report folder; past it `files_capped` is true
+REPORT_DEPTH = 3  # a file directly in the folder is depth 1
 GIT_WORKERS = 8  # `git rev-list` runs in parallel: it is a subprocess wait, and a big repo takes 100+ ms
 
 
@@ -275,3 +281,79 @@ def workspace_rollup(
             }
         )
     return {"workspaces": entries, "ui_checks": ui_part(conn)}
+
+
+def _report_stats(folder: str) -> dict | None:
+    """Count the regular files of a report folder to `REPORT_DEPTH` levels, `REPORT_FILE_CAP` files at most.
+
+    Names and `stat` only: no file is opened and no symlink is followed. A sub-folder that cannot be
+    listed is skipped; a top folder that cannot be listed gives None.
+    """
+    files, sessions, newest, capped = 0, 0, None, False
+    try:
+        top = os.scandir(folder)
+    except OSError:
+        return None
+    pending = [(top, 1)]
+    while pending and not capped:
+        entries, depth = pending.pop()
+        with entries:
+            for entry in entries:
+                try:
+                    if entry.is_file(follow_symlinks=False):
+                        if files == REPORT_FILE_CAP:
+                            capped = True
+                            break
+                        mtime = entry.stat(follow_symlinks=False).st_mtime
+                        files += 1
+                        sessions += entry.name.startswith("session-") and entry.name.endswith(".json")
+                        newest = mtime if newest is None else max(newest, mtime)
+                    elif depth < REPORT_DEPTH and entry.is_dir(follow_symlinks=False):
+                        pending.append((os.scandir(entry.path), depth + 1))
+                except OSError:
+                    continue
+    for entries, _ in pending:
+        entries.close()
+    return {
+        "files": files,
+        "files_capped": capped,
+        "easy_ui_sessions": sessions,
+        "newest_utc": None if newest is None else datetime.fromtimestamp(newest, UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def _repo_report_folders(repo: str) -> list[dict]:
+    try:
+        with os.scandir(repo) as entries:
+            names = sorted(e.name for e in entries if REPORT_WORD in e.name.lower() and _is_real_dir(e))
+    except OSError:
+        return []  # a repo folder that is gone or unreadable
+    found = []
+    for name in names[:REPORT_FOLDERS_PER_REPO]:
+        stats = _report_stats(os.path.join(repo, name))
+        if stats is not None:
+            found.append({"repo": os.path.basename(repo), "folder": name, **stats})
+    return found
+
+
+def _is_real_dir(entry: os.DirEntry) -> bool:
+    try:
+        return entry.is_dir(follow_symlinks=False)
+    except OSError:
+        return False
+
+
+def report_folders(conn: sqlite3.Connection) -> dict:
+    """The Kit view's report folders (FR-089): per non-orphan workspace, `list_all` order, for reference only.
+
+    A report folder sits directly inside a workspace repo and has `report` in its lowercase name; at most
+    8 per repo, by name. Only the repo folder name, the report folder name, counts and a time are returned:
+    never a path, a file name or a sub-folder name. Nothing is opened, written or stored.
+    """
+    return {
+        "workspaces": [
+            {"name": workspace["name"], "folders": [f for repo in workspace["repos"] for f in _repo_report_folders(repo)]}
+            for workspace in workspaces.list_all(conn)
+            if not workspace["is_orphan"]
+        ]
+    }

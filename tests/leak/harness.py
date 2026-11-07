@@ -118,6 +118,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/kit/workspaces": ["", "?since=2026-01-01", "?until=2027-01-01", "?account=1", "?account=nope"],  # HUN-238: folder names, scores and counts only
+    "/api/kit/reports": [""],  # HUN-240: repo folder name, report folder name, counts and a time only (planted names: test_kit_reports_leak.py)
     "/api/accounts": ["", "?by=provider", "?by=account", "?by=bad"],
     "/api/board": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],  # HUN-162: titles are shown, never stored
     "/api/jobs": [""],  # HUN-163: fake systemctl/crontab with a planted canary in arguments (see leak conftest)

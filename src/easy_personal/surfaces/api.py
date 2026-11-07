@@ -656,6 +656,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/reports/{id}", report_one),
         Route("/api/kit", _query(lambda c, q: kit.kit_summary(c, **_who(q), hide_gone=True))),
         Route("/api/kit/workspaces", _query(lambda c, q: kit.workspace_rollup(c, *_period(q), account=_who(q)["account"]))),
+        Route("/api/kit/reports", _query(lambda c, q: kit.report_folders(c))),
         Route("/api/board", _query(lambda c, q: board.board(c, **_who(q)))),
         Route("/api/accounts", _query(lambda c, q: accounts.grouped(c, q.get("by", "account")))),
         Route("/api/accounts", _account_write(lambda c, _id, b: accounts.add(c, b.get("path")), 201), methods=["POST"]),
