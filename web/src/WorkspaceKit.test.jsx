@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import WorkspaceKit, { workspaceKitPath } from './WorkspaceKit.jsx'
-import { workspaceKit } from './test/fixtures.js'
+import { kitReports, workspaceKit } from './test/fixtures.js'
 
 const ready = (data = workspaceKit) => ({ status: 'ready', data })
 const view = (state, props = {}) => render(<WorkspaceKit state={state} {...props} />)
@@ -169,5 +171,114 @@ describe('request path (AC5)', () => {
   })
   it('falls back to the first period for an unknown id', () => {
     expect(workspaceKitPath('zzz', '', NOW)).toContain('since=')
+  })
+})
+
+// HUN-241: report folders under each row (FR-089), from GET /api/kit/reports, read by the Kit view and passed as `reports`
+describe('report folders (HUN-241)', () => {
+  const folder = (overrides) => ({ repo: 'app', folder: 'reports', files: 12, files_capped: false, easy_ui_sessions: 3, newest_utc: '2026-11-05T12:00:00.000000Z', ...overrides })
+  const reportsFor = (...workspaces) => ({ status: 'ready', data: { workspaces } })
+  const lines = (name) => within(row(name)).queryAllByRole('listitem').map((li) => li.textContent)
+
+  it('AC1: one muted line per folder, relative path, files, easy-ui sessions and newest day', () => {
+    view(ready(), { reports: { status: 'ready', data: kitReports } })
+    expect(lines('acme')).toEqual(['app/reports · 12 files · 3 easy-ui sessions · newest 2026-11-05', 'app/smoke-reports · 1 file · newest 2026-11-04'])
+    expect(within(row('acme')).getByRole('list', { name: 'Report folders of acme' })).toBeInTheDocument()
+  })
+
+  it('AC1: leaves "0 easy-ui sessions" out, and says "1 easy-ui session" for one', () => {
+    view(ready(), { reports: reportsFor({ name: 'acme', folders: [folder({ easy_ui_sessions: 0 }), folder({ folder: 'one', files: 2, easy_ui_sessions: 1 })] }) })
+    expect(row('acme')).not.toHaveTextContent('0 easy-ui')
+    expect(lines('acme')[1]).toBe('app/one · 2 files · 1 easy-ui session · newest 2026-11-05')
+  })
+
+  it('AC2: a capped count shows "2000+ files"', () => {
+    view(ready(), { reports: reportsFor({ name: 'acme', folders: [folder({ files: 2000, files_capped: true })] }) })
+    expect(lines('acme')[0]).toBe('app/reports · 2000+ files · 3 easy-ui sessions · newest 2026-11-05')
+  })
+
+  it('AC2: no newest part for an empty folder (newest_utc null)', () => {
+    view(ready(), { reports: reportsFor({ name: 'acme', folders: [folder({ files: 0, easy_ui_sessions: 0, newest_utc: null })] }) })
+    expect(lines('acme')).toEqual(['app/reports · 0 files'])
+  })
+
+  it('AC2: "no report folders" for folders [] and for a workspace missing from the answer (matched by name)', () => {
+    view(ready(), { reports: reportsFor({ name: 'acme', folders: [] }) })
+    expect(row('acme')).toHaveTextContent('no report folders')
+    expect(row('beta')).toHaveTextContent('no report folders')
+    expect(lines('beta')).toEqual([])
+  })
+
+  it('AC2: matches by name, not by position', () => {
+    view(ready(), { reports: reportsFor({ name: 'beta', folders: [folder({ repo: 'zeta' })] }, { name: 'acme', folders: [] }) })
+    expect(lines('beta')).toEqual(['zeta/reports · 12 files · 3 easy-ui sessions · newest 2026-11-05'])
+    expect(row('acme')).toHaveTextContent('no report folders')
+  })
+
+  it('AC2: tolerates a workspace entry without a folders list', () => {
+    view(ready(), { reports: reportsFor({ name: 'acme' }) })
+    expect(row('acme')).toHaveTextContent('no report folders')
+  })
+
+  it('AC3: plain text only: no link, no button, no tab stop, no click handler needed', () => {
+    const { container } = view(ready(), { reports: { status: 'ready', data: kitReports } })
+    const list = within(row('acme')).getByRole('list', { name: 'Report folders of acme' })
+    expect(within(list).queryAllByRole('link')).toHaveLength(0)
+    expect(within(list).queryAllByRole('button')).toHaveLength(0)
+    expect(list.querySelectorAll('a, button, [tabindex], [onclick]')).toHaveLength(0)
+    expect(screen.queryAllByRole('link')).toHaveLength(0)
+    expect(container.querySelectorAll('.ws-reports a, .ws-reports button')).toHaveLength(0)
+  })
+
+  it('AC4: shows nothing and no pill while the reports read is pending; the rest of the row is unchanged', () => {
+    view(ready(), { reports: { status: 'loading' } })
+    expect(row('acme')).toHaveTextContent('2 of 3 repos scored')
+    expect(row('acme')).not.toHaveTextContent(/report folders|reports/)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('AC4: a missing reports prop behaves like a pending read', () => {
+    view(ready())
+    expect(screen.queryByText(/report folders/)).toBeNull()
+  })
+
+  it('AC4: a failed reports read puts one small "report folders unavailable" in each row, no alert, rest unchanged', () => {
+    view(ready(), { reports: { status: 'error', message: '/api/kit/reports failed with status 500' } })
+    expect(screen.getAllByText('report folders unavailable')).toHaveLength(2)
+    expect(within(row('acme')).getByText('report folders unavailable')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(row('acme')).toHaveTextContent('2 of 3 repos scored')
+    expect(screen.getByText(/easy-ui checks \(all workspaces\)/)).toBeInTheDocument()
+  })
+
+  it('AC4: the reports read ready while the block read is still loading shows no lines (the block has no rows yet)', () => {
+    view({ status: 'loading' }, { reports: { status: 'ready', data: kitReports } })
+    expect(screen.queryByText(/app\/reports/)).toBeNull()
+  })
+
+  it('AC6: ellipsises a long line with the full text in title', () => {
+    const long = folder({ repo: 'a-very-long-repository-folder-name', folder: 'smoke-reports-with-an-extremely-long-folder-name' })
+    view(ready(), { reports: reportsFor({ name: 'acme', folders: [long] }) })
+    const item = within(row('acme')).getAllByRole('listitem')[0]
+    expect(item).toHaveAttribute('title', 'a-very-long-repository-folder-name/smoke-reports-with-an-extremely-long-folder-name · 12 files · 3 easy-ui sessions · newest 2026-11-05')
+    expect(item).toHaveClass('ws-report')
+  })
+
+  it('AC6: a planted markup folder name renders as text, never as HTML', () => {
+    const planted = '<img src=x onerror="window.__pwned2=1"><b>CANARY</b>'
+    const { container } = view(ready(), { reports: reportsFor({ name: 'acme', folders: [folder({ repo: planted, folder: '<script>1</script>' })] }) })
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('b')).toBeNull()
+    expect(container.querySelector('script')).toBeNull()
+    expect(within(row('acme')).getAllByRole('listitem')[0]).toHaveTextContent(`${planted}/<script>1</script> · 12 files`)
+    expect(window.__pwned2).toBeUndefined()
+  })
+
+  it('AC6: the report styles use tokens only (no #hex or rgb())', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    const block = css.split('\n').filter((l) => l.includes('.ws-report')).join('\n')
+    expect(block).toContain('.ws-reports')
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/)
   })
 })
