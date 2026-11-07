@@ -61,8 +61,23 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-07T08:17:23Z to 08:21:16Z on branch `worktree-agent-ac0f2ca7910d4d564`, after the allowed fast-forward merge of HUN-240 (07df97d), before any implementation commit.
+
+```
+$ date -u +%FT%TZ && cd web && npx vitest run     # 2026-11-07T08:17:23Z
+ Test Files  24 passed (24)
+      Tests  749 passed (749)
+```
+
+Dashboard from this worktree (`easy-personal dashboard`, port 35929) on a consistent copy of the owner store (sqlite backup) in a temp `EASY_PERSONAL_HOME`, plus two added workspaces over a temp tree (`demo-ws`: `app/reports` 12 files, `app/smoke-reports` 1 file, `lib`, and a repo with a very long folder name; `empty-ws`: `lib` only). Headless Chrome (CDP), Kit view, section "Kit by workspace":
+
+```
+$ node shot.mjs <dashboard-url> tasks/evidence-HUN-241/before-kit-by-workspace 6000    # 2026-11-07T08:21:16Z
+1280x720 {"found":true,"scrollWidth":1265,"clientWidth":1265,"pills":0,"text":"Kit by workspace (4)\n\n... bep-work / Verifier no data / easy-ui 15 sessions · 1,459 calls · last 2026-11-06 / demo-ws / Verifier no data / easy-ui not used / empty-ws ... / personal ...","lines":[]}
+375x812  {"found":true,"scrollWidth":375,"clientWidth":375,"pills":0, ... ,"lines":[]}
+```
+
+No row shows any report folder (`lines: []`), although `demo-ws` holds `app/reports` and `app/smoke-reports`. Screenshots: `tasks/evidence-HUN-241/before-kit-by-workspace-1280.png`, `before-kit-by-workspace-375.png`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
