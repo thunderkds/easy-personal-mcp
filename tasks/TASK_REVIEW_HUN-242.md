@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | tests/core/test_kit_report_files.py (AC 1-3, 4, 5, 6, 7, 10), tests/surfaces/test_api_kit_report_files.py (AC 1 route, 4 headers, 5-8), tests/leak/test_kit_report_files_leak.py (AC 9), harness API_CALLS entries; tests/core/test_kit_reports.py updated for repo_no. `uv run pytest tests/core tests/surfaces tests/leak -q`: 1272 passed, 5 deselected |
+| Verification command run | ☑ pass | `uv run pytest tests/core tests/surfaces tests/leak -q`: 1272 passed, 5 deselected. `uv run pytest -q`: 1749 passed, 2 skipped, 6 deselected, 1 xfailed |
+| Negative cases hold | ☑ pass | path attacks, resolution attacks, extensions, 413 / exact 10 MB, chmod 000, FIFO, symlinks, 403/405, token query param: all in the new tests, passing; real-run traversal gave 404 and no token gave 403 (see Demonstration AFTER) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | full `uv run pytest -q`: 1749 passed |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no page change (HUN-243) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no page change (HUN-243) |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no page change (HUN-243) |
 
 ---
 
@@ -61,12 +61,59 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: real run (AC 11 script: temp EASY_PERSONAL_HOME, workspace acme with repo app having reports/a.html, reports/sub/b.md, smoke-reports/s.txt; `easy-personal dashboard`; curl with X-Dashboard-Token), captured before any implementation commit:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+date: 2026-11-07T23:17:49Z
+--- list folders
+HTTP/1.1 200 OK
+{"workspaces":[{"name":"acme","folders":[{"repo":"app","folder":"reports","files":2,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:17:48Z"},{"repo":"app","folder":"smoke-reports","files":1,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:17:48Z"}]}]}--- list files
+HTTP/1.1 404 Not Found
+Not Found--- read a.html
+HTTP/1.1 404 Not Found
+date: Sat, 07 Nov 2026 23:17:49 GMT
+server: uvicorn
+content-length: 9
+content-type: text/plain; charset=utf-8
+content-security-policy: default-src 'self'; frame-ancestors 'none'
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Not Found
+--- traversal
+HTTP/1.1 404 Not Found
+Not Found--- no token
+HTTP/1.1 403 Forbidden
+{"error":"forbidden"}```
+
+(`/api/kit/reports` has no `repo_no`; both new routes are 404.)
+
+**AFTER**: same script, post-change:
+
+```
+date: 2026-11-07T23:32:12Z
+--- list folders
+HTTP/1.1 200 OK
+{"workspaces":[{"name":"acme","folders":[{"repo":"app","repo_no":0,"folder":"reports","files":2,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:32:11Z"},{"repo":"app","repo_no":0,"folder":"smoke-reports","files":1,"files_capped":false,"easy_ui_sessions":0,"newest_utc":"2026-11-07T23:32:11Z"}]}]}--- list files
+HTTP/1.1 200 OK
+{"files":[{"path":"a.html","size":12,"openable":true,"mtime_utc":"2026-11-07T23:32:11Z"},{"path":"sub/b.md","size":4,"openable":true,"mtime_utc":"2026-11-07T23:32:11Z"}],"truncated":false}--- read a.html
+HTTP/1.1 200 OK
+date: Sat, 07 Nov 2026 23:32:12 GMT
+server: uvicorn
+content-type: text/html; charset=utf-8
+x-content-type-options: nosniff
+cache-control: no-store
+content-disposition: inline
+content-length: 12
+content-security-policy: default-src 'self'; frame-ancestors 'none'
+
+<h1>hi</h1>
+
+--- traversal
+HTTP/1.1 404 Not Found
+{"error":"not found"}--- no token
+HTTP/1.1 403 Forbidden
+{"error":"forbidden"}```
+
+**DELTA**: A user can list the files of a report folder and open one file in a browser tab, with every path attack answered by a fixed 404.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

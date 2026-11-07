@@ -34,7 +34,7 @@ def test_route_answers_the_shape_per_workspace(world):
     acme, nobody = res.json()["workspaces"]
     assert set(res.json()) == {"workspaces"} and acme["name"] == "acme" and nobody == {"name": "nobody", "folders": []}
     (folder,) = acme["folders"]
-    assert set(folder) == {"repo", "folder", "files", "files_capped", "easy_ui_sessions", "newest_utc"}
+    assert set(folder) == {"repo", "repo_no", "folder", "files", "files_capped", "easy_ui_sessions", "newest_utc"}
     assert (folder["repo"], folder["folder"], folder["files"], folder["easy_ui_sessions"]) == ("app", "reports", 2, 1)
     assert folder["files_capped"] is False and folder["newest_utc"].endswith("Z")
 

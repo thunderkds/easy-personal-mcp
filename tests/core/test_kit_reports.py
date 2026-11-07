@@ -54,7 +54,7 @@ def test_ac1_one_entry_per_report_folder_with_counts_and_newest_time(conn, tmp_p
     found = _folders(out, "ws-a")
     assert set(found) == {("app", "reports"), ("app", "smoke-reports")}  # lib adds nothing
     assert found[("app", "reports")] == {
-        "repo": "app", "folder": "reports", "files": 3, "files_capped": False,
+        "repo": "app", "repo_no": 0, "folder": "reports", "files": 3, "files_capped": False,
         "easy_ui_sessions": 2, "newest_utc": "2026-01-01T12:00:00Z",
     }  # fmt: skip
     assert found[("app", "smoke-reports")]["files"] == 1 and found[("app", "smoke-reports")]["easy_ui_sessions"] == 0
@@ -118,7 +118,7 @@ def test_ac5_cap_empty_folder_and_depth(conn, tmp_path):
     assert (found[("app", "big-reports")]["files"], found[("app", "big-reports")]["files_capped"]) == (2000, True)
     assert (found[("app", "exact-reports")]["files"], found[("app", "exact-reports")]["files_capped"]) == (2000, False)
     assert found[("app", "report")] == {
-        "repo": "app", "folder": "report", "files": 0, "files_capped": False, "easy_ui_sessions": 0, "newest_utc": None,
+        "repo": "app", "repo_no": 0, "folder": "report", "files": 0, "files_capped": False, "easy_ui_sessions": 0, "newest_utc": None,
     }  # fmt: skip
     assert found[("app", "reports")]["files"] == 3  # one + two + three; four sits at depth 4
 

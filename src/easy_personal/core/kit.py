@@ -7,10 +7,12 @@ later parts add keys next to them. A part with nothing to read is `{"status": "n
 `ui` (easy-ui checks, FR-013) is overall, not per project: a top-level key next to `projects`.
 `workspace_rollup` (FR-087, FR-088) groups the verifier scores and the easy-ui calls by workspace.
 `report_folders` (FR-089) lists the report folders of each workspace's repos, by name and counts only.
+`report_files` and `report_file` (FR-090) list and read the files of one report folder, read-only.
 """
 
 import os
 import sqlite3
+import stat
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -27,6 +29,14 @@ REPORT_WORD = "report"  # a report folder name contains this (lowercase compare)
 REPORT_FOLDERS_PER_REPO = 8
 REPORT_FILE_CAP = 2000  # files counted per report folder; past it `files_capped` is true
 REPORT_DEPTH = 3  # a file directly in the folder is depth 1
+REPORT_LIST_CAP = 200  # files in one `report_files` answer
+REPORT_READ_CAP = 10 * 1024 * 1024  # a file over this is listed, not openable, and not served
+REPORT_PATH_MAX, REPORT_PATH_PARTS = 512, 8
+REPORT_TYPES = {  # the content type comes from the extension, never from the content
+    "html": "text/html; charset=utf-8", "htm": "text/html; charset=utf-8", "md": "text/markdown; charset=utf-8",
+    "txt": "text/plain; charset=utf-8", "json": "application/json", "png": "image/png", "jpg": "image/jpeg",
+    "jpeg": "image/jpeg", "pdf": "application/pdf",
+}  # fmt: skip
 GIT_WORKERS = 8  # `git rev-list` runs in parallel: it is a subprocess wait, and a big repo takes 100+ ms
 
 
@@ -324,17 +334,22 @@ def _report_stats(folder: str) -> dict | None:
     }
 
 
-def _repo_report_folders(repo: str) -> list[dict]:
+def _report_names(repo: str) -> list[str]:
+    """The report folder names of a repo (FR-089 rule): depth 1, `report` in the lowercase name, a real directory; sorted, 8 at most."""
     try:
         with os.scandir(repo) as entries:
             names = sorted(e.name for e in entries if REPORT_WORD in e.name.lower() and _is_real_dir(e))
     except OSError:
         return []  # a repo folder that is gone or unreadable
+    return names[:REPORT_FOLDERS_PER_REPO]
+
+
+def _repo_report_folders(repo: str, repo_no: int) -> list[dict]:
     found = []
-    for name in names[:REPORT_FOLDERS_PER_REPO]:
+    for name in _report_names(repo):
         stats = _report_stats(os.path.join(repo, name))
         if stats is not None:
-            found.append({"repo": os.path.basename(repo), "folder": name, **stats})
+            found.append({"repo": os.path.basename(repo), "repo_no": repo_no, "folder": name, **stats})
     return found
 
 
@@ -350,12 +365,129 @@ def report_folders(conn: sqlite3.Connection) -> dict:
 
     A report folder sits directly inside a workspace repo and has `report` in its lowercase name; at most
     8 per repo, by name. Only the repo folder name, the report folder name, counts and a time are returned:
-    never a path, a file name or a sub-folder name. Nothing is opened, written or stored.
+    `repo_no` is the place of the repo in the workspace's repo list. Never a path, a file name or a sub-folder name. Nothing is opened, written or stored.
     """
     return {
         "workspaces": [
-            {"name": workspace["name"], "folders": [f for repo in workspace["repos"] for f in _repo_report_folders(repo)]}
+            {"name": workspace["name"], "folders": [f for no, repo in enumerate(workspace["repos"]) for f in _repo_report_folders(repo, no)]}
             for workspace in workspaces.list_all(conn)
             if not workspace["is_orphan"]
         ]
     }
+
+
+class ReportNotFound(Exception):
+    """Any miss of `report_files` / `report_file`. The text is fixed: it never echoes the input."""
+
+    def __init__(self) -> None:
+        super().__init__("not found")
+
+
+class ReportTooLarge(Exception):
+    def __init__(self) -> None:
+        super().__init__("too large")
+
+
+def _report_dir(conn: sqlite3.Connection, workspace, repo_no, folder) -> str:
+    """The path of a report folder found by the server: non-orphan workspace, repo number, FR-089 folder name."""
+    if not isinstance(workspace, str) or not isinstance(folder, str) or type(repo_no) is not int or repo_no < 0:
+        raise ReportNotFound
+    for entry in workspaces.list_all(conn):
+        if entry["name"] == workspace and not entry["is_orphan"]:
+            repos = entry["repos"]
+            if repo_no < len(repos) and folder in _report_names(repos[repo_no]):
+                return os.path.join(repos[repo_no], folder)
+    raise ReportNotFound
+
+
+def _extension(name: str) -> str:
+    return os.path.splitext(name)[1][1:].lower()
+
+
+def report_files(conn: sqlite3.Connection, workspace, repo_no, folder) -> dict:
+    """The regular files of one report folder (FR-090), to `REPORT_DEPTH` levels, newest first, 200 at most.
+
+    `path` is relative to the report folder, `/` separated. No symlink is followed; nothing is opened.
+    """
+    top = _report_dir(conn, workspace, repo_no, folder)
+    found, pending, capped = [], [(top, "", 1)], False
+    while pending and not capped:
+        directory, prefix, depth = pending.pop()
+        try:
+            entries = os.scandir(directory)
+        except OSError:
+            if depth == 1:
+                raise ReportNotFound from None
+            continue
+        with entries:
+            for entry in entries:
+                try:
+                    if entry.is_file(follow_symlinks=False):
+                        if len(found) == REPORT_FILE_CAP:
+                            capped = True
+                            break
+                        info = entry.stat(follow_symlinks=False)
+                        found.append((info.st_mtime, prefix + entry.name, info.st_size))
+                    elif depth < REPORT_DEPTH and entry.is_dir(follow_symlinks=False):
+                        pending.append((entry.path, f"{prefix}{entry.name}/", depth + 1))
+                except OSError:
+                    continue
+    found.sort(key=lambda f: (-f[0], f[1]))
+    return {
+        "files": [
+            {
+                "path": path, "size": size, "openable": _extension(path) in REPORT_TYPES and size <= REPORT_READ_CAP,
+                "mtime_utc": datetime.fromtimestamp(mtime, UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            for mtime, path, size in found[:REPORT_LIST_CAP]
+        ],
+        "truncated": capped or len(found) > REPORT_LIST_CAP,
+    }  # fmt: skip
+
+
+def _check_report_path(path) -> list[str]:
+    if not isinstance(path, str) or not path or len(path) > REPORT_PATH_MAX or path[0] == "/" or "\\" in path or "\0" in path:
+        raise ReportNotFound
+    parts = path.split("/")
+    if len(parts) > REPORT_PATH_PARTS or len(parts) > REPORT_DEPTH or any(p in ("", ".", "..") for p in parts):
+        raise ReportNotFound
+    if _extension(parts[-1]) not in REPORT_TYPES:
+        raise ReportNotFound
+    return parts
+
+
+def report_file(conn: sqlite3.Connection, workspace, repo_no, folder, path) -> tuple[str, bytes]:
+    """`(content type, bytes)` of one file of a report folder (FR-090).
+
+    Each level is opened relative to its parent with `O_NOFOLLOW`: a symlink at any level, a file that is not
+    regular, an extension outside `REPORT_TYPES` or a depth over `REPORT_DEPTH` is `ReportNotFound`; a file
+    over `REPORT_READ_CAP` is `ReportTooLarge`. Read errors are `ReportNotFound`. Nothing is written.
+    """
+    parts = _check_report_path(path)
+    top = _report_dir(conn, workspace, repo_no, folder)
+    dir_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    fds: list[int] = []
+    try:
+        fds.append(os.open(top, dir_flags))
+        for part in parts[:-1]:
+            fds.append(os.open(part, dir_flags, dir_fd=fds[-1]))
+        fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=fds[-1])
+        fds.append(fd)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise ReportNotFound
+        if info.st_size > REPORT_READ_CAP:
+            raise ReportTooLarge
+        chunks, left = [], REPORT_READ_CAP + 1
+        while left > 0 and (chunk := os.read(fd, min(left, 1 << 20))):
+            chunks.append(chunk)
+            left -= len(chunk)
+    except OSError:
+        raise ReportNotFound from None
+    finally:
+        for fd in fds:
+            os.close(fd)
+    data = b"".join(chunks)
+    if len(data) > REPORT_READ_CAP:
+        raise ReportTooLarge  # grew after fstat
+    return REPORT_TYPES[_extension(parts[-1])], data
