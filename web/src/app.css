@@ -407,6 +407,10 @@ ul.ws-rows { display: flex; flex-direction: column; border: 1px solid var(--colo
 .ws-label { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .ws-mean .progress { margin-top: var(--space-1); }
 @media (max-width: 39.999rem) { .ws-row { grid-template-columns: minmax(0, 1fr); } }
+/* Report folders (HUN-241, FR-089): plain muted reference lines under a row; one line each, ellipsised, full text in title */
+.ws-reports { grid-column: 1 / -1; min-width: 0; font-size: var(--fs-note); }
+.ws-reports ul { display: flex; flex-direction: column; gap: var(--space-1); }
+.ws-report { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
 
 /* Right rail */
 .rail-card { gap: var(--space-3); padding: var(--space-5); }

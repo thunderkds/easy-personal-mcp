@@ -11,6 +11,8 @@ async function renderView(overrides) {
   render(<KitView />)
   await screen.findByRole('heading', { name: /^Kit by project/ })
 }
+// The by-workspace block's two reads (HUN-239, HUN-241) are not the page's own read.
+const notBlockRead = (u) => !u.startsWith('/api/kit/workspaces') && !u.startsWith('/api/kit/reports')
 const card = (name) => screen.getByRole('article', { name })
 const project = (name) => structuredClone(kit.projects.find((p) => p.project === name))
 const withProjects = (...projects) => ({ kit: { ...kit, projects } })
@@ -311,7 +313,7 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     render(<KitView />)
     await screen.findByRole('heading', { name: /^Kit by project/ })
-    expect(f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/kit/workspaces'))).toEqual(['/api/kit'])
+    expect(f.calls.map((c) => c.url).filter(notBlockRead)).toEqual(['/api/kit'])
   })
 
   it('sends workspace= and account= and refetches on change', async () => {
@@ -319,7 +321,7 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     const view = render(<KitView scope={{ workspace: 'Acme', account: '' }} />)
     await screen.findByRole('heading', { name: /^Kit by project/ })
-    const pageCalls = () => f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/kit/workspaces'))
+    const pageCalls = () => f.calls.map((c) => c.url).filter(notBlockRead)
     expect(pageCalls()).toEqual(['/api/kit?workspace=Acme'])
     view.rerender(<KitView scope={{ workspace: 'Acme', account: '1' }} />)
     await waitFor(() => expect(pageCalls()).toEqual(['/api/kit?workspace=Acme', '/api/kit?workspace=Acme&account=1']))
@@ -580,5 +582,81 @@ describe('by workspace block (HUN-239)', () => {
     expect(await screen.findByText(/No workspaces yet\./)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Open Workspaces' }))
     expect(open).toHaveBeenCalledTimes(1)
+  })
+})
+
+// HUN-241: report folders under each workspace row (FR-089, FR-065); the lines themselves are tested in WorkspaceKit.test.jsx
+describe('report folders in the by-workspace block (HUN-241)', () => {
+  const reportUrls = (f) => f.calls.map((c) => c.url).filter((u) => u.startsWith('/api/kit/reports'))
+  const rowOf = (name) => screen.getByRole('listitem', { name })
+
+  it('AC1: the rows show the lines from /api/kit/reports', async () => {
+    vi.stubGlobal('fetch', fakeFetch())
+    render(<KitView />)
+    expect(await screen.findByText('app/reports · 12 files · 3 easy-ui sessions · newest 2026-11-05')).toBeInTheDocument()
+    expect(rowOf('beta')).toHaveTextContent('no report folders')
+  })
+
+  it('AC5: the request is GET /api/kit/reports with no query string and the page token header', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    render(<KitView scope={{ workspace: 'beta', account: '3' }} period="30" />)
+    await screen.findByText(/app\/reports/)
+    expect(reportUrls(f)).toEqual(['/api/kit/reports'])
+    expect(f.calls.find((c) => c.url === '/api/kit/reports').init.headers).toEqual({ 'X-Dashboard-Token': 'secret-token' })
+  })
+
+  it('AC5: a period or scope change does not refetch it', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    const view = render(<KitView period="7" />)
+    await screen.findByText(/app\/reports/)
+    view.rerender(<KitView period="30" />)
+    await waitFor(() => expect(f.calls.filter((c) => c.url.startsWith('/api/kit/workspaces'))).toHaveLength(2))
+    view.rerender(<KitView period="all" scope={{ workspace: '', account: '1' }} />)
+    await waitFor(() => expect(f.calls.filter((c) => c.url.startsWith('/api/kit/workspaces'))).toHaveLength(3))
+    expect(reportUrls(f)).toEqual(['/api/kit/reports'])
+  })
+
+  it('AC4: the rows and the project list render while /api/kit/reports is pending; one pill at most, none for the reports', async () => {
+    const base = fakeFetch()
+    vi.stubGlobal('fetch', vi.fn((url, init) => (String(url).startsWith('/api/kit/reports') ? new Promise(() => {}) : base(url, init))))
+    render(<KitView />)
+    await screen.findByRole('heading', { name: /^Kit by project/ })
+    expect(rowOf('acme')).toHaveTextContent('2 of 3 repos scored')
+    expect(screen.getAllByRole('article').length).toBeGreaterThan(0)
+    expect(screen.queryAllByRole('status')).toHaveLength(0)
+    expect(screen.queryByText(/report folders/)).toBeNull()
+  })
+
+  it('AC4: the reports read starts with the other two reads, not after them', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    render(<KitView />)
+    expect(f.calls.map((c) => c.url).filter((u) => u.startsWith('/api/kit')).sort()).toEqual(['/api/kit', '/api/kit/reports', expect.stringMatching(/^\/api\/kit\/workspaces/)].sort())
+    await screen.findByText(/app\/reports/)
+  })
+
+  it('AC4: a failed reports read (HTTP 500) shows "report folders unavailable" in each row; the block data, the project list and no second pill', async () => {
+    const base = fakeFetch()
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => (String(url).startsWith('/api/kit/reports') ? { ok: false, status: 500, json: async () => ({}) } : base(url, init))))
+    render(<KitView />)
+    await screen.findByRole('heading', { name: /^Kit by project/ })
+    expect(await screen.findAllByText('report folders unavailable')).toHaveLength(2)
+    expect(rowOf('acme')).toHaveTextContent('2 of 3 repos scored')
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryAllByRole('status')).toHaveLength(0)
+    expect(screen.getAllByRole('article').length).toBeGreaterThan(0)
+  })
+
+  it('AC4: reports answer first, block answer later: the lines appear with the rows', async () => {
+    const base = fakeFetch()
+    let release
+    vi.stubGlobal('fetch', vi.fn((url, init) => (String(url).startsWith('/api/kit/workspaces') ? new Promise((r) => (release = () => r(base(url, init)))) : base(url, init))))
+    render(<KitView />)
+    await screen.findByRole('heading', { name: /^Kit by project/ })
+    expect(screen.queryByText(/app\/reports/)).toBeNull()
+    release()
+    expect(await screen.findByText('app/reports · 12 files · 3 easy-ui sessions · newest 2026-11-05')).toBeInTheDocument()
   })
 })
