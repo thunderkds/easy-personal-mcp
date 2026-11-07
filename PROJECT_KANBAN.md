@@ -9,8 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-241** — untitled | Frontend-Implementer | C2 | Risk: Medium | P1
-- [ ] **HUN-240** — untitled | Backend-Implementer | C2 | Risk: Medium | P1
 - [ ] **HUN-240** — GET /api/kit/reports — report folders of each workspace's repos, relative path only (FR-089) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-240.md`
 - [ ] **HUN-241** — Kit view: report folders under each workspace row (FR-089) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-241.md`
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
