@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Cost from './Cost.jsx'
 import { Compact, useTopN } from './Widgets.jsx'
 import { abstainedText, costFigure, fmt, totalTokens } from './format.js'
@@ -33,6 +34,42 @@ function DayChart({ groups }) {
   )
 }
 
+const folderCount = (n) => (n === 1 ? '1 folder' : `${fmt(n)} folders`)
+
+/** The Scratch group (FR-069): one row that is a disclosure button; its folders come with the group, so opening asks for nothing. */
+function ScratchRow({ group: g, total, top }) {
+  const [open, setOpen] = useState(false)
+  const share = (n) => (total > 0 ? (n / total) * 100 : 0)
+  return (
+    <li className={top ? 'bar-row bar-row-top' : 'bar-row'}>
+      <button type="button" className="bar-row-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="bar-row-head">
+          <span className="mono-ellipsis">{`${g.key} (${folderCount(g.folders.length)})`}</span>
+          <span className="bar-row-value">{fmt(totalTokens(g))}</span>
+        </span>
+        <span className="bar-track" aria-hidden="true">
+          <span className="bar-fill" style={{ width: `${share(totalTokens(g))}%` }} />
+        </span>
+      </button>
+      {open && (
+        <ul className="bar-rows bar-rows-nested" aria-label={`${g.key} folders`}>
+          {g.folders.map((f, i) => (
+            <li key={i} className="bar-row">
+              <div className="bar-row-head">
+                <span className="mono-ellipsis" title={f.key}>{f.key}</span>
+                <span className="bar-row-value">{fmt(totalTokens(f))}</span>
+              </div>
+              <div className="bar-track" aria-hidden="true">
+                <div className="bar-fill" style={{ width: `${share(totalTokens(f))}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
 /** One row per project: name, tokens and a bar of its share of the period. Two projects may share a name. */
 function ProjectBars({ groups }) {
   const total = groups.reduce((sum, g) => sum + totalTokens(g), 0)
@@ -40,17 +77,21 @@ function ProjectBars({ groups }) {
   return (
     <>
       <ul className="bar-rows">
-        {shown.map((g, i) => (
-          <li key={i} className={i === 0 ? 'bar-row bar-row-top' : 'bar-row'}>
-            <div className="bar-row-head">
-              <span className="mono-ellipsis" title={g.key}>{g.key}</span>
-              <span className="bar-row-value">{fmt(totalTokens(g))}</span>
-            </div>
-            <div className="bar-track" aria-hidden="true">
-              <div className="bar-fill" style={{ width: `${total > 0 ? (totalTokens(g) / total) * 100 : 0}%` }} />
-            </div>
-          </li>
-        ))}
+        {shown.map((g, i) =>
+          g.scratch && Array.isArray(g.folders) ? (
+            <ScratchRow key={i} group={g} total={total} top={i === 0} />
+          ) : (
+            <li key={i} className={i === 0 ? 'bar-row bar-row-top' : 'bar-row'}>
+              <div className="bar-row-head">
+                <span className="mono-ellipsis" title={g.key}>{g.key}</span>
+                <span className="bar-row-value">{fmt(totalTokens(g))}</span>
+              </div>
+              <div className="bar-track" aria-hidden="true">
+                <div className="bar-fill" style={{ width: `${total > 0 ? (totalTokens(g) / total) * 100 : 0}%` }} />
+              </div>
+            </li>
+          ),
+        )}
       </ul>
       {toggle}
     </>
