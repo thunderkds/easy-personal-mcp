@@ -12,6 +12,8 @@
 - [ ] **HUN-230** — enhancement | ? | ? | Risk: ? | ? | Guide: `tasks/TASK_GUIDE_HUN-230.md`
 
 ### In Progress
+- [ ] **HUN-242** — GET /api/kit/report-files and /api/kit/report-file — list and read-only serve of report files (FR-090) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-242.md`
+- [ ] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | Depends on HUN-242 (waits)
 
 ### Ready for Review
 
