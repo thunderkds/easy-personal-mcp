@@ -44,7 +44,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/WorkspaceKit.test.jsx` (describe 'report files (HUN-243)', 17 tests: AC1-AC7 + edges incl. null mtime dash, markup/encoding, popup blocked, failed fetch, unmount), `web/src/KitView.test.jsx` (period change refetches no report files); fixtures in `web/src/test/fixtures.js`. Web: Test Files 24 passed, Tests 786 passed. |
 | Verification command run | ☑ pass | `cd web && npx vitest run` -> `Tests 786 passed (786)`; `npm --prefix web run build` -> `built in 189ms`; `uv run pytest -q` -> `1758 passed, 6 deselected, 1 xfailed, 1 warning in 227.42s` |
 | Negative cases hold | ☑ pass | popup blocked -> message and no fetch; file fetch 404 -> tab closed + 'cannot open this file'; HTTP 500 -> 'files unavailable'; null mtime -> dash; markup name -> text only; unmount mid-load -> no console error |
-| verify | ☐ N/A | Supervisor's stage; real run done by implementer (see AC8 below): headless Chrome 157 against a live dashboard on a temp EASY_PERSONAL_HOME, real mouse clicks via CDP |
+| verify | ☑ pass | **pass** — `/verify HUN-243` run by the Supervisor on 2026-11-08, independently of the implementer, on an own fixture (temp `EASY_PERSONAL_HOME`, `uv tool install` from this worktree, workspace `acme` registered with `workspace add acme --repo`, a repo holding `reports/` with 10 files and `smoke-reports/`). Real headless Chrome (`/usr/bin/google-chrome`) driven by puppeteer-core 24.9.0 against the live dashboard. All 9 Acceptance Criteria re-checked end to end: 32 of 32 assertions pass. Suites: vitest `Test Files 24 passed, Tests 786 passed (786)`; `npm --prefix web run build` -> `built in 143ms`; `uv run pytest -q` -> `1758 passed, 6 deselected, 1 xfailed in 221.39s`. AC 8 is now proven **with its mechanism**, not only by its effect: Chrome's security log says `Executing inline script violates the following Content Security Policy directive 'default-src 'self''. ... The action has been blocked.` An independent in-tab probe that injected a fresh inline script into the blob document returned `BLOCKED`, and a relative `fetch('/api/workspaces')` inside the blob document failed with `Failed to parse URL from /api/workspaces` (a blob document has no base URL), so the API is unreachable from there by a second, independent barrier. No request URL carried the token; the only match was the dashboard page's own fragment, which is never sent to the server. |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed: the 6 source and test files of `git diff main...HEAD` (`web/src/WorkspaceKit.jsx`, `web/src/api.js`, `web/src/app.css`, `web/src/WorkspaceKit.test.jsx`, `web/src/KitView.test.jsx`, `web/src/test/fixtures.js`) plus 7 evidence PNGs, and the direct context of the changed code: `web/src/useLoad.js` (read, not changed — confirmed its `current` flag drops a late resolve after unmount), `web/src/api.js` `readToken` (confirmed the token is read from the URL fragment, which is why `win.opener = null` matters), and the server side the page calls, `src/easy_personal/surfaces/api.py` `Guard.send_csp` and the `/api/kit/report-file` route (read, not changed). Skipped: the Python backend (HUN-242, already merged and separately reviewed) and the rest of `web/src`, because nothing outside the diff imports the new components and the only new export, `getBytes`, has one caller. `scripts/lane_check.py`: `lane: C2, 13 files, 417 lines, FITS` — the 7 `unpredicted` entries are the evidence screenshots the guide itself asks for under `tasks/evidence-HUN-243/`. |
 | Full smoke suite still green (no regression) | ☑ pass | same pytest and vitest runs as above, all green |
 | **Companion score (easy-verifier)** | ☑ N/A | The easy-verifier MCP server is not loaded in this session (no `score` tool available; `127.0.0.1:8766` not reachable), so no scoring session ran. Per the row's own rule the merge gate blocks on ☑ fail only, never on an N/A row. |
@@ -82,5 +82,48 @@ Opened HTML report look (PRD question 32): the inline `<style>` did NOT apply. `
 
 **DELTA**: The owner can click a report folder in the Kit view to list its files and click a file to read it in a new tab (before: the folder line was plain text).
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: the Supervisor, in session `04d37093-a136-4282-93b0-cee973d96aaf`, on 2026-11-08 at
+10:40–10:55Z, running the user-invoked `/verify HUN-243`. This is a second, independent witness: the
+AFTER above was captured by the implementing agent, and the VERIFY block below was captured by the
+Supervisor on a separately built fixture, so no claim here rests on the implementing agent alone.
+There is no `memory/event-trace/HUN-243.jsonl`: the `active_task` anchor was cleared when HUN-243's
+agent work finished at Stage 4, so the Supervisor's own `Bash` calls in this verify run were not
+attributed to the task. The evidence is therefore the pasted output and the screenshots named below,
+not a trace file.
+
+**VERIFY (Supervisor, independent run, 2026-11-08)**: fixture `reports/` held 10 files chosen to
+attack the edges: `stale.md` with `st_mtime` 1e17 (unrepresentable), `archive.bin` and `diagram.svg`
+(outside `REPORT_TYPES`), `we&ird #1 ?x <img onerror=alert(1)>.md`, a 110-character name, `sub/deep.md`
+at depth 2, `evil.html`, `score.html`, `notes.md`, `data.json`.
+
+- `GET /api/kit/reports` -> `HTTP 200`, `"files": 10`, `"newest_utc": "2026-11-08T03:45:55Z"` — the
+  out-of-range mtime is counted but never becomes the newest, and the route does not 500 (the merged
+  `DRAFT-mtime-500` fix, re-confirmed here on a live server).
+- `GET /api/kit/report-files?workspace=acme&repo_no=0&folder=reports` -> `HTTP 200`, 10 rows,
+  `stale.md` with `"mtime_utc": null`, `archive.bin` and `diagram.svg` with `"openable": false`.
+- Page: 2 folder lines, both `aria-expanded="false"`. One click -> exactly 1 `report-files` request,
+  `aria-expanded="true"`. A second click closes it; a third reopens it with **no** new request (1 -> 1).
+- Rows: `stale.md` renders `46 B · –` (a dash, not `Invalid Date`); no row shows `Invalid Date` or `NaN`;
+  `archive.bin`/`diagram.svg` are `SPAN` with `title="this file type is not opened here"`; openable files
+  are `BUTTON`; the markup name produced **0** `<img>` elements; the long name carries its full text in `title`.
+- Open: `score.html` -> `blob:http://127.0.0.1:34265/...`, `h1` = `Score report`, `window.opener === null`.
+- AC 8: `evil.html` -> title stays `evil` (not `PWNED`), the in-page marker still reads
+  `script did not run`, `window.opener === null`, and the tab made **0** `/api/*` requests. Mechanism
+  captured, see the verify Evidence row.
+- AC 5 (real browser, not only jsdom): the file was deleted between listing and click, so the fetch
+  404'd -> the blank tab was closed (`tab.isClosed() === true`) and one `role="status"` notice read
+  `cannot open this file`. With `window.open` stubbed to return null -> `allow pop-ups to open the file`
+  and **0** `report-file` fetches.
+- 375x812: `scrollWidth 375 <= clientWidth 375`, no horizontal page scroll.
+- Screenshots: `tasks/evidence-HUN-243/v-kit-closed-desktop.png`, `v-kit-open-desktop.png`,
+  `v-kit-closed-phone.png`, `v-kit-open-phone.png`, `v-tab-score.png`, `v-tab-evil.png`, `v-fail-notice.png`.
+
+**VERIFY — PRD question 32, measured cause**: the opened HTML report is **unstyled**, and the cause is
+now identified. `score.html` reaches the tab with its `<style>` element intact (`document.querySelectorAll('style').length === 1`)
+but `document.styleSheets.length === 0`, and Chrome's security log says:
+`Applying inline style violates the following Content Security Policy directive 'default-src 'self''. ... The action has been blocked.`
+So the very CSP that blocks the attacker's script also blocks the report's own styling — under this
+design the two cannot be separated. This matters more than one fixture: `templates/report_template.html`
+carries its CSS in an inline `<style>` block (line 6), and the `html-report` skill requires
+"pure inline CSS only", so **every report this project generates opens unstyled** in this tab.
+Readable, but plain. That is the trade-off PRD question 32 asks the owner to settle.
