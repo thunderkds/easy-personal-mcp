@@ -78,6 +78,11 @@ const query = (params) => new URLSearchParams(params).toString()
 function openReportFile(base, path, onFail) {
   const win = window.open('', '_blank')
   if (!win) return 'blocked'
+  // Do not drop this as redundant. The blob tab is same-origin with the dashboard, and a repo-authored
+  // report is only stopped from running script by the CSP the blob document inherits from this page.
+  // Chromium and Gecko inherit it; WebKit has shipped bugs where it does not, and a blob URL pasted into
+  // a fresh tab gets no inherited policy at all. Disowning the opener is the layer that still holds in
+  // those cases: without it, script in the tab could read the per-launch token from opener.location.hash.
   win.opener = null
   getBytes(`/api/kit/report-file?${query({ ...base, path })}`).then(
     ({ bytes, type }) => {
