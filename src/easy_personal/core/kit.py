@@ -293,13 +293,27 @@ def workspace_rollup(
     return {"workspaces": entries, "ui_checks": ui_part(conn)}
 
 
+def _file_utc(mtime: float) -> str | None:
+    """A file time as `%Y-%m-%dT%H:%M:%SZ`, or None when `datetime` cannot represent it.
+
+    A report folder is written by other tools, so a file can carry a time far outside the range
+    `datetime` holds: an archive extracted with absurd timestamps, a corrupt inode, a plain
+    `touch -d`. Formatting such a value raises `OSError`, `OverflowError` or `ValueError`, and one
+    odd file must never break a whole folder's answer (FR-089, FR-090).
+    """
+    try:
+        return datetime.fromtimestamp(mtime, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except (OSError, OverflowError, ValueError):
+        return None
+
+
 def _report_stats(folder: str) -> dict | None:
     """Count the regular files of a report folder to `REPORT_DEPTH` levels, `REPORT_FILE_CAP` files at most.
 
     Names and `stat` only: no file is opened and no symlink is followed. A sub-folder that cannot be
     listed is skipped; a top folder that cannot be listed gives None.
     """
-    files, sessions, newest, capped = 0, 0, None, False
+    files, sessions, newest, newest_utc, capped = 0, 0, None, None, False
     try:
         os.scandir(folder).close()
     except OSError:
@@ -321,7 +335,9 @@ def _report_stats(folder: str) -> dict | None:
                         mtime = entry.stat(follow_symlinks=False).st_mtime
                         files += 1
                         sessions += entry.name.startswith("session-") and entry.name.endswith(".json")
-                        newest = mtime if newest is None else max(newest, mtime)
+                        stamp = _file_utc(mtime)
+                        if stamp is not None and (newest is None or mtime > newest):
+                            newest, newest_utc = mtime, stamp  # an unreadable time is counted, never the newest
                     elif depth < REPORT_DEPTH and entry.is_dir(follow_symlinks=False):
                         pending.append((entry.path, depth + 1))
                 except OSError:
@@ -330,7 +346,7 @@ def _report_stats(folder: str) -> dict | None:
         "files": files,
         "files_capped": capped,
         "easy_ui_sessions": sessions,
-        "newest_utc": None if newest is None else datetime.fromtimestamp(newest, UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "newest_utc": newest_utc,
     }
 
 
@@ -437,7 +453,7 @@ def report_files(conn: sqlite3.Connection, workspace, repo_no, folder) -> dict:
         "files": [
             {
                 "path": path, "size": size, "openable": _extension(path) in REPORT_TYPES and size <= REPORT_READ_CAP,
-                "mtime_utc": datetime.fromtimestamp(mtime, UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "mtime_utc": _file_utc(mtime),
             }
             for mtime, path, size in found[:REPORT_LIST_CAP]
         ],

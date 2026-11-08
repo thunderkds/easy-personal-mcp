@@ -235,3 +235,65 @@ def test_ac10_nothing_is_written(conn, repo, tmp_path):
     with pytest.raises(kit.ReportNotFound):
         _read(conn, "../x")
     assert _snapshot(repo, store_file) == before
+
+
+# --- an mtime outside what `datetime` can represent must not break the listing ---
+
+UNREADABLE = 10**17  # far past year 9999: `datetime.fromtimestamp` raises on it
+
+
+def _put_unreadable(folder, name):
+    """Write `name` with an mtime `datetime` cannot represent, or skip if the filesystem clamps it."""
+    file = _put(folder, name)
+    try:
+        os.utime(file, (UNREADABLE, UNREADABLE))
+    except (OSError, OverflowError):
+        pytest.skip("the filesystem will not store an out-of-range mtime")
+    if os.lstat(file).st_mtime < UNREADABLE / 2:
+        pytest.skip("the filesystem clamped the out-of-range mtime")
+    return file
+
+
+def test_unreadable_mtime_is_listed_with_a_null_time(conn, repo):
+    _put(repo / "reports", "a.html", mtime=NEWEST)
+    _put_unreadable(repo / "reports", "bad.txt")
+
+    out = _list(conn)
+
+    by_path = {f["path"]: f for f in out["files"]}
+    assert set(by_path) == {"a.html", "bad.txt"}  # the bad file is still listed
+    assert by_path["bad.txt"]["mtime_utc"] is None
+    assert by_path["a.html"]["mtime_utc"] == "2026-01-01T12:00:00Z"
+    assert by_path["bad.txt"]["openable"] is True  # a .txt is still openable
+    assert by_path["bad.txt"]["size"] == 1
+
+
+def test_unreadable_mtime_does_not_break_the_sort_or_the_other_files(conn, repo):
+    _put(repo / "reports", "new.html", mtime=NEWEST)
+    _put(repo / "reports", "old.html", mtime=OLDER)
+    _put_unreadable(repo / "reports", "bad.txt")
+
+    out = _list(conn)  # must not raise
+
+    assert len(out["files"]) == 3 and out["truncated"] is False
+    readable = [f["path"] for f in out["files"] if f["mtime_utc"] is not None]
+    assert readable == ["new.html", "old.html"]  # the representable ones stay newest first
+
+
+def test_zero_and_negative_mtime_are_either_a_time_or_null(conn, repo):
+    _put(repo / "reports", "epoch.txt", mtime=0)
+    before = _put(repo / "reports", "before.txt")
+    os.utime(before, (-86_400, -86_400))
+
+    out = _list(conn)  # must not raise
+
+    stamps = {f["path"]: f["mtime_utc"] for f in out["files"]}
+    assert stamps["epoch.txt"] == "1970-01-01T00:00:00Z"
+    assert stamps["before.txt"] is None or stamps["before.txt"].startswith("1969-")
+
+
+def test_unreadable_mtime_does_not_break_reading_a_file(conn, repo):
+    _put(repo / "reports", "a.html", data=b"<h1>hi</h1>", mtime=NEWEST)
+    _put_unreadable(repo / "reports", "bad.txt")
+
+    assert _read(conn, "a.html") == ("text/html; charset=utf-8", b"<h1>hi</h1>")

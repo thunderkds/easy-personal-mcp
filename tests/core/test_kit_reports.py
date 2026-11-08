@@ -216,3 +216,43 @@ def test_the_result_holds_only_names_numbers_and_times(conn, tmp_path):
     workspaces.add(conn, "w", repos=[str(app)])
     text = str(kit.report_folders(conn))
     assert "CANARY" not in text and str(tmp_path) not in text
+
+
+# --- an mtime outside what `datetime` can represent must not break the folder list ---
+
+UNREADABLE = 10**17  # far past year 9999: `datetime.fromtimestamp` raises on it
+
+
+def _make_unreadable(file):
+    """Give `file` an mtime `datetime` cannot represent, or skip if the filesystem will not keep it."""
+    try:
+        os.utime(file, (UNREADABLE, UNREADABLE))
+    except (OSError, OverflowError):
+        pytest.skip("the filesystem will not store an out-of-range mtime")
+    if os.lstat(file).st_mtime < UNREADABLE / 2:
+        pytest.skip("the filesystem clamped the out-of-range mtime")
+
+
+def test_unreadable_mtime_keeps_the_folder_listed_with_the_newest_readable_time(conn, tmp_path):
+    app = _repo(tmp_path, "app")
+    _files(app / "reports", "a.html", mtime=NEWEST)
+    _files(app / "reports", "bad.txt", mtime=OLDER)
+    _make_unreadable(app / "reports" / "bad.txt")
+    workspaces.add(conn, "ws-a", repos=[str(app)])
+
+    found = _folders(kit.report_folders(conn), "ws-a")  # must not raise
+
+    assert found[("app", "reports")]["files"] == 2  # the bad file is still counted
+    assert found[("app", "reports")]["newest_utc"] == "2026-01-01T12:00:00Z"  # the newest readable one
+
+
+def test_newest_utc_is_null_when_no_file_has_a_readable_time(conn, tmp_path):
+    app = _repo(tmp_path, "app")
+    _files(app / "reports", "only.txt", mtime=OLDER)
+    _make_unreadable(app / "reports" / "only.txt")
+    workspaces.add(conn, "ws-a", repos=[str(app)])
+
+    found = _folders(kit.report_folders(conn), "ws-a")  # must not raise
+
+    assert found[("app", "reports")]["files"] == 1
+    assert found[("app", "reports")]["newest_utc"] is None

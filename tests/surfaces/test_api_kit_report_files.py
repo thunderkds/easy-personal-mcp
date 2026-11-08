@@ -109,3 +109,28 @@ def test_the_token_is_not_accepted_from_the_query_string(world, url):
 def test_they_are_read_only_routes(world, url):
     for method in ("POST", "PUT", "PATCH", "DELETE"):
         assert world.request(method, url, params={**BASE, "path": "a.html"}, headers=AUTH, content="{}").status_code == 405
+
+
+def test_an_unreadable_mtime_does_not_make_either_route_answer_500(world):
+    """A file with an mtime `datetime` cannot represent must not break the HTTP answer (FR-089, FR-090)."""
+    import os
+
+    bad = world.root / "app" / "reports" / "bad.txt"
+    bad.write_text("x")
+    try:
+        os.utime(bad, (10**17, 10**17))
+    except (OSError, OverflowError):
+        pytest.skip("the filesystem will not store an out-of-range mtime")
+    if os.lstat(bad).st_mtime < 10**16:
+        pytest.skip("the filesystem clamped the out-of-range mtime")
+
+    folders = world.get("/api/kit/reports", headers=AUTH)
+    listing = world.get(LIST, params=BASE, headers=AUTH)
+
+    assert folders.status_code == 200, folders.text
+    assert listing.status_code == 200, listing.text
+    by_path = {f["path"]: f for f in listing.json()["files"]}
+    assert by_path["bad.txt"]["mtime_utc"] is None
+    assert by_path["a.html"]["mtime_utc"] is not None
+    # the other file still reads normally
+    assert world.get(READ, params={**BASE, "path": "a.html"}, headers=AUTH).status_code == 200
