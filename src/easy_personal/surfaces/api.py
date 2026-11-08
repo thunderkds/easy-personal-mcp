@@ -56,9 +56,11 @@ LIVE_PATH = "/api/live"
 TIMELINE_DETAIL_SESSIONS = 50  # sessions with points + gaps in /api/usage/sessions: the page draws 50 (`MAX_SESSIONS` in web/src/Timeline.jsx)
 POLL_S = 0.1  # how often the stream looks at the live tail's buffer
 PING_S = 15.0  # keep-alive comment interval
-# Inline style is only safe here because nothing can be fetched: a report's CSS could otherwise send a value out through a
-# url(). So `font-src` and `connect-src` must stay absent and keep falling back to `default-src 'self'` (FR-093).
-# `img-src` adds `data:` only (FR-094): a data: URL carries its own bytes and makes no request, so it is outside that egress.
+# Inline style is only safe here because nothing can be fetched from elsewhere: a report's CSS could otherwise send a value
+# out through a url(). So `font-src` and `connect-src` must stay absent and keep falling back to `default-src 'self'` (FR-093).
+# `img-src` adds `data:` only (FR-094): a data: URL carries its own bytes and makes no request. An SVG `data:` image cannot
+# load an external resource or run script either, but that is the browser's SVG-as-image rule, not CSP — so do not carry this
+# reasoning over to `<object>` or `<iframe>`, where a `data:` document would be live.
 # Never `*`, a host, `https:` or `blob:` here: each would let CSS build a url() that leaves the machine.
 CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
 
