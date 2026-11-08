@@ -9,6 +9,7 @@
 ## Board
 
 ### Todo
+- [ ] **DRAFT-report-css** — an opened report keeps its own CSS: add `style-src 'self' 'unsafe-inline'` to the one CSP constant so the blob tab inherits it (FR-093, PRD question 32 resolved by the owner 2026-11-08) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/DRAFT_report_css.md` | needs a board ID: `LINEAR_API_KEY` unset
 - [ ] **HUN-230** — EPIC (split 2026-11-08, never picked up): three owner notes → note 1 "push online" = no task (84 commits to push to `github/main`, owner's action); note 2 "check db effectively" = FR-091 `tasks/DRAFT_store_health.md` (C2, Risk Medium, P1); note 3 "button to send command to claude" = FR-092 `tasks/DRAFT_claude_command_button.md` (C2, Risk High, P2, blocked on the execution-model choice) | none | C3 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-230.md` | Drafts need board IDs: `LINEAR_API_KEY` unset, board unreachable
 
 ### In Progress
