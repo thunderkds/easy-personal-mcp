@@ -9,16 +9,16 @@
 ## Board
 
 ### Todo
-- [ ] **DRAFT-mtime-500** — a file with an out-of-range mtime makes /api/kit/reports and /api/kit/report-files answer 500 with a traceback (FR-089, FR-090); found by /verify HUN-242; pre-existing on main, not a regression | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/DRAFT_report_mtime_500.md` | Needs a board ID: `LINEAR_API_KEY` unset
 - [ ] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | Depends on HUN-242 (waits) | WAITS: needs HUN-242 merged into its base; not started (auto mode never merges)
 - [ ] **HUN-230** — EPIC (split 2026-11-08, never picked up): three owner notes → note 1 "push online" = no task (84 commits to push to `github/main`, owner's action); note 2 "check db effectively" = FR-091 `tasks/DRAFT_store_health.md` (C2, Risk Medium, P1); note 3 "button to send command to claude" = FR-092 `tasks/DRAFT_claude_command_button.md` (C2, Risk High, P2, blocked on the execution-model choice) | none | C3 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-230.md` | Drafts need board IDs: `LINEAR_API_KEY` unset, board unreachable
 
 ### In Progress
 
 ### Ready for Review
-- [ ] **HUN-242** — GET /api/kit/report-files and /api/kit/report-file — list and read-only serve of report files (FR-090) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-242.md`
 
 ### Done
+- [x] **HUN-242** — GET /api/kit/report-files and /api/kit/report-file — list and read-only serve of report files (FR-090) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-242.md` | /verify pass, merged
+- [x] **DRAFT-mtime-500** — a file with an out-of-range mtime makes /api/kit/reports and /api/kit/report-files answer 500 with a traceback (FR-089, FR-090); found by /verify HUN-242; pre-existing on main, not a regression | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/DRAFT_report_mtime_500.md` | minimal track, fixed on branch mtime-500 off HUN-242; record in `tasks/MINIMAL_LOG.md`; still needs a board ID: `LINEAR_API_KEY` unset
 - [x] **HUN-32** — Spike: inventory Claude Code transcript shapes and real volume → synthetic fixtures | QA-Automation-Agent | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-32.md`
 - [x] **HUN-33** — Skeleton: package, pyproject, \`easy-personal\` CLI + MCP stdio entry sharing one core, test runner | Common-Infrastructure-Agent | C1 | Risk: Low | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-33.md`
 - [x] **HUN-34** — Tracer bullet: \`claude_code\` source → store (project, machine_id, UTC) → \`usage_summary\` in MCP and CLI | Backend-Implementer | C3 | Risk: High | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-34.md`
