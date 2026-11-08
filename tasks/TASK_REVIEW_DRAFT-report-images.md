@@ -61,8 +61,19 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-08T14:46Z on the unchanged code, branch `report-images` at `a34e427`; real headless Chrome through a freshly installed `uv tool install --refresh` tree; harness output saved in `tasks/evidence-DRAFT-report-images/before/`):
+
+```
+source CSP line: 61:CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+page response CSP: default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+shot.html    state: {"sheets":1,"imgs":[[true,0,0]]}   (imgComplete true, naturalWidth 0, naturalHeight 0; PNG is 120x60)
+             security log: "Loading the image 'data:image/png;base64,<bytes>"
+orderly.html state: {"sheets":1,"imgs":[[true,0,0],[true,0,0]]}   security log: 2 x "Loading the image 'data:image/png;base64,<bytes>"
+leak.html    security log: 5 entries (img, font, background-image, attribute-selector image, style attribute image), all refused
+evil.html    title "safe"; security log: "Executing inline script violates the following Content Security Policy directive 'default-src 'self''"; /api requests from tab: []
+expected PNG 120x60
+sink connections: 0 []
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

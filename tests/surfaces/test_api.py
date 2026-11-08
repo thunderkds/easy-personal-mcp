@@ -75,7 +75,7 @@ def test_csp_on_every_response(client):
         client.get("/", headers={"Host": "evil.example"}),
     ):
         assert res.headers["content-security-policy"] == (
-            "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
         )
         assert "frame-ancestors 'none'" in res.headers["content-security-policy"]
 
@@ -90,9 +90,11 @@ def test_csp_keeps_script_and_egress_on_default_src():
     assert "script-src" not in directives and directives["default-src"] == ["'self'"]
     # 'unsafe-inline' is allowed for style only; anywhere else it would let a report run script.
     assert [n for n, v in directives.items() if "'unsafe-inline'" in v] == ["style-src"]
-    # Report CSS could build a url() leak; it fails only while img/font/connect fall back to 'self'. Widening one must be a decision.
-    for egress in ("img-src", "font-src", "connect-src"):
+    # Report CSS could build a url() leak; it fails only while font/connect fall back to 'self'. Widening one must be a decision.
+    for egress in ("font-src", "connect-src"):
         assert egress not in directives
+    # FR-094: img-src names 'self' and data: only. A data: URL makes no request; '*', a host, https: or blob: would open egress.
+    assert directives["img-src"] == ["'self'", "data:"]
 
 
 def test_no_static_dir_still_serves_api(home, tmp_path):
