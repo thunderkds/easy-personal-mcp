@@ -659,4 +659,17 @@ describe('report folders in the by-workspace block (HUN-241)', () => {
     release()
     expect(await screen.findByText('app/reports · 12 files · 3 easy-ui sessions · newest 2026-11-05')).toBeInTheDocument()
   })
+
+  it('HUN-243 AC7: opening a folder fetches its files once; a period change refetches no report files', async () => {
+    const f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+    const view = render(<KitView period="7" />)
+    fireEvent.click(await screen.findByRole('button', { name: /^app\/reports/ }))
+    await screen.findByText('score.html')
+    const fileReads = () => f.calls.filter((c) => c.url.startsWith('/api/kit/report-files')).map((c) => c.url)
+    expect(fileReads()).toEqual(['/api/kit/report-files?workspace=acme&repo_no=0&folder=reports'])
+    view.rerender(<KitView period="30" />)
+    await waitFor(() => expect(f.calls.filter((c) => c.url.startsWith('/api/kit/workspaces'))).toHaveLength(2))
+    expect(fileReads()).toHaveLength(1)
+  })
 })

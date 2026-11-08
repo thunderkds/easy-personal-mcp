@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WorkspaceKit, { workspaceKitPath } from './WorkspaceKit.jsx'
-import { kitReports, workspaceKit } from './test/fixtures.js'
+import { fakeFetch, kitReports, workspaceKit } from './test/fixtures.js'
 
 const ready = (data = workspaceKit) => ({ status: 'ready', data })
 const view = (state, props = {}) => render(<WorkspaceKit state={state} {...props} />)
@@ -220,16 +220,6 @@ describe('report folders (HUN-241)', () => {
     expect(row('acme')).toHaveTextContent('no report folders')
   })
 
-  it('AC3: plain text only: no link, no button, no tab stop, no click handler needed', () => {
-    const { container } = view(ready(), { reports: { status: 'ready', data: kitReports } })
-    const list = within(row('acme')).getByRole('list', { name: 'Report folders of acme' })
-    expect(within(list).queryAllByRole('link')).toHaveLength(0)
-    expect(within(list).queryAllByRole('button')).toHaveLength(0)
-    expect(list.querySelectorAll('a, button, [tabindex], [onclick]')).toHaveLength(0)
-    expect(screen.queryAllByRole('link')).toHaveLength(0)
-    expect(container.querySelectorAll('.ws-reports a, .ws-reports button')).toHaveLength(0)
-  })
-
   it('AC4: shows nothing and no pill while the reports read is pending; the rest of the row is unchanged', () => {
     view(ready(), { reports: { status: 'loading' } })
     expect(row('acme')).toHaveTextContent('2 of 3 repos scored')
@@ -261,7 +251,8 @@ describe('report folders (HUN-241)', () => {
     const long = folder({ repo: 'a-very-long-repository-folder-name', folder: 'smoke-reports-with-an-extremely-long-folder-name' })
     view(ready(), { reports: reportsFor({ name: 'acme', folders: [long] }) })
     const item = within(row('acme')).getAllByRole('listitem')[0]
-    expect(item).toHaveAttribute('title', 'a-very-long-repository-folder-name/smoke-reports-with-an-extremely-long-folder-name · 12 files · 3 easy-ui sessions · newest 2026-11-05')
+    const toggle = within(item).getByRole('button')
+    expect(toggle).toHaveAttribute('title', 'a-very-long-repository-folder-name/smoke-reports-with-an-extremely-long-folder-name · 12 files · 3 easy-ui sessions · newest 2026-11-05')
     expect(item).toHaveClass('ws-report')
   })
 
@@ -280,5 +271,204 @@ describe('report folders (HUN-241)', () => {
     const block = css.split('\n').filter((l) => l.includes('.ws-report')).join('\n')
     expect(block).toContain('.ws-reports')
     expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/)
+  })
+})
+
+// HUN-243: a report folder line opens to its files; a file opens in a new tab (FR-090)
+describe('report files (HUN-243)', () => {
+  const ready2 = { status: 'ready', data: kitReports }
+  const folderButton = (text = /^app\/reports/) => within(row('acme')).getByRole('button', { name: text })
+  const fileUrls = (f) => f.calls.map((c) => c.url).filter((u) => u.startsWith('/api/kit/report-files'))
+  const tab = () => ({ opener: 'set', location: '', close: vi.fn() })
+  let f
+  beforeEach(() => {
+    window.location.hash = '#secret-token'
+    f = fakeFetch()
+    vi.stubGlobal('fetch', f)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+  const openFolder = async (props = {}) => {
+    view(ready(), { reports: ready2, ...props })
+    fireEvent.click(folderButton())
+    await screen.findByText('score.html')
+  }
+
+  it('AC1: the line is a button with aria-expanded; one request per first open, none for close/open again', async () => {
+    view(ready(), { reports: ready2 })
+    expect(folderButton()).toHaveAttribute('aria-expanded', 'false')
+    expect(fileUrls(f)).toEqual([])
+    fireEvent.click(folderButton())
+    expect(folderButton()).toHaveAttribute('aria-expanded', 'true')
+    await screen.findByText('score.html')
+    expect(fileUrls(f)).toEqual(['/api/kit/report-files?workspace=acme&repo_no=0&folder=reports'])
+    expect(f.calls.find((c) => c.url.startsWith('/api/kit/report-files')).init.headers).toEqual({ 'X-Dashboard-Token': 'secret-token' })
+    fireEvent.click(folderButton())
+    expect(folderButton()).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(folderButton())
+    expect(folderButton()).toHaveAttribute('aria-expanded', 'true')
+    expect(fileUrls(f)).toHaveLength(1)
+  })
+
+  it('AC1: the request names the repo by repo_no from the entry', async () => {
+    const entry = { name: 'acme', folders: [{ repo: 'app', repo_no: 2, folder: 'reports', files: 1, files_capped: false, easy_ui_sessions: 0, newest_utc: null }] }
+    view(ready(), { reports: { status: 'ready', data: { workspaces: [entry] } } })
+    fireEvent.click(folderButton(/^app\/reports/))
+    await screen.findByText('score.html')
+    expect(fileUrls(f)).toEqual(['/api/kit/report-files?workspace=acme&repo_no=2&folder=reports'])
+  })
+
+  it('AC2: one row per file with path, size and date; openable is a button, the rest is text with a title', async () => {
+    await openFolder()
+    const list = within(row('acme')).getByRole('list', { name: 'Files in app/reports' })
+    expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['score.html12 KB · 2026-11-05', 'sub/notes.md300 B · 2026-11-04', 'data.bin2 MB · –'])
+    expect(within(list).getByRole('button', { name: 'score.html' })).toBeInTheDocument()
+    expect(within(list).getByRole('button', { name: 'sub/notes.md' })).toBeInTheDocument()
+    expect(within(list).queryByRole('button', { name: 'data.bin' })).toBeNull()
+    expect(screen.getByText('data.bin')).toHaveAttribute('title', 'this file type is not opened here')
+  })
+
+  it('AC2: a null mtime_utc is a dash, never "Invalid Date"', async () => {
+    await openFolder()
+    expect(row('acme')).not.toHaveTextContent(/Invalid Date|NaN|null/)
+    expect(screen.getByText('2 MB · –')).toBeInTheDocument()
+  })
+
+  it('AC3: shows "loading files" without a Loading pill while pending', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+    view(ready(), { reports: ready2 })
+    fireEvent.click(folderButton())
+    expect(screen.getByText('loading files')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('AC3: HTTP 500 shows "files unavailable"; an empty answer "no files"; truncated "first 200 files shown"', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ kitReportFiles: 500 }))
+    view(ready(), { reports: ready2 })
+    fireEvent.click(folderButton())
+    expect(await screen.findByText('files unavailable')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+  it('AC3: no files', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ kitReportFiles: { files: [], truncated: false } }))
+    view(ready(), { reports: ready2 })
+    fireEvent.click(folderButton())
+    expect(await screen.findByText('no files')).toBeInTheDocument()
+  })
+  it('AC3: truncated', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ kitReportFiles: { files: [{ path: 'a.txt', size: 1, mtime_utc: null, openable: true }], truncated: true } }))
+    view(ready(), { reports: ready2 })
+    fireEvent.click(folderButton())
+    expect(await screen.findByText('first 200 files shown')).toBeInTheDocument()
+  })
+
+  it('AC4: a click opens a blank tab synchronously, nulls opener, fetches with the header, sets the blob URL, revokes after 60 s', async () => {
+    await openFolder()
+    const win = tab()
+    const open = vi.spyOn(window, 'open').mockReturnValue(win)
+    const create = vi.fn(() => 'blob:fake-1')
+    const revoke = vi.fn()
+    URL.createObjectURL = create
+    URL.revokeObjectURL = revoke
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    fireEvent.click(screen.getByRole('button', { name: 'score.html' }))
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    expect(win.opener).toBeNull()
+    const call = f.calls.find((c) => c.url.startsWith('/api/kit/report-file?'))
+    expect(call.url).toBe('/api/kit/report-file?workspace=acme&repo_no=0&folder=reports&path=score.html')
+    expect(call.init.headers).toEqual({ 'X-Dashboard-Token': 'secret-token' })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(create).toHaveBeenCalledTimes(1)
+    const blob = create.mock.calls[0][0]
+    expect(blob.type).toBe('text/html; charset=utf-8')
+    expect(win.location).toBe('blob:fake-1')
+    expect(revoke).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(59999)
+    expect(revoke).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(revoke).toHaveBeenCalledWith('blob:fake-1')
+    expect(JSON.stringify(f.calls.map((c) => c.url)) + win.location).not.toContain('secret-token')
+  })
+
+  it('AC5: a failed file fetch closes the blank tab and says "cannot open this file" beside the row', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ kitReportFile: 404 }))
+    view(ready(), { reports: ready2 })
+    fireEvent.click(folderButton())
+    await screen.findByText('score.html')
+    const win = tab()
+    vi.spyOn(window, 'open').mockReturnValue(win)
+    fireEvent.click(screen.getByRole('button', { name: 'score.html' }))
+    const note = await screen.findByRole('status')
+    expect(note).toHaveTextContent('cannot open this file')
+    expect(screen.getByText('score.html').closest('li')).toContainElement(note)
+    expect(win.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('AC5: a blocked pop-up shows "allow pop-ups to open the file" and makes no fetch', async () => {
+    await openFolder()
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    fireEvent.click(screen.getByRole('button', { name: 'score.html' }))
+    expect(screen.getByRole('status')).toHaveTextContent('allow pop-ups to open the file')
+    expect(f.calls.some((c) => c.url.startsWith('/api/kit/report-file?'))).toBe(false)
+  })
+
+  it('edge: two clicks on one file open two tabs', async () => {
+    await openFolder()
+    const open = vi.spyOn(window, 'open').mockImplementation(() => tab())
+    URL.createObjectURL = vi.fn(() => 'blob:x')
+    URL.revokeObjectURL = vi.fn()
+    fireEvent.click(screen.getByRole('button', { name: 'score.html' }))
+    fireEvent.click(screen.getByRole('button', { name: 'score.html' }))
+    expect(open).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(2))
+  })
+
+  it('AC6: markup and special characters render as text and reach the request encoded', async () => {
+    const odd = '<img src=x onerror="window.__pwned3=1">&#? a/b c.html'
+    const entry = { name: 'a&b #1', folders: [{ repo: 'r', repo_no: 1, folder: 'rep orts?&', files: 1, files_capped: false, easy_ui_sessions: 0, newest_utc: null }] }
+    f = fakeFetch({ kitReportFiles: { files: [{ path: odd, size: 1, mtime_utc: null, openable: true }], truncated: false } })
+    vi.stubGlobal('fetch', f)
+    const { container } = view(ready(withWorkspaces(one({ name: 'a&b #1' }))), { reports: { status: 'ready', data: { workspaces: [entry] } } })
+    fireEvent.click(screen.getByRole('button', { name: /^r\/rep orts/ }))
+    expect(await screen.findByText(odd)).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+    expect(window.__pwned3).toBeUndefined()
+    expect(fileUrls(f)).toEqual([`/api/kit/report-files?${new URLSearchParams({ workspace: 'a&b #1', repo_no: '1', folder: 'rep orts?&' })}`])
+    expect(fileUrls(f)[0]).toBe('/api/kit/report-files?workspace=a%26b+%231&repo_no=1&folder=rep+orts%3F%26')
+    vi.spyOn(window, 'open').mockReturnValue(tab())
+    URL.createObjectURL = vi.fn(() => 'blob:y')
+    fireEvent.click(screen.getByRole('button', { name: odd }))
+    const url = f.calls.find((c) => c.url.startsWith('/api/kit/report-file?')).url
+    expect(new URL(url, 'http://x').searchParams.get('path')).toBe(odd)
+    expect(url).not.toMatch(/[<> "#]/)
+    expect(screen.getByText(odd)).toHaveAttribute('title', odd)
+  })
+
+  it('AC7: the keyboard-reachable controls are native buttons; the focus ring and styles use tokens only', async () => {
+    await openFolder()
+    for (const b of [folderButton(), screen.getByRole('button', { name: 'score.html' })]) expect(b.tagName).toBe('BUTTON')
+    expect(folderButton()).toHaveAttribute('type', 'button')
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    expect(css).toMatch(/:focus-visible \{ outline: 2px solid var\(--color-accent\)/)
+    const block = css.split('\n').filter((l) => /\.ws-(report|file|files|chevron)/.test(l)).join('\n')
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/)
+  })
+
+  it('edge: closing the folder while its list loads does not update after unmount', async () => {
+    let release
+    vi.stubGlobal('fetch', vi.fn(() => new Promise((r) => (release = () => r({ ok: true, status: 200, json: async () => ({ files: [], truncated: false }) })))))
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { unmount } = view(ready(), { reports: ready2 })
+    fireEvent.click(folderButton())
+    unmount()
+    release()
+    await Promise.resolve()
+    expect(errors).not.toHaveBeenCalled()
   })
 })

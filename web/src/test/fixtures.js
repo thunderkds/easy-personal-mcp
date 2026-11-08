@@ -453,12 +453,22 @@ export const kitReports = {
     {
       name: 'acme',
       folders: [
-        { repo: 'app', folder: 'reports', files: 12, files_capped: false, easy_ui_sessions: 3, newest_utc: '2026-11-05T12:00:00.000000Z' },
-        { repo: 'app', folder: 'smoke-reports', files: 1, files_capped: false, easy_ui_sessions: 0, newest_utc: '2026-11-04T12:00:00.000000Z' },
+        { repo: 'app', repo_no: 0, folder: 'reports', files: 12, files_capped: false, easy_ui_sessions: 3, newest_utc: '2026-11-05T12:00:00.000000Z' },
+        { repo: 'app', repo_no: 0, folder: 'smoke-reports', files: 1, files_capped: false, easy_ui_sessions: 0, newest_utc: '2026-11-04T12:00:00.000000Z' },
       ],
     },
     { name: 'beta', folders: [] },
   ],
+}
+
+// HUN-243: GET /api/kit/report-files (shape of tasks/TASK_GUIDE_HUN-242.md). mtime_utc is null for a time the server cannot represent.
+export const kitReportFiles = {
+  files: [
+    { path: 'score.html', size: 12288, mtime_utc: '2026-11-05T12:00:00.000000Z', openable: true },
+    { path: 'sub/notes.md', size: 300, mtime_utc: '2026-11-04T12:00:00.000000Z', openable: true },
+    { path: 'data.bin', size: 2097152, mtime_utc: null, openable: false },
+  ],
+  truncated: false,
 }
 
 export function fakeFetch(overrides = {}) {
@@ -483,7 +493,15 @@ export function fakeFetch(overrides = {}) {
     } else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
     else if (path === '/api/kit/workspaces') body = overrides.workspaceKit ?? workspaceKit
-    else if (path === '/api/kit/reports') body = overrides.kitReports ?? kitReports
+    else if (path === '/api/kit/report-files') {
+      const given = overrides.kitReportFiles
+      if (typeof given === 'number') return { ok: false, status: given, json: async () => ({}) }
+      body = given ?? kitReportFiles
+    } else if (path === '/api/kit/report-file') {
+      const given = overrides.kitReportFile
+      if (typeof given === 'number') return { ok: false, status: given, json: async () => ({}) }
+      return { ok: true, status: 200, headers: { get: (h) => (h.toLowerCase() === 'content-type' ? 'text/html; charset=utf-8' : null) }, arrayBuffer: async () => new TextEncoder().encode('<h1>report</h1>').buffer }
+    } else if (path === '/api/kit/reports') body = overrides.kitReports ?? kitReports
     else if (path === '/api/first-run') body = overrides.firstRun ?? firstRun
     else if (path === '/api/accounts' && !init.method)
       body = (u.searchParams.get('by') === 'provider' ? overrides.accountsByProvider : overrides.accounts) ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
