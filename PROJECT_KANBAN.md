@@ -14,7 +14,7 @@
 ### In Progress
 
 ### Ready for Review
-- [ ] **DRAFT-report-css** — an opened report keeps its own CSS: add `style-src 'self' 'unsafe-inline'` to the one CSP constant so the blob tab inherits it (FR-093, PRD question 32 resolved by the owner 2026-11-08) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/DRAFT_report_css.md` | Stage 4 done: code-review 0 P0 / 0 P1 / 1 P2 (closed), security-review no findings at or above the bar; `/verify` is the remaining gate | needs a board ID: `LINEAR_API_KEY` unset
+- [ ] **DRAFT-report-css** — an opened report keeps its own CSS: add `style-src 'self' 'unsafe-inline'` to the one CSP constant so the blob tab inherits it (FR-093, PRD question 32 resolved by the owner 2026-11-08) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/DRAFT_report_css.md` | Stage 4 done: code-review 0 P0 / 0 P1 / 1 P2 (closed), security-review no findings at or above the bar; `/verify` **pass** 2026-11-08 (21/21 assertions, all 6 AC, real Chrome) — the merge is the owner's | needs a board ID: `LINEAR_API_KEY` unset
 
 ### Done
 - [x] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | /verify pass (independent fixture, real headless Chrome, 32/32 assertions, all 9 AC), merged 2026-11-08 as `900ee1a`; bundle rebuilt on main. PRD question 32 open for the owner: the inherited CSP blocks a report's own inline `<style>`, so reports open readable but unstyled
