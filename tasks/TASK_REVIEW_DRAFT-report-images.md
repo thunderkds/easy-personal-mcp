@@ -41,9 +41,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/surfaces/test_api.py::test_csp_on_every_response` (exact string, page, /api, 403 token, 403 Host) and `::test_csp_keeps_script_and_egress_on_default_src` (img-src pinned to `["'self'", "data:"]`); guard probe: `img-src *`, `img-src + https://evil.example`, widened connect-src, widened font-src, `script-src 'unsafe-inline'` each FAIL it; unamended baseline passes. `tests/surfaces`: 340 passed |
+| Verification command run | ☑ pass | `uv run pytest -q`: 1759 passed, 6 deselected, 1 xfailed; `npx vitest run` (in web/): 24 files, 786 tests passed |
+| Negative cases hold | ☑ pass | remote image/font/bg/attr-selector: 0 sink connections, inline script blocked (see AFTER) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -75,9 +75,18 @@ expected PNG 120x60
 sink connections: 0 []
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-08T14:48Z, same harness, commit `f4ba405`, fresh `--refresh` install; `tasks/evidence-DRAFT-report-images/after/`):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+page response CSP: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+shot.html    {"sheets":1,"imgs":[[true,120,60]]}   security log: []      (PNG is 120x60)
+orderly.html {"sheets":1,"imgs":[[true,1280,720],[true,1280,720]]}   security log: []
+leak.html    5 security entries, all refused (img, font, background-image, attribute selector, style attribute); sink connections: 0 []
+evil.html    title "safe"; "Executing inline script violates ... 'default-src 'self''"; /api requests from tab: []
+usage.png and kit.png byte-identical before vs after (cmp)
+```
+
+**DELTA**: An opened report now shows the screenshots embedded in it, while a remote image, font or script is still refused.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
