@@ -74,8 +74,8 @@ def test_csp_on_every_response(client):
         client.get("/api/usage/summary", headers=AUTH),
         client.get("/", headers={"Host": "evil.example"}),
     ):
-        assert (
-            res.headers["content-security-policy"] == "default-src 'self'; frame-ancestors 'none'"
+        assert res.headers["content-security-policy"] == (
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
         )
         assert "frame-ancestors 'none'" in res.headers["content-security-policy"]
 

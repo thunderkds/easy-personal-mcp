@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/surfaces/test_api.py::test_csp_on_every_response` now asserts the exact new string on page, 404, 403 (token), 200 and bad-Host responses; failed before the change (`1 failed, 17 deselected`), passes after. `test_api_live.py` and `test_api_kit_report_files.py` compare to `api.CSP`, so they follow the constant unchanged. |
+| Verification command run | ☑ pass | `uv run pytest tests/surfaces -q` -> `339 passed, 1 warning in 8.14s`; `uv run pytest -q` -> `1758 passed, 6 deselected, 1 xfailed, 1 warning in 156.37s`; vitest -> `Test Files 24 passed (24)`, `Tests 786 passed (786)` |
+| Negative cases hold | ☑ pass | AC 3 real Chrome: evil.html title stays `safe` (not `PWNED`), 0 `/api/workspaces` requests from the tab, security log: `Executing inline script violates ... directive 'default-src 'self''. ... 'script-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked.` AC 4: score.html `styleSheets.length 1`, body `rgb(1, 2, 3)`, no `Applying inline style ... blocked` entry after the change (it was present before). |
+| verify | ☑ N/A | Independent `/verify` not run by the implementer; the real-browser run above is the implementer's own check (pass for AC 3 and AC 4). |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | One line in `api.py`; every response's CSP header changes; the three test files that assert CSP checked. `Guard`, `web/`, `kit.py` untouched. |
+| Full smoke suite still green (no regression) | ☑ pass | see Verification row |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier is not loaded in this session, so no score was run. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Header change, no component change. 1280x720, before = file reverted to `main`'s `api.py` (printed CSP `default-src 'self'; frame-ancestors 'none'`), after = this change (printed CSP with `style-src`). Usage view: `before/usage.png` and `after/usage.png` are byte-identical (`cmp`). Kit view: `before/kit.png` and `after/kit.png` look identical (bytes differ only by the random temp repo name). Styled-report screenshot: `after/score.html.png`. All under `tasks/evidence-DRAFT-report-css/`. |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | No dashboard component changes. |
+| **UI: Responsiveness at target viewports** | ☑ N/A | No dashboard component changes. |
 
 ---
 
@@ -61,12 +61,64 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-08T04:40:03Z, real headless Chrome via CDP, unchanged `CSP = "default-src 'self'; frame-ancestors 'none'"` at `src/easy_personal/surfaces/api.py:57`; harness run on the Kit view -> report folder -> file click; screenshots `tasks/evidence-DRAFT-report-css/before/`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+{
+ "out": {
+  "evil.html": {
+   "url": "blob:http://127.0.0.",
+   "title": "safe",
+   "styles": 0,
+   "sheets": 0,
+   "bg": "rgba(0, 0, 0, 0)"
+  },
+  "score.html": {
+   "url": "blob:http://127.0.0.",
+   "title": "",
+   "styles": 1,
+   "sheets": 0,
+   "bg": "rgba(0, 0, 0, 0)"
+  }
+ },
+ "security": [
+  "Executing inline script violates the following Content Security Policy directive 'default-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-fMGsF4nWWkfnz2nZkEKQYe4XgbPtz/EdkODcXCVTxP4='), or a nonce ('nonce-...') is required to enable inline execution. Note also that 'script-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked.",
+  "Applying inline style violates the following Content Security Policy directive 'default-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-5l8arhEAuNopJs/rtr0uNH1iWDOH6Ik4hqu91zQJAzQ='), or a nonce ('nonce-...') is required to enable inline execution. Note also that 'style-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked."
+ ],
+ "apiRequestsFromTabs": []
+}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+score.html opens with `styles: 1, sheets: 0` and a transparent body: its `<style>` is blocked.
+
+**AFTER** (2026-11-08T04:43:23Z, same harness, `CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"`; screenshots `tasks/evidence-DRAFT-report-css/after/`):
+
+```
+{
+ "out": {
+  "evil.html": {
+   "url": "blob:http://127.0.0.",
+   "title": "safe",
+   "styles": 0,
+   "sheets": 0,
+   "bg": "rgba(0, 0, 0, 0)"
+  },
+  "score.html": {
+   "url": "blob:http://127.0.0.",
+   "title": "",
+   "styles": 1,
+   "sheets": 1,
+   "bg": "rgb(1, 2, 3)"
+  }
+ },
+ "security": [
+  "Executing inline script violates the following Content Security Policy directive 'default-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-fMGsF4nWWkfnz2nZkEKQYe4XgbPtz/EdkODcXCVTxP4='), or a nonce ('nonce-...') is required to enable inline execution. Note also that 'script-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked."
+ ],
+ "apiRequestsFromTabs": []
+}
+```
+
+**DELTA**: An opened report now applies its own inline `<style>` (`sheets: 1`, body `rgb(1, 2, 3)`), while an inline `<script>` is still blocked.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

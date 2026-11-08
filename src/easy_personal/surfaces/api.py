@@ -2,7 +2,8 @@
 
 Every request must carry a `Host` equal to the dashboard's own address (blocks DNS rebinding);
 a present `Origin` must match it too. `/api/*` also needs the per-launch token in the
-`X-Dashboard-Token` header. Every response carries a CSP of `default-src 'self'`.
+`X-Dashboard-Token` header. Every response carries a CSP of `default-src 'self'` plus `style-src 'self' 'unsafe-inline'`:
+an opened report (FR-090) applies its own inline CSS, but its inline `<script>` stays blocked (`script-src` falls back to `default-src`).
 
 One route differs: the browser `EventSource` cannot send headers, so `GET /api/live` also accepts the
 token as a `token` query parameter (same constant-time check). uvicorn runs with no access log, so the
@@ -54,7 +55,7 @@ LIVE_PATH = "/api/live"
 TIMELINE_DETAIL_SESSIONS = 50  # sessions with points + gaps in /api/usage/sessions: the page draws 50 (`MAX_SESSIONS` in web/src/Timeline.jsx)
 POLL_S = 0.1  # how often the stream looks at the live tail's buffer
 PING_S = 15.0  # keep-alive comment interval
-CSP = "default-src 'self'; frame-ancestors 'none'"
+CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
 
 
 def static_dir() -> Path:
