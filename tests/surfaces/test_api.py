@@ -74,10 +74,25 @@ def test_csp_on_every_response(client):
         client.get("/api/usage/summary", headers=AUTH),
         client.get("/", headers={"Host": "evil.example"}),
     ):
-        assert (
-            res.headers["content-security-policy"] == "default-src 'self'; frame-ancestors 'none'"
+        assert res.headers["content-security-policy"] == (
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
         )
         assert "frame-ancestors 'none'" in res.headers["content-security-policy"]
+
+
+def test_csp_keeps_script_and_egress_on_default_src():
+    """FR-093: inline style is allowed for opened reports, and only because script and every egress fall back to 'self'."""
+    directives = {}
+    for part in api.CSP.split(";"):
+        name, *values = part.split()
+        directives[name] = values
+    # An opened report's inline <script> must stay blocked: script-src unset means it falls back to default-src 'self'.
+    assert "script-src" not in directives and directives["default-src"] == ["'self'"]
+    # 'unsafe-inline' is allowed for style only; anywhere else it would let a report run script.
+    assert [n for n, v in directives.items() if "'unsafe-inline'" in v] == ["style-src"]
+    # Report CSS could build a url() leak; it fails only while img/font/connect fall back to 'self'. Widening one must be a decision.
+    for egress in ("img-src", "font-src", "connect-src"):
+        assert egress not in directives
 
 
 def test_no_static_dir_still_serves_api(home, tmp_path):
