@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/surfaces/test_api.py::test_csp_on_every_response` (exact string, page, /api, 403 token, 403 Host) and `::test_csp_keeps_script_and_egress_on_default_src` (img-src pinned to `["'self'", "data:"]`); guard probe: `img-src *`, `img-src + https://evil.example`, widened connect-src, widened font-src, `script-src 'unsafe-inline'` each FAIL it; unamended baseline passes. `tests/surfaces`: 340 passed |
+| Verification command run | ☑ pass | `uv run pytest -q`: 1759 passed, 6 deselected, 1 xfailed; `npx vitest run` (in web/): 24 files, 786 tests passed |
+| Negative cases hold | ☑ pass | remote image/font/bg/attr-selector: 0 sink connections, inline script blocked (see AFTER) |
+| verify | ☑ pass | User-invoked `/verify`, run by the Supervisor on its own fixtures, independently of the implementing agent — **pass**, 24 of 24 assertions, all 9 Acceptance Criteria. Temp-dir install (`uv tool install --refresh`, installed `CSP` read back from the installed package), version 0.4.0, `ping` ok, MCP stdio handshake (ids 1/2/3, 12 tools), NFR-001 host refusals on `easy-personal mcp` for `0.0.0.0`, `localhost`, `::1`, `10.0.0.5` — all `refusing host ...: HTTP must bind 127.0.0.1 only`. Exact CSP string confirmed live on six response shapes including both 403 paths; the bad-`Host` and bad-`Origin` 403s were re-checked with `curl`, because Node `fetch` silently drops a custom `Host` header and that case had passed for the wrong reason. Real headless Chrome: `shot.html` `data:` PNG renders 97x53 (`<img>` and CSS `background-image`) with an empty security log and FR-093 CSS still applied (`sheets 1`, `bg rgb(10, 10, 18)`); `leak.html` 5 refusals and a real listening TCP sink with **0** connections; `evil.html` title stayed `safe`, no `/api` request, script still named in the log, and its own `data:` image still rendered; two orderly reports the implementing agent never used (`session-9a1eda48`, 2 images; `session-56aef801`, 1) every image 1280x720, `sheets 1`, security log empty. Evidence: `tasks/evidence-DRAFT-report-images/verify/` |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Scope = `git diff main...HEAD -- src tests`: 2 files, 18 lines. `CSP` has exactly one consumer, `Guard.send_csp` at `src/easy_personal/surfaces/api.py:105`, which was read and is unchanged. The 12 unpredicted files in `lane_check` are the before/after screenshots this guide's Evaluation section asks for. `lane: C1, 14 files, 18 lines, EXCEEDS (files 14 > 6)` — warn-only. `uv run ruff check` on both touched files: All checks passed |
+| Full smoke suite still green (no regression) | ☑ pass | `uv run pytest -q`: 1759 passed, 6 deselected, 1 xfailed. `cd web && npx vitest run`: 24 files, 786 tests passed. (`npx --prefix web vitest run` is the invocation that reports false failures — `--prefix` is an npm flag npx ignores) |
+| **Companion score (easy-verifier)** | ☑ N/A | The easy-verifier MCP server is not connected in this session, so no scoring session could run. Not a gate: the merge gate blocks on ☑ fail only. <!-- [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] -->  |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | This task changes a response header, not a component; no file under `web/` is touched. Pinned anyway: `tasks/evidence-DRAFT-report-images/{before,after}/usage.png` and `kit.png` are byte-identical (`cmp`) at 1280x720 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | No component, token or stylesheet changed. An opened report carries its author's own CSS, which is the point of FR-093/FR-094 and is deliberately not the dashboard's design system |
+| **UI: Responsiveness at target viewports** | ☑ N/A | No layout changed. The real run drove 1280x720 and the two dashboard views are byte-identical before and after |
 
 ---
 
@@ -61,12 +61,35 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-08T14:46Z on the unchanged code, branch `report-images` at `a34e427`; real headless Chrome through a freshly installed `uv tool install --refresh` tree; harness output saved in `tasks/evidence-DRAFT-report-images/before/`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+source CSP line: 61:CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+page response CSP: default-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+shot.html    state: {"sheets":1,"imgs":[[true,0,0]]}   (imgComplete true, naturalWidth 0, naturalHeight 0; PNG is 120x60)
+             security log: "Loading the image 'data:image/png;base64,<bytes>"
+orderly.html state: {"sheets":1,"imgs":[[true,0,0],[true,0,0]]}   security log: 2 x "Loading the image 'data:image/png;base64,<bytes>"
+leak.html    security log: 5 entries (img, font, background-image, attribute-selector image, style attribute image), all refused
+evil.html    title "safe"; security log: "Executing inline script violates the following Content Security Policy directive 'default-src 'self''"; /api requests from tab: []
+expected PNG 120x60
+sink connections: 0 []
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER** (2026-11-08T14:48Z, same harness, commit `f4ba405`, fresh `--refresh` install; `tasks/evidence-DRAFT-report-images/after/`):
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+```
+page response CSP: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+shot.html    {"sheets":1,"imgs":[[true,120,60]]}   security log: []      (PNG is 120x60)
+orderly.html {"sheets":1,"imgs":[[true,1280,720],[true,1280,720]]}   security log: []
+leak.html    5 security entries, all refused (img, font, background-image, attribute selector, style attribute); sink connections: 0 []
+evil.html    title "safe"; "Executing inline script violates ... 'default-src 'self''"; /api requests from tab: []
+usage.png and kit.png byte-identical before vs after (cmp)
+```
+
+**DELTA**: An opened report now shows the screenshots embedded in it, while a remote image, font or script is still refused.
+
+**WITNESS**: Supervisor, 2026-11-08, on an independent fixture set — not the implementing agent's.
+The BEFORE/AFTER pair above is the implementing agent's run; the `verify` row's 24 assertions are a
+separate run with different fixtures (a 97x53 PNG instead of 120x60, two different `orderly`
+reports, and a fresh `--refresh` install whose `CSP` line was read back out of the installed
+package rather than the repo).
