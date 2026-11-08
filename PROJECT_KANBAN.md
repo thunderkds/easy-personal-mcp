@@ -9,6 +9,7 @@
 ## Board
 
 ### Todo
+- [ ] **DRAFT-mtime-500** — a file with an out-of-range mtime makes /api/kit/reports and /api/kit/report-files answer 500 with a traceback (FR-089, FR-090); found by /verify HUN-242; pre-existing on main, not a regression | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/DRAFT_report_mtime_500.md` | Needs a board ID: `LINEAR_API_KEY` unset
 - [ ] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | Depends on HUN-242 (waits) | WAITS: needs HUN-242 merged into its base; not started (auto mode never merges)
 - [ ] **HUN-230** — EPIC (split 2026-11-08, never picked up): three owner notes → note 1 "push online" = no task (84 commits to push to `github/main`, owner's action); note 2 "check db effectively" = FR-091 `tasks/DRAFT_store_health.md` (C2, Risk Medium, P1); note 3 "button to send command to claude" = FR-092 `tasks/DRAFT_claude_command_button.md` (C2, Risk High, P2, blocked on the execution-model choice) | none | C3 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-230.md` | Drafts need board IDs: `LINEAR_API_KEY` unset, board unreachable
 
