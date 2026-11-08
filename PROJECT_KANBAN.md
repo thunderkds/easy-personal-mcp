@@ -14,9 +14,9 @@
 ### In Progress
 
 ### Ready for Review
-- [ ] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | Depends on HUN-242 (waits)
 
 ### Done
+- [x] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | /verify pass (independent fixture, real headless Chrome, 32/32 assertions, all 9 AC), merged 2026-11-08 as `900ee1a`; bundle rebuilt on main. PRD question 32 open for the owner: the inherited CSP blocks a report's own inline `<style>`, so reports open readable but unstyled
 - [x] **HUN-242** — GET /api/kit/report-files and /api/kit/report-file — list and read-only serve of report files (FR-090) | Backend-Implementer | C2 | Risk: High | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-242.md` | /verify pass, merged
 - [x] **DRAFT-mtime-500** — a file with an out-of-range mtime makes /api/kit/reports and /api/kit/report-files answer 500 with a traceback (FR-089, FR-090); found by /verify HUN-242; pre-existing on main, not a regression | Backend-Implementer | C1 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/DRAFT_report_mtime_500.md` | minimal track, fixed on branch mtime-500 off HUN-242; record in `tasks/MINIMAL_LOG.md`; still needs a board ID: `LINEAR_API_KEY` unset
 - [x] **HUN-32** — Spike: inventory Claude Code transcript shapes and real volume → synthetic fixtures | QA-Automation-Agent | C1 | Risk: Medium | P0 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-32.md`
