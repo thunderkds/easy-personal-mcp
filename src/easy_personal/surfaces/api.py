@@ -26,7 +26,7 @@ from urllib.parse import parse_qs
 import uvicorn
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import JSONResponse, StreamingResponse
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -117,6 +117,40 @@ def _query(handler: Callable):
             return JSONResponse({"error": str(exc)}, status_code=400)
 
     return endpoint
+
+
+def _report_args(q) -> tuple:
+    """`(workspace, repo_no, folder)` from the query; a `repo_no` that is not plain digits becomes None (a miss)."""
+    number = q.get("repo_no", "")
+    return q.get("workspace"), int(number) if number.isascii() and number.isdigit() and len(number) < 9 else None, q.get("folder")
+
+
+def _report_call(work: Callable):
+    """Run `work(conn, query)` for a report-folder route; the misses have fixed bodies that never echo the input (FR-090)."""
+
+    def endpoint(request):
+        try:
+            with store.opened(config.store_path()) as conn:
+                return work(conn, request.query_params)
+        except kit.ReportNotFound:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        except kit.ReportTooLarge:
+            return JSONResponse({"error": "too large"}, status_code=413)
+
+    return endpoint
+
+
+def _report_file_response(conn, q) -> Response:
+    content_type, data = kit.report_file(conn, *_report_args(q), q.get("path"))
+    return Response(
+        data,
+        headers={
+            "content-type": content_type,
+            "x-content-type-options": "nosniff",
+            "cache-control": "no-store",
+            "content-disposition": "inline",
+        },
+    )
 
 
 def _sse(event: str, data: dict, event_id: int | None = None) -> bytes:
@@ -657,6 +691,8 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/kit", _query(lambda c, q: kit.kit_summary(c, **_who(q), hide_gone=True))),
         Route("/api/kit/workspaces", _query(lambda c, q: kit.workspace_rollup(c, *_period(q), account=_who(q)["account"]))),
         Route("/api/kit/reports", _query(lambda c, q: kit.report_folders(c))),
+        Route("/api/kit/report-files", _report_call(lambda c, q: JSONResponse(kit.report_files(c, *_report_args(q))))),
+        Route("/api/kit/report-file", _report_call(_report_file_response)),
         Route("/api/board", _query(lambda c, q: board.board(c, **_who(q)))),
         Route("/api/accounts", _query(lambda c, q: accounts.grouped(c, q.get("by", "account")))),
         Route("/api/accounts", _account_write(lambda c, _id, b: accounts.add(c, b.get("path")), 201), methods=["POST"]),

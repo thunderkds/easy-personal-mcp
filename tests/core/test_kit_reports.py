@@ -54,7 +54,7 @@ def test_ac1_one_entry_per_report_folder_with_counts_and_newest_time(conn, tmp_p
     found = _folders(out, "ws-a")
     assert set(found) == {("app", "reports"), ("app", "smoke-reports")}  # lib adds nothing
     assert found[("app", "reports")] == {
-        "repo": "app", "folder": "reports", "files": 3, "files_capped": False,
+        "repo": "app", "repo_no": 0, "folder": "reports", "files": 3, "files_capped": False,
         "easy_ui_sessions": 2, "newest_utc": "2026-01-01T12:00:00Z",
     }  # fmt: skip
     assert found[("app", "smoke-reports")]["files"] == 1 and found[("app", "smoke-reports")]["easy_ui_sessions"] == 0
@@ -118,7 +118,7 @@ def test_ac5_cap_empty_folder_and_depth(conn, tmp_path):
     assert (found[("app", "big-reports")]["files"], found[("app", "big-reports")]["files_capped"]) == (2000, True)
     assert (found[("app", "exact-reports")]["files"], found[("app", "exact-reports")]["files_capped"]) == (2000, False)
     assert found[("app", "report")] == {
-        "repo": "app", "folder": "report", "files": 0, "files_capped": False, "easy_ui_sessions": 0, "newest_utc": None,
+        "repo": "app", "repo_no": 0, "folder": "report", "files": 0, "files_capped": False, "easy_ui_sessions": 0, "newest_utc": None,
     }  # fmt: skip
     assert found[("app", "reports")]["files"] == 3  # one + two + three; four sits at depth 4
 
@@ -216,3 +216,43 @@ def test_the_result_holds_only_names_numbers_and_times(conn, tmp_path):
     workspaces.add(conn, "w", repos=[str(app)])
     text = str(kit.report_folders(conn))
     assert "CANARY" not in text and str(tmp_path) not in text
+
+
+# --- an mtime outside what `datetime` can represent must not break the folder list ---
+
+UNREADABLE = 10**17  # far past year 9999: `datetime.fromtimestamp` raises on it
+
+
+def _make_unreadable(file):
+    """Give `file` an mtime `datetime` cannot represent, or skip if the filesystem will not keep it."""
+    try:
+        os.utime(file, (UNREADABLE, UNREADABLE))
+    except (OSError, OverflowError):
+        pytest.skip("the filesystem will not store an out-of-range mtime")
+    if os.lstat(file).st_mtime < UNREADABLE / 2:
+        pytest.skip("the filesystem clamped the out-of-range mtime")
+
+
+def test_unreadable_mtime_keeps_the_folder_listed_with_the_newest_readable_time(conn, tmp_path):
+    app = _repo(tmp_path, "app")
+    _files(app / "reports", "a.html", mtime=NEWEST)
+    _files(app / "reports", "bad.txt", mtime=OLDER)
+    _make_unreadable(app / "reports" / "bad.txt")
+    workspaces.add(conn, "ws-a", repos=[str(app)])
+
+    found = _folders(kit.report_folders(conn), "ws-a")  # must not raise
+
+    assert found[("app", "reports")]["files"] == 2  # the bad file is still counted
+    assert found[("app", "reports")]["newest_utc"] == "2026-01-01T12:00:00Z"  # the newest readable one
+
+
+def test_newest_utc_is_null_when_no_file_has_a_readable_time(conn, tmp_path):
+    app = _repo(tmp_path, "app")
+    _files(app / "reports", "only.txt", mtime=OLDER)
+    _make_unreadable(app / "reports" / "only.txt")
+    workspaces.add(conn, "ws-a", repos=[str(app)])
+
+    found = _folders(kit.report_folders(conn), "ws-a")  # must not raise
+
+    assert found[("app", "reports")]["files"] == 1
+    assert found[("app", "reports")]["newest_utc"] is None
