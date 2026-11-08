@@ -11,6 +11,13 @@ export async function getJson(path) {
   return response.json()
 }
 
+/** Guarded GET of a file's bytes (FR-090): the token goes in the header only. Returns {bytes, type}; a non-2xx answer throws. */
+export async function getBytes(path) {
+  const response = await fetch(path, { headers: { 'X-Dashboard-Token': readToken() } })
+  if (!response.ok) throw new Error(`${path} failed with status ${response.status}`)
+  return { bytes: await response.arrayBuffer(), type: response.headers.get('Content-Type') || '' }
+}
+
 /** Guarded JSON write (POST/DELETE). A non-2xx answer throws with the server's `error` text. */
 export async function sendJson(method, path, body) {
   const response = await fetch(path, {

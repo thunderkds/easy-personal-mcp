@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/WorkspaceKit.test.jsx` (describe 'report files (HUN-243)', 17 tests: AC1-AC7 + edges incl. null mtime dash, markup/encoding, popup blocked, failed fetch, unmount), `web/src/KitView.test.jsx` (period change refetches no report files); fixtures in `web/src/test/fixtures.js`. Web: Test Files 24 passed, Tests 786 passed. |
+| Verification command run | ☑ pass | `cd web && npx vitest run` -> `Tests 786 passed (786)`; `npm --prefix web run build` -> `built in 189ms`; `uv run pytest -q` -> `1758 passed, 6 deselected, 1 xfailed, 1 warning in 227.42s` |
+| Negative cases hold | ☑ pass | popup blocked -> message and no fetch; file fetch 404 -> tab closed + 'cannot open this file'; HTTP 500 -> 'files unavailable'; null mtime -> dash; markup name -> text only; unmount mid-load -> no console error |
+| verify | ☐ N/A | Supervisor's stage; real run done by implementer (see AC8 below): headless Chrome 157 against a live dashboard on a temp EASY_PERSONAL_HOME, real mouse clicks via CDP |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | same pytest and vitest runs as above, all green |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | `tasks/evidence-HUN-243/kit-closed-desktop.png`, `kit-open-desktop.png`, `kit-closed-phone.png`, `kit-open-phone.png`, plus opened tabs `tab-score_html.png`, `tab-evil_html.png`, `tab-sub_notes_md.png`. Verdict: folder line is a muted mono text row with a small chevron; open list is indented under it, files in link colour, size/date muted; rows and project list unchanged. No BEFORE screenshot (BEFORE is the terminal capture in Demonstration; plain text rows). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | vitest 'styles use tokens only' (no #hex/rgb in `.ws-report/.ws-file/.ws-files/.ws-chevron` lines); colours are `var(--color-*)`, spacing `var(--space-*)`; `:focus-visible` ring from tokens (`outline: 2px solid var(--color-accent)`) applies to the native buttons; `aria-expanded`, native buttons, `role="status"` asserted in vitest |
+| **UI: Responsiveness at target viewports** | ☑ pass | real Chrome: 1280x720 `scrollWidth 1265 <= innerWidth 1280` (vertical scrollbar), 375x812 `scrollWidth 375 == innerWidth 375`; long folder text ellipsised with full text in `title` |
 
 ---
 
@@ -61,12 +61,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-08T00:17:46Z on base a979835 (no implementation commit yet):
+```
+2026-11-08T00:17:46Z
+a979835
+57:/** Report folders (FR-089) of one workspace, as plain reference text: nothing to click. Shows nothing while the read is pending. */
+ RUN  v5.0.5 /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/HUN-243/web
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+ Test Files  1 passed (1)
+      Tests  1 passed | 35 skipped (36)
+   Start at  07:17:47
+   Duration  1.58s (environment 57%, tests 17%, transform 14%, setup 8%, import 4%)
+```
+The existing test `AC3: plain text only: no link, no button, no tab stop` passes: report folder lines are plain `<li>` text, no button.
+
+**AFTER**: real run 2026-11-08, headless Chrome 157, live dashboard on a temp EASY_PERSONAL_HOME, real mouse clicks. Folder button `app/reports` opens to 5 file rows (`blob.bin 100 B · 2026-11-08`, `evil.html 480 B ...`, `sub/notes.md`, `score.html`, ...). Click on `score.html` opens a `blob:http://127.0.0.1:<port>/...` tab titled `Score report`, `window.opener` = null.
+AC8 (security, real run): click on `evil.html` (script sets `document.title="PWNED"`, fetches `/api/workspaces`, writes `window.opener`/`localStorage` into body attributes). New tab: title `evil` (not `PWNED`), body attributes `{}` (the script did not run), `performance` resource entries `[]` (no `/api/*` request), `String(window.opener)` = `null`. The blob tab inherits the dashboard CSP: inline script blocked.
+Opened HTML report look (PRD question 32): the inline `<style>` did NOT apply. `score.html` (red h1, yellow background, blue pill in its CSS) shows as unstyled browser-default text: h1 `rgb(0, 0, 0)`, body background transparent; see `tab-score_html.png`. Content is readable but plain. The `.md` opens as plain text.
+
+**DELTA**: The owner can click a report folder in the Kit view to list its files and click a file to read it in a new tab (before: the folder line was plain text).
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

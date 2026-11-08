@@ -407,10 +407,23 @@ ul.ws-rows { display: flex; flex-direction: column; border: 1px solid var(--colo
 .ws-label { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .ws-mean .progress { margin-top: var(--space-1); }
 @media (max-width: 39.999rem) { .ws-row { grid-template-columns: minmax(0, 1fr); } }
-/* Report folders (HUN-241, FR-089): plain muted reference lines under a row; one line each, ellipsised, full text in title */
+/* Report folders (HUN-241, FR-089; HUN-243, FR-090): a disclosure button per folder line, the file list indented under it; long text is cut with an ellipsis (full text in title) */
 .ws-reports { grid-column: 1 / -1; min-width: 0; font-size: var(--fs-note); }
 .ws-reports ul { display: flex; flex-direction: column; gap: var(--space-1); }
-.ws-report { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.ws-report { min-width: 0; font-family: var(--font-mono); }
+main button.ws-report-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--color-muted); font: inherit; text-align: left; cursor: pointer; }
+main button.ws-report-toggle:hover { background: none; color: var(--color-text); }
+.ws-report-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-chevron { flex: none; width: 0; height: 0; border-style: solid; border-width: 4px 0 4px 6px; border-color: transparent transparent transparent currentColor; }
+.ws-report-toggle[aria-expanded='true'] .ws-chevron { transform: rotate(90deg); }
+.ws-files { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; margin: var(--space-1) 0 var(--space-1) var(--space-4); }
+.ws-files[hidden] { display: none; }
+.ws-file { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); min-width: 0; }
+.ws-file-name { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+main button.ws-file-name { min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--color-link); font: inherit; cursor: pointer; }
+main button.ws-file-name:hover { background: none; color: var(--color-link-hover); }
+.ws-file-meta { flex: none; white-space: nowrap; }
+.ws-file-notice { flex-basis: 100%; color: var(--color-muted); }
 
 /* Right rail */
 .rail-card { gap: var(--space-3); padding: var(--space-5); }
