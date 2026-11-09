@@ -106,7 +106,7 @@ The server has 12 tools. None of them writes config or returns a secret. Only `s
 
 ### MCP prompt
 
-The server also offers one prompt, `investigate`. In Claude Code, type `/mcp__easy-personal__investigate` (optional arguments `workspace` and `account`). It asks your own Claude session to read the warnings, the plan, usage by project and model for the last 7 days, and the session outliers. Then it explains what caused each warning and suggests at most 5 fixes, each with a number from a tool result. The last step asks your session to call `save_report` once with its summary (at most 2,000 characters) and fixes (at most 5, each at most 300 characters). The server refuses the whole call, naming the field, when a limit is passed, the scope is unknown or the text looks like a secret (a key prefix such as `sk-` or `AKIA`, a private-key header, or a run of 32 or more letters and digits). It then stores the report with its own numbers for every rule at that moment, and `GET /api/reports` and `GET /api/reports/{id}` (dashboard token needed) serve them with a before / now line per rule. This report text is the one text the store keeps, and it stays on your machine. The prompt text is fixed. The server calls no model and no network; your Claude Code session does the reasoning.
+The server also offers one prompt, `investigate`. In Claude Code, type `/mcp__easy-personal__investigate` (optional arguments `workspace` and `account`). It asks your own Claude session to read the warnings, the plan, usage by project and model for the last 7 days, and the session outliers. Then it explains what caused each warning and suggests at most 5 fixes, each with a number from a tool result. The last step asks your session to call `save_report` once with its summary (at most 2,000 characters) and fixes (at most 5, each at most 300 characters). The server refuses the whole call, naming the field, when a limit is passed, the scope is unknown or the text looks like a secret (a key prefix such as `sk-` or `AKIA`, a private-key header, or a run of 32 or more letters and digits). It then stores the report with its own numbers for every rule at that moment, and `GET /api/reports` and `GET /api/reports/{id}` (dashboard token needed) serve them with a before / now line per rule. The Warnings & plan tab shows them under **Saved reports**, newest first. An opened report shows its summary, its fixes and each rule as the value saved then next to the value measured now. The tab cannot edit or delete a report. This report text is the one text the store keeps, and it stays on your machine. The prompt text is fixed. The server calls no model and no network; your Claude Code session does the reasoning.
 
 ### Dashboard
 
@@ -132,8 +132,9 @@ While the dashboard runs, a background tail follows the transcripts of every con
 
 The tab shows:
 
-- Active sessions: a session that wrote a record in the last 5 minutes, grouped by account and project.
-- A feed of tool calls per session, newest first, the last 50.
+- Active sessions, one **session row** for each session that wrote a record in the last 5 minutes (or has an open call), grouped by account. A row shows the project, a short session id, the attention badges below, active or idle with the time since the last record, and three bars for tokens (in + out), API-equivalent cost and tool calls, each with its number. A full bar is the largest value of that measure among the listed rows. An unknown model price shows "unknown price", never a bar for $0.
+- The **kit stage** of a session as a chip on its row, such as `Stage 4 · code-review`. It is the stage of the newest `Skill` call whose skill is in a fixed map of the kit stages (0.5 to 5). There is no chip until the tail has seen such a call, live or in the warm start replay below. A slash command that you type is not seen.
+- A feed of tool calls for one session at a time. Click a row, or press Enter or Space on it, to open the feed in place under the row. Click the row again, use its Close control or press Escape to close it. The feed lists the newest call first, the last 50, one line each: the time, who made the call (`main` or the sub-agent type) and the call with its label. A label is the skill name, the sub-agent type, the first word of a Bash command, or the MCP server and tool. Nothing else of a call's input is shown.
 - Running totals of tokens and API-equivalent cost. An unknown model price is named, never counted as $0.
 
 Each session can carry an **attention state**. The tail works it out, and the page only shows it as a badge that names the tool, a border and a count in the Live header. Active sessions with a state sort first. There are three states:
@@ -154,9 +155,28 @@ thresholds:
 
 The tail pairs a call with its result in memory only. It stores and sends no call id. An open call is dropped after 24 hours.
 
-Known limit: the tail starts from the positions that the ingest saved. A call that opened before `easy-personal dashboard` started, and that the scheduled ingest already read, is not seen as open. Its session gets no state from that call.
+Two dashboards can run at once, and the scheduled ingest can run beside them. Each tab shows every new line, even when another process stored it first. A line that another process already stored is shown but not stored again, so the event count is the same as with one writer.
 
-The totals count what the tail saw since the dashboard started. The tab never shows message text, tool input or tool output, only tool names, counts and times. Claude Code itself writes some records a little late, so an event can show up a second or two after it happened.
+Warm start: when the dashboard starts, the tail replays each transcript file (main thread and subagents) that changed in the last hour, up to the saved read position. It replays them into session state only: totals, project, kit stage, open calls, failure streaks and sub-agent types. A session that is active, or has an open call, is then listed at once after a restart, with its whole-session totals. The replay adds nothing to the feed and stores nothing again, so the feed still shows only calls since the page opened.
+
+Known limit: the warm start reads only files changed in the last hour, and only the last part of a very large file. A call that opened before `easy-personal dashboard` started, outside that replay, is not seen as open. Its session gets no state from that call.
+
+The totals add up the listed session rows. The tab never shows message text, tool input or tool output, except the labels above. It shows only tool names, those labels, counts and times. Claude Code itself writes some records a little late, so an event can show up a second or two after it happened.
+
+### Kit view and report folders
+
+The Kit tab has a **Kit by workspace** block, with one row for each workspace except `orphan`. It reads only what is already stored, and it follows the account and the period that you picked.
+
+- easy-verifier: how many repos of the workspace have a score, the lowest score with its repo folder name, the mean of the scored repos and the time of the newest report. A repo with no score counts as no score, never as 0. A workspace with no scored repo says "no data".
+- easy-ui: the sessions in the period that called an `mcp__easy-ui__*` tool, the number of those calls and the time of the last one. A workspace with no call says "not used". The easy-ui check results (passed, failed, actions) stay overall, labelled "not split by workspace", because a session file names no project.
+
+Under each workspace row the block lists the **report folders** of its repos, as a reference only. A report folder is a folder directly inside a workspace repo (for example `reports` or `smoke-reports`) with `report` in its name. A line shows `<repo folder>/<report folder>`, the number of files in it, how many of them are `session-*.json` files and the newest file time. It never shows an absolute path. A workspace with no such folder says "no report folders".
+
+Click a report folder line to list its files, newest first. Click a file to open it in a new tab. Only `html`, `htm`, `md`, `txt`, `json`, `png`, `jpg`, `jpeg` and `pdf` files open, up to 10 MB. The page fetches the file with the dashboard token in a header and opens it as a `blob:` page, so the token is never in a URL. The report keeps its own CSS and shows its embedded `data:` screenshots. A script in a report does not run. Nothing is written, moved, deleted or stored.
+
+### Scratch folders and unassigned repos
+
+In Usage, the project lists put every throwaway folder into one `Scratch` row: a folder under the system temp folder, a folder that is gone and belongs to no repo, a folder that is not inside a repo, or one in a hidden folder. Click the row to list its folders with their own numbers. The Workspaces page lists every repo with usage that is in no workspace, with its sessions, cost and last-used date. Pick a workspace in the `Add to` control of a row to add the repo to it. The row then leaves the list.
 
 ### Kit performance
 

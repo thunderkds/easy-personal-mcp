@@ -546,6 +546,92 @@ def test_dashboard_screenshots():
         assert len(_norm(img.attrs.get("alt") or "")) >= 20, f"alt too short: {src}"
 
 
+# ---- HUN-249: what the dashboard does (one item per change since 0.4.0) ----
+
+DASHBOARD_CHANGES = ["live", "kit-workspace", "report-folders", "scratch", "saved-reports"]
+# README and page use the same four terms for the same things.
+DASHBOARD_TERMS = ("session row", "kit stage", "Kit by workspace", "report folder")
+# Not built (HUN-244, HUN-245): the list must never describe them.
+NOT_BUILT = ("fr-091", "fr-092", "store health", "store-check", "send a command", "send-command")
+_LATER_VERSION = re.compile(r"\b0\.(?:[5-9]|[1-9]\d)\.\d+\b")
+
+
+def _page_from(html: str) -> _Parser:
+    parser = _Parser()
+    parser.feed(html)
+    return parser
+
+
+def check_dashboard_changes(parser: _Parser) -> None:
+    headings = [_norm(e.text) for e in _in(parser, "dashboard", "h3")]
+    assert "What the dashboard does" in headings, headings
+    items = _in(parser, "dashboard", "li", "data-change")
+    assert [e.attrs["data-change"] for e in items] == DASHBOARD_CHANGES
+    for item in items:
+        text = _norm(item.text)
+        sentences = re.findall(r"[.!?](?:\s|$)", text)
+        assert 1 <= len(sentences) <= 2, f"{item.attrs['data-change']}: {len(sentences)} sentences"
+        lowered = text.lower()
+        assert not [w for w in NOT_BUILT if w in lowered], f"{item.attrs['data-change']} names a feature that is not built"
+        assert "release" not in lowered and not _LATER_VERSION.search(text), "the list promises a release"
+    shown = _norm(" ".join(e.text for e in items))
+    for term in DASHBOARD_TERMS:
+        assert term in shown, f"term missing from the list: {term!r}"
+
+
+def test_dashboard_lists_what_it_does_one_item_per_change():
+    check_dashboard_changes(_page())
+
+
+def test_dashboard_list_is_inside_the_existing_section_and_adds_no_section_or_image():
+    parser = _page()
+    sections = [e.attrs["id"] for e in parser.elements if e.tag in ("section", "header", "footer") and e.attrs.get("id")]
+    assert sections == list(SECTION_IDS)
+    assert len(_in(parser, "dashboard", "img")) == 4
+    assert len(_in(parser, "dashboard", "ul")) == 1
+
+
+def test_readme_uses_the_same_four_terms_as_the_page():
+    readme = _norm(README.read_text(encoding="utf-8"))
+    for term in DASHBOARD_TERMS:
+        assert term in readme, f"README does not use the page's term: {term!r}"
+    assert "Add to" in readme and "Scratch" in readme and "save_report" in readme
+
+
+def test_page_and_readme_promise_no_version_after_0_4_0():
+    page_text = _norm(" ".join(e.text for e in _page().elements if e.tag == "body"))
+    assert not _LATER_VERSION.search(page_text)
+    assert not _LATER_VERSION.search(README.read_text(encoding="utf-8"))
+    assert re.findall(r"\bv\d+\.\d+\.\d+\b", page_text) == ["v0.4.0"]
+    assert project_version() == "0.4.0"
+
+
+def test_a_removed_dashboard_item_fails():
+    html = PAGE.read_text(encoding="utf-8")
+    cut = re.sub(r'<li data-change="scratch">.*?</li>\s*', "", html, count=1, flags=re.DOTALL)
+    assert cut != html
+    with pytest.raises(AssertionError):
+        check_dashboard_changes(_page_from(cut))
+
+
+def test_a_dashboard_item_that_names_a_feature_not_built_fails():
+    html = PAGE.read_text(encoding="utf-8")
+    for extra in ("FR-091", "A store health check.", "A button to send a command to Claude."):
+        bad = html.replace('<li data-change="scratch">', f'<li data-change="scratch">{extra} ', 1)
+        assert bad != html
+        with pytest.raises(AssertionError):
+            check_dashboard_changes(_page_from(bad))
+
+
+def test_a_dashboard_item_of_three_sentences_or_a_release_promise_fails():
+    html = PAGE.read_text(encoding="utf-8")
+    for extra in ("One more. Another one.", "Coming in the next release."):
+        bad = html.replace('<li data-change="scratch">', f'<li data-change="scratch">{extra} ', 1)
+        assert bad != html
+        with pytest.raises(AssertionError):
+            check_dashboard_changes(_page_from(bad))
+
+
 # ---- AC 7: safety ----
 
 _SECRET = re.compile(
