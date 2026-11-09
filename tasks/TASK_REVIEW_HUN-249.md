@@ -61,8 +61,58 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-09, before any HUN-249 implementation commit; branch tip `0057b38`, the
+worktree was fast-forwarded to `main` first because it started at a stale `d79c100`):
+
+Command 1, the guide's measured-gap check, 2026-11-09T02:43:29Z to 02:43:32Z:
+
+```
+$ git log d11c075..HEAD --oneline -- README.md
+b24d831 Merge github/main (PR #4: README kernel link)
+466e4f1 docs(readme): kernel link names thunderkds/easy-kit
+```
+
+Command 2, the first half of the guide's Verification Command, same run:
+
+```
+$ uv run pytest tests/test_site_content.py tests/test_site_theme.py tests/test_site_deploy_config.py -q
+...................................................................      [100%]
+67 passed in 1.40s
+```
+
+Command 3, the page and README say nothing about the changes (2026-11-09T02:44:16Z; `grep -ci "<term>"` counts in
+`site/index.html` / `README.md`):
+
+```
+session row: site=0 README=0
+kit stage: site=0 README=0
+Kit by workspace: site=0 README=0
+report folder: site=0 README=2   (both lines are the config keys ui:/verifier: reports_dir, not the Kit view)
+Scratch: site=0 README=1         (the CLI/MCP usage line only, not Usage opening Scratch or the Workspaces page)
+Saved report: site=0 README=0    (site has only the tool row `save_report` in #tools)
+```
+
+Prior content of the `#dashboard` section of `site/index.html` (lines 507-516, verbatim):
+
+```html
+<section id="dashboard">
+  <h2>The dashboard</h2>
+  <p>Run <code>easy-personal dashboard</code> to open it. These screenshots use test fixtures, not real usage. The projects <code>demo-app</code> and <code>notes-site</code> are made up.</p>
+  <div class="shots">
+    <figure><img src="dashboard-usage.png" ... alt="Usage view of the dashboard for the last 7 days: ..."><figcaption>Usage: totals, cost, and breakdowns by day, model and project.</figcaption></figure>
+    <figure><img src="dashboard-warnings.png" ...><figcaption>Warnings and plan: a rule that fires shows its measured value. Here none fired.</figcaption></figure>
+    <figure><img src="dashboard-kit.png" ...><figcaption>Kit: what each kit part left for each project.</figcaption></figure>
+    <figure><img src="dashboard-workspaces.png" ...><figcaption>Workspaces: the list of workspaces, with repos and connectors for each.</figcaption></figure>
+  </div>
+</section>
+```
+
+(`...` marks only the long `width/height/alt` attributes, which this task does not change.) There is no list
+and no heading "What the dashboard does". The page pill says `usage dashboard · v0.4.0`.
+
+BEFORE screenshot, `#dashboard` section at 1280x720 viewport (section clip 905x790, no horizontal scroll,
+`docScrollWidth` 1265 < 1280):
+`/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/worktrees/agent-aeeafa91022c13746/tasks/evidence-HUN-249/before-dashboard-1280x720.png`
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
