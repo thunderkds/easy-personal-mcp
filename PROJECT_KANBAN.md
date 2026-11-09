@@ -9,6 +9,7 @@
 ## Board
 
 ### Todo
+- [ ] **HUN-249** — Landing page and README show the dashboard changes made since 0.4.0 (owner 2026-11-09: the index page must include the improvements) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-249.md`
 - [ ] **HUN-244** — Store health check: read-only `easy-personal store-check` and `GET /api/store/health` (FR-091) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-244.md`
 - [ ] **HUN-245** — Dashboard button that sends a command to Claude Code (FR-092); Step 0 blocks all code until the execution model is chosen | Backend-Implementer | C2 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-245.md`
 - [ ] **HUN-230** — EPIC (split 2026-11-08, never picked up): three owner notes → note 1 "push online" = no task (84 commits to push to `github/main`, owner's action); note 2 "check db effectively" = FR-091 HUN-244 `tasks/TASK_GUIDE_HUN-244.md` (C2, Risk Medium, P1); note 3 "button to send command to claude" = FR-092 HUN-245 `tasks/TASK_GUIDE_HUN-245.md` (C2, Risk High, P2, blocked on the execution-model choice) | none | C3 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-230.md`
