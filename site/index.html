@@ -181,6 +181,9 @@
   .steps .caption { color: var(--color-muted); font-size: 0.78125rem; line-height: 1.5; }
 
   /* screenshots */
+  .changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; max-width: 50rem; }
+  .changes li { padding: 0.125rem 0 0.125rem 1rem; border-left: 1px solid var(--color-accent-line); color: var(--color-secondary); overflow-wrap: anywhere; }
+  .changes strong { color: var(--color-heading); font-weight: 600; }
   .shots { display: grid; gap: 1rem; margin-top: 0.25rem; }
   .shots figure { margin: 0; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; min-width: 0; }
   .shots figcaption { color: var(--color-muted); font-size: 0.8125rem; padding: 10px 14px; border-top: 1px solid var(--color-border); }
@@ -507,6 +510,14 @@
 <section id="dashboard">
   <h2>The dashboard</h2>
   <p>Run <code>easy-personal dashboard</code> to open it. These screenshots use test fixtures, not real usage. The projects <code>demo-app</code> and <code>notes-site</code> are made up.</p>
+  <h3>What the dashboard does</h3>
+  <ul class="changes">
+    <li data-change="live"><strong>Live:</strong> It shows one session row for each active session: bars for tokens, cost and tool calls, and a chip for its kit stage, such as Stage 4 &middot; code-review. A row opens in place to its tool feed, which labels each call, and the list stays complete after a restart or with two dashboards open.</li>
+    <li data-change="kit-workspace"><strong>Kit by workspace:</strong> For each workspace it shows the easy-verifier scores (repos scored, lowest score, mean, newest report) and the easy-ui use (sessions, calls, last call). The easy-ui check results stay overall, not split by workspace.</li>
+    <li data-change="report-folders"><strong>Report folders:</strong> Under each workspace row, Kit by workspace lists the report folders of its repos, as a reference: any folder in a repo root with report in its name. A folder opens to its files and a file opens in a new tab, with its own CSS and embedded screenshots, but a script in a report does not run.</li>
+    <li data-change="scratch"><strong>Scratch and unassigned repos:</strong> Usage opens its Scratch row to list the throwaway folders in it. The Workspaces page lists the repos that are in no workspace, each with an Add to control.</li>
+    <li data-change="saved-reports"><strong>Saved reports:</strong> The investigate prompt in Claude Code can save its report with <code>save_report</code>, and the server adds its own numbers for every rule. The Warnings &amp; plan page lists the saved reports, and an opened one shows each rule as before and now.</li>
+  </ul>
   <div class="shots">
     <figure><img src="dashboard-usage.png" width="1440" height="1000" alt="Usage view of the dashboard for the last 7 days: total tokens, messages, API-equivalent cost in dollars and cache hit ratio, a bar chart of tokens per day, and breakdowns by model and by project for two fixture projects, with a cache reuse ring on the right"><figcaption>Usage: totals, cost, and breakdowns by day, model and project.</figcaption></figure>
     <figure><img src="dashboard-warnings.png" width="1440" height="800" alt="Warnings and plan view reading all clear with nothing to fix in the last 7 days, and a collapsed list of rules that were not checked"><figcaption>Warnings and plan: a rule that fires shows its measured value. Here none fired.</figcaption></figure>

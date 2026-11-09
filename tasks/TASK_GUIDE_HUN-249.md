@@ -121,11 +121,13 @@ screenshots, no new section, no release, nothing about FR-091 or FR-092.
 
 ## Completion Checklist
 
-- [ ] Implementation done
-- [ ] Tests written AND pass — output pasted into the review file's Evidence table
-- [ ] UI Evidence rows filled
-- [ ] Supervisor notified: task ready for Stage 4 review
+- [x] Implementation done
+- [x] Tests written AND pass — output pasted into the review file's Evidence table
+- [x] UI Evidence rows filled
+- [x] Supervisor notified: task ready for Stage 4 review
 
 ## Questions Log
 
 * 2026-11-09 The owner's words do not say "page" or "README". Read "index page" as `site/index.html` (the only index page of this project that the owner sees on the web); the README is included because the site's drift constraint makes README the source for its text.
+* 2026-11-09 Stage 4 `code-review` (Supervisor, inline): 0 P0, 0 P1, 0 P2, 1 P3 (not applied). `lane_check`: `lane: C2, 7 files, 127 lines, FITS`; the only unpredicted files are the four evidence screenshots the guide asks for. Spot-checked the README claims against `PRD.md` FR-069, FR-070, FR-086 and `web/src/LiveView.jsx` (Close control, Escape, "unknown price"): all match. The P3: the README's Scratch sentence lists the hidden-folder case without FR-069's condition "and has no owner project". No security-review: Risk Low, no code path changed.
+* 2026-11-09 Stage 5 `/verify`: pass. Temp-dir install with `uv tool install --refresh`: `--version` 0.4.0, `ping` "easy-personal core ok", MCP stdio handshake ids 1 and 2 with 12 tools, host refusals for `0.0.0.0`, `localhost` and `::1` each print "HTTP must bind 127.0.0.1 only". Real run: `site/` served on 127.0.0.1, 5 `data-change` items found by `curl`, headless Chrome screenshots read at 1280x720 and 390x844: the list is readable, no overlap, no clipped text. Site and README tests: 93 passed.
