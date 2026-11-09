@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-07
+**Last updated**: 2026-11-09
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -9,7 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **HUN-249** — Landing page and README show the dashboard changes made since 0.4.0 (owner 2026-11-09: the index page must include the improvements) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-249.md`
 - [ ] **HUN-244** — Store health check: read-only `easy-personal store-check` and `GET /api/store/health` (FR-091) | Backend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-244.md`
 - [ ] **HUN-245** — Dashboard button that sends a command to Claude Code (FR-092); Step 0 blocks all code until the execution model is chosen | Backend-Implementer | C2 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-245.md`
 - [ ] **HUN-230** — EPIC (split 2026-11-08, never picked up): three owner notes → note 1 "push online" = no task (84 commits to push to `github/main`, owner's action); note 2 "check db effectively" = FR-091 HUN-244 `tasks/TASK_GUIDE_HUN-244.md` (C2, Risk Medium, P1); note 3 "button to send command to claude" = FR-092 HUN-245 `tasks/TASK_GUIDE_HUN-245.md` (C2, Risk High, P2, blocked on the execution-model choice) | none | C3 | Risk: High | P2 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-230.md`
@@ -19,6 +18,7 @@
 ### Ready for Review
 
 ### Done
+- [x] **HUN-249** — Landing page and README show the dashboard changes made since 0.4.0 (owner 2026-11-09: the index page must include the improvements) | Frontend-Implementer | C2 | Risk: Low | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-249.md` | Stage 4 done: code-review 0 P0 / 0 P1 / 0 P2 / 1 P3 (not applied); `/verify` **pass** 2026-11-09 (temp install, MCP handshake, real Chrome at 1280x720 and 390x844); merged into `main` 2026-11-09 as `894612b`; Done on Linear; not pushed
 - [x] **HUN-246** — an opened report shows the screenshots embedded in it: add `img-src 'self' data:` to the one CSP constant so the blob tab inherits it (FR-094, follow-up to FR-093; owner report + "merge" 2026-11-08) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-246.md` | measured cause: `img-src` unset falls back to `default-src 'self'`, so a `data:` image is refused — 7 orderly reports, 11 images blank | Stage 4 done: code-review 0 P0 / 0 P1 / 0 P2 / 1 P3 (applied), security-review no findings at or above the bar; `/verify` **pass** 2026-11-08 (24/24 assertions, all 9 AC, real Chrome, independent fixtures)
 - [x] **HUN-247** — an opened report keeps its own CSS: add `style-src 'self' 'unsafe-inline'` to the one CSP constant so the blob tab inherits it (FR-093, PRD question 32 resolved by the owner 2026-11-08) | Backend-Implementer | C1 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-247.md` | Stage 4 done: code-review 0 P0 / 0 P1 / 1 P2 (closed), security-review no findings at or above the bar; `/verify` **pass** 2026-11-08 (21/21 assertions, all 6 AC, real Chrome); merged into `main` 2026-11-08 at the owner's request
 - [x] **HUN-243** — Kit view: click a report folder to list its files, click a file to open it in a new tab (FR-090) | Frontend-Implementer | C2 | Risk: Medium | P1 | @hungnh1110 | Guide: `tasks/TASK_GUIDE_HUN-243.md` | /verify pass (independent fixture, real headless Chrome, 32/32 assertions, all 9 AC), merged 2026-11-08 as `900ee1a`; bundle rebuilt on main. PRD question 32 open for the owner: the inherited CSP blocks a report's own inline `<style>`, so reports open readable but unstyled
