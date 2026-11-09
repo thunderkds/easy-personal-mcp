@@ -1,10 +1,4 @@
-# TASK_GUIDE — DRAFT: read-only store health check on the CLI and the dashboard (FR-091)
-
-> **Draft.** The board is unreachable and `LINEAR_API_KEY` is not set, so no task ID exists yet.
-> A new task's ID comes from the board and a create cannot be queued
-> (`scripts/board_sync.py:374-376`). When the board is reachable, run
-> `python3 scripts/board_sync.py create --guide tasks/DRAFT_store_health.md`; it assigns the ID and
-> writes `tasks/TASK_GUIDE_<ID>.md`. Then delete this draft and put the new row on the board.
+> Board ID: HUN-244. Created from the draft on 2026-11-09.
 > Split out of HUN-230 note 2, "check db effectively", at Stage 2 on 2026-11-08.
 
 **Date**: 2026-11-08
@@ -44,14 +38,15 @@ Owner, 2026-11-08, note 2 of HUN-230: "check db effectively".
 > `/api/*` route. `GET` only; any other method 405 as the other routes. No change to the `Guard`.
 >
 > **Both report the same fields**:
-> - whether the store file exists; its size in bytes; the size of its `-wal` file
-> - `PRAGMA user_version`, beside the newest migration number the code holds, and a `migration_pending`
+>
+> * whether the store file exists; its size in bytes; the size of its `-wal` file
+> * `PRAGMA user_version`, beside the newest migration number the code holds, and a `migration_pending`
 >   boolean
-> - the verdict of `PRAGMA integrity_check` and of `PRAGMA foreign_key_check` — the verdict only
+> * the verdict of `PRAGMA integrity_check` and of `PRAGMA foreign_key_check` — the verdict only
 >   (`ok`, or the count of problems), never a row's content
-> - the row count of every table in the schema
-> - per source: the last ingest time (UTC) and how many rows the parser abstained on
-> - the `bak-v<N>` backup files present, by name only
+> * the row count of every table in the schema
+> * per source: the last ingest time (UTC) and how many rows the parser abstained on
+> * the `bak-v<N>` backup files present, by name only
 >
 > **Hard rules**: nothing is written — no migration runs, no `VACUUM`, no `REINDEX`, no backup, no
 > delete, no store row touched. Open the store read-only. No row content, message text, secret or

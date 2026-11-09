@@ -1,9 +1,4 @@
-# TASK_GUIDE — DRAFT: an opened report keeps its own CSS (FR-093, PRD question 32)
-
-> **Draft.** The board is unreachable and `LINEAR_API_KEY` is not set, so no task ID exists yet.
-> A new task's ID comes from the board and a create cannot be queued
-> (`scripts/board_sync.py:374-376`). When the board is reachable, run
-> `python3 scripts/board_sync.py create --guide tasks/DRAFT_report_css.md`.
+> Board ID: HUN-247. Created from the draft on 2026-11-09.
 > Owner request 2026-11-08: "when I open the report, it does not contain the CSS related, should update that".
 
 **Date**: 2026-11-08
@@ -50,14 +45,14 @@ security-review pages.
 
 **Why the fix is this small, and what bounds its risk** (checked 2026-11-08, state these in the review):
 
-- The dashboard has **no** `dangerouslySetInnerHTML` and **no** `innerHTML` anywhere in `web/src/`, so
+* The dashboard has **no** `dangerouslySetInnerHTML` and **no** `innerHTML` anywhere in `web/src/`, so
   React escapes every value it renders. No attacker-controlled markup reaches a dashboard page, which
   is what would make `'unsafe-inline'` styling dangerous there.
-- The dashboard's own bars, swatches and dots (`style={{ width: ... }}` in `Breakdown.jsx`,
+* The dashboard's own bars, swatches and dots (`style={{ width: ... }}` in `Breakdown.jsx`,
   `LiveView.jsx`, `UsageView.jsx`, `WorkspacesView.jsx`, `WorkspaceKit.jsx`) are **not** affected by
   this change either way: React sets those through the CSSOM, which CSP does not govern. Do not cite
   them as a reason for the change.
-- `templates/report_template.html` and every file in `reports/` contain no `<img>`, no `data:image`,
+* `templates/report_template.html` and every file in `reports/` contain no `<img>`, no `data:image`,
   no `@font-face` and no `url(` — so `style-src` alone is enough. Do **not** widen `img-src` or
   `font-src` "while you are there".
 

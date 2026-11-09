@@ -1,9 +1,4 @@
-# TASK_GUIDE — DRAFT: a dashboard button that sends a command to Claude Code (FR-092)
-
-> **Draft.** The board is unreachable and `LINEAR_API_KEY` is not set, so no task ID exists yet.
-> A new task's ID comes from the board and a create cannot be queued
-> (`scripts/board_sync.py:374-376`). When the board is reachable, run
-> `python3 scripts/board_sync.py create --guide tasks/DRAFT_claude_command_button.md`.
+> Board ID: HUN-245. Created from the draft on 2026-11-09.
 > Split out of HUN-230 note 3, "button to send command to claude", at Stage 2 on 2026-11-08.
 
 **Date**: 2026-11-08

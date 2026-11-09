@@ -1,9 +1,4 @@
-# TASK_GUIDE — DRAFT: a file with an out-of-range mtime makes the report routes answer 500 (FR-089, FR-090)
-
-> **Draft.** The board is unreachable and `LINEAR_API_KEY` is not set, so no task ID exists yet.
-> A new task's ID comes from the board and a create cannot be queued
-> (`scripts/board_sync.py:374-376`). When the board is reachable, run
-> `python3 scripts/board_sync.py create --guide tasks/DRAFT_report_mtime_500.md`.
+> Board ID: HUN-248. Created from the draft on 2026-11-09.
 > Found by `/verify HUN-242` on 2026-11-07. Both Stage 4 reviews had flagged it below their bar;
 > the real run confirmed it.
 

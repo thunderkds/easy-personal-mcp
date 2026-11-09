@@ -272,7 +272,7 @@ command ended in `tail -6`, so the subshell's exit code was `tail`'s 0 and the s
 clipped — the same clipping trap as the HUN-243 run.
 
 `uv run ruff check src tests` -> `All checks passed!`.
-`python3 scripts/lane_check.py tasks/DRAFT_report_css.md main...HEAD` ->
+`python3 scripts/lane_check.py tasks/TASK_GUIDE_HUN-247.md main...HEAD` ->
 `lane: C1, 11 files, 30 lines, EXCEEDS (files 11 > 6)`; warn-only, and every unpredicted file is an
 evidence PNG or the guide itself. 30 changed code lines is well inside C1.
 

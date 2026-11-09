@@ -1,6 +1,6 @@
 # TASK_REVIEW — DRAFT-report-images: an opened report shows its embedded screenshots (FR-094)
 
-> Sibling of `tasks/DRAFT_report_images.md`. Everything here is **filled by the reviewer at Stage
+> Sibling of `tasks/TASK_GUIDE_HUN-246.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
 > every turn and never fills these two sections.
 >
