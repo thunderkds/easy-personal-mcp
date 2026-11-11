@@ -9,13 +9,10 @@
 ## Board
 
 ### Todo
-- [ ] **T040** — P3 S1: `/api/reports`, `/api/reports/{id}`, `/api/first-run` (Rust, read-only) | Backend-Developer | C2 | Risk: Low | P1 | wave 1; oracle: goldens `api__reports__*`, `api__first_run__all`; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T041** — P3 S2: `GET /api/accounts`, `GET /api/sync` (read-only, no `detect`; the detect stays in `ingest`) | Backend-Developer | C2 | Risk: Medium | P1 | wave 2; Depends on T040; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
-- [ ] **T042** — P3 S3: `/api/kit`, `/api/kit/workspaces`, `/api/kit/reports`, MCP `kit_summary` | Backend-Developer | C2 | Risk: Medium | P1 | wave 1; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T043** — P3 S4: `/api/board`, `/api/memory-graph` | Backend-Developer | C2 | Risk: Medium | P2 | wave 3; Depends on T041; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T044** — P3 S5: `/api/dirs`, `/api/jobs`, MCP `kit_findings` | Backend-Developer | C2 | Risk: Medium | P2 | wave 2; Depends on T042; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T045** — P3 S6: `/api/kit/report-files`, `/api/kit/report-file` (path safety) | Backend-Developer | C2 | Risk: High | P1 | wave 2; Depends on T042; security review required; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
-- [ ] **T046** — P3 S7: connector catalog parser, MCP `connector_catalog`/`connector_status`/`connector_suggestions`, `GET /api/connectors` (no keychain) | Backend-Developer | C2 | Risk: Medium | P2 | wave 1; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T047** — P3 S8: MCP `save_report` and prompt `investigate` | Backend-Developer | C2 | Risk: Medium | P2 | wave 2; Depends on T040; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T048** — P3 S9: workspace and account writes, store only (POST/PATCH/DELETE; a change needing `claude` is refused until T050) | Backend-Developer | C2 | Risk: High | P2 | wave 3; Depends on T041; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T049** — P3 S10: `/api/live` SSE and the tail thread | Backend-Developer | C3 | Risk: High | P2 | wave 4; Depends on T048; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
@@ -23,6 +20,9 @@
 - [ ] **T051** — P3 S12: `context` ingest, MCP `--http`, dashboard start-up ingest | Backend-Developer | C2 | Risk: Medium | P3 | wave 5, optional; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 
 ### In Progress
+- [ ] **T046** — P3 S7: connector catalog parser, MCP `connector_catalog`/`connector_status`/`connector_suggestions`, `GET /api/connectors` (no keychain) | Backend-Developer | C2 | Risk: Medium | P2 | wave 1; plan `BRAINSTORMING_LOG_RUSTP3.md`; started 2026-11-11: guide `tasks/TASK_GUIDE_T046.md`, own worktree, wave 1
+- [ ] **T042** — P3 S3: `/api/kit`, `/api/kit/workspaces`, `/api/kit/reports`, MCP `kit_summary` | Backend-Developer | C2 | Risk: Medium | P1 | wave 1; plan `BRAINSTORMING_LOG_RUSTP3.md`; started 2026-11-11: guide `tasks/TASK_GUIDE_T042.md`, own worktree, wave 1
+- [ ] **T040** — P3 S1: `/api/reports`, `/api/reports/{id}`, `/api/first-run` (Rust, read-only) | Backend-Developer | C2 | Risk: Low | P1 | wave 1; oracle: goldens `api__reports__*`, `api__first_run__all`; plan `BRAINSTORMING_LOG_RUSTP3.md`; started 2026-11-11: guide `tasks/TASK_GUIDE_T040.md`, own worktree, wave 1
 
 ### Ready for Review
 
