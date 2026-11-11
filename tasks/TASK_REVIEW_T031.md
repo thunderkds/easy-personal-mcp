@@ -98,3 +98,7 @@ workspace: passed=406 failed=0 ignored=13 (sum of 34 test result lines)
 2. **Deviation from the guide (⚠ decided for you):** the whole file runs in about 66 s for the default half and about 400 s for the ignored Python half, not under 3 minutes: the Python ingest of a 6 MB set is slow. The Python half is an ignored manual gate.
 3. **Known fragile test:** `py_serve_mcp_and_store_info_answer_while_a_python_ingest_runs` (cap of 15 rounds to collect 50 polls) failed once in an agent run; it passes on re-run. Relax the cap if it flakes in CI.
 4. **Disk:** the tests need free space on `/tmp`; on this machine `/tmp` is a RAM-backed 7.8 GB filesystem that was full of scratch copies (cleared).
+
+## Follow-up after T032 (2026-11-11)
+
+The default test `the_race_oracle_sees_two_writers_when_the_lock_is_bypassed` (the red control) began failing at random once the Rust ingest got fast (2 of 3 Supervisor full-suite runs; 5 of 5 alone): two ingests of a 6 MB set only overlap by chance. A follow-up made it reliable without weakening an assertion: this test now uses a 60,000-event, 21 MB set (each ingest about 2-3 s) and up to 30 attempts (SQLite hands the write lock to the leading process, so the lead flips in about 30% of attempts; a miss is about 1 in 50,000, estimated, not proven). Supervisor re-run: 5 of 5 alone; 420 passed under three zones.

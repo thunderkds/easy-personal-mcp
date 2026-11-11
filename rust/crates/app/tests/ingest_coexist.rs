@@ -34,6 +34,11 @@ const SET_SEED: u64 = 31;
 /// The seeds of the random kill points (pasted in the report).
 const KILL_SEEDS: [u64; 5] = [7, 19, 31, 42, 77];
 const REPEAT: usize = 20;
+/// The red control's own set: many small events so that one Rust ingest runs for seconds (see the test).
+const BYPASS_FILES: usize = 300;
+const BYPASS_LINES: usize = 200;
+const BYPASS_PAD: usize = 40;
+const BYPASS_ATTEMPTS: usize = 30;
 const LADDER: [u64; 4] = [0, 5, 20, 50];
 
 type Maker = fn(&Case) -> Spec;
@@ -216,34 +221,70 @@ fn rust_and_rust_with_no_lock_wait_one_may_exit_75() {
 /// `store.sqlite` is the same file (a symlink) have two different `ingest.lock` files, so the lock is bypassed. The
 /// oracle of the races above must then see two writers at once (both runs add rows) in at least one attempt.
 /// SQLite's own locking and the UNIQUE key keep the file intact even so (printed, not the point).
+///
+/// A timing control, made safe by size and by attempts, not by luck: the Rust ingest of the shared large set takes
+/// about 100 ms, so two such runs would overlap only by chance. This one uses its own bigger set (`BYPASS_FILES` x
+/// `BYPASS_LINES` small events: one copy for all attempts, a fresh store per attempt) so each ingest runs for 2 to 3
+/// seconds. Even then SQLite hands the write lock to whichever run leads, and the leader often takes every file (the
+/// other adds 0 rows); the lead flips by chance in roughly one attempt in three, so it stops at the first attempt
+/// where both runs added rows, and `BYPASS_ATTEMPTS` is the reserve that makes a miss practically impossible.
 #[test]
 fn the_race_oracle_sees_two_writers_when_the_lock_is_bypassed() {
     assert_cwds_are_gone();
+    let mut case = Case::new();
+    let bytes = write_set_padded(
+        &case.projects,
+        "bypass",
+        BYPASS_FILES,
+        BYPASS_LINES,
+        SET_SEED,
+        BYPASS_PAD,
+    );
     let mut seen = None;
-    for attempt in 0..10 {
-        let case = large_case();
+    let mut took: Vec<Duration> = Vec::new();
+    for attempt in 0..BYPASS_ATTEMPTS {
+        // A fresh store per attempt (the set stays); the previous attempt's folders are this test's own: remove them.
+        case.home = case.root.join(format!("home-{attempt}"));
+        if attempt > 0 {
+            let _ = fs::remove_dir_all(case.root.join(format!("home-{}", attempt - 1)));
+            let _ = fs::remove_dir_all(case.root.join(format!("home-bypass-{}", attempt - 1)));
+        }
         precreate_store(&case);
-        let other = case.root.join("home-bypass");
+        let other = case.root.join(format!("home-bypass-{attempt}"));
         fs::create_dir_all(&other).unwrap();
         std::os::unix::fs::symlink(case.store_path(), other.join("store.sqlite")).unwrap();
         let a = rust_ingest(&case);
         let b = rust_ingest(&case).env("EASY_PERSONAL_HOME", &other);
-        let (oa, ob) = race(&case, &a, &b, (0, 0), attempt);
+        let step = LADDER[attempt % LADDER.len()];
+        let delays = if attempt % 2 == 0 {
+            (0, step)
+        } else {
+            (step, 0)
+        };
+        let (oa, ob) = race(&case, &a, &b, delays, attempt);
         assert_eq!(
             (oa.code, ob.code),
             (Some(0), Some(0)),
             "bypass attempt {attempt}"
         );
+        took.push(oa.elapsed.min(ob.elapsed));
         let (na, nb) = (oa.new_events(), ob.new_events());
         if na > 0 && nb > 0 {
             assert_intact(&case.store_path(), "bypass");
-            seen = Some((attempt, na, nb));
+            seen = Some((attempt, na, nb, oa.elapsed, ob.elapsed));
             break;
         }
     }
-    let (attempt, na, nb) = seen.expect("the bypassed lock was never seen as two writers");
+    let (attempt, na, nb, ta, tb) = seen.unwrap_or_else(|| {
+        panic!(
+            "this is a timing control: the bypassed lock was never seen as two writers in {BYPASS_ATTEMPTS} attempts \
+             over a {bytes}-byte set; the shortest of the two ingest durations per attempt was {took:?} (the set must \
+             keep each ingest well past 1 s for the two write windows to overlap)"
+        )
+    });
     println!(
-        "lock bypassed: two writers seen at attempt {attempt} (new_events {na} and {nb}); integrity ok, no duplicate key"
+        "lock bypassed: two writers seen at attempt {attempt} (new_events {na} and {nb}; ingests took {ta:?} and {tb:?} \
+         over a {BYPASS_FILES} files x {BYPASS_LINES} lines set of {bytes} bytes); integrity ok, no duplicate key"
     );
 }
 

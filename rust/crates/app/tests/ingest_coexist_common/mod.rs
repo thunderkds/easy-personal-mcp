@@ -537,6 +537,19 @@ impl Rng {
 /// A deterministic set of valid Claude Code transcripts under `<projects>/<name>-p<k>/s<NNN>.jsonl`: `files` files of
 /// `lines` lines (user and assistant records in turn, about 450 bytes each, invented text only). Returns the bytes.
 pub fn write_large_set(projects: &Path, name: &str, files: usize, lines: usize, seed: u64) -> u64 {
+    write_set_padded(projects, name, files, lines, seed, 200)
+}
+
+/// [`write_large_set`] with `pad` random letters of invented text per line (200 there): fewer bytes per event, more
+/// events for the same disk.
+pub fn write_set_padded(
+    projects: &Path,
+    name: &str,
+    files: usize,
+    lines: usize,
+    seed: u64,
+    pad: usize,
+) -> u64 {
     let mut rng = Rng(seed);
     let mut total = 0;
     for f in 0..files {
@@ -551,7 +564,7 @@ pub fn write_large_set(projects: &Path, name: &str, files: usize, lines: usize, 
                 (i / 60) % 60,
                 i % 60
             );
-            let pad: String = (0..200)
+            let pad: String = (0..pad)
                 .map(|_| (b'a' + (rng.next() % 26) as u8) as char)
                 .collect();
             let common = format!(
