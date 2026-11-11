@@ -4,15 +4,20 @@
 //! only, as Python's tool does. `connector_catalog`, `connector_status` and `connector_suggestions` (T046) take no
 //! argument; presence is never asked (no keychain, no `claude`: `suggestions::configured_ids`).
 //!
+//! `save_report` and the `investigate` prompt (T047): the prompt is fixed text (Python's, with the scope line); `save_report`
+//! is the one tool that writes, only the store's `reports` row, through a handle `reports::save` opens for that call. Its
+//! text (summary, fixes) never reaches a log, an error or a result: every refusal names the field only.
+//!
 //! Everything that touches `rmcp` lives in this file, so a later major version of the SDK changes one module.
 //! stdout is the protocol channel: nothing here prints to it, and nothing is logged.
 //! Tool names, descriptions and schemas are copied from the Python app's `tools/list` golden
-//! (`rust/parity/golden/mcp__tools_list.json`); a test compares them. The nine tools only read the store.
+//! (`rust/parity/golden/mcp__tools_list.json`); a test compares them. Every tool but `save_report` only reads the store.
 
 use easy_personal_core::clock;
 use easy_personal_core::kit::kit_summary;
 use easy_personal_core::metrics::{usage_breakdown_scoped, usage_summary_scoped};
 use easy_personal_core::plan::improvement_plan_scoped;
+use easy_personal_core::reports::{SaveError, save};
 use easy_personal_core::rules::{evaluate_scoped, shipped_rules};
 use easy_personal_core::scope::Scope;
 use easy_personal_core::sessions::session_outliers;
@@ -20,8 +25,9 @@ use easy_personal_core::store::{StoreError, open_checked, store_path};
 use easy_personal_core::suggestions::{self, ViewError};
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ErrorData,
-    Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ProtocolVersion,
-    ServerCapabilities, ServerConfig, Tool,
+    GetPromptRequestParams, GetPromptResponse, GetPromptResult, Implementation, JsonObject,
+    ListPromptsResult, ListToolsResult, PaginatedRequestParams, Prompt, PromptArgument,
+    PromptMessage, ProtocolVersion, Role, ServerCapabilities, ServerConfig, Tool,
 };
 use rmcp::service::{RequestContext, RxJsonRpcMessage, ServerInitializeError, TxJsonRpcMessage};
 use rmcp::transport::Transport;
@@ -53,6 +59,17 @@ const CONNECTOR_CATALOG_DESCRIPTION: &str = "The provider catalog: id, provider,
 const CONNECTOR_STATUS_DESCRIPTION: &str = "Per catalog id, whether the connector is configured (yes/no only): a keychain item and a\nClaude Code entry both exist. Never returns a secret or any config value.";
 
 const CONNECTOR_SUGGESTIONS_DESCRIPTION: &str = "Providers not yet configured that your usage points to, from counted WebFetch hosts and\nMCP tool names (metadata only), with the call counts behind each suggestion.";
+
+const SAVE_REPORT_DESCRIPTION: &str = "Save an `investigate` report on the dashboard's Warnings & plan page. `summary` is at most 2,000\ncharacters; `fixes` is at most 5 items, each `text` (at most 300 characters) with an optional `tool`\nand `number` it cites. Pass the same `workspace` (name) and `account` (id or label) you used for\n`warnings`. The server adds its own numbers for every rule at this moment (the rule snapshot), so\nthe page can later show before / now per warning. Refuses the whole call, naming the field, when a\nlimit is passed, the scope is unknown or any text looks like a secret; nothing is stored then.\nReturns `{id, saved_utc}`. The only tool that writes, and only to the store.";
+
+const INVESTIGATE_DESCRIPTION: &str =
+    "Investigate your Claude Code usage: causes of each warning and up to 5 ranked fixes.";
+
+/// `INVESTIGATE_PROMPT` of `surfaces/mcp.py` (FR-075).
+const INVESTIGATE_PROMPT: &str = "Investigate my Claude Code usage with the easy-personal tools and tell me what to change. Use only numbers the tools return.\n\n1. Call `warnings` and `improvement_plan`. Use the same scope for both.\n2. Call `usage_breakdown` with by=\"project\" and again with by=\"model\", for the last 7 days (set since to the date 7 days ago).\n3. Call `session_outliers` for the last 7 days.\n4. For each warning that fired, explain in plain words what caused it. Read the hit's causes when it has them. Tie it to the projects, models or sessions you found in steps 2 and 3.\n5. Suggest at most 5 fixes, ranked by expected saving (largest first). Cite one number from a tool result for each fix, and name the tool it came from.\n6. Say plainly when a change looks intended rather than wasteful (for example, one big project that I am working on right now). Do not suggest a fix for it.\n\nDo not guess. If a tool returns no data or abstains, say so. Do not change any file.\n";
+
+/// `SAVE_REPORT_STEP` of `surfaces/mcp.py` (FR-077): the last step, after the scope line.
+const SAVE_REPORT_STEP: &str = "7. Save the report: call `save_report` once, with a summary of what you found (at most 2,000 characters), the fixes from step 5 (at most 5, each with its text and the tool and number it cites) and the same scope you used above. Do not put keys, tokens or message text in it; the tool refuses them. Then tell me the report id it returns. If `save_report` is not available, tell me to reconnect the easy-personal server in /mcp, and do not retry.\n";
 
 const BREAKDOWN_DESCRIPTION: &str = "Tokens grouped by day (OS local time), model, project (folder name) or tool for\n[since, until), with an API-equivalent cost (price-table date shown; a model missing\nfrom the table abstains). Each group has the same typed / agent / unknown `split`. `total`\nequals usage_summary; tool groups overlap. Project groups put every scratch folder (temp,\ngone, not in a git repo, or hidden) into one group `Scratch` (`scratch: true`) that lists\nthem in `folders`.";
 
@@ -167,12 +184,17 @@ struct Server;
 
 impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_protocol_version(ProtocolVersion::LATEST_WITH_INITIALIZE)
-            .with_server_info(Implementation::new(
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-            ))
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_prompts()
+                .build(),
+        )
+        .with_protocol_version(ProtocolVersion::LATEST_WITH_INITIALIZE)
+        .with_server_info(Implementation::new(
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+        ))
     }
 
     /// Every revision that has the `initialize` handshake; the `2026-07-28` no-handshake mode stays off.
@@ -188,6 +210,41 @@ impl ServerHandler for Server {
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
         Ok(ListToolsResult::with_all_items(tools()))
+    }
+
+    async fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, ErrorData> {
+        let optional = |name: &str| {
+            let mut argument = PromptArgument::new(name);
+            argument.required = Some(false);
+            argument
+        };
+        Ok(ListPromptsResult::with_all_items(vec![Prompt::new(
+            "investigate",
+            Some(INVESTIGATE_DESCRIPTION),
+            Some(vec![optional("workspace"), optional("account")]),
+        )]))
+    }
+
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResponse, ErrorData> {
+        if request.name != "investigate" {
+            return Err(ErrorData::invalid_params(
+                format!("Unknown prompt: {}", request.name),
+                None,
+            ));
+        }
+        let arguments = request.arguments.unwrap_or_default();
+        let text = investigate_text(&arguments).map_err(|e| ErrorData::invalid_params(e, None))?;
+        let mut result = GetPromptResult::new(vec![PromptMessage::new_text(Role::User, text)]);
+        result.description = Some(INVESTIGATE_DESCRIPTION.to_string());
+        Ok(result.into())
     }
 
     async fn call_tool(
@@ -209,6 +266,7 @@ impl ServerHandler for Server {
                 | "connector_catalog"
                 | "connector_status"
                 | "connector_suggestions"
+                | "save_report"
         ) {
             return Err(ErrorData::invalid_params(
                 format!("Unknown tool: {name}"),
@@ -339,6 +397,26 @@ fn tools() -> Vec<Tool> {
             no_input("connector_suggestionsArguments"),
             dict_output("connector_suggestionsDictOutput"),
         ),
+        tool(
+            "save_report",
+            SAVE_REPORT_DESCRIPTION,
+            json!({
+                "properties": {
+                    "summary": {"title": "Summary", "type": "string"},
+                    "fixes": {
+                        "items": {"additionalProperties": true, "type": "object"},
+                        "title": "Fixes",
+                        "type": "array"
+                    },
+                    "workspace": nullable_string("Workspace"),
+                    "account": nullable_string("Account")
+                },
+                "required": ["summary", "fixes"],
+                "title": "save_reportArguments",
+                "type": "object"
+            }),
+            dict_output("save_reportDictOutput"),
+        ),
     ]
 }
 
@@ -439,6 +517,35 @@ fn run_tool(
             })?;
             Ok(CallToolResult::structured(body))
         }
+        "save_report" => {
+            let summary = match args.get("summary") {
+                Some(summary @ Value::String(_)) => summary,
+                _ => return Err("argument `summary` is required and must be a string".to_string()),
+            };
+            let fixes = match args.get("fixes") {
+                Some(fixes @ Value::Array(items)) if items.iter().all(Value::is_object) => fixes,
+                _ => {
+                    return Err(
+                        "argument `fixes` is required and must be a list of objects".to_string()
+                    );
+                }
+            };
+            let (workspace, account) = scope_args(args)?;
+            // the one write of the MCP server: `save` opens a write handle for this call only and closes it before it returns
+            let path = store().map_err(|e| e.to_string())?;
+            let saved = save(
+                &path,
+                summary,
+                fixes,
+                workspace.as_deref(),
+                account.as_deref(),
+                now_micros,
+            )
+            .map_err(|e: SaveError| e.to_string())?;
+            Ok(CallToolResult::structured(
+                json!({"id": saved.id, "saved_utc": saved.saved_utc}),
+            ))
+        }
         // no arguments (an extra one is dropped, as in Python); the first two never open the store
         "connector_catalog" => Ok(CallToolResult::structured(
             suggestions::catalog_view().map_err(view_error)?,
@@ -452,6 +559,31 @@ fn run_tool(
         }
         _ => unreachable!("call_tool checks the name first"),
     }
+}
+
+/// The prompt text: Python's fixed text, the scope line when a `workspace` or `account` is given (an empty one counts as
+/// none), then the last step. `json.dumps(ensure_ascii=False)` quoting is `serde_json`'s for a string.
+fn investigate_text(arguments: &JsonObject) -> Result<String, String> {
+    let mut scope = Vec::new();
+    for key in ["workspace", "account"] {
+        match arguments.get(key) {
+            None | Some(Value::Null) => {}
+            Some(Value::String(value)) if value.is_empty() => {}
+            Some(Value::String(value)) => scope.push(format!(
+                "{key}={}",
+                serde_json::to_string(value).map_err(|_| "internal error".to_string())?
+            )),
+            Some(_) => return Err(format!("argument `{key}` must be a string or null")),
+        }
+    }
+    let mut text = INVESTIGATE_PROMPT.to_string();
+    if !scope.is_empty() {
+        text += &format!(
+            "\nScope: pass {} to every tool call that takes a scope (`warnings`, `improvement_plan`, `save_report`).\n",
+            scope.join(" and ")
+        );
+    }
+    Ok(text + "\n" + SAVE_REPORT_STEP)
 }
 
 /// A catalog that does not parse cannot happen in a shipped build; the store's text has no path (NFR-002).

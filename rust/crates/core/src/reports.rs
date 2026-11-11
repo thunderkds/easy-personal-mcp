@@ -1,5 +1,7 @@
-//! Saved investigate reports, read side (Python: `core/reports.py`, `list_reports` and `get_report`; FR-076..FR-078).
+//! Saved investigate reports (Python: `core/reports.py`; FR-076..FR-078). The read side is `list_reports` and `get_report`;
+//! the one write is [`save`] (T047), which opens its own write handle for that one call (see its doc).
 //!
+//! Read side:
 //! The owner's own session saved the text; this module only reads it back, together with the server's rule snapshot taken
 //! at save time. "Now" for the before / now line is worked out on every read, with the clock passed in, and never stored.
 //! Read-only: the connection is never written to.
@@ -10,12 +12,15 @@
 //! such a report with `fired_count` 0 instead of failing the whole list.
 
 use crate::rules::{self, Rule, RulesError, ScopedRulesError};
-use crate::scope::Scope;
-use crate::store::StoreError;
-use rusqlite::{Connection, params};
+use crate::scope::{self, Scope, ScopeError};
+use crate::secret::looks_secret;
+use crate::store::{KNOWN_MIGRATION, StoreError, open_checked};
+use crate::writer::{WriteError, open_for_write};
+use rusqlite::{Connection, TransactionBehavior, params};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::fmt;
+use std::path::Path;
 
 /// `LIST_LIMIT`: the newest reports the list shows.
 const LIST_LIMIT: i64 = 50;
@@ -327,6 +332,319 @@ pub fn get_report(conn: &Connection, report_id: i64, now_micros: i64) -> Result<
         "now_as_of_utc": found.as_ref().map(|f| f["as_of_utc"].clone()),
         "rules": rows,
     })))
+}
+
+// ---- the write side (T047) ----
+
+const SUMMARY_MAX: usize = 2000;
+const FIXES_MAX: usize = 5;
+const FIX_TEXT_MAX: usize = 300;
+/// `CITE_MAX`: `tool` and `number` of a fix are short names, not prose.
+const CITE_MAX: usize = 100;
+const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Why a report was not saved. Both texts are fixed: they name a field or a state, never a value, SQL or a path (NFR-002).
+#[derive(Debug, PartialEq)]
+pub enum SaveError {
+    /// Python's `ValueError` text, byte for byte (ends `; nothing was saved`): a limit, a secret, a type, an unknown scope.
+    Refused(String),
+    /// The store could not be read or written: busy, read-only, not v11, missing.
+    Failed(String),
+}
+
+impl fmt::Display for SaveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SaveError::Refused(text) | SaveError::Failed(text) => write!(f, "{text}"),
+        }
+    }
+}
+
+impl std::error::Error for SaveError {}
+
+/// What a saved report is called by: its row id and the second it was saved (UTC, `%Y-%m-%dT%H:%M:%SZ`).
+#[derive(Debug, PartialEq)]
+pub struct SavedReport {
+    pub id: i64,
+    pub saved_utc: String,
+}
+
+/// `_check_text`: a text of 1 to `limit` characters (Python's `len`) with something other than white space, no secret.
+fn check_text(field: &str, value: &Value, limit: usize) -> std::result::Result<String, String> {
+    let Some(text) = value.as_str() else {
+        return Err(format!("{field}: must be text; nothing was saved"));
+    };
+    // Python's `str.strip()`: also the C0 separators `\x1c`..`\x1f`
+    if text
+        .trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
+        .is_empty()
+    {
+        return Err(format!("{field}: must not be empty; nothing was saved"));
+    }
+    let length = text.chars().count();
+    if length > limit {
+        return Err(format!(
+            "{field}: {length} characters, the limit is {limit}; nothing was saved"
+        ));
+    }
+    if looks_secret(text) {
+        return Err(format!(
+            "{field}: looks like a secret (a key, token or private-key header); nothing was saved"
+        ));
+    }
+    Ok(text.to_string())
+}
+
+/// The clean `(summary, fixes)`, or the refusal text naming the failing field; the value is never echoed. Python's
+/// `validate`: every limit, type and key rule, in the same order.
+pub fn validate(
+    summary: &Value,
+    fixes: &Value,
+) -> std::result::Result<(String, Vec<Value>), String> {
+    let summary = check_text("summary", summary, SUMMARY_MAX)?;
+    let Some(fixes) = fixes.as_array() else {
+        return Err("fixes: must be a list; nothing was saved".into());
+    };
+    if fixes.len() > FIXES_MAX {
+        return Err(format!(
+            "fixes: {} items, the limit is {FIXES_MAX}; nothing was saved",
+            fixes.len()
+        ));
+    }
+    let mut clean = Vec::new();
+    for (n, fix) in fixes.iter().enumerate() {
+        let name = format!("fixes[{n}]");
+        let object = fix.as_object().filter(|o| {
+            o.contains_key("text")
+                && o.keys()
+                    .all(|k| matches!(k.as_str(), "text" | "tool" | "number"))
+        });
+        let Some(object) = object else {
+            return Err(format!(
+                "{name}: must be an object with `text` and optional `tool`, `number`; nothing was saved"
+            ));
+        };
+        let mut item = Map::new();
+        let text = check_text(&format!("{name}.text"), &object["text"], FIX_TEXT_MAX)?;
+        item.insert("text".into(), json!(text));
+        // an optional field sent as "" (models often fill optional arguments that way) counts as absent
+        match object.get("tool") {
+            None | Some(Value::Null) => {}
+            Some(Value::String(s)) if s.is_empty() => {}
+            Some(tool) => {
+                let tool = check_text(&format!("{name}.tool"), tool, CITE_MAX)?;
+                item.insert("tool".into(), json!(tool));
+            }
+        }
+        match object.get("number") {
+            None | Some(Value::Null) => {}
+            Some(Value::String(s)) if s.is_empty() => {}
+            Some(number @ (Value::String(_) | Value::Number(_))) => {
+                if number.is_string() {
+                    check_text(&format!("{name}.number"), number, CITE_MAX)?;
+                }
+                item.insert("number".into(), number.clone());
+            }
+            Some(_) => {
+                return Err(format!(
+                    "{name}.number: must be a number or text; nothing was saved"
+                ));
+            }
+        }
+        clean.push(Value::Object(item));
+    }
+    Ok((summary, clean))
+}
+
+/// Python's `json.dumps(value, sort_keys=True)` (default separators, `ensure_ascii`), so a row written here is the row
+/// Python writes, byte for byte.
+fn dumps(value: &Value) -> String {
+    let mut out = String::new();
+    write_value(value, &mut out);
+    out
+}
+
+fn write_value(value: &Value, out: &mut String) {
+    match value {
+        Value::Null => out.push_str("null"),
+        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+        Value::Number(n) if n.is_f64() => out.push_str(&float_repr(n.as_f64().unwrap_or(0.0))),
+        Value::Number(n) => out.push_str(&n.to_string()),
+        Value::String(s) => write_string(s, out),
+        Value::Array(items) => {
+            out.push('[');
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                write_value(item, out);
+            }
+            out.push(']');
+        }
+        Value::Object(map) => {
+            // Python sorts keys by code point; UTF-16 order differs only above U+FFFF, so compare code points
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort();
+            out.push('{');
+            for (i, key) in keys.into_iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                write_string(key, out);
+                out.push_str(": ");
+                write_value(&map[key], out);
+            }
+            out.push('}');
+        }
+    }
+}
+
+fn write_string(text: &str, out: &mut String) {
+    out.push('"');
+    for c in text.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\u{8}' => out.push_str("\\b"),
+            '\u{c}' => out.push_str("\\f"),
+            c if (c as u32) < 0x20 || (c as u32) > 0x7f => {
+                let mut units = [0u16; 2];
+                for unit in c.encode_utf16(&mut units) {
+                    out.push_str(&format!("\\u{unit:04x}"));
+                }
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+}
+
+/// Python's `float.__repr__`: the shortest text that reads back, `1e-07` and `1e+16` with a signed two-digit exponent.
+fn float_repr(x: f64) -> String {
+    let text = format!("{x:?}");
+    match text.split_once('e') {
+        Some((mantissa, exponent)) => {
+            let exponent: i32 = exponent.parse().unwrap_or(0);
+            let sign = if exponent < 0 { '-' } else { '+' };
+            format!("{mantissa}e{sign}{:02}", exponent.abs())
+        }
+        None => text,
+    }
+}
+
+fn failed(error: impl fmt::Display) -> SaveError {
+    SaveError::Failed(error.to_string())
+}
+
+/// Refuse an unknown workspace or account with the field named (the value is not echoed), as `_check_scope`.
+fn check_scope(
+    conn: &Connection,
+    workspace: Option<&str>,
+    account: Option<&str>,
+) -> std::result::Result<(), SaveError> {
+    let one = |field: &str, scope: Scope| match scope::resolve(conn, scope) {
+        Ok(_) => Ok(()),
+        Err(ScopeError::Unknown(_)) => Err(SaveError::Refused(format!(
+            "{field}: unknown {field}; nothing was saved"
+        ))),
+        Err(ScopeError::Store(e)) => Err(failed(e)),
+    };
+    if let Some(w) = workspace {
+        let scope = Scope {
+            workspace: Some(w),
+            account: None,
+        };
+        one("workspace", scope)?;
+    }
+    if let Some(a) = account {
+        let scope = Scope {
+            workspace: None,
+            account: Some(a),
+        };
+        one("account", scope)?;
+    }
+    Ok(())
+}
+
+/// Store one report with the server's rule snapshot for its scope; return its id and save time.
+///
+/// The order is fixed and nothing is written before the last step: (1) `validate`; (2) the store is opened **read-only**,
+/// must be at schema v11, and the scope is checked; (3) every rule is measured now for the scope (the shipped pack, as
+/// `/api/warnings`; the `config.yaml` override is not ported); (4) only then is a write handle opened, for the one `INSERT`
+/// in one transaction (busy timeout 5 s, the pragmas of `store.connect`; no `ingest.lock`: Python takes none), and closed
+/// before this returns. Any refusal leaves the file untouched. `now_micros` is the injected clock (UTC).
+pub fn save(
+    path: &Path,
+    summary: &Value,
+    fixes: &Value,
+    workspace: Option<&str>,
+    account: Option<&str>,
+    now_micros: i64,
+) -> std::result::Result<SavedReport, SaveError> {
+    let (summary, fixes) = validate(summary, fixes).map_err(SaveError::Refused)?;
+    let workspace = workspace.filter(|s| !s.is_empty());
+    let account = account.filter(|s| !s.is_empty());
+    let snapshot = {
+        let conn = open_checked(path).map_err(failed)?;
+        let found: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .map_err(|e| failed(StoreError::from(e)))?;
+        if found != KNOWN_MIGRATION {
+            return Err(failed(WriteError::Older { found }));
+        }
+        check_scope(&conn, workspace, account)?;
+        let pack = rules::shipped_rules().map_err(failed)?;
+        let scope = Scope { workspace, account };
+        let found =
+            rules::evaluate_checked_scoped(&conn, now_micros, &pack, scope).map_err(failed)?;
+        json!({
+            "as_of_utc": found["as_of_utc"],
+            "checked": found["checked"],
+            "fired": found["hits"], // the whole warning hit: the page draws the Warnings & plan card from it (FR-079)
+            "abstained": found["abstained"],
+        })
+    };
+    let saved_utc = jiff::Timestamp::from_second(now_micros.div_euclid(1_000_000))
+        .map_err(|_| SaveError::Failed("the clock is out of range".into()))?
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
+        .to_string();
+    let store = open_for_write(path).map_err(failed_write)?;
+    let id = {
+        let tx = rusqlite::Transaction::new_unchecked(store.conn(), TransactionBehavior::Immediate)
+            .map_err(|e| failed_write(e.into()))?;
+        tx.execute(
+            "INSERT INTO investigate_reports (saved_utc, server_version, workspace, account, summary, fixes_json, \
+             snapshot_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            params![
+                saved_utc,
+                SERVER_VERSION,
+                workspace,
+                account,
+                summary,
+                dumps(&Value::Array(fixes)),
+                dumps(&snapshot)
+            ],
+        )
+        .map_err(|e| failed_write(e.into()))?;
+        let id = tx.last_insert_rowid();
+        tx.commit().map_err(|e| failed_write(e.into()))?;
+        id
+    };
+    drop(store); // closed before the answer is built
+    Ok(SavedReport { id, saved_utc })
+}
+
+/// A store the OS will not let this process write is said so; every other failure keeps its fixed text.
+fn failed_write(error: WriteError) -> SaveError {
+    match error {
+        WriteError::Sqlite(code) if code == "ReadOnly" || code == "CannotOpen" => {
+            SaveError::Failed("the store is read-only; nothing was saved".into())
+        }
+        other => failed(other),
+    }
 }
 
 #[cfg(test)]

@@ -67,12 +67,29 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-11T14:35:36Z, wave-1 code (ff to `7fbbb9a`), no implementation file created yet. Command: `easy-personal-rs mcp` (debug build), env cleared, `EASY_PERSONAL_HOME` = a temp copy of `rust/parity/store-rich/store-v11.sqlite`, stdin = `initialize`, `tools/list`, `prompts/list`, `prompts/get investigate`, `tools/call save_report {"summary":"x","fixes":[]}`:
+```
+1 capabilities: {'tools': {}}
+3 {"jsonrpc": "2.0", "id": 3, "result": {"prompts": []}}
+4 {"jsonrpc": "2.0", "id": 4, "error": {"code": -32601, "message": "prompts/get"}}
+5 {"jsonrpc": "2.0", "id": 5, "error": {"code": -32602, "message": "Unknown tool: save_report"}}
+2 tools/list names: ['ping', 'usage_summary', 'usage_breakdown', 'session_outliers', 'warnings', 'improvement_plan', 'kit_summary', 'connector_catalog', 'connector_status', 'connector_suggestions'] save_report present: False
+```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured 2026-11-11T14:48:29Z, same command and a fresh temp copy of the rich store (`prompts/get` asked with `workspace: acme`):
+```
+1 capabilities: {'prompts': {}, 'tools': {}}
+3 {"jsonrpc": "2.0", "id": 3, "result": {"prompts": [{"name": "investigate", "description": "Investigate your Claude Code usage: causes of each warning and up to 5 ranked fixes.", "arguments": [{"name": "workspace", "required": false}, ...
+2 tools/list names: [... 'connector_suggestions', 'save_report'] save_report present: True
+4 prompt tail: '`save_report` once, with a summary of what you found (at most 2,000 characters), the fixes from step 5 (at most 5, each '
+5 {"jsonrpc": "2.0", "id": 5, "result": {"content": [{"type": "text", "text": "{\"id\":3,\"saved_utc\":\"2026-11-11T14:48:29Z\"}"}], "structuredContent": {"id": 3, "saved_utc": "2026-11-11T14:48:29Z"}, "isError": false}}
+rows now: [(1, ...), (2, ...), (3, '2026-11-11T14:48:29Z', 'x')]
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: an MCP client can call `save_report` on the Rust server and the report is a new `investigate_reports` row that the Warnings & plan page lists, and `prompts/get investigate` answers Python's text with the scope line.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
+
+
+**Supervisor re-run in `main` (2026-11-11, after merging on top of T044/T045/T041):** 591 tests x3 TZ, 0 failed, 26 ignored; clippy x2 clean, fmt clean; leak 0 hits over 42 canaries and 200 surfaces (with refused `save_report` calls carrying canaries); the three TZ runs the agent could not finish are done. One merge fix: the tool-count assertion in `save_report.rs` is 12 (T044's `kit_findings` plus `save_report`). The Supervisor read `save` in `reports.rs`: validate, then read-only open and v11 check, then the scope check, rules measured, and only then a write handle for one parameterised INSERT in a `BEGIN IMMEDIATE` transaction, closed before the answer.

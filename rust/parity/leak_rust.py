@@ -129,12 +129,18 @@ MCP_CALLS: dict[str, list[dict]] = {
     "connector_status": [{}, {"account": "1"}],
     "connector_suggestions": [{}, {"workspace": "acme"}],
     "kit_findings": [{}, {"limit": 10}, {"since": "2026-01-01"}, {"limit": 0}, {"limit": "x"}, {"since": "garbage"}],
+    # the one tool that writes (T047): a good call, an unknown scope, bad types; the canary-in-text calls are in `mcp()`
+    "save_report": [{"summary": "leak check report", "fixes": [{"text": "a fix", "tool": "warnings", "number": 1}]},
+                    {"summary": "x", "fixes": [], "workspace": "nope"}, {"summary": 5, "fixes": []}, {"summary": "x"},
+                    {"summary": "x", "fixes": ["s"]}],
 }  # fmt: skip
 MCP_RAW = [  # (label, line) answered by the protocol layer, not a tool
     (
         "unknown tool",
         '{"jsonrpc":"2.0","id":900,"method":"tools/call","params":{"name":"nope","arguments":{}}}',
     ),
+    ("prompts/list", '{"jsonrpc":"2.0","id":904,"method":"prompts/list"}'),
+    ("prompts/get", '{"jsonrpc":"2.0","id":905,"method":"prompts/get","params":{"name":"investigate","arguments":{}}}'),
     ("unknown method", '{"jsonrpc":"2.0","id":901,"method":"nope/method"}'),
     ("protocol ping", '{"jsonrpc":"2.0","id":902,"method":"ping"}'),
     ("parse error", "{not json"),
@@ -496,7 +502,7 @@ def serve(run: Run, checks: list[str]) -> None:
     checks.append(f"check serve stopped by PID (SIGINT)   ok (exit {rc}, no process left)")
 
 
-def mcp(run: Run, checks: list[str]) -> None:
+def mcp(run: Run, checks: list[str], canaries: Canaries) -> None:
     proc, errlog = run.popen(
         SERVER_TIMEOUT, "mcp", stdin=subprocess.PIPE, err=run.logs / "mcp.stderr"
     )
@@ -547,6 +553,20 @@ def mcp(run: Run, checks: list[str]) -> None:
                     )
                     ok = not result.get("isError") and data.get("messages", 0) > 0
                     checks.append(f"check mcp usage_summary has data    {'ok' if ok else 'FAILED'}")
+        # a refused `save_report` call carries a secret-shaped canary in every text field: nothing may echo or store it
+        key = canaries.values["api_key"]
+        for args in (
+            {"summary": key, "fixes": []},
+            {"summary": "x", "fixes": [{"text": key}]},
+            {"summary": "x", "fixes": [{"text": "x", "tool": key}]},
+            {"summary": "x", "fixes": [{"text": "x", "number": key}]},
+            {"summary": "x", "fixes": [{"text": "x", "extra": key}]},
+            {"summary": "x", "fixes": [key]},
+            {"summary": 7, "fixes": [], "workspace": key},
+        ):
+            n += 1
+            call = {"jsonrpc": "2.0", "id": n, "method": "tools/call", "params": {"name": "save_report", "arguments": args}}
+            send("tools/call save_report (canary in the text)", json.dumps(call))
         for label, line in MCP_RAW:
             send(label, line)
     finally:
@@ -597,7 +617,7 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     run.run("store-info", "store-info")
     run.run("store-info --json", "store-info", "--json")
     serve(run, checks)
-    mcp(run, checks)
+    mcp(run, checks, canaries)
     again = run.ingest("ingest #2 (same input again)")
     checks.append(
         f"check ingest #2 adds nothing         {'ok' if again.get('new_events') == 0 else 'FAILED'} ({again.get('new_events')})"

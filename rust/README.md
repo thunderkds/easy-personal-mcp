@@ -152,7 +152,7 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
 curl -H "x-dashboard-token: <token>" http://127.0.0.1:<port>/api/version
 ```
 
-`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with eleven tools: `ping`,
+`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with twelve tools (the eleven below, and `save_report`, T047): `ping`,
 `usage_summary`, `usage_breakdown`, `session_outliers`, `warnings`, `improvement_plan`, `kit_summary` (T042: optional `workspace` and `account`, `null`, absent and `""` mean no filter; the projects whose folder is gone are listed with `missing_on_disk: true`, as Python's tool lists them), `kit_findings` (T044, below) and the three connector tools (T046, below). Their names, descriptions and schemas, and their results over
 `parity/store-v11.sqlite`, equal the Python app's `mcp__*` goldens; `warnings` and `improvement_plan` read the clock, so their goldens
 (default and rich store) are compared in-process at the manifest's `frozen_now`: the binary has no flag or variable that sets the clock.
@@ -163,8 +163,8 @@ unknown workspace`, Python's text); a value that is not a string is an argument 
 (2024-11-05 to 2025-11-25) are served, the 2026-07-28 no-handshake mode is not. The server ends with exit 0 when stdin closes. Each call
 opens the store (same path rules as `store-info`) read-only; a missing store, or one newer than this build knows, is a tool error with
 no path in it. Errors in a tool are results with `isError: true` and Python's text (`Error executing tool <name>: <message>`); an
-unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other tool
-(`save_report`), the `investigate` prompt and `--http`.
+unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Twelve tools are listed now: the eleven above are
+read-only; `save_report` (T047, below) is the one that writes. The `investigate` prompt is served (T047). Not ported yet: `--http`.
 
 The connector tools (T046) take no argument (an extra one is dropped, as Python drops it) and only read: `connector_catalog` ->
 `{"connectors": [{id, provider, category, claude_ai_connector, claude_ai_link, fields: [{label, secret}]}]}` in catalog-id order (no env names);
@@ -454,6 +454,45 @@ Runs the daily ingest on a **systemd user timer** (Linux), the way `easy-persona
 
 Test it without touching your machine: `cargo test -p easy-personal-rs --test schedule_cli` runs the binary in throwaway folders with a
 fake `systemctl` first on a `PATH` of its own (see `parity/README.md`, "Schedule oracle").
+
+## `save_report` and the `investigate` prompt (T047)
+
+**`save_report`** `{summary, fixes, workspace?, account?}` -> `{"id": n, "saved_utc": "YYYY-MM-DDTHH:MM:SSZ"}`: the first MCP call of this build that
+**writes**, and it writes one row of the store's `investigate_reports` table (what the dashboard's Warnings & plan page lists: `GET /api/reports`, in Python
+and in this build). Python's limits and refusal texts, byte for byte (`core/reports.py`): `summary` 1 to 2,000 characters (characters, not bytes), at most 5
+`fixes`, each an object with `text` (1 to 300) and optional `tool` and `number` (at most 100 characters when text; a number is stored as sent; `""` and `null`
+count as absent; a bool, list or object is refused), no other key; text that looks like a secret is refused (`secret.rs`: Python's `SECRET` written by hand, no new
+crate; compared with Python on 86 strings); an unknown `workspace` or `account` is refused. Every refusal names the field, never the value, and ends
+`; nothing was saved`. The row also holds the **rule snapshot**: every rule of the shipped pack measured now for the scope (as `/api/warnings`; the `config.yaml`
+threshold override is still not ported), in Python's JSON text (sorted keys, `ensure_ascii`, Python's float form), so `fixes_json` and `snapshot_json` equal the
+rows Python writes (the clock, `server_version` and the store they ran on aside).
+
+*Write discipline.* The order is fixed: validate -> open the store **read-only**, require schema v11, check the scope -> measure the rules -> only then open a
+**write handle**, one `INSERT` in one `BEGIN IMMEDIATE` transaction (5 s busy timeout, the pragmas of Python's `store.connect`) -> close it -> answer. A refusal at
+any earlier step leaves the file's bytes unchanged (a test compares them). `mcp` start-up and every other tool still open read-only (a test compares the file's
+bytes and mtime after all of them). No `ingest.lock` is taken (Python takes none): a save during an `ingest` waits for the write lock like any writer (a test runs
+25 saves against a running ingest). A missing store is never created. Not v11: `store is schema v10: run the Python app once to migrate it` (or the "newer" text).
+
+| Case | Answer |
+|------|--------|
+| `summary` missing or not a string; `fixes` missing, not a list or holding a non-object; `workspace` / `account` not a string or null | tool error "argument `summary` is required and must be a string" (and the `fixes` and `workspace` forms), never the value |
+| a limit, a secret, a wrong type inside a fix, an unknown scope | tool error with Python's text, e.g. `fixes[0].text: 301 characters, the limit is 300; nothing was saved` |
+| the store busy for more than 5 s | `the store is busy (another process is writing); try again in a moment` |
+| the store read-only on disk | `the store is read-only; nothing was saved` |
+| no store, or a store newer than this build | the texts of the read tools |
+
+**`investigate`** (`prompts/list`, `prompts/get`): Python's prompt text (equal to the goldens `mcp__prompt_investigate__{all,scoped}`), with the `Scope: pass
+workspace="..." and account="..."` line when a non-empty `workspace` or `account` is given (quoted as `json.dumps(ensure_ascii=False)`); the same description
+and two optional arguments; `initialize` advertises `prompts` (`{}`; Python adds `listChanged: false`). An unknown prompt, or an argument that is not a string, is a
+JSON-RPC error (`Unknown prompt: nope`).
+
+*Decided for you.* (1) A wrong argument type gets a short fixed text; Python's pydantic text echoes the offending value (`input_value=...`), which for a summary would
+put the report text in an error. (2) The secret check is judged on text as Rust sees it: a combining mark that is part of a letter counts as a letter here and not
+in Python, so `<mark>sk-abc` is judged differently (corpus equal on all 86 strings). (3) Python crashes or stores oddly on a lone surrogate (`\ud800`) in the text and
+on an integer above 64 bits or a float outside the double range: here the JSON line is a parse error (`-32700`) or the number is read as a double
+(`1e+23` for `10**23`), never a crash. (4) The scope is checked on a read-only handle, and the write handle opens only after the rules are measured, so Python's
+"measure then insert" has one extra step between them that no reader can see. (5) The store file's journal mode: a store still in `delete` mode (the test fixture
+only) is switched to WAL by the save, as Python's `connect` does. (6) `server_version` is this build's Cargo version (Python's is its package version).
 
 ## Kit (T042)
 

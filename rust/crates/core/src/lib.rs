@@ -15,6 +15,7 @@ pub mod report_files;
 pub mod reports;
 pub mod rules;
 pub mod scope;
+pub mod secret;
 pub mod sessions;
 pub mod store;
 pub mod suggestions;

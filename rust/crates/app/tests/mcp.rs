@@ -235,6 +235,7 @@ fn initialize_reports_the_cargo_version_and_echoes_the_proven_protocol_versions(
         assert_eq!(result["serverInfo"]["name"], env!("CARGO_PKG_NAME"));
         assert_eq!(result["serverInfo"]["version"], env!("CARGO_PKG_VERSION"));
         assert!(result["capabilities"]["tools"].is_object());
+        assert!(result["capabilities"]["prompts"].is_object());
     }
 }
 
@@ -252,7 +253,7 @@ fn the_no_handshake_revision_is_not_enabled() {
 }
 
 #[test]
-fn tools_list_equals_the_golden_for_each_of_the_ten_tools() {
+fn tools_list_equals_the_golden_for_each_of_the_twelve_tools() {
     let home = Home::with_store();
     let mut mcp = Mcp::started(&home);
     let answer = mcp.request("tools/list", json!({}));
@@ -269,6 +270,7 @@ fn tools_list_equals_the_golden_for_each_of_the_ten_tools() {
             "kit_findings",
             "kit_summary",
             "ping",
+            "save_report",
             "session_outliers",
             "usage_breakdown",
             "usage_summary",
@@ -761,7 +763,8 @@ fn session_outliers_is_listed_after_usage_breakdown_in_pythons_registration_orde
             "kit_findings",
             "connector_catalog",
             "connector_status",
-            "connector_suggestions"
+            "connector_suggestions",
+            "save_report"
         ]
     );
     let entry = answer["result"]["tools"]
