@@ -23,6 +23,7 @@ use axum::http::header::{
 use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
+use easy_personal_core::accounts;
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::first_run;
 use easy_personal_core::kit;
@@ -35,6 +36,7 @@ use easy_personal_core::scope::Scope;
 use easy_personal_core::sessions::{session_outliers_scoped, session_timeline_scoped};
 use easy_personal_core::store::{self, StoreError};
 use easy_personal_core::suggestions::{self, ViewError};
+use easy_personal_core::sync::{self, SyncError};
 use easy_personal_core::workspaces;
 use rusqlite::Connection;
 use serde_json::{Value, json};
@@ -97,6 +99,8 @@ pub fn routes() -> Router<Api> {
         .route("/api/reports", get(report_list))
         .route("/api/reports/{id}", get(report_one))
         .route("/api/first-run", get(first_run_steps))
+        .route("/api/accounts", get(account_list))
+        .route("/api/sync", get(sync_plan))
 }
 
 async fn summary(State(api): State<Api>, uri: Uri) -> Response {
@@ -303,6 +307,37 @@ async fn first_run_steps(State(api): State<Api>, uri: Uri) -> Response {
     .await
 }
 
+/// `GET /api/accounts?by=account|provider` (T041): the stored accounts with their status lines. Read-only and with no
+/// account detection (Python's handler INSERTs new account rows first; here that stays in `ingest`). `by` is `account`
+/// when absent; the writes of Python's `/api/accounts` are 405 here (T048). The agent root (`EASY_PERSONAL_AGENT_ROOT`,
+/// else `HOME`) only decides `is_default`.
+async fn account_list(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, now| {
+        let by = q.get("by").unwrap_or("account");
+        accounts::grouped(conn, by, now, &agent_root()).map_err(metrics_failure)
+    })
+    .await
+}
+
+/// `GET /api/sync?account=<id>` (T041): the sync plan, no `claude` process and no keychain (see `core/src/sync.rs`).
+/// Python's `POST /api/sync` (apply) is a 405 here.
+async fn sync_plan(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, _now| {
+        let account = sync::account_arg(q.get("account")).map_err(sync_failure)?;
+        sync::plan_json(conn, account).map_err(sync_failure)
+    })
+    .await
+}
+
+/// Python's `config.agent_root()`: `EASY_PERSONAL_AGENT_ROOT`, else the home folder (an empty value counts as unset).
+fn agent_root() -> PathBuf {
+    let set = |name| std::env::var_os(name).filter(|v| !v.is_empty());
+    set("EASY_PERSONAL_AGENT_ROOT")
+        .or_else(|| set("HOME"))
+        .map(PathBuf::from)
+        .unwrap_or_default()
+}
+
 /// Parses the query, then runs `read` on a fresh read-only connection off the async workers.
 async fn serve<F>(api: Api, uri: Uri, read: F) -> Response
 where
@@ -384,6 +419,15 @@ fn report_failure(error: ReportError) -> Failure {
         ReportError::NotFound => (StatusCode::NOT_FOUND, "not found".to_string()),
         ReportError::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "too large".to_string()),
         ReportError::Store(error) => metrics_failure(error),
+    }
+}
+
+/// 400 for an `account` that is not an id, 404 for one no account has: Python's texts, which name none of the input.
+fn sync_failure(error: SyncError) -> Failure {
+    match error {
+        SyncError::Invalid(text) => (StatusCode::BAD_REQUEST, text),
+        SyncError::NotFound(text) => (StatusCode::NOT_FOUND, text),
+        SyncError::Store(error) => store_failure(error),
     }
 }
 

@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {
+      "account": "Gone",
+      "account_id": 3,
+      "action": "skipped",
+      "alias": "",
+      "connector_id": "",
+      "line": "Gone: skipped (folder missing)"
+    }
+  ]
+}

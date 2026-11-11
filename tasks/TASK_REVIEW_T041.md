@@ -67,12 +67,18 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-11T14:36:21Z, `rust/target/debug/easy-personal-rs serve` (built from the tree before any T041 change, `env -i`, `TZ=UTC`) over a temp copy of `rust/parity/store-rich/store-v11.sqlite`, each route asked with the dashboard token over `curl`:
+```
+--- GET /api/accounts                -> HTTP 404 (empty body)
+--- GET /api/accounts?by=provider    -> HTTP 404 (empty body)
+--- GET /api/accounts?by=bad         -> HTTP 404 (empty body)
+--- GET /api/sync                    -> HTTP 404 (empty body)
+--- GET /api/sync?account=2          -> HTTP 404 (empty body)
+--- GET /api/workspaces (control)    -> HTTP 200 {"workspaces":[{"color":null,"description":null,"email":null,"icon":null,"id":1,"is_orphan":true,"name":"orphan","repos":[]},...
+```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: the same `serve` over a temp copy of store-rich answers `/api/accounts` (by account, by provider, bad `by`) and `/api/sync` (all, per account): default goldens 8/8 equal (core and over the binary); hand-made-store oracle `golden-accounts` 57/57 in core (19 cases x 3 zones) and 19/19 over the binary; the 7-day-window mutation turned the default goldens red. Supervisor re-run in `main`: 553 tests x3 TZ, 0 failed, clippy x2, fmt, leak 0 hits over 169 surfaces, `gen_accounts.py --check` equal.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The Rust dashboard's Accounts and Sync pages load (account list with status lines, sync plan per account), without inserting or running anything, where both routes answered 404.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: derived by the delivery-report renderer from `memory/event-trace/T041.jsonl`; the Supervisor re-ran the merged tree on 2026-11-11.

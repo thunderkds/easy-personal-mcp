@@ -1,0 +1,36 @@
+{
+  "steps": [
+    {
+      "account": "Café ☕ \"work\"",
+      "account_id": 2,
+      "action": "remove",
+      "alias": "stale-one",
+      "connector_id": "gone-conn",
+      "line": "Café ☕ \"work\": remove stale-one (exec gone-conn)"
+    },
+    {
+      "account": "Café ☕ \"work\"",
+      "account_id": 2,
+      "action": "add",
+      "alias": "acme-gmail",
+      "connector_id": "gmail-acme",
+      "line": "Café ☕ \"work\": add acme-gmail -> exec gmail-acme"
+    },
+    {
+      "account": "Gone",
+      "account_id": 3,
+      "action": "skipped",
+      "alias": "",
+      "connector_id": "",
+      "line": "Gone: skipped (folder missing)"
+    },
+    {
+      "account": "Old\nname",
+      "account_id": 4,
+      "action": "remove",
+      "alias": "old-slack",
+      "connector_id": "slack-old",
+      "line": "Old\nname: remove old-slack (exec slack-old)"
+    }
+  ]
+}

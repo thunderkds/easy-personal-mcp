@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {
+      "account": "Old\nname",
+      "account_id": 4,
+      "action": "remove",
+      "alias": "old-slack",
+      "connector_id": "slack-old",
+      "line": "Old\nname: remove old-slack (exec slack-old)"
+    }
+  ]
+}

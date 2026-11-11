@@ -1,0 +1,146 @@
+{
+  "by": "provider",
+  "providers": {
+    "claude": [
+      {
+        "config_dir_env": null,
+        "folder": "<WORK>/agent-root/.claude",
+        "id": 1,
+        "is_default": true,
+        "label": "Claude default",
+        "provider": "claude",
+        "status": "confirmed",
+        "status_line": {
+          "email": "default@example.invalid",
+          "last_active_utc": "2026-01-19T09:00:00.000000Z",
+          "last_model": "model-null-account",
+          "limits": null,
+          "organization": "Default Org",
+          "plan": "stripe_subscription",
+          "tokens_7d": 1678,
+          "tokens_today": 0
+        },
+        "workspaces": []
+      },
+      {
+        "config_dir_env": "<WORK>/agent-root/.claude-work",
+        "folder": "<WORK>/agent-root/.claude-work",
+        "id": 2,
+        "is_default": false,
+        "label": "Café ☕ \"work\"",
+        "provider": "claude",
+        "status": "confirmed",
+        "status_line": {
+          "email": "work@example.invalid",
+          "last_active_utc": "2026-01-19T23:31:00.000000Z",
+          "last_model": "model-work",
+          "limits": {
+            "five_hour": {
+              "resets_at": "2026-01-20T01:00:00Z",
+              "stale": false,
+              "used_percentage": 42.5
+            },
+            "seven_day": {
+              "resets_at": "2026-01-19T23:00:00Z",
+              "stale": true,
+              "used_percentage": 10
+            },
+            "stale": true,
+            "written_at": "2026-01-19T23:59:00Z"
+          },
+          "organization": "Acme ☕",
+          "plan": "api",
+          "tokens_7d": 114,
+          "tokens_today": 114
+        },
+        "workspaces": [
+          "acme"
+        ]
+      },
+      {
+        "config_dir_env": "<WORK>/gone/.claude-gone",
+        "folder": "<WORK>/gone/.claude-gone",
+        "id": 3,
+        "is_default": false,
+        "label": "Gone",
+        "provider": "claude",
+        "status": "missing",
+        "status_line": {
+          "email": null,
+          "last_active_utc": null,
+          "last_model": null,
+          "limits": null,
+          "organization": null,
+          "plan": null,
+          "tokens_7d": 0,
+          "tokens_today": 0
+        },
+        "workspaces": []
+      },
+      {
+        "config_dir_env": "<WORK>/agent-root/.claude-old",
+        "folder": "<WORK>/agent-root/.claude-old",
+        "id": 4,
+        "is_default": false,
+        "label": "Old\nname",
+        "provider": "claude",
+        "status": "ignored",
+        "status_line": {
+          "email": null,
+          "last_active_utc": null,
+          "last_model": null,
+          "limits": null,
+          "organization": null,
+          "plan": null,
+          "tokens_7d": 0,
+          "tokens_today": 0
+        },
+        "workspaces": [
+          "acme"
+        ]
+      },
+      {
+        "config_dir_env": "<WORK>/agent-root/.claude-new",
+        "folder": "<WORK>/agent-root/.claude-new",
+        "id": 6,
+        "is_default": false,
+        "label": null,
+        "provider": "claude",
+        "status": "detected",
+        "status_line": {
+          "email": null,
+          "last_active_utc": null,
+          "last_model": null,
+          "limits": null,
+          "organization": null,
+          "plan": null,
+          "tokens_7d": 0,
+          "tokens_today": 0
+        },
+        "workspaces": []
+      }
+    ],
+    "codex": [
+      {
+        "config_dir_env": null,
+        "folder": "<WORK>/agent-root/.codex",
+        "id": 5,
+        "is_default": false,
+        "label": "Codex main",
+        "provider": "codex",
+        "status": "confirmed",
+        "status_line": {
+          "email": null,
+          "last_active_utc": null,
+          "last_model": null,
+          "limits": null,
+          "organization": null,
+          "plan": null,
+          "tokens_7d": 0,
+          "tokens_today": 0
+        },
+        "workspaces": []
+      }
+    ]
+  }
+}

@@ -83,6 +83,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/reports": [""],
     "/api/reports/{id}": [""],  # asked literally (not digits: the 404); the numeric ids are in GUARD_CALLS
     "/api/first-run": [""],
+    "/api/accounts": ["", "?by=provider", "?by=bad", "?by="],
+    "/api/sync": ["", "?account=1", "?account=99", "?account=nope", "?account=99999999999999999999"],
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -97,6 +99,9 @@ GUARD_CALLS = [
     ("report write method", "DELETE", "/api/reports/1", {}),
     ("report file write method", "POST", "/api/kit/report-file?workspace=acme&repo_no=0&folder=reports&path=index.html", {}),
     ("report files no token", "GET", "/api/kit/report-files?workspace=acme&repo_no=0&folder=reports", {"x-dashboard-token": None}),
+    ("accounts write method", "POST", "/api/accounts", {}),
+    ("sync apply method", "POST", "/api/sync", {}),
+    ("account workspaces write", "PUT", "/api/accounts/1/workspaces", {}),
     ("static index", "GET", "/", {"x-dashboard-token": None}),
     ("static file", "GET", "/index.html", {"x-dashboard-token": None}),
     ("static missing", "GET", "/nope.js", {"x-dashboard-token": None}),

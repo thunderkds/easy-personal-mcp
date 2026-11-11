@@ -1,3 +1,4 @@
+pub mod accounts;
 pub mod catalog;
 pub mod clock;
 pub mod first_run;
@@ -14,5 +15,6 @@ pub mod scope;
 pub mod sessions;
 pub mod store;
 pub mod suggestions;
+pub mod sync;
 pub mod workspaces;
 pub mod writer;

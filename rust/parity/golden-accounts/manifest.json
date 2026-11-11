@@ -1,0 +1,483 @@
+{
+  "generator": "rust/parity/gen_accounts.py",
+  "frozen_now": "2026-01-20T00:00:00+00:00",
+  "zones": {
+    "UTC": {
+      "dir": "UTC",
+      "entries": [
+        {
+          "file": "api__accounts__by_account.json",
+          "route": "/api/accounts",
+          "params": {},
+          "status": 200
+        },
+        {
+          "file": "api__accounts__by_provider.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": "provider"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__accounts__bad_by.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": "bad"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__accounts__empty_by.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": ""
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__all.json",
+          "route": "/api/sync",
+          "params": {},
+          "status": 200
+        },
+        {
+          "file": "api__sync__empty_account.json",
+          "route": "/api/sync",
+          "params": {
+            "account": ""
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_2.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "2"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_02.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "02"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_3_missing_folder.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "3"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_4_ignored_with_picks.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "4"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_5_codex.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "5"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_6_detected.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "6"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_unknown.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "99"
+          },
+          "status": 404
+        },
+        {
+          "file": "api__sync__account_zero.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "0"
+          },
+          "status": 404
+        },
+        {
+          "file": "api__sync__account_word.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "abc"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_negative.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "-1"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_float.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "1.5"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_true.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "true"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_space.json",
+          "route": "/api/sync",
+          "params": {
+            "account": " 2"
+          },
+          "status": 400
+        }
+      ]
+    },
+    "Pacific/Kiritimati": {
+      "dir": "Pacific_Kiritimati",
+      "entries": [
+        {
+          "file": "api__accounts__by_account.json",
+          "route": "/api/accounts",
+          "params": {},
+          "status": 200
+        },
+        {
+          "file": "api__accounts__by_provider.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": "provider"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__accounts__bad_by.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": "bad"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__accounts__empty_by.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": ""
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__all.json",
+          "route": "/api/sync",
+          "params": {},
+          "status": 200
+        },
+        {
+          "file": "api__sync__empty_account.json",
+          "route": "/api/sync",
+          "params": {
+            "account": ""
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_2.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "2"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_02.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "02"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_3_missing_folder.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "3"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_4_ignored_with_picks.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "4"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_5_codex.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "5"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_6_detected.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "6"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_unknown.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "99"
+          },
+          "status": 404
+        },
+        {
+          "file": "api__sync__account_zero.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "0"
+          },
+          "status": 404
+        },
+        {
+          "file": "api__sync__account_word.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "abc"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_negative.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "-1"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_float.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "1.5"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_true.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "true"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_space.json",
+          "route": "/api/sync",
+          "params": {
+            "account": " 2"
+          },
+          "status": 400
+        }
+      ]
+    },
+    "Pacific/Pago_Pago": {
+      "dir": "Pacific_Pago_Pago",
+      "entries": [
+        {
+          "file": "api__accounts__by_account.json",
+          "route": "/api/accounts",
+          "params": {},
+          "status": 200
+        },
+        {
+          "file": "api__accounts__by_provider.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": "provider"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__accounts__bad_by.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": "bad"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__accounts__empty_by.json",
+          "route": "/api/accounts",
+          "params": {
+            "by": ""
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__all.json",
+          "route": "/api/sync",
+          "params": {},
+          "status": 200
+        },
+        {
+          "file": "api__sync__empty_account.json",
+          "route": "/api/sync",
+          "params": {
+            "account": ""
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_2.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "2"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_02.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "02"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_3_missing_folder.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "3"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_4_ignored_with_picks.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "4"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_5_codex.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "5"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_6_detected.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "6"
+          },
+          "status": 200
+        },
+        {
+          "file": "api__sync__account_unknown.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "99"
+          },
+          "status": 404
+        },
+        {
+          "file": "api__sync__account_zero.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "0"
+          },
+          "status": 404
+        },
+        {
+          "file": "api__sync__account_word.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "abc"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_negative.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "-1"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_float.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "1.5"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_true.json",
+          "route": "/api/sync",
+          "params": {
+            "account": "true"
+          },
+          "status": 400
+        },
+        {
+          "file": "api__sync__account_space.json",
+          "route": "/api/sync",
+          "params": {
+            "account": " 2"
+          },
+          "status": 400
+        }
+      ]
+    }
+  },
+  "tree": {
+    "dirs": [
+      "agent-root/.claude",
+      "agent-root/.claude-work",
+      "agent-root/.claude-old",
+      "agent-root/.claude-new",
+      "agent-root/.codex"
+    ],
+    "files": {
+      "agent-root/.claude.json": "{\"oauthAccount\": {\"emailAddress\": \"default@example.invalid\", \"billingType\": \"stripe_subscription\", \"organizationName\": \"Default Org\", \"accessToken\": \"x\"}}",
+      "agent-root/.claude-work/.claude.json": "{\"oauthAccount\": {\"emailAddress\": \"work@example.invalid\", \"billingType\": \"api\", \"organizationName\": \"Acme \\u2615\"}}",
+      "agent-root/.claude-work/easy-personal-limits.json": "{\"five_hour\": {\"used_percentage\": 42.5, \"resets_at\": 1768870800.5}, \"seven_day\": {\"used_percentage\": 10, \"resets_at\": 1768863600.0}, \"written_at\": 1768867140.0, \"secret_token\": \"must-not-appear\"}",
+      "agent-root/.claude-old/.claude.json": "{ not json",
+      "agent-root/.claude-new/projects/.keep": "",
+      "agent-root/.codex/config.toml": ""
+    }
+  },
+  "note": "store.sqlite holds @W@ for the work folder; goldens hold <WORK>"
+}

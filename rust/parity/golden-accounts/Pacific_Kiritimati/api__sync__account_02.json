@@ -1,0 +1,20 @@
+{
+  "steps": [
+    {
+      "account": "Café ☕ \"work\"",
+      "account_id": 2,
+      "action": "remove",
+      "alias": "stale-one",
+      "connector_id": "gone-conn",
+      "line": "Café ☕ \"work\": remove stale-one (exec gone-conn)"
+    },
+    {
+      "account": "Café ☕ \"work\"",
+      "account_id": 2,
+      "action": "add",
+      "alias": "acme-gmail",
+      "connector_id": "gmail-acme",
+      "line": "Café ☕ \"work\": add acme-gmail -> exec gmail-acme"
+    }
+  ]
+}

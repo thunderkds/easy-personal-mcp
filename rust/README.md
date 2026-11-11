@@ -110,6 +110,41 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   or `$HOME/.config` read per request, and with neither set it counts as not installed (Python asks the passwd entry); the report's `now` side uses the shipped
   rule pack like `/api/warnings` (the `config.yaml` threshold override is not ported); a `{id}` that decodes to text with a `/` (`/api/reports/1%2F2`) is the JSON
   `404 no such report` here (Python: Starlette's plain-text `Not Found`, no route matches), and `/api/reports/` with no id is the empty `404` (Python: the same plain text).
+- `GET /api/accounts?by=account|provider` and `GET /api/sync?account=<id>` (T041; read-only). **No account detection**: Python's two handlers first run
+  `accounts.detect`, which INSERTs the `.claude*` / `.codex*` folders it finds; the Rust server never does (the detect stays in `ingest`), so a new agent
+  folder appears after the next `ingest`, not at page load. Nothing is written and no process is started (no `claude`, no keychain).
+  - `/api/accounts` -> `{"by": "account", "accounts": [...]}` (`by` defaults to `account`) or `{"by": "provider", "providers": {"claude": [...], ...}}`. Each
+    account is `{id, provider, label, folder, status, config_dir_env, is_default, workspaces, status_line}`: `status` is `missing` when the folder is gone and the
+    account is not ignored; `workspaces` are the names it picked; `status_line` is `{email, plan, organization, last_model, last_active_utc, tokens_today,
+    tokens_7d, limits}` (tokens: one row per message, since local midnight in `TZ` / the OS zone and in the last 7 x 24 h; the newest event with a model;
+    the default account also owns events with no account). For a Claude account it reads exactly two small regular files of its folder, as Python does:
+    three keys of `<folder>/.claude.json` (`oauthAccount`: `emailAddress`, `billingType`, `organizationName`; the default account's file may sit beside its folder)
+    and `<folder>/easy-personal-limits.json` (`five_hour` / `seven_day` `used_percentage`, `resets_at`, `written_at`). Nothing else in a folder is opened or listed.
+  - `/api/sync` -> `{"steps": [{account_id, account, action, alias, connector_id, line}]}`: what applying the store's picks would change in each confirmed Claude
+    account (and each ignored one that still holds registrations); `?account=<id>` selects one (an empty value is no filter). The lines are data from the store
+    (an account label or alias with a newline or quotes is JSON-escaped, never run). The apply (`POST /api/sync`) is `405`; the account writes
+    (`POST /api/accounts`, `.../confirm`, `.../ignore`, `PUT .../workspaces`) are T048's: `405` on `/api/accounts`, `404` on the sub-paths.
+
+  | Request | Answer |
+  |---|---|
+  | `by` not exactly `account` or `provider` (an empty `by=` too) | `400 {"error": "by must be account or provider"}` |
+  | `account` not plain ASCII digits | `400 {"error": "account must be an account id"}` |
+  | `account` with no account (`0`, `99`, 20 digits) | `404 {"error": "no such account"}` |
+  | no token, bad Host or Origin | `403 {"error": "forbidden"}` (before anything else) |
+  | `POST`, `PUT`, `PATCH`, `DELETE` on either route | `405`, empty body, CSP set (`HEAD` answers like `GET`) |
+  | no store, a store newer than this build, a busy, unreadable or non-file store | `503`, as for the other routes |
+
+  Decided for you (T041; Rust differs from Python): (1) the guide's checklist said Rust never opens an account folder, but Python's status line (and the `missing`
+  status and the plan's `folder missing`) need the folder: Rust stats it and reads only the two files above, with Python's size caps (32 MiB, 64 KiB), because
+  without them the email, plan, organization and limits of every real account would be empty; a folder, pipe or other non-regular file where a file should be
+  is "not there" (Python: a folder gives the same, a pipe would hang it). (2) `sync` answers as Python does when `claude` is **not** on `PATH` (the state of the
+  goldens): on a machine that has it, Python asks `claude mcp get` per entry and can also say `record`, `forget`, `refused`, "missing from Claude Code: re-add"
+  and "does not point at the launcher"; Rust says only `add` (wanted, not registered), `remove` (registered, not wanted) and `skipped`; a registration the store
+  still wants is left alone. (3) `account` is ASCII digits only: Python's `isdigit` also accepts `²` (then `int()` fails: a 500) and `٣` (read as 3); both are `400` here.
+  (4) An `account` of 20 digits is `404 no such account` (Python: sqlite3 `OverflowError`, a 500). (5) A JSON file Python parses but `serde_json` does not
+  (`NaN` / `Infinity` literals, nesting deeper than 128) reads as "no file"; an integer beyond 64 bits in `limits` is shown as a float. (6) With a missing store
+  the answer is `503` even when `account` is also invalid (Python validates `account` first, then creates the store). (7) The agent root that decides
+  `is_default` is `EASY_PERSONAL_AGENT_ROOT`, else `HOME`, read per request (empty counts as unset), as Python's `config.agent_root()`.
 - Every other Python route is still absent (404; with `--static-dir`, a non-`/api/` path is looked up in the folder first).
 
 ```bash

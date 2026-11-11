@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {
+      "account": "Codex main",
+      "account_id": 5,
+      "action": "skipped",
+      "alias": "",
+      "connector_id": "",
+      "line": "Codex main: skipped (not a confirmed Claude account)"
+    }
+  ]
+}
