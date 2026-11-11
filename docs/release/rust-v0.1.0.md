@@ -3,8 +3,8 @@
 > **This is a plan and a recommendation. The operator executes it.** Nothing in this file was run against the owner's real data. The Supervisor never pushes `main`, tags, or publishes: those steps are the operator's.
 
 **Proposed tag:** `rust-v0.1.0` (a new component; the Python app keeps its own `v0.x` tags and `RUNBOOK.md` rows). **Crate version:** `0.1.0` (`rust/Cargo.toml`).
-**Commit to tag:** the commit that holds this file (named in the Release Log row and in the approval question).
-**Deployment target** (`rust/PROJECT_SPEC.md`): local machine only, Ubuntu first, then macOS, Windows last. **No deploy/install command is defined for the Rust app: step 3 below is `TODO: confirm with operator`.**
+**Commit to tag:** `77df906` (the commit that added this plan; **approved by the owner, 2026-11-11**). Tag exactly this commit: later commits only record the approval in documentation.
+**Deployment target** (`rust/PROJECT_SPEC.md`): local machine only, Ubuntu first, then macOS, Windows last. **No deploy/install command was defined for the Rust app; the owner chose on 2026-11-11: "Copy to ~/.local/bin (Recommended)" (step 3).**
 
 ---
 
@@ -71,9 +71,9 @@ Then, from `rust/`: `./parity/.venv/bin/python parity/leak_rust.py` → **PASS:*
 **Ordered steps**
 1. `cd rust && cargo build --release` → `rust/target/release/easy-personal-rs`. *Reverse:* delete the binary.
 2. Optional window build, into a separate target so the default binary is not replaced: `CARGO_TARGET_DIR=target-window cargo build --release --features window`; and the dashboard bundle: `npm --prefix web ci && npm --prefix web run build`. *Reverse:* delete the two folders.
-3. **TODO: confirm with operator — install location and method.** Nothing in `PROJECT_SPEC.md` defines it. Suggested (not assumed): copy `target/release/easy-personal-rs` to a folder on `PATH` such as `~/.local/bin/`. *Reverse:* remove that file.
+3. **Install (owner-confirmed 2026-11-11, answer: "Copy to ~/.local/bin (Recommended)"):** `mkdir -p ~/.local/bin && cp rust/target/release/easy-personal-rs ~/.local/bin/easy-personal-rs`; make sure `~/.local/bin` is on `PATH` (`command -v easy-personal-rs`). *Reverse:* `rm ~/.local/bin/easy-personal-rs`.
 4. First real run, only after the backup: `easy-personal-rs ingest` (reads the default `~/.claude` account exactly as the Python command does; prints the JSON). **Pass:** exit 0, `skipped` is 0 or explained; then `easy-personal ingest` (Python) prints `new_events: 0` (nothing the Rust run missed) and exits 0.
-5. Publish (operator only): `git push origin main`; `git tag rust-v0.1.0 <approved commit>`; `git push origin rust-v0.1.0`; `gh release create rust-v0.1.0 --title "easy-personal-rs 0.1.0 (Rust, Ubuntu)" --notes-file docs/release/rust-v0.1.0.md`. *Reverse:* `gh release delete rust-v0.1.0 --yes`; `git push origin :refs/tags/rust-v0.1.0`; `git tag -d rust-v0.1.0`.
+5. Publish (operator only): `git push origin main`; `git tag rust-v0.1.0 77df906`; `git push origin rust-v0.1.0`; `gh release create rust-v0.1.0 --title "easy-personal-rs 0.1.0 (Rust, Ubuntu)" --notes-file docs/release/rust-v0.1.0.md`. *Reverse:* `gh release delete rust-v0.1.0 --yes`; `git push origin :refs/tags/rust-v0.1.0`; `git tag -d rust-v0.1.0`.
 
 **Post-deploy health check** (the pass condition is the gate; "installed" is not success)
 
@@ -93,7 +93,7 @@ Then, from `rust/`: `./parity/.venv/bin/python parity/leak_rust.py` → **PASS:*
 **Trigger (any one):** a health-check line above fails; `PRAGMA integrity_check` on the real store is not `ok` after a Rust ingest; the Python app can no longer open the store; the Rust ingest reports a count that differs from what the Python ingest then adds (a missed or doubled row).
 
 **Reverse steps, in order**
-1. Stop using the binary: remove the installed `easy-personal-rs` (step 3) and, if scheduled by hand, any cron/timer line that calls it. The Python app, its timer and its dashboard are untouched and keep working: nothing in `src/` changed and the Rust app never changes the schema.
+1. Stop using the binary: `rm ~/.local/bin/easy-personal-rs` (step 3) and, if scheduled by hand, any cron/timer line that calls it. The Python app, its timer and its dashboard are untouched and keep working: nothing in `src/` changed and the Rust app never changes the schema.
 2. If the store is suspect: stop every `easy-personal*` process, then restore the backup: copy `~/.easy-personal/store.sqlite.pre-rust` over `~/.easy-personal/store.sqlite` and delete the stale `store.sqlite-wal` and `-shm`; run `easy-personal ingest` (Python) once, which re-reads the transcripts from the restored offsets. **Pass:** `PRAGMA integrity_check` `ok` and `easy-personal --version` `0.4.0` (Python).
 3. Undo the publication (if step 5 ran): the three commands under step 5 *Reverse*.
 4. Nothing to migrate down: the Rust app never ran a migration (`user_version` is 11 before and after). Note for the operator: rows the Rust ingest added are indistinguishable from Python's by design (same keys), so restoring the backup is the only way to remove them.
@@ -105,10 +105,10 @@ Then, from `rust/`: `./parity/.venv/bin/python parity/leak_rust.py` → **PASS:*
 | Stage 5 evidence green for every in-scope task | **Yes**: all 33 cards (T001-T032 and T035) Done with evidence; Supervisor re-ran tests, lint and real-process checks for each |
 | Rollback plan with triggers and exact reverse steps | **Yes** (section 5) |
 | Post-deploy health check with a concrete pass condition | **Yes** (section 4) |
-| Deploy command known (from `PROJECT_SPEC.md`) | **No**: no install command is defined for the Rust app; step 3 is `TODO: confirm with operator` |
-| Production approval recorded for the version and commit | **Pending**: asked in the session; recorded in the Release Log row |
+| Deploy command known | **Yes**: not in `PROJECT_SPEC.md`, but confirmed by the owner on 2026-11-11 (copy the release binary to `~/.local/bin`, step 3) |
+| Production approval recorded for the version and commit | **Yes**: owner, 2026-11-11, answer "Approve rust-v0.1.0 @ 77df906" (copied verbatim into the Release Log row of `RUNBOOK.md`) |
 
-**Verdict: NO-GO until the operator confirms the install method (step 3) and approval is recorded.** Everything else is ready. This is a recommendation; the operator executes.
+**Verdict: GO** (all five gates hold). This is a recommendation; **the operator executes**: the Supervisor does not push, tag or publish.
 
 ## 7. Risks to watch during this release (`Known Risk Areas`)
 
