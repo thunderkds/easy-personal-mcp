@@ -1,4 +1,5 @@
 pub mod clock;
+pub mod ingest;
 pub mod ingest_lock;
 pub mod metrics;
 pub mod plan;

@@ -181,6 +181,21 @@ one transaction and returns the rows added (`id > MAX(id)` as Python); `retire_f
 Python ingest, and creates the data folder 0700. A Python app opens a store this module created without migrating it
 (`tests/writer_python.rs`, ignored: needs `parity/.venv`).
 
+## Ingest parse layer (P2a)
+
+`easy_personal_core::ingest::claude_code::read_lines` (and the streaming `LineReader`) turn the bytes of one transcript file into the
+events Python's `claude_code` source would store: line framing, `json.loads` leniencies, UTC timestamps, labels, the Bash first-word and
+WebFetch-host signals. It keeps metadata only; no message text, thinking, tool input or output ever reaches an `Event`. It lives in
+`crates/core/src/ingest/` and is proven against the Python oracle in `parity/ingest/` (goldens S01 and S06, and two differential
+corpora, `corpus-time.json` and `corpus-label.json`, regenerated with `parity/gen_ingest_corpus.py --check`). Rust differs from Python
+only where Python crashes, and abstains the record (or drops the timestamp) instead, then reads on:
+
+- nesting deeper than 57,890 levels;
+- an integer beyond int64 in a usage field;
+- a list-valued (or object-valued) `type`;
+- a timestamp whose UTC value leaves years 1-9999;
+- a `cwd` holding a lone surrogate (Python raises `UnicodeEncodeError` binding the row).
+
 ## Test
 
 ```bash

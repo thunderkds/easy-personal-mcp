@@ -17,12 +17,12 @@
 - [ ] **T033** — P2b: `kit_trace`, `ui`, `verifier` sources in Rust (replace-all semantics, size and symlink limits) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T033.md`; Depends on T029, T030
 
 ### In Progress
-- [ ] **T028** — `claude_code` parse layer in Rust: line framing, Python-exact JSON (NaN, depth), time, labels, secret rule, signals, record dispatch; no git, no folders, no store | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T028.md`; Depends on T026, T027; Started: 2026-11-11
 
 ### Ready for Review
 
 ### Done
 
+- [x] **T028** — `claude_code` parse layer in Rust: line framing, Python-exact JSON (NaN, depth), time, labels, secret rule, signals, record dispatch; no git, no folders, no store | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T028.md`; Depends on T026, T027; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1/P2, security-review clean), Supervisor re-ran 356 tests x3 zones, corpus check 0 different; Python-crash differences flagged in `tasks/TASK_REVIEW_T028.md`
 - [x] **T026** — Ingest oracle: Python `easy-personal ingest` over fixtures, tables dumped as goldens, plus a fresh-store schema snapshot (`rust/parity/ingest/`) | QA-Automation | C2 | Risk: Medium | P0 | guide `tasks/TASK_GUIDE_T026.md`; Started: 2026-11-11; evidence `tasks/TASK_REVIEW_T026.md`; Stage 4 done 2026-11-11 (code-review 0 P0/P1, security-review clean); `--check` 0 different; Python suite 1065 passed
 - [x] **T027** — Rust store writer: open for write (WAL, busy_timeout 5000, foreign_keys), `flock` on `ingest.lock`, one transaction per file, the exact conditional upsert, refuse `user_version != 11`, create a new store from the embedded v11 snapshot | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T027.md`; Depends on T026 for the snapshot (parallel start allowed); Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, security-review clean), Supervisor re-ran 322 tests x3 zones and the real Python-opens-it test; open choices flagged in `tasks/TASK_REVIEW_T027.md`
 - [x] **T025** — Fix the stale "no CLI/API yet" wording in `rust/README.md` (T022 open note) | Common-Infrastructure | C0 | Risk: Low | P2 | guide `tasks/TASK_GUIDE_T025.md`; Started: 2026-11-11 | Closed 2026-11-11: `rust/docs/closeout-2026-11-11.md`
