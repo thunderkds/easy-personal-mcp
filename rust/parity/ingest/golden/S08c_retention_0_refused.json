@@ -1,0 +1,29 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "ingest",
+        "--retention-days",
+        "0"
+      ],
+      "env_extra": {},
+      "exception": null,
+      "exit_code": 2,
+      "home_files": null,
+      "home_mode": null,
+      "label": "ingest with --retention-days 0 (argparse refuses it)",
+      "stderr_text_tokenised": "usage: easy-personal ingest [-h] [--source SOURCE]\n                            [--retention-days RETENTION_DAYS]\neasy-personal ingest: error: argument --retention-days: invalid positive_int value: '0'\n",
+      "stdout_equals_json_dumps": false,
+      "stdout_json": null,
+      "stdout_text": "",
+      "tables_after": null,
+      "timed_out": false
+    }
+  ],
+  "scenario": "S08c_retention_0_refused",
+  "setup": [
+    "copy tests/fixtures/claude_code -> <AGENT_ROOT>/.claude/projects"
+  ],
+  "what": "a retention value the CLI refuses"
+}

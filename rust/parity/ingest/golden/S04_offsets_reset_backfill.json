@@ -1,0 +1,633 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {},
+      "exception": null,
+      "exit_code": 0,
+      "home_files": [
+        "ingest.lock",
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "first run",
+      "stderr_text_tokenised": "",
+      "stdout_equals_json_dumps": true,
+      "stdout_json": {
+        "context": {
+          "status": "no data"
+        },
+        "files": 6,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 39,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "stdout_text": null,
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.claude", "label": "Claude default", "provider": "claude", "status": "confirmed"}
+          ]
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 501, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1481, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 2410, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": "Read", "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 3430, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": 0, "tool_names": null, "ts_utc": "2026-01-15T10:05:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4049, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:06:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4500, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "system", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:07:00.000000Z", "version": "2.1.293"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 5046, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "future-record-type-xyz", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:08:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 1, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:20:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 378, "cache_creation_input_tokens": 50, "cache_read_input_tokens": 0, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 5, "is_api_error": 0, "is_sidechain": 1, "message_id": "msg_fixture_SUB", "model": "claude-fixture-model-1", "output_tokens": 3, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:21:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 501, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1577, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 2602, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": "Read", "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 3718, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": 0, "tool_names": null, "ts_utc": "2026-01-15T10:05:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4337, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:06:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4788, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "system", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:07:00.000000Z", "version": "2.1.295"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 5334, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "future-record-type-xyz", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:08:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 466, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 0, "is_api_error": 1, "is_sidechain": 0, "message_id": "msg_fixture_ERR", "model": "claude-fixture-model-1", "output_tokens": 0, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1419, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.302"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1795, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "another-unknown-type", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": "2.1.316"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 350, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request-blob", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 509, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request-shape", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": "2.1.316"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 707, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "tools-used", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 826, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "ai-title", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 927, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "mode", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1017, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "permission-mode", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1139, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "bridge-session", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "agent-name", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 101, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "custom-title", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 207, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "last-prompt", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 367, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "atis-latch", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 457, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "queue-operation", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 624, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "cost-state", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 985, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "file-history-snapshot", "session_id": null, "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1108, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "artifact-comment-monitor", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1216, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "frame-link", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": null}
+          ]
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 1,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 39,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 6,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"byte_offset": 5426, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 1281, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "source": "claude_code"},
+            {"byte_offset": 5714, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 2138, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 1245, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "source": "claude_code"},
+            {"byte_offset": 1346, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "source": "claude_code"}
+          ]
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      },
+      "timed_out": false
+    },
+    {
+      "label": "after the reset, before the second run",
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.claude", "label": "Claude default", "provider": "claude", "status": "confirmed"}
+          ]
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 501, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1481, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 2410, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": "Read", "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 3430, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:05:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4049, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:06:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4500, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "system", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:07:00.000000Z", "version": "2.1.293"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 5046, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "future-record-type-xyz", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:08:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 1, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:20:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 378, "cache_creation_input_tokens": 50, "cache_read_input_tokens": 0, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 5, "is_api_error": 0, "is_sidechain": 1, "message_id": "msg_fixture_SUB", "model": "claude-fixture-model-1", "output_tokens": 3, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:21:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 501, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1577, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 2602, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": "Read", "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 3718, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:05:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4337, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:06:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4788, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "system", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:07:00.000000Z", "version": "2.1.295"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 5334, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "future-record-type-xyz", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:08:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 466, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 0, "is_api_error": 1, "is_sidechain": 0, "message_id": "msg_fixture_ERR", "model": "claude-fixture-model-1", "output_tokens": 0, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1419, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.302"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1795, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "another-unknown-type", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": "2.1.316"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 350, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request-blob", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 509, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request-shape", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": "2.1.316"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 707, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "tools-used", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 826, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "ai-title", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 927, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "mode", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1017, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "permission-mode", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1139, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "bridge-session", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "agent-name", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 101, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "custom-title", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 207, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "last-prompt", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 367, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "atis-latch", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 457, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "queue-operation", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 624, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "cost-state", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 985, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "file-history-snapshot", "session_id": null, "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1108, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "artifact-comment-monitor", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1216, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "frame-link", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": null}
+          ]
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 1,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 39,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 6,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"byte_offset": 0, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 0, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "source": "claude_code"},
+            {"byte_offset": 0, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 0, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 0, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "source": "claude_code"},
+            {"byte_offset": 0, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "source": "claude_code"}
+          ]
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      }
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {},
+      "exception": null,
+      "exit_code": 0,
+      "home_files": [
+        "ingest.lock",
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "second run from offset 0 (the back-fill path: no new row, entrypoint and tool_error_count filled)",
+      "stderr_text_tokenised": "",
+      "stdout_equals_json_dumps": true,
+      "stdout_json": {
+        "context": {
+          "status": "no data"
+        },
+        "files": 6,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "stdout_text": null,
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.claude", "label": "Claude default", "provider": "claude", "status": "confirmed"}
+          ]
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 501, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1481, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 2410, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": "Read", "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 3430, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": 0, "tool_names": null, "ts_utc": "2026-01-15T10:05:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4049, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:06:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4500, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "system", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:07:00.000000Z", "version": "2.1.293"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 5046, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "future-record-type-xyz", "session_id": "00000000-0000-4000-8000-000000000001", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:08:00.000000Z", "version": "2.1.293"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 1, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:20:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 378, "cache_creation_input_tokens": 50, "cache_read_input_tokens": 0, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 5, "is_api_error": 0, "is_sidechain": 1, "message_id": "msg_fixture_SUB", "model": "claude-fixture-model-1", "output_tokens": 3, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:21:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 501, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1577, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 2602, "cache_creation_input_tokens": 200, "cache_read_input_tokens": 1000, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_fixture_A", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": "Read", "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 3718, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": 0, "tool_names": null, "ts_utc": "2026-01-15T10:05:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4337, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:06:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 4788, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "system", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:07:00.000000Z", "version": "2.1.295"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 5334, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "future-record-type-xyz", "session_id": "00000000-0000-4000-8000-000000000002", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:08:00.000000Z", "version": "2.1.295"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "user", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:01:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 466, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 0, "is_api_error": 1, "is_sidechain": 0, "message_id": "msg_fixture_ERR", "model": "claude-fixture-model-1", "output_tokens": 0, "project_path": "/work/demo-app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:02:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1419, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": 0, "message_id": null, "model": null, "output_tokens": null, "project_path": "/work/demo-app", "record_type": "attachment", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:03:00.000000Z", "version": "2.1.302"},
+            {"abstained": 1, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1795, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": "cli", "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "another-unknown-type", "session_id": "00000000-0000-4000-8000-000000000003", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:04:00.000000Z", "version": "2.1.302"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": "2.1.316"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 350, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request-blob", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 509, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "api-request-shape", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": "2.1.316"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 707, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "tools-used", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 826, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "ai-title", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 927, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "mode", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1017, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "permission-mode", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1139, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "bridge-session", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "agent-name", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 101, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "custom-title", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 207, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "last-prompt", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 367, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "atis-latch", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 457, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "queue-operation", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 624, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "cost-state", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 985, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "file-history-snapshot", "session_id": null, "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1108, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "artifact-comment-monitor", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": null, "version": null},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 1216, "cache_creation_input_tokens": null, "cache_read_input_tokens": null, "entrypoint": null, "git_branch": null, "inode": "<INODE_OF_FILE>", "input_tokens": null, "is_api_error": null, "is_sidechain": null, "message_id": null, "model": null, "output_tokens": null, "project_path": null, "record_type": "frame-link", "session_id": "00000000-0000-4000-8000-000000000004", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-15T10:00:00.000000Z", "version": null}
+          ]
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 1,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 39,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 6,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"byte_offset": 5426, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.293/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 1281, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.295/00000000-0000-4000-8000-000000000002/subagents/agent-fixture0001.jsonl", "source": "claude_code"},
+            {"byte_offset": 5714, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.295/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 2138, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.302/session.jsonl", "source": "claude_code"},
+            {"byte_offset": 1245, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/2.1.316/meta.jsonl", "source": "claude_code"},
+            {"byte_offset": 1346, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/unversioned/meta.jsonl", "source": "claude_code"}
+          ]
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      },
+      "timed_out": false
+    }
+  ],
+  "scenario": "S04_offsets_reset_backfill",
+  "setup": [
+    "copy tests/fixtures/claude_code -> <AGENT_ROOT>/.claude/projects",
+    "generator SQL on the store (what migrations 7 and 8 left behind): UPDATE events SET entrypoint = NULL, tool_error_count = NULL; UPDATE source_files SET byte_offset = 0;"
+  ],
+  "what": "offsets reset to 0: the conditional upsert back-fills entrypoint and tool_error_count"
+}

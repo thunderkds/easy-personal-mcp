@@ -185,3 +185,70 @@ rule coverage from the files, checks the `raw_sha256` and `bad_since` rules abov
 store fails the usage and the warnings comparison). The 77 entries with a `workspace` or `account` parameter and the 7 report-folder entries are listed
 there as not testable yet (the Rust core does not serve them); so are the routes it does not serve at all (kit, board, accounts, workspaces, reports,
 memory graph, sessions, outliers, plan).
+
+## Ingest oracle (T026)
+
+What the real Python `easy-personal ingest` writes, frozen for the P2 Rust ingest (T027-T033): exit code, stdout, stderr and
+the store tables after every run, plus the schema of a fresh v11 store. Nothing in P2 is proven without it.
+
+```bash
+python3 rust/parity/make_fixtures_ingest.py                     # only to change the inputs: rewrites rust/parity/ingest/fixtures/
+rust/parity/.venv/bin/python rust/parity/gen_ingest.py          # (re)writes rust/parity/ingest/golden/
+rust/parity/.venv/bin/python rust/parity/gen_ingest.py --check  # regenerates in a temp folder; exit 0 equal, 1 different (names the files)
+```
+
+The generator needs the parity venv (above) and `git`. Each scenario runs the CLI entry (`easy_personal.surfaces.cli:main`, what the
+`easy-personal` script runs) in a child process with a fixed environment (`manifest.json` `child.env`: `TZ=UTC`, `LC_ALL=C.UTF-8`,
+`PYTHONHASHSEED=0`, git config isolated, easy-context pointed at a dead port) and fresh temp folders. It uses the real-home guard of
+`gen_golden.py`, refuses `/work/demo-app` (the committed fixtures' `cwd`), a temp folder on `/mnt` or inside a git repo, and fails on a home path,
+an `@`, a token-shaped string or a planted canary (`FAKE`, `INVENTED`) in any golden, and on a home path, an `@` or a real-looking key in any fixture.
+Keep `TMPDIR` short (the work root is padded to 240 characters) and on the Linux filesystem.
+
+### Inputs
+
+| Path | What |
+|------|------|
+| `tests/fixtures/claude_code/` | the committed fixtures (read only; copied, last lines still truncated) |
+| `ingest/fixtures/synthetic/` | the invented S6 set, one folder per theme: line framing, timestamps, cwd, usage, labels, split messages, tools and tool results, every record type, unversioned records, entrypoint back-fill, a sidechain file, project resolution |
+| `ingest/fixtures/crash-*/` | one crashing input each (deep nesting, an int beyond int64, a folder named `x.jsonl`, a list as `type`) with a file before and after it |
+| `ingest/fixtures/s3`, `s5`, `s7`, `outside/` | inputs of single scenarios; `s7/agents/<name>` is copied to `<AGENT_ROOT>/.<name>` |
+| `ingest/fixtures/cases.json` | every line of every input file: file, line, byte offset, case. A Rust test maps a golden row back to its case by `(file, byte_offset)` |
+| `ingest/fixtures/repos.json` | the work-root layout: folders, git commands (fixed author, date and config), symlinks, the cwd cases, `work_path_length` |
+
+`%WORK%` in a transcript is the work root. The generator makes a work root whose path is exactly `work_path_length` (240) characters,
+so every byte offset is the same on every machine; a Rust test pads its own temp folder the same way and runs the `repos.json` steps in order.
+
+### Goldens (`ingest/golden/`)
+
+| File | What |
+|------|------|
+| `S<NN>_<name>.json` | one scenario: `setup` (the steps, tokenised), then `runs`; each run has `argv`, `exit_code`, `stdout_json`, `stdout_equals_json_dumps`, `stderr_text_tokenised`, `exception` (class and last line of a traceback), `home_files`, `home_mode`, `tables_after` |
+| `schema-v11.sql` | every `sqlite_master` row of a fresh store, sorted by name, as an executable script, then the seed row and `PRAGMA user_version = 11` (the generator proves it re-creates the same `sqlite_master`) |
+| `schema-v11.json` | the same rows, the seed rows and the pragmas (`user_version` 11, `journal_mode` wal, `foreign_keys` 1, `busy_timeout` 5000) for an exact comparison |
+| `manifest.json` | versions (Python, SQLite, git), fixture tree hashes, the child's env, the tokens, `volatile`, the scenario list with exit codes, sha256 of every file |
+
+`tables_after` holds `events`, `tool_signals`, `source_files` and `agent_accounts` row by row (one row per line), `row_counts` of every table,
+`user_version` and `machine_id_check`. Each table says which columns it `dropped` (row ids, `machine_id`) and which it `replaced`: paths become
+`<HOME>`, `<AGENT_ROOT>`, `<WORK>`, `<CASE>`; `inode` becomes `<INODE_OF_FILE>` / `<INODE_OTHER>` / `<INODE_FILE_GONE>` (compared with the file at
+that path after the run); `events.agent_account_id` becomes the account's folder. `volatile` lists the one text that changes between runs
+(the C stack figure in CPython's `RecursionError` message, S06a).
+
+### Scenarios
+
+| Id | What | Exit codes |
+|----|------|-----------|
+| S01 | cold ingest of the committed fixtures (default account detected by the CLI) | 0 |
+| S02 | the same ingest twice (second: `new_events` 0) | 0, 0 |
+| S03 | one line appended to a file (incremental; earlier rows take the session's entrypoint) | 0, 0 |
+| S04 | offsets reset to 0 with `entrypoint` / `tool_error_count` cleared: the upsert back-fills them, no new row | 0, 0 |
+| S05 | a last line truncated at the first run, completed at the second | 0, 0 |
+| S06 | cold ingest of the synthetic set (`repos.json` layout, a symlinked folder that is not followed) | 0 |
+| S06a-d | deep nesting, int beyond int64, a folder named `x.jsonl`, a list as `type`: Python crashes (exit 1), the crashing file rolls back, later files are not read, every next run crashes on the same file | 1, 1 |
+| S07 | `.claude` (detected) and `.claude-work` (`account confirm`), `.claude-other` detected only (not read), a `.codex` folder, a `.claude.json` file | 0, 0 |
+| S08a / S08b / S08c | `--retention-days 36500` (nothing pruned), `1` (every timestamped row pruned, NULL-timestamp rows kept), `0` (argparse refuses) | 0 / 0 / 2 |
+| S09 | `ingest.lock` held by the generator, `EASY_PERSONAL_LOCK_TIMEOUT=0.5` | 75 |
+| S10a / S10b | `--source PATH` with a default account (tagged with it, its own folder not read) and with none (untagged) | 0 / 0 |
+| S11 | a store with `user_version` 12: `RuntimeError` traceback | 0, 1 |
+| S12 | a v10 store made with `store.migrate(..., MIGRATIONS[:10])`: backed up to `store.sqlite.bak-v10`, migrated, ingested | 0 |
+| S13 | a file replaced by an identical copy (new inode): read again, duplicate rows | 0, 0 |
+| S14 | a file deleted between runs: its `source_files` row is retired, its events stay | 0, 0 |

@@ -1,0 +1,32 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {
+        "EASY_PERSONAL_LOCK_TIMEOUT": "0.5"
+      },
+      "exception": null,
+      "exit_code": 75,
+      "home_files": [
+        "ingest.lock"
+      ],
+      "home_mode": "0o700",
+      "label": "ingest while the lock is held, EASY_PERSONAL_LOCK_TIMEOUT=0.5",
+      "stderr_text_tokenised": "another ingest is running; try again later\n",
+      "stdout_equals_json_dumps": false,
+      "stdout_json": null,
+      "stdout_text": "",
+      "tables_after": null,
+      "timed_out": false
+    }
+  ],
+  "scenario": "S09_lock_busy",
+  "setup": [
+    "copy tests/fixtures/claude_code -> <AGENT_ROOT>/.claude/projects",
+    "generator: mkdir <HOME> (0700), open <HOME>/ingest.lock for append, flock LOCK_EX held during the run"
+  ],
+  "what": "a busy lock: exit 75 and the exact stderr line, nothing read or stored"
+}

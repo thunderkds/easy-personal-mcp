@@ -1,0 +1,173 @@
+{
+  "crash-dir": [
+    {
+      "op": "mkdir",
+      "path": "<PROJECTS>/x.jsonl"
+    }
+  ],
+  "cwd_cases": [
+    {
+      "cwd": "<WORK>/plain",
+      "what": "plain folder (no git)"
+    },
+    {
+      "cwd": "<WORK>/plain/",
+      "what": "plain folder with a trailing slash"
+    },
+    {
+      "cwd": "<WORK>/repo",
+      "what": "git repo top level"
+    },
+    {
+      "cwd": "<WORK>/repo/sub",
+      "what": "subfolder of a git repo"
+    },
+    {
+      "cwd": "<WORK>/wt",
+      "what": "linked worktree of the repo"
+    },
+    {
+      "cwd": "<WORK>/repo-empty",
+      "what": "git repo with no commit"
+    },
+    {
+      "cwd": "<WORK>/repo-link",
+      "what": "symlink to the repo"
+    },
+    {
+      "cwd": "<WORK>/plain-link",
+      "what": "symlink to the plain folder"
+    },
+    {
+      "cwd": "<WORK>/gone",
+      "what": "folder that no longer exists (made, then removed)"
+    },
+    {
+      "cwd": "<WORK>",
+      "what": "the work root itself (not a repo)"
+    },
+    {
+      "cwd": "relative/missing",
+      "what": "relative cwd, absent from the process cwd"
+    },
+    {
+      "cwd": "repo/sub",
+      "what": "relative cwd that exists from the process cwd (<WORK>)"
+    },
+    {
+      "cwd": "plain",
+      "what": "relative cwd of a plain folder from the process cwd"
+    }
+  ],
+  "generator": "rust/parity/make_fixtures_ingest.py",
+  "git_env": {
+    "GIT_AUTHOR_DATE": "2026-01-01T00:00:00+00:00",
+    "GIT_AUTHOR_EMAIL": "oracle.invalid",
+    "GIT_AUTHOR_NAME": "Oracle",
+    "GIT_COMMITTER_DATE": "2026-01-01T00:00:00+00:00",
+    "GIT_COMMITTER_EMAIL": "oracle.invalid",
+    "GIT_COMMITTER_NAME": "Oracle",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "LC_ALL": "C",
+    "TZ": "UTC"
+  },
+  "note": "The work-root layout of the S6 run, in order. <WORK> is a fresh folder whose path is exactly work_path_length characters (pad the last component); %WORK% in a transcript is replaced by it before the copy. The ingest process runs with its cwd at <WORK> (relative cwd cases resolve against it). git runs with git_env plus PATH and HOME (an empty folder).",
+  "placeholder": "%WORK%",
+  "process_cwd": "<WORK>",
+  "synthetic": [
+    {
+      "op": "symlink",
+      "path": "<PROJECTS>/linked",
+      "target": "<AGENT_ROOT>/outside"
+    }
+  ],
+  "work": [
+    {
+      "op": "mkdir",
+      "path": "<WORK>/plain"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/repo/sub"
+    },
+    {
+      "args": [
+        "init",
+        "-q",
+        "-b",
+        "main"
+      ],
+      "cwd": "<WORK>/repo",
+      "op": "git"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/repo/README.txt",
+      "text": "invented\n"
+    },
+    {
+      "args": [
+        "add",
+        "README.txt"
+      ],
+      "cwd": "<WORK>/repo",
+      "op": "git"
+    },
+    {
+      "args": [
+        "commit",
+        "-q",
+        "-m",
+        "invented"
+      ],
+      "cwd": "<WORK>/repo",
+      "op": "git"
+    },
+    {
+      "args": [
+        "worktree",
+        "add",
+        "-q",
+        "-b",
+        "wt",
+        "<WORK>/wt"
+      ],
+      "cwd": "<WORK>/repo",
+      "op": "git"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/repo-empty"
+    },
+    {
+      "args": [
+        "init",
+        "-q",
+        "-b",
+        "main"
+      ],
+      "cwd": "<WORK>/repo-empty",
+      "op": "git"
+    },
+    {
+      "op": "symlink",
+      "path": "<WORK>/repo-link",
+      "target": "repo"
+    },
+    {
+      "op": "symlink",
+      "path": "<WORK>/plain-link",
+      "target": "plain"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/gone"
+    },
+    {
+      "op": "rmdir",
+      "path": "<WORK>/gone"
+    }
+  ],
+  "work_path_length": 240
+}

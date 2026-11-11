@@ -1,0 +1,364 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "account",
+        "confirm",
+        "<AGENT_ROOT>/.claude-work",
+        "--label",
+        "Claude work"
+      ],
+      "env_extra": {},
+      "exception": null,
+      "exit_code": 0,
+      "home_files": [
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "setup: confirm the work account the way the owner does (the CLI detects, then confirms)",
+      "stderr_text_tokenised": "",
+      "stdout_equals_json_dumps": true,
+      "stdout_json": {
+        "config_dir_env": "<AGENT_ROOT>/.claude-work",
+        "folder": "<AGENT_ROOT>/.claude-work",
+        "id": 3,
+        "is_default": false,
+        "label": "Claude work",
+        "provider": "claude",
+        "status": "confirmed",
+        "workspaces": []
+      },
+      "stdout_text": null,
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.claude", "label": "Claude default", "provider": "claude", "status": "confirmed"},
+            {"config_dir_env": "<AGENT_ROOT>/.claude-other", "folder": "<AGENT_ROOT>/.claude-other", "label": null, "provider": "claude", "status": "detected"},
+            {"config_dir_env": "<AGENT_ROOT>/.claude-work", "folder": "<AGENT_ROOT>/.claude-work", "label": "Claude work", "provider": "claude", "status": "confirmed"},
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.codex", "label": null, "provider": "codex", "status": "detected"}
+          ]
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 4,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 0,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 0,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      },
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {},
+      "exception": null,
+      "exit_code": 0,
+      "home_files": [
+        "ingest.lock",
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "ingest of every confirmed Claude account",
+      "stderr_text_tokenised": "",
+      "stdout_equals_json_dumps": true,
+      "stdout_json": {
+        "context": {
+          "status": "no data"
+        },
+        "files": 2,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 2,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "stdout_text": null,
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.claude", "label": "Claude default", "provider": "claude", "status": "confirmed"},
+            {"config_dir_env": "<AGENT_ROOT>/.claude-other", "folder": "<AGENT_ROOT>/.claude-other", "label": null, "provider": "claude", "status": "detected"},
+            {"config_dir_env": "<AGENT_ROOT>/.claude-work", "folder": "<AGENT_ROOT>/.claude-work", "label": "Claude work", "provider": "claude", "status": "confirmed"},
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.codex", "label": null, "provider": "codex", "status": "detected"}
+          ]
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude-work", "byte_offset": 0, "cache_creation_input_tokens": 20, "cache_read_input_tokens": 100, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_s7_1041", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/nonexistent-ingest-oracle/app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000001041", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude-work/projects/p/b.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-10T17:00:00.000000Z", "version": "2.1.400"},
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": 20, "cache_read_input_tokens": 100, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_s7_1040", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/nonexistent-ingest-oracle/app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000001040", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/p/a.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-10T17:00:00.000000Z", "version": "2.1.400"}
+          ]
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 4,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 2,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 2,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"byte_offset": 511, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude-work/projects/p/b.jsonl", "source": "claude_code"},
+            {"byte_offset": 511, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/p/a.jsonl", "source": "claude_code"}
+          ]
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      },
+      "timed_out": false
+    }
+  ],
+  "scenario": "S07_two_accounts",
+  "setup": [
+    "copy ingest/fixtures/s7/agents/claude -> <AGENT_ROOT>/.claude",
+    "copy ingest/fixtures/s7/agents/claude-notes -> <AGENT_ROOT>/.claude-notes",
+    "copy ingest/fixtures/s7/agents/claude-other -> <AGENT_ROOT>/.claude-other",
+    "copy ingest/fixtures/s7/agents/claude-work -> <AGENT_ROOT>/.claude-work",
+    "copy ingest/fixtures/s7/agents/claude.json -> <AGENT_ROOT>/.claude.json",
+    "copy ingest/fixtures/s7/agents/codex -> <AGENT_ROOT>/.codex"
+  ],
+  "what": "two confirmed accounts (.claude by detection, .claude-work by `account confirm`), one detected only, a Codex folder"
+}

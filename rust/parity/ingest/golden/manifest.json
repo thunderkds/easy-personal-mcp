@@ -1,0 +1,269 @@
+{
+  "child": {
+    "cwd": "<WORK>",
+    "entry": "import sys; from easy_personal.surfaces.cli import main; sys.exit(main())",
+    "env": {
+      "EASY_MEMORY_HOME": "<CASE>/memory-none",
+      "EASY_PERSONAL_AGENT_ROOT": "<AGENT_ROOT>",
+      "EASY_PERSONAL_CONTEXT_URL": "http://127.0.0.1:9/mcp",
+      "EASY_PERSONAL_HOME": "<HOME>",
+      "EASY_PERSONAL_VERIFIER_REPORTS": "<CASE>/verifier-none",
+      "GIT_CONFIG_GLOBAL": "/dev/null",
+      "GIT_CONFIG_NOSYSTEM": "1",
+      "HOME": "<CASE>/nowhere",
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "NO_COLOR": "1",
+      "PATH": "<PATH of the caller>",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONHASHSEED": "0",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONPATH": "<REPO>/src",
+      "PYTHON_COLORS": "0",
+      "TZ": "UTC",
+      "XDG_CONFIG_HOME": "<CASE>/nowhere/.config"
+    },
+    "unset": [
+      "EASY_PERSONAL_CLAUDE_PROJECTS",
+      "EASY_PERSONAL_UI_REPORTS",
+      "EASY_PERSONAL_LOCK_TIMEOUT (but S09)"
+    ]
+  },
+  "files": {
+    "S01_cold_committed.json": "029cdfe8a2bbad9bcabcf901f49be8d86699b60dc74901d70e78576935e7f91d",
+    "S02_rerun_unchanged.json": "9cbab34575f713d5d22c3f719d03f83f823deb625767285b852b8dd748a84263",
+    "S03_line_appended.json": "fd0bcfb404c22b63e21d4549cb2da8d339117a413d9010000f21a2e823e75f11",
+    "S04_offsets_reset_backfill.json": "103209cee25a6b54a30ed06be127c6eeed9b1fa102d5de3159fa44a3c589dcb3",
+    "S05_truncated_then_completed.json": "da8c8e2a5f8e3856158bf0eb1bad271990d141f8d6bf8b23cda98c3327614140",
+    "S06_cold_synthetic.json": "c20946ea7f89023d5b426f8f1222e3bbc1e7cdf41cd53247e03146c6812ae666",
+    "S06a_crash_deep_nesting.json": "a06f1e6970ed4205a36ec673974d5930e8a589c0af26972d225b596d94c52c91",
+    "S06b_crash_int_beyond_int64.json": "76eb07714a96ad0aff4cd55ead9078b3471c27f276d219d3ef07d9dbee2b117e",
+    "S06c_crash_directory_named_jsonl.json": "6027a2175a5f4641fd86313bbec7e8916e141677b62da1b72a30118d59db3838",
+    "S06d_crash_unhashable_type.json": "af5847a6b0547392173bd221483ecff253476a61aedaf4103258c94fc352fc89",
+    "S07_two_accounts.json": "1f3d78dd97110f280bc5a806ecd4d866412f46c34152ed58f7ee6f5dc24b1394",
+    "S08a_retention_36500.json": "5d1174dd006b95c547f3118baea953f8d9a23e6cd4e0304fcaf064712ab17873",
+    "S08b_retention_1.json": "f4cd98a505e628b6e5975fe3aa0b1fe7ed6dd4356ce0c789d47335b8925a9fd6",
+    "S08c_retention_0_refused.json": "628334b8b4e5206921b1babc8fa7892bdfc38a9245a0f1fae5a7ef7ded914cf5",
+    "S09_lock_busy.json": "73c37d5aa11518af452130cb327f26c8a920e6a4b0b51102826e29f71f0a76ac",
+    "S10a_source_override_default_account.json": "96dc1f1e5d45cca9f060e662114900af00df29667d78f3d80ad0a4d326012660",
+    "S10b_source_override_no_account.json": "56fc3be33a66a4fd9d8bf79547ed6d1325241c102ba0a8428b6f6bb4779da496",
+    "S11_store_newer_v12.json": "2f83d0bb163ea1c627cb54673379570a6763ab4c29bf15c8789ddd6dbc7883fe",
+    "S12_store_older_v10.json": "5baf9d32955440d38d9160a0946543bf8f3bb67d930bacb2be73b2158c3b189c",
+    "S13_file_replaced_new_inode.json": "e89bdf9b92e0fa4fc29df165c754387852abeb0c061070ec3455ef8089dafdf8",
+    "S14_file_deleted.json": "f95e23b5390ab0afa8b2a8e053f7a88c2f9b07be249a88d826514be97c5b207c",
+    "schema-v11.json": "657246b2d0889700bfc9a09af80d4b9cc1088b4f2c0122536fca7ed19a6671cc",
+    "schema-v11.sql": "93a0ada27b0ae14b241ea0dd242306dd03cfbbde9ca32fd660e0bb8939d35448"
+  },
+  "fixtures_sha256": {
+    "rust/parity/ingest/fixtures": "6b5fbf6f984b097b234a61e13cd3c9039a6d27d3ee835fc73bc0daa50d10e5c3",
+    "tests/fixtures/claude_code": "17db3883b36ea9f0c7ae0fb4088b422e5a08d482ef711f9ecd74d16dab584f4a"
+  },
+  "generator": "rust/parity/gen_ingest.py",
+  "note": "Python `easy-personal ingest` runs frozen as goldens (T026). Per scenario file: setup steps, then runs; each run has argv, exit_code, stdout_json, stderr_text_tokenised, exception, home_files, tables_after. Object keys are sorted; rows are sorted by the key in `order`.",
+  "scenarios": [
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "S01_cold_committed.json",
+      "id": "S01_cold_committed",
+      "what": "cold ingest of the committed fixtures (default account <AGENT_ROOT>/.claude, detected by the CLI)"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "S02_rerun_unchanged.json",
+      "id": "S02_rerun_unchanged",
+      "what": "the same ingest twice"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "S03_line_appended.json",
+      "id": "S03_line_appended",
+      "what": "a line appended to one file"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "S04_offsets_reset_backfill.json",
+      "id": "S04_offsets_reset_backfill",
+      "what": "offsets reset to 0: the conditional upsert back-fills entrypoint and tool_error_count"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "S05_truncated_then_completed.json",
+      "id": "S05_truncated_then_completed",
+      "what": "a file whose last line was truncated at the first run and completed at the second"
+    },
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "S06_cold_synthetic.json",
+      "id": "S06_cold_synthetic",
+      "what": "cold ingest of the synthetic set (every edge case that fits in a transcript; repos.json layout under <WORK>)"
+    },
+    {
+      "exit_codes": [
+        1,
+        1
+      ],
+      "file": "S06a_crash_deep_nesting.json",
+      "id": "S06a_crash_deep_nesting",
+      "what": "a line of 100,000 [: does the run survive, which files are stored"
+    },
+    {
+      "exit_codes": [
+        1,
+        1
+      ],
+      "file": "S06b_crash_int_beyond_int64.json",
+      "id": "S06b_crash_int_beyond_int64",
+      "what": "a usage field of 2**63: does the run survive, which files are stored"
+    },
+    {
+      "exit_codes": [
+        1,
+        1
+      ],
+      "file": "S06c_crash_directory_named_jsonl.json",
+      "id": "S06c_crash_directory_named_jsonl",
+      "what": "a folder named x.jsonl: does the run survive, which files are stored"
+    },
+    {
+      "exit_codes": [
+        1,
+        1
+      ],
+      "file": "S06d_crash_unhashable_type.json",
+      "id": "S06d_crash_unhashable_type",
+      "what": "a record whose type is a list: does the run survive, which files are stored"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "S07_two_accounts.json",
+      "id": "S07_two_accounts",
+      "what": "two confirmed accounts (.claude by detection, .claude-work by `account confirm`), one detected only, a Codex folder"
+    },
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "S08a_retention_36500.json",
+      "id": "S08a_retention_36500",
+      "what": "retention that prunes nothing"
+    },
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "S08b_retention_1.json",
+      "id": "S08b_retention_1",
+      "what": "retention that prunes every row with a timestamp; NULL-timestamp rows are kept"
+    },
+    {
+      "exit_codes": [
+        2
+      ],
+      "file": "S08c_retention_0_refused.json",
+      "id": "S08c_retention_0_refused",
+      "what": "a retention value the CLI refuses"
+    },
+    {
+      "exit_codes": [
+        75
+      ],
+      "file": "S09_lock_busy.json",
+      "id": "S09_lock_busy",
+      "what": "a busy lock: exit 75 and the exact stderr line, nothing read or stored"
+    },
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "S10a_source_override_default_account.json",
+      "id": "S10a_source_override_default_account",
+      "what": "--source PATH with a default account: the override is read and tagged with it; the account's own folder is not read"
+    },
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "S10b_source_override_no_account.json",
+      "id": "S10b_source_override_no_account",
+      "what": "--source PATH with no account: the override is read untagged (agent_account_id null)"
+    },
+    {
+      "exit_codes": [
+        0,
+        1
+      ],
+      "file": "S11_store_newer_v12.json",
+      "id": "S11_store_newer_v12",
+      "what": "a store with user_version 12: Python refuses"
+    },
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "S12_store_older_v10.json",
+      "id": "S12_store_older_v10",
+      "what": "an older store (user_version 10): Python migrates it, keeping <store>.bak-v10"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "S13_file_replaced_new_inode.json",
+      "id": "S13_file_replaced_new_inode",
+      "what": "a file replaced by an identical copy (new inode): Python reads it again from offset 0"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "S14_file_deleted.json",
+      "id": "S14_file_deleted",
+      "what": "a file deleted between runs: its offset row is retired, its events stay"
+    }
+  ],
+  "tokens": {
+    "<AGENT_ROOT>": "EASY_PERSONAL_AGENT_ROOT; the default account is <AGENT_ROOT>/.claude",
+    "<CASE>": "the scenario's temp folder (parent of the three above)",
+    "<HOME>": "EASY_PERSONAL_HOME (the data dir; the CLI creates it)",
+    "<REPO>": "this checkout",
+    "<STDLIB>": "the Python stdlib folder",
+    "<VENV>": "sys.prefix of the parity venv",
+    "<WORK>": "the work root, exactly 240 characters; the ingest process cwd"
+  },
+  "versions": {
+    "easy-personal-mcp": "0.4.0",
+    "git": "git version 2.53.0",
+    "platform": "Linux",
+    "python": "3.14.4",
+    "sqlite": "3.46.1"
+  },
+  "volatile": [
+    {
+      "pattern": "Stack overflow \\(used \\d+ kB\\)",
+      "reason": "CPython's RecursionError message names the C stack it used; the figure changes from run to run (S06a)",
+      "token": "Stack overflow (used <N> kB)"
+    }
+  ],
+  "work_path_length": 240
+}

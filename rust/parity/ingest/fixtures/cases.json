@@ -1,0 +1,1128 @@
+{
+  "cases": [
+    {
+      "byte_offset": 0,
+      "case": "valid record (first file)",
+      "file": "crash-bigint/a.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record before the crashing line, same file",
+      "file": "crash-bigint/m-bigint.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 299,
+      "case": "usage input_tokens 2**63 (beyond int64)",
+      "file": "crash-bigint/m-bigint.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 826,
+      "case": "valid record after the crashing line, same file",
+      "file": "crash-bigint/m-bigint.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record (last file)",
+      "file": "crash-bigint/z.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record (first file, sorted before p/)",
+      "file": "crash-deep/a.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record (p-q/ sorts after p/ by path parts, before it as a string)",
+      "file": "crash-deep/p-q/z.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record before the crashing line, same file",
+      "file": "crash-deep/p/m-deep.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 299,
+      "case": "deep nesting: 100,000 [ on one line",
+      "file": "crash-deep/p/m-deep.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 100300,
+      "case": "valid record after the crashing line, same file",
+      "file": "crash-deep/p/m-deep.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record (first file (x.jsonl/ is a folder made by gen_ingest.py))",
+      "file": "crash-dir/a.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record (last file)",
+      "file": "crash-dir/z.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record (first file)",
+      "file": "crash-type/a.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record before the crashing line, same file",
+      "file": "crash-type/m-type.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 299,
+      "case": "type is a list (unhashable)",
+      "file": "crash-type/m-type.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 546,
+      "case": "valid record after the crashing line, same file",
+      "file": "crash-type/m-type.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 0,
+      "case": "valid record (last file)",
+      "file": "crash-type/z.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "record behind the symlinked folder <PROJECTS>/linked",
+      "file": "outside/real.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S3 appended line: entrypoint cli, usage, a Bash call",
+      "file": "s3/append.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S3 first record, no entrypoint",
+      "file": "s3/session.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 280,
+      "case": "S3 second record, no entrypoint",
+      "file": "s3/session.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 0,
+      "case": "S5 rest of the third record, with its newline (appended before the second run)",
+      "file": "s5/rest.part",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S5 first record",
+      "file": "s5/session.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 299,
+      "case": "S5 second record",
+      "file": "s5/session.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 807,
+      "case": "S5 third record, cut after 40 bytes (no newline)",
+      "file": "s5/session.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 0,
+      "case": "S7 a .claude-* folder with no projects/ or settings.json",
+      "file": "s7/agents/claude-notes/readme.txt",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S7 detected account (.claude-other), never confirmed: not read",
+      "file": "s7/agents/claude-other/projects/p/c.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S7 work account (.claude-work), confirmed through the CLI",
+      "file": "s7/agents/claude-work/projects/p/b.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S7 a file named .claude.json (not a folder): skipped",
+      "file": "s7/agents/claude.json",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S7 default account (.claude)",
+      "file": "s7/agents/claude/projects/p/a.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "S7 Codex folder marker",
+      "file": "s7/agents/codex/config.toml",
+      "line": 1
+    },
+    {
+      "byte_offset": 0,
+      "case": "entrypoint absent, session E1 first record",
+      "file": "synthetic/entry/session.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 280,
+      "case": "entrypoint sdk-cli, session E1 second record",
+      "file": "synthetic/entry/session.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 583,
+      "case": "entrypoint absent, session E1 third record",
+      "file": "synthetic/entry/session.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 863,
+      "case": "entrypoint cli, session E2 first record",
+      "file": "synthetic/entry/session.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 1162,
+      "case": "entrypoint sdk-ts, session E2 second record",
+      "file": "synthetic/entry/session.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 1464,
+      "case": "entrypoint null, session E3",
+      "file": "synthetic/entry/session.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 1762,
+      "case": "entrypoint absent, session E3",
+      "file": "synthetic/entry/session.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 0,
+      "case": "cwd missing",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 260,
+      "case": "cwd null",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 531,
+      "case": "cwd empty string",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 800,
+      "case": "cwd not a string: number",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 1070,
+      "case": "cwd not a string: list",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 1342,
+      "case": "cwd not a string: object",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 1616,
+      "case": "cwd absolute, absent on disk",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 1915,
+      "case": "cwd with a trailing newline",
+      "file": "synthetic/fields/cwd.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 0,
+      "case": "label trailing newline (gitBranch \"feature\\n\")",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 304,
+      "case": "label two trailing newlines",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 610,
+      "case": "label illegal character (space)",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 914,
+      "case": "label illegal character (non-ASCII)",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 1214,
+      "case": "label empty string",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 1509,
+      "case": "label 200 characters (the maximum)",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 2004,
+      "case": "label 201 characters",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 2500,
+      "case": "label every allowed punctuation but the at sign",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 2808,
+      "case": "sessionId with a trailing newline",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 9
+    },
+    {
+      "byte_offset": 3109,
+      "case": "sessionId not a string",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 10
+    },
+    {
+      "byte_offset": 3374,
+      "case": "model <synthetic>",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 11
+    },
+    {
+      "byte_offset": 3876,
+      "case": "model with a trailing newline",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 12
+    },
+    {
+      "byte_offset": 4388,
+      "case": "version with a trailing newline",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 13
+    },
+    {
+      "byte_offset": 4689,
+      "case": "entrypoint with a trailing newline",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 14
+    },
+    {
+      "byte_offset": 4994,
+      "case": "type with a trailing newline (\"user\\n\")",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 15
+    },
+    {
+      "byte_offset": 5295,
+      "case": "isSidechain the string \"true\"",
+      "file": "synthetic/fields/labels.jsonl",
+      "line": 16
+    },
+    {
+      "byte_offset": 0,
+      "case": "usage all ints (baseline)",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 510,
+      "case": "usage bool (input_tokens true)",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 1024,
+      "case": "usage float (output_tokens 5.0)",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 1539,
+      "case": "usage string (cache_read_input_tokens \"10\")",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 2051,
+      "case": "usage negative int (input_tokens -5)",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 2562,
+      "case": "usage zeros",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 3070,
+      "case": "usage int64 max",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 3598,
+      "case": "usage int64 min",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 4127,
+      "case": "usage key missing",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 9
+    },
+    {
+      "byte_offset": 4533,
+      "case": "usage null",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 10
+    },
+    {
+      "byte_offset": 4949,
+      "case": "usage empty object",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 11
+    },
+    {
+      "byte_offset": 5364,
+      "case": "usage not an object (list)",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 12
+    },
+    {
+      "byte_offset": 5778,
+      "case": "usage with one field missing",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 13
+    },
+    {
+      "byte_offset": 6258,
+      "case": "usage present, message.id missing",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 14
+    },
+    {
+      "byte_offset": 6750,
+      "case": "usage present, message.id not a label (space)",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 15
+    },
+    {
+      "byte_offset": 7260,
+      "case": "assistant message is a string",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 16
+    },
+    {
+      "byte_offset": 7544,
+      "case": "assistant message missing",
+      "file": "synthetic/fields/usage.jsonl",
+      "line": 17
+    },
+    {
+      "byte_offset": 0,
+      "case": "baseline assistant record",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 511,
+      "case": "blank line (just a newline)",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 512,
+      "case": "whitespace-only line",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 516,
+      "case": "invalid JSON (cut object)",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 532,
+      "case": "valid JSON, not an object: array",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 540,
+      "case": "valid JSON, not an object: string",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 552,
+      "case": "valid JSON, not an object: number",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 555,
+      "case": "valid JSON, not an object: null",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 560,
+      "case": "valid JSON, not an object: true",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 9
+    },
+    {
+      "byte_offset": 565,
+      "case": "non-UTF-8 byte (0xff) inside a string",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 10
+    },
+    {
+      "byte_offset": 877,
+      "case": "UTF-16-LE encoded record, then a 0x0a byte",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 11
+    },
+    {
+      "byte_offset": 1474,
+      "case": "UTF-8 BOM before the object",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 12
+    },
+    {
+      "byte_offset": 1776,
+      "case": "CRLF line ending",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 13
+    },
+    {
+      "byte_offset": 2076,
+      "case": "NaN in a usage field",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 14
+    },
+    {
+      "byte_offset": 2590,
+      "case": "Infinity in a usage field",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 15
+    },
+    {
+      "byte_offset": 3110,
+      "case": "duplicate key: type given twice (brand-new-type, then user)",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 16
+    },
+    {
+      "byte_offset": 3433,
+      "case": "truncated last line (no newline at the end)",
+      "file": "synthetic/framing/lines.jsonl",
+      "line": 17
+    },
+    {
+      "byte_offset": 0,
+      "case": "project resolution: plain folder (no git) (cwd '%WORK%/plain')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 515,
+      "case": "project resolution: plain folder with a trailing slash (cwd '%WORK%/plain/')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 1031,
+      "case": "project resolution: git repo top level (cwd '%WORK%/repo')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 1545,
+      "case": "project resolution: subfolder of a git repo (cwd '%WORK%/repo/sub')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 2063,
+      "case": "project resolution: linked worktree of the repo (cwd '%WORK%/wt')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 2575,
+      "case": "project resolution: git repo with no commit (cwd '%WORK%/repo-empty')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 3095,
+      "case": "project resolution: symlink to the repo (cwd '%WORK%/repo-link')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 3614,
+      "case": "project resolution: symlink to the plain folder (cwd '%WORK%/plain-link')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 4134,
+      "case": "project resolution: folder that no longer exists (made, then removed) (cwd '%WORK%/gone')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 9
+    },
+    {
+      "byte_offset": 4648,
+      "case": "project resolution: the work root itself (not a repo) (cwd '%WORK%')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 10
+    },
+    {
+      "byte_offset": 5157,
+      "case": "project resolution: relative cwd, absent from the process cwd (cwd 'relative/missing')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 11
+    },
+    {
+      "byte_offset": 5442,
+      "case": "project resolution: relative cwd that exists from the process cwd (<WORK>) (cwd 'repo/sub')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 12
+    },
+    {
+      "byte_offset": 5719,
+      "case": "project resolution: relative cwd of a plain folder from the process cwd (cwd 'plain')",
+      "file": "synthetic/projects/repos.jsonl",
+      "line": 13
+    },
+    {
+      "byte_offset": 0,
+      "case": "main thread of the sidechain session (entrypoint cli)",
+      "file": "synthetic/side/00000000-0000-4000-8000-000000001014.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 299,
+      "case": "main thread assistant",
+      "file": "synthetic/side/00000000-0000-4000-8000-000000001014.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 0,
+      "case": "sidechain record (isSidechain true, no entrypoint)",
+      "file": "synthetic/side/00000000-0000-4000-8000-000000001014/subagents/agent-invented1.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 279,
+      "case": "sidechain assistant (isSidechain true, no entrypoint)",
+      "file": "synthetic/side/00000000-0000-4000-8000-000000001014/subagents/agent-invented1.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 0,
+      "case": "split message: first record of msg_split_1 (output 5)",
+      "file": "synthetic/split/session.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 513,
+      "case": "split message: second record of msg_split_1 (output 50, a tool call)",
+      "file": "synthetic/split/session.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 1084,
+      "case": "assistant isApiErrorMessage true",
+      "file": "synthetic/split/session.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 1622,
+      "case": "assistant content is a string",
+      "file": "synthetic/split/session.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 0,
+      "case": "timestamp naive (no zone)",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 294,
+      "case": "timestamp +07:00 offset",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 594,
+      "case": "timestamp -05:30 offset",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 894,
+      "case": "timestamp +00:00 offset",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 1194,
+      "case": "timestamp Z, 0 fractional digits",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 1489,
+      "case": "timestamp Z, 1 fractional digit",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 1786,
+      "case": "timestamp Z, 3 fractional digits",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 2085,
+      "case": "timestamp Z, 6 fractional digits",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 2387,
+      "case": "timestamp Z, 9 fractional digits",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 9
+    },
+    {
+      "byte_offset": 2692,
+      "case": "timestamp comma as decimal sign",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 10
+    },
+    {
+      "byte_offset": 2990,
+      "case": "timestamp ISO basic format (no separators)",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 11
+    },
+    {
+      "byte_offset": 3281,
+      "case": "timestamp space instead of T",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 12
+    },
+    {
+      "byte_offset": 3576,
+      "case": "timestamp minutes only",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 13
+    },
+    {
+      "byte_offset": 3868,
+      "case": "timestamp hour only",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 14
+    },
+    {
+      "byte_offset": 4157,
+      "case": "timestamp ISO week date",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 15
+    },
+    {
+      "byte_offset": 4452,
+      "case": "timestamp 24:00 (end of day)",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 16
+    },
+    {
+      "byte_offset": 4747,
+      "case": "timestamp lowercase z",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 17
+    },
+    {
+      "byte_offset": 5042,
+      "case": "timestamp leap second :60",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 18
+    },
+    {
+      "byte_offset": 5337,
+      "case": "timestamp date only",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 19
+    },
+    {
+      "byte_offset": 5622,
+      "case": "timestamp empty string",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 20
+    },
+    {
+      "byte_offset": 5897,
+      "case": "timestamp a number (epoch seconds)",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 21
+    },
+    {
+      "byte_offset": 6180,
+      "case": "timestamp missing",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 22
+    },
+    {
+      "byte_offset": 6440,
+      "case": "assistant record with a naive timestamp",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 23
+    },
+    {
+      "byte_offset": 6947,
+      "case": "metadata record (last-prompt) with a naive timestamp",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 24
+    },
+    {
+      "byte_offset": 7079,
+      "case": "metadata record (last-prompt) with a +07:00 offset",
+      "file": "synthetic/time/stamps.jsonl",
+      "line": 25
+    },
+    {
+      "byte_offset": 0,
+      "case": "Bash first words: plain, leading spaces, a path, ./script, a duplicate, empty, blank, not a string, input not an object, non-ASCII, allowed punctuation",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 1437,
+      "case": "Bash first words secret-like: sk-FAKE..., 32 letters and digits, AKIAFAKE...",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 2230,
+      "case": "WebFetch URLs: user info + port + path, localhost, IPv4, ftp, invalid, not a string, trailing dot, plain",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 3508,
+      "case": "tool names: a label, not a label, not a string, missing, an MCP name; a text block; a non-object block",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 4332,
+      "case": "tool_result is_error true, false, absent",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 4894,
+      "case": "tool_result is_error false only",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 5276,
+      "case": "tool_result is_error the string \"true\"",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 5659,
+      "case": "tool_result is_error true twice",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 6138,
+      "case": "user content a string (no tool_result)",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 9
+    },
+    {
+      "byte_offset": 6437,
+      "case": "user content a list without tool_result",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 10
+    },
+    {
+      "byte_offset": 6754,
+      "case": "user content an object",
+      "file": "synthetic/tools/session.jsonl",
+      "line": 11
+    },
+    {
+      "byte_offset": 0,
+      "case": "metadata type agent-name",
+      "file": "synthetic/types/all.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 132,
+      "case": "metadata type custom-title",
+      "file": "synthetic/types/all.jsonl",
+      "line": 2
+    },
+    {
+      "byte_offset": 266,
+      "case": "metadata type last-prompt",
+      "file": "synthetic/types/all.jsonl",
+      "line": 3
+    },
+    {
+      "byte_offset": 399,
+      "case": "metadata type atis-latch",
+      "file": "synthetic/types/all.jsonl",
+      "line": 4
+    },
+    {
+      "byte_offset": 531,
+      "case": "metadata type queue-operation",
+      "file": "synthetic/types/all.jsonl",
+      "line": 5
+    },
+    {
+      "byte_offset": 668,
+      "case": "metadata type cost-state",
+      "file": "synthetic/types/all.jsonl",
+      "line": 6
+    },
+    {
+      "byte_offset": 800,
+      "case": "metadata type file-history-snapshot",
+      "file": "synthetic/types/all.jsonl",
+      "line": 7
+    },
+    {
+      "byte_offset": 943,
+      "case": "metadata type file-history-delta",
+      "file": "synthetic/types/all.jsonl",
+      "line": 8
+    },
+    {
+      "byte_offset": 1083,
+      "case": "metadata type artifact-comment-monitor",
+      "file": "synthetic/types/all.jsonl",
+      "line": 9
+    },
+    {
+      "byte_offset": 1229,
+      "case": "metadata type artifact-autoreact-ledger",
+      "file": "synthetic/types/all.jsonl",
+      "line": 10
+    },
+    {
+      "byte_offset": 1376,
+      "case": "metadata type frame-link",
+      "file": "synthetic/types/all.jsonl",
+      "line": 11
+    },
+    {
+      "byte_offset": 1508,
+      "case": "metadata type api-request",
+      "file": "synthetic/types/all.jsonl",
+      "line": 12
+    },
+    {
+      "byte_offset": 1641,
+      "case": "metadata type api-request-blob",
+      "file": "synthetic/types/all.jsonl",
+      "line": 13
+    },
+    {
+      "byte_offset": 1779,
+      "case": "metadata type api-request-shape",
+      "file": "synthetic/types/all.jsonl",
+      "line": 14
+    },
+    {
+      "byte_offset": 1918,
+      "case": "metadata type tools-used",
+      "file": "synthetic/types/all.jsonl",
+      "line": 15
+    },
+    {
+      "byte_offset": 2050,
+      "case": "metadata type ai-title",
+      "file": "synthetic/types/all.jsonl",
+      "line": 16
+    },
+    {
+      "byte_offset": 2180,
+      "case": "metadata type mode",
+      "file": "synthetic/types/all.jsonl",
+      "line": 17
+    },
+    {
+      "byte_offset": 2306,
+      "case": "metadata type permission-mode",
+      "file": "synthetic/types/all.jsonl",
+      "line": 18
+    },
+    {
+      "byte_offset": 2443,
+      "case": "metadata type bridge-session",
+      "file": "synthetic/types/all.jsonl",
+      "line": 19
+    },
+    {
+      "byte_offset": 2579,
+      "case": "versioned type system",
+      "file": "synthetic/types/all.jsonl",
+      "line": 20
+    },
+    {
+      "byte_offset": 2847,
+      "case": "versioned type attachment",
+      "file": "synthetic/types/all.jsonl",
+      "line": 21
+    },
+    {
+      "byte_offset": 3131,
+      "case": "unknown type",
+      "file": "synthetic/types/all.jsonl",
+      "line": 22
+    },
+    {
+      "byte_offset": 3386,
+      "case": "type missing",
+      "file": "synthetic/types/all.jsonl",
+      "line": 23
+    },
+    {
+      "byte_offset": 3617,
+      "case": "type a number",
+      "file": "synthetic/types/all.jsonl",
+      "line": 24
+    },
+    {
+      "byte_offset": 3857,
+      "case": "type empty string",
+      "file": "synthetic/types/all.jsonl",
+      "line": 25
+    },
+    {
+      "byte_offset": 4098,
+      "case": "metadata type without sessionId or timestamp",
+      "file": "synthetic/types/all.jsonl",
+      "line": 26
+    },
+    {
+      "byte_offset": 0,
+      "case": "unversioned user record",
+      "file": "synthetic/unversioned/session.jsonl",
+      "line": 1
+    },
+    {
+      "byte_offset": 279,
+      "case": "unversioned assistant record",
+      "file": "synthetic/unversioned/session.jsonl",
+      "line": 2
+    }
+  ],
+  "files": [
+    "crash-bigint/a.jsonl",
+    "crash-bigint/m-bigint.jsonl",
+    "crash-bigint/z.jsonl",
+    "crash-deep/a.jsonl",
+    "crash-deep/p-q/z.jsonl",
+    "crash-deep/p/m-deep.jsonl",
+    "crash-dir/a.jsonl",
+    "crash-dir/z.jsonl",
+    "crash-type/a.jsonl",
+    "crash-type/m-type.jsonl",
+    "crash-type/z.jsonl",
+    "outside/real.jsonl",
+    "s3/append.jsonl",
+    "s3/session.jsonl",
+    "s5/rest.part",
+    "s5/session.jsonl",
+    "s7/agents/claude-notes/readme.txt",
+    "s7/agents/claude-other/projects/p/c.jsonl",
+    "s7/agents/claude-work/projects/p/b.jsonl",
+    "s7/agents/claude.json",
+    "s7/agents/claude/projects/p/a.jsonl",
+    "s7/agents/codex/config.toml",
+    "synthetic/entry/session.jsonl",
+    "synthetic/fields/cwd.jsonl",
+    "synthetic/fields/labels.jsonl",
+    "synthetic/fields/usage.jsonl",
+    "synthetic/framing/lines.jsonl",
+    "synthetic/projects/repos.jsonl",
+    "synthetic/side/00000000-0000-4000-8000-000000001014.jsonl",
+    "synthetic/side/00000000-0000-4000-8000-000000001014/subagents/agent-invented1.jsonl",
+    "synthetic/split/session.jsonl",
+    "synthetic/time/stamps.jsonl",
+    "synthetic/tools/session.jsonl",
+    "synthetic/types/all.jsonl",
+    "synthetic/unversioned/session.jsonl"
+  ],
+  "generator": "rust/parity/make_fixtures_ingest.py"
+}

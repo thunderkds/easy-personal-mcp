@@ -1,0 +1,329 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {},
+      "exception": {
+        "class": "RecursionError",
+        "line": "RecursionError: Stack overflow (used <N> kB) while decoding a JSON array from a unicode string"
+      },
+      "exit_code": 1,
+      "home_files": [
+        "ingest.lock",
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "first run",
+      "stderr_text_tokenised": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    import sys; from easy_personal.surfaces.cli import main; sys.exit(main())\n                                                                      ~~~~^^\n  File \"<REPO>/src/easy_personal/surfaces/cli.py\", line 386, in main\n    return _ingest(args)\n  File \"<REPO>/src/easy_personal/surfaces/cli.py\", line 167, in _ingest\n    result = claude_code.ingest_accounts(conn, args.source)\n  File \"<REPO>/src/easy_personal/sources/claude_code.py\", line 303, in ingest_accounts\n    return _scan(conn, account_roots(conn, override))\n  File \"<REPO>/src/easy_personal/sources/claude_code.py\", line 264, in _scan\n    new_events += store.save_file(conn, SOURCE, key, info.st_ino, offset, rows, account_id)\n                  ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<REPO>/src/easy_personal/core/store.py\", line 190, in save_file\n    conn.executemany(sql, values())\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^\n  File \"<REPO>/src/easy_personal/core/store.py\", line 162, in values\n    for line_offset, next_offset, event in rows:\n                                           ^^^^\n  File \"<REPO>/src/easy_personal/sources/claude_code.py\", line 232, in _file_events\n    record = json.loads(line)\n  File \"<STDLIB>/json/__init__.py\", line 352, in loads\n    return _default_decoder.decode(s)\n           ~~~~~~~~~~~~~~~~~~~~~~~^^^\n  File \"<STDLIB>/json/decoder.py\", line 345, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<STDLIB>/json/decoder.py\", line 361, in raw_decode\n    obj, end = self.scan_once(s, idx)\n               ~~~~~~~~~~~~~~^^^^^^^^\nRecursionError: Stack overflow (used <N> kB) while decoding a JSON array from a unicode string\n",
+      "stdout_equals_json_dumps": false,
+      "stdout_json": null,
+      "stdout_text": "",
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.claude", "label": "Claude default", "provider": "claude", "status": "confirmed"}
+          ]
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": 20, "cache_read_input_tokens": 100, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_1020", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/nonexistent-ingest-oracle/app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000001020", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/a.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-10T13:00:00.000000Z", "version": "2.1.400"}
+          ]
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 1,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 1,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 1,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"byte_offset": 508, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/a.jsonl", "source": "claude_code"}
+          ]
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      },
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {},
+      "exception": {
+        "class": "RecursionError",
+        "line": "RecursionError: Stack overflow (used <N> kB) while decoding a JSON array from a unicode string"
+      },
+      "exit_code": 1,
+      "home_files": [
+        "ingest.lock",
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "second run (does it get past the file?)",
+      "stderr_text_tokenised": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    import sys; from easy_personal.surfaces.cli import main; sys.exit(main())\n                                                                      ~~~~^^\n  File \"<REPO>/src/easy_personal/surfaces/cli.py\", line 386, in main\n    return _ingest(args)\n  File \"<REPO>/src/easy_personal/surfaces/cli.py\", line 167, in _ingest\n    result = claude_code.ingest_accounts(conn, args.source)\n  File \"<REPO>/src/easy_personal/sources/claude_code.py\", line 303, in ingest_accounts\n    return _scan(conn, account_roots(conn, override))\n  File \"<REPO>/src/easy_personal/sources/claude_code.py\", line 264, in _scan\n    new_events += store.save_file(conn, SOURCE, key, info.st_ino, offset, rows, account_id)\n                  ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<REPO>/src/easy_personal/core/store.py\", line 190, in save_file\n    conn.executemany(sql, values())\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^\n  File \"<REPO>/src/easy_personal/core/store.py\", line 162, in values\n    for line_offset, next_offset, event in rows:\n                                           ^^^^\n  File \"<REPO>/src/easy_personal/sources/claude_code.py\", line 232, in _file_events\n    record = json.loads(line)\n  File \"<STDLIB>/json/__init__.py\", line 352, in loads\n    return _default_decoder.decode(s)\n           ~~~~~~~~~~~~~~~~~~~~~~~^^^\n  File \"<STDLIB>/json/decoder.py\", line 345, in decode\n    obj, end = self.raw_decode(s, idx=_w(s, 0).end())\n               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<STDLIB>/json/decoder.py\", line 361, in raw_decode\n    obj, end = self.scan_once(s, idx)\n               ~~~~~~~~~~~~~~^^^^^^^^\nRecursionError: Stack overflow (used <N> kB) while decoding a JSON array from a unicode string\n",
+      "stdout_equals_json_dumps": false,
+      "stdout_json": null,
+      "stdout_text": "",
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"config_dir_env": null, "folder": "<AGENT_ROOT>/.claude", "label": "Claude default", "provider": "claude", "status": "confirmed"}
+          ]
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"abstained": 0, "agent_account_id": "<AGENT_ROOT>/.claude", "byte_offset": 0, "cache_creation_input_tokens": 20, "cache_read_input_tokens": 100, "entrypoint": "cli", "git_branch": "main", "inode": "<INODE_OF_FILE>", "input_tokens": 10, "is_api_error": 0, "is_sidechain": 0, "message_id": "msg_1020", "model": "claude-fixture-model-1", "output_tokens": 5, "project_path": "/nonexistent-ingest-oracle/app", "record_type": "assistant", "session_id": "00000000-0000-4000-8000-000000001020", "source": "claude_code", "source_path": "<AGENT_ROOT>/.claude/projects/a.jsonl", "tool_error_count": null, "tool_names": null, "ts_utc": "2026-01-10T13:00:00.000000Z", "version": "2.1.400"}
+          ]
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 1,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 1,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 1,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": [
+            {"byte_offset": 508, "inode": "<INODE_OF_FILE>", "path": "<AGENT_ROOT>/.claude/projects/a.jsonl", "source": "claude_code"}
+          ]
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      },
+      "timed_out": false
+    }
+  ],
+  "scenario": "S06a_crash_deep_nesting",
+  "setup": [
+    "copy ingest/fixtures/crash-deep -> <AGENT_ROOT>/.claude/projects"
+  ],
+  "what": "a line of 100,000 [: does the run survive, which files are stored"
+}

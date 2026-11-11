@@ -1,0 +1,335 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {},
+      "exception": null,
+      "exit_code": 0,
+      "home_files": [
+        "ingest.lock",
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "setup: first run on an empty agent root (creates a v11 store)",
+      "stderr_text_tokenised": "",
+      "stdout_equals_json_dumps": true,
+      "stdout_json": {
+        "context": {
+          "status": "no data"
+        },
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "stdout_text": null,
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 0,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 0,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 0,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 11
+      },
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "ingest"
+      ],
+      "env_extra": {},
+      "exception": {
+        "class": "RuntimeError",
+        "line": "RuntimeError: store <HOME>/store.sqlite is schema v12, newer than this program (v11): upgrade easy-personal"
+      },
+      "exit_code": 1,
+      "home_files": [
+        "ingest.lock",
+        "store.sqlite"
+      ],
+      "home_mode": "0o700",
+      "label": "ingest on a store newer than the program",
+      "stderr_text_tokenised": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    import sys; from easy_personal.surfaces.cli import main; sys.exit(main())\n                                                                      ~~~~^^\n  File \"<REPO>/src/easy_personal/surfaces/cli.py\", line 386, in main\n    return _ingest(args)\n  File \"<REPO>/src/easy_personal/surfaces/cli.py\", line 164, in _ingest\n    store.opened(config.store_path()) as conn,\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"<STDLIB>/contextlib.py\", line 141, in __enter__\n    return next(self.gen)\n  File \"<REPO>/src/easy_personal/core/store.py\", line 120, in opened\n    conn = connect(path)\n  File \"<REPO>/src/easy_personal/core/store.py\", line 107, in connect\n    migrate(conn, path)\n    ~~~~~~~^^^^^^^^^^^^\n  File \"<REPO>/src/easy_personal/core/store.py\", line 68, in migrate\n    raise RuntimeError(\n        f\"store {path} is schema v{version}, newer than this program (v{latest}): upgrade easy-personal\"\n    )\nRuntimeError: store <HOME>/store.sqlite is schema v12, newer than this program (v11): upgrade easy-personal\n",
+      "stdout_equals_json_dumps": false,
+      "stdout_json": null,
+      "stdout_text": "",
+      "tables_after": {
+        "agent_accounts": {
+          "columns": [
+            "provider",
+            "folder",
+            "label",
+            "status",
+            "config_dir_env"
+          ],
+          "dropped": {
+            "id": "row id; rows are listed in id order and events name the account by its folder"
+          },
+          "order": "id",
+          "replaced": {
+            "config_dir_env": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)",
+            "folder": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "events": {
+          "columns": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset",
+            "abstained",
+            "record_type",
+            "version",
+            "ts_utc",
+            "session_id",
+            "project_path",
+            "git_branch",
+            "is_sidechain",
+            "is_api_error",
+            "model",
+            "message_id",
+            "tool_names",
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "agent_account_id",
+            "entrypoint",
+            "tool_error_count"
+          ],
+          "dropped": {
+            "id": "row id (insertion order)",
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "source_path",
+            "inode",
+            "byte_offset"
+          ],
+          "replaced": {
+            "agent_account_id": "the account's folder (tokenised) instead of its row id; null stays null",
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "machine_id_check": {
+          "events": true,
+          "source_files": true,
+          "tool_signals": true
+        },
+        "row_counts": {
+          "account_registrations": 0,
+          "account_workspaces": 0,
+          "agent_accounts": 0,
+          "connectors": 0,
+          "context_index": 0,
+          "events": 0,
+          "investigate_reports": 0,
+          "kit_trace_events": 0,
+          "meta": 1,
+          "source_files": 0,
+          "tool_signals": 0,
+          "ui_sessions": 0,
+          "verifier_scores": 0,
+          "workspace_repos": 0,
+          "workspaces": 1
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source",
+            "path"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "tool_signals": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value",
+            "ts_utc"
+          ],
+          "dropped": {
+            "machine_id": "random uuid4 per store (meta.machine_id); machine_id_check says every row carries meta's value"
+          },
+          "order": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "kind",
+            "value"
+          ],
+          "replaced": {
+            "inode": "<INODE_OF_FILE>: equals the inode of the file at that path after the run; <INODE_OTHER>: another inode (the file was replaced); <INODE_FILE_GONE>: no file at that path any more",
+            "source_path": "absolute path of this run, tokenised (<HOME>, <AGENT_ROOT>, <WORK>, <CASE>)"
+          },
+          "rows": []
+        },
+        "user_version": 12
+      },
+      "timed_out": false
+    }
+  ],
+  "scenario": "S11_store_newer_v12",
+  "setup": [
+    "generator SQL: PRAGMA user_version = 12",
+    "copy tests/fixtures/claude_code -> <AGENT_ROOT>/.claude/projects"
+  ],
+  "what": "a store with user_version 12: Python refuses"
+}

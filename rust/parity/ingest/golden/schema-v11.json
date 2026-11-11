@@ -1,0 +1,272 @@
+{
+  "meta_excluded": {
+    "machine_id": "random uuid4 written by store.connect on the first open"
+  },
+  "note": "a fresh Python store after store.opened: sqlite_master rows sorted by name as [type, name, tbl_name, sql], seed rows (meta.machine_id excluded: random), and the pragmas read on Python's connection. schema-v11.sql re-creates the same sqlite_master (checked by the generator).",
+  "pragmas": {
+    "busy_timeout": 5000,
+    "foreign_keys": 1,
+    "journal_mode": "wal",
+    "user_version": 11
+  },
+  "seed_rows": {
+    "workspaces": {
+      "columns": [
+        "id",
+        "name",
+        "color",
+        "icon",
+        "description",
+        "email",
+        "is_orphan"
+      ],
+      "rows": [
+        [
+          1,
+          "orphan",
+          null,
+          null,
+          null,
+          null,
+          1
+        ]
+      ]
+    }
+  },
+  "sqlite_master": [
+    [
+      "table",
+      "account_registrations",
+      "account_registrations",
+      "CREATE TABLE account_registrations (\n            account_id   INTEGER NOT NULL REFERENCES agent_accounts (id),\n            alias        TEXT NOT NULL CHECK (length(alias) BETWEEN 1 AND 64 AND alias GLOB '[a-z0-9]*' AND alias NOT GLOB '*[^a-z0-9_-]*'),\n            connector_id TEXT NOT NULL REFERENCES connectors (id),\n            PRIMARY KEY (account_id, alias)\n        ) WITHOUT ROWID\n        "
+    ],
+    [
+      "index",
+      "account_registrations_connector",
+      "account_registrations",
+      "CREATE INDEX account_registrations_connector ON account_registrations (connector_id)"
+    ],
+    [
+      "table",
+      "account_workspaces",
+      "account_workspaces",
+      "CREATE TABLE account_workspaces (\n            account_id   INTEGER NOT NULL REFERENCES agent_accounts (id),\n            workspace_id INTEGER NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,\n            PRIMARY KEY (account_id, workspace_id)\n        ) WITHOUT ROWID\n        "
+    ],
+    [
+      "trigger",
+      "account_workspaces_check",
+      "account_workspaces",
+      "CREATE TRIGGER account_workspaces_check BEFORE INSERT ON account_workspaces BEGIN SELECT RAISE(ABORT, 'the orphan workspace cannot be picked') WHERE (SELECT is_orphan FROM workspaces WHERE id = NEW.workspace_id) = 1; SELECT RAISE(ABORT, 'only confirmed Claude accounts pick workspaces') WHERE NOT EXISTS (SELECT 1 FROM agent_accounts WHERE id = NEW.account_id AND provider = 'claude' AND status = 'confirmed'); END"
+    ],
+    [
+      "trigger",
+      "account_workspaces_no_update",
+      "account_workspaces",
+      "CREATE TRIGGER account_workspaces_no_update BEFORE UPDATE ON account_workspaces BEGIN SELECT RAISE(ABORT, 'picks are added or removed, never updated'); END"
+    ],
+    [
+      "table",
+      "agent_accounts",
+      "agent_accounts",
+      "CREATE TABLE agent_accounts (\n            id             INTEGER PRIMARY KEY,\n            provider       TEXT NOT NULL CHECK (provider IN ('claude', 'codex')),\n            folder         TEXT NOT NULL UNIQUE,\n            label          TEXT CHECK (label IS NULL OR length(label) BETWEEN 1 AND 60),\n            status         TEXT NOT NULL CHECK (status IN ('detected', 'confirmed', 'ignored')),\n            config_dir_env TEXT,\n            CHECK (status <> 'confirmed' OR label IS NOT NULL)\n        )"
+    ],
+    [
+      "table",
+      "connectors",
+      "connectors",
+      "CREATE TABLE connectors (\n            id           TEXT PRIMARY KEY CHECK (length(id) BETWEEN 1 AND 64 AND id GLOB '[a-z0-9]*' AND id NOT GLOB '*[^a-z0-9_-]*'),\n            alias        TEXT NOT NULL CHECK (length(alias) BETWEEN 1 AND 64 AND alias GLOB '[a-z0-9]*' AND alias NOT GLOB '*[^a-z0-9_-]*'),\n            alias_custom INTEGER NOT NULL DEFAULT 0 CHECK (alias_custom IN (0, 1)),\n            provider     TEXT NOT NULL CHECK (length(provider) BETWEEN 1 AND 64 AND provider GLOB '[a-z0-9]*' AND provider NOT GLOB '*[^a-z0-9_-]*'),\n            workspace_id INTEGER NOT NULL REFERENCES workspaces (id)\n        ) WITHOUT ROWID\n        "
+    ],
+    [
+      "index",
+      "connectors_alias",
+      "connectors",
+      "CREATE UNIQUE INDEX connectors_alias ON connectors (alias) WHERE workspace_id <> 1"
+    ],
+    [
+      "index",
+      "connectors_one_provider",
+      "connectors",
+      "CREATE UNIQUE INDEX connectors_one_provider ON connectors (workspace_id, provider) WHERE workspace_id <> 1"
+    ],
+    [
+      "table",
+      "context_index",
+      "context_index",
+      "CREATE TABLE context_index (\n    project_path      TEXT PRIMARY KEY,\n    last_index_at_utc TEXT\n)"
+    ],
+    [
+      "table",
+      "events",
+      "events",
+      "CREATE TABLE events (\n    id                          INTEGER PRIMARY KEY,\n    machine_id                  TEXT NOT NULL,\n    source                      TEXT NOT NULL,\n    source_path                 TEXT NOT NULL,\n    inode                       INTEGER NOT NULL,\n    byte_offset                 INTEGER NOT NULL,\n    abstained                   INTEGER NOT NULL,\n    record_type                 TEXT,\n    version                     TEXT,\n    ts_utc                      TEXT,\n    session_id                  TEXT,\n    project_path                TEXT,\n    git_branch                  TEXT,\n    is_sidechain                INTEGER,\n    is_api_error                INTEGER,\n    model                       TEXT,\n    message_id                  TEXT,\n    tool_names                  TEXT,\n    input_tokens                INTEGER,\n    output_tokens               INTEGER,\n    cache_creation_input_tokens INTEGER,\n    cache_read_input_tokens     INTEGER, agent_account_id INTEGER REFERENCES agent_accounts (id), entrypoint TEXT, tool_error_count INTEGER,\n    UNIQUE (machine_id, source, source_path, inode, byte_offset)\n)"
+    ],
+    [
+      "index",
+      "events_account_ts",
+      "events",
+      "CREATE INDEX events_account_ts ON events (agent_account_id, ts_utc)"
+    ],
+    [
+      "index",
+      "events_message",
+      "events",
+      "CREATE INDEX events_message ON events (message_id)"
+    ],
+    [
+      "index",
+      "events_ts_message",
+      "events",
+      "CREATE INDEX events_ts_message ON events (ts_utc, message_id)"
+    ],
+    [
+      "table",
+      "investigate_reports",
+      "investigate_reports",
+      "CREATE TABLE investigate_reports (\n            id             INTEGER PRIMARY KEY,\n            saved_utc      TEXT NOT NULL,\n            server_version TEXT NOT NULL,\n            workspace      TEXT,\n            account        TEXT,\n            summary        TEXT NOT NULL,\n            fixes_json     TEXT NOT NULL,\n            snapshot_json  TEXT NOT NULL\n        )"
+    ],
+    [
+      "table",
+      "kit_trace_events",
+      "kit_trace_events",
+      "CREATE TABLE kit_trace_events (\n    id           INTEGER PRIMARY KEY,\n    machine_id   TEXT NOT NULL,\n    source_path  TEXT NOT NULL,\n    inode        INTEGER NOT NULL,\n    byte_offset  INTEGER NOT NULL,\n    project_path TEXT NOT NULL,\n    kit_task_id  TEXT,\n    abstained    INTEGER NOT NULL,\n    ts_utc       TEXT,\n    tool_name    TEXT,\n    is_error     INTEGER,\n    UNIQUE (machine_id, source_path, inode, byte_offset)\n)"
+    ],
+    [
+      "index",
+      "kit_trace_ts",
+      "kit_trace_events",
+      "CREATE INDEX kit_trace_ts ON kit_trace_events (ts_utc)"
+    ],
+    [
+      "table",
+      "meta",
+      "meta",
+      "CREATE TABLE meta (\n    key   TEXT PRIMARY KEY,\n    value TEXT NOT NULL\n)"
+    ],
+    [
+      "table",
+      "source_files",
+      "source_files",
+      "CREATE TABLE source_files (\n    machine_id  TEXT NOT NULL,\n    source      TEXT NOT NULL,\n    path        TEXT NOT NULL,\n    inode       INTEGER NOT NULL,\n    byte_offset INTEGER NOT NULL,\n    PRIMARY KEY (machine_id, source, path)\n)"
+    ],
+    [
+      "index",
+      "sqlite_autoindex_agent_accounts_1",
+      "agent_accounts",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_context_index_1",
+      "context_index",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_events_1",
+      "events",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_kit_trace_events_1",
+      "kit_trace_events",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_meta_1",
+      "meta",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_source_files_1",
+      "source_files",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_tool_signals_1",
+      "tool_signals",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_ui_sessions_1",
+      "ui_sessions",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_verifier_scores_1",
+      "verifier_scores",
+      null
+    ],
+    [
+      "index",
+      "sqlite_autoindex_workspaces_1",
+      "workspaces",
+      null
+    ],
+    [
+      "table",
+      "tool_signals",
+      "tool_signals",
+      "CREATE TABLE tool_signals (\n    machine_id  TEXT NOT NULL,\n    source_path TEXT NOT NULL,\n    inode       INTEGER NOT NULL,\n    byte_offset INTEGER NOT NULL,\n    kind        TEXT NOT NULL,\n    value       TEXT NOT NULL,\n    ts_utc      TEXT,\n    UNIQUE (machine_id, source_path, inode, byte_offset, kind, value)\n)"
+    ],
+    [
+      "index",
+      "tool_signals_kind",
+      "tool_signals",
+      "CREATE INDEX tool_signals_kind ON tool_signals (kind, value)"
+    ],
+    [
+      "table",
+      "ui_sessions",
+      "ui_sessions",
+      "CREATE TABLE ui_sessions (\n    id             TEXT PRIMARY KEY,\n    status         TEXT NOT NULL,\n    started_at_utc TEXT NOT NULL,\n    ended_at_utc   TEXT,\n    action_count   INTEGER NOT NULL\n)"
+    ],
+    [
+      "table",
+      "verifier_scores",
+      "verifier_scores",
+      "CREATE TABLE verifier_scores (\n    project_path       TEXT PRIMARY KEY,\n    status             TEXT NOT NULL,\n    scope              TEXT,\n    generated_at_utc   TEXT,\n    overall_value      REAL,\n    overall_abstained  INTEGER NOT NULL,\n    reason_code        TEXT\n)"
+    ],
+    [
+      "table",
+      "workspace_repos",
+      "workspace_repos",
+      "CREATE TABLE workspace_repos (\n            workspace_id INTEGER NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,\n            repo_path    TEXT NOT NULL\n                         CHECK (substr(repo_path, 1, 1) = '/'\n                                AND (repo_path = '/' OR substr(repo_path, -1) <> '/')),\n            PRIMARY KEY (workspace_id, repo_path)\n        ) WITHOUT ROWID\n        "
+    ],
+    [
+      "trigger",
+      "workspace_repos_not_orphan",
+      "workspace_repos",
+      "CREATE TRIGGER workspace_repos_not_orphan BEFORE INSERT ON workspace_repos WHEN (SELECT is_orphan FROM workspaces WHERE id = NEW.workspace_id) = 1 BEGIN SELECT RAISE(ABORT, 'the orphan workspace holds no repos'); END"
+    ],
+    [
+      "table",
+      "workspaces",
+      "workspaces",
+      "CREATE TABLE workspaces (\n            id          INTEGER PRIMARY KEY,\n            name        TEXT NOT NULL UNIQUE\n                        CHECK (length(name) BETWEEN 1 AND 40\n                               AND name GLOB '[a-z0-9]*'\n                               AND name NOT GLOB '*[^a-z0-9-]*'),\n            color       TEXT CHECK (color IS NULL OR (length(color) = 7\n                               AND color GLOB '#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]')),\n            icon        TEXT CHECK (icon IS NULL OR length(icon) <= 32),\n            description TEXT CHECK (description IS NULL OR length(description) <= 500),\n            email       TEXT CHECK (email IS NULL OR length(email) <= 254),\n            is_orphan   INTEGER NOT NULL DEFAULT 0 CHECK (is_orphan IN (0, 1)),\n            CHECK ((is_orphan = 1) = (name = 'orphan'))\n        )"
+    ],
+    [
+      "index",
+      "workspaces_one_orphan",
+      "workspaces",
+      "CREATE UNIQUE INDEX workspaces_one_orphan ON workspaces (is_orphan) WHERE is_orphan = 1"
+    ],
+    [
+      "trigger",
+      "workspaces_orphan_no_delete",
+      "workspaces",
+      "CREATE TRIGGER workspaces_orphan_no_delete BEFORE DELETE ON workspaces WHEN OLD.is_orphan = 1 BEGIN SELECT RAISE(ABORT, 'the orphan workspace cannot be deleted'); END"
+    ],
+    [
+      "trigger",
+      "workspaces_orphan_no_update",
+      "workspaces",
+      "CREATE TRIGGER workspaces_orphan_no_update BEFORE UPDATE ON workspaces WHEN OLD.is_orphan = 1 BEGIN SELECT RAISE(ABORT, 'the orphan workspace cannot be changed'); END"
+    ]
+  ]
+}
