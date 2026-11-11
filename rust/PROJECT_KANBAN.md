@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T039** — Bump the Rust crate version to 0.2.0 for `rust-v0.2.0` (`rust/Cargo.toml`, `Cargo.lock`, pinned tests or docs) | Backend-Developer | C1 | Risk: Low | P1 | started 2026-11-11: guide `tasks/TASK_GUIDE_T039.md`
 
 ### Ready for Review
 
