@@ -1,0 +1,61 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": true,
+        "on_path": true
+      },
+      "files": {},
+      "label": "install, no user session",
+      "stderr": "empty",
+      "stdout": "no systemd user session found; nothing written. Use cron instead:\n# add with: crontab -e\n17 3 * * * <CMD> ingest\n",
+      "systemctl_calls": [
+        "--user show-environment"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "7"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": true,
+        "on_path": true
+      },
+      "files": {},
+      "label": "install, no user session, retention 7",
+      "stderr": "empty",
+      "stdout": "no systemd user session found; nothing written. Use cron instead:\n# add with: crontab -e\n17 3 * * * <CMD> ingest --retention-days 7\n",
+      "systemctl_calls": [
+        "--user show-environment"
+      ]
+    }
+  ],
+  "scenario": "N02_no_session",
+  "what": "systemctl present but `--user show-environment` fails: the same message, only that one call"
+}

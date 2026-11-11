@@ -1,0 +1,76 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": "enable",
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {
+        "xdg/systemd/user/easy-personal-ingest.service": "[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest\n",
+        "xdg/systemd/user/easy-personal-ingest.timer": "[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
+      },
+      "label": "enable fails",
+      "stderr": "traceback: subprocess.CalledProcessError",
+      "stdout": "",
+      "systemctl_calls": [
+        "--user show-environment",
+        "--user daemon-reload",
+        "--user enable --now easy-personal-ingest.timer"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": "daemon-reload",
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {
+        "xdg/systemd/user/easy-personal-ingest.service": "[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest\n",
+        "xdg/systemd/user/easy-personal-ingest.timer": "[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
+      },
+      "label": "daemon-reload fails",
+      "stderr": "traceback: subprocess.CalledProcessError",
+      "stdout": "",
+      "systemctl_calls": [
+        "--user show-environment",
+        "--user daemon-reload"
+      ]
+    }
+  ],
+  "scenario": "F01_install_fails",
+  "what": "Python: traceback, exit 1; the unit files are already written; the calls stop at the failing one"
+}

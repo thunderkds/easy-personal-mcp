@@ -278,7 +278,7 @@ its own transaction, the three kit sources, with Python's rules and the same sch
   `{"status": "failed", "reason": <error kind>}`. Keys `status`, `projects`, `skipped` (`no data` empties the table, as Python).
 
 **Not ingested** (named in `not_ingested`, never printed with a made-up value): `context` (an HTTP client of easy-context; there is no `context` key). Not built: `live`,
-`schedule install`, the dashboard's start-up ingest. `skipped` counts entries Rust could not read (a folder named `x.jsonl`, an unreadable entry, a path
+the dashboard's start-up ingest (the daily timer is in "Scheduled ingest" below). `skipped` counts entries Rust could not read (a folder named `x.jsonl`, an unreadable entry, a path
 that is not UTF-8, a trace entry that is not a regular file); the run goes on and a one-line note goes to stderr.
 
 | Exit code | Meaning |
@@ -325,6 +325,35 @@ Not covered: the Python dashboard's live tail (a continuous writer), a Python in
 | a folder named `x.jsonl`, an entry it cannot read, an int beyond int64, a record whose `type` is a list: traceback, exit 1, stuck on every later run | skips the entry (counted in `skipped`) or abstains the record, reads on | see "Ingest parse layer" and "Ingest of folders" |
 | a malformed `EASY_PERSONAL_LOCK_TIMEOUT`: traceback | one line, exit 1, before anything is made | no traceback |
 | `--retention-days` larger than int64: Python integer | a usage error, exit 2 | clap parses an `i64` |
+
+## Scheduled ingest (P2c)
+
+```bash
+easy-personal-rs schedule install [--retention-days N] [--dry-run]
+easy-personal-rs schedule remove [--dry-run]
+```
+
+Runs the daily ingest on a **systemd user timer** (Linux), the way `easy-personal schedule` does: the same two unit files
+(`easy-personal-ingest.service` and `.timer`, `OnCalendar=daily`, `Persistent=true`), written to `$XDG_CONFIG_HOME/systemd/user/`
+(else `~/.config/systemd/user/`), then `systemctl --user daemon-reload` and `systemctl --user enable --now easy-personal-ingest.timer`.
+`--dry-run` prints the units (or, for `remove`, what would go) and writes nothing. `--retention-days N` is passed on to the scheduled
+`ingest`. The templates in `crates/app/units/` are a copy of `src/easy_personal/data/systemd/*`; a test compares the bytes.
+
+- **The command line is the Rust binary**: `ExecStart=<absolute path of the running binary, shell-quoted> ingest [--retention-days N]`.
+  Install from the binary you want to keep: if you move or delete it, the timer stops working until you install again.
+- **Same unit names as Python**: installing from Rust replaces a Python-installed timer, and the reverse. This is deliberate: one
+  scheduled ingest per machine. `schedule remove` from either one removes it.
+- **No systemd user session** (no `systemctl`, or `systemctl --user show-environment` fails): nothing is written, the message and a
+  cron line (`17 3 * * * <command> ingest`) are printed, exit 1. Cron is never installed.
+- **`remove`** runs `disable --now` only when the timer file existed, deletes both files (a missing one is fine), then runs
+  `daemon-reload` only if it had been installed.
+- A failing `systemctl` call or a folder that cannot be written is exit 1 with one line that names no path and none of the tool's output
+  (Python dies with a traceback there). Bad arguments are exit 2. A `--retention-days` above int64 is a usage error (Python takes any integer).
+- Nothing here opens the store or the data folder. When neither `XDG_CONFIG_HOME` nor `HOME` is set it stops with a message (Python reads
+  the passwd entry).
+
+Test it without touching your machine: `cargo test -p easy-personal-rs --test schedule_cli` runs the binary in throwaway folders with a
+fake `systemctl` first on a `PATH` of its own (see `parity/README.md`, "Schedule oracle").
 
 ## Test
 

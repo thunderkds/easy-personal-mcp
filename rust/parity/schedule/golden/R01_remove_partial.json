@@ -1,0 +1,103 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        },
+        {
+          "op": "put",
+          "path": "xdg/systemd/user/easy-personal-ingest.timer",
+          "text": "stale\n"
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove with only the timer file",
+      "stderr": "empty",
+      "stdout": "removed easy-personal-ingest.timer from <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": [
+        "--user disable --now easy-personal-ingest.timer",
+        "--user daemon-reload"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove"
+      ],
+      "before": [
+        {
+          "op": "put",
+          "path": "xdg/systemd/user/easy-personal-ingest.service",
+          "text": "stale\n"
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove with only the service file",
+      "stderr": "empty",
+      "stdout": "removed easy-personal-ingest.timer from <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove with neither",
+      "stderr": "empty",
+      "stdout": "removed easy-personal-ingest.timer from <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": []
+    }
+  ],
+  "scenario": "R01_remove_partial",
+  "what": "remove calls systemctl only when the timer file existed; a missing file is fine"
+}

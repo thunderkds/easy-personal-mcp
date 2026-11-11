@@ -1,0 +1,120 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        },
+        {
+          "op": "put",
+          "path": "xdg/systemd",
+          "text": "i am a file\n"
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg"
+      ],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {
+        "xdg/systemd": "i am a file\n"
+      },
+      "label": "systemd folder is a file",
+      "stderr": "traceback: NotADirectoryError",
+      "stdout": "",
+      "systemctl_calls": [
+        "--user show-environment"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [
+        {
+          "op": "rm",
+          "path": "xdg/systemd"
+        },
+        {
+          "op": "mkdir",
+          "path": "xdg/systemd/user/easy-personal-ingest.service"
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user",
+        "xdg/systemd/user/easy-personal-ingest.service"
+      ],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "service path is a folder",
+      "stderr": "traceback: IsADirectoryError",
+      "stdout": "",
+      "systemctl_calls": [
+        "--user show-environment"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove"
+      ],
+      "before": [
+        {
+          "op": "rm",
+          "path": "xdg/systemd/user/easy-personal-ingest.service"
+        },
+        {
+          "op": "mkdir",
+          "path": "xdg/systemd/user/easy-personal-ingest.timer"
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user",
+        "xdg/systemd/user/easy-personal-ingest.timer"
+      ],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "timer path is a folder (remove)",
+      "stderr": "traceback: IsADirectoryError",
+      "stdout": "",
+      "systemctl_calls": [
+        "--user disable --now easy-personal-ingest.timer"
+      ]
+    }
+  ],
+  "scenario": "W01_unwritable",
+  "what": "Python: traceback, exit 1; install stops before systemctl runs, remove stops after `disable`"
+}

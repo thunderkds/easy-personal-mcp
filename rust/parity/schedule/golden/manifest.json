@@ -1,0 +1,146 @@
+{
+  "fake_systemctl_sha256": "e3d8d3dd9e916109208d32278157a992ead143a64e71ef3780cf0fc300d238b6",
+  "files": {
+    "D01_dry_run.json": "c363d0f2591aa1f2bebef504c8546d4ebc8c57a9df51705b2a907f4a7d1160eb",
+    "F01_install_fails.json": "77de052c281999b179974b94df2286b655e04e4172b1b8affcb6a461820be273",
+    "F02_remove_fails.json": "b1423edc4829f3a743e47793cf3662854ff3ddae608b5358b1a0f2a5bfec259e",
+    "I01_install_remove.json": "1ec30231c00a208ce0a1eab5a6e65c8731cfdb7ab77084843ddc0b614eb8359b",
+    "N01_no_systemctl.json": "f4f50e4f2861e6e22be981cd699a3e950c2f241cfbb288e20f653aa8e7c5654c",
+    "N02_no_session.json": "8ebca324787a9755082f93545a28abc4c2796425438e4a62dfe9d88a3ed2ca83",
+    "Q01_quoting.json": "c05d6d94a707fa66e69ed307a22fa7e8f27a7e69261a18139b960610274c9466",
+    "R01_remove_partial.json": "3ad4a9f8d7fc0984ffd072f2ce3badf6f6fe75d772a397436ce237c8ceb4a19b",
+    "U01_usage_errors.json": "1d9d54434e47d83d086e0c105aee2cc76f603cc009181a94a9db781c3c07799d",
+    "W01_unwritable.json": "d9235acb6de2a62092d66c9a4e8b3da0e726392d119796c3b20c4a8e2e4e280e",
+    "X01_xdg.json": "847cb503ca25a02dadf342f4fc58ca46423ba89b56fa64084710a10995b6937f"
+  },
+  "generator": "rust/parity/gen_schedule.py",
+  "note": "Python `easy-personal schedule` runs frozen as goldens (T034). Per scenario file: runs; each run has before (the steps done since the previous run), argv, env_extra, fake_systemctl, exit_code, stdout, stderr (kind only), files, dirs, systemctl_calls.",
+  "scenarios": [
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "id": "D01_dry_run",
+      "what": "the three dry runs (nothing written, no systemctl call), and the install dry run with no systemctl"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "id": "I01_install_remove",
+      "what": "a real install, a second install with --retention-days, remove, remove with nothing installed"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0
+      ],
+      "id": "R01_remove_partial",
+      "what": "remove calls systemctl only when the timer file existed; a missing file is fine"
+    },
+    {
+      "exit_codes": [
+        1,
+        1,
+        0
+      ],
+      "id": "N01_no_systemctl",
+      "what": "no systemctl on PATH: the message and the cron line, exit 1, nothing written"
+    },
+    {
+      "exit_codes": [
+        1,
+        1
+      ],
+      "id": "N02_no_session",
+      "what": "systemctl present but `--user show-environment` fails: the same message, only that one call"
+    },
+    {
+      "exit_codes": [
+        1,
+        1
+      ],
+      "id": "F01_install_fails",
+      "what": "Python: traceback, exit 1; the unit files are already written; the calls stop at the failing one"
+    },
+    {
+      "exit_codes": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "id": "F02_remove_fails",
+      "what": "Python: traceback, exit 1; files stay when disable fails, are gone when the last daemon-reload fails"
+    },
+    {
+      "exit_codes": [
+        1,
+        1,
+        1
+      ],
+      "id": "W01_unwritable",
+      "what": "Python: traceback, exit 1; install stops before systemctl runs, remove stops after `disable`"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "id": "X01_xdg",
+      "what": "the unit folder: XDG_CONFIG_HOME, else HOME/.config (empty counts as unset); a relative one stays relative"
+    },
+    {
+      "exit_codes": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "id": "U01_usage_errors",
+      "what": "bad arguments: exit 2, nothing written, no systemctl call"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "id": "Q01_quoting",
+      "what": "the command is shlex-quoted: plain, space, quotes, non-ASCII, shell characters, and the characters that stay bare"
+    }
+  ],
+  "tokens": {
+    "<CASE>": "the scenario's temp folder (home/, xdg/, data/, bin/)",
+    "<CMD>": "<CASE>/bin/easy-personal, the stub the command is found at (every scenario but Q01)"
+  },
+  "units_sha256": {
+    "easy-personal-ingest.service": "4a752dce4975f697acd5b024e7f328fc0aaddbaf330a07bfbdc9905d9b358fc7",
+    "easy-personal-ingest.timer": "3e7b0a5ae64c0932fd8154e5f6af2c8a955cbeb45a967727937a2a004263c326"
+  }
+}

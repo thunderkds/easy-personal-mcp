@@ -1,0 +1,110 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "install dry run",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "30",
+        "--dry-run"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "install dry run, retention 30",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest --retention-days 30\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove",
+        "--dry-run"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove dry run",
+      "stderr": "empty",
+      "stdout": "would disable easy-personal-ingest.timer and delete it and easy-personal-ingest.service from <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": false
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "install dry run, no systemctl",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    }
+  ],
+  "scenario": "D01_dry_run",
+  "what": "the three dry runs (nothing written, no systemctl call), and the install dry run with no systemctl"
+}

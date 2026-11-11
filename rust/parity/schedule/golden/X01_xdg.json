@@ -1,0 +1,146 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {
+        "XDG_CONFIG_HOME": null
+      },
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove dry run, XDG_CONFIG_HOME unset",
+      "stderr": "empty",
+      "stdout": "would disable easy-personal-ingest.timer and delete it and easy-personal-ingest.service from <CASE>/home/.config/systemd/user\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove",
+        "--dry-run"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {
+        "XDG_CONFIG_HOME": ""
+      },
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove dry run, XDG_CONFIG_HOME empty",
+      "stderr": "empty",
+      "stdout": "would disable easy-personal-ingest.timer and delete it and easy-personal-ingest.service from <CASE>/home/.config/systemd/user\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove",
+        "--dry-run"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {
+        "XDG_CONFIG_HOME": "rel"
+      },
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove dry run, relative",
+      "stderr": "empty",
+      "stdout": "would disable easy-personal-ingest.timer and delete it and easy-personal-ingest.service from rel/systemd/user\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove",
+        "--dry-run"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {
+        "XDG_CONFIG_HOME": "./rel/"
+      },
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove dry run, ./rel/",
+      "stderr": "empty",
+      "stdout": "would disable easy-personal-ingest.timer and delete it and easy-personal-ingest.service from rel/systemd/user\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [
+        "home/.config",
+        "home/.config/systemd",
+        "home/.config/systemd/user"
+      ],
+      "env_extra": {
+        "XDG_CONFIG_HOME": null
+      },
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {
+        "home/.config/systemd/user/easy-personal-ingest.service": "[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest\n",
+        "home/.config/systemd/user/easy-personal-ingest.timer": "[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
+      },
+      "label": "install, XDG_CONFIG_HOME unset (units under HOME/.config)",
+      "stderr": "empty",
+      "stdout": "installed easy-personal-ingest.timer in <CASE>/home/.config/systemd/user\n",
+      "systemctl_calls": [
+        "--user show-environment",
+        "--user daemon-reload",
+        "--user enable --now easy-personal-ingest.timer"
+      ]
+    }
+  ],
+  "scenario": "X01_xdg",
+  "what": "the unit folder: XDG_CONFIG_HOME, else HOME/.config (empty counts as unset); a relative one stays relative"
+}

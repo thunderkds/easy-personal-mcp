@@ -1,0 +1,220 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "0"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "retention 0",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "-5"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "retention -5",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "abc"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "retention abc",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "1.5"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "retention 1.5",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "retention without a value",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--bogus"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "unknown flag",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove",
+        "--retention-days",
+        "5"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove takes no retention",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "no action",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "frobnicate"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 2,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "unknown action",
+      "stderr": "usage error (argparse text is CPython's, not compared)",
+      "stdout": "",
+      "systemctl_calls": []
+    }
+  ],
+  "scenario": "U01_usage_errors",
+  "what": "bad arguments: exit 2, nothing written, no systemctl call"
+}

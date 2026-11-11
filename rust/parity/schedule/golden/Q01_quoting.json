@@ -1,0 +1,382 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": false
+        },
+        {
+          "dir": "plain",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "plain",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'plain'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CASE>/plain/easy-personal ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "5",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "sp ace",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "sp ace",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'sp ace'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/sp ace/easy-personal' ingest --retention-days 5\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "it's",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "it's",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from \"it's\"",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/it'\"'\"'s/easy-personal' ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "5",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "dq\"uote",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "dq\"uote",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'dq\"uote'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/dq\"uote/easy-personal' ingest --retention-days 5\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "\u00fcn\u00ef",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "\u00fcn\u00ef",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from '\u00fcn\u00ef'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/\u00fcn\u00ef/easy-personal' ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "5",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "dollar$x",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "dollar$x",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'dollar$x'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/dollar$x/easy-personal' ingest --retention-days 5\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "back\\slash",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "back\\slash",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'back\\\\slash'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/back\\slash/easy-personal' ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "5",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "pct%x",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "pct%x",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'pct%x'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CASE>/pct%x/easy-personal ingest --retention-days 5\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "star*",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "star*",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'star*'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/star*/easy-personal' ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "5",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "tab\tchar",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "tab\tchar",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'tab\\tchar'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/tab\tchar/easy-personal' ingest --retention-days 5\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "semi;colon",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "semi;colon",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'semi;colon'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart='<CASE>/semi;colon/easy-personal' ingest\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "5",
+        "--dry-run"
+      ],
+      "before": [
+        {
+          "dir": "safe=a@b+c,d%e-f_g.h",
+          "op": "stub"
+        }
+      ],
+      "cmd_dir": "safe=a@b+c,d%e-f_g.h",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "dry run from 'safe=a@b+c,d%e-f_g.h'",
+      "stderr": "empty",
+      "stdout": "# easy-personal-ingest.service\n[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CASE>/safe=a@b+c,d%e-f_g.h/easy-personal ingest --retention-days 5\n\n# easy-personal-ingest.timer\n[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "7"
+      ],
+      "before": [],
+      "cmd_dir": "sp ace",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "no systemd, from 'sp ace'",
+      "stderr": "empty",
+      "stdout": "no systemd user session found; nothing written. Use cron instead:\n# add with: crontab -e\n17 3 * * * '<CASE>/sp ace/easy-personal' ingest --retention-days 7\n",
+      "systemctl_calls": []
+    }
+  ],
+  "scenario": "Q01_quoting",
+  "what": "the command is shlex-quoted: plain, space, quotes, non-ASCII, shell characters, and the characters that stay bare"
+}

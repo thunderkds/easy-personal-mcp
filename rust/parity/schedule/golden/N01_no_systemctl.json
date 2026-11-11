@@ -1,0 +1,74 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "install, no systemctl",
+      "stderr": "empty",
+      "stdout": "no systemd user session found; nothing written. Use cron instead:\n# add with: crontab -e\n17 3 * * * <CMD> ingest\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "7"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 1,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "install, no systemctl, retention 7",
+      "stderr": "empty",
+      "stdout": "no systemd user session found; nothing written. Use cron instead:\n# add with: crontab -e\n17 3 * * * <CMD> ingest --retention-days 7\n",
+      "systemctl_calls": []
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": false
+      },
+      "files": {},
+      "label": "remove, nothing installed, no systemctl",
+      "stderr": "empty",
+      "stdout": "removed easy-personal-ingest.timer from <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": []
+    }
+  ],
+  "scenario": "N01_no_systemctl",
+  "what": "no systemctl on PATH: the message and the cron line, exit 1, nothing written"
+}

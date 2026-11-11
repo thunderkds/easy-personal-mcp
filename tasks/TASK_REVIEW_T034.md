@@ -67,12 +67,61 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11T11:33:45Z, before any T034 file existed; debug binary built from `e2ba53d` + the guide commit; temp `HOME` and `XDG_CONFIG_HOME`, `env -i`, no `systemctl` run; Python run via the parity venv with `PYTHONPATH=<worktree>/src`, whose `easy-personal` is not on `PATH`, so Python falls back to `<python> -m easy_personal.surfaces.cli`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+--- RUST: easy-personal-rs --help
+Rust port of easy-personal
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Usage: easy-personal-rs <COMMAND>
+
+Commands:
+  store-info  Show the store's version and row counts (opens it read-only; never writes)
+  ingest      Copy new Claude Code transcript metadata into the store (events only; takes the ingest lock; never migrates)
+  serve       Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C
+  mcp         Serve the MCP tools over stdio (JSON-RPC on stdout, nothing else)
+  app         Open the dashboard in a window (needs a build with `--features window` and a display)
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+exit=0
+--- RUST: easy-personal-rs schedule install --dry-run
+error: unrecognized subcommand 'schedule'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+exit=2
+--- PYTHON: easy-personal schedule install --dry-run
+# easy-personal-ingest.service
+[Unit]
+Description=easy-personal ingest (copy new Claude Code usage metadata to the store)
+
+[Service]
+Type=oneshot
+ExecStart=/home/thunderkds/workspace/pets/easy-personal-mcp/rust/parity/.venv/bin/python -m easy_personal.surfaces.cli ingest
+
+# easy-personal-ingest.timer
+[Unit]
+Description=Run easy-personal ingest daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+exit=0
+--- files written under temp xdg/home: (none)
+```
+
+**AFTER**: Agent real run (2026-11-11T11:52:17Z, temp HOME and XDG_CONFIG_HOME, PATH with only the fake systemctl): `--help` lists `schedule`; `schedule install --retention-days 30` wrote both unit files and the fake logged `--user show-environment`, `--user daemon-reload`, `--user enable --now easy-personal-ingest.timer`, exit 0; `schedule remove` logged `disable --now` then `daemon-reload` and deleted both files, exit 0; with no systemctl on PATH `install` printed the two lines and `17 3 * * * <binary> ingest`, exit 1. Red run before the code: 15 failed, 3 passed. Mutations (`enable --now` to `enable`; `'` counted safe) failed 4 oracle tests and the quoting test.
+Supervisor re-runs on main, 2026-11-11: `gen_schedule.py --check` 12 files, 0 different; `cargo test -p easy-personal-rs --test schedule_cli` 18 passed, 0 failed; `cargo test --workspace` TZ unset / Pacific/Kiritimati / Pacific/Pago_Pago: 461 passed, 0 failed, 26 ignored each; clippy default and `--features window` clean; fmt clean; `git status -- src tests web` empty. The real `~/.config/systemd/user` does not exist on this machine: nothing was written there.
+
+**DELTA**: A Rust-only machine can run its ingest daily with `easy-personal-rs schedule install` (a systemd user timer, same units as Python, command line runs the Rust binary), and remove it again.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

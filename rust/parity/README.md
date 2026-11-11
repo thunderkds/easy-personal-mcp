@@ -365,3 +365,43 @@ file took **+17.5 MiB** (gate failed); set B passed by 0.1 MiB (+7.9). Now `Stor
 the same single transaction per file (a read error part-way rolls the file back and skips it, as before); peak is flat (9.5 / 9.3 / 9.3 /
 9.4 MiB for the same four files). Still buffered per file: the `tool_signals` rows (inserted after the events, as Python does) and the
 distinct sessions; `resolve_project` (git, once per distinct `cwd` per run) now runs inside the write transaction.
+
+## Schedule oracle (T034)
+
+What the real Python `easy-personal schedule install|remove` does, frozen for the Rust `schedule` command (RS-003):
+
+```bash
+rust/parity/.venv/bin/python rust/parity/gen_schedule.py          # (re)writes rust/parity/schedule/golden/
+rust/parity/.venv/bin/python rust/parity/gen_schedule.py --check  # regenerates in a temp folder; exit 0 equal, 1 different (names the files)
+cargo test -p easy-personal-rs --test schedule_cli                # the Rust binary replays every golden run
+```
+
+Every scenario runs the CLI entry in a child process inside a throwaway case folder. `HOME`, `XDG_CONFIG_HOME` and `EASY_PERSONAL_HOME`
+point into it and `PATH` is the case's `bin/` alone: a stub `easy-personal`, and (when the scenario says so) `schedule/fake-systemctl.sh`
+as `systemctl`. The real `systemctl` cannot be reached and nothing is written outside the case. The fake logs each call's arguments, prints
+a marker on both streams (so a test can prove the tool's output is never echoed), and fails on request (`FAKE_SYSTEMCTL_FAIL=<verb>`,
+`FAKE_SYSTEMCTL_NO_SESSION=1`). The generator refuses to run when an env var or `TMPDIR` points inside a real `.claude*`, `.codex*` or
+`.easy-*` folder.
+
+| File | What |
+|------|------|
+| `schedule/fake-systemctl.sh` | the fake; shared by the generator and the Rust test |
+| `schedule/golden/<id>.json` | one scenario: per run `before` (steps done since the previous run: `systemctl` on/off the PATH, `put`, `mkdir`, `rm`, `stub`), argv, env, exit code, stdout, the kind of stderr, every file and folder left under the case, the `systemctl` calls |
+| `schedule/golden/manifest.json` | scenarios and exit codes, sha256 of every golden, of the Python unit templates and of the fake |
+
+| Scenario | What | Exit codes |
+|---|---|---|
+| D01 | the three dry runs (install, install `--retention-days 30`, remove) and an install dry run with no `systemctl`: nothing written, no call | 0 0 0 0 |
+| I01 | install, install again with a retention, remove, remove with nothing installed | 0 0 0 0 |
+| R01 | remove with only the timer file (`disable` and `daemon-reload` run), only the service file, neither | 0 0 0 |
+| N01 / N02 | no `systemctl`; `systemctl` present but `--user show-environment` fails: the message and the cron line, nothing written | 1 1 0 / 1 1 |
+| F01 / F02 | a `systemctl` call fails (enable, daemon-reload, disable, the last daemon-reload; no `systemctl` for a remove). **Python: traceback.** The files and the calls are frozen; the traceback text is not | 1 |
+| W01 | the unit folder cannot be made (`systemd` is a file), a unit path is a folder. **Python: traceback** | 1 |
+| X01 | the unit folder: `XDG_CONFIG_HOME` unset / empty / relative / `./rel/`, then a real install with it unset (units under `HOME/.config`) | 0 |
+| U01 | bad arguments (retention 0, -5, abc, 1.5, no value, unknown flag, a retention on `remove`, no action, an unknown action) | 2 |
+| Q01 | the command's quoting: the stub sits in a folder named plain, with a space, `'`, `"`, non-ASCII, `$`, `\`, `%`, `*`, a tab, `;`, and the characters that stay bare; the last run has no systemd and prints the cron line | 0 x 12, then 1 |
+
+**The command is normalised.** Python's `ExecStart` runs `easy-personal` (the stub's path, `<CMD>` in every golden but Q01); Rust's runs
+itself (`easy-personal-rs ingest`) on purpose. In Q01 the Rust test puts its own binary at the same path (a hard link, so `current_exe` is that
+path) and compares the quoted line as it is. Folder names with `:` are left out: `PATH` cannot hold them. A newline in the path, and `%`
+or `\` in it (which systemd reads as specifiers and escapes even inside quotes), are not handled by Python either; Rust copies `shlex.quote`.

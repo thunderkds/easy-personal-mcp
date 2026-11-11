@@ -1,0 +1,134 @@
+{
+  "runs": [
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install"
+      ],
+      "before": [
+        {
+          "op": "systemctl",
+          "present": true
+        }
+      ],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {
+        "xdg/systemd/user/easy-personal-ingest.service": "[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest\n",
+        "xdg/systemd/user/easy-personal-ingest.timer": "[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
+      },
+      "label": "install",
+      "stderr": "empty",
+      "stdout": "installed easy-personal-ingest.timer in <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": [
+        "--user show-environment",
+        "--user daemon-reload",
+        "--user enable --now easy-personal-ingest.timer"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "install",
+        "--retention-days",
+        "30"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {
+        "xdg/systemd/user/easy-personal-ingest.service": "[Unit]\nDescription=easy-personal ingest (copy new Claude Code usage metadata to the store)\n\n[Service]\nType=oneshot\nExecStart=<CMD> ingest --retention-days 30\n",
+        "xdg/systemd/user/easy-personal-ingest.timer": "[Unit]\nDescription=Run easy-personal ingest daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
+      },
+      "label": "install again, retention 30",
+      "stderr": "empty",
+      "stdout": "installed easy-personal-ingest.timer in <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": [
+        "--user show-environment",
+        "--user daemon-reload",
+        "--user enable --now easy-personal-ingest.timer"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove",
+      "stderr": "empty",
+      "stdout": "removed easy-personal-ingest.timer from <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": [
+        "--user disable --now easy-personal-ingest.timer",
+        "--user daemon-reload"
+      ]
+    },
+    {
+      "argv": [
+        "easy-personal",
+        "schedule",
+        "remove"
+      ],
+      "before": [],
+      "cmd_dir": "bin",
+      "dirs": [
+        "xdg",
+        "xdg/systemd",
+        "xdg/systemd/user"
+      ],
+      "env_extra": {},
+      "exit_code": 0,
+      "fake_systemctl": {
+        "fail": null,
+        "no_session": false,
+        "on_path": true
+      },
+      "files": {},
+      "label": "remove again (nothing installed)",
+      "stderr": "empty",
+      "stdout": "removed easy-personal-ingest.timer from <CASE>/xdg/systemd/user\n",
+      "systemctl_calls": []
+    }
+  ],
+  "scenario": "I01_install_remove",
+  "what": "a real install, a second install with --retention-days, remove, remove with nothing installed"
+}

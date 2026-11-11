@@ -8,6 +8,7 @@ mod api;
 mod display;
 mod ingest_cmd;
 mod mcp;
+mod schedule_cmd;
 mod server;
 mod static_files;
 mod window;
@@ -35,6 +36,11 @@ enum Command {
         /// Delete events older than N days (default: keep all)
         #[arg(long, value_name = "N", allow_negative_numbers = true, value_parser = clap::value_parser!(i64).range(1..))]
         retention_days: Option<i64>,
+    },
+    /// Run ingest daily on a systemd user timer (same unit names as `easy-personal schedule`)
+    Schedule {
+        #[command(subcommand)]
+        action: schedule_cmd::Action,
     },
     /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C
     Serve {
@@ -76,6 +82,7 @@ fn main() -> ExitCode {
             source,
             retention_days,
         } => ingest_cmd::run(source, retention_days),
+        Command::Schedule { action } => schedule_cmd::run(action),
         Command::Serve { static_dir } => match server::run(static_dir.as_deref()) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
