@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/tests/ingest_cli.rs` (23 tests over the real binary plus 1 ignored real-Python run: help and usage errors, env, order, busy lock, refused stores, JSON text, S01-S07 S08a/b S10 replays, retention, two-process lock, canary scan), unit tests in `rust/crates/app/src/ingest_cmd.rs` (timeout parsing, path normalisation, `the_lock_is_free_as_soon_as_the_locked_part_returns`) |
+| Verification command run | ☑ pass | Supervisor, own runs 2026-11-11T07:39:07Z after the follow-up: `cargo test --workspace --no-fail-fast` = 406 passed, 0 failed, 13 ignored under TZ unset, `Pacific/Kiritimati` and `Pacific/Pago_Pago`; `cargo fmt --check` ok; clippy `-D warnings` exit 0 (default and `--features window`); ignored `ingest_cli` real-Python test = `1 passed`; `cargo tree` for the default build: 0 Tauri/GTK/WebKit lines (agent); changed files only `main.rs`, `ingest_cmd.rs`, `tests/ingest_cli.rs`, `rust/README.md`; `rust/crates/core`, `rust/parity`, `src`, `tests`, `web` and Cargo files untouched |
+| Negative cases hold | ☑ pass | agent-reported mutation checks, each red then restored byte-equal: path normalisation removed → the relative-source test; refused-store exit 2 changed to 1 → `s11_s12_…`; store opened before the lock → 16 of 23 tests including `s09`; follow-up: lock leaked past `ingest_locked` (`mem::forget`) → `the_lock_is_free_as_soon_as_the_locked_part_returns` red. A print inside the locked scope is not caught by that test (stated limit). Not re-run by the Supervisor |
+| verify | ☑ pass | real runs by the Supervisor 2026-11-11 with literal binary paths, a temp data dir and agent root, `--source` on the committed fixtures: first run printed `files 6, new_events 39, skipped 0, not_ingested [context, kit_trace, ui, verifier]`, exit 0; second run `new_events 0`; `store-info` showed `user_version: 11`, `pending: no`; the Rust MCP `usage_summary` then read the Rust-filled store (abstained total 3, cache_read_input_tokens 1000). Plus the ignored test: Rust then Python and Python then Rust on one store, the second adds 0. The `/verify` recipe itself was not edited or run; the ingest step to add is listed in the agent's report and below |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | read by the Supervisor: the whole flow of `ingest_cmd.rs` (env, lock, store, ingest, prune, print, exit-code mapping); `ingest_cli.rs` and the README table were not read line by line (their results were re-run). Scope as listed above. code-review `reports/code-review_main_20261111T144116.html`: 0 P0, 0 P1, 1 P2 (fixed), 3 P3, 1 info. security-review `reports/security-review_main_20261111T144117.html`: nothing at confidence 8 or above |
+| Full smoke suite still green (no regression) | ☑ pass | whole workspace 406 passed, 0 failed under three zones (Supervisor); every earlier test unchanged |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 
@@ -67,12 +67,45 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11 by the implementing agent, before any code change; main checkout, `cd rust`, `. "$HOME/.cargo/env"`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ date -u            -> 2026-11-11T07:25:31Z
+$ cargo run -q -- ingest --help
+error: unrecognized subcommand 'ingest'
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Usage: easy-personal-rs <COMMAND>
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+For more information, try '--help'.
+(exit 2)
+
+$ cargo build                                  -> Finished `dev` profile [unoptimized + debuginfo] target(s)
+$ cargo test --workspace   (2026-11-11T07:26:00Z)
+  33 suites, passed=378 failed=0 ignored=12
+$ cargo test -p easy-personal-rs --test ingest_cli -- --ignored   (2026-11-11T07:25:57Z, first failing step)
+error: no test target named `ingest_cli` in `easy-personal-rs` package
+help: available test targets:
+    app
+    cli
+    mcp
+    server
+    window
+    workspaces
+```
+
+**AFTER**: Supervisor, 2026-11-11, real binary on the committed fixtures into a temp home: `easy-personal-rs ingest --source tests/fixtures/claude_code` printed `{"files": 6, "new_events": 39, "not_ingested": ["context","kit_trace","ui","verifier"], "skipped": 0}` (indent-2 layout), exit 0; again: `new_events: 0`; `store-info` `user_version: 11`; the Rust MCP `usage_summary` read the store; `cargo test --workspace` = 406 passed, 0 failed (three zones).
+
+**DELTA**: `easy-personal-rs ingest` fills the shared store from Claude Code transcripts with the same environment, lock, JSON and exit codes as `easy-personal ingest`, so the Rust app can now be used end to end (ingest, then serve, mcp or the window) without the Python app, for the events source.
+
+**WITNESS**: Supervisor re-ran the tests, lint and the real binary after both implementing agents; tool calls recorded in `memory/event-trace/T029.jsonl`.
+
+## Choices for the owner (decided in `[admin]` mode, ⚠ decided for you — please review)
+
+1. The JSON prints `files`, `new_events`, `skipped` (+ `pruned`) and `"not_ingested": ["context","kit_trace","ui","verifier"]`; Python's output has those four sources' keys, Rust prints only what it did.
+2. A store newer than v11 exits 2 with a clean message (Python: traceback, exit 1); an older store exits 2 with "run the Python app once" (Python migrates it): Rust never migrates in P2.
+3. Skipped entries (a directory named `x.jsonl`, unreadable files, non-UTF-8 paths) are counted and announced with one fixed stderr note; Python crashes on some and ignores others silently.
+4. A malformed `EASY_PERSONAL_LOCK_TIMEOUT` is a clean exit-1 error; `inf`/`nan` is capped at about 31 years; `HOME` unset is a clean error (no passwd fallback).
+
+## `/verify` ingest step to add (for a later task; `skills/verify/SKILL.md` was not edited)
+
+In a scratch folder with `EASY_PERSONAL_HOME` and `EASY_PERSONAL_AGENT_ROOT` inside it: `easy-personal-rs ingest --source tests/fixtures/claude_code` expects `files 6, new_events 39, skipped 0`, exit 0; again expects `new_events 0`; `--retention-days 1` expects `pruned 26`; with another process holding `flock` on `<home>/ingest.lock` and `EASY_PERSONAL_LOCK_TIMEOUT=0.2`, exit 75 with the exact stderr line; a store set to `user_version` 12 or 10 exits 2 with the bytes unchanged; then `cargo test -p easy-personal-rs --test ingest_cli -- --ignored`.

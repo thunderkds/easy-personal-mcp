@@ -6,6 +6,7 @@ use std::process::ExitCode;
 mod api;
 #[cfg(any(feature = "window", test))]
 mod display;
+mod ingest_cmd;
 mod mcp;
 mod server;
 mod static_files;
@@ -25,6 +26,15 @@ enum Command {
         /// Print one JSON object instead of text
         #[arg(long)]
         json: bool,
+    },
+    /// Copy new Claude Code transcript metadata into the store (events only; takes the ingest lock; never migrates)
+    Ingest {
+        /// Transcript root of the default account (default: its own `projects` folder)
+        #[arg(long, value_name = "PATH")]
+        source: Option<PathBuf>,
+        /// Delete events older than N days (default: keep all)
+        #[arg(long, value_name = "N", allow_negative_numbers = true, value_parser = clap::value_parser!(i64).range(1..))]
+        retention_days: Option<i64>,
     },
     /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C
     Serve {
@@ -62,6 +72,10 @@ fn main() -> ExitCode {
                 ExitCode::from(e.exit_code() as u8)
             }
         },
+        Command::Ingest {
+            source,
+            retention_days,
+        } => ingest_cmd::run(source, retention_days),
         Command::Serve { static_dir } => match server::run(static_dir.as_deref()) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {

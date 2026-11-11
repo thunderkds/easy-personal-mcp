@@ -9,7 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **T029** — `easy-personal-rs ingest` CLI: env and data dir, the lock (exit 75 on busy), `--source`, `--retention-days`, JSON output equal to Python's (indent 2, sorted keys) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T029.md`; Depends on T035
 - [ ] **T030** — Leak suite over the Rust ingest (canaries absent from store, WAL/SHM, output, logs) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T030.md`; Depends on T029
 - [ ] **T031** — Coexistence tests: Rust and Python ingest the same folder (concurrent, in turn, kill and resume, copied file, `integrity_check`) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T031.md`; Depends on T029
 - [ ] **T032** — Perf and memory gates (NFR-005): 8 MB/s on 200 MB, unchanged re-run < 2 s, < 8 MiB for a 12 MB file | QA-Automation | C1 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T032.md`; Depends on T029
@@ -21,6 +20,7 @@
 
 ### Done
 
+- [x] **T029** — `easy-personal-rs ingest` CLI: env and data dir, the lock (exit 75 on busy), `--source`, `--retention-days`, JSON output equal to Python's (indent 2, sorted keys) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T029.md`; Depends on T035; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 guide error fixed, security-review clean), Supervisor re-ran 406 tests x3 zones, the real Python coexistence test and a hand run of the binary (files 6, new_events 39); differences from Python flagged in `tasks/TASK_REVIEW_T029.md`
 - [x] **T035** — Ingest of folders: `accounts.detect`, `rglob` discovery in Python's order, accounts roots, `project_path` through `git`, per-file offsets and `save_file`, retire; S01-S07, S10, S13, S14 table goldens equal; the four Python crashes do not stick Rust | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T035.md`; Depends on T028; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 memory-per-file, security-review clean), Supervisor re-ran 378 tests x3 zones and the real Python coexistence test; differences from Python flagged in `tasks/TASK_REVIEW_T035.md`
 - [x] **T028** — `claude_code` parse layer in Rust: line framing, Python-exact JSON (NaN, depth), time, labels, secret rule, signals, record dispatch; no git, no folders, no store | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T028.md`; Depends on T026, T027; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1/P2, security-review clean), Supervisor re-ran 356 tests x3 zones, corpus check 0 different; Python-crash differences flagged in `tasks/TASK_REVIEW_T028.md`
 - [x] **T026** — Ingest oracle: Python `easy-personal ingest` over fixtures, tables dumped as goldens, plus a fresh-store schema snapshot (`rust/parity/ingest/`) | QA-Automation | C2 | Risk: Medium | P0 | guide `tasks/TASK_GUIDE_T026.md`; Started: 2026-11-11; evidence `tasks/TASK_REVIEW_T026.md`; Stage 4 done 2026-11-11 (code-review 0 P0/P1, security-review clean); `--check` 0 different; Python suite 1065 passed

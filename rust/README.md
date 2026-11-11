@@ -1,6 +1,6 @@
 # easy-personal-rs
 
-Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has five commands (the fifth, `app`, opens a window only in a build with `--features window`); the Python app
+Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has five subcommands (`store-info`, `ingest`, `serve`, `mcp`, `app`; `app` opens a window only in a build with `--features window`); the Python app
 stays the working one.
 
 ## Build and run
@@ -11,6 +11,7 @@ cd rust
 cargo build
 ./target/debug/easy-personal-rs --version        # easy-personal-rs <Cargo version>
 ./target/debug/easy-personal-rs store-info       # or --json
+./target/debug/easy-personal-rs ingest           # copy new Claude Code transcript metadata into the store; see "Ingest (P2a)"
 ./target/debug/easy-personal-rs serve            # loopback API, Ctrl-C to stop
 ./target/debug/easy-personal-rs serve --static-dir <DIR>   # the same, plus the dashboard's files from <DIR>
 ./target/debug/easy-personal-rs mcp              # MCP server on stdio
@@ -170,7 +171,7 @@ token column or a NULL timestamp makes Python raise a `TypeError`; here it is re
 ## Store writer (P2)
 
 The read-only `store` module (`store-info`, `serve`, `mcp`) still never writes. Writing is a separate module, `easy_personal_core::writer`
-(T027), with the lock in `ingest_lock`; no command calls them yet (the `ingest` command is T029). `writer::open_for_write(path)` creates a
+(T027), with the lock in `ingest_lock`; the `ingest` command (T029, below) calls them. `writer::open_for_write(path)` creates a
 new store from `src/schema_v11.sql` (a byte-equal copy of `parity/ingest/golden/schema-v11.sql`) when there is no file, an empty file or
 no table, opens a `user_version` 11 store, and refuses every other store before writing a byte: newer -> the reader's "newer" text, older ->
 `store is schema v<N>: run the Python app once to migrate it`, both exit code 2. It never migrates. Every connection gets
@@ -203,11 +204,77 @@ account, then reads every confirmed Claude account's `projects/` folder (or `opt
 (sorted by path components, folder symlinks not followed), resumes each file from its stored offset (back to 0 for a new inode or a
 file shorter than the offset), resolves each `cwd` to its project through `git` (a worktree maps to its main repo, a relative `cwd`
 is read from `opts.cwd_base`), and saves each file in one transaction. It returns `files` and `new_events` as Python prints them, plus
-`skipped`. No command calls it yet (the `ingest` command is T029). Its tests rebuild the T026 oracle cases and match the goldens' tables
+`skipped`. The `ingest` command (T029, below) calls it. Its tests rebuild the T026 oracle cases and match the goldens' tables
 (`tests/ingest_folders_parity.rs`). A real run shows that Rust and Python share one store, and the second ingest adds 0
 (`cargo test -p easy-personal-core --test ingest_folders_python -- --ignored`, needs `parity/.venv`). Where Python crashes and stays
 stuck, Rust skips the entry, counts it in `skipped` and reads on: a folder named `x.jsonl`, an entry it cannot list, stat or read,
 or a path that is not UTF-8.
+
+## Ingest (P2a)
+
+```bash
+easy-personal-rs ingest [--source PATH] [--retention-days N]
+```
+
+Does what `easy-personal ingest` does for the **events** source (`claude_code`): takes the single-writer lock, opens the store, detects
+agent accounts, reads every confirmed Claude account's transcripts from the stored offsets, optionally deletes events older than `N`
+days, and prints one JSON object (`indent=2`, sorted keys, a trailing newline, as Python's `json.dumps(..., indent=2, sort_keys=True)`):
+
+```json
+{
+  "files": 6,
+  "new_events": 39,
+  "not_ingested": [
+    "context",
+    "kit_trace",
+    "ui",
+    "verifier"
+  ],
+  "skipped": 0
+}
+```
+
+`pruned` (rows deleted) is added with `--retention-days`. `--retention-days` is a positive integer; `0` or a negative number is a usage error.
+Stdout carries only the JSON; diagnostics go to stderr. No message holds a path, SQL or a row value.
+
+**Environment** (same names and meaning as the Python app):
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `EASY_PERSONAL_HOME` | data folder (store `store.sqlite`, lock `ingest.lock`); made with mode 0700 when missing, an existing one keeps its mode | `~/.easy-personal` |
+| `EASY_PERSONAL_AGENT_ROOT` | folder scanned for `.claude*` / `.codex*` agent accounts | `~` |
+| `EASY_PERSONAL_CLAUDE_PROJECTS`, `--source` (the flag wins) | replace the default account's `projects` folder; a relative path is read from the current folder | unset |
+| `EASY_PERSONAL_LOCK_TIMEOUT` | seconds to wait for the lock (a float) | `300` |
+
+**Order**: lock, then store, then accounts, then transcripts, then prune, then print. A busy lock never touches the store. The lock is released before the result is printed, like Python. A missing store is
+created (schema v11).
+
+**What is and is not ingested.** Ingested: the `claude_code` transcripts (events, tool signals, file offsets, accounts). **Not ingested** (named in
+`not_ingested`, never printed with a made-up value): `kit_trace`, `context`, `ui`, `verifier`. Not built: `live`, `schedule install`, the
+dashboard's start-up ingest. `skipped` counts entries Rust could not read as a transcript (a folder named `x.jsonl`, an unreadable entry, a path
+that is not UTF-8); the run goes on and a one-line note goes to stderr.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | done |
+| 75 | another ingest holds the lock after the wait; stderr is exactly `another ingest is running; try again later` |
+| 2 | a usage error, or a store that must not be touched: newer than v11 (the "newer" text) or older (`store is schema v<N>: run the Python app once to migrate it`); the store is not changed |
+| 1 | any other failure, one line (a malformed `EASY_PERSONAL_LOCK_TIMEOUT`, an unusable data folder, a store that is not SQLite, a store busy for 5 s, a stdout that cannot be written) |
+
+**Coexistence**: one writer at a time, enforced by the same `flock` on `ingest.lock` the Python app takes. Rust and Python share one v11 store:
+after either ingests, the other adds 0 events (`cargo test -p easy-personal-rs --test ingest_cli -- --ignored`, needs `parity/.venv`). The Rust
+ingest never migrates: run the Python app once to move an older store to v11.
+
+**Differences from Python** (each on purpose):
+
+| Python | Rust | Why |
+|---|---|---|
+| prints `kit_trace`, `context`, `ui`, `verifier` | prints `not_ingested` naming them, and `skipped` | those sources are not ported; no invented numbers |
+| a store newer than v11: traceback, exit 1 | the clean message, exit 2, nothing written | decided in T026/T027 |
+| an older store: backs it up and migrates it | exit 2, `store is schema v<N>: ...`, nothing written | Rust never migrates (Python owns the schema) |
+| a folder named `x.jsonl`, an entry it cannot read, an int beyond int64, a record whose `type` is a list: traceback, exit 1, stuck on every later run | skips the entry (counted in `skipped`) or abstains the record, reads on | see "Ingest parse layer" and "Ingest of folders" |
+| a malformed `EASY_PERSONAL_LOCK_TIMEOUT`: traceback | one line, exit 1, before anything is made | no traceback |
+| `--retention-days` larger than int64: Python integer | a usage error, exit 2 | clap parses an `i64` |
 
 ## Test
 
