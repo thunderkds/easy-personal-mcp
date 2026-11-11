@@ -459,6 +459,17 @@ mod tests {
         }
     }
 
+    /// What `tauri_build` really compiled into this binary: the capability set is empty, so no origin (the loopback page
+    /// included) is granted any command.
+    #[cfg(feature = "window")]
+    #[test]
+    fn the_compiled_capability_set_is_empty() {
+        let compiled: serde_json::Value =
+            serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/capabilities.json")))
+                .unwrap();
+        assert_eq!(compiled, serde_json::json!({}));
+    }
+
     #[cfg(not(feature = "window"))]
     #[test]
     fn without_the_feature_the_exit_code_is_4() {

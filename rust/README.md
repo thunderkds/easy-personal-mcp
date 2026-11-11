@@ -1,6 +1,7 @@
 # easy-personal-rs
 
-Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has four commands; the Python app stays the working one.
+Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has five commands (the fifth, `app`, opens a window only in a build with `--features window`); the Python app
+stays the working one.
 
 ## Build and run
 
@@ -13,6 +14,8 @@ cargo build
 ./target/debug/easy-personal-rs serve            # loopback API, Ctrl-C to stop
 ./target/debug/easy-personal-rs serve --static-dir <DIR>   # the same, plus the dashboard's files from <DIR>
 ./target/debug/easy-personal-rs mcp              # MCP server on stdio
+cargo build --features window                    # adds the window (Tauri v2); see "Window" below
+./target/debug/easy-personal-rs app --static-dir <DIR>     # the dashboard in a window, until the window closes
 ```
 
 `store-info` opens the shared store (`$EASY_PERSONAL_HOME/store.sqlite`, else `~/.easy-personal/store.sqlite`, the same
@@ -38,7 +41,7 @@ The guard matches the Python app: `Host` must be `127.0.0.1:<port>`, an `Origin`
 A repeated `Host` or token header is refused (Python keeps the last one).
 
 `serve --static-dir <DIR>` also serves the built dashboard's files from `<DIR>` on the same origin, behind the same guard and with the same
-CSP on every answer, so a window can open `http://127.0.0.1:<port>/#<token>`. Without the flag nothing changes (`GET /` is still an empty 404).
+CSP on every answer, so a window (`app`, below) can open `http://127.0.0.1:<port>/#<token>`. Without the flag nothing changes (`GET /` is still an empty 404).
 `<DIR>` is resolved once at start (it may be relative, end in `/` or be a symlink); a path that is not a directory stops `serve` with a
 one-line message that names no path, before anything is bound or printed. Static rules, like Starlette's `StaticFiles(html=True)`:
 `GET /` and `GET /<dir>/` serve that folder's `index.html`, a file is served with a content type by extension (`octet-stream` when unknown),
@@ -87,6 +90,51 @@ opens the store (same path rules as `store-info`) read-only; a missing store, or
 no path in it. Errors in a tool are results with `isError: true` and Python's text (`Error executing tool <name>: <message>`); an
 unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other six tools, the
 `investigate` prompt and `--http`.
+
+## Window (`app`, Ubuntu only so far)
+
+The window is behind the Cargo feature `window`, **off by default**: a plain `cargo build` compiles no Tauri, GTK or WebKit crate
+and links only libc, so `store-info`, `serve` and `mcp` run on a machine with no display and no desktop libraries. `cargo build
+--features window` adds Tauri `=2.12.5` (`tauri-build =2.7.4`); building it needs the Ubuntu packages of `docs/spike-T001.md`
+(`libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`), and
+running it needs `libwebkit2gtk-4.1-0` and `libgtk-3-0t64`. A feature build links those libraries dynamically, so it needs them
+installed even for `serve` and `mcp` (GTK is never started for those, and they need no display).
+
+`app --static-dir <DIR>` (the flag is required) checks `<DIR>` as `serve` does, then checks for a display, then starts the
+`serve` server in the same process and opens one window titled `easy-personal` (1280x800, resizable) on
+`http://127.0.0.1:<port>/#<token>`. The token travels only in the fragment: never a query, an argument, stdout or a log line. stdout
+stays empty; stderr gets one line when the window opens (the URL without the fragment) and one when it closes. Closing the window,
+SIGINT or SIGTERM stops the server and exits 0, and no WebKit process is left behind. A build without the feature prints
+`this build has no window: rebuild with --features window` and exits 4.
+
+| Result of `app` | Exit code |
+|---|---|
+| the window closed, SIGINT/SIGTERM, or the self-test passed | 0 |
+| `<DIR>` is not a readable directory, or the window could not be made | 1 |
+| command-line error (for example no `--static-dir`) | 2 |
+| `--self-test` saw no authenticated request within 20 s | 3 |
+| a build without the `window` feature | 4 |
+| no display, or the toolkit did not start within 10 s | 5 |
+
+- **Display check**, before any Tauri or GTK code runs (a dead `DISPLAY` hangs GTK; no display at all makes Tauri panic): with
+  neither `WAYLAND_DISPLAY` nor `DISPLAY` set (an empty value counts as unset), it fails at once. Otherwise it connects, with a
+  2 s limit each, to `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` (or the absolute `WAYLAND_DISPLAY` path) and to the X server of
+  `DISPLAY` (`:N` is `/tmp/.X11-unix/X<N>`, `host:N` is TCP port `6000+N`). One that answers is enough. When neither answers it
+  exits 5 in at most 4 s with one line that names the variable but never a path or value. It only connects: it reads no file.
+- **No IPC**: `tauri.conf.json` turns the global Tauri API off and names no plugin, and no capability file is compiled in (the
+  compiled set is `{}`), so the page can call no Tauri command. Devtools are off. `security.csp` is null because the CSP comes from
+  the server's header.
+- **Navigation lock**: the webview may move only inside `http://127.0.0.1:<port>`. Every other URL (another port, `localhost`,
+  `https`, `file:`, `data:`, `javascript:`, ...) and every new-window request is refused and logged by host only. A click on a link
+  to another origin is also cancelled before WebKit connects to that host.
+- **`--self-test`** (hidden from `--help`, for checks without eyes): prints `self-test: ok` and exits 0 once the page made one
+  `/api/` request that passed the guard with the token, else exits 3 after 20 s. The fixture page is
+  `crates/app/tests/fixtures/self-test`: `cargo run --features window -- app --self-test --static-dir crates/app/tests/fixtures/self-test`.
+  The real-window tests are ignored by default; run them with a display:
+  `cargo test --features window --test window -- --ignored --test-threads=1`.
+- Not done: macOS and Windows (other webviews, no display check, Unix signals only), packaging, a tray or menu, embedding the
+  dashboard in the binary, and focusing the first window when `app` runs twice (each run gets its own port and token). The real
+  dashboard is not built here (`web/` needs `npm ci`).
 
 ## Ported library functions (core crate, no CLI/API yet)
 

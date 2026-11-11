@@ -1,8 +1,10 @@
 //! Real windows (T023). These open a Tauri window, so they need a display (WSLg or X11) and the Tauri system packages
 //! (`rust/docs/spike-T001.md`): they are ignored by default. Run them with
 //! `cargo test --features window --test window -- --ignored --test-threads=1`.
-//! The page is a fixture made in a temp folder (no dashboard build): `index.html` plus an `app.js` served as a file, because
-//! the dashboard CSP blocks inline scripts. `HOME` and `EASY_PERSONAL_HOME` point into a temp folder.
+//! The page is a fixture (no dashboard build): `index.html` plus an `app.js` served as a file, because the dashboard CSP
+//! blocks inline scripts. The self-test uses the committed `tests/fixtures/self-test` (it reads the token from
+//! `location.hash` and calls `/api/version` with the token header); the others make theirs in a temp folder.
+//! `HOME` and `EASY_PERSONAL_HOME` point into a temp folder.
 #![cfg(feature = "window")]
 
 use std::fs;
@@ -47,10 +49,6 @@ impl Drop for TempDir {
         let _ = fs::remove_dir_all(&self.0);
     }
 }
-
-/// The page reads the token from the fragment and makes one authenticated request, as the dashboard does.
-const API_CALL: &str = "const token = location.hash.slice(1); \
-    fetch('/api/version', { headers: { 'x-dashboard-token': token } });";
 
 struct App {
     child: Child,
@@ -171,7 +169,8 @@ fn descendants(pid: u32) -> Vec<u32> {
 #[ignore = "needs a display (WSLg or X11) and the Tauri system packages"]
 fn the_page_makes_an_authenticated_request_and_the_self_test_passes() {
     let home = TempDir::new();
-    let page = home.page("<h1>fixture</h1>", API_CALL);
+    // The committed fixture of the guide's verification command (`--static-dir crates/app/tests/fixtures/self-test`).
+    let page = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/self-test");
     let mut app = App::start(&home, &page, &["--self-test"]);
     let code = app.wait(Duration::from_secs(30));
     assert_eq!(code, 0);

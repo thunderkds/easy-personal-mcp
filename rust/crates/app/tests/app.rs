@@ -242,7 +242,7 @@ mod with_the_window_feature {
         assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
         assert!(text(&out.stdout).contains("\"user_version\":11"));
 
-        // mcp: initialize and tools/list over stdio.
+        // mcp: initialize, tools/list and tools/call usage_summary over stdio.
         let mut mcp = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
             .arg("mcp")
             .env_remove("DISPLAY")
@@ -263,12 +263,17 @@ mod with_the_window_feature {
         )
         .unwrap();
         writeln!(stdin, r#"{{"jsonrpc":"2.0","id":2,"method":"tools/list"}}"#).unwrap();
+        writeln!(stdin, r#"{{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{{"name":"usage_summary","arguments":{{}}}}}}"#).unwrap();
         drop(stdin);
         let out = mcp.wait_with_output().unwrap();
         assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
         let lines: Vec<String> = text(&out.stdout).lines().map(str::to_string).collect();
-        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert_eq!(lines.len(), 3, "{lines:?}");
         assert!(lines[0].contains("easy-personal-rs") && lines[1].contains("usage_summary"));
+        let call: serde_json::Value = serde_json::from_str(&lines[2]).unwrap();
+        assert_eq!(call["id"], 3);
+        assert_eq!(call["result"]["isError"], false, "{call}");
+        assert_eq!(call["result"]["structuredContent"]["messages"], 3, "{call}");
         assert!(out.stderr.is_empty());
 
         // serve: start, one authenticated request, stop with SIGINT.
