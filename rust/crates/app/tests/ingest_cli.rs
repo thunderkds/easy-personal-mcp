@@ -72,12 +72,15 @@ fn run_with(case: &Case, args: &[&str], tweak: impl FnOnce(&mut Command)) -> Out
     collect(c.output().unwrap())
 }
 
-/// What `json.dumps({...}, indent=2, sort_keys=True)` prints for the events source's result, written out by hand.
+/// What `json.dumps({...}, indent=2, sort_keys=True)` prints for the events source's result, written out by hand
+/// (T033: the three kit sources read nothing in these cases: no existing project, no `ui` folder, no verifier folder).
 fn expected(files: i64, new_events: i64, skipped: i64, pruned: Option<i64>) -> String {
     let pruned = pruned.map_or(String::new(), |n| format!("  \"pruned\": {n},\n"));
     format!(
-        "{{\n  \"files\": {files},\n  \"new_events\": {new_events},\n  \"not_ingested\": [\n    \"context\",\n    \
-         \"kit_trace\",\n    \"ui\",\n    \"verifier\"\n  ],\n{pruned}  \"skipped\": {skipped}\n}}\n"
+        "{{\n  \"files\": {files},\n  \"kit_trace\": {{\n    \"files\": 0,\n    \"new_events\": 0\n  }},\n  \
+         \"new_events\": {new_events},\n  \"not_ingested\": [\n    \"context\"\n  ],\n{pruned}  \"skipped\": {skipped},\n  \
+         \"ui\": {{\n    \"sessions\": 0,\n    \"skipped\": 0,\n    \"status\": \"no data\"\n  }},\n  \
+         \"verifier\": {{\n    \"projects\": 0,\n    \"skipped\": 0,\n    \"status\": \"no data\"\n  }}\n}}\n"
     )
 }
 

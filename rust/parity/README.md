@@ -301,6 +301,23 @@ name; the whole report is scanned before it is printed) and the script exits 1.
 **For the Supervisor** (not edited here): to add this to the `/verify` recipe, add after the Rust step of `skills/verify/SKILL.md`:
 `cd rust && cargo build && ./parity/.venv/bin/python parity/leak_rust.py` (expects exit 0 and the `leak check: 0 hits` line).
 
+## Kit sources oracle (T033)
+
+`gen_ingest_kit.py` runs the real Python `easy-personal ingest` over planted `kit_trace`, `ui` and `verifier` folders and freezes the result in
+`rust/parity/ingest/golden-kit/` (ten scenarios `K01`..`K09`, `K04c` is a Python crash: a folder named `x.jsonl` in an event-trace folder). A scenario is a list of
+steps (write, append, rewrite in place, replace by a new inode, pad to a size, symlink, FIFO, remove, run the ingest); the steps are stored in the golden, so
+there is no separate fixtures folder and the Rust replay (`crates/core/tests/ingest_kit_replay.rs`) plays the same steps. After every `ingest` step the golden
+holds the exit code, the `kit_trace` / `ui` / `verifier` objects of the printed JSON (no `context`) and the tables `kit_trace_events`, `ui_sessions`,
+`verifier_scores` and the `kit_trace` rows of `source_files` (ids, machine id and inodes left out, as T026). It reuses the guards and the `Case` of `gen_ingest.py`
+(real-home refusal, `TMPDIR` must be on the Linux filesystem and not inside a git repo).
+
+```bash
+TMPDIR=/tmp rust/parity/.venv/bin/python rust/parity/gen_ingest_kit.py           # (re)write rust/parity/ingest/golden-kit/
+TMPDIR=/tmp rust/parity/.venv/bin/python rust/parity/gen_ingest_kit.py --check   # regenerate in a temp folder, compare: exit 0 = 0 different
+cd rust && cargo test -p easy-personal-core --test ingest_kit_replay             # the replay, no Python needed
+cd rust && cargo test -p easy-personal-core --test ingest_kit_python -- --ignored   # real Python after Rust and Rust after Python add 0 rows
+```
+
 ## Ingest speed and memory (T032)
 
 NFR-005 for the Rust ingest, measured beside the Python ingest over the same generated data. `bench_ingest.py` (parity venv) makes

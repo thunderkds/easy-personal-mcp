@@ -1,0 +1,192 @@
+{
+  "runs": [
+    {
+      "exception": {
+        "class": "IsADirectoryError",
+        "line": "IsADirectoryError: [Errno 21] Is a directory: '<WORK>/proj/memory/event-trace/x.jsonl'"
+      },
+      "exit_code": 1,
+      "label": "first run",
+      "stdout_json": null,
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": [
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "A1", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/A1.jsonl", "tool_name": "Bash", "ts_utc": "2026-01-10T15:00:00.000000Z"}
+          ]
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": [
+            {"byte_offset": 108, "inode": "<INODE_OF_FILE>", "path": "<WORK>/proj/memory/event-trace/A1.jsonl", "source": "kit_trace"}
+          ]
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": {
+        "class": "IsADirectoryError",
+        "line": "IsADirectoryError: [Errno 21] Is a directory: '<WORK>/proj/memory/event-trace/x.jsonl'"
+      },
+      "exit_code": 1,
+      "label": "second run (still stuck?)",
+      "stdout_json": null,
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": [
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "A1", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/A1.jsonl", "tool_name": "Bash", "ts_utc": "2026-01-10T15:00:00.000000Z"}
+          ]
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": [
+            {"byte_offset": 108, "inode": "<INODE_OF_FILE>", "path": "<WORK>/proj/memory/event-trace/A1.jsonl", "source": "kit_trace"}
+          ]
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    }
+  ],
+  "scenario": "K04c_crash_directory_named_jsonl",
+  "steps": [
+    {
+      "cwds": [
+        "<WORK>/proj"
+      ],
+      "op": "transcript"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/proj/memory/event-trace/A1.jsonl",
+      "text": "{\"timestamp\": \"2026-01-10T15:00:00Z\", \"tool_name\": \"Bash\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/proj/memory/event-trace/x.jsonl"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/proj/memory/event-trace/z9.jsonl",
+      "text": "{\"timestamp\": \"2026-01-10T15:00:00Z\", \"tool_name\": \"Bash\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n"
+    },
+    {
+      "label": "first run",
+      "op": "ingest"
+    },
+    {
+      "label": "second run (still stuck?)",
+      "op": "ingest"
+    }
+  ],
+  "what": "kit_trace: a folder named *.jsonl (Python crashes with IsADirectoryError after the files before it; Rust skips it)"
+}

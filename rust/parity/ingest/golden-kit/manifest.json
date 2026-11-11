@@ -1,0 +1,151 @@
+{
+  "files": {
+    "K01_kit_trace_lines.json": "e5240466105f6dd10d8583b8f31b0a16376f6d7ee7fc2a462cb692c560529831",
+    "K02_kit_trace_inode_shrunk_deleted.json": "3fa5ab62bc4fa93c80e17250ade380b8f84bca10cb2a839f637e7b89ca49503b",
+    "K03_kit_trace_projects_gone.json": "44dd4d12e65a760a6562b1f393bf2645f9f9a4e0d7af519ac11cf22af9bb8c00",
+    "K04_kit_trace_symlinks.json": "23d7e81542f2d6b7b0feef3bfb4c4c485b2775758c90243fd744cd8597392044",
+    "K04c_crash_directory_named_jsonl.json": "c7078e6d7969e4169aed0ba47bee00895be4fe89d285ede676ecedd10cb963ea",
+    "K05_ui_files.json": "38707dea3a1d91eed92a81d8e4afdade3947a1ea3865a5ba3d271e1e0b6717ef",
+    "K06_ui_folder_rules.json": "5dfea7731728d5c04909d9a36053c7af30818e372434cdb1f8530b0761803da7",
+    "K07_verifier_reports.json": "c378d00774833cd02052f7cef36fe03c1acd2605394bf6783cb4ea5c8a4f8bd1",
+    "K08_verifier_container.json": "e9cd602e038ae2be29525258f05cf3dc68f49af15018b1fe5377feb1d042c041",
+    "K09_empty_store.json": "a4a4ecb6688a7b08b6e1768e88630e686bcf867d22e8ac0fca598e08bad4f3d1"
+  },
+  "generator": "rust/parity/gen_ingest_kit.py",
+  "note": "Python `easy-personal ingest` over planted kit_trace, ui and verifier folders (T033). Per scenario file: the steps (the fixtures: the Rust replay plays the same ones), then one run per `ingest` step with the exit code, the K keys of the printed JSON and the tables.",
+  "scenarios": [
+    {
+      "exit_codes": [
+        0,
+        0,
+        0
+      ],
+      "file": "K01_kit_trace_lines.json",
+      "id": "K01_kit_trace_lines",
+      "what": "kit_trace: task file with abstained, blank and torn lines, _untagged, odd names, two runs, then the torn line completed"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "file": "K02_kit_trace_inode_shrunk_deleted.json",
+      "id": "K02_kit_trace_inode_shrunk_deleted",
+      "what": "kit_trace: a file replaced by another inode, a file shrunk in place, a file deleted"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "K03_kit_trace_projects_gone.json",
+      "id": "K03_kit_trace_projects_gone",
+      "what": "kit_trace: a project that no longer exists, a project path that is a file, a project folder removed between runs"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "K04_kit_trace_symlinks.json",
+      "id": "K04_kit_trace_symlinks",
+      "what": "kit_trace: a symlinked trace file, a broken symlink, a symlinked event-trace folder"
+    },
+    {
+      "exit_codes": [
+        1,
+        1
+      ],
+      "file": "K04c_crash_directory_named_jsonl.json",
+      "id": "K04c_crash_directory_named_jsonl",
+      "what": "kit_trace: a folder named *.jsonl (Python crashes with IsADirectoryError after the files before it; Rust skips it)"
+    },
+    {
+      "exit_codes": [
+        0,
+        0
+      ],
+      "file": "K05_ui_files.json",
+      "id": "K05_ui_files",
+      "what": "ui: every shape of session file (ok, bad JSON, wrong types, duplicate ids, BOM, oversize, deep nesting, symlinks, a folder)"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "file": "K06_ui_folder_rules.json",
+      "id": "K06_ui_folder_rules",
+      "what": "ui: unset and missing folders wipe the table, an empty folder does not, replace without delete, env beats config, ~ and flat-file quirks"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "file": "K07_verifier_reports.json",
+      "id": "K07_verifier_reports",
+      "what": "verifier: newest report by name stamp per project, every skip rule, replace-all, the container folder"
+    },
+    {
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "file": "K08_verifier_container.json",
+      "id": "K08_verifier_container",
+      "what": "verifier: container from the default folder under HOME, from config.yaml, from the env (env > config > default)"
+    },
+    {
+      "exit_codes": [
+        0
+      ],
+      "file": "K09_empty_store.json",
+      "id": "K09_empty_store",
+      "what": "an empty store: no events, no projects, nothing to read"
+    }
+  ],
+  "sources_sha256": {
+    "kit_trace.py": "e7c036318a60e6f4f299f1da05421aaeeb9a4ec35622baecb922086b9a0f74ec",
+    "ui.py": "797a0714712708437bebb72f95b45f8d8edad01f5e46709ae35e79f4555e7b43",
+    "verifier.py": "5ab84bfa6377c41f056544868e19928e011b55f66b50926c19e7c4a59106db8a"
+  },
+  "tokens": {
+    "%CANARY%": "a planted text: never stored",
+    "<AGENT_ROOT>": "a folder of the scenario's case (see KCase.paths)",
+    "<CASE>": "a folder of the scenario's case (see KCase.paths)",
+    "<HOME>": "a folder of the scenario's case (see KCase.paths)",
+    "<NOWHERE>": "a folder of the scenario's case (see KCase.paths)",
+    "<PROJECTS>": "a folder of the scenario's case (see KCase.paths)",
+    "<UI>": "a folder of the scenario's case (see KCase.paths)",
+    "<VERIFIER>": "a folder of the scenario's case (see KCase.paths)",
+    "<WORK>": "a folder of the scenario's case (see KCase.paths)"
+  },
+  "versions": {
+    "easy-personal-mcp": "0.4.0",
+    "git": "git version 2.53.0",
+    "platform": "Linux",
+    "python": "3.14.4",
+    "sqlite": "3.46.1"
+  },
+  "work_path_length": 240
+}

@@ -575,11 +575,17 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     try:
         events = conn.execute("SELECT count(*) FROM events").fetchone()[0]
         errors = conn.execute("SELECT SUM(tool_error_count) FROM events").fetchone()[0]
+        kit = {t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
+               for t in ("kit_trace_events", "ui_sessions", "verifier_scores")}  # T033: now ingested, not only scanned
     finally:
         conn.close()
     ok = events > 0 and 'INSERT INTO "events"' in dump and "/work/leak-demo" in dump
     checks.append(
         f"check events rows exist              {'ok' if ok else 'FAILED'} ({events} rows)"
+    )
+    ok = all(kit.values())
+    checks.append(
+        f"check kit/ui/verifier rows exist     {'ok' if ok else 'FAILED'} ({kit['kit_trace_events']} / {kit['ui_sessions']} / {kit['verifier_scores']} rows)"
     )
     checks.append(
         f"check failed tool_result counted     {'ok' if errors == 1 else 'FAILED'} (SUM(tool_error_count) = {errors})"

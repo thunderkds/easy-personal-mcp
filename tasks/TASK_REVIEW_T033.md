@@ -84,9 +84,10 @@ python {'events': 1, 'kit_trace_events': 3, 'ui_sessions': 1, 'verifier_scores':
 
 The three tables stay empty after the Rust run and the Rust output names the three sources under `not_ingested`; Python fills 3, 1 and 1 rows.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: Same script as BEFORE, after the change (agent): Rust printed {"files":1,"kit_trace":{"files":1,"new_events":3},"new_events":1,"not_ingested":["context"],"skipped":0,"ui":{"sessions":1,"skipped":0,"status":"ok"},"verifier":{"projects":1,"skipped":0,"status":"ok"}}; table counts equal Python's (events 1, kit_trace_events 3, ui_sessions 1, verifier_scores 1, source_files 2).
+Supervisor re-runs, 2026-11-11, main checkout: `gen_ingest_kit.py --check` 11 files, 0 different; `leak_rust.py` leak check 0 hits over 42 canaries, 116 surfaces, 847452 bytes, `check kit/ui/verifier rows exist ok (2 / 2 / 1 rows)`; `cargo test --workspace` TZ unset / Pacific/Kiritimati / Pacific/Pago_Pago: 439 passed, 0 failed, 26 ignored each; clippy and fmt clean; `git status -- src tests web` empty. Agent (real Python, ignored tests): ingest_kit_python 1 passed (Python after Rust adds 0 and the reverse), ingest_coexist 10 passed, ingest_cli 1 passed. Perf release (agent): A 177.0 MB/s (T032: 176.9), C unchanged re-run 0.05 s (gate 2 s), B +6.0 MiB (gate 8). Negative proof: flipping the newest-report comparison in verifier.rs failed k07 and k08, reverted, 10 of 10 pass.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: After a Rust-only ingest the kit, UI and verifier tables are filled the same as Python's, so those dashboard and `kit_summary` views are no longer empty.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

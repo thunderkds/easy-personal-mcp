@@ -1,0 +1,429 @@
+{
+  "runs": [
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "first run",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 1,
+          "new_events": 3
+        },
+        "new_events": 1,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": [
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Bash", "ts_utc": "2026-01-10T15:00:00.000000Z"},
+            {"abstained": 0, "byte_offset": 108, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Read", "ts_utc": "2026-01-10T15:00:01.000000Z"},
+            {"abstained": 0, "byte_offset": 216, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Edit", "ts_utc": "2026-01-10T15:00:02.000000Z"}
+          ]
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": [
+            {"byte_offset": 324, "inode": "<INODE_OF_FILE>", "path": "<WORK>/proj/memory/event-trace/T001.jsonl", "source": "kit_trace"}
+          ]
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "second run: new inode, read from 0 again",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 1,
+          "new_events": 2
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": [
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Grep", "ts_utc": "2026-01-10T16:00:00.000000Z"},
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_OTHER>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Bash", "ts_utc": "2026-01-10T15:00:00.000000Z"},
+            {"abstained": 0, "byte_offset": 108, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Glob", "ts_utc": "2026-01-10T16:00:01.000000Z"},
+            {"abstained": 0, "byte_offset": 108, "inode": "<INODE_OTHER>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Read", "ts_utc": "2026-01-10T15:00:01.000000Z"},
+            {"abstained": 0, "byte_offset": 216, "inode": "<INODE_OTHER>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Edit", "ts_utc": "2026-01-10T15:00:02.000000Z"}
+          ]
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": [
+            {"byte_offset": 216, "inode": "<INODE_OF_FILE>", "path": "<WORK>/proj/memory/event-trace/T001.jsonl", "source": "kit_trace"}
+          ]
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "third run: same inode, smaller than the stored offset (read from 0; rows already stored are kept)",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 1,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": [
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Grep", "ts_utc": "2026-01-10T16:00:00.000000Z"},
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_OTHER>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Bash", "ts_utc": "2026-01-10T15:00:00.000000Z"},
+            {"abstained": 0, "byte_offset": 108, "inode": "<INODE_OF_FILE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Glob", "ts_utc": "2026-01-10T16:00:01.000000Z"},
+            {"abstained": 0, "byte_offset": 108, "inode": "<INODE_OTHER>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Read", "ts_utc": "2026-01-10T15:00:01.000000Z"},
+            {"abstained": 0, "byte_offset": 216, "inode": "<INODE_OTHER>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Edit", "ts_utc": "2026-01-10T15:00:02.000000Z"}
+          ]
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": [
+            {"byte_offset": 108, "inode": "<INODE_OF_FILE>", "path": "<WORK>/proj/memory/event-trace/T001.jsonl", "source": "kit_trace"}
+          ]
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "fourth run: the file is gone (its offset row is retired, its events stay)",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": [
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_FILE_GONE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Bash", "ts_utc": "2026-01-10T15:00:00.000000Z"},
+            {"abstained": 0, "byte_offset": 0, "inode": "<INODE_FILE_GONE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Grep", "ts_utc": "2026-01-10T16:00:00.000000Z"},
+            {"abstained": 0, "byte_offset": 108, "inode": "<INODE_FILE_GONE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Read", "ts_utc": "2026-01-10T15:00:01.000000Z"},
+            {"abstained": 0, "byte_offset": 108, "inode": "<INODE_FILE_GONE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Glob", "ts_utc": "2026-01-10T16:00:01.000000Z"},
+            {"abstained": 0, "byte_offset": 216, "inode": "<INODE_FILE_GONE>", "is_error": 0, "kit_task_id": "T001", "project_path": "<WORK>/proj", "source_path": "<WORK>/proj/memory/event-trace/T001.jsonl", "tool_name": "Edit", "ts_utc": "2026-01-10T15:00:02.000000Z"}
+          ]
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    }
+  ],
+  "scenario": "K02_kit_trace_inode_shrunk_deleted",
+  "steps": [
+    {
+      "cwds": [
+        "<WORK>/proj"
+      ],
+      "op": "transcript"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/proj/memory/event-trace/T001.jsonl",
+      "text": "{\"timestamp\": \"2026-01-10T15:00:00Z\", \"tool_name\": \"Bash\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n{\"timestamp\": \"2026-01-10T15:00:01Z\", \"tool_name\": \"Read\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n{\"timestamp\": \"2026-01-10T15:00:02Z\", \"tool_name\": \"Edit\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n"
+    },
+    {
+      "label": "first run",
+      "op": "ingest"
+    },
+    {
+      "op": "replace",
+      "path": "<WORK>/proj/memory/event-trace/T001.jsonl",
+      "text": "{\"timestamp\": \"2026-01-10T16:00:00Z\", \"tool_name\": \"Grep\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n{\"timestamp\": \"2026-01-10T16:00:01Z\", \"tool_name\": \"Glob\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n"
+    },
+    {
+      "label": "second run: new inode, read from 0 again",
+      "op": "ingest"
+    },
+    {
+      "op": "rewrite",
+      "path": "<WORK>/proj/memory/event-trace/T001.jsonl",
+      "text": "{\"timestamp\": \"2026-01-10T17:00:00Z\", \"tool_name\": \"Task\", \"is_error\": false, \"summary\": \"%CANARY%\"}\n"
+    },
+    {
+      "label": "third run: same inode, smaller than the stored offset (read from 0; rows already stored are kept)",
+      "op": "ingest"
+    },
+    {
+      "op": "remove",
+      "path": "<WORK>/proj/memory/event-trace/T001.jsonl"
+    },
+    {
+      "label": "fourth run: the file is gone (its offset row is retired, its events stay)",
+      "op": "ingest"
+    }
+  ],
+  "what": "kit_trace: a file replaced by another inode, a file shrunk in place, a file deleted"
+}

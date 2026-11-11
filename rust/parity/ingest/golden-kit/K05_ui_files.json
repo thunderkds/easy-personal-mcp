@@ -1,0 +1,357 @@
+{
+  "runs": [
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "first run",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 8,
+          "skipped": 13,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 0, "ended_at_utc": null, "id": "aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "bom", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "empty-star", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "frac", "started_at_utc": "2026-01-10T09:30:00.123456Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "linked", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"},
+            {"action_count": 2, "ended_at_utc": null, "id": "s1", "started_at_utc": "2026-01-10T18:00:00.000000Z", "status": "failed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "s2", "started_at_utc": "2026-01-10T16:00:00.000000Z", "status": "failed"},
+            {"action_count": 1, "ended_at_utc": null, "id": "s3", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "second run (the same files)",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 8,
+          "skipped": 13,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 0, "ended_at_utc": null, "id": "aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "bom", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "empty-star", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "frac", "started_at_utc": "2026-01-10T09:30:00.123456Z", "status": "passed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "linked", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"},
+            {"action_count": 2, "ended_at_utc": null, "id": "s1", "started_at_utc": "2026-01-10T18:00:00.000000Z", "status": "failed"},
+            {"action_count": 0, "ended_at_utc": null, "id": "s2", "started_at_utc": "2026-01-10T16:00:00.000000Z", "status": "failed"},
+            {"action_count": 1, "ended_at_utc": null, "id": "s3", "started_at_utc": "2026-01-10T17:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    }
+  ],
+  "scenario": "K05_ui_files",
+  "steps": [
+    {
+      "op": "write",
+      "path": "<UI>/session-a.json",
+      "text": "{\"id\":\"s1\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"endedAt\":\"2026-01-10T15:00:05Z\",\"target\":\"%CANARY%\",\"issues\":[\"%CANARY%\"],\"actions\":[{\"x\":\"%CANARY%\"},2,3]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-b.json",
+      "text": "{\"id\":\"s2\",\"status\":\"failed\",\"startedAt\":\"2026-01-10T16:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-c.json",
+      "text": "{\"id\":\"s3\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\",\"endedAt\":null,\"actions\":[1]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-d.json",
+      "text": "{\"id\":\"s4\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\",\"endedAt\":\"garbage\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-e.json",
+      "text": "{"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-f.json",
+      "text": "[1]"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-g.json",
+      "text": "{\"id\":\"s5\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\"}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-h.json",
+      "text": "{\"id\":\"s6\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-i.json",
+      "text": "{\"id\":\"bad id\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-j.json",
+      "text": "{\"id\":\"s7\",\"status\":5,\"startedAt\":\"2026-01-10T17:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-k.json",
+      "text": "{\"id\":\"s1\",\"status\":\"failed\",\"startedAt\":\"2026-01-10T18:00:00Z\",\"actions\":[1,2]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-l.json",
+      "text": "{\"id\":\"s8\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\",\"actions\":{}}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-.json",
+      "text": "{\"id\":\"empty-star\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-m.json",
+      "text": "﻿{\"id\":\"bom\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "pad",
+      "path": "<UI>/session-o.json",
+      "size": 20000001
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-p.json",
+      "repeat": {
+        "close": "]",
+        "count": 60000,
+        "prefix": "{\"id\":\"deep\",\"status\":\"x\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"actions\":",
+        "suffix": "}",
+        "unit": "["
+      },
+      "text": ""
+    },
+    {
+      "op": "mkdir",
+      "path": "<UI>/session-q.json"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/outside/real-session.json",
+      "text": "{\"id\":\"linked\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T17:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "symlink",
+      "path": "<UI>/session-r.json",
+      "target": "<WORK>/outside/real-session.json"
+    },
+    {
+      "op": "symlink",
+      "path": "<UI>/session-s.json",
+      "target": "<WORK>/outside/missing.json"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-t.json",
+      "text": "{\"id\":\"frac\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00.123456789+05:30\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-u.json",
+      "text": "{\"id\":\"aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_\",\"status\":\"passed\",\"startedAt\":\"2026-01-10 15:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-v.json",
+      "text": "{\"id\":\"aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_aaaaaaaaa_x\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"actions\":[]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/notes.json",
+      "text": "{\"id\":\"s1\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"endedAt\":\"2026-01-10T15:00:05Z\",\"target\":\"%CANARY%\",\"issues\":[\"%CANARY%\"],\"actions\":[{\"x\":\"%CANARY%\"},2,3]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-x.txt",
+      "text": "{\"id\":\"s1\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"endedAt\":\"2026-01-10T15:00:05Z\",\"target\":\"%CANARY%\",\"issues\":[\"%CANARY%\"],\"actions\":[{\"x\":\"%CANARY%\"},2,3]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/Session-z.json",
+      "text": "{\"id\":\"s1\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"endedAt\":\"2026-01-10T15:00:05Z\",\"target\":\"%CANARY%\",\"issues\":[\"%CANARY%\"],\"actions\":[{\"x\":\"%CANARY%\"},2,3]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-w.json.bak",
+      "text": "{\"id\":\"s1\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"endedAt\":\"2026-01-10T15:00:05Z\",\"target\":\"%CANARY%\",\"issues\":[\"%CANARY%\"],\"actions\":[{\"x\":\"%CANARY%\"},2,3]}"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<UI>"
+      },
+      "label": "first run",
+      "op": "ingest"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<UI>"
+      },
+      "label": "second run (the same files)",
+      "op": "ingest"
+    }
+  ],
+  "what": "ui: every shape of session file (ok, bad JSON, wrong types, duplicate ids, BOM, oversize, deep nesting, symlinks, a folder)"
+}

@@ -1,0 +1,532 @@
+{
+  "runs": [
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "default container under HOME",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 1,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 1,
+          "skipped": 0,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 10.0, "project_path": "<WORK>/proj", "reason_code": null, "scope": "changes", "status": "ok"}
+          ]
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "config.yaml verifier: reports_dir",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 1,
+          "skipped": 0,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 20.0, "project_path": "<WORK>/proj", "reason_code": null, "scope": "changes", "status": "ok"}
+          ]
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "env beats config",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 1,
+          "skipped": 0,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 30.0, "project_path": "<WORK>/proj", "reason_code": null, "scope": "changes", "status": "ok"}
+          ]
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "config with ~",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 1,
+          "skipped": 0,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 40.0, "project_path": "<WORK>/proj", "reason_code": null, "scope": "changes", "status": "ok"}
+          ]
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "a newer unknown-schema file turns the project abstained",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 1,
+          "skipped": 0,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": null, "overall_abstained": 0, "overall_value": null, "project_path": "<WORK>/proj", "reason_code": null, "scope": null, "status": "unknown"}
+          ]
+        }
+      }
+    }
+  ],
+  "scenario": "K08_verifier_container",
+  "steps": [
+    {
+      "cwds": [
+        "<WORK>/proj"
+      ],
+      "op": "transcript"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/proj"
+    },
+    {
+      "op": "write",
+      "path": "<NOWHERE>/.easy-verifier-reports/proj/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 10, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_VERIFIER_REPORTS": null
+      },
+      "label": "default container under HOME",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<CASE>/vc/proj/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 20, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<HOME>/config.yaml",
+      "text": "verifier:\n  reports_dir: <CASE>/vc\n"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_VERIFIER_REPORTS": null
+      },
+      "label": "config.yaml verifier: reports_dir",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<VERIFIER>/proj/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 30, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "label": "env beats config",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<HOME>/config.yaml",
+      "text": "verifier:\n  reports_dir: ~/home-reports\n"
+    },
+    {
+      "op": "write",
+      "path": "<NOWHERE>/home-reports/proj/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 40, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_VERIFIER_REPORTS": null
+      },
+      "label": "config with ~",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<VERIFIER>/proj/evidence-report-20260102T000000-1Z.json",
+      "text": "{\"schema_version\": 3, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "label": "a newer unknown-schema file turns the project abstained",
+      "op": "ingest"
+    }
+  ],
+  "what": "verifier: container from the default folder under HOME, from config.yaml, from the env (env > config > default)"
+}

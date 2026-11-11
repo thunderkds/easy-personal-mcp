@@ -3,11 +3,14 @@
 //! prune, then print), same JSON formatting, same exit codes. The core does the work (`ingest::folders`,
 //! `writer`, `ingest_lock`); this module reads the environment and the process, and prints.
 //!
-//! The result names what it did not ingest (`not_ingested`) instead of printing Python's four other sources with
-//! invented values. No message here carries a path, SQL or a row value (NFR-002).
+//! After the events (P2b, T033) it runs `kit_trace`, `ui` and `verifier` in Python's order, each in its own
+//! transaction, and prints their counts under Python's keys. The result names what it did not ingest (`not_ingested`:
+//! `context`) instead of printing that source with an invented value. No message here carries a path, SQL or a row value (NFR-002).
 
 use easy_personal_core::clock::now_micros;
+use easy_personal_core::ingest::config::{ui_reports_dir, verifier_reports_dir};
 use easy_personal_core::ingest::folders::{Options, SKIPPED_NOTE, ingest_accounts};
+use easy_personal_core::ingest::{kit_trace, ui, verifier};
 use easy_personal_core::ingest_lock::{DEFAULT_TIMEOUT, LockError, ingest_lock};
 use easy_personal_core::store::store_path_from;
 use easy_personal_core::writer::{WriteError, open_for_write};
@@ -19,8 +22,8 @@ use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
-/// The sources Python's `ingest` runs after `claude_code` that this command does not (sorted, as the JSON key order).
-const NOT_INGESTED: [&str; 4] = ["context", "kit_trace", "ui", "verifier"];
+/// The source Python's `ingest` runs last that this command does not (T033: `kit_trace`, `ui` and `verifier` are ported).
+const NOT_INGESTED: [&str; 1] = ["context"];
 
 /// The longest lock wait we hand to `Instant` arithmetic (about 31 years); `inf` and `nan` wait this long.
 const MAX_WAIT_SECS: u64 = 1_000_000_000;
@@ -82,7 +85,7 @@ fn ingest(source: Option<PathBuf>, retention_days: Option<i64>) -> Result<(), Fa
         .map(Path::to_path_buf)
         .unwrap_or_default();
     let agent_root =
-        match non_empty(std::env::var_os("EASY_PERSONAL_AGENT_ROOT")).or(non_empty(home)) {
+        match non_empty(std::env::var_os("EASY_PERSONAL_AGENT_ROOT")).or(non_empty(home.clone())) {
             Some(root) => PathBuf::from(root),
             None => {
                 return Err(Failure::Failed(
@@ -105,6 +108,9 @@ fn ingest(source: Option<PathBuf>, retention_days: Option<i64>) -> Result<(), Fa
         projects_override,
         cwd_base,
         retention_days,
+        ui_env: std::env::var_os("EASY_PERSONAL_UI_REPORTS"),
+        verifier_env: std::env::var_os("EASY_PERSONAL_VERIFIER_REPORTS"),
+        home,
     })?;
     let skipped = result.get("skipped").and_then(Value::as_u64).unwrap_or(0);
     // Python prints after its `with` block: the lock is free before a slow stdout reader (`| less`) gets the result.
@@ -124,6 +130,10 @@ struct Config {
     projects_override: Option<PathBuf>,
     cwd_base: PathBuf,
     retention_days: Option<i64>,
+    /// `EASY_PERSONAL_UI_REPORTS`, `EASY_PERSONAL_VERIFIER_REPORTS` and `HOME`, as the process has them.
+    ui_env: Option<OsString>,
+    verifier_env: Option<OsString>,
+    home: Option<OsString>,
 }
 
 /// The part of `_ingest` inside Python's `with` block: lock, then store, then accounts, then prune. The lock and the
@@ -140,15 +150,43 @@ fn ingest_locked(cfg: &Config) -> Result<BTreeMap<&'static str, Value>, Failure>
             cwd_base: cfg.cwd_base.clone(),
         },
     )?;
+    // cli.py `_ingest`: after the events, `kit_trace`, then `ui`, then `verifier`; none of the last two fails the run.
+    let kit = kit_trace::ingest(&mut store)?;
+    let config_file = cfg.data_dir.join("config.yaml");
+    let home = cfg.home.as_deref();
+    let ui_folder = ui_reports_dir(&config_file, cfg.ui_env.clone(), home);
+    let ui = match ui::ingest(&mut store, ui_folder.as_deref()) {
+        Ok(s) => json!({"status": s.status, "sessions": s.sessions, "skipped": s.skipped}),
+        Err(e) => json!({"status": "failed", "reason": ui_failure(&e)}),
+    };
+    let container = verifier_reports_dir(&config_file, cfg.verifier_env.clone(), home);
+    let verifier = match verifier::ingest(&mut store, container.as_deref()) {
+        Ok(s) => json!({"status": s.status, "projects": s.projects, "skipped": s.skipped}),
+        Err(reason) => json!({"status": "failed", "reason": reason}),
+    };
     let mut result: BTreeMap<&'static str, Value> = BTreeMap::new();
     result.insert("files", json!(summary.files));
     result.insert("new_events", json!(summary.new_events));
-    result.insert("skipped", json!(summary.skipped));
+    result.insert("skipped", json!(summary.skipped + kit.skipped));
+    result.insert(
+        "kit_trace",
+        json!({"files": kit.files, "new_events": kit.new_events}),
+    );
+    result.insert("ui", ui);
+    result.insert("verifier", verifier);
     result.insert("not_ingested", json!(NOT_INGESTED));
     if let Some(days) = cfg.retention_days {
         result.insert("pruned", json!(store.prune(Some(days), now_micros())?));
     }
     Ok(result)
+}
+
+/// The exception class name Python would show for a store failure while saving the UI sessions.
+fn ui_failure(e: &WriteError) -> &'static str {
+    match e {
+        WriteError::Rejected => "IntegrityError",
+        _ => "OperationalError",
+    }
 }
 
 /// `print(json.dumps(value, indent=2, sort_keys=True))`: two-space indent, sorted keys, one item per line, a newline.
@@ -274,6 +312,9 @@ mod tests {
             projects_override: None,
             cwd_base: base.clone(),
             retention_days: None,
+            ui_env: None,
+            verifier_env: None,
+            home: None,
         };
         let result = ingest_locked(&cfg).ok().expect("ingest ran");
         // Nothing has been printed yet, and the lock is already free (Python prints after its `with` block).
@@ -284,7 +325,18 @@ mod tests {
         );
         drop(again);
         let keys: Vec<&str> = result.keys().copied().collect();
-        assert_eq!(keys, ["files", "new_events", "not_ingested", "skipped"]);
+        assert_eq!(
+            keys,
+            [
+                "files",
+                "kit_trace",
+                "new_events",
+                "not_ingested",
+                "skipped",
+                "ui",
+                "verifier"
+            ]
+        );
         std::fs::remove_dir_all(&base).unwrap();
     }
 }

@@ -8,13 +8,20 @@
 //! - [`secret`] - `secretlike.SECRET`
 //! - [`signals`] - the Bash first word and the WebFetch host
 //!
+//! P2b (T033) adds the three kit sources over real folders: [`kit_trace`], [`ui`], [`verifier`] (and [`config`], the
+//! report-folder settings they share).
+//!
 //! The helper modules are public so the differential corpora (`parity/ingest/golden/corpus-*.json`) can test them.
 
 pub mod accounts;
 pub mod claude_code;
+pub mod config;
 pub mod folders;
 pub mod json;
+pub mod kit_trace;
 pub mod label;
 pub mod secret;
 pub mod signals;
 pub mod time;
+pub mod ui;
+pub mod verifier;

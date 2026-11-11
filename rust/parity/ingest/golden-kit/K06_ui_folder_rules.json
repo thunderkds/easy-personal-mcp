@@ -1,0 +1,1403 @@
+{
+  "runs": [
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "env folder set: one session",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "a", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "env unset: wipes ui_sessions (status no data)",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "env folder set again: the row is back",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "a", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "existing empty folder: no wipe",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "a", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "a changed, b added: replace only",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 2,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "a", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "failed"},
+            {"action_count": 1, "ended_at_utc": null, "id": "b", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "a's file removed: its row stays (no delete)",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "a", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "failed"},
+            {"action_count": 1, "ended_at_utc": null, "id": "b", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "missing folder: wipes",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "env unset, config.yaml ui: reports_dir",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "c", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "env empty string: config is used",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "c", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "env set beats config",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "b", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"},
+            {"action_count": 1, "ended_at_utc": null, "id": "c", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "config reports_dir with ~ (HOME is the nowhere folder)",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "b", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"},
+            {"action_count": 1, "ended_at_utc": null, "id": "c", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"},
+            {"action_count": 1, "ended_at_utc": null, "id": "d", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "tab-indented value is not inside the section: wipes",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "`ui:` with a comment, trailing spaces in the value",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 1,
+          "skipped": 0,
+          "status": "ok"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": [
+            {"action_count": 1, "ended_at_utc": null, "id": "b", "started_at_utc": "2026-01-10T15:00:00.000000Z", "status": "passed"}
+          ]
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "`ui :` is another section: wipes",
+      "stdout_json": {
+        "files": 0,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    }
+  ],
+  "scenario": "K06_ui_folder_rules",
+  "steps": [
+    {
+      "op": "write",
+      "path": "<UI>/session-a.json",
+      "text": "{\"id\":\"a\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"actions\":[1]}"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<UI>"
+      },
+      "label": "env folder set: one session",
+      "op": "ingest"
+    },
+    {
+      "label": "env unset: wipes ui_sessions (status no data)",
+      "op": "ingest"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<UI>"
+      },
+      "label": "env folder set again: the row is back",
+      "op": "ingest"
+    },
+    {
+      "op": "mkdir",
+      "path": "<CASE>/ui-empty"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<CASE>/ui-empty"
+      },
+      "label": "existing empty folder: no wipe",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-a.json",
+      "text": "{\"id\":\"a\",\"status\":\"failed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"actions\":[1]}"
+    },
+    {
+      "op": "write",
+      "path": "<UI>/session-b.json",
+      "text": "{\"id\":\"b\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"actions\":[1]}"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<UI>"
+      },
+      "label": "a changed, b added: replace only",
+      "op": "ingest"
+    },
+    {
+      "op": "remove",
+      "path": "<UI>/session-a.json"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<UI>"
+      },
+      "label": "a's file removed: its row stays (no delete)",
+      "op": "ingest"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<CASE>/ui-missing"
+      },
+      "label": "missing folder: wipes",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<CASE>/cfg-sessions/session-c.json",
+      "text": "{\"id\":\"c\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"actions\":[1]}"
+    },
+    {
+      "op": "write",
+      "path": "<HOME>/config.yaml",
+      "text": "# owner settings\nthresholds:\n  tool_calls: 5\nui:\n  reports_dir: <CASE>/cfg-sessions\nverifier:\n  reports_dir: <CASE>/v\n"
+    },
+    {
+      "label": "env unset, config.yaml ui: reports_dir",
+      "op": "ingest"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": ""
+      },
+      "label": "env empty string: config is used",
+      "op": "ingest"
+    },
+    {
+      "env": {
+        "EASY_PERSONAL_UI_REPORTS": "<UI>"
+      },
+      "label": "env set beats config",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<NOWHERE>/ui-cfg/session-d.json",
+      "text": "{\"id\":\"d\",\"status\":\"passed\",\"startedAt\":\"2026-01-10T15:00:00Z\",\"actions\":[1]}"
+    },
+    {
+      "op": "write",
+      "path": "<HOME>/config.yaml",
+      "text": "# owner settings\nthresholds:\n  tool_calls: 5\nui:\n  reports_dir: ~/ui-cfg\nverifier:\n  reports_dir: <CASE>/v\n"
+    },
+    {
+      "label": "config reports_dir with ~ (HOME is the nowhere folder)",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<HOME>/config.yaml",
+      "text": "ui:\n\treports_dir: <UI>\n"
+    },
+    {
+      "label": "tab-indented value is not inside the section: wipes",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<HOME>/config.yaml",
+      "text": "ui: # note\n  reports_dir: <UI>  \n  other: 1\n"
+    },
+    {
+      "label": "`ui:` with a comment, trailing spaces in the value",
+      "op": "ingest"
+    },
+    {
+      "op": "write",
+      "path": "<HOME>/config.yaml",
+      "text": "ui :\n  reports_dir: <UI>\n"
+    },
+    {
+      "label": "`ui :` is another section: wipes",
+      "op": "ingest"
+    }
+  ],
+  "what": "ui: unset and missing folders wipe the table, an empty folder does not, replace without delete, env beats config, ~ and flat-file quirks"
+}

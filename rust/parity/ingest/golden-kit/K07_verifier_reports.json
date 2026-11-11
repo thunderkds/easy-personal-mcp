@@ -1,0 +1,657 @@
+{
+  "runs": [
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "first run: selection by name stamp, unknown schema, abstained, invalid, symlink, oversize, fifo, folder, ambiguous name, symlinked folders",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 10,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 6,
+          "skipped": 19,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 11.0, "project_path": "<WORK>/g1/same", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 86.5, "project_path": "<WORK>/pa", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": null, "overall_abstained": 0, "overall_value": null, "project_path": "<WORK>/pb", "reason_code": null, "scope": null, "status": "unknown"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 1, "overall_value": null, "project_path": "<WORK>/pc", "reason_code": "no_evidence", "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 55.0, "project_path": "<WORK>/pe", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 100.0, "project_path": "<WORK>/pj", "reason_code": null, "scope": "changes", "status": "ok"}
+          ]
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "second run (same files, the table is replaced)",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 6,
+          "skipped": 19,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 11.0, "project_path": "<WORK>/g1/same", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 86.5, "project_path": "<WORK>/pa", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": null, "overall_abstained": 0, "overall_value": null, "project_path": "<WORK>/pb", "reason_code": null, "scope": null, "status": "unknown"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 1, "overall_value": null, "project_path": "<WORK>/pc", "reason_code": "no_evidence", "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 55.0, "project_path": "<WORK>/pe", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 100.0, "project_path": "<WORK>/pj", "reason_code": null, "scope": "changes", "status": "ok"}
+          ]
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "container folder gone: only <project>/reports is read",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 5,
+          "skipped": 19,
+          "status": "ok"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": [
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 11.0, "project_path": "<WORK>/g1/same", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 86.5, "project_path": "<WORK>/pa", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 60.0, "project_path": "<WORK>/pb", "reason_code": null, "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 1, "overall_value": null, "project_path": "<WORK>/pc", "reason_code": "no_evidence", "scope": "changes", "status": "ok"},
+            {"generated_at_utc": "2026-01-10T15:00:00.000000Z", "overall_abstained": 0, "overall_value": 55.0, "project_path": "<WORK>/pe", "reason_code": null, "scope": "changes", "status": "ok"}
+          ]
+        }
+      }
+    },
+    {
+      "exception": null,
+      "exit_code": 0,
+      "label": "no readable report anywhere: the table is emptied (status no data)",
+      "stdout_json": {
+        "files": 1,
+        "kit_trace": {
+          "files": 0,
+          "new_events": 0
+        },
+        "new_events": 0,
+        "ui": {
+          "sessions": 0,
+          "skipped": 0,
+          "status": "no data"
+        },
+        "verifier": {
+          "projects": 0,
+          "skipped": 0,
+          "status": "no data"
+        }
+      },
+      "tables_after": {
+        "kit_trace_events": {
+          "columns": [
+            "source_path",
+            "inode",
+            "byte_offset",
+            "project_path",
+            "kit_task_id",
+            "abstained",
+            "ts_utc",
+            "tool_name",
+            "is_error"
+          ],
+          "order": [
+            "source_path",
+            "byte_offset",
+            "inode"
+          ],
+          "rows": []
+        },
+        "machine_id_check": {
+          "kit_trace_events": true,
+          "source_files": true
+        },
+        "source_files": {
+          "columns": [
+            "source",
+            "path",
+            "inode",
+            "byte_offset"
+          ],
+          "order": [
+            "path"
+          ],
+          "rows": []
+        },
+        "ui_sessions": {
+          "columns": [
+            "id",
+            "status",
+            "started_at_utc",
+            "ended_at_utc",
+            "action_count"
+          ],
+          "order": [
+            "id"
+          ],
+          "rows": []
+        },
+        "verifier_scores": {
+          "columns": [
+            "project_path",
+            "status",
+            "scope",
+            "generated_at_utc",
+            "overall_value",
+            "overall_abstained",
+            "reason_code"
+          ],
+          "order": [
+            "project_path"
+          ],
+          "rows": []
+        }
+      }
+    }
+  ],
+  "scenario": "K07_verifier_reports",
+  "steps": [
+    {
+      "cwds": [
+        "<WORK>/pa",
+        "<WORK>/pb",
+        "<WORK>/pc",
+        "<WORK>/pd",
+        "<WORK>/pe",
+        "<WORK>/g1/same",
+        "<WORK>/g2/same",
+        "<WORK>/ph",
+        "<WORK>/pi",
+        "<WORK>/pj"
+      ],
+      "op": "transcript"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pa"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pb"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pc"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pd"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pe"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/g1/same"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/g2/same"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/ph"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pi"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pj"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pa/reports/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 70, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pa/reports/evidence-report-20260102T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pa/reports/evidence-report-latest.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 1, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pa/reports/evidence-report-20260102T000000-2Z.json.bak",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 2, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pb/reports/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 60, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<VERIFIER>/pb/evidence-report-20260105T000000-1Z.json",
+      "text": "{\"schema_version\": 2, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pc/reports/evidence-report-20260103T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": true, \"value\": null, \"reason_code\": \"no_evidence\"}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260101T000000-0Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 101, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": -1, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260101T000000-2Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": \"50\", \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260102T000000-3Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": true, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260102T000000-4Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": true, \"value\": 5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260102T000000-5Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": null, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260103T000000-6Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 5, \"reason_code\": \"bad reason\"}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260103T000000-7Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"bad scope\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260103T000000-8Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T00:00:00\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260104T000000-9Z.json",
+      "text": "{\"schema_version\": \"1\", \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260104T000000-10Z.json",
+      "text": "{\"schema_version\": true, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260104T000000-11Z.json",
+      "text": "{\"schema_version\": 1.0, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 86.5, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260105T000000-12Z.json",
+      "text": "[]"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260105T000000-13Z.json",
+      "text": "{"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pd/reports/evidence-report-20260105T000000-14Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": NaN, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/pe/reports/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 55, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "symlink",
+      "path": "<WORK>/pe/reports/evidence-report-20260102T000000-1Z.json",
+      "target": "<WORK>/pa/reports/evidence-report-20260102T000000-1Z.json"
+    },
+    {
+      "op": "pad",
+      "path": "<WORK>/pe/reports/evidence-report-20260103T000000-1Z.json",
+      "size": 1000001
+    },
+    {
+      "op": "mkfifo",
+      "path": "<WORK>/pe/reports/evidence-report-20260104T000000-1Z.json"
+    },
+    {
+      "op": "mkdir",
+      "path": "<WORK>/pe/reports/evidence-report-20260105T000000-1Z.json"
+    },
+    {
+      "op": "write",
+      "path": "<VERIFIER>/same/evidence-report-20260109T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 99, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/g1/same/reports/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 11, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/outside/reports/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 33, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "symlink",
+      "path": "<WORK>/ph/reports",
+      "target": "<WORK>/outside/reports"
+    },
+    {
+      "op": "write",
+      "path": "<WORK>/outside/pi/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 44, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "symlink",
+      "path": "<VERIFIER>/pi",
+      "target": "<WORK>/outside/pi"
+    },
+    {
+      "op": "write",
+      "path": "<VERIFIER>/pj/evidence-report-20260101T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 100, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<VERIFIER>/pj/evidence-report-20260102T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 0, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "op": "write",
+      "path": "<VERIFIER>/pj/evidence-report-20260103T000000-1Z.json",
+      "text": "{\"schema_version\": 1, \"scope\": \"changes\", \"generated_at\": \"2026-01-10T15:00:00Z\", \"overall\": {\"abstained\": false, \"value\": 1e2, \"reason_code\": null}, \"dimensions\": [\"%CANARY%\"]}"
+    },
+    {
+      "label": "first run: selection by name stamp, unknown schema, abstained, invalid, symlink, oversize, fifo, folder, ambiguous name, symlinked folders",
+      "op": "ingest"
+    },
+    {
+      "label": "second run (same files, the table is replaced)",
+      "op": "ingest"
+    },
+    {
+      "op": "rmtree",
+      "path": "<VERIFIER>"
+    },
+    {
+      "label": "container folder gone: only <project>/reports is read",
+      "op": "ingest"
+    },
+    {
+      "op": "rmtree",
+      "path": "<WORK>/pa/reports"
+    },
+    {
+      "op": "rmtree",
+      "path": "<WORK>/pb/reports"
+    },
+    {
+      "op": "rmtree",
+      "path": "<WORK>/pc/reports"
+    },
+    {
+      "op": "rmtree",
+      "path": "<WORK>/pe/reports"
+    },
+    {
+      "op": "rmtree",
+      "path": "<WORK>/g1/same/reports"
+    },
+    {
+      "op": "rmtree",
+      "path": "<WORK>/pd/reports"
+    },
+    {
+      "label": "no readable report anywhere: the table is emptied (status no data)",
+      "op": "ingest"
+    }
+  ],
+  "what": "verifier: newest report by name stamp per project, every skip rule, replace-all, the container folder"
+}

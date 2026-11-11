@@ -210,27 +210,38 @@ is read from `opts.cwd_base`), and saves each file in one transaction. It return
 stuck, Rust skips the entry, counts it in `skipped` and reads on: a folder named `x.jsonl`, an entry it cannot list, stat or read,
 or a path that is not UTF-8.
 
-## Ingest (P2a)
+## Ingest (P2a, P2b)
 
 ```bash
 easy-personal-rs ingest [--source PATH] [--retention-days N]
 ```
 
-Does what `easy-personal ingest` does for the **events** source (`claude_code`): takes the single-writer lock, opens the store, detects
+Does what `easy-personal ingest` does, except `context`: takes the single-writer lock, opens the store, detects
 agent accounts, reads every confirmed Claude account's transcripts from the stored offsets, optionally deletes events older than `N`
-days, and prints one JSON object (`indent=2`, sorted keys, a trailing newline, as Python's `json.dumps(..., indent=2, sort_keys=True)`):
+days, then reads the `kit_trace`, `ui` and `verifier` sources (T033), and prints one JSON object (`indent=2`, sorted keys, a trailing newline, as Python's `json.dumps(..., indent=2, sort_keys=True)`):
 
 ```json
 {
   "files": 6,
+  "kit_trace": {
+    "files": 2,
+    "new_events": 17
+  },
   "new_events": 39,
   "not_ingested": [
-    "context",
-    "kit_trace",
-    "ui",
-    "verifier"
+    "context"
   ],
-  "skipped": 0
+  "skipped": 0,
+  "ui": {
+    "sessions": 3,
+    "skipped": 0,
+    "status": "ok"
+  },
+  "verifier": {
+    "projects": 1,
+    "skipped": 0,
+    "status": "ok"
+  }
 }
 ```
 
@@ -245,14 +256,30 @@ Stdout carries only the JSON; diagnostics go to stderr. No message holds a path,
 | `EASY_PERSONAL_AGENT_ROOT` | folder scanned for `.claude*` / `.codex*` agent accounts | `~` |
 | `EASY_PERSONAL_CLAUDE_PROJECTS`, `--source` (the flag wins) | replace the default account's `projects` folder; a relative path is read from the current folder | unset |
 | `EASY_PERSONAL_LOCK_TIMEOUT` | seconds to wait for the lock (a float) | `300` |
+| `EASY_PERSONAL_UI_REPORTS` | easy-ui report folder (`session-*.json`); else `reports_dir` under `ui:` in `<data folder>/config.yaml`; unset means the UI checks have no data | unset |
+| `EASY_PERSONAL_VERIFIER_REPORTS` | easy-verifier report container (`<repo folder name>/evidence-report-*.json`); else `reports_dir` under `verifier:` in `config.yaml` | `~/.easy-verifier-reports` |
 
 **Order**: lock, then store, then accounts, then transcripts, then prune, then print. A busy lock never touches the store. The lock is released before the result is printed, like Python. A missing store is
 created (schema v11).
 
-**What is and is not ingested.** Ingested: the `claude_code` transcripts (events, tool signals, file offsets, accounts). **Not ingested** (named in
-`not_ingested`, never printed with a made-up value): `kit_trace`, `context`, `ui`, `verifier`. Not built: `live`, `schedule install`, the
-dashboard's start-up ingest. `skipped` counts entries Rust could not read as a transcript (a folder named `x.jsonl`, an unreadable entry, a path
-that is not UTF-8); the run goes on and a one-line note goes to stderr.
+**What is and is not ingested.** Ingested: the `claude_code` transcripts (events, tool signals, file offsets, accounts), then, in Python's order and each in
+its own transaction, the three kit sources, with Python's rules and the same schema-v11 tables (T033; the oracle is `parity/gen_ingest_kit.py`):
+
+- **`kit_trace`**: for each project that has a `claude_code` event and still exists as a folder, the files `<project>/memory/event-trace/*.jsonl` (sorted).
+  Only `timestamp`, `tool_name` and `is_error` of a line are read (never `summary`); the file name is the kit task id (`_untagged` means none). A line that
+  cannot be read is stored as an abstained row; a blank line is skipped; a last line without a newline waits. Same offset, replaced-file, shrunk-file and
+  retire rules as the transcripts. Keys `files`, `new_events`.
+- **`ui`**: `session-*.json` of the UI folder (files over 20 MB are skipped). Only `id`, `status`, `startedAt`, `endedAt` and the number of `actions` are kept.
+  The rows are replaced (`INSERT OR REPLACE`, the later file wins for one id) and **never deleted**, except that an unset or missing folder deletes every row
+  and answers `no data`; an existing empty folder does not. Keys `status`, `sessions`, `skipped`.
+- **`verifier`**: per existing project the newest `evidence-report-*.json` (by the UTC stamp in the name) of `<project>/reports/` and, when the project's folder
+  name is unique, of `<container>/<folder name>/`. Only `schema_version` 1 is read (another integer version gives `unknown`); a symlink, a non-regular file or
+  a file over 1,000,000 bytes is skipped. The table is replaced in one transaction: any failure rolls back, keeps the old rows and answers
+  `{"status": "failed", "reason": <error kind>}`. Keys `status`, `projects`, `skipped` (`no data` empties the table, as Python).
+
+**Not ingested** (named in `not_ingested`, never printed with a made-up value): `context` (an HTTP client of easy-context; there is no `context` key). Not built: `live`,
+`schedule install`, the dashboard's start-up ingest. `skipped` counts entries Rust could not read (a folder named `x.jsonl`, an unreadable entry, a path
+that is not UTF-8, a trace entry that is not a regular file); the run goes on and a one-line note goes to stderr.
 
 | Exit code | Meaning |
 |---|---|
@@ -288,7 +315,11 @@ Not covered: the Python dashboard's live tail (a continuous writer), a Python in
 
 | Python | Rust | Why |
 |---|---|---|
-| prints `kit_trace`, `context`, `ui`, `verifier` | prints `not_ingested` naming them, and `skipped` | those sources are not ported; no invented numbers |
+| prints `kit_trace`, `context`, `ui`, `verifier` | prints `kit_trace`, `ui`, `verifier` as Python does, `not_ingested: ["context"]`, and `skipped` | `context` is not ported (T033); no invented numbers |
+| a trace line nested past ~57,900 levels or with a time outside years 1-9999, a `ui` file with such a time: traceback, stuck on every later run | an abstained trace row / a skipped `ui` file | T033, same rule as T026/T028 |
+| a FIFO named `*.jsonl`, `session-*.json`: blocks for ever | skipped and counted | T033 |
+| `~user` in a report folder is expanded from the password database; a stamp with non-ASCII digits is a stamp | `~user` is left as written; not a stamp | T033 |
+| a verifier report with a fractional score that is UTF-16/32, nested deeper than 128 levels or holds `NaN` beside it: read | skipped (the fraction is read by `serde_json` from the same bytes) | T033, listed in the `verifier.rs` header |
 | a store newer than v11: traceback, exit 1 | the clean message, exit 2, nothing written | decided in T026/T027 |
 | an older store: backs it up and migrates it | exit 2, `store is schema v<N>: ...`, nothing written | Rust never migrates (Python owns the schema) |
 | a folder named `x.jsonl`, an entry it cannot read, an int beyond int64, a record whose `type` is a list: traceback, exit 1, stuck on every later run | skips the entry (counted in `skipped`) or abstains the record, reads on | see "Ingest parse layer" and "Ingest of folders" |
