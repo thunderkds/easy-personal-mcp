@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/parity/leak_rust.py` (694 lines: driver, scanner, `--self-test`, coverage and anti-vacuity checks); the self-test proves each of seven encodings (raw, json, unicode-escape, url, hex, base64 and base64url at three alignments), a SQLite row and masking |
+| Verification command run | ☑ pass | Supervisor 2026-11-11T07:57:42Z: `leak_rust.py --self-test` = `self-test: ok`; two full runs, each exit 0 with different canary sets (fingerprints `84e3a62b74bb`, `422de1302c05`): `leak check: 0 hits over 42 canaries, 116 surfaces, 786719 bytes`, all 12 `check` lines ok; no canary text in the saved reports; `rust/parity/.venv/bin/python -m pytest tests/leak -q` = `46 passed, 1 warning in 71.71s`; `git status` for `tests src web` = 0 entries |
+| Negative cases hold | ☑ pass | agent-reported and log re-read by the Supervisor: in a patched COPY of the workspace (scratchpad, never the repo) that stores the raw `gitBranch` text, the gate exits 1 with `leak check: 10 hits over 42 canaries, 116 surfaces` naming `branch_text` on the store WAL, the store file and both dumps; real-home guard refuses (`EASY_PERSONAL_AGENT_ROOT` = the home folder → `refused …`, exit 1). The Supervisor re-read the red log (10 `HIT` lines) but did not rebuild the patched copy |
+| verify | ☑ pass | the gate is itself a real run of the built binary: ingest, `store-info`, `serve` over real HTTP with the token, `mcp` over stdio (27 tool calls), and the store bytes were scanned; serve and mcp stopped and checked gone by PID. The `/verify` recipe itself was not edited; the line to add is `cd rust && cargo build && ./parity/.venv/bin/python parity/leak_rust.py` |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | read by the Supervisor: the risky-call grep of `leak_rust.py` (no shell, no network; two `rmtree` of its own mkdtemp roots) and its output; the 694-line script was not read line by line (proven by the self-test, the run, and the negative proof). Scope: `rust/parity/leak_rust.py` (new), `rust/parity/README.md` (+48 lines), this review file, and the stale wording in `BRAINSTORMING_LOG_RUSTP2.md`; no change in `tests/`, `src/`, `rust/crates/`. code-review `reports/code-review_main_20261111T145943.html`: 0 P0, 0 P1, 0 P2, 3 P3. security-review `reports/security-review_main_20261111T145944.html`: nothing at confidence 8 or above |
+| Full smoke suite still green (no regression) | ☑ pass | Python leak suite 46 passed (Supervisor re-run); Rust code untouched by this task |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 
@@ -67,12 +67,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured by qa-expert before any file was created):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ date -u +%Y-%m-%dT%H:%M:%SZ; ls rust/parity/leak_rust.py; rust/parity/.venv/bin/python -m pytest tests/leak -q | tail -5; date -u ...
+2026-11-11T07:42:12Z
+ls: cannot access 'rust/parity/leak_rust.py': No such file or directory
+  /home/thunderkds/workspace/pets/easy-personal-mcp/tests/leak/test_kit_report_files_leak.py:10: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+46 passed, 1 warning in 64.82s (0:01:04)
+2026-11-11T07:43:17Z
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+No Rust leak check exists; the Python leak suite (46 tests) is green.
+
+**AFTER**: Supervisor 2026-11-11T07:57:42Z: `leak_rust.py --self-test` ok; two runs `leak check: 0 hits over 42 canaries, 116 surfaces, 786719 bytes` (exit 0, different canary sets); `pytest tests/leak -q` = `46 passed`; the agent's patched-copy run exited 1 with `10 hits` naming `branch_text`.
+
+**DELTA**: one command now proves, for the Rust binary, that 42 planted secrets in every encoding never reach the store, its WAL, the API, the MCP tools, the logs or any output, and the check is shown to fail when a leak is introduced.
+
+**WITNESS**: Supervisor re-ran the self-test, two full runs and the Python leak suite after the implementing agent; tool calls recorded in `memory/event-trace/T030.jsonl`.
+
+## Notes for the owner
+
+1. Leaks found in the Rust product: **none**.
+2. Not planted/read yet because Rust has no such surface: the in-memory keyring and the `account confirm` flow (the `.claude-work` account); their canaries are still scanned everywhere. Revisit at P3.
+3. The line to add to the `/verify` recipe (a later task): `cd rust && cargo build && ./parity/.venv/bin/python parity/leak_rust.py`.

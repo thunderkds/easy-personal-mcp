@@ -100,7 +100,7 @@ Proposed task order (drafts; guides are written only after Question 1 is answere
 | T027 | Rust store writer: open for write (WAL, `busy_timeout=5000`, `foreign_keys=ON`), `flock` on `ingest.lock`, read `meta.machine_id`, one transaction per file, the exact conditional upsert, refuse `user_version != 11` | Backend | **High** | tests + coexistence with Python |
 | T028 | `claude_code` parser: record dispatch, `_LABEL` with Python's `$` quirk, exact-int rule, UTC normalisation, tool signals, secret regex, git project resolution with the same flags and timeout | Backend | **High** | rows equal the goldens; unversioned/truncated/malformed lines abstain |
 | T029 | `easy-personal-rs ingest` CLI: `accounts.detect`, `ingest_accounts`, JSON shape and key order, exit 75 on a busy lock, `--source`, `--retention-days` (text-compare prune) | Backend | Medium | output equals Python's JSON on the fixtures |
-| T030 | Leak suite on the Rust ingest (swap the hook in `tests/leak/` so `leak_run` can drive the Rust binary): canaries absent from store, WAL/SHM, output, logs | QA | **High** | zero canary hits, anti-vacuity guards pass |
+| T030 | Leak suite on the Rust ingest (as built: `rust/parity/leak_rust.py` imports the Python suite's canaries and fixtures read-only and drives the Rust binary; no change in `tests/`): canaries absent from store, WAL/SHM, output, logs | QA | **High** | zero canary hits, anti-vacuity guards pass |
 | T031 | Coexistence tests: Rust and Python ingesting the same folder concurrently and one after the other; kill and resume; copied file; `integrity_check`; no duplicate keys | QA | **High** | identical tables, no corruption |
 | T032 | Perf and memory gates: 8 MB/s on 200 MB, unchanged re-run < 2 s, < 8 MiB for a 12 MB file (NFR-005) | QA | Medium | numbers pasted |
 | T033 (P2b) | `kit_trace`, `ui`, `verifier` sources (replace-all semantics, size and symlink limits) | Backend | Medium | goldens + leak canaries |
@@ -112,7 +112,7 @@ Proposed task order (drafts; guides are written only after Question 1 is answere
 
 ## Surgical Scope
 
-**Should change** (new code): `rust/crates/core/src/` (new `ingest/` module set, store writer), `rust/crates/app/src/main.rs` (one `Ingest` subcommand), `rust/parity/` (ingest generator and goldens), `tests/leak/` hook (one function), `rust/README.md`.
+**Should change** (new code): `rust/crates/core/src/` (new `ingest/` module set, store writer), `rust/crates/app/src/main.rs` (one `Ingest` subcommand), `rust/parity/` (ingest generator and goldens), `rust/parity/leak_rust.py` (the leak gate; `tests/` is not changed), `rust/README.md`.
 
 **Must not touch:** `src/easy_personal/**` (Python stays the oracle), `src/easy_personal/core/migrations/**` (frozen at 11, and no Rust migration in P2), `web/**`, the owner's real `~/.easy-personal` and `~/.claude*` (tests use temp folders and the committed fixtures only), `tests/**` other than the single leak-harness hook (needs the owner's nod).
 

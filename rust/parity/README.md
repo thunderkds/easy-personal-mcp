@@ -252,3 +252,51 @@ that path after the run); `events.agent_account_id` becomes the account's folder
 | S12 | a v10 store made with `store.migrate(..., MIGRATIONS[:10])`: backed up to `store.sqlite.bak-v10`, migrated, ingested | 0 |
 | S13 | a file replaced by an identical copy (new inode): read again, duplicate rows | 0, 0 |
 | S14 | a file deleted between runs: its `source_files` row is retired, its events stay | 0, 0 |
+
+## Ingest leak check (T030)
+
+The privacy gate of the Rust ingest (NFR-002, RS-003): the Python leak suite's planted canaries go through the **Rust** binary, and no
+Rust surface may show any of them. `leak_rust.py` imports `tests/leak/canaries.py` and `tests/fakes/jobs_fakes.py` read-only (by
+`sys.path`; `tests/` is never written) and plants the same trees as `tests/leak/conftest.py::leak_run` (transcripts, kit traces,
+verifier and easy-ui reports, memory and easy-memory notes, `.claude.json`, the limits file, fake `systemctl` / `crontab`) into a fresh
+temp folder. Rust P2a ingests only the transcripts; the other trees are planted and scanned anyway (a leak through a source Rust does not
+read must still be impossible).
+
+```bash
+cd rust && cargo build                                   # the script runs rust/target/debug/easy-personal-rs
+./parity/.venv/bin/python parity/leak_rust.py            # exit 0 clean; 1 on a hit or a failed check
+./parity/.venv/bin/python parity/leak_rust.py --self-test   # the scanner's own check only
+./parity/.venv/bin/python parity/leak_rust.py --keep        # keep the temp folder after a clean run (a failed run always keeps it)
+```
+
+It runs every child under `timeout` with an env built from scratch (`HOME` is an empty temp folder; `EASY_PERSONAL_HOME`,
+`EASY_PERSONAL_AGENT_ROOT`, `EASY_PERSONAL_CLAUDE_PROJECTS` and the other source variables point into the temp folder), and refuses to
+start when a variable or `TMPDIR` points at a real home or its `.claude*` / `.codex*` / `.easy-*` folders, or the temp folder is on `/mnt`.
+
+**What is scanned** (each one a *surface*, scanned with `Canaries.find`: raw, JSON, `\u`, URL, base64 at 3 alignments, hex):
+stdout and stderr of four `ingest` runs (an empty source that creates the store; the planted tree; the same again, which must add 0; and
+`--retention-days 3650`); `store-info` and `store-info --json`; every `/api/*` route of `serve` over real HTTP with the token (query
+variants and bad input), guard refusals (no or wrong token, wrong Host or Origin, a POST, an unknown route) and the static route
+(`--static-dir`, with a dotfile and a traversal), plus the server's stdout and stderr; `mcp` over stdio (initialize, `tools/list`, every
+tool with error paths, an unknown tool and method, a parse error, an invalid request) and its stderr; the raw bytes of `store.sqlite`,
+`-wal` and `-shm` while a reader still holds the WAL open (the writer's frames are not merged yet) and after close, and at the end;
+`sqlite3 .dump`; the data folder listing. `RUST_LOG=trace` is set, so any log line would be scanned too.
+
+**Anti-vacuity** (each fails the run when false): the self-test (a canary in each encoding is found, also inside a SQLite file; a clean
+blob has no hit; a hit is masked); ingest #1 `new_events > 0` and `events` rows exist; the failed `tool_result` is counted
+(`SUM(tool_error_count) = 1`) while its text is nowhere; the **control canary** (the fixture's `sessionId`, stored on purpose) is found
+in the open WAL and in the store file, so the scan does see inside them; the summary route and the `usage_summary` tool return data;
+`serve` and `mcp` stop and leave no process (checked by PID); ingest #2 adds 0; the data folder holds only `store.sqlite*` and
+`ingest.lock`; the planted tree is unchanged (sha256); every canary was planted somewhere and scanned on every surface; a route in
+`api.rs` / `server.rs` or a tool in `tools/list` that the script does not call fails the run (register it in `API_CALLS` / `MCP_CALLS`).
+
+**Reading the report**: `self-test` lines; `canaries: 42 ... set fingerprint <hash>` (it differs per run: the canaries are random);
+one `canary <name> planted in <files>; scanned on N/N surfaces` line per canary; one `surface <label>: <B> bytes` line per surface;
+the `check` lines; and the last line, `leak check: 0 hits over 42 canaries, <M> surfaces, <B> bytes`. A hit prints
+`HIT canary <name> as <encoding> in [<surface>]: abcd[<name>]efgh` (at most 4 characters each side, the canary itself replaced by its
+name; the whole report is scanned before it is printed) and the script exits 1.
+
+**A hit is a product bug** in the Rust code that wrote that surface: report it with the canary name and surface, never weaken the scan.
+
+**For the Supervisor** (not edited here): to add this to the `/verify` recipe, add after the Rust step of `skills/verify/SKILL.md`:
+`cd rust && cargo build && ./parity/.venv/bin/python parity/leak_rust.py` (expects exit 0 and the `leak check: 0 hits` line).
