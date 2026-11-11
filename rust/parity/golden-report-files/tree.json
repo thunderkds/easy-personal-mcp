@@ -1,0 +1,141 @@
+{
+ "canary": "CANARY-T045-OUTSIDE-THE-REPORT-FOLDER",
+ "cap": 10485760,
+ "outside": [
+  {
+   "p": "outside/secret.txt",
+   "t": "file",
+   "text": "CANARY-T045-OUTSIDE-THE-REPORT-FOLDER\n"
+  },
+  {
+   "p": "outside/dir/x.html",
+   "t": "file",
+   "text": "CANARY-T045-OUTSIDE-THE-REPORT-FOLDER\n"
+  }
+ ],
+ "tree": [
+  {
+   "p": "reports/ok.html",
+   "t": "file",
+   "text": "<p>ok</p>\n"
+  },
+  {
+   "p": "reports/up.HTML",
+   "t": "file",
+   "text": "<p>upper</p>\n"
+  },
+  {
+   "p": "reports/.hidden.html",
+   "t": "file",
+   "text": "<p>dot</p>\n"
+  },
+  {
+   "p": "reports/.html",
+   "t": "file",
+   "text": "<p>just an extension</p>\n"
+  },
+  {
+   "p": "reports/sub/inner.json",
+   "t": "file",
+   "text": "{\"a\": 1}\n"
+  },
+  {
+   "p": "reports/sub/deeper/deep.md",
+   "t": "file",
+   "text": "# deep\n"
+  },
+  {
+   "p": "reports/sub/deeper/deepest/too-deep.md",
+   "t": "file",
+   "text": "# too deep\n"
+  },
+  {
+   "p": "reports/link-out.html",
+   "t": "symlink",
+   "to": "@OUT/secret.txt"
+  },
+  {
+   "p": "reports/link-dir",
+   "t": "symlink",
+   "to": "@OUT/dir"
+  },
+  {
+   "p": "reports/link-in.html",
+   "t": "symlink",
+   "to": "ok.html"
+  },
+  {
+   "p": "reports/hard.html",
+   "t": "hardlink",
+   "to": "@OUT/secret.txt"
+  },
+  {
+   "p": "reports/linked.html",
+   "t": "file",
+   "text": "<p>has a second name</p>\n"
+  },
+  {
+   "p": "reports/hard-in.html",
+   "t": "hardlink",
+   "to": "reports/linked.html"
+  },
+  {
+   "p": "reports/fifo.html",
+   "t": "fifo"
+  },
+  {
+   "p": "reports/dir.html",
+   "t": "dir"
+  },
+  {
+   "p": "reports/cap.txt",
+   "size": 10485760,
+   "t": "fill"
+  },
+  {
+   "p": "reports/cap1.txt",
+   "size": 10485761,
+   "t": "fill"
+  },
+  {
+   "p": "reports/big.txt",
+   "size": 100000000,
+   "t": "sparse"
+  },
+  {
+   "p": "bytes-reports/ok.txt",
+   "t": "file",
+   "text": "ok\n"
+  },
+  {
+   "p_hex": "62797465732d7265706f7274732f626164ff2e747874",
+   "t": "file",
+   "text": "not utf-8\n"
+  },
+  {
+   "p": "names-reports/ok.txt",
+   "t": "file",
+   "text": "ok\n"
+  },
+  {
+   "p": "names-reports/line\nbreak.txt",
+   "t": "file",
+   "text": "newline\n"
+  },
+  {
+   "p": "names-reports/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt",
+   "t": "file",
+   "text": "long\n"
+  },
+  {
+   "p": "reports-link",
+   "t": "symlink",
+   "to": "@OUT/dir"
+  },
+  {
+   "p": "plain/x.html",
+   "t": "file",
+   "text": "not a report folder\n"
+  }
+ ]
+}

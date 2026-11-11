@@ -7,6 +7,7 @@ pub mod kit;
 pub mod metrics;
 pub mod plan;
 pub mod prices;
+pub mod report_files;
 pub mod reports;
 pub mod rules;
 pub mod scope;

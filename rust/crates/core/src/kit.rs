@@ -650,7 +650,7 @@ fn report_stats(top: &Path) -> Option<Stats> {
 
 /// `(st_mtime as Python's float, "%Y-%m-%dT%H:%M:%SZ")` of a file time, or `None` when Python's `datetime` cannot
 /// represent it (`_file_utc`): `fromtimestamp` rounds the float to microseconds half to even, then the second shown.
-fn file_time(time: SystemTime) -> Option<(f64, String)> {
+pub(crate) fn file_time(time: SystemTime) -> Option<(f64, String)> {
     let (secs, nanos) = match time.duration_since(UNIX_EPOCH) {
         Ok(d) => (
             i64::try_from(d.as_secs()).ok()?,

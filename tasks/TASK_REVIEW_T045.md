@@ -67,12 +67,24 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11T14:37:02Z, no T045 code in the tree; `serve` over a temp copy of `parity/store-rich` with the `fixtures-rich/kit` folders, `TZ=UTC`, real token, `curl -i`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+== GET /api/kit/report-files?workspace=acme&repo_no=0&folder=reports
+HTTP/1.1 404 Not Found
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+content-length: 0
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+== GET /api/kit/report-file?workspace=acme&repo_no=0&folder=reports&path=index.html
+HTTP/1.1 404 Not Found
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+content-length: 0
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+Python's goldens answer 200 with the two files / the `index.html` bytes for the same two requests.
+
+**AFTER**: the same `serve` over a temp copy of store-rich answers both routes: goldens 9/9 equal in core and over the binary (content-type, nosniff, no-store, inline, CSP); attack table against Python's own answers 48 equal, 5 decided differences, 53 total (symlinks, FIFO, hard link, dot-file, non-UTF-8 name, cap, `..`, absolute, NUL, backslash, depth, `repo_no` variants); race tests (file or folder swapped for a symlink after listing) refused; 6 mutation controls (no `O_NOFOLLOW` on file or directories, no hard-link refusal, no `O_NONBLOCK`, no dot refusal) each turned tests red. Supervisor re-run in `main`: 540 tests x3 TZ, 0 failed, clippy x2, fmt, leak 0 hits over 157 surfaces, `gen_report_files.py --check` 53 cases.
+
+**DELTA**: The Rust dashboard can browse a repository's report folders and open a report file, and nothing outside the report folder can be read, where both routes answered 404 (and Python itself served a hard link to an outside file).
+
+**WITNESS**: derived by the delivery-report renderer from `memory/event-trace/T045.jsonl`; the Supervisor read `report_files.rs` (open chain, flags per architecture, handle checks) and re-ran the merged tree on 2026-11-11.

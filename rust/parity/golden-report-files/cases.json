@@ -1,0 +1,905 @@
+{
+ "cases": [
+  {
+   "body": {
+    "files": [
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": ".hidden.html",
+      "size": 11
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": false,
+      "path": ".html",
+      "size": 25
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": false,
+      "path": "big.txt",
+      "size": 100000000
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "cap.txt",
+      "size": 10485760
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": false,
+      "path": "cap1.txt",
+      "size": 10485761
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "hard-in.html",
+      "size": 25
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "hard.html",
+      "size": 38
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "linked.html",
+      "size": 25
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "ok.html",
+      "size": 10
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "sub/deeper/deep.md",
+      "size": 7
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "sub/inner.json",
+      "size": 9
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "up.HTML",
+      "size": 13
+     }
+    ],
+    "truncated": false
+   },
+   "id": "files_reports",
+   "query": {
+    "folder": "reports",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 200
+  },
+  {
+   "id": "files_bytes_reports",
+   "note": "JSON encoding of a name that is not UTF-8: 500 with a traceback",
+   "query": {
+    "folder": "bytes-reports",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": "python_crash"
+  },
+  {
+   "body": {
+    "files": [
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt",
+      "size": 5
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "line\nbreak.txt",
+      "size": 8
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "ok.txt",
+      "size": 3
+     }
+    ],
+    "truncated": false
+   },
+   "id": "files_names_reports",
+   "query": {
+    "folder": "names-reports",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 200
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_missing_folder",
+   "query": {
+    "folder": "nope-reports",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_symlink_folder",
+   "query": {
+    "folder": "reports-link",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_plain_folder",
+   "query": {
+    "folder": "plain",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_wrong_workspace",
+   "query": {
+    "folder": "reports",
+    "repo_no": "0",
+    "workspace": "nope"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_repo_no_1",
+   "query": {
+    "folder": "reports",
+    "repo_no": "1",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_repo_no_minus1",
+   "query": {
+    "folder": "reports",
+    "repo_no": "-1",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_repo_no_huge",
+   "query": {
+    "folder": "reports",
+    "repo_no": "99999999999",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_repo_no_exp",
+   "query": {
+    "folder": "reports",
+    "repo_no": "1e3",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_repo_no_arabic",
+   "query": {
+    "folder": "reports",
+    "repo_no": "\u0661",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "files": [
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": ".hidden.html",
+      "size": 11
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": false,
+      "path": ".html",
+      "size": 25
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": false,
+      "path": "big.txt",
+      "size": 100000000
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "cap.txt",
+      "size": 10485760
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": false,
+      "path": "cap1.txt",
+      "size": 10485761
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "hard-in.html",
+      "size": 25
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "hard.html",
+      "size": 38
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "linked.html",
+      "size": 25
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "ok.html",
+      "size": 10
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "sub/deeper/deep.md",
+      "size": 7
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "sub/inner.json",
+      "size": 9
+     },
+     {
+      "mtime_utc": "2026-01-18T00:00:00Z",
+      "openable": true,
+      "path": "up.HTML",
+      "size": 13
+     }
+    ],
+    "truncated": false
+   },
+   "id": "files_repo_no_zeros",
+   "query": {
+    "folder": "reports",
+    "repo_no": "000",
+    "workspace": "acme"
+   },
+   "route": "files",
+   "status": 200
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "files_nothing",
+   "query": {},
+   "route": "files",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_not_a_folder",
+   "query": {
+    "folder": "plain",
+    "path": "x.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_bad_repo_no_arabic",
+   "query": {
+    "folder": "reports",
+    "path": "ok.html",
+    "repo_no": "\u0661",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_bad_repo_no_minus1",
+   "query": {
+    "folder": "reports",
+    "path": "ok.html",
+    "repo_no": "-1",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_bad_repo_no_exp",
+   "query": {
+    "folder": "reports",
+    "path": "ok.html",
+    "repo_no": "1e3",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "canary": false,
+   "content_type": "text/plain; charset=utf-8",
+   "id": "file_names_newline",
+   "query": {
+    "folder": "names-reports",
+    "path": "line\nbreak.txt",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "7ba826f0c347f6adc4686c8d1f61aeb2e2e98322749cd4f82204c926f4022cee",
+   "size": 8,
+   "status": 200
+  },
+  {
+   "canary": false,
+   "content_type": "text/plain; charset=utf-8",
+   "id": "file_names_long",
+   "query": {
+    "folder": "names-reports",
+    "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "bbdbb75b415ee9a40f0b3796a8b41a0b7723afe5726b870474ad220a4886d06d",
+   "size": 5,
+   "status": 200
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_bytes_replacement",
+   "query": {
+    "folder": "bytes-reports",
+    "path": "bad\ufffd.txt",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "canary": false,
+   "content_type": "text/html; charset=utf-8",
+   "id": "file_ok",
+   "query": {
+    "folder": "reports",
+    "path": "ok.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "cb355c541bb95882ec93ffdb2498643f4d2a3e39c21f520d845d0d5e0ab2952c",
+   "size": 10,
+   "status": 200
+  },
+  {
+   "canary": false,
+   "content_type": "text/html; charset=utf-8",
+   "id": "file_upper_ext",
+   "query": {
+    "folder": "reports",
+    "path": "up.HTML",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "ba359de699cdff0088226f35a3d458764e671e79960dcacc4760bc2340741845",
+   "size": 13,
+   "status": 200
+  },
+  {
+   "canary": false,
+   "content_type": "text/html; charset=utf-8",
+   "id": "file_dotfile_with_ext",
+   "query": {
+    "folder": "reports",
+    "path": ".hidden.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "b26cd7bfcf0b3f79195b3c7b32cbd9080038b31563c1dad8974a374964194f0e",
+   "size": 11,
+   "status": 200
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_dot_ext_only",
+   "query": {
+    "folder": "reports",
+    "path": ".html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "canary": false,
+   "content_type": "application/json",
+   "id": "file_sub",
+   "query": {
+    "folder": "reports",
+    "path": "sub/inner.json",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "e8c628edc9968ef0c668f54e0ba2636b35503357eb1aca0ddc828aeace432f67",
+   "size": 9,
+   "status": 200
+  },
+  {
+   "canary": false,
+   "content_type": "text/markdown; charset=utf-8",
+   "id": "file_depth3",
+   "query": {
+    "folder": "reports",
+    "path": "sub/deeper/deep.md",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "8d6d3af36a93c21cd6d97fc89d2153f53ff33a68116a87d6334ecf39d9632521",
+   "size": 7,
+   "status": 200
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_depth4",
+   "query": {
+    "folder": "reports",
+    "path": "sub/deeper/deepest/too-deep.md",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_dotdot",
+   "query": {
+    "folder": "reports",
+    "path": "../outside/secret.txt",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_dotdot_inside",
+   "query": {
+    "folder": "reports",
+    "path": "sub/../ok.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_absolute",
+   "query": {
+    "folder": "reports",
+    "path": "/etc/passwd",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_backslash",
+   "query": {
+    "folder": "reports",
+    "path": "sub\\inner.json",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_nul",
+   "query": {
+    "folder": "reports",
+    "path": "ok.html\u0000",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_empty",
+   "query": {
+    "folder": "reports",
+    "path": "",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_empty_part",
+   "query": {
+    "folder": "reports",
+    "path": "sub//inner.json",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_dot_part",
+   "query": {
+    "folder": "reports",
+    "path": "sub/./inner.json",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_trailing_slash",
+   "query": {
+    "folder": "reports",
+    "path": "ok.html/",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_symlink_out",
+   "query": {
+    "folder": "reports",
+    "path": "link-out.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_symlink_dir",
+   "query": {
+    "folder": "reports",
+    "path": "link-dir/x.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_symlink_in",
+   "query": {
+    "folder": "reports",
+    "path": "link-in.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "canary": true,
+   "content_type": "text/html; charset=utf-8",
+   "id": "file_hardlink_out",
+   "query": {
+    "folder": "reports",
+    "path": "hard.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "7c7237ab1abecaf9842c40be0af58cc8389353d9f18dfb12fd7c24fd159957db",
+   "size": 38,
+   "status": 200
+  },
+  {
+   "canary": false,
+   "content_type": "text/html; charset=utf-8",
+   "id": "file_hardlink_in",
+   "query": {
+    "folder": "reports",
+    "path": "hard-in.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "9d4cab6d775fe3710ac15c60207345e933a5332063c815860760fdc9bb5cfe13",
+   "size": 25,
+   "status": 200
+  },
+  {
+   "canary": false,
+   "content_type": "text/html; charset=utf-8",
+   "id": "file_hardlink_in_origin",
+   "query": {
+    "folder": "reports",
+    "path": "linked.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "9d4cab6d775fe3710ac15c60207345e933a5332063c815860760fdc9bb5cfe13",
+   "size": 25,
+   "status": 200
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_fifo",
+   "query": {
+    "folder": "reports",
+    "path": "fifo.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_dir_named_file",
+   "query": {
+    "folder": "reports",
+    "path": "dir.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "canary": false,
+   "content_type": "text/plain; charset=utf-8",
+   "id": "file_cap",
+   "query": {
+    "folder": "reports",
+    "path": "cap.txt",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "sha256": "b5eec3f68ef64d15e82dad91ff908582c5f081e61a62e22427af9bec2cd35f8d",
+   "size": 10485760,
+   "status": 200
+  },
+  {
+   "body": {
+    "error": "too large"
+   },
+   "id": "file_cap_plus_1",
+   "query": {
+    "folder": "reports",
+    "path": "cap1.txt",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 413
+  },
+  {
+   "body": {
+    "error": "too large"
+   },
+   "id": "file_sparse_100mb",
+   "query": {
+    "folder": "reports",
+    "path": "big.txt",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 413
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_missing",
+   "query": {
+    "folder": "reports",
+    "path": "nope.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_bad_ext",
+   "query": {
+    "folder": "reports",
+    "path": "ok.svg",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_no_ext",
+   "query": {
+    "folder": "reports",
+    "path": "ok",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_too_long_path",
+   "query": {
+    "folder": "reports",
+    "path": "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/x.html",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  },
+  {
+   "body": {
+    "error": "not found"
+   },
+   "id": "file_no_path",
+   "query": {
+    "folder": "reports",
+    "repo_no": "0",
+    "workspace": "acme"
+   },
+   "route": "file",
+   "status": 404
+  }
+ ],
+ "python": "3.14.4"
+}

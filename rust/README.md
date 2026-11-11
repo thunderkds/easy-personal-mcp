@@ -87,7 +87,7 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
 - `GET /api/kit`, `GET /api/kit/workspaces` and `GET /api/kit/reports` (T042, read-only; below, "Kit"). `/api/kit` takes the optional `workspace` and
   `account` as the usage routes do (same 400 texts); `/api/kit/workspaces` takes `since`, `until` and `account` (a `workspace` is ignored, as in Python);
   `/api/kit/reports` takes no parameter. A `since` or `until` that is not a date is `400` with an `error` key (the text is CPython's, ours says the
-  same for the same inputs). `/api/kit/report-files` and `/api/kit/report-file` are still absent (404). Writes are 405.
+  same for the same inputs). `/api/kit/report-files` and `/api/kit/report-file` are T045 (below, "Report files"). Writes are 405.
 - `GET /api/reports` -> `{"reports": [...]}` (T040: the newest 50 saved investigate reports, newest first; each `{id, saved_utc, workspace, account,
   fired_count, summary_first_line}`), `GET /api/reports/{id}` -> one report (`{id, saved_utc, server_version, workspace, account, summary, fixes,
   as_of_utc, now_as_of_utc, rules: [{rule_id, title, before, now}]}`: `before` is the saved snapshot, `now` is each rule measured on this request for the
@@ -452,6 +452,47 @@ Where this port differs from Python (Python raises there, so its HTTP answer is 
   `lstat`'s `st_mtime` float (`sec + nsec * 1e-9`, rounded half to even to the microsecond, then the second shown) and a time outside years 1..9999 is `null`, as Python's `_file_utc`;
 - an unreadable store problem is the fixed 503 text of the other routes, not Python's traceback;
 - a timeout is seen by `git rev-list` only (`abstained`); the `git log` of the index check keeps the other kit rules' behaviour (a slow git gives no commit time).
+
+## Report files (T045)
+
+`easy_personal_core::report_files` (read-only; `report_files.rs`) ports `report_files` and `report_file` of Python's `core/kit.py` (FR-090, NFR-002) and is served as
+`GET /api/kit/report-files` and `GET /api/kit/report-file`. Both take `workspace` (a name), `repo_no` (the place of the repo in the workspace's repo list, as
+`/api/kit/reports` shows it: plain ASCII digits, fewer than 9, else a miss) and `folder` (a report folder name of that repo, by the `/api/kit/reports` rule);
+`report-file` also takes `path` (relative to the report folder, `/` separated, at most 3 parts and 512 characters, an extension of the table below). The last value of
+a repeated key is used; a missing key is a miss. The orphan workspace has none.
+
+- `report-files` -> `{"files": [{"path", "size", "openable", "mtime_utc"}], "truncated": bool}`: the regular files to 3 levels, newest first (then by path), 200 at most
+  (2000 counted); `openable` is "extension in the table and size at most 10 MiB".
+- `report-file` -> the bytes with `content-type` from the extension (`html`/`htm` `text/html; charset=utf-8`, `md` `text/markdown; charset=utf-8`, `txt`
+  `text/plain; charset=utf-8`, `json` `application/json`, `png` `image/png`, `jpg`/`jpeg` `image/jpeg`, `pdf` `application/pdf`; never from the content), `x-content-type-options:
+  nosniff`, `cache-control: no-store`, `content-disposition: inline`, and the CSP the server adds to every answer.
+- Errors, fixed bodies that never echo the input: `404 {"error": "not found"}` for every miss and every refusal, `413 {"error": "too large"}` for a file over 10 MiB,
+  `503` the store's fixed text, `403` the guard (before anything), `405` any method but `GET`/`HEAD` (`HEAD` is `GET` without a body).
+
+**Path safety.** The repository folder comes from the store row, never from the request. The report folder, each sub-folder and the file are each opened **relative to the
+handle of the level above** with `O_NOFOLLOW` (the std library has no `openat` and this task adds no crate, so a level is opened through `/proc/self/fd/<handle>/<name>`, which
+the kernel resolves as `openat`): no level can be a symlink, whatever changes between the check and the open. The file is opened `O_NOFOLLOW | O_NONBLOCK` (a FIFO never
+blocks), then judged on the open handle: a regular file with one link, size at most the cap, and at most cap + 1 bytes read from the handle (a file that grew is a 413). The listing
+walks by handle too. A request path with `..`, a leading `/`, a NUL, a backslash, an empty part or a part that starts with a dot is a 404 before any file system call. The flags
+are the Linux values for x86, x86-64, arm, aarch64 and riscv64; on any other target (macOS, Windows: later phases) the module compiles and every call is a 404.
+
+Tests: `crates/core/tests/report_files_parity.rs` (the 9 rich goldens, the attack table of 53 cases against `rust/parity/golden-report-files/`, the race, the FIFO, the cap),
+`crates/app/tests/report_files.rs` (9 goldens over the binary with headers, guard, 405, `HEAD`, query variants, encoded and double-encoded `..`, 413, 503), and `leak_rust.py`
+(both routes registered). The oracle is made by `parity/gen_report_files.py` (Python's own functions over a temp tree; needs the parity venv and `PYTHONPATH=src`).
+
+Attack table, case by case (Python's answer over the same tree / Rust's): symlink to a file outside 404 / 404; symlink to a folder outside 404 / 404; symlink inside to a file
+inside 404 / 404 (Python refuses it too); FIFO 404 / 404, no block; folder named like a file 404 / 404; file of the cap 200 / 200; cap + 1 and a sparse 100 MB 413 / 413; a `..`,
+absolute, backslash, NUL, empty, `.` or trailing-slash path 404 / 404; depth 4 404 / 404; upper-case extension 200 / 200; a name with a newline and a 255-byte name 200 / 200; `repo_no`
+`-1`, `99999999999`, `1e3`, Arabic-Indic one 404 / 404, `000` 200 / 200; a file swapped for a symlink (or its folder, or the report folder) after the listing: refused (Rust-only test).
+Equal in 48 of 53; the 5 below are decided.
+
+Decided for you (Rust differs from Python on purpose):
+- a file with **more than one hard link** is a 404 (Python serves it; a hard link to a file kept elsewhere is a name for outside content). The cost: a report file that something else
+  also links to is listed as openable but not served. The case table has `hard.html` (to a file outside), `hard-in.html` and `linked.html` (both names of one file inside);
+- a path **part that starts with a dot** is a 404 (Python serves `.hidden.html`; `.html` alone, with no extension, is a 404 in both). The listing is Python's, so `.hidden.html` is listed as openable;
+- a **name that is not UTF-8** is left out of the listing and cannot be asked for (Python's JSON encoder fails on it: a 500 with a traceback). A report folder or repo whose name is not UTF-8 was already unlisted;
+- `/proc` must be mounted (a container without it answers 404 to every call: fail closed);
+- the repo folder is opened following symlinks (the owner put it there, as Python does), but the report folder under it, and every level below, may not be a symlink.
 
 ## Test
 

@@ -1,6 +1,6 @@
 //! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
-//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/reports`, `/api/reports/{id}` and `/api/first-run` (read-only; T040: an id that is not
+//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}` and `/api/first-run` (read-only; T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500).
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
 //! the goldens in `rust/parity/golden*/` are the oracle. Every route sits behind the guard in `server.rs`.
@@ -17,7 +17,9 @@
 
 use axum::Router;
 use axum::extract::State;
-use axum::http::header::CONTENT_TYPE;
+use axum::http::header::{
+    CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, X_CONTENT_TYPE_OPTIONS,
+};
 use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -26,6 +28,7 @@ use easy_personal_core::first_run;
 use easy_personal_core::kit;
 use easy_personal_core::metrics::{self, MetricsError};
 use easy_personal_core::plan::improvement_plan_scoped;
+use easy_personal_core::report_files::{self, ReportError, parse_repo_no};
 use easy_personal_core::reports::{self, ReportsError};
 use easy_personal_core::rules::{self, RulesError, ScopedRulesError, evaluate_scoped};
 use easy_personal_core::scope::Scope;
@@ -89,6 +92,8 @@ pub fn routes() -> Router<Api> {
         .route("/api/kit", get(kit_projects))
         .route("/api/kit/workspaces", get(kit_workspaces))
         .route("/api/kit/reports", get(kit_reports))
+        .route("/api/kit/report-files", get(kit_report_files))
+        .route("/api/kit/report-file", get(kit_report_file))
         .route("/api/reports", get(report_list))
         .route("/api/reports/{id}", get(report_one))
         .route("/api/first-run", get(first_run_steps))
@@ -184,6 +189,53 @@ async fn kit_reports(State(api): State<Api>, uri: Uri) -> Response {
         kit::report_folders(conn).map_err(metrics_failure)
     })
     .await
+}
+
+/// `GET /api/kit/report-files` (T045): the files of one report folder, `workspace`, `repo_no` and `folder` from the query
+/// (`repo_no` is plain ASCII digits, else a miss). Every miss is the same fixed 404 `not found`.
+async fn kit_report_files(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, _now| {
+        let repo_no = q.get("repo_no").and_then(parse_repo_no);
+        report_files::report_files(conn, q.get("workspace"), repo_no, q.get("folder"))
+            .map_err(report_failure)
+    })
+    .await
+}
+
+/// `GET /api/kit/report-file` (T045): one file of a report folder, its bytes with Python's content type and headers
+/// (`nosniff`, `no-store`, `inline`; the server layer adds the CSP). Opened by handle with no symlink followed, in
+/// `report_files.rs`; a refusal is the fixed 404, a file over the cap the fixed 413.
+async fn kit_report_file(State(api): State<Api>, uri: Uri) -> Response {
+    let query = Query::parse(uri.query().unwrap_or(""));
+    let outcome = tokio::task::spawn_blocking(move || {
+        let path = (api.store_path)().map_err(store_failure)?;
+        let conn = store::open_checked(&path).map_err(store_failure)?;
+        let repo_no = query.get("repo_no").and_then(parse_repo_no);
+        report_files::report_file(
+            &conn,
+            query.get("workspace"),
+            repo_no,
+            query.get("folder"),
+            query.get("path"),
+        )
+        .map_err(report_failure)
+    })
+    .await;
+    match outcome {
+        Ok(Ok((content_type, data))) => (
+            StatusCode::OK,
+            [
+                (CONTENT_TYPE, content_type),
+                (X_CONTENT_TYPE_OPTIONS, "nosniff"),
+                (CACHE_CONTROL, "no-store"),
+                (CONTENT_DISPOSITION, "inline"),
+            ],
+            data,
+        )
+            .into_response(),
+        Ok(Err((status, text))) => respond(status, &error_body(&text)),
+        Err(_) => respond(StatusCode::INTERNAL_SERVER_ERROR, &error_body(INTERNAL)),
+    }
 }
 
 /// `GET /api/connectors` (T046): the catalog and the stored connector rows. Read-only like the workspace routes (Python's
@@ -323,6 +375,15 @@ fn scoped_rules_failure(error: ScopedRulesError) -> Failure {
     match error {
         ScopedRulesError::UnknownScope(text) => (StatusCode::BAD_REQUEST, text),
         ScopedRulesError::Rules(error) => rules_failure(error),
+    }
+}
+
+/// The misses of the report-folder routes have fixed bodies that never echo the input (FR-090).
+fn report_failure(error: ReportError) -> Failure {
+    match error {
+        ReportError::NotFound => (StatusCode::NOT_FOUND, "not found".to_string()),
+        ReportError::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "too large".to_string()),
+        ReportError::Store(error) => metrics_failure(error),
     }
 }
 
