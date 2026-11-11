@@ -8,5 +8,7 @@ publish.workspace = true
 [dependencies]
 rusqlite.workspace = true
 jiff.workspace = true
+# `meta.machine_id` of a store the writer creates (uuid4 from 16 random bytes, T027); already in the lock for the app.
+getrandom.workspace = true
 # `float_roundtrip`: the goldens' floats must parse to the exact f64 Python wrote (default parser can be 1 ulp off).
 serde_json = { workspace = true, features = ["float_roundtrip"] }

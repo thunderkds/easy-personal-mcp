@@ -1,4 +1,5 @@
 pub mod clock;
+pub mod ingest_lock;
 pub mod metrics;
 pub mod plan;
 pub mod prices;
@@ -7,3 +8,4 @@ pub mod scope;
 pub mod sessions;
 pub mod store;
 pub mod workspaces;
+pub mod writer;

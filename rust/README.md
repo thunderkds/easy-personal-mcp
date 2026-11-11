@@ -167,6 +167,20 @@ token column or a NULL timestamp makes Python raise a `TypeError`; here it is re
 
 `easy_personal_core::plan::improvement_plan(conn, now_micros, &rules)` groups the fired rules by priority (items in `evaluate` order) and returns the `improvement_plan` JSON equal to the Python goldens in `parity/golden` and `parity/golden-rich`. `plan::improvement_plan_scoped(conn, now_micros, &rules, Scope)` is the same over `evaluate_scoped` (same error type).
 
+## Store writer (P2)
+
+The read-only `store` module (`store-info`, `serve`, `mcp`) still never writes. Writing is a separate module, `easy_personal_core::writer`
+(T027), with the lock in `ingest_lock`; no command calls them yet (the `ingest` command is T029). `writer::open_for_write(path)` creates a
+new store from `src/schema_v11.sql` (a byte-equal copy of `parity/ingest/golden/schema-v11.sql`) when there is no file, an empty file or
+no table, opens a `user_version` 11 store, and refuses every other store before writing a byte: newer -> the reader's "newer" text, older ->
+`store is schema v<N>: run the Python app once to migrate it`, both exit code 2. It never migrates. Every connection gets
+`busy_timeout=5000`, `foreign_keys=ON`, `journal_mode=WAL`; `meta.machine_id` is read first and only created when absent.
+`Store::save_file` saves one file's events (Python's conditional upsert), the session-entrypoint back-fill, its tool signals and its offset in
+one transaction and returns the rows added (`id > MAX(id)` as Python); `retire_files` and `prune(days, now_micros)` copy `store.py`.
+`ingest_lock::ingest_lock(data_dir, timeout)` takes `flock(2)` on `<data_dir>/ingest.lock` (std `File::try_lock`), so it excludes the
+Python ingest, and creates the data folder 0700. A Python app opens a store this module created without migrating it
+(`tests/writer_python.rs`, ignored: needs `parity/.venv`).
+
 ## Test
 
 ```bash
