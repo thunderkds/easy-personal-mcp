@@ -26,6 +26,7 @@ use axum::routing::get;
 use easy_personal_core::accounts;
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::first_run;
+use easy_personal_core::folders;
 use easy_personal_core::kit;
 use easy_personal_core::metrics::{self, MetricsError};
 use easy_personal_core::plan::improvement_plan_scoped;
@@ -101,6 +102,8 @@ pub fn routes() -> Router<Api> {
         .route("/api/first-run", get(first_run_steps))
         .route("/api/accounts", get(account_list))
         .route("/api/sync", get(sync_plan))
+        .route("/api/dirs", get(dirs))
+        .route("/api/jobs", get(jobs))
 }
 
 async fn summary(State(api): State<Api>, uri: Uri) -> Response {
@@ -336,6 +339,34 @@ fn agent_root() -> PathBuf {
         .or_else(|| set("HOME"))
         .map(PathBuf::from)
         .unwrap_or_default()
+}
+
+/// `GET /api/dirs?path=` (T044): sub-folder names for the folder browser. No store is opened; the path is never echoed.
+async fn dirs(uri: Uri) -> Response {
+    let path = Query::parse(uri.query().unwrap_or(""))
+        .get("path")
+        .map(str::to_string);
+    match tokio::task::spawn_blocking(move || folders::list_dirs(path.as_deref())).await {
+        Ok(Ok(body)) => respond(StatusCode::OK, &body),
+        Ok(Err(error)) => {
+            let status = match error {
+                folders::DirsError::Invalid(_) => StatusCode::BAD_REQUEST,
+                folders::DirsError::Unreadable => StatusCode::FORBIDDEN,
+            };
+            respond(status, &error_body(error.text()))
+        }
+        Err(_) => respond(StatusCode::INTERNAL_SERVER_ERROR, &error_body(INTERNAL)),
+    }
+}
+
+/// `GET /api/jobs` (T044): the scheduled agent jobs. No store is opened; only `systemctl --user list-timers|show` and
+/// `crontab -l` may run (`jobs::READ_ONLY`).
+async fn jobs(State(api): State<Api>) -> Response {
+    let now = (api.clock)();
+    match tokio::task::spawn_blocking(move || easy_personal_core::jobs::list_jobs_here(now)).await {
+        Ok(body) => respond(StatusCode::OK, &body),
+        Err(_) => respond(StatusCode::INTERNAL_SERVER_ERROR, &error_body(INTERNAL)),
+    }
 }
 
 /// Parses the query, then runs `read` on a fresh read-only connection off the async workers.

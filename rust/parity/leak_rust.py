@@ -85,6 +85,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/first-run": [""],
     "/api/accounts": ["", "?by=provider", "?by=bad", "?by="],
     "/api/sync": ["", "?account=1", "?account=99", "?account=nope", "?account=99999999999999999999"],
+    "/api/dirs": ["", "?path=%2F", "?path=%2Fproc%2Fself", "?path=%2Fdev", "?path=relative", "?path=%00", "?path=%2Ftmp%2F..%2Ftmp%2F"],
+    "/api/jobs": [""],
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -102,6 +104,9 @@ GUARD_CALLS = [
     ("accounts write method", "POST", "/api/accounts", {}),
     ("sync apply method", "POST", "/api/sync", {}),
     ("account workspaces write", "PUT", "/api/accounts/1/workspaces", {}),
+    ("dirs write method", "POST", "/api/dirs", {}),
+    ("jobs write method", "DELETE", "/api/jobs", {}),
+    ("dirs no token", "GET", "/api/dirs", {"x-dashboard-token": None}),
     ("static index", "GET", "/", {"x-dashboard-token": None}),
     ("static file", "GET", "/index.html", {"x-dashboard-token": None}),
     ("static missing", "GET", "/nope.js", {"x-dashboard-token": None}),
@@ -123,6 +128,7 @@ MCP_CALLS: dict[str, list[dict]] = {
     "connector_catalog": [{}, {"workspace": "acme"}],
     "connector_status": [{}, {"account": "1"}],
     "connector_suggestions": [{}, {"workspace": "acme"}],
+    "kit_findings": [{}, {"limit": 10}, {"since": "2026-01-01"}, {"limit": 0}, {"limit": "x"}, {"since": "garbage"}],
 }  # fmt: skip
 MCP_RAW = [  # (label, line) answered by the protocol layer, not a tool
     (
@@ -292,6 +298,8 @@ def planted_where(canaries: Canaries, root: Path) -> dict[str, list[str]]:
 def tree_digest(root: Path) -> str:
     h = hashlib.sha256()
     for p in sorted(root.rglob("*")):
+        if p.name == "argv.log":  # the fake systemctl/crontab (a test double) logs each call it answers; the binary writes nothing
+            continue
         h.update(p.relative_to(root).as_posix().encode() + b"\0")
         if p.is_file():
             h.update(hashlib.sha256(p.read_bytes()).digest())

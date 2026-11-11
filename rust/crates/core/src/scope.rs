@@ -81,7 +81,7 @@ fn strip(text: &str) -> &str {
 
 /// An approximation of Python's `str.casefold()`: each character lowercased on its own, plus the three full
 /// folds that differ from lowercase in everyday text (`ß` -> `ss`, final `ς` -> `σ`, long `ſ` -> `s`).
-fn casefold(text: &str) -> String {
+pub(crate) fn casefold(text: &str) -> String {
     text.chars()
         .flat_map(char::to_lowercase)
         .flat_map(|c| match c {

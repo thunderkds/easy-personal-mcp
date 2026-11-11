@@ -1,0 +1,677 @@
+{
+  "cases": [
+    {
+      "body": {
+        "hidden": 5,
+        "jobs": [
+          {
+            "command": "easy-personal",
+            "kind": "systemd",
+            "last_exit": 0,
+            "last_run": "2026-10-31T08:00:06Z",
+            "name": "easy-personal-ingest.timer",
+            "next_run": "2026-10-31T11:00:00Z",
+            "schedule": "*-*-* 03:00:00"
+          },
+          {
+            "command": "easy-verifier",
+            "kind": "systemd",
+            "last_exit": 3,
+            "last_run": "2026-10-31T07:00:00Z",
+            "name": "kit-check.timer",
+            "next_run": "2026-10-31T12:00:00Z",
+            "schedule": "OnCalendar=Mon..Fri *-*-* 09:00:00, OnCalendar=Sat *-*-* 10:00:00, OnBootSec=5min, OnUnitActiveSec=1h 30min"
+          },
+          {
+            "command": "claude",
+            "kind": "systemd",
+            "last_exit": null,
+            "last_run": "2026-10-31T08:00:06Z",
+            "name": "x@1.timer",
+            "next_run": "2026-10-31T11:00:00Z",
+            "schedule": null
+          },
+          {
+            "command": "claude",
+            "kind": "systemd",
+            "last_exit": null,
+            "last_run": null,
+            "name": "float.timer",
+            "next_run": null,
+            "schedule": null
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-12T07:00:00Z",
+            "schedule": "0 7 * * 1-5"
+          },
+          {
+            "command": "easy-personal",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-personal",
+            "next_run": "2026-11-12T00:00:00Z",
+            "schedule": "@daily"
+          },
+          {
+            "command": "easy-ui",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-ui",
+            "next_run": "2026-11-11T11:00:00Z",
+            "schedule": "@hourly"
+          },
+          {
+            "command": "easy-ui",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-ui",
+            "next_run": null,
+            "schedule": "@reboot"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "0 0 31 2 *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "0 9 * * mon"
+          },
+          {
+            "command": "easy-verifier",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-verifier",
+            "next_run": "2026-11-16T02:30:00Z",
+            "schedule": "30 2 1 * 1"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "*/0 * * * *"
+          },
+          {
+            "command": "easy-context",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-context",
+            "next_run": "2026-11-12T00:00:00Z",
+            "schedule": "0 0 * * *"
+          },
+          {
+            "command": "easy-personal",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-personal",
+            "next_run": "2026-11-12T01:00:00Z",
+            "schedule": "0 1 * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-12T05:00:00Z",
+            "schedule": "0 5 * * *"
+          },
+          {
+            "command": "easy-memory",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-memory",
+            "next_run": "2026-11-12T07:07:00Z",
+            "schedule": "7 7 * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-15T08:00:00Z",
+            "schedule": "0 8 * * 7"
+          },
+          {
+            "command": "easy-personal",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-personal",
+            "next_run": "2028-02-29T14:15:00Z",
+            "schedule": "15 14 29 2 *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T10:10:00Z",
+            "schedule": "10 * * * *"
+          }
+        ],
+        "sources": {
+          "cron": "ok",
+          "systemd": "ok"
+        }
+      },
+      "calls": [
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "list-timers",
+            "--all",
+            "--output=json",
+            "--no-pager"
+          ],
+          "exit": 0,
+          "stdout": "[{\"unit\": \"easy-personal-ingest.timer\", \"activates\": \"easy-personal-ingest.service\", \"next\": 1793444400000000, \"last\": 1793433606000000}, {\"unit\": \"kit-check.timer\", \"activates\": \"kit-check.service\", \"next\": 1793448000999999, \"last\": 1793430000000000}, {\"unit\": \"tidy.timer\", \"activates\": \"tidy.service\", \"next\": 1793444400000000, \"last\": 0}, {\"unit\": \"orphan.timer\", \"activates\": \"orphan.service\", \"next\": null, \"last\": null}, {\"unit\": \"-evil.timer\", \"activates\": \"evil.service\", \"next\": 1, \"last\": 1}, {\"unit\": \"a b.timer\", \"activates\": \"ab.service\", \"next\": 1, \"last\": 1}, {\"unit\": \"x@1.timer\", \"activates\": \"x@1.service\", \"next\": 1793444400000000, \"last\": 1793433606000000}, {\"unit\": \"flag.timer\", \"activates\": \"-flag.service\", \"next\": 1793444400000000, \"last\": 1793433606000000}, {\"unit\": \"float.timer\", \"activates\": \"float.service\", \"next\": 1500000000000000.0, \"last\": -5}, {\"unit\": \"plain.service\", \"activates\": \"plain.service\", \"next\": 1, \"last\": 1}]\n"
+        },
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "show",
+            "-p",
+            "Id,TimersCalendar,TimersMonotonic,ExecStart,ExecMainStatus",
+            "easy-personal-ingest.timer",
+            "easy-personal-ingest.service",
+            "kit-check.timer",
+            "kit-check.service",
+            "tidy.timer",
+            "tidy.service",
+            "orphan.timer",
+            "orphan.service",
+            "x@1.timer",
+            "x@1.service",
+            "flag.timer",
+            "float.timer",
+            "float.service"
+          ],
+          "exit": 0,
+          "stdout": "Id=easy-personal-ingest.timer\nTimersCalendar={ OnCalendar=*-*-* 03:00:00 ; next_elapse=Thu 2026-11-12 03:00:00 UTC }\n\nId=easy-personal-ingest.service\nExecStart={ path=/usr/bin/easy-personal ; argv[]=/usr/bin/easy-personal ingest --token SECRET ; ignore_errors=no ; start_time=[n/a] }\nExecMainStatus=0\n\nId=kit-check.timer\nTimersCalendar={ OnCalendar=Mon..Fri *-*-* 09:00:00 ; next_elapse=n/a } { OnCalendar=Sat *-*-* 10:00:00 ; next_elapse=n/a }\nTimersMonotonic={ OnBootSec=5min ; next_elapse=n/a } { OnUnitActiveSec=1h 30min ; next_elapse=n/a }\n\nId=kit-check.service\nExecStart={ path=/usr/bin/env ; argv[]=/usr/bin/env FOO=1 /home/u/.local/bin/easy-verifier run --secret ; ignore_errors=no }\nExecMainStatus=3\n\nId=tidy.timer\n\nId=tidy.service\nExecStart={ path=/usr/bin/rm ; argv[]=/usr/bin/rm -rf /tmp/x ; ignore_errors=no }\nExecMainStatus=0\n\nId=orphan.timer\n\nId=orphan.service\n\nId=x@1.timer\nTimersMonotonic={ OnCalendar=hourly ; x }\n\nId=x@1.service\nExecStart={ path=/bin/bash ; argv[]=/bin/bash -c 'claude -p hi' ; ignore_errors=no }\nExecMainStatus=x1\n\nId=flag.timer\n\nId=float.timer\n\nId=float.service\nExecStart={ path=/usr/bin/claude ; argv[]=claude ; ignore_errors=no }\nExecMainStatus=1\n"
+        },
+        {
+          "argv": [
+            "crontab",
+            "-l"
+          ],
+          "exit": 0,
+          "stdout": "# a comment\nMAILTO=nobody@example.invalid\n\n0 7 * * 1-5 claude -p \"hello there\"\n@daily /usr/bin/easy-personal ingest --token SECRET\n@hourly easy-ui check\n@reboot easy-ui check\n*/15 * * * * env FOO=bar sudo claude\n5 4 * * * /usr/bin/backup --all\n0 0 31 2 * claude -p never\n0 9 * * mon claude -p names\n30 2 1 * 1 easy-verifier run\n*/0 * * * * claude -p bad-step\n0 0 * * * bash -c \"easy-context index && rm -rf /x\"\n0 1 * * * python3 -m easy_personal ingest\n0 5 * * * claude -p \"unterminated\n7 7 * * * FOO=1 /opt/bin/easy-memory save\n0 8 * * 7 claude -p sunday\n15 14 29 2 * easy-personal ingest\n 10  *  *  *  *   claude    spaced\n@weekly\n1 2 3 4\n"
+        }
+      ],
+      "case": "mixed",
+      "tools": {
+        "crontab": true,
+        "systemctl": true
+      }
+    },
+    {
+      "body": {
+        "hidden": 1,
+        "jobs": [
+          {
+            "command": "easy-personal",
+            "kind": "systemd",
+            "last_exit": null,
+            "last_run": null,
+            "name": "easy-personal-ingest.timer",
+            "next_run": null,
+            "schedule": "*-*-* 03:00:00"
+          },
+          {
+            "command": "easy-verifier",
+            "kind": "systemd",
+            "last_exit": null,
+            "last_run": null,
+            "name": "kit-check.timer",
+            "next_run": null,
+            "schedule": "OnCalendar=Mon..Fri *-*-* 09:00:00, OnCalendar=Sat *-*-* 10:00:00, OnBootSec=5min, OnUnitActiveSec=1h 30min"
+          }
+        ],
+        "sources": {
+          "cron": "no data",
+          "systemd": "ok"
+        }
+      },
+      "calls": [
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "list-timers",
+            "--all",
+            "--output=json",
+            "--no-pager"
+          ],
+          "exit": 1,
+          "stdout": ""
+        },
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "list-timers",
+            "--all",
+            "--no-legend",
+            "--no-pager"
+          ],
+          "exit": 0,
+          "stdout": "Sat 2026-10-31 18:00:00 +07 2h 43min Sat 2026-10-31 15:00:06 +07 16min ago easy-personal-ingest.timer easy-personal-ingest.service\nSat 2026-10-31 18:00:00 +07 2h 43min Sat 2026-10-31 15:00:06 +07 16min ago kit-check.timer kit-check.service\nSat 2026-10-31 18:00:00 +07 2h 43min Sat 2026-10-31 15:00:06 +07 16min ago tidy.timer tidy.service\n"
+        },
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "show",
+            "-p",
+            "Id,TimersCalendar,TimersMonotonic,ExecStart,ExecMainStatus",
+            "easy-personal-ingest.timer",
+            "easy-personal-ingest.service",
+            "kit-check.timer",
+            "kit-check.service",
+            "tidy.timer",
+            "tidy.service"
+          ],
+          "exit": 0,
+          "stdout": "Id=easy-personal-ingest.timer\nTimersCalendar={ OnCalendar=*-*-* 03:00:00 ; next_elapse=Thu 2026-11-12 03:00:00 UTC }\n\nId=easy-personal-ingest.service\nExecStart={ path=/usr/bin/easy-personal ; argv[]=/usr/bin/easy-personal ingest --token SECRET ; ignore_errors=no ; start_time=[n/a] }\nExecMainStatus=0\n\nId=kit-check.timer\nTimersCalendar={ OnCalendar=Mon..Fri *-*-* 09:00:00 ; next_elapse=n/a } { OnCalendar=Sat *-*-* 10:00:00 ; next_elapse=n/a }\nTimersMonotonic={ OnBootSec=5min ; next_elapse=n/a } { OnUnitActiveSec=1h 30min ; next_elapse=n/a }\n\nId=kit-check.service\nExecStart={ path=/usr/bin/env ; argv[]=/usr/bin/env FOO=1 /home/u/.local/bin/easy-verifier run --secret ; ignore_errors=no }\nExecMainStatus=3\n\nId=tidy.timer\n\nId=tidy.service\nExecStart={ path=/usr/bin/rm ; argv[]=/usr/bin/rm -rf /tmp/x ; ignore_errors=no }\nExecMainStatus=0\n"
+        },
+        {
+          "argv": [
+            "crontab",
+            "-l"
+          ],
+          "exit": 1,
+          "stdout": ""
+        }
+      ],
+      "case": "table_fallback",
+      "tools": {
+        "crontab": true,
+        "systemctl": true
+      }
+    },
+    {
+      "body": {
+        "hidden": 2,
+        "jobs": [
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-12T07:00:00Z",
+            "schedule": "0 7 * * 1-5"
+          },
+          {
+            "command": "easy-personal",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-personal",
+            "next_run": "2026-11-12T00:00:00Z",
+            "schedule": "@daily"
+          },
+          {
+            "command": "easy-ui",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-ui",
+            "next_run": "2026-11-11T11:00:00Z",
+            "schedule": "@hourly"
+          },
+          {
+            "command": "easy-ui",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-ui",
+            "next_run": null,
+            "schedule": "@reboot"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "0 0 31 2 *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "0 9 * * mon"
+          },
+          {
+            "command": "easy-verifier",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-verifier",
+            "next_run": "2026-11-16T02:30:00Z",
+            "schedule": "30 2 1 * 1"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "*/0 * * * *"
+          },
+          {
+            "command": "easy-context",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-context",
+            "next_run": "2026-11-12T00:00:00Z",
+            "schedule": "0 0 * * *"
+          },
+          {
+            "command": "easy-personal",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-personal",
+            "next_run": "2026-11-12T01:00:00Z",
+            "schedule": "0 1 * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-12T05:00:00Z",
+            "schedule": "0 5 * * *"
+          },
+          {
+            "command": "easy-memory",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-memory",
+            "next_run": "2026-11-12T07:07:00Z",
+            "schedule": "7 7 * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-15T08:00:00Z",
+            "schedule": "0 8 * * 7"
+          },
+          {
+            "command": "easy-personal",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) easy-personal",
+            "next_run": "2028-02-29T14:15:00Z",
+            "schedule": "15 14 29 2 *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T10:10:00Z",
+            "schedule": "10 * * * *"
+          }
+        ],
+        "sources": {
+          "cron": "ok",
+          "systemd": "no data"
+        }
+      },
+      "calls": [
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "list-timers",
+            "--all",
+            "--output=json",
+            "--no-pager"
+          ],
+          "exit": 1,
+          "stdout": ""
+        },
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "list-timers",
+            "--all",
+            "--no-legend",
+            "--no-pager"
+          ],
+          "exit": 1,
+          "stdout": ""
+        },
+        {
+          "argv": [
+            "crontab",
+            "-l"
+          ],
+          "exit": 0,
+          "stdout": "# a comment\nMAILTO=nobody@example.invalid\n\n0 7 * * 1-5 claude -p \"hello there\"\n@daily /usr/bin/easy-personal ingest --token SECRET\n@hourly easy-ui check\n@reboot easy-ui check\n*/15 * * * * env FOO=bar sudo claude\n5 4 * * * /usr/bin/backup --all\n0 0 31 2 * claude -p never\n0 9 * * mon claude -p names\n30 2 1 * 1 easy-verifier run\n*/0 * * * * claude -p bad-step\n0 0 * * * bash -c \"easy-context index && rm -rf /x\"\n0 1 * * * python3 -m easy_personal ingest\n0 5 * * * claude -p \"unterminated\n7 7 * * * FOO=1 /opt/bin/easy-memory save\n0 8 * * 7 claude -p sunday\n15 14 29 2 * easy-personal ingest\n 10  *  *  *  *   claude    spaced\n@weekly\n1 2 3 4\n"
+        }
+      ],
+      "case": "no_bus",
+      "tools": {
+        "crontab": true,
+        "systemctl": true
+      }
+    },
+    {
+      "body": {
+        "hidden": 1,
+        "jobs": [
+          {
+            "command": "easy-personal",
+            "kind": "systemd",
+            "last_exit": 0,
+            "last_run": "2026-10-31T08:00:06Z",
+            "name": "easy-personal-ingest.timer",
+            "next_run": "2026-10-31T11:00:00Z",
+            "schedule": "*-*-* 03:00:00"
+          },
+          {
+            "command": "easy-verifier",
+            "kind": "systemd",
+            "last_exit": 3,
+            "last_run": "2026-10-31T07:00:00Z",
+            "name": "kit-check.timer",
+            "next_run": "2026-10-31T12:00:00Z",
+            "schedule": "OnCalendar=Mon..Fri *-*-* 09:00:00, OnCalendar=Sat *-*-* 10:00:00, OnBootSec=5min, OnUnitActiveSec=1h 30min"
+          }
+        ],
+        "sources": {
+          "cron": "no data",
+          "systemd": "ok"
+        }
+      },
+      "calls": [
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "list-timers",
+            "--all",
+            "--output=json",
+            "--no-pager"
+          ],
+          "exit": 0,
+          "stdout": "[{\"unit\": \"easy-personal-ingest.timer\", \"activates\": \"easy-personal-ingest.service\", \"next\": 1793444400000000, \"last\": 1793433606000000}, {\"unit\": \"kit-check.timer\", \"activates\": \"kit-check.service\", \"next\": 1793448000999999, \"last\": 1793430000000000}, {\"unit\": \"tidy.timer\", \"activates\": \"tidy.service\", \"next\": 1793444400000000, \"last\": 0}]\n"
+        },
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "show",
+            "-p",
+            "Id,TimersCalendar,TimersMonotonic,ExecStart,ExecMainStatus",
+            "easy-personal-ingest.timer",
+            "easy-personal-ingest.service",
+            "kit-check.timer",
+            "kit-check.service",
+            "tidy.timer",
+            "tidy.service"
+          ],
+          "exit": 0,
+          "stdout": "Id=easy-personal-ingest.timer\nTimersCalendar={ OnCalendar=*-*-* 03:00:00 ; next_elapse=Thu 2026-11-12 03:00:00 UTC }\n\nId=easy-personal-ingest.service\nExecStart={ path=/usr/bin/easy-personal ; argv[]=/usr/bin/easy-personal ingest --token SECRET ; ignore_errors=no ; start_time=[n/a] }\nExecMainStatus=0\n\nId=kit-check.timer\nTimersCalendar={ OnCalendar=Mon..Fri *-*-* 09:00:00 ; next_elapse=n/a } { OnCalendar=Sat *-*-* 10:00:00 ; next_elapse=n/a }\nTimersMonotonic={ OnBootSec=5min ; next_elapse=n/a } { OnUnitActiveSec=1h 30min ; next_elapse=n/a }\n\nId=kit-check.service\nExecStart={ path=/usr/bin/env ; argv[]=/usr/bin/env FOO=1 /home/u/.local/bin/easy-verifier run --secret ; ignore_errors=no }\nExecMainStatus=3\n\nId=tidy.timer\n\nId=tidy.service\nExecStart={ path=/usr/bin/rm ; argv[]=/usr/bin/rm -rf /tmp/x ; ignore_errors=no }\nExecMainStatus=0\n"
+        },
+        {
+          "argv": [
+            "crontab",
+            "-l"
+          ],
+          "exit": 1,
+          "stdout": ""
+        }
+      ],
+      "case": "no_crontab",
+      "tools": {
+        "crontab": true,
+        "systemctl": true
+      }
+    },
+    {
+      "body": {
+        "hidden": 0,
+        "jobs": [],
+        "sources": {
+          "cron": "no data",
+          "systemd": "no data"
+        }
+      },
+      "calls": [],
+      "case": "no_tools",
+      "tools": {
+        "crontab": false,
+        "systemctl": false
+      }
+    },
+    {
+      "body": {
+        "hidden": 0,
+        "jobs": [
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-12T07:00:00Z",
+            "schedule": "0 7 * * *"
+          }
+        ],
+        "sources": {
+          "cron": "ok",
+          "systemd": "no data"
+        }
+      },
+      "calls": [
+        {
+          "argv": [
+            "crontab",
+            "-l"
+          ],
+          "exit": 0,
+          "stdout": "0 7 * * * claude\n"
+        }
+      ],
+      "case": "only_crontab",
+      "tools": {
+        "crontab": true,
+        "systemctl": false
+      }
+    },
+    {
+      "body": {
+        "hidden": 0,
+        "jobs": [],
+        "sources": {
+          "cron": "ok",
+          "systemd": "ok"
+        }
+      },
+      "calls": [
+        {
+          "argv": [
+            "systemctl",
+            "--user",
+            "list-timers",
+            "--all",
+            "--output=json",
+            "--no-pager"
+          ],
+          "exit": 0,
+          "stdout": "[]\n"
+        },
+        {
+          "argv": [
+            "crontab",
+            "-l"
+          ],
+          "exit": 0,
+          "stdout": ""
+        }
+      ],
+      "case": "empty",
+      "tools": {
+        "crontab": true,
+        "systemctl": true
+      }
+    }
+  ],
+  "now": [
+    2026,
+    11,
+    11,
+    10,
+    0,
+    0
+  ],
+  "tz": "UTC"
+}

@@ -266,6 +266,7 @@ fn tools_list_equals_the_golden_for_each_of_the_ten_tools() {
             "connector_status",
             "connector_suggestions",
             "improvement_plan",
+            "kit_findings",
             "kit_summary",
             "ping",
             "session_outliers",
@@ -757,6 +758,7 @@ fn session_outliers_is_listed_after_usage_breakdown_in_pythons_registration_orde
             "warnings",
             "improvement_plan",
             "kit_summary",
+            "kit_findings",
             "connector_catalog",
             "connector_status",
             "connector_suggestions"

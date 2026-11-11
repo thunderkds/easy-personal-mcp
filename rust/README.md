@@ -152,8 +152,8 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
 curl -H "x-dashboard-token: <token>" http://127.0.0.1:<port>/api/version
 ```
 
-`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with ten tools: `ping`,
-`usage_summary`, `usage_breakdown`, `session_outliers`, `warnings`, `improvement_plan`, `kit_summary` (T042: optional `workspace` and `account`, `null`, absent and `""` mean no filter; the projects whose folder is gone are listed with `missing_on_disk: true`, as Python's tool lists them) and the three connector tools (T046, below). Their names, descriptions and schemas, and their results over
+`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with eleven tools: `ping`,
+`usage_summary`, `usage_breakdown`, `session_outliers`, `warnings`, `improvement_plan`, `kit_summary` (T042: optional `workspace` and `account`, `null`, absent and `""` mean no filter; the projects whose folder is gone are listed with `missing_on_disk: true`, as Python's tool lists them), `kit_findings` (T044, below) and the three connector tools (T046, below). Their names, descriptions and schemas, and their results over
 `parity/store-v11.sqlite`, equal the Python app's `mcp__*` goldens; `warnings` and `improvement_plan` read the clock, so their goldens
 (default and rich store) are compared in-process at the manifest's `frozen_now`: the binary has no flag or variable that sets the clock.
 `session_outliers` takes `since` and `until` only, as in Python (it reads no clock, so its goldens are compared through the binary; an extra argument is dropped, as Python drops it). `warnings` and `improvement_plan` take `workspace` and `account` as in Python; so do `usage_summary` and `usage_breakdown` here, which
@@ -163,8 +163,8 @@ unknown workspace`, Python's text); a value that is not a string is an argument 
 (2024-11-05 to 2025-11-25) are served, the 2026-07-28 no-handshake mode is not. The server ends with exit 0 when stdin closes. Each call
 opens the store (same path rules as `store-info`) read-only; a missing store, or one newer than this build knows, is a tool error with
 no path in it. Errors in a tool are results with `isError: true` and Python's text (`Error executing tool <name>: <message>`); an
-unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other two tools
-(`kit_findings`, `save_report`), the `investigate` prompt and `--http`.
+unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other tool
+(`save_report`), the `investigate` prompt and `--http`.
 
 The connector tools (T046) take no argument (an extra one is dropped, as Python drops it) and only read: `connector_catalog` ->
 `{"connectors": [{id, provider, category, claude_ai_connector, claude_ai_link, fields: [{label, secret}]}]}` in catalog-id order (no env names);
@@ -528,6 +528,38 @@ Decided for you (Rust differs from Python on purpose):
 - a **name that is not UTF-8** is left out of the listing and cannot be asked for (Python's JSON encoder fails on it: a 500 with a traceback). A report folder or repo whose name is not UTF-8 was already unlisted;
 - `/proc` must be mounted (a container without it answers 404 to every call: fail closed);
 - the repo folder is opened following symlinks (the owner put it there, as Python does), but the report folder under it, and every level below, may not be a symlink.
+
+## Folder browser, scheduled jobs and kit findings (T044)
+
+Three read-only surfaces, each equal to Python's answer (`parity/golden-jobs/` is made once by `parity/gen_dirs_jobs.py` from Python's own `list_dirs` and
+`list_jobs` with the fake `systemctl`/`crontab` of `tests/fakes/jobs_fakes.py`; the four `mcp__kit_findings__*` goldens are Python's).
+
+| Surface | Parameters | Answer / errors |
+|---------|------------|-----------------|
+| `GET /api/dirs?path=` | `path`: an absolute folder; absent or empty = the server's working folder (home if that was deleted) | `200 {path, parent, home, dirs: [{name, repo}], truncated?}`: sub-folder names (dot-names skipped, symlinks followed for the folder test only, sorted by case-folded name then name, 500 at most, then `truncated: true`); `repo` is true when `<dir>/.git` exists. `400 {"error": "Path must be absolute"}`, `400 {"error": "Not an existing folder"}` (also a file, a broken link, a link loop, a NUL byte), `403 {"error": "Cannot read this folder"}`. No store is opened. |
+| `GET /api/jobs` | none | `200 {jobs, hidden, sources: {systemd, cron}}`; each job `{name, kind, command, schedule, next_run, last_run, last_exit}`; `command` is the first word (basename) only, and only the agent allow-list is listed (`claude`, `easy-personal`, `easy-personal-launch`, `easy-verifier`, `easy-context`, `easy-ui`, `easy-memory`); a kind that cannot be read is `"no data"`. No store is opened. |
+| MCP `kit_findings` | `limit` (integer, default 3, clamped to 1..10), `since` (ISO date or datetime; no offset = local time) | the findings object of Python's tool; a store problem or a bad `since` is a tool error (`Invalid isoformat string: 'x'`). |
+
+Privacy: `/api/dirs` shows the folder names and the absolute paths of the folder the owner browses, as Python does; it never shows a file name, a size, content or a
+symlink target (a test lists a folder holding a file, a dangling link and a hidden folder and finds none of them). `/api/jobs` starts only `systemctl --user list-timers|show`
+and `crontab -l` (the table `jobs::READ_ONLY`, checked on the whole argument list before any process starts), with an argument list (no shell), the caller's own environment plus
+`LC_ALL=C`, a closed stdin, at most 8 MiB read and a 3 s limit (the process is killed and waited for). Unit names are validated like Python's `_UNIT` (never starting with `-`).
+Every test runs `/bin/sh` fakes on a scratch `PATH`.
+
+Decided for you (differences from Python, all on hostile or unusual input):
+
+- `/api/dirs`: a folder name that is not UTF-8 is skipped (Python would fail the response). A path whose existing part is followed by a missing folder and `..`
+  (`/missing/../tmp`) is `Not an existing folder` here (Python resolves the `..` in text and answers 200). With `HOME` unset, `home` is `/` (Python asks the account database).
+  The NUL-byte text is `Not an existing folder` (Python's own text is CPython's `lstat: embedded null character in path`; status 400 and the `error` key are equal).
+- `/api/jobs`: `config.yaml`'s `jobs: allow:` list is not read (the default allow-list is used); `systemctl`/`crontab` are found in `PATH` only (no `PATH` or an empty one is `no data`;
+  Python falls back to `/bin:/usr/bin` when `PATH` is unset); more than 8 MiB of output, a hang past 3 s or a non-zero exit is `no data`; a JSON boolean or float in `next`/`last`
+  is no time (Python would read `true` as 1 microsecond); a time beyond year 9999 is no time (Python raises).
+- `kit_findings`: `limit` must be an integer (a float with no fraction is accepted; `null`, a string or a boolean is a tool error with a plain text, not pydantic's); `config.yaml`'s
+  `thresholds: kit_error_rate` is not read (the default 0.04 is used).
+- Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
+
+Not served yet: the other Python routes (`/api/sync`, `/api/memory-graph`, `/api/live`, the accounts and connector writes, the report files). The release note
+`docs/release/rust-v0.2.0.md` "not in this release" list still names these three; it is the Supervisor's to update.
 
 ## Test
 

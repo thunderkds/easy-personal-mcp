@@ -361,7 +361,7 @@ fn ui_calls(
 }
 
 /// Python's `sum()` of floats (3.12+): Neumaier compensated, so the mean rounds as Python's does.
-fn py_sum(values: &[f64]) -> f64 {
+pub(crate) fn py_sum(values: &[f64]) -> f64 {
     let (mut total, mut carry) = (0.0_f64, 0.0_f64);
     for &x in values {
         let t = total + x;

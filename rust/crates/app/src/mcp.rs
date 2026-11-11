@@ -46,6 +46,8 @@ const PLAN_DESCRIPTION: &str = "The fired rules grouped by priority (1 first), e
 
 const KIT_DESCRIPTION: &str = "What the Easy Kit did per project (folder name): kernel-trace tool calls, errors, kit\ntasks and last activity. A part with nothing to read says \"no data\". Optional `workspace`\n(name) and `account` (id or label) keep only that scope's projects.";
 
+const KIT_FINDINGS_DESCRIPTION: &str = "Which Easy Kit MCP servers (easy-ui, easy-verifier, easy-context, easy-memory) are linked to\ncheaper or better sessions, comparing sessions with and without each server inside the same\nproject, main model and tool-call band (tokens and cost per tool call, share of good results).\n`findings` = at most `limit` (default 3, max 10) comparisons where the server side is better by at least 5 %, each\nwith numbers, group sizes and one fixed habit; `other` = every other comparison that has at least 10\nsessions on each side (no habit); `not_enough` lists servers with fewer. Worded \"linked to\", never\n\"caused\". `since` is an ISO date or datetime (without an offset: local time); omitted means all\nstored history.";
+
 const CONNECTOR_CATALOG_DESCRIPTION: &str = "The provider catalog: id, provider, category, whether Claude.ai has an official connector\n(and its link), and the field labels each needs. Read-only; never a secret value.";
 
 const CONNECTOR_STATUS_DESCRIPTION: &str = "Per catalog id, whether the connector is configured (yes/no only): a keychain item and a\nClaude Code entry both exist. Never returns a secret or any config value.";
@@ -203,6 +205,7 @@ impl ServerHandler for Server {
                 | "warnings"
                 | "improvement_plan"
                 | "kit_summary"
+                | "kit_findings"
                 | "connector_catalog"
                 | "connector_status"
                 | "connector_suggestions"
@@ -309,6 +312,16 @@ fn tools() -> Vec<Tool> {
             dict_output("kit_summaryDictOutput"),
         ),
         tool(
+            "kit_findings",
+            KIT_FINDINGS_DESCRIPTION,
+            json!({
+                "properties": {"limit": {"default": 3, "title": "Limit", "type": "integer"}, "since": nullable_string("Since")},
+                "title": "kit_findingsArguments",
+                "type": "object"
+            }),
+            dict_output("kit_findingsDictOutput"),
+        ),
+        tool(
             "connector_catalog",
             CONNECTOR_CATALOG_DESCRIPTION,
             no_input("connector_catalogArguments"),
@@ -412,6 +425,20 @@ fn run_tool(
             })?;
             Ok(CallToolResult::structured(body))
         }
+        "kit_findings" => {
+            let limit = limit_arg(args)?;
+            let since = optional(args, "since")?;
+            let body = with_store(&store, |conn| {
+                easy_personal_core::kitperf::kit_findings_local(
+                    conn,
+                    limit,
+                    since.as_deref(),
+                    now_micros,
+                )
+                .map_err(|e| e.to_string())
+            })?;
+            Ok(CallToolResult::structured(body))
+        }
         // no arguments (an extra one is dropped, as in Python); the first two never open the store
         "connector_catalog" => Ok(CallToolResult::structured(
             suggestions::catalog_view().map_err(view_error)?,
@@ -441,6 +468,25 @@ fn optional(args: &JsonObject, key: &str) -> Result<Option<String>, String> {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(text)) => Ok(Some(text.clone())),
         Some(_) => Err(format!("argument `{key}` must be a string or null")),
+    }
+}
+
+/// `limit` of `kit_findings`: absent is Python's default 3; an integer (or a float with no fraction) is clamped by the core to
+/// 1..10. Anything else (`null`, a string, a boolean, a fraction) is an argument error: Python's text is pydantic's.
+fn limit_arg(args: &JsonObject) -> Result<i64, String> {
+    let bad = || "argument `limit` must be an integer".to_string();
+    match args.get("limit") {
+        None => Ok(3),
+        Some(Value::Number(n)) => n
+            .as_i64()
+            .or_else(|| n.as_u64().map(|_| i64::MAX))
+            .or_else(|| {
+                n.as_f64()
+                    .filter(|f| f.is_finite() && f.fract() == 0.0)
+                    .map(|f| f as i64)
+            })
+            .ok_or_else(bad),
+        Some(_) => Err(bad()),
     }
 }
 

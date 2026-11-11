@@ -899,7 +899,7 @@ fn repo_branches(repo: &str) -> BTreeSet<String> {
 
 /// The branch a merge commit subject names (`Merge branch 'b'`, `Merge pull request #N from user/b`,
 /// `Merge <b>: <what it does>`), else `None`. The three forms are tried in that order, as in Python.
-fn merge_branch(subject: &str) -> Option<String> {
+pub(crate) fn merge_branch(subject: &str) -> Option<String> {
     merge_branch_quoted(subject)
         .or_else(|| merge_branch_pull_request(subject))
         .or_else(|| merge_branch_bare(subject))
@@ -1026,7 +1026,7 @@ pub(crate) fn owner_map(branches: &BTreeMap<String, BTreeSet<String>>) -> HashMa
 }
 
 /// Longest existing prefix resolved through symlinks, the rest appended (Python's non-strict `os.path.realpath`).
-fn realpath(path: &str) -> String {
+pub(crate) fn realpath(path: &str) -> String {
     let mut existing = Path::new(path);
     let mut rest = Vec::new();
     while std::fs::canonicalize(existing).is_err() {

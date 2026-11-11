@@ -1,0 +1,2317 @@
+{
+  "cases": [
+    {
+      "body": {
+        "dirs": [
+          {
+            "name": "apple",
+            "repo": false
+          },
+          {
+            "name": "Banana",
+            "repo": false
+          },
+          {
+            "name": "gitfile",
+            "repo": true
+          },
+          {
+            "name": "link_to_dir",
+            "repo": false
+          },
+          {
+            "name": "locked",
+            "repo": false
+          },
+          {
+            "name": "repo",
+            "repo": true
+          },
+          {
+            "name": "with space",
+            "repo": false
+          },
+          {
+            "name": "zeta",
+            "repo": false
+          },
+          {
+            "name": "Éclair",
+            "repo": false
+          },
+          {
+            "name": "ünï",
+            "repo": false
+          }
+        ],
+        "home": "<ROOT>/home",
+        "parent": "<ROOT>",
+        "path": "<ROOT>/main"
+      },
+      "case": "listing",
+      "path": "<ROOT>/main",
+      "status": 200,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "dirs": [
+          {
+            "name": "apple",
+            "repo": false
+          },
+          {
+            "name": "Banana",
+            "repo": false
+          },
+          {
+            "name": "gitfile",
+            "repo": true
+          },
+          {
+            "name": "link_to_dir",
+            "repo": false
+          },
+          {
+            "name": "locked",
+            "repo": false
+          },
+          {
+            "name": "repo",
+            "repo": true
+          },
+          {
+            "name": "with space",
+            "repo": false
+          },
+          {
+            "name": "zeta",
+            "repo": false
+          },
+          {
+            "name": "Éclair",
+            "repo": false
+          },
+          {
+            "name": "ünï",
+            "repo": false
+          }
+        ],
+        "home": "<ROOT>/home",
+        "parent": "<ROOT>",
+        "path": "<ROOT>/main"
+      },
+      "case": "trailing_slash",
+      "path": "<ROOT>/main/",
+      "status": 200,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "dirs": [],
+        "home": "<ROOT>/home",
+        "parent": "<ROOT>/main",
+        "path": "<ROOT>/main/zeta"
+      },
+      "case": "dotdot",
+      "path": "<ROOT>/main/apple/../zeta",
+      "status": 200,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "dirs": [],
+        "home": "<ROOT>/home",
+        "parent": "<ROOT>/main",
+        "path": "<ROOT>/main/apple"
+      },
+      "case": "through_link",
+      "path": "<ROOT>/main/link_to_dir",
+      "status": 200,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "dirs": [
+          {
+            "name": "d000",
+            "repo": false
+          },
+          {
+            "name": "d001",
+            "repo": false
+          },
+          {
+            "name": "d002",
+            "repo": false
+          },
+          {
+            "name": "d003",
+            "repo": false
+          },
+          {
+            "name": "d004",
+            "repo": false
+          },
+          {
+            "name": "d005",
+            "repo": false
+          },
+          {
+            "name": "d006",
+            "repo": false
+          },
+          {
+            "name": "d007",
+            "repo": true
+          },
+          {
+            "name": "d008",
+            "repo": false
+          },
+          {
+            "name": "d009",
+            "repo": false
+          },
+          {
+            "name": "d010",
+            "repo": false
+          },
+          {
+            "name": "d011",
+            "repo": false
+          },
+          {
+            "name": "d012",
+            "repo": false
+          },
+          {
+            "name": "d013",
+            "repo": false
+          },
+          {
+            "name": "d014",
+            "repo": false
+          },
+          {
+            "name": "d015",
+            "repo": false
+          },
+          {
+            "name": "d016",
+            "repo": false
+          },
+          {
+            "name": "d017",
+            "repo": false
+          },
+          {
+            "name": "d018",
+            "repo": false
+          },
+          {
+            "name": "d019",
+            "repo": false
+          },
+          {
+            "name": "d020",
+            "repo": false
+          },
+          {
+            "name": "d021",
+            "repo": false
+          },
+          {
+            "name": "d022",
+            "repo": false
+          },
+          {
+            "name": "d023",
+            "repo": false
+          },
+          {
+            "name": "d024",
+            "repo": false
+          },
+          {
+            "name": "d025",
+            "repo": false
+          },
+          {
+            "name": "d026",
+            "repo": false
+          },
+          {
+            "name": "d027",
+            "repo": false
+          },
+          {
+            "name": "d028",
+            "repo": false
+          },
+          {
+            "name": "d029",
+            "repo": false
+          },
+          {
+            "name": "d030",
+            "repo": false
+          },
+          {
+            "name": "d031",
+            "repo": false
+          },
+          {
+            "name": "d032",
+            "repo": false
+          },
+          {
+            "name": "d033",
+            "repo": false
+          },
+          {
+            "name": "d034",
+            "repo": false
+          },
+          {
+            "name": "d035",
+            "repo": false
+          },
+          {
+            "name": "d036",
+            "repo": false
+          },
+          {
+            "name": "d037",
+            "repo": false
+          },
+          {
+            "name": "d038",
+            "repo": false
+          },
+          {
+            "name": "d039",
+            "repo": false
+          },
+          {
+            "name": "d040",
+            "repo": false
+          },
+          {
+            "name": "d041",
+            "repo": false
+          },
+          {
+            "name": "d042",
+            "repo": false
+          },
+          {
+            "name": "d043",
+            "repo": false
+          },
+          {
+            "name": "d044",
+            "repo": false
+          },
+          {
+            "name": "d045",
+            "repo": false
+          },
+          {
+            "name": "d046",
+            "repo": false
+          },
+          {
+            "name": "d047",
+            "repo": false
+          },
+          {
+            "name": "d048",
+            "repo": false
+          },
+          {
+            "name": "d049",
+            "repo": false
+          },
+          {
+            "name": "d050",
+            "repo": false
+          },
+          {
+            "name": "d051",
+            "repo": false
+          },
+          {
+            "name": "d052",
+            "repo": false
+          },
+          {
+            "name": "d053",
+            "repo": false
+          },
+          {
+            "name": "d054",
+            "repo": false
+          },
+          {
+            "name": "d055",
+            "repo": false
+          },
+          {
+            "name": "d056",
+            "repo": false
+          },
+          {
+            "name": "d057",
+            "repo": false
+          },
+          {
+            "name": "d058",
+            "repo": false
+          },
+          {
+            "name": "d059",
+            "repo": false
+          },
+          {
+            "name": "d060",
+            "repo": false
+          },
+          {
+            "name": "d061",
+            "repo": false
+          },
+          {
+            "name": "d062",
+            "repo": false
+          },
+          {
+            "name": "d063",
+            "repo": false
+          },
+          {
+            "name": "d064",
+            "repo": false
+          },
+          {
+            "name": "d065",
+            "repo": false
+          },
+          {
+            "name": "d066",
+            "repo": false
+          },
+          {
+            "name": "d067",
+            "repo": false
+          },
+          {
+            "name": "d068",
+            "repo": false
+          },
+          {
+            "name": "d069",
+            "repo": false
+          },
+          {
+            "name": "d070",
+            "repo": false
+          },
+          {
+            "name": "d071",
+            "repo": false
+          },
+          {
+            "name": "d072",
+            "repo": false
+          },
+          {
+            "name": "d073",
+            "repo": false
+          },
+          {
+            "name": "d074",
+            "repo": false
+          },
+          {
+            "name": "d075",
+            "repo": false
+          },
+          {
+            "name": "d076",
+            "repo": false
+          },
+          {
+            "name": "d077",
+            "repo": false
+          },
+          {
+            "name": "d078",
+            "repo": false
+          },
+          {
+            "name": "d079",
+            "repo": false
+          },
+          {
+            "name": "d080",
+            "repo": false
+          },
+          {
+            "name": "d081",
+            "repo": false
+          },
+          {
+            "name": "d082",
+            "repo": false
+          },
+          {
+            "name": "d083",
+            "repo": false
+          },
+          {
+            "name": "d084",
+            "repo": false
+          },
+          {
+            "name": "d085",
+            "repo": false
+          },
+          {
+            "name": "d086",
+            "repo": false
+          },
+          {
+            "name": "d087",
+            "repo": false
+          },
+          {
+            "name": "d088",
+            "repo": false
+          },
+          {
+            "name": "d089",
+            "repo": false
+          },
+          {
+            "name": "d090",
+            "repo": false
+          },
+          {
+            "name": "d091",
+            "repo": false
+          },
+          {
+            "name": "d092",
+            "repo": false
+          },
+          {
+            "name": "d093",
+            "repo": false
+          },
+          {
+            "name": "d094",
+            "repo": false
+          },
+          {
+            "name": "d095",
+            "repo": false
+          },
+          {
+            "name": "d096",
+            "repo": false
+          },
+          {
+            "name": "d097",
+            "repo": false
+          },
+          {
+            "name": "d098",
+            "repo": false
+          },
+          {
+            "name": "d099",
+            "repo": false
+          },
+          {
+            "name": "d100",
+            "repo": false
+          },
+          {
+            "name": "d101",
+            "repo": false
+          },
+          {
+            "name": "d102",
+            "repo": false
+          },
+          {
+            "name": "d103",
+            "repo": false
+          },
+          {
+            "name": "d104",
+            "repo": false
+          },
+          {
+            "name": "d105",
+            "repo": false
+          },
+          {
+            "name": "d106",
+            "repo": false
+          },
+          {
+            "name": "d107",
+            "repo": false
+          },
+          {
+            "name": "d108",
+            "repo": false
+          },
+          {
+            "name": "d109",
+            "repo": false
+          },
+          {
+            "name": "d110",
+            "repo": false
+          },
+          {
+            "name": "d111",
+            "repo": false
+          },
+          {
+            "name": "d112",
+            "repo": false
+          },
+          {
+            "name": "d113",
+            "repo": false
+          },
+          {
+            "name": "d114",
+            "repo": false
+          },
+          {
+            "name": "d115",
+            "repo": false
+          },
+          {
+            "name": "d116",
+            "repo": false
+          },
+          {
+            "name": "d117",
+            "repo": false
+          },
+          {
+            "name": "d118",
+            "repo": false
+          },
+          {
+            "name": "d119",
+            "repo": false
+          },
+          {
+            "name": "d120",
+            "repo": false
+          },
+          {
+            "name": "d121",
+            "repo": false
+          },
+          {
+            "name": "d122",
+            "repo": false
+          },
+          {
+            "name": "d123",
+            "repo": false
+          },
+          {
+            "name": "d124",
+            "repo": false
+          },
+          {
+            "name": "d125",
+            "repo": false
+          },
+          {
+            "name": "d126",
+            "repo": false
+          },
+          {
+            "name": "d127",
+            "repo": false
+          },
+          {
+            "name": "d128",
+            "repo": false
+          },
+          {
+            "name": "d129",
+            "repo": false
+          },
+          {
+            "name": "d130",
+            "repo": false
+          },
+          {
+            "name": "d131",
+            "repo": false
+          },
+          {
+            "name": "d132",
+            "repo": false
+          },
+          {
+            "name": "d133",
+            "repo": false
+          },
+          {
+            "name": "d134",
+            "repo": false
+          },
+          {
+            "name": "d135",
+            "repo": false
+          },
+          {
+            "name": "d136",
+            "repo": false
+          },
+          {
+            "name": "d137",
+            "repo": false
+          },
+          {
+            "name": "d138",
+            "repo": false
+          },
+          {
+            "name": "d139",
+            "repo": false
+          },
+          {
+            "name": "d140",
+            "repo": false
+          },
+          {
+            "name": "d141",
+            "repo": false
+          },
+          {
+            "name": "d142",
+            "repo": false
+          },
+          {
+            "name": "d143",
+            "repo": false
+          },
+          {
+            "name": "d144",
+            "repo": false
+          },
+          {
+            "name": "d145",
+            "repo": false
+          },
+          {
+            "name": "d146",
+            "repo": false
+          },
+          {
+            "name": "d147",
+            "repo": false
+          },
+          {
+            "name": "d148",
+            "repo": false
+          },
+          {
+            "name": "d149",
+            "repo": false
+          },
+          {
+            "name": "d150",
+            "repo": false
+          },
+          {
+            "name": "d151",
+            "repo": false
+          },
+          {
+            "name": "d152",
+            "repo": false
+          },
+          {
+            "name": "d153",
+            "repo": false
+          },
+          {
+            "name": "d154",
+            "repo": false
+          },
+          {
+            "name": "d155",
+            "repo": false
+          },
+          {
+            "name": "d156",
+            "repo": false
+          },
+          {
+            "name": "d157",
+            "repo": false
+          },
+          {
+            "name": "d158",
+            "repo": false
+          },
+          {
+            "name": "d159",
+            "repo": false
+          },
+          {
+            "name": "d160",
+            "repo": false
+          },
+          {
+            "name": "d161",
+            "repo": false
+          },
+          {
+            "name": "d162",
+            "repo": false
+          },
+          {
+            "name": "d163",
+            "repo": false
+          },
+          {
+            "name": "d164",
+            "repo": false
+          },
+          {
+            "name": "d165",
+            "repo": false
+          },
+          {
+            "name": "d166",
+            "repo": false
+          },
+          {
+            "name": "d167",
+            "repo": false
+          },
+          {
+            "name": "d168",
+            "repo": false
+          },
+          {
+            "name": "d169",
+            "repo": false
+          },
+          {
+            "name": "d170",
+            "repo": false
+          },
+          {
+            "name": "d171",
+            "repo": false
+          },
+          {
+            "name": "d172",
+            "repo": false
+          },
+          {
+            "name": "d173",
+            "repo": false
+          },
+          {
+            "name": "d174",
+            "repo": false
+          },
+          {
+            "name": "d175",
+            "repo": false
+          },
+          {
+            "name": "d176",
+            "repo": false
+          },
+          {
+            "name": "d177",
+            "repo": false
+          },
+          {
+            "name": "d178",
+            "repo": false
+          },
+          {
+            "name": "d179",
+            "repo": false
+          },
+          {
+            "name": "d180",
+            "repo": false
+          },
+          {
+            "name": "d181",
+            "repo": false
+          },
+          {
+            "name": "d182",
+            "repo": false
+          },
+          {
+            "name": "d183",
+            "repo": false
+          },
+          {
+            "name": "d184",
+            "repo": false
+          },
+          {
+            "name": "d185",
+            "repo": false
+          },
+          {
+            "name": "d186",
+            "repo": false
+          },
+          {
+            "name": "d187",
+            "repo": false
+          },
+          {
+            "name": "d188",
+            "repo": false
+          },
+          {
+            "name": "d189",
+            "repo": false
+          },
+          {
+            "name": "d190",
+            "repo": false
+          },
+          {
+            "name": "d191",
+            "repo": false
+          },
+          {
+            "name": "d192",
+            "repo": false
+          },
+          {
+            "name": "d193",
+            "repo": false
+          },
+          {
+            "name": "d194",
+            "repo": false
+          },
+          {
+            "name": "d195",
+            "repo": false
+          },
+          {
+            "name": "d196",
+            "repo": false
+          },
+          {
+            "name": "d197",
+            "repo": false
+          },
+          {
+            "name": "d198",
+            "repo": false
+          },
+          {
+            "name": "d199",
+            "repo": false
+          },
+          {
+            "name": "d200",
+            "repo": false
+          },
+          {
+            "name": "d201",
+            "repo": false
+          },
+          {
+            "name": "d202",
+            "repo": false
+          },
+          {
+            "name": "d203",
+            "repo": false
+          },
+          {
+            "name": "d204",
+            "repo": false
+          },
+          {
+            "name": "d205",
+            "repo": false
+          },
+          {
+            "name": "d206",
+            "repo": false
+          },
+          {
+            "name": "d207",
+            "repo": false
+          },
+          {
+            "name": "d208",
+            "repo": false
+          },
+          {
+            "name": "d209",
+            "repo": false
+          },
+          {
+            "name": "d210",
+            "repo": false
+          },
+          {
+            "name": "d211",
+            "repo": false
+          },
+          {
+            "name": "d212",
+            "repo": false
+          },
+          {
+            "name": "d213",
+            "repo": false
+          },
+          {
+            "name": "d214",
+            "repo": false
+          },
+          {
+            "name": "d215",
+            "repo": false
+          },
+          {
+            "name": "d216",
+            "repo": false
+          },
+          {
+            "name": "d217",
+            "repo": false
+          },
+          {
+            "name": "d218",
+            "repo": false
+          },
+          {
+            "name": "d219",
+            "repo": false
+          },
+          {
+            "name": "d220",
+            "repo": false
+          },
+          {
+            "name": "d221",
+            "repo": false
+          },
+          {
+            "name": "d222",
+            "repo": false
+          },
+          {
+            "name": "d223",
+            "repo": false
+          },
+          {
+            "name": "d224",
+            "repo": false
+          },
+          {
+            "name": "d225",
+            "repo": false
+          },
+          {
+            "name": "d226",
+            "repo": false
+          },
+          {
+            "name": "d227",
+            "repo": false
+          },
+          {
+            "name": "d228",
+            "repo": false
+          },
+          {
+            "name": "d229",
+            "repo": false
+          },
+          {
+            "name": "d230",
+            "repo": false
+          },
+          {
+            "name": "d231",
+            "repo": false
+          },
+          {
+            "name": "d232",
+            "repo": false
+          },
+          {
+            "name": "d233",
+            "repo": false
+          },
+          {
+            "name": "d234",
+            "repo": false
+          },
+          {
+            "name": "d235",
+            "repo": false
+          },
+          {
+            "name": "d236",
+            "repo": false
+          },
+          {
+            "name": "d237",
+            "repo": false
+          },
+          {
+            "name": "d238",
+            "repo": false
+          },
+          {
+            "name": "d239",
+            "repo": false
+          },
+          {
+            "name": "d240",
+            "repo": false
+          },
+          {
+            "name": "d241",
+            "repo": false
+          },
+          {
+            "name": "d242",
+            "repo": false
+          },
+          {
+            "name": "d243",
+            "repo": false
+          },
+          {
+            "name": "d244",
+            "repo": false
+          },
+          {
+            "name": "d245",
+            "repo": false
+          },
+          {
+            "name": "d246",
+            "repo": false
+          },
+          {
+            "name": "d247",
+            "repo": false
+          },
+          {
+            "name": "d248",
+            "repo": false
+          },
+          {
+            "name": "d249",
+            "repo": false
+          },
+          {
+            "name": "d250",
+            "repo": false
+          },
+          {
+            "name": "d251",
+            "repo": false
+          },
+          {
+            "name": "d252",
+            "repo": false
+          },
+          {
+            "name": "d253",
+            "repo": false
+          },
+          {
+            "name": "d254",
+            "repo": false
+          },
+          {
+            "name": "d255",
+            "repo": false
+          },
+          {
+            "name": "d256",
+            "repo": false
+          },
+          {
+            "name": "d257",
+            "repo": false
+          },
+          {
+            "name": "d258",
+            "repo": false
+          },
+          {
+            "name": "d259",
+            "repo": false
+          },
+          {
+            "name": "d260",
+            "repo": false
+          },
+          {
+            "name": "d261",
+            "repo": false
+          },
+          {
+            "name": "d262",
+            "repo": false
+          },
+          {
+            "name": "d263",
+            "repo": false
+          },
+          {
+            "name": "d264",
+            "repo": false
+          },
+          {
+            "name": "d265",
+            "repo": false
+          },
+          {
+            "name": "d266",
+            "repo": false
+          },
+          {
+            "name": "d267",
+            "repo": false
+          },
+          {
+            "name": "d268",
+            "repo": false
+          },
+          {
+            "name": "d269",
+            "repo": false
+          },
+          {
+            "name": "d270",
+            "repo": false
+          },
+          {
+            "name": "d271",
+            "repo": false
+          },
+          {
+            "name": "d272",
+            "repo": false
+          },
+          {
+            "name": "d273",
+            "repo": false
+          },
+          {
+            "name": "d274",
+            "repo": false
+          },
+          {
+            "name": "d275",
+            "repo": false
+          },
+          {
+            "name": "d276",
+            "repo": false
+          },
+          {
+            "name": "d277",
+            "repo": false
+          },
+          {
+            "name": "d278",
+            "repo": false
+          },
+          {
+            "name": "d279",
+            "repo": false
+          },
+          {
+            "name": "d280",
+            "repo": false
+          },
+          {
+            "name": "d281",
+            "repo": false
+          },
+          {
+            "name": "d282",
+            "repo": false
+          },
+          {
+            "name": "d283",
+            "repo": false
+          },
+          {
+            "name": "d284",
+            "repo": false
+          },
+          {
+            "name": "d285",
+            "repo": false
+          },
+          {
+            "name": "d286",
+            "repo": false
+          },
+          {
+            "name": "d287",
+            "repo": false
+          },
+          {
+            "name": "d288",
+            "repo": false
+          },
+          {
+            "name": "d289",
+            "repo": false
+          },
+          {
+            "name": "d290",
+            "repo": false
+          },
+          {
+            "name": "d291",
+            "repo": false
+          },
+          {
+            "name": "d292",
+            "repo": false
+          },
+          {
+            "name": "d293",
+            "repo": false
+          },
+          {
+            "name": "d294",
+            "repo": false
+          },
+          {
+            "name": "d295",
+            "repo": false
+          },
+          {
+            "name": "d296",
+            "repo": false
+          },
+          {
+            "name": "d297",
+            "repo": false
+          },
+          {
+            "name": "d298",
+            "repo": false
+          },
+          {
+            "name": "d299",
+            "repo": false
+          },
+          {
+            "name": "d300",
+            "repo": false
+          },
+          {
+            "name": "d301",
+            "repo": false
+          },
+          {
+            "name": "d302",
+            "repo": false
+          },
+          {
+            "name": "d303",
+            "repo": false
+          },
+          {
+            "name": "d304",
+            "repo": false
+          },
+          {
+            "name": "d305",
+            "repo": false
+          },
+          {
+            "name": "d306",
+            "repo": false
+          },
+          {
+            "name": "d307",
+            "repo": false
+          },
+          {
+            "name": "d308",
+            "repo": false
+          },
+          {
+            "name": "d309",
+            "repo": false
+          },
+          {
+            "name": "d310",
+            "repo": false
+          },
+          {
+            "name": "d311",
+            "repo": false
+          },
+          {
+            "name": "d312",
+            "repo": false
+          },
+          {
+            "name": "d313",
+            "repo": false
+          },
+          {
+            "name": "d314",
+            "repo": false
+          },
+          {
+            "name": "d315",
+            "repo": false
+          },
+          {
+            "name": "d316",
+            "repo": false
+          },
+          {
+            "name": "d317",
+            "repo": false
+          },
+          {
+            "name": "d318",
+            "repo": false
+          },
+          {
+            "name": "d319",
+            "repo": false
+          },
+          {
+            "name": "d320",
+            "repo": false
+          },
+          {
+            "name": "d321",
+            "repo": false
+          },
+          {
+            "name": "d322",
+            "repo": false
+          },
+          {
+            "name": "d323",
+            "repo": false
+          },
+          {
+            "name": "d324",
+            "repo": false
+          },
+          {
+            "name": "d325",
+            "repo": false
+          },
+          {
+            "name": "d326",
+            "repo": false
+          },
+          {
+            "name": "d327",
+            "repo": false
+          },
+          {
+            "name": "d328",
+            "repo": false
+          },
+          {
+            "name": "d329",
+            "repo": false
+          },
+          {
+            "name": "d330",
+            "repo": false
+          },
+          {
+            "name": "d331",
+            "repo": false
+          },
+          {
+            "name": "d332",
+            "repo": false
+          },
+          {
+            "name": "d333",
+            "repo": false
+          },
+          {
+            "name": "d334",
+            "repo": false
+          },
+          {
+            "name": "d335",
+            "repo": false
+          },
+          {
+            "name": "d336",
+            "repo": false
+          },
+          {
+            "name": "d337",
+            "repo": false
+          },
+          {
+            "name": "d338",
+            "repo": false
+          },
+          {
+            "name": "d339",
+            "repo": false
+          },
+          {
+            "name": "d340",
+            "repo": false
+          },
+          {
+            "name": "d341",
+            "repo": false
+          },
+          {
+            "name": "d342",
+            "repo": false
+          },
+          {
+            "name": "d343",
+            "repo": false
+          },
+          {
+            "name": "d344",
+            "repo": false
+          },
+          {
+            "name": "d345",
+            "repo": false
+          },
+          {
+            "name": "d346",
+            "repo": false
+          },
+          {
+            "name": "d347",
+            "repo": false
+          },
+          {
+            "name": "d348",
+            "repo": false
+          },
+          {
+            "name": "d349",
+            "repo": false
+          },
+          {
+            "name": "d350",
+            "repo": false
+          },
+          {
+            "name": "d351",
+            "repo": false
+          },
+          {
+            "name": "d352",
+            "repo": false
+          },
+          {
+            "name": "d353",
+            "repo": false
+          },
+          {
+            "name": "d354",
+            "repo": false
+          },
+          {
+            "name": "d355",
+            "repo": false
+          },
+          {
+            "name": "d356",
+            "repo": false
+          },
+          {
+            "name": "d357",
+            "repo": false
+          },
+          {
+            "name": "d358",
+            "repo": false
+          },
+          {
+            "name": "d359",
+            "repo": false
+          },
+          {
+            "name": "d360",
+            "repo": false
+          },
+          {
+            "name": "d361",
+            "repo": false
+          },
+          {
+            "name": "d362",
+            "repo": false
+          },
+          {
+            "name": "d363",
+            "repo": false
+          },
+          {
+            "name": "d364",
+            "repo": false
+          },
+          {
+            "name": "d365",
+            "repo": false
+          },
+          {
+            "name": "d366",
+            "repo": false
+          },
+          {
+            "name": "d367",
+            "repo": false
+          },
+          {
+            "name": "d368",
+            "repo": false
+          },
+          {
+            "name": "d369",
+            "repo": false
+          },
+          {
+            "name": "d370",
+            "repo": false
+          },
+          {
+            "name": "d371",
+            "repo": false
+          },
+          {
+            "name": "d372",
+            "repo": false
+          },
+          {
+            "name": "d373",
+            "repo": false
+          },
+          {
+            "name": "d374",
+            "repo": false
+          },
+          {
+            "name": "d375",
+            "repo": false
+          },
+          {
+            "name": "d376",
+            "repo": false
+          },
+          {
+            "name": "d377",
+            "repo": false
+          },
+          {
+            "name": "d378",
+            "repo": false
+          },
+          {
+            "name": "d379",
+            "repo": false
+          },
+          {
+            "name": "d380",
+            "repo": false
+          },
+          {
+            "name": "d381",
+            "repo": false
+          },
+          {
+            "name": "d382",
+            "repo": false
+          },
+          {
+            "name": "d383",
+            "repo": false
+          },
+          {
+            "name": "d384",
+            "repo": false
+          },
+          {
+            "name": "d385",
+            "repo": false
+          },
+          {
+            "name": "d386",
+            "repo": false
+          },
+          {
+            "name": "d387",
+            "repo": false
+          },
+          {
+            "name": "d388",
+            "repo": false
+          },
+          {
+            "name": "d389",
+            "repo": false
+          },
+          {
+            "name": "d390",
+            "repo": false
+          },
+          {
+            "name": "d391",
+            "repo": false
+          },
+          {
+            "name": "d392",
+            "repo": false
+          },
+          {
+            "name": "d393",
+            "repo": false
+          },
+          {
+            "name": "d394",
+            "repo": false
+          },
+          {
+            "name": "d395",
+            "repo": false
+          },
+          {
+            "name": "d396",
+            "repo": false
+          },
+          {
+            "name": "d397",
+            "repo": false
+          },
+          {
+            "name": "d398",
+            "repo": false
+          },
+          {
+            "name": "d399",
+            "repo": false
+          },
+          {
+            "name": "d400",
+            "repo": false
+          },
+          {
+            "name": "d401",
+            "repo": false
+          },
+          {
+            "name": "d402",
+            "repo": false
+          },
+          {
+            "name": "d403",
+            "repo": false
+          },
+          {
+            "name": "d404",
+            "repo": false
+          },
+          {
+            "name": "d405",
+            "repo": false
+          },
+          {
+            "name": "d406",
+            "repo": false
+          },
+          {
+            "name": "d407",
+            "repo": false
+          },
+          {
+            "name": "d408",
+            "repo": false
+          },
+          {
+            "name": "d409",
+            "repo": false
+          },
+          {
+            "name": "d410",
+            "repo": false
+          },
+          {
+            "name": "d411",
+            "repo": false
+          },
+          {
+            "name": "d412",
+            "repo": false
+          },
+          {
+            "name": "d413",
+            "repo": false
+          },
+          {
+            "name": "d414",
+            "repo": false
+          },
+          {
+            "name": "d415",
+            "repo": false
+          },
+          {
+            "name": "d416",
+            "repo": false
+          },
+          {
+            "name": "d417",
+            "repo": false
+          },
+          {
+            "name": "d418",
+            "repo": false
+          },
+          {
+            "name": "d419",
+            "repo": false
+          },
+          {
+            "name": "d420",
+            "repo": false
+          },
+          {
+            "name": "d421",
+            "repo": false
+          },
+          {
+            "name": "d422",
+            "repo": false
+          },
+          {
+            "name": "d423",
+            "repo": false
+          },
+          {
+            "name": "d424",
+            "repo": false
+          },
+          {
+            "name": "d425",
+            "repo": false
+          },
+          {
+            "name": "d426",
+            "repo": false
+          },
+          {
+            "name": "d427",
+            "repo": false
+          },
+          {
+            "name": "d428",
+            "repo": false
+          },
+          {
+            "name": "d429",
+            "repo": false
+          },
+          {
+            "name": "d430",
+            "repo": false
+          },
+          {
+            "name": "d431",
+            "repo": false
+          },
+          {
+            "name": "d432",
+            "repo": false
+          },
+          {
+            "name": "d433",
+            "repo": false
+          },
+          {
+            "name": "d434",
+            "repo": false
+          },
+          {
+            "name": "d435",
+            "repo": false
+          },
+          {
+            "name": "d436",
+            "repo": false
+          },
+          {
+            "name": "d437",
+            "repo": false
+          },
+          {
+            "name": "d438",
+            "repo": false
+          },
+          {
+            "name": "d439",
+            "repo": false
+          },
+          {
+            "name": "d440",
+            "repo": false
+          },
+          {
+            "name": "d441",
+            "repo": false
+          },
+          {
+            "name": "d442",
+            "repo": false
+          },
+          {
+            "name": "d443",
+            "repo": false
+          },
+          {
+            "name": "d444",
+            "repo": false
+          },
+          {
+            "name": "d445",
+            "repo": false
+          },
+          {
+            "name": "d446",
+            "repo": false
+          },
+          {
+            "name": "d447",
+            "repo": false
+          },
+          {
+            "name": "d448",
+            "repo": false
+          },
+          {
+            "name": "d449",
+            "repo": false
+          },
+          {
+            "name": "d450",
+            "repo": false
+          },
+          {
+            "name": "d451",
+            "repo": false
+          },
+          {
+            "name": "d452",
+            "repo": false
+          },
+          {
+            "name": "d453",
+            "repo": false
+          },
+          {
+            "name": "d454",
+            "repo": false
+          },
+          {
+            "name": "d455",
+            "repo": false
+          },
+          {
+            "name": "d456",
+            "repo": false
+          },
+          {
+            "name": "d457",
+            "repo": false
+          },
+          {
+            "name": "d458",
+            "repo": false
+          },
+          {
+            "name": "d459",
+            "repo": false
+          },
+          {
+            "name": "d460",
+            "repo": false
+          },
+          {
+            "name": "d461",
+            "repo": false
+          },
+          {
+            "name": "d462",
+            "repo": false
+          },
+          {
+            "name": "d463",
+            "repo": false
+          },
+          {
+            "name": "d464",
+            "repo": false
+          },
+          {
+            "name": "d465",
+            "repo": false
+          },
+          {
+            "name": "d466",
+            "repo": false
+          },
+          {
+            "name": "d467",
+            "repo": false
+          },
+          {
+            "name": "d468",
+            "repo": false
+          },
+          {
+            "name": "d469",
+            "repo": false
+          },
+          {
+            "name": "d470",
+            "repo": false
+          },
+          {
+            "name": "d471",
+            "repo": false
+          },
+          {
+            "name": "d472",
+            "repo": false
+          },
+          {
+            "name": "d473",
+            "repo": false
+          },
+          {
+            "name": "d474",
+            "repo": false
+          },
+          {
+            "name": "d475",
+            "repo": false
+          },
+          {
+            "name": "d476",
+            "repo": false
+          },
+          {
+            "name": "d477",
+            "repo": false
+          },
+          {
+            "name": "d478",
+            "repo": false
+          },
+          {
+            "name": "d479",
+            "repo": false
+          },
+          {
+            "name": "d480",
+            "repo": false
+          },
+          {
+            "name": "d481",
+            "repo": false
+          },
+          {
+            "name": "d482",
+            "repo": false
+          },
+          {
+            "name": "d483",
+            "repo": false
+          },
+          {
+            "name": "d484",
+            "repo": false
+          },
+          {
+            "name": "d485",
+            "repo": false
+          },
+          {
+            "name": "d486",
+            "repo": false
+          },
+          {
+            "name": "d487",
+            "repo": false
+          },
+          {
+            "name": "d488",
+            "repo": false
+          },
+          {
+            "name": "d489",
+            "repo": false
+          },
+          {
+            "name": "d490",
+            "repo": false
+          },
+          {
+            "name": "d491",
+            "repo": false
+          },
+          {
+            "name": "d492",
+            "repo": false
+          },
+          {
+            "name": "d493",
+            "repo": false
+          },
+          {
+            "name": "d494",
+            "repo": false
+          },
+          {
+            "name": "d495",
+            "repo": false
+          },
+          {
+            "name": "d496",
+            "repo": false
+          },
+          {
+            "name": "d497",
+            "repo": false
+          },
+          {
+            "name": "d498",
+            "repo": false
+          },
+          {
+            "name": "d499",
+            "repo": false
+          }
+        ],
+        "home": "<ROOT>/home",
+        "parent": "<ROOT>",
+        "path": "<ROOT>/many",
+        "truncated": true
+      },
+      "case": "truncated",
+      "path": "<ROOT>/many",
+      "status": 200,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "error": "Not an existing folder"
+      },
+      "case": "file",
+      "path": "<ROOT>/main/file.txt",
+      "status": 400,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "error": "Path must be absolute"
+      },
+      "case": "relative",
+      "path": "relative/path",
+      "status": 400,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "error": "Not an existing folder"
+      },
+      "case": "missing",
+      "path": "<ROOT>/main/nope",
+      "status": 400,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "error": null
+      },
+      "case": "nul",
+      "path": "<ROOT>/main\u0000",
+      "status": 400,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "error": "Not an existing folder"
+      },
+      "case": "loop",
+      "path": "<ROOT>/main/loop",
+      "status": 400,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "error": "Not an existing folder"
+      },
+      "case": "broken",
+      "path": "<ROOT>/main/broken",
+      "status": 400,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "dirs": [
+          {
+            "name": "apple",
+            "repo": false
+          },
+          {
+            "name": "Banana",
+            "repo": false
+          },
+          {
+            "name": "gitfile",
+            "repo": true
+          },
+          {
+            "name": "link_to_dir",
+            "repo": false
+          },
+          {
+            "name": "locked",
+            "repo": false
+          },
+          {
+            "name": "repo",
+            "repo": true
+          },
+          {
+            "name": "with space",
+            "repo": false
+          },
+          {
+            "name": "zeta",
+            "repo": false
+          },
+          {
+            "name": "Éclair",
+            "repo": false
+          },
+          {
+            "name": "ünï",
+            "repo": false
+          }
+        ],
+        "home": "<ROOT>/home",
+        "parent": "<ROOT>",
+        "path": "<ROOT>/main"
+      },
+      "case": "cwd",
+      "path": null,
+      "status": 200,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "dirs": [
+          {
+            "name": "apple",
+            "repo": false
+          },
+          {
+            "name": "Banana",
+            "repo": false
+          },
+          {
+            "name": "gitfile",
+            "repo": true
+          },
+          {
+            "name": "link_to_dir",
+            "repo": false
+          },
+          {
+            "name": "locked",
+            "repo": false
+          },
+          {
+            "name": "repo",
+            "repo": true
+          },
+          {
+            "name": "with space",
+            "repo": false
+          },
+          {
+            "name": "zeta",
+            "repo": false
+          },
+          {
+            "name": "Éclair",
+            "repo": false
+          },
+          {
+            "name": "ünï",
+            "repo": false
+          }
+        ],
+        "home": "<ROOT>/home",
+        "parent": "<ROOT>",
+        "path": "<ROOT>/main"
+      },
+      "case": "empty",
+      "path": "",
+      "status": 200,
+      "unprivileged": false
+    },
+    {
+      "body": {
+        "error": "Cannot read this folder"
+      },
+      "case": "locked",
+      "path": "<ROOT>/main/locked",
+      "status": 403,
+      "unprivileged": true
+    }
+  ]
+}

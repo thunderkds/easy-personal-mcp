@@ -67,12 +67,19 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11T14:35:34Z, `rust/target/debug/easy-personal-rs serve` and `mcp` over a temp copy of `rust/parity/store-rich/store-v11.sqlite`, `env` cleared, `PATH` = an empty scratch folder, `TZ=UTC`; no implementation file existed yet):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+captured 2026-11-11T14:35:34Z
+GET /api/dirs?path=/tmp -> 404 b''
+GET /api/jobs -> 404 b''
+GET /api/version -> 200 b'{"version":"0.2.0"}'
+MCP kit_findings -> {"jsonrpc": "2.0", "id": 2, "error": {"code": -32602, "message": "Unknown tool: kit_findings"}}
+MCP tools: ['ping', 'usage_summary', 'usage_breakdown', 'session_outliers', 'warnings', 'improvement_plan', 'kit_summary', 'connector_catalog', 'connector_status', 'connector_suggestions']
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: `/api/dirs` and `/api/jobs` answer and MCP `kit_findings` is listed and callable. `kit_findings` goldens 4/4 equal; dirs oracle 12/12 core and 14/14 over HTTP; jobs oracle 7/7 with fake `systemctl`/`crontab` (argv sequences equal Python's and on the allow-list); empty `PATH` gives `no data` with the route still 200; a hanging fake is cut at about 3 s; endless output is capped. Supervisor re-run in `main`: 576 tests x3 TZ, 0 failed, clippy x2, fmt, leak 0 hits over 186 surfaces, `gen_dirs_jobs.py --check` equal; the Supervisor read the allow-list and `run` (whole argv checked, `env_clear`, stdin null, 8 MiB cap, 3 s kill, `valid_unit`).
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: The Rust dashboard's folder browser and Jobs view work and an MCP client can ask for kit findings, where both routes answered 404 and the tool was unknown.
+
+**WITNESS**: derived by the delivery-report renderer from `memory/event-trace/T044.jsonl`; the Supervisor re-ran the merged tree on 2026-11-11.
