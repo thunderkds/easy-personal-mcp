@@ -112,11 +112,11 @@ exit=0
 2. The Tauri tree includes MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`, `option-ext`): accept the licence before any release or packaging.
 3. BEFORE was captured on HEAD `e06f7bd`, after the T023 code already existed in `c26d7d4`: accept explicitly or waive.
 4. Not tested: a display that goes away mid-run; a second `app` launch opens a second window (documented as not done).
-5. The project's `/verify` recipe has no Rust step. Suggestion: add one (build, `store-info`, `serve` plus one request, `app --self-test` where a display exists) so the Rust port is verified by the recipe and not only by its own tests.
+5. (Done by T024, 2026-11-11.) The project's `/verify` recipe had no Rust step. Suggestion: add one (build, `store-info`, `serve` plus one request, `app --self-test` where a display exists) so the Rust port is verified by the recipe and not only by its own tests.
 
 **Resolution (owner, 2026-11-11: "accepts all your suggestion"):**
 1. GTK and WebKitGTK libraries: CLI and MCP use are served by the default binary (no window feature); the feature binary is for the window only.
 2. MPL-2.0 crates in the Tauri tree: accepted.
 3. BEFORE taken on `e06f7bd`, after the T023 code existed in `c26d7d4`: accepted as stated.
 4. Display going away and second launch: stay documented as not done.
-5. A Rust step in the `/verify` recipe: to be added by T024.
+5. A Rust step in the `/verify` recipe: added by T024.
