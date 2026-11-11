@@ -2,7 +2,7 @@
 
 > **This is a plan and a recommendation. The operator executes it.** Nothing in this file was run against the owner's real data. The Supervisor never pushes `main`, tags or publishes; the auto-mode gate blocks it and the owner is the operator.
 
-**Proposed tag:** `rust-v0.2.0` (the Rust component; the Python app keeps its own `v0.x` tags, for example `v0.2.0` is Python's). **Crate version:** `0.2.0` (`rust/Cargo.toml`, T039). **Commit to tag:** the commit that adds this plan (named in the approval row of `RUNBOOK.md`; later commits only record the approval and change no code).
+**Proposed tag:** `rust-v0.2.0` (the Rust component; the Python app keeps its own `v0.x` tags, for example `v0.2.0` is Python's). **Crate version:** `0.2.0` (`rust/Cargo.toml`, T039). **Commit to tag:** `0fb232e` (the commit that added this plan; **approved by the owner, 2026-11-11**). Tag exactly this commit: later commits only record the approval and change no code.
 **Deployment target** (`rust/PROJECT_SPEC.md`): local machine only, Ubuntu first. No deploy command is defined for the Rust app: the install method is the one the owner confirmed for 0.1.0 (copy the release binary to `~/.local/bin`).
 
 **Relation to `rust-v0.1.0`:** that release was approved at `77df906` but **was never tagged** (`git tag` and `git ls-remote --tags origin 'rust-v*'` show no `rust-v` tag on 2026-11-11). 0.2.0 contains everything in 0.1.0. Recommended: **skip tagging 0.1.0 and publish only `rust-v0.2.0`** (one release, one set of notes). If you prefer both, tag `rust-v0.1.0` on `77df906` first as `docs/release/rust-v0.1.0.md` says, then this one.
@@ -117,9 +117,9 @@ Then, from `rust/`: `cargo test --workspace --locked` → **PASS:** 0 failed (46
 | Rollback plan with triggers and exact reverse steps | **Yes** (section 5) |
 | Post-deploy health check with a concrete pass condition | **Yes** (section 4) |
 | Deploy command known | **Yes**: confirmed by the owner for 0.1.0 (copy to `~/.local/bin`), unchanged |
-| Production approval recorded for the version and commit | **See the Release Log row of `RUNBOOK.md`** (recorded after the owner answers the approval question; this line is not a substitute) |
+| Production approval recorded for the version and commit | **Yes**: owner, 2026-11-11, answer "Approve rust-v0.2.0 @ 0fb232e" (copied verbatim into the Release Log row of `RUNBOOK.md`) |
 
-**Verdict: GO once the approval row is recorded.** This is a recommendation; **the operator executes**.
+**Verdict: GO** (all five gates hold). Tag exactly `0fb232e`: the commits after it only record this approval and change no code. This is a recommendation; **the operator executes**.
 
 ## 7. Risks to watch during this release
 
