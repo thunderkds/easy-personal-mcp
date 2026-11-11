@@ -300,3 +300,51 @@ name; the whole report is scanned before it is printed) and the script exits 1.
 
 **For the Supervisor** (not edited here): to add this to the `/verify` recipe, add after the Rust step of `skills/verify/SKILL.md`:
 `cd rust && cargo build && ./parity/.venv/bin/python parity/leak_rust.py` (expects exit 0 and the `leak check: 0 hits` line).
+
+## Ingest speed and memory (T032)
+
+NFR-005 for the Rust ingest, measured beside the Python ingest over the same generated data. `bench_ingest.py` (parity venv) makes
+invented transcripts (seeded: the same bytes every run; about 3 KB per line; user prompts, assistant records split per content block
+with one usage, tool calls and results, a few of 200-600 KB, attachments, system and metadata lines; no real text, path or secret):
+set **A** 200 MiB in 72 files, set **B** one 12 MiB file, and **C** = A again, unchanged, into the store the cold run of A made. It runs
+the **release** binary and the Python CLI (fresh data folder per cold run, an empty agent root, so the source is read untagged).
+
+```bash
+cd rust && cargo build --release && ./parity/.venv/bin/python parity/bench_ingest.py   # about 30 s; exit 0 = every Rust gate passed, tables equal
+./parity/.venv/bin/python parity/bench_ingest.py --impl rust --runs 1                  # Rust only, one run
+cargo test --release -p easy-personal-rs --test ingest_perf -- --ignored --nocapture  # the cargo-side gates (memory, re-run)
+```
+
+How it measures: wall time with `time.perf_counter`; peak RSS of the program as GNU `/usr/bin/time -f %M` reports it (the child's
+`VmHWM` at exit; the script's own `wait4` would carry the script's RSS into the child, Linux keeps the high-water mark across `execve`);
+the idle baseline is the same program running `--version`; median of 3 cold runs; MB = 2^20 bytes as in `tests/sources/test_ingest_perf.py`.
+Before each cold run the dataset files are dropped from the page cache with `posix_fadvise(DONTNEED)` (best effort, no root: the program,
+its libraries and, on WSL, the Windows host's disk cache stay warm). A speed number counts only when `events`, `tool_signals` and
+`source_files` of every cold run equal the first Python run's (row id, machine_id and inode left out). It writes only under
+`rust/target/bench/` (git-ignored; `datasets/` is reused, one new `runs/<time>/` per invocation of about 450 MB, nothing is deleted),
+refuses with less than 1 GiB free, and prints the filesystem it used (a RAM-backed `tmpfs` would inflate the numbers).
+
+Result, 2026-11-11 (AMD Ryzen 7 5700X, 16 threads, 16 GB, WSL2 kernel 6.18.58.1, ext4 on `/dev/sdd`, git 2.53.0, Python 3.14.4 with
+SQLite 3.46.1, Rust with rusqlite's bundled SQLite (libsqlite3-sys 0.39.1)), after the T032 fix below:
+
+| run | impl | seconds (median) | MB/s | peak RSS MiB | above baseline MiB | new_events | tables |
+|---|---|---|---|---|---|---|---|
+| baseline (`--version`) | rust | 0.00 | - | 4.2 | - | - | - |
+| baseline (`--version`) | python | 0.38 | - | 60.9 | - | - | - |
+| B 12 MiB, 1 file | rust | 0.08 | 147.6 | 10.0 | 5.8 | 4210 | equal |
+| B 12 MiB, 1 file | python | 0.54 | 22.1 | 65.7 | 4.8 | 4210 | equal |
+| A 200 MiB, 72 files | rust | 1.13 | 176.9 | 11.1 | 6.9 | 67078 | equal |
+| A 200 MiB, 72 files | python | 2.66 | 75.0 | 66.4 | 5.5 | 67078 | equal |
+| C unchanged re-run | rust | 0.01 | - | 7.5 | 3.3 | 0 | - |
+| C unchanged re-run | python | 0.45 | - | 65.9 | 5.0 | 0 | - |
+
+Gates (Rust): A 176.9 MB/s (>= 8), C 0.01 s (< 2), B +5.8 MiB (< 8): all pass; Python passes all three too. The cargo test
+`ingest_perf` adds the worst case for memory, a 12 MB file of 27,053 small events (the shape of `tests/ops/test_ingest_memory.py`):
+release +4.8 to +5.1 MiB, debug +7.4 to +7.5 MiB (a thin margin), and an unchanged re-run of 200 files in 0.012 s (release).
+
+**The T032 fix**: before it, `folders.rs` collected all the `Line`s of a file before its one transaction, so memory grew with the events
+of a file (about 0.47 KiB per event: 11.7 / 13.7 / 18.6 / 27.9 MiB peak for 5k / 10k / 20k / 40k small lines) and the 12 MB small-event
+file took **+17.5 MiB** (gate failed); set B passed by 0.1 MiB (+7.9). Now `Store::save_file_streamed` reads the lines one by one inside
+the same single transaction per file (a read error part-way rolls the file back and skips it, as before); peak is flat (9.5 / 9.3 / 9.3 /
+9.4 MiB for the same four files). Still buffered per file: the `tool_signals` rows (inserted after the events, as Python does) and the
+distinct sessions; `resolve_project` (git, once per distinct `cwd` per run) now runs inside the write transaction.

@@ -142,11 +142,12 @@ fn resolve_project(cwd: &str, base: &Path) -> String {
         .unwrap_or_else(|| cwd.to_owned())
 }
 
-/// `read_complete_lines` + `_file_events` from `offset`, streamed (memory bounded by the longest line).
-fn read_from(path: &Path, offset: u64) -> io::Result<Vec<Line>> {
+/// `read_complete_lines` + `_file_events` from `offset`, streamed (memory bounded by the longest line): the lines go
+/// straight into [`Store::save_file_streamed`], never collected (T032).
+fn read_from(path: &Path, offset: u64) -> io::Result<LineReader<BufReader<File>>> {
     let mut file = File::open(path)?;
     file.seek(SeekFrom::Start(offset))?;
-    LineReader::new(BufReader::new(file), offset as i64).collect()
+    Ok(LineReader::new(BufReader::new(file), offset as i64))
 }
 
 /// `_scan`: ingest every transcript of each `(account, root)`; retire the files that vanished under a root that exists
@@ -209,9 +210,8 @@ fn scan(
                     continue;
                 }
             };
-            let lines: Vec<Line> = lines
-                .into_iter()
-                .map(|mut line| {
+            let lines = lines.map(|line| {
+                line.map(|mut line: Line| {
                     if let Some(event) = line.event.as_mut()
                         && let Some(cwd) = event.project_path.take()
                     {
@@ -222,8 +222,17 @@ fn scan(
                     }
                     line
                 })
-                .collect();
-            summary.new_events += store.save_file(SOURCE, key, inode, offset, &lines, *account)?;
+            });
+            // A read error part-way rolls the file back: skipped exactly as an error before the first line was.
+            match store.save_file_streamed(SOURCE, key, inode, offset, lines, *account)? {
+                Ok(added) => summary.new_events += added,
+                Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
+                Err(_) => {
+                    summary.skipped += 1;
+                    kept.insert(key.to_owned());
+                    continue;
+                }
+            }
             seen.insert(key.to_owned());
         }
     }

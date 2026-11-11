@@ -9,7 +9,6 @@
 ## Board
 
 ### Todo
-- [ ] **T032** — Perf and memory gates (NFR-005): 8 MB/s on 200 MB, unchanged re-run < 2 s, < 8 MiB for a 12 MB file | QA-Automation | C1 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T032.md`; Depends on T029
 - [ ] **T033** — P2b: `kit_trace`, `ui`, `verifier` sources in Rust (replace-all semantics, size and symlink limits) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T033.md`; Depends on T029, T030
 
 ### In Progress
@@ -18,6 +17,7 @@
 
 ### Done
 
+- [x] **T032** — Perf and memory gates (NFR-005): 8 MB/s on 200 MB, unchanged re-run < 2 s, < 8 MiB for a 12 MB file | QA-Automation | C1 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T032.md`; Depends on T029; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 git resolution inside the write transaction, security-review clean); Supervisor re-ran the benchmark (Rust 169.7 MB/s vs Python 74.5; tables equal), the ignored gates and 420 tests x3 zones; streaming fix in `writer.rs`/`folders.rs`
 - [x] **T031** — Coexistence tests: Rust and Python ingest the same folder (concurrent, in turn, kill and resume, copied file, `integrity_check`) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T031.md`; Depends on T029; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 timing-fragile readers test, security-review clean); 160 races, 22 kill-and-resume cases, readers during writes: no product defect; Supervisor re-ran 419 tests x3 zones and the real-Python half (10 of 10)
 - [x] **T030** — Leak suite over the Rust ingest (canaries absent from store, WAL/SHM, output, logs) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T030.md`; Depends on T029; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1/P2, security-review clean); Supervisor re-ran the self-test, two full leak runs (0 hits over 42 canaries, 116 surfaces) and the Python leak suite (46 passed); no leak found
 - [x] **T029** — `easy-personal-rs ingest` CLI: env and data dir, the lock (exit 75 on busy), `--source`, `--retention-days`, JSON output equal to Python's (indent 2, sorted keys) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T029.md`; Depends on T035; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 guide error fixed, security-review clean), Supervisor re-ran 406 tests x3 zones, the real Python coexistence test and a hand run of the binary (files 6, new_events 39); differences from Python flagged in `tasks/TASK_REVIEW_T029.md`

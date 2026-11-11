@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/parity/bench_ingest.py` (generator, Rust and Python runs, table-equality check, three NFR-005 gates), `rust/crates/app/tests/ingest_perf.rs` (2 ignored gates: `memory_12mb_under_8_mib`, `unchanged_rerun_under_2s`), unit test `writer::tests::a_read_error_part_way_rolls_the_file_back` |
+| Verification command run | ☑ pass | Supervisor, own runs 2026-11-11 (quiet machine): `bench_ingest.py` at 09:29Z: A (209,715,201 bytes, 72 files) Rust 1.18 s = 169.7 MB/s vs Python 2.69 s = 74.5 MB/s; C (unchanged) Rust 0.01 s vs Python 0.45 s; B (12.6 MB) Rust +5.8 MiB vs Python +4.9 MiB above baseline; tables `equal` for every cold run; all three gates PASS for both implementations; ignored cargo gates `2 passed` (debug: delta 7788 KiB, re-run 0.031 s, 0 new events); `cargo test --workspace --no-fail-fast` = 420 passed, 0 failed, 25 ignored under TZ unset, `Pacific/Kiritimati`, `Pacific/Pago_Pago` (09:41-09:46Z); fmt ok; clippy `-D warnings` exit 0 (default and `--features window`); `git status` for `src tests web` = 0 entries |
+| Negative cases hold | ☑ pass | agent-reported red/green on the memory gate in release: the prior code put back gave `peak_kib=22140 delta_kib=17968` and `peak grew 17968 KiB` FAILED; the fix gave `peak_kib=9384 delta_kib=4928` ok. Measured growth before the fix about 0.47 KiB per event (5k lines 12,012 KiB; 40k lines 28,564 KiB), flat after (9.5-9.7 MiB). The rollback unit test proves a mid-file error stores nothing. Not re-run by the Supervisor (he ran the green side) |
+| verify | ☑ pass | real runs of the release binary and the real Python ingest over the same 200 MB set and the same 12 MB file with equal tables (above); the ignored cargo gates ran the real binary under `/usr/bin/time`. The `/verify` recipe itself was not edited |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | read by the Supervisor: the whole diff of `writer.rs` (105 changed lines: `save_file_streamed`, the delegation, the unit test) and `folders.rs` (25 changed lines: `read_from`, `scan`); `bench_ingest.py` and `ingest_perf.rs` were not read line by line (their output was reproduced). Scope: those two core files, the two new files, the `rust/parity/README.md` section, this review file; `src`, `tests`, `web`, other core files, Cargo files untouched. code-review report `reports/code-review_main_20261111T164747.html`: 0 P0, 0 P1, 1 P2, 5 P3, 1 info. security-review `reports/security-review_main_20261111T164748.html`: nothing at confidence 8 or above |
+| Full smoke suite still green (no regression) | ☑ pass | whole workspace 420 passed, 0 failed under three zones (Supervisor), including the S01-S14 golden replays and the T031 coexistence default half; the only two flaky tests met on the way were handled: T031's lock-bypass red control (made reliable) and one unproven display test flake (open P3) |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 
@@ -67,12 +67,35 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured by qa-automation (T032) before any file of this task existed, in `rust/`:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ date -u; ls parity/bench_ingest.py crates/app/tests/ingest_perf.rs; echo "exit=$?"
+2026-11-11T08:57:52Z
+ls: cannot access 'parity/bench_ingest.py': No such file or directory
+ls: cannot access 'crates/app/tests/ingest_perf.rs': No such file or directory
+exit=2
+$ date -u; cargo build --release && ./parity/.venv/bin/python parity/bench_ingest.py; echo "exit=$?"; date -u
+2026-11-11T08:57:52Z
+   Compiling hyper-util v0.1.21
+   Compiling axum v0.8.9
+    Finished `release` profile [optimized] target(s) in 21.42s
+./parity/.venv/bin/python: can't open file '/home/thunderkds/workspace/pets/easy-personal-mcp/rust/parity/bench_ingest.py': [Errno 2] No such file or directory
+exit=2
+2026-11-11T08:58:14Z
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+The Verification Command stops at its second step: there is no benchmark and no `ingest_perf` cargo test.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: Supervisor 2026-11-11T09:29Z: Rust 169.7 MB/s vs Python 74.5 MB/s on 200 MB (tables equal), unchanged re-run 0.01 s vs 0.45 s, 12 MB file +5.8 MiB vs +4.9 MiB; gates all PASS; `cargo test --workspace` = 420 passed, 0 failed (three zones).
+
+**DELTA**: the Rust ingest is measured, not assumed, to meet NFR-005 (and to be about 2.3 times faster than Python with identical output), and its memory no longer grows with the size of one transcript file.
+
+**WITNESS**: Supervisor re-ran the benchmark, the ignored gates and the workspace tests after the implementing agent; tool calls recorded in `memory/event-trace/T032.jsonl`.
+
+## Notes for the owner
+
+1. **Result:** all three NFR-005 gates pass for Rust on this machine (AMD Ryzen 7 5700X, 16 GB RAM, WSL2, ext4): 169.7 MB/s cold (gate 8), 0.01 s unchanged re-run (gate 2 s), +5.8 MiB for a 12 MB file (gate 8 MiB). Python also passes its own gates (74.5 MB/s, 0.45 s, +4.9 MiB).
+2. **⚠ decided for you:** the streaming change moves git project resolution and file reading inside the write transaction (see the P2). Accepted because the alternative (collecting lines first) fails the memory gate; Python also streams inside its transaction.
+3. **Open P3:** one unproven flake in `display::tests::when_both_fail_the_message_names_each_variable_and_no_path_or_value` (a just-dropped socket checked without the `refused_soon` wait its siblings use); 0 of 30 failures in isolation.
+4. **Disk:** the benchmark leaves 1.4 GB under `rust/target/bench` (git-ignored, safe to delete).

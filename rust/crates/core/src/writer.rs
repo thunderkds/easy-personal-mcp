@@ -314,6 +314,25 @@ impl Store {
         lines: &[Line],
         account_id: Option<i64>,
     ) -> Result<i64, WriteError> {
+        let lines = lines.iter().map(Ok::<&Line, std::convert::Infallible>);
+        match self.save_file_streamed(source, path, inode, offset, lines, account_id)? {
+            Ok(added) => Ok(added),
+            Err(never) => match never {},
+        }
+    }
+
+    /// [`Store::save_file`] reading the lines one by one inside the same single transaction (T032), so memory does
+    /// not grow with the lines of one file. A line that is an `Err` stops the file: everything is rolled back and the
+    /// error is returned as `Ok(Err(e))` (the store is unchanged); a store failure is the outer `Err`.
+    pub fn save_file_streamed<L: std::borrow::Borrow<Line>, E>(
+        &mut self,
+        source: &str,
+        path: &str,
+        inode: i64,
+        offset: i64,
+        lines: impl IntoIterator<Item = Result<L, E>>,
+        account_id: Option<i64>,
+    ) -> Result<Result<i64, E>, WriteError> {
         let mid = self.machine_id.as_str();
         // `with conn:`. IMMEDIATE, not Python's implicit deferred BEGIN at the first INSERT: the write lock is taken
         // (with the busy wait) before `MAX(id)` is read, so the count below cannot see another writer's rows.
@@ -324,22 +343,35 @@ impl Store {
         let last_id: i64 =
             tx.query_row("SELECT COALESCE(MAX(id), 0) FROM events", [], |r| r.get(0))?;
         let mut end = offset;
-        let mut signals: Vec<(i64, &Signal, Option<&str>)> = Vec::new();
+        let mut signals: Vec<(i64, Signal, Option<String>)> = Vec::new();
         // store.py:158-159 `first_entry` (session -> its first entrypoint seen in this batch) and `sessions`.
-        let mut first_entry: HashMap<&str, &str> = HashMap::new();
-        let mut sessions: BTreeSet<&str> = BTreeSet::new();
+        let mut first_entry: HashMap<String, String> = HashMap::new();
+        let mut sessions: BTreeSet<String> = BTreeSet::new();
         {
             // store.py:190 `conn.executemany(sql, values())`
             let mut upsert = tx.prepare(UPSERT_EVENT)?;
             for line in lines {
+                let line = match line {
+                    Ok(line) => line,
+                    Err(e) => return Ok(Err(e)), // `tx` is dropped: rolled back
+                };
+                let line = line.borrow();
                 end = line.next_offset; // store.py:163 `end[0] = next_offset`
                 let Some(e) = &line.event else { continue };
-                let ts = e.ts_utc.as_deref();
-                signals.extend(e.signals.iter().map(|s| (line.line_offset, s, ts)));
+                let ts = e.ts_utc.as_ref();
+                signals.extend(
+                    e.signals
+                        .iter()
+                        .map(|s| (line.line_offset, s.clone(), ts.cloned())),
+                );
                 if let Some(session) = e.session_id.as_deref() {
-                    sessions.insert(session);
-                    if let Some(entry) = e.entrypoint.as_deref() {
-                        first_entry.entry(session).or_insert(entry); // `setdefault`
+                    if !sessions.contains(session) {
+                        sessions.insert(session.to_owned());
+                    }
+                    if let Some(entry) = e.entrypoint.as_deref()
+                        && !first_entry.contains_key(session)
+                    {
+                        first_entry.insert(session.to_owned(), entry.to_owned()); // `setdefault`
                     }
                 }
                 upsert.execute(params![
@@ -378,8 +410,8 @@ impl Store {
         // store.py:192-207: a session's rows before its first entrypoint, or in an earlier run, take that entrypoint;
         // with none in the batch, any non-NULL entrypoint already stored for the session in this file.
         for session in sessions {
-            let entry: Option<String> = match first_entry.get(session) {
-                Some(entry) => Some((*entry).to_owned()),
+            let entry: Option<String> = match first_entry.get(&session) {
+                Some(entry) => Some(entry.clone()),
                 None => tx
                     .query_row(
                         &format!(
@@ -419,7 +451,7 @@ impl Store {
             params![mid, source, path, inode, end],
         )?;
         tx.commit()?;
-        Ok(added)
+        Ok(Ok(added))
     }
 
     /// `store.retire_files`: forget the offsets of files that no longer exist; their events stay.
@@ -517,6 +549,57 @@ mod tests {
             assert_eq!(read("journal_mode"), "wal");
             assert_eq!(read("user_version"), "11");
         }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// T032: a line that is an `Err` part-way through `save_file_streamed` rolls the whole file back (no event, signal
+    /// or offset stored), as the collected read did before; the same lines without the error are saved.
+    #[test]
+    fn a_read_error_part_way_rolls_the_file_back() {
+        let dir = std::env::temp_dir().join(format!(
+            "easy-personal-rs-t032-stream-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let mut store = open_for_write(&dir.join("store.sqlite")).unwrap();
+        let line = |at: i64| Line {
+            line_offset: at,
+            next_offset: at + 10,
+            event: Some(Event {
+                record_type: Some("assistant".into()),
+                session_id: Some("s-1".into()),
+                signals: vec![Signal {
+                    kind: "bash_command".into(),
+                    value: "git".into(),
+                }],
+                ..Event::default()
+            }),
+        };
+        let cut = vec![Ok(line(0)), Err(io::Error::other("cut")), Ok(line(10))];
+        let got = store
+            .save_file_streamed("claude_code", "p.jsonl", 7, 0, cut, None)
+            .unwrap();
+        assert!(got.is_err());
+        let counts = |store: &Store| -> Vec<i64> {
+            ["events", "tool_signals", "source_files"]
+                .iter()
+                .map(|t| {
+                    store
+                        .conn
+                        .query_row(&format!("SELECT COUNT(*) FROM {t}"), [], |r| r.get(0))
+                        .unwrap()
+                })
+                .collect()
+        };
+        assert_eq!(counts(&store), [0, 0, 0]);
+        let whole = vec![Ok::<_, io::Error>(line(0)), Ok(line(10))];
+        let added = store
+            .save_file_streamed("claude_code", "p.jsonl", 7, 0, whole, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(added, 2);
+        assert_eq!(counts(&store), [2, 2, 1]);
         let _ = fs::remove_dir_all(&dir);
     }
 }
