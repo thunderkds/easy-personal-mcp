@@ -1,0 +1,25 @@
+# Rust port of easy-personal (see PROJECT_SPEC.md). One workspace, one binary: easy-personal-rs.
+[workspace]
+members = ["crates/core", "crates/app"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+# Versions are pinned with `=` like the T001 spike (spike-T001.md).
+[workspace.dependencies]
+rusqlite = { version = "=0.41.1", features = ["bundled"] }
+clap = { version = "=4.6.7", features = ["derive"] }
+axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio"] }
+tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+getrandom = "=0.4.3"
+serde_json = "=1.0.154"
+rmcp = { version = "=3.9.0", default-features = false, features = ["server"] }
+# Local time zone for usage metrics (T009, spike-T009.md): reads `TZ`, else the OS zone; defaults keep the Windows tz bundle for P5.
+jiff = "=0.2.42"
+# Window shell (T023, spike-T016.md): only built with the app crate's `window` feature. Exact pins, like the spike.
+tauri = "=2.12.5"
+tauri-build = "=2.7.4"

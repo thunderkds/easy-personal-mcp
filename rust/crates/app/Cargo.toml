@@ -1,0 +1,30 @@
+[package]
+name = "easy-personal-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Off by default: `cargo build` links no Tauri, GTK or WebKit crate, so `serve`, `mcp` and `store-info` need no display
+# and no system library. `--features window` adds the `app` window (needs the packages listed in spike-T001.md).
+[features]
+window = ["dep:tauri", "dep:tauri-build"]
+
+[dependencies]
+easy-personal-core = { path = "../core" }
+clap.workspace = true
+axum.workspace = true
+tokio = { workspace = true, features = ["io-std", "io-util", "sync", "time"] }
+getrandom.workspace = true
+rmcp.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+tauri = { workspace = true, optional = true }
+
+[build-dependencies]
+tauri-build = { workspace = true, optional = true }
+
+# In-process tests of the router (T014): `oneshot` and body collection. Same versions axum already pulls in.
+[dev-dependencies]
+tower = { version = "=0.5.3", features = ["util"] }
+http-body-util = "=0.1.5"
