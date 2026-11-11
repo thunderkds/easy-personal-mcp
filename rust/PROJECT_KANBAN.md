@@ -13,7 +13,6 @@
 ### In Progress
 
 ### Ready for Review
-- [ ] **T023** — The window: `easy-personal-rs app --static-dir <DIR>` behind a `window` Cargo feature (Tauri v2, off by default), display preflight with a timeout, navigation lock, `--self-test` | Common-Infrastructure | C3 | Risk: High | P0 | PR/branch: committed to `main` 2026-11-11 (c26d7d4, 2dec625); review done by the Supervisor, owner decisions open; guide `tasks/TASK_GUIDE_T023.md`; evidence `tasks/TASK_REVIEW_T023.md`, reports `reports/code-review_main_20261111T104341.html`, `reports/security-review_main_20261111T104848.html`, `reports/delivery-report_main_20261111T035424.html`; Depends on T016, T021; open: GTK/WebKit libraries needed even to run `serve`/`mcp` from a feature build, MPL-2.0 crates in the Tauri tree, BEFORE taken after the T023 code existed; `/verify` Python recipe passed (pip venv, since uv is missing) but has no Rust step
 - [ ] **T022** — Core `workspaces::list_all` and `unassigned` and their two GET routes (4 goldens; writes stay 405) | Backend-Implementer | C2 | Risk: Medium | P1 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence `tasks/TASK_REVIEW_T022.md`, reports `reports/code-review_main_20261110T231200.html`, `reports/security-review_main_20261110T231300.html`; open: README heading 'no CLI/API yet' is stale; shared spawn-test helpers duplicated in `tests/workspaces.rs`
 - [ ] **T021** — Serve the dashboard's static files from `serve --static-dir <DIR>` (same origin, no token for non-`/api/` paths, CSP on all, path-safety table) | Backend-Implementer | C3 | Risk: High | P0 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence `tasks/TASK_REVIEW_T021.md`, reports `reports/code-review_main_20261110T231000.html`, `reports/security-review_main_20261110T231100.html`; differs from Python: dotfiles are 404; not tried against the real built dashboard (not built: needs `npm ci`)
 - [ ] **T020** — Serve `/api/usage/sessions`, `/api/usage/outliers` and the MCP `session_outliers` tool (six routes, six tools; 20 HTTP + 3 MCP goldens equal) | Backend-Implementer | C2 | Risk: Medium | P1 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence `tasks/TASK_REVIEW_T020.md`, reports `reports/code-review_main_20261110T221000.html`, `reports/security-review_main_20261110T221100.html`
@@ -38,6 +37,7 @@
 
 ### Done
 
+- [x] **T023** — The window: `easy-personal-rs app --static-dir DIR` behind a `window` Cargo feature (Tauri v2, off by default), display preflight with a timeout, navigation lock, `--self-test` | Common-Infrastructure | C3 | Risk: High | P0 | committed to `main` 2026-11-11 (c26d7d4, 2dec625); Stage 4 done (code-review 0 P0/P1, security-review clean), owner decisions made 2026-11-11 (default binary for CLI/MCP, MPL-2.0 accepted, BEFORE accepted); guide `tasks/TASK_GUIDE_T023.md`; evidence `tasks/TASK_REVIEW_T023.md`, reports `reports/code-review_main_20261111T104341.html`, `reports/security-review_main_20261111T104848.html`, `reports/delivery-report_main_20261111T035424.html`; `/verify` Python recipe passed but has no Rust step (T024); Depends on T016, T021
 - [x] **T003** — Parity oracle: 52 golden entries + 18 skipped, store-v11.sqlite | Backend-Implementer | C2 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence in `tasks/TASK_REVIEW_T003.md`; independent QA read closed 2026-11-10 (8 of 8 criteria pass); follow-ups T007, T011
 ---
 
@@ -69,4 +69,4 @@
 | 0 Define | ✅ Done (brainstorming log; owner approved 2026-11-10) |
 | 1 Set up | 🔄 In Progress (T001) |
 | 2 Plan | 🔄 In Progress |
-| 3 Execute | 🔄 In Progress (nothing In Progress now; T001, T002, T004–T023 in Ready for Review; T003 Done) |
+| 3 Execute | 🔄 In Progress (nothing In Progress now; T001, T002, T004–T022 in Ready for Review; T003 and T023 Done) |
