@@ -265,6 +265,25 @@ that is not UTF-8); the run goes on and a one-line note goes to stderr.
 after either ingests, the other adds 0 events (`cargo test -p easy-personal-rs --test ingest_cli -- --ignored`, needs `parity/.venv`). The Rust
 ingest never migrates: run the Python app once to move an older store to v11.
 
+**Coexistence tests** (T031, `crates/app/tests/ingest_coexist.rs`): real processes on one store. Two ingests started
+at one barrier (Rust ‖ Rust; Rust ‖ Python and Python ‖ Python in the ignored half), 20 times each, end with the
+golden S01 / S06 tables, `integrity_check` ok and no duplicate key, and one run always finds 0 new events (or exits 75
+with a zero lock wait). A SIGKILL at fixed and seeded points (`KILL_SEEDS`) leaves whole files only, and a rerun by
+either side with a zero lock wait equals a clean run. A SIGSTOPped holder makes the next ingest exit 75. `serve`,
+`mcp` and `store-info` answer while an ingest runs. Copies (the inode in the key duplicates rows on both sides, as
+golden S13 shows), v10 / v12 stores and odd data folders are covered too. A negative control bypasses the lock (two
+data folders, one store via a symlink) and checks that the race test then sees two writers. Children run in their
+own process group and are reaped, and their group is checked empty by PID. A guard refuses to start a child whose
+`EASY_PERSONAL_HOME` or `EASY_PERSONAL_AGENT_ROOT` is unset or outside the temp folder. Keep `TMPDIR` short and on the
+Linux filesystem (not `/mnt`).
+
+```bash
+cargo test -p easy-personal-rs --test ingest_coexist                   # Rust half
+cargo test -p easy-personal-rs --test ingest_coexist -- --ignored      # Python half (needs parity/.venv)
+```
+
+Not covered: the Python dashboard's live tail (a continuous writer), a Python ingest killed inside its own migration.
+
 **Differences from Python** (each on purpose):
 
 | Python | Rust | Why |

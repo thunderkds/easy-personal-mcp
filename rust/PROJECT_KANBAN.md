@@ -13,12 +13,12 @@
 - [ ] **T033** — P2b: `kit_trace`, `ui`, `verifier` sources in Rust (replace-all semantics, size and symlink limits) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T033.md`; Depends on T029, T030
 
 ### In Progress
-- [ ] **T031** — Coexistence tests: Rust and Python ingest the same folder (concurrent, in turn, kill and resume, copied file, `integrity_check`) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T031.md`; Depends on T029; Started: 2026-11-11
 
 ### Ready for Review
 
 ### Done
 
+- [x] **T031** — Coexistence tests: Rust and Python ingest the same folder (concurrent, in turn, kill and resume, copied file, `integrity_check`) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T031.md`; Depends on T029; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 timing-fragile readers test, security-review clean); 160 races, 22 kill-and-resume cases, readers during writes: no product defect; Supervisor re-ran 419 tests x3 zones and the real-Python half (10 of 10)
 - [x] **T030** — Leak suite over the Rust ingest (canaries absent from store, WAL/SHM, output, logs) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T030.md`; Depends on T029; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1/P2, security-review clean); Supervisor re-ran the self-test, two full leak runs (0 hits over 42 canaries, 116 surfaces) and the Python leak suite (46 passed); no leak found
 - [x] **T029** — `easy-personal-rs ingest` CLI: env and data dir, the lock (exit 75 on busy), `--source`, `--retention-days`, JSON output equal to Python's (indent 2, sorted keys) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T029.md`; Depends on T035; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 guide error fixed, security-review clean), Supervisor re-ran 406 tests x3 zones, the real Python coexistence test and a hand run of the binary (files 6, new_events 39); differences from Python flagged in `tasks/TASK_REVIEW_T029.md`
 - [x] **T035** — Ingest of folders: `accounts.detect`, `rglob` discovery in Python's order, accounts roots, `project_path` through `git`, per-file offsets and `save_file`, retire; S01-S07, S10, S13, S14 table goldens equal; the four Python crashes do not stick Rust | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T035.md`; Depends on T028; Started: 2026-11-11; Stage 4 done 2026-11-11 (code-review 0 P0/P1, 1 P2 memory-per-file, security-review clean), Supervisor re-ran 378 tests x3 zones and the real Python coexistence test; differences from Python flagged in `tasks/TASK_REVIEW_T035.md`

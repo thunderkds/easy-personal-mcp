@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/tests/ingest_coexist.rs` (23 tests: 13 Rust-only run by default, 10 with the real Python app `#[ignore]`d), helpers `rust/crates/app/tests/ingest_coexist_common/mod.rs` (guarded `Spec`/`Proc`, barrier races, `checked_dump`, seeded large set, serve and mcp clients) |
+| Verification command run | ☑ pass | Supervisor 2026-11-11: `cargo test --workspace --no-fail-fast` = 419 passed, 0 failed, 23 ignored under TZ unset, `Pacific/Kiritimati` and `Pacific/Pago_Pago` (08:12-08:16Z); after the follow-up `cargo fmt --check` ok, clippy `-D warnings` exit 0 (default and `--features window`); the ignored half `--ignored --test-threads=1` = `10 passed; 0 failed` in 402.82 s (08:48-08:55Z); the previously failing kill test passed twice more (70 s each); no `easy-personal-rs` process left. My first run of the ignored half (before the follow-up) had failed 1 of 10 (`ingest.lock is kept`, a wrong test assumption, fixed) |
+| Negative cases hold | ☑ pass | agent-reported: with the lock bypassed (two data folders share one store through a symlink) `the_race_oracle_sees_two_writers_when_the_lock_is_bypassed` observes two writers (`new_events 11200 and 2800` at attempt 2) while integrity stays ok; two `should_panic` guard tests (`EASY_PERSONAL_HOME is not set`, `EASY_PERSONAL_AGENT_ROOT is outside the temp folder`); follow-up mutation: deleting `ingest.lock` after a kill that saved files makes `ingest.lock is kept` fail, file restored byte-equal. Not re-run by the Supervisor |
+| verify | ☑ pass | these are real processes by design: the Rust binary and the real Python ingest raced on one store (160 races in 8 cases of 20 (Rust against Rust 3 cases, Rust against Python 3, Python against Python 2 as the control), every case 20 of 20 ending in the golden S01 or S06 tables with integrity ok), killed with SIGKILL (22 kills: 6 of 7, 6 of 7, 7 of 8 landing while running) and resumed to the clean tables, while `serve`, `mcp` and `store-info` answered (54 and 126 polls, 50 counted each, no 5xx, no "locked"). The `/verify` recipe itself was not edited |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | read by the Supervisor: `kill_then_resume`, `precreate_store`, the kill-point selection and the failing assertion; the other tests were re-run, not read line by line. Scope: `rust/crates/app/tests/ingest_coexist.rs`, `ingest_coexist_common/mod.rs`, a short `rust/README.md` note, this review file; no product code, `src/`, `tests/`, `rust/parity/`. code-review `reports/code-review_main_20261111T155538.html`: 0 P0, 0 P1, 1 P2, 3 P3. security-review `reports/security-review_main_20261111T155539.html`: nothing at confidence 8 or above |
+| Full smoke suite still green (no regression) | ☑ pass | whole workspace 419 passed, 0 failed under three zones (Supervisor); every earlier test unchanged |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 
@@ -67,12 +67,34 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11T07:42:16Z, before any T031 file existed, in `rust/`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ date -u; cargo test -p easy-personal-rs --test ingest_coexist
+2026-11-11T07:42:16Z
+error: no test target named `ingest_coexist` in `easy-personal-rs` package
+help: available test targets:
+    app
+    ...
+    ingest_cli
+    mcp
+    server
+    window
+    workspaces
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+$ cargo test --workspace 2>&1 | grep '^test result:'   (summed)   finished 2026-11-11T07:42:43Z
+workspace: passed=406 failed=0 ignored=13 (sum of 34 test result lines)
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: Supervisor 2026-11-11: `cargo test --workspace` = 419 passed, 0 failed (three zones); the ignored real-Python half `10 passed; 0 failed` (402.82 s); kill-and-resume after the fix prints, per point, `died before the lock step` or `past the lock step` (2 of 8 landed before the lock step in each run: fixed 305 ms and seed 77).
+
+**DELTA**: the claim that the Rust and Python ingests can safely share one store is now tested with real processes (simultaneous writers, SIGKILL and resume, readers during writes, copied files, version guards, odd environments) and no defect was found.
+
+**WITNESS**: Supervisor re-ran the workspace tests, lint and the whole real-Python half after the implementing agents; tool calls recorded in `memory/event-trace/T031.jsonl`.
+
+## Notes for the owner
+
+1. **Defects found in the product: none.** The one failure the Supervisor saw was a wrong assumption in the test (a lock file that does not exist when Python dies during its import phase), fixed.
+2. **Deviation from the guide (⚠ decided for you):** the whole file runs in about 66 s for the default half and about 400 s for the ignored Python half, not under 3 minutes: the Python ingest of a 6 MB set is slow. The Python half is an ignored manual gate.
+3. **Known fragile test:** `py_serve_mcp_and_store_info_answer_while_a_python_ingest_runs` (cap of 15 rounds to collect 50 polls) failed once in an agent run; it passes on re-run. Relax the cap if it flakes in CI.
+4. **Disk:** the tests need free space on `/tmp`; on this machine `/tmp` is a RAM-backed 7.8 GB filesystem that was full of scratch copies (cleared).
