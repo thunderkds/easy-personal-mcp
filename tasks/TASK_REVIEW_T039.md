@@ -67,12 +67,32 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11T12:04:07Z, HEAD a2f42a2, before any change; `git status --short rust` empty):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ . "$HOME/.cargo/env" && cd rust && cargo build && ./target/debug/easy-personal-rs --version
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+easy-personal-rs 0.1.0
+exit=0
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Grep of `rust/` for `0.1.0` (2026-11-11T12:04:08Z; excluding target, .venv, node_modules, golden*/fixtures* dirs and golden* files, and Cargo.lock which is shown separately):
+
+```
+$ grep -rnF '0.1.0' rust --exclude-dir=target --exclude-dir=.venv --exclude-dir=node_modules --exclude-dir='golden*' --exclude-dir='fixtures*' --exclude='golden*' --exclude='Cargo.lock'
+rust/Cargo.toml:7:version = "0.1.0"
+rust/crates/app/tauri.conf.json:4:  "version": "0.1.0",
+$ grep -n -B1 -A1 '0.1.0' rust/Cargo.lock   (workspace entries only)
+890: name = "easy-personal-core"   891: version = "0.1.0"
+900: name = "easy-personal-rs"     901: version = "0.1.0"
+(4223: vswhom 0.1.0 is a third-party crate, not ours)
+```
+
+Without the exclusions the same grep (counting per file) finds only those two files: no golden or fixture holds `0.1.0`.
+
+**AFTER**: Supervisor re-run, 2026-11-11, after the bump: `cargo build --locked` then `easy-personal-rs --version` prints `easy-personal-rs 0.2.0`; `cargo test --workspace --locked` 461 passed, 0 failed, 26 ignored; `cargo clippy --workspace --all-targets --features window --locked -- -D warnings` clean; `cargo fmt --check` clean; diff: `rust/Cargo.toml` line 7, `rust/Cargo.lock` the two workspace packages, `rust/crates/app/tauri.conf.json` line 4 (a literal version, one edit beyond the guide list). The only remaining `0.1.0` in `rust/` are the third-party `vswhom` lock entries.
+
+**DELTA**: `easy-personal-rs --version` and the window app report 0.2.0, matching the `rust-v0.2.0` tag.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
