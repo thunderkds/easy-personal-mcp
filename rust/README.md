@@ -597,8 +597,37 @@ Decided for you (differences from Python, all on hostile or unusual input):
   `thresholds: kit_error_rate` is not read (the default 0.04 is used).
 - Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
 
-Not served yet: the other Python routes (`/api/sync`, `/api/memory-graph`, `/api/live`, the accounts and connector writes, the report files). The release note
-`docs/release/rust-v0.2.0.md` "not in this release" list still names these three; it is the Supervisor's to update.
+Not served yet: the other Python routes (`/api/live`, the accounts and connector writes). This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
+`/api/dirs` are served); T043 serves `/api/board` and `/api/memory-graph`. The release note `docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
+
+## Board and memory graph (T043)
+
+`GET /api/board[?workspace=&account=]` and `GET /api/memory-graph[?project=]` answer what Python answers (`core/board.rs`, `core/memgraph.rs`, `core/easymem.rs`), read-only.
+`board`: every project seen in usage (in the `workspace` / `account` scope, a `.claude/worktrees/...` path skipped, a project whose folder is gone counted in `gone`) with the
+tasks of its `PROJECT_KANBAN.md` (`id`, `title` cut at 300 characters, `status`), `abstained` (rows with no id or in an unknown `###` subsection), and, only when
+`.claude/board.json` names a board, `board` (40 characters) and `last_pull` (the file's time). A missing, over 5,000,000 bytes, non-UTF-8, not-regular or board-less file is `{"status": "no data"}`.
+`memory-graph` without `project` (or with an empty one) lists the projects that have notes (`kit_notes`, `claude_notes`, `easy_memory_notes`); with one it gives that project's
+`nodes`, `edges`, `counts` and the `easy_memory` panel. Errors: an unknown `workspace` / `account` or `project` is `400` with the core's fixed text (`unknown workspace`, `unknown account`,
+`unknown project`: none names the input); a folder that cannot be read is skipped, never an error; the usual `403` (token, Host, Origin), `405` for a write method, `503` for the store states.
+Shown, and why it is safe: the folder name, the task ids and titles, the board name, a note's file path, its frontmatter `name` and `description` (200 characters) and its `[[link]]`
+targets: all the owner's own text, shown as Python shows it. A note body, an easy-memory `prompt`, `answer` or `session_id`, a file's content and any path outside the project never leave; no error,
+log line or `Debug` output holds a title, a note text or a path. Every file is opened `O_NOFOLLOW | O_NONBLOCK` from a held folder handle (the repository folder and the account folder by
+their own path), judged on the open handle (regular file) and read through `take(cap + 1)` (caps: kanban 5,000,000, board.json 5,000,000, note 1 MiB, 5000 notes per folder, 64 KB for meta/report,
+10 MiB to hash a cited file). The Rust tests point `HOME`, `EASY_MEMORY_HOME` and the account folders at temp folders.
+
+Oracle: `parity/golden-rich` and `golden` (`api__board__*` 8, `api__memory_graph__*` 4), and `parity/golden-memgraph/cases.json` (made by `parity/gen_memgraph.py`: Python's own functions over
+the tree of `parity/fixtures-memgraph/` plus 600 notes, 5001 notes, a 1 MiB+1 note, a non-UTF-8 note, symlinks, claude memory, board files of every kind and 14 kanban texts); `crates/core/tests/memgraph_parity.rs`,
+`crates/app/tests/board_memgraph.rs` (HTTP).
+
+Decided for you (Rust differs from Python on purpose):
+- A symlink is never followed: a symlinked `PROJECT_KANBAN.md` or `.claude/board.json` is no file; a symlinked note, a symlinked sub-folder and a symlinked `memory`, `projects`, `notes`, `prompts.log`, `report.json` or `meta.json` are skipped. Python follows a
+  symlink that stays inside the memory folder (and a symlinked `memory` folder).
+- A note with two names (a hard link) is listed once (by inode); Python dedupes by real path.
+- A folder or file name that is not UTF-8 is skipped (Python would put surrogates in the JSON). A memory folder deeper than 64 levels is not entered (Python has no limit).
+- `.claude/board.json` has Python's lack of a cap replaced by 5,000,000 bytes; a JSON nested deeper than 128 levels or with `NaN` is "no board" (Python crashes on the first, parses the second).
+- A transcript is read for its `cwd` in 8 KiB chunks as Python's text reader does (a bad byte in the chunk of the first line skips the file), and at most 1 MiB; `prompts.log` at most 64 MiB; a cited file is hashed through a no-follow chain after Python's `realpath` rule decides it stays inside the project.
+- easy-memory times are parsed as RFC 3339 / ISO 8601 by `jiff`; a time with no offset is UTC. Python's `fromisoformat` accepts a few more spellings. **The easy-memory layer (`easymem.rs`: panel, cited files, `report`) has a SHA-256 unit test and the empty-store golden only: it is not yet compared with Python's answers over a store with notes.**
+- The regular expressions of `board.py` are hand-coded (no new crate); `\d` is Python 3.14's Unicode 16.0 table of decimal digits, `casefold` is `scope::casefold` (an approximation outside everyday text).
 
 ## Test
 

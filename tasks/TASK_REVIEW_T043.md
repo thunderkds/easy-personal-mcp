@@ -67,8 +67,14 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11T16:02:58Z, before any file of T043 was created; `rust/target/debug/easy-personal-rs serve` over a temp copy of `rust/parity/store-rich`, `HOME`/`EASY_PERSONAL_HOME`/`EASY_MEMORY_HOME` in a temp folder, `TZ=UTC`, GET with the per-run token):
+```
+GET /api/kit/reports -> 200 b'{"workspaces":[{"folders":[],"name":"acme"},{"folders":[],"name":"personal"}]}'   (control: a served route)
+GET /api/board -> 404 b''
+GET /api/board?workspace=acme -> 404 b''
+GET /api/memory-graph -> 404 b''
+GET /api/memory-graph?project=nope -> 404 b''
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

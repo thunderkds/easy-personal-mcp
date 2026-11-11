@@ -1,6 +1,8 @@
 pub mod accounts;
+pub mod board;
 pub mod catalog;
 pub mod clock;
+pub mod easymem;
 pub mod first_run;
 pub mod folders;
 pub mod ingest;
@@ -8,6 +10,7 @@ pub mod ingest_lock;
 pub mod jobs;
 pub mod kit;
 pub mod kitperf;
+pub mod memgraph;
 pub mod metrics;
 pub mod plan;
 pub mod prices;

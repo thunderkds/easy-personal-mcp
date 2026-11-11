@@ -83,6 +83,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/reports": [""],
     "/api/reports/{id}": [""],  # asked literally (not digits: the 404); the numeric ids are in GUARD_CALLS
     "/api/first-run": [""],
+    "/api/board": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
+    "/api/memory-graph": ["", "?project=nope", "?project=%2Ftmp", "?project="],
     "/api/accounts": ["", "?by=provider", "?by=bad", "?by="],
     "/api/sync": ["", "?account=1", "?account=99", "?account=nope", "?account=99999999999999999999"],
     "/api/dirs": ["", "?path=%2F", "?path=%2Fproc%2Fself", "?path=%2Fdev", "?path=relative", "?path=%00", "?path=%2Ftmp%2F..%2Ftmp%2F"],
@@ -106,6 +108,8 @@ GUARD_CALLS = [
     ("account workspaces write", "PUT", "/api/accounts/1/workspaces", {}),
     ("dirs write method", "POST", "/api/dirs", {}),
     ("jobs write method", "DELETE", "/api/jobs", {}),
+    ("board write method", "POST", "/api/board", {}),
+    ("memory graph no token", "GET", "/api/memory-graph", {"x-dashboard-token": None}),
     ("dirs no token", "GET", "/api/dirs", {"x-dashboard-token": None}),
     ("static index", "GET", "/", {"x-dashboard-token": None}),
     ("static file", "GET", "/index.html", {"x-dashboard-token": None}),
