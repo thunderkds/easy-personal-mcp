@@ -192,3 +192,10 @@
 **Why**: owner, 2026-11-11: "as your recommend, let start and work for the final release [admin]" (answer to Question 1 in `BRAINSTORMING_LOG_RUSTP2.md`). Keeps the one-writer-at-a-time promise and keeps Python usable as oracle and fallback.
 **Approved by**: owner (v11, Option A shaped as C); Supervisor defaults for the flagged items.
 **Files**: `BRAINSTORMING_LOG_RUSTP2.md`, `rust/crates/core/src/` (new ingest and writer modules), `rust/crates/app/src/main.rs` (one subcommand), `rust/parity/` (ingest oracle); reference-only (must not change): `src/easy_personal/**`, `src/easy_personal/core/migrations/**`, `web/**`
+
+## 2026-11-11 — rust-v0.1.0 release approved (P0 + P1 + P1b + P2a); the operator executes
+**Decision**: Release the Rust app as `rust-v0.1.0` (crate 0.1.0, Ubuntu only) at commit `77df906`: scope T001-T032 and T035 (33 cards Done). Install by copying the release binary to `~/.local/bin` (owner's choice; `PROJECT_SPEC.md` defines no install command). Plan, notes, smoke test, rollback and GO gate: `docs/release/rust-v0.1.0.md`; Release Log row in `RUNBOOK.md`. The Rust app never migrates (needs schema v11); the Python app is untouched, so rollback is: remove the binary, and restore the pre-Rust store backup only if the store is suspect. Not included: `kit_trace`/`ui`/`verifier`/`context` ingest (T033, still Todo), scheduler, 12 dashboard routes, write surfaces (P3), macOS/Windows.
+**Why**: owner, 2026-11-11: "as your recommend, let start and work for the final release [admin]", then approval "Approve rust-v0.1.0 @ 77df906" and install "Copy to ~/.local/bin (Recommended)". The Supervisor plans and de-risks; the operator (owner) runs backup, build, install, publish. The auto-mode gate blocks the Supervisor from pushing `main`, so every Rust commit since `cf5b1de` is still local: the owner pushes (`git push origin main`), tags `77df906` and creates the GitHub release.
+**Approved by**: owner (version, commit, install method).
+**Files**: `docs/release/rust-v0.1.0.md`, `RUNBOOK.md`, `rust/PROJECT_KANBAN.md`
+

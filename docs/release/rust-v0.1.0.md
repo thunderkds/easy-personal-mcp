@@ -58,6 +58,8 @@ $B ingest --source ../tests/fixtures/claude_code        # PASS: new_events 0
 $B store-info                                           # PASS: user_version 11, known 11, pending no
 ```
 
+*Run by the Supervisor on the release binary, scratch folder, 2026-11-11: `--version` `easy-personal-rs 0.1.0`; ingest `files 6, new_events 39, skipped 0`; again `new_events 0`; `store-info` `user_version 11`, `pending no`; leak gate `0 hits over 42 canaries, 116 surfaces`. The plan is proven runnable; the operator still runs it on the real machine.*
+
 Then, from `rust/`: `./parity/.venv/bin/python parity/leak_rust.py` → **PASS:** `leak check: 0 hits over 42 canaries, 116 surfaces`. And `cargo test --workspace` → **PASS:** 0 failed (420 passed, 25 ignored on the build machine). And, where a display exists, `cargo build --release --features window` then `app --self-test --static-dir ../src/easy_personal/dashboard/static` → **PASS:** `self-test: ok`, exit 0 (the dashboard bundle built first).
 
 ## 4. Deployment plan (operator)

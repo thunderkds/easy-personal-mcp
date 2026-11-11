@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [rust-v0.1.0 release approved; operator executes](decisions.md#2026-11-11--rust-v010-release-approved-p0--p1--p1b--p2a-the-operator-executes) — tag `77df906`; install = copy to `~/.local/bin`; plan in `docs/release/rust-v0.1.0.md`; Rust app never migrates, Python untouched; T033 (kit_trace/ui/verifier) not included; commits after `cf5b1de` still local (owner pushes).
 - [Rust P2 ingest: shadow writer on schema v11, events first](decisions.md#2026-11-11--rust-p2-ingest-shadow-writer-on-schema-v11-events-first-option-a-shaped-as-c) — no Rust migration in P2 (v12 locks Python out → P6); P2a events T026-T032, P2b kit_trace/ui/verifier T033, P2c scheduler; context and live.py out; Python is the oracle; defaults flagged.
 - [Rust port P0-P1b closed; window and close-out decisions](decisions.md#2026-11-11--rust-port-p0-p1-and-p1b-closed-window-and-close-out-decisions-t023-t025) — default binary for CLI/MCP (window binary links GTK at load); MPL-2.0 accepted; 25 cards Done, pushed; 12 dashboard routes still 404; admin-mode choices flagged in `rust/docs/closeout-2026-11-11.md`.
 - [Rust port: staged, desktop app, shared store (Option B)](decisions.md#2026-11-10--rust-port-staged-desktop-app-shared-store-python-replaced-later-option-b) — `rust/` in this repo (owner: one repo); Python replaceable early if forced; Ubuntu→macOS→Windows; Python parity oracle then sunset; migrations frozen.
