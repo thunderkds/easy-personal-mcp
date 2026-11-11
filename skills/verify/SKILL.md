@@ -1,6 +1,6 @@
 ---
 name: verify
-description: How to build, launch and drive easy-personal-mcp for runtime verification (CLI, MCP stdio, MCP HTTP). Read by /verify before a cold start.
+description: How to build, launch and drive easy-personal-mcp for runtime verification (CLI, MCP stdio, MCP HTTP), and its Rust port easy-personal-rs. Read by /verify before a cold start.
 ---
 
 # Verify recipe — easy-personal-mcp
@@ -74,6 +74,24 @@ printf '%s\n' \
  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
  '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"usage_summary","arguments":{}}}' \
  | (cat; sleep 2) | timeout 10 $B mcp 2>$T/mcp.err | cut -c1-160
+```
+
+`ingest` into a fresh store, twice, on a committed fixture folder. The data folder and the agent folder are temp folders under `$T/ingest` (the recipe removes nothing; `$T` is yours to delete), so no real account is detected and nothing real is read. The subshell keeps the exports out of the later steps:
+
+```bash
+cargo build                                       # the default binary again, in case a window build ran before
+B=$PWD/target/debug/easy-personal-rs
+I=$T/ingest; mkdir -p $I/home $I/agents
+( export EASY_PERSONAL_HOME=$I/home EASY_PERSONAL_AGENT_ROOT=$I/agents
+  $B ingest --source parity/ingest/fixtures/s3; echo "exit=$?"   # files 2, new_events 3, skipped 0, exit 0
+  $B ingest --source parity/ingest/fixtures/s3; echo "exit=$?"   # new_events 0, exit 0
+  $B store-info; echo "exit=$?" )                                # user_version: 11, pending: no, events: 3, exit 0
+```
+
+Ingest leak gate (NFR-002, RS-003): plants canary secrets, runs the Rust binary over them and scans every surface. Needs the default build above (it runs `target/debug/easy-personal-rs`) and the parity venv, built once as `rust/parity/README.md` says ("Build the venv"; `uv` is only used there to build it from the lock, running the gate needs none). The venv is git-ignored, so a worktree has none: call the main checkout's `rust/parity/.venv/bin/python` with this worktree's script. Pass: the last line is `leak check: 0 hits over 42 canaries, 116 surfaces, ...` and the exit code is 0 (1 is a hit or a failed check). It takes about 2 seconds once the binary is built.
+
+```bash
+./parity/.venv/bin/python parity/leak_rust.py; echo "exit=$?"   # leak check: 0 hits ..., exit 0
 ```
 
 Window step, last (it replaces the default binary). Run it only when `DISPLAY` or `WAYLAND_DISPLAY` is set and the Tauri system packages (`rust/docs/spike-T001.md`) are installed; otherwise skip it and write "window step skipped: no display", never "pass":
