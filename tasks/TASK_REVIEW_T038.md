@@ -67,12 +67,58 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-11, before any edit; worktree HEAD 548bd15):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+Prior top doc comment of `rust/crates/core/src/ingest/folders.rs` (lines 1-10), verbatim:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```rust
+//! The `claude_code` source over real folders (P2a, T035): Python `sources/claude_code.py` `ingest_accounts`,
+//! `account_roots` and `_scan`, plus `core/discovery.py` `resolve_project`. Finds every transcript, picks its account,
+//! resolves each `cwd` to its project through `git`, resumes from the stored offset, and saves each file through
+//! [`Store::save_file`] (one transaction per file).
+//!
+//! Rust differs from Python only where Python crashes and then stays stuck on every later run (`TASK_REVIEW_T026.md`,
+//! findings): an entry named `*.jsonl` that is not a regular file (S06c, `IsADirectoryError`), an entry it cannot
+//! stat, open or read (`PermissionError`, `OSError`), a path that is not UTF-8 (Python cannot store it), and an inode
+//! beyond `i64`. Each is skipped and counted in [`Summary::skipped`]; the files after it are read; an existing file
+//! skipped this way keeps its stored offset (it is not retired). No error or count carries a path.
+```
+
+Prior assertion in `rust/crates/app/tests/ingest_coexist.rs` (`readers_while_writing`, lines 534-537), verbatim:
+
+```rust
+            assert!(
+                rounds < 15,
+                "{label}: 15 rounds without 50 polls during an ingest"
+            );
+```
+
+Readers test, 5 runs (`cargo test -p easy-personal-rs --test ingest_coexist serve_mcp_and_store_info_answer_while_a_rust_ingest_runs -- --nocapture`), 2026-11-11 11:33:47Z to 11:34:46Z (UTC):
+
+```
+run 1 start 2026-11-11T11:33:47Z
+readers during rust ingest: 54 polls ... 50 sent while an ingest ran with its first rows committed, over 11 rounds in 12.409128736s; ...
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 12.46s
+run 2 start 2026-11-11T11:34:00Z
+readers during rust ingest: 52 polls ... 50 sent ..., over 8 rounds in 8.958043921s; ...
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 9.00s
+run 3 start 2026-11-11T11:34:09Z
+readers during rust ingest: 54 polls ... 50 sent ..., over 11 rounds in 12.101097684s; ...
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 12.15s
+run 4 start 2026-11-11T11:34:21Z
+readers during rust ingest: 52 polls ... 50 sent ..., over 11 rounds in 11.324620473s; ...
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 11.37s
+run 5 start 2026-11-11T11:34:33Z
+readers during rust ingest: 54 polls ... 50 sent ..., over 11 rounds in 12.99636232s; ...
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 13.04s
+2026-11-11T11:34:46Z
+```
+
+Five of five passed, using 8 to 11 of the 15 allowed rounds, so the round cap had little room on this machine.
+
+**AFTER**: `folders.rs` top comment now names `Store::save_file_streamed` and states the retire rule correctly (a stored path that became a folder, or lies under an unlistable folder, is retired); `git diff -w` shows `//!` lines only. `ingest_coexist.rs`: `rounds < 15` became `started.elapsed() < READERS_DEADLINE` (120 s). Agent: readers test 5 of 5 (rounds 11, 10, 10, 11, 8), ignored half 10 passed; with the deadline set to 3 s the test fails with a message that has no path. Supervisor re-run in main: `cargo test -p easy-personal-rs --test ingest_coexist` 13 passed, 0 failed, 10 ignored.
+
+**DELTA**: The readers coexistence test no longer fails on a slow machine because of a round count, and the `folders.rs` comment no longer misstates what the code does.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

@@ -40,6 +40,10 @@ const BYPASS_LINES: usize = 200;
 const BYPASS_PAD: usize = 40;
 const BYPASS_ATTEMPTS: usize = 30;
 const LADDER: [u64; 4] = [0, 5, 20, 50];
+/// How long the readers test may take to see 50 polls during an ingest. A wall-clock bound, not a count of rounds: a
+/// slow or loaded machine runs fewer, longer rounds and would trip a round cap although nothing is wrong. Equal to
+/// the per-process [`LIMIT`], so one stuck round still fails by [`LIMIT`] and the whole test never runs unbounded.
+const READERS_DEADLINE: Duration = Duration::from_secs(120);
 
 type Maker = fn(&Case) -> Spec;
 
@@ -532,8 +536,8 @@ fn readers_while_writing(label: &str, writer: Maker) {
                 );
             }
             assert!(
-                rounds < 15,
-                "{label}: 15 rounds without 50 polls during an ingest"
+                started.elapsed() < READERS_DEADLINE,
+                "{label}: no 50 polls during an ingest within {READERS_DEADLINE:?} ({during} so far, {rounds} rounds)"
             );
             round_base = last_messages.max(0);
             write_large_set(

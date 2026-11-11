@@ -1,13 +1,15 @@
 //! The `claude_code` source over real folders (P2a, T035): Python `sources/claude_code.py` `ingest_accounts`,
 //! `account_roots` and `_scan`, plus `core/discovery.py` `resolve_project`. Finds every transcript, picks its account,
 //! resolves each `cwd` to its project through `git`, resumes from the stored offset, and saves each file through
-//! [`Store::save_file`] (one transaction per file).
+//! [`Store::save_file_streamed`] (one transaction per file; the lines are read one by one inside it, T032).
 //!
 //! Rust differs from Python only where Python crashes and then stays stuck on every later run (`TASK_REVIEW_T026.md`,
 //! findings): an entry named `*.jsonl` that is not a regular file (S06c, `IsADirectoryError`), an entry it cannot
 //! stat, open or read (`PermissionError`, `OSError`), a path that is not UTF-8 (Python cannot store it), and an inode
-//! beyond `i64`. Each is skipped and counted in [`Summary::skipped`]; the files after it are read; an existing file
-//! skipped this way keeps its stored offset (it is not retired). No error or count carries a path.
+//! beyond `i64`. Each is skipped and counted in [`Summary::skipped`]; the files after it are read. A file that could
+//! not be stat-ed, opened or read, or whose inode is beyond `i64`, keeps its stored offset (it is not retired); a
+//! stored path that has become a folder named `*.jsonl`, or that lies under a folder that cannot be listed, is not
+//! seen and is retired like a vanished file. No error or count carries a path.
 
 use super::accounts;
 use super::claude_code::LineReader;
