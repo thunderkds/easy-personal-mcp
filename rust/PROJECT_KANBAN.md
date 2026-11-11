@@ -11,9 +11,9 @@
 ### Todo
 
 ### In Progress
-- [ ] **T023** — The window: `easy-personal-rs app --static-dir <DIR>` behind a `window` Cargo feature (Tauri v2, off by default), display preflight with a timeout, navigation lock, `--self-test` | Common-Infrastructure | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T023.md`; Started: 2026-11-10; Depends on T016, T021
 
 ### Ready for Review
+- [ ] **T023** — The window: `easy-personal-rs app --static-dir <DIR>` behind a `window` Cargo feature (Tauri v2, off by default), display preflight with a timeout, navigation lock, `--self-test` | Common-Infrastructure | C3 | Risk: High | P0 | PR/branch: committed to `main` 2026-11-11 (c26d7d4, 2dec625); review done by the Supervisor, owner decisions open; guide `tasks/TASK_GUIDE_T023.md`; evidence `tasks/TASK_REVIEW_T023.md`, reports `reports/code-review_main_20261111T104341.html`, `reports/security-review_main_20261111T104848.html`, `reports/delivery-report_main_20261111T035052.html`; Depends on T016, T021; open: GTK/WebKit libraries needed even to run `serve`/`mcp` from a feature build, MPL-2.0 crates in the Tauri tree, BEFORE taken after the T023 code existed, `/verify` not run (uv missing)
 - [ ] **T022** — Core `workspaces::list_all` and `unassigned` and their two GET routes (4 goldens; writes stay 405) | Backend-Implementer | C2 | Risk: Medium | P1 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence `tasks/TASK_REVIEW_T022.md`, reports `reports/code-review_main_20261110T231200.html`, `reports/security-review_main_20261110T231300.html`; open: README heading 'no CLI/API yet' is stale; shared spawn-test helpers duplicated in `tests/workspaces.rs`
 - [ ] **T021** — Serve the dashboard's static files from `serve --static-dir <DIR>` (same origin, no token for non-`/api/` paths, CSP on all, path-safety table) | Backend-Implementer | C3 | Risk: High | P0 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence `tasks/TASK_REVIEW_T021.md`, reports `reports/code-review_main_20261110T231000.html`, `reports/security-review_main_20261110T231100.html`; differs from Python: dotfiles are 404; not tried against the real built dashboard (not built: needs `npm ci`)
 - [ ] **T020** — Serve `/api/usage/sessions`, `/api/usage/outliers` and the MCP `session_outliers` tool (six routes, six tools; 20 HTTP + 3 MCP goldens equal) | Backend-Implementer | C2 | Risk: Medium | P1 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence `tasks/TASK_REVIEW_T020.md`, reports `reports/code-review_main_20261110T221000.html`, `reports/security-review_main_20261110T221100.html`
@@ -69,4 +69,4 @@
 | 0 Define | ✅ Done (brainstorming log; owner approved 2026-11-10) |
 | 1 Set up | 🔄 In Progress (T001) |
 | 2 Plan | 🔄 In Progress |
-| 3 Execute | 🔄 In Progress (T023 in progress; T001, T002, T004–T022 in Ready for Review; T003 Done) |
+| 3 Execute | 🔄 In Progress (nothing In Progress now; T001, T002, T004–T023 in Ready for Review; T003 Done) |

@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/src/window.rs` (unit tests: navigation table, blocked-target text, Tauri config, compiled capability set is empty), `rust/crates/app/src/display.rs` (preflight parsing and bounded-connect tests), `rust/crates/app/tests/window.rs` (4 real-window tests, `#[ignore]`d, need a display), `rust/crates/app/tests/app.rs` (no-feature exit 4, missing `--static-dir`, no-display exit 5, no-display `serve`/`mcp` incl. `tools/call usage_summary`/`store-info`), fixture `rust/crates/app/tests/fixtures/self-test/{index.html,app.js}` |
+| Verification command run | ☑ pass | Supervisor, own runs 2026-11-11: default `cargo test --workspace` = 290 passed, 0 failed, 8 ignored under TZ unset, `Pacific/Kiritimati` and `Pacific/Pago_Pago`; `--features window` = 295 passed, 0 failed, 12 ignored; `cargo fmt --check` ok; clippy `-D warnings` 0 warnings (default and `--features window`); the 4 ignored real-window tests with `--ignored` = 4 passed (20.56 s); real `app --self-test --static-dir crates/app/tests/fixtures/self-test` printed `self-test: ok`, exit 0 (03:49:57Z) |
+| Negative cases hold | ☑ pass | agent-reported, not re-run by the Supervisor: adding a remote capability JSON turned both capability tests red, green again once removed. Supervisor re-ran the real-window negatives: `external_links_and_new_windows_do_nothing` ok, `without_an_authenticated_request_the_self_test_exits_3_after_20_seconds` ok, `sigint_and_sigterm_close_the_window_exit_0_and_leave_no_process` ok. The navigation table covers `.evil.com`, `@evil.com`, `user@`, other port, `localhost`, `ws:`, `about:blank` |
+| verify | ☑ N/A | `/verify` recipe not run: it needs `uv`, which is not installed on this machine (not installed unasked). Not claimed as verified. T023 changes no Python (`git status -- src web tests pyproject.toml uv.lock`: 0 entries). Real-run evidence of the Rust app is in the rows above and in the Demonstration |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | reviewed `rust/crates/app/src/{window,display,server}.rs`, `main.rs`, `Cargo.toml`, `build.rs`, `tauri.conf.json`, the two test files, the fixture, the README; not reviewed (not T023's): `rust/crates/core/**` except its read paths in the security pass, `rust/parity/**`, `rust/spikes/**`. Lane check: `lane: C3, 6 files, 93 lines, FITS`. code-review: 0 P0, 0 P1, 3 P2, 3 P3, 0 fixes needed, report `reports/code-review_main_20261111T104341.html`. security-review: nothing at confidence 8 or above, report `reports/security-review_main_20261111T104848.html` |
+| Full smoke suite still green (no regression) | ☑ pass | whole workspace 290 passed, 0 failed (295 with the feature) under three time zones; Python tree untouched; `rust/parity/**` unchanged (agent: 310 files, sha256 `aa6fcaed…bff92`) |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no dashboard UI changed (the window loads the existing dashboard; only a 5-line test fixture page was added) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 
@@ -91,9 +91,24 @@ exit=0
 2026-11-11T03:18:16Z
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: the same command after this run's changes, run by the Supervisor 2026-11-11T03:49:57Z (the agent's own AFTER run was 03:39:21Z):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ cargo run -q --features window -- app --self-test --static-dir crates/app/tests/fixtures/self-test
+easy-personal-rs: window open on http://127.0.0.1:46351/
+self-test: ok
+easy-personal-rs: window closed
+exit=0
+```
+(`libEGL`/`MESA` warnings from the WSLg graphics stack also reach stderr; they are not ours.) The fixture folder is now committed, so the command no longer needs a scratch folder, and `rust/README.md` has the window section.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: on Ubuntu with a display, `easy-personal-rs app --static-dir DIR` (built with `--features window`) opens the dashboard in a native window on the loopback server and ends cleanly on close or signal, while the default build, `serve` and `mcp` still need no display.
+
+**WITNESS**: Supervisor session 2026-11-11 (own runs at 03:49:05Z-03:49:57Z, after the implementing agent's run); tool calls recorded in `memory/event-trace/T023.jsonl`.
+
+## Open items (owner decisions, not blockers for review)
+
+1. A `--features window` binary maps GTK and WebKitGTK at load time, so even `serve` and `mcp` need `libwebkit2gtk-4.1-0` and `libgtk-3-0t64` installed (no display needed). Suggestion: use the default binary for CLI and MCP.
+2. The Tauri tree includes MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`, `option-ext`): accept the licence before any release or packaging.
+3. BEFORE was captured on HEAD `e06f7bd`, after the T023 code already existed in `c26d7d4`: accept explicitly or waive.
+4. Not tested: a display that goes away mid-run; a second `app` launch opens a second window (documented as not done).
