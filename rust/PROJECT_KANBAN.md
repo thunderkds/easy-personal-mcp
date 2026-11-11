@@ -9,14 +9,15 @@
 ## Board
 
 ### Todo
-- [ ] **T028** — `claude_code` parser in Rust: record dispatch, `_LABEL` quirk, exact-int rule, UTC normalisation, tool signals, secret regex, git project resolution | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T028.md`; Depends on T026, T027
-- [ ] **T029** — `easy-personal-rs ingest` CLI: `accounts.detect`, `ingest_accounts`, JSON output equal to Python's, exit 75 on a busy lock, `--source`, `--retention-days` | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T029.md`; Depends on T027, T028
+- [ ] **T035** — Ingest of folders: `accounts.detect`, `rglob` discovery in Python's order, accounts roots, `project_path` through `git`, per-file offsets and `save_file`, retire; S01-S07, S10, S13, S14 table goldens equal; the four Python crashes do not stick Rust | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T035.md`; Depends on T028
+- [ ] **T029** — `easy-personal-rs ingest` CLI: env and data dir, the lock (exit 75 on busy), `--source`, `--retention-days`, JSON output equal to Python's (indent 2, sorted keys) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T029.md`; Depends on T035
 - [ ] **T030** — Leak suite over the Rust ingest (canaries absent from store, WAL/SHM, output, logs) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T030.md`; Depends on T029
 - [ ] **T031** — Coexistence tests: Rust and Python ingest the same folder (concurrent, in turn, kill and resume, copied file, `integrity_check`) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T031.md`; Depends on T029
 - [ ] **T032** — Perf and memory gates (NFR-005): 8 MB/s on 200 MB, unchanged re-run < 2 s, < 8 MiB for a 12 MB file | QA-Automation | C1 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T032.md`; Depends on T029
 - [ ] **T033** — P2b: `kit_trace`, `ui`, `verifier` sources in Rust (replace-all semantics, size and symlink limits) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T033.md`; Depends on T029, T030
 
 ### In Progress
+- [ ] **T028** — `claude_code` parse layer in Rust: line framing, Python-exact JSON (NaN, depth), time, labels, secret rule, signals, record dispatch; no git, no folders, no store | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T028.md`; Depends on T026, T027; Started: 2026-11-11
 
 ### Ready for Review
 
