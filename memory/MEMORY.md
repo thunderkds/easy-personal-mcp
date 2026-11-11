@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [Rust P2 ingest: shadow writer on schema v11, events first](decisions.md#2026-11-11--rust-p2-ingest-shadow-writer-on-schema-v11-events-first-option-a-shaped-as-c) — no Rust migration in P2 (v12 locks Python out → P6); P2a events T026-T032, P2b kit_trace/ui/verifier T033, P2c scheduler; context and live.py out; Python is the oracle; defaults flagged.
 - [Rust port P0-P1b closed; window and close-out decisions](decisions.md#2026-11-11--rust-port-p0-p1-and-p1b-closed-window-and-close-out-decisions-t023-t025) — default binary for CLI/MCP (window binary links GTK at load); MPL-2.0 accepted; 25 cards Done, pushed; 12 dashboard routes still 404; admin-mode choices flagged in `rust/docs/closeout-2026-11-11.md`.
 - [Rust port: staged, desktop app, shared store (Option B)](decisions.md#2026-11-10--rust-port-staged-desktop-app-shared-store-python-replaced-later-option-b) — `rust/` in this repo (owner: one repo); Python replaceable early if forced; Ubuntu→macOS→Windows; Python parity oracle then sunset; migrations frozen.
 - [Live call labels + kit stage (FR-081..084)](decisions.md#2026-11-06--live-call-labels--kit-stage-show-never-store-fr-081fr-084) — show, never store: Skill/Agent/Bash first word/MCP split + sub-agent `agentType`; stage = newest mapped Skill call (fixed map); row chip + panel feed; DDR-0004.

@@ -9,6 +9,14 @@
 ## Board
 
 ### Todo
+- [ ] **T026** — Ingest oracle: Python `easy-personal ingest` over fixtures, tables dumped as goldens, plus a fresh-store schema snapshot (`rust/parity/ingest/`) | QA-Automation | C2 | Risk: Medium | P0 | guide `tasks/TASK_GUIDE_T026.md`
+- [ ] **T027** — Rust store writer: open for write (WAL, busy_timeout 5000, foreign_keys), `flock` on `ingest.lock`, one transaction per file, the exact conditional upsert, refuse `user_version != 11`, create a new store from the embedded v11 snapshot | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T027.md`; Depends on T026 for the snapshot (parallel start allowed)
+- [ ] **T028** — `claude_code` parser in Rust: record dispatch, `_LABEL` quirk, exact-int rule, UTC normalisation, tool signals, secret regex, git project resolution | Backend-Implementer | C3 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T028.md`; Depends on T026, T027
+- [ ] **T029** — `easy-personal-rs ingest` CLI: `accounts.detect`, `ingest_accounts`, JSON output equal to Python's, exit 75 on a busy lock, `--source`, `--retention-days` | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T029.md`; Depends on T027, T028
+- [ ] **T030** — Leak suite over the Rust ingest (canaries absent from store, WAL/SHM, output, logs) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T030.md`; Depends on T029
+- [ ] **T031** — Coexistence tests: Rust and Python ingest the same folder (concurrent, in turn, kill and resume, copied file, `integrity_check`) | QA-Automation | C2 | Risk: High | P0 | guide `tasks/TASK_GUIDE_T031.md`; Depends on T029
+- [ ] **T032** — Perf and memory gates (NFR-005): 8 MB/s on 200 MB, unchanged re-run < 2 s, < 8 MiB for a 12 MB file | QA-Automation | C1 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T032.md`; Depends on T029
+- [ ] **T033** — P2b: `kit_trace`, `ui`, `verifier` sources in Rust (replace-all semantics, size and symlink limits) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T033.md`; Depends on T029, T030
 
 ### In Progress
 
@@ -59,7 +67,9 @@
 | P0 | Foundation + `--version` |
 | P1 | Read-only core, `/api` GET, MCP read tools, embedded React bundle |
 | P1b | Desktop window |
-| P2 | Ingest (sources, store writer) |
+| P2a | Ingest of events: `claude_code` → `events`/`tool_signals`/`source_files`, accounts, prune, lock, schema stays v11 (T026-T032) |
+| P2b | `kit_trace`, `ui`, `verifier` sources (T033) |
+| P2c | Scheduler (`schedule install`) and dashboard start-up ingest (later) |
 | P3 | Write surfaces (workspaces, accounts, connectors, sync, keychain, launcher, scheduler, `save_report`) |
 | P4 | macOS |
 | P5 | Windows |
@@ -71,5 +81,5 @@
 |-------|--------|
 | 0 Define | ✅ Done (brainstorming log; owner approved 2026-11-10) |
 | 1 Set up | ✅ Done (T001 spike, toolchain and Ubuntu packages) |
-| 2 Plan | 🔄 In Progress (P0-P1b planned and done; P2 not planned yet) |
-| 3 Execute | ✅ Done for P0, P1 and P1b (T001-T025 Done; see `rust/docs/closeout-2026-11-11.md`) |
+| 2 Plan | ✅ Done for P2 (`BRAINSTORMING_LOG_RUSTP2.md` locked 2026-11-11); P3 not planned yet |
+| 3 Execute | 🔄 In Progress (P0, P1, P1b Done; P2a started 2026-11-11) |
