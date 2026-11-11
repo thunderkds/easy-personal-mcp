@@ -16,6 +16,7 @@
 - [ ] **T051** — P3 S12: `context` ingest, MCP `--http`, dashboard start-up ingest | Backend-Developer | C2 | Risk: Medium | P3 | wave 5, optional; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 
 ### In Progress
+- [ ] **T052** — P3 waves 1-2 review fixes: crontab step overflow (P1), DEL escape, secret word boundary, capped account reads, `GIT_NO_LAZY_FETCH`, stale text | Backend-Developer | C2 | Risk: Medium | P1 | started 2026-11-11: guide `tasks/TASK_GUIDE_T052.md`, own worktree; from the two independent Stage 4 reviews
 
 ### Ready for Review
 
