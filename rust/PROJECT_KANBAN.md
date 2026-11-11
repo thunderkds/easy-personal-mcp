@@ -9,13 +9,13 @@
 ## Board
 
 ### Todo
-- [ ] **T043** — P3 S4: `/api/board`, `/api/memory-graph` | Backend-Developer | C2 | Risk: Medium | P2 | wave 3; Depends on T041; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
-- [ ] **T048** — P3 S9: workspace and account writes, store only (POST/PATCH/DELETE; a change needing `claude` is refused until T050) | Backend-Developer | C2 | Risk: High | P2 | wave 3; Depends on T041; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T049** — P3 S10: `/api/live` SSE and the tail thread | Backend-Developer | C3 | Risk: High | P2 | wave 4; Depends on T048; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T050** — P3 S11: keychain, launcher, connector writes, sync apply, legacy (`claude` subprocesses) | Backend-Developer | C3 | Risk: High | P3 | wave 5; OWNER GATE: crate choice and licences; Depends on T046, T048; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 - [ ] **T051** — P3 S12: `context` ingest, MCP `--http`, dashboard start-up ingest | Backend-Developer | C2 | Risk: Medium | P3 | wave 5, optional; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 
 ### In Progress
+- [ ] **T048** — P3 S9: workspace and account writes, store only (POST/PATCH/DELETE; a change needing `claude` is refused until T050) | Backend-Developer | C2 | Risk: High | P2 | wave 3; Depends on T041; plan `BRAINSTORMING_LOG_RUSTP3.md`; started 2026-11-11: guide `tasks/TASK_GUIDE_T048.md`, own worktree, wave 3
+- [ ] **T043** — P3 S4: `/api/board`, `/api/memory-graph` | Backend-Developer | C2 | Risk: Medium | P2 | wave 3; Depends on T041; plan `BRAINSTORMING_LOG_RUSTP3.md`; started 2026-11-11: guide `tasks/TASK_GUIDE_T043.md`, own worktree, wave 3
 - [ ] **T052** — P3 waves 1-2 review fixes: crontab step overflow (P1), DEL escape, secret word boundary, capped account reads, `GIT_NO_LAZY_FETCH`, stale text | Backend-Developer | C2 | Risk: Medium | P1 | started 2026-11-11: guide `tasks/TASK_GUIDE_T052.md`, own worktree; from the two independent Stage 4 reviews
 
 ### Ready for Review
