@@ -207,3 +207,10 @@
 ## 2026-11-11 — Rust P3 planned: read-first, writes in risk order (T040-T051)
 **Decision**: P3 follows option A of `BRAINSTORMING_LOG_RUSTP3.md`: all 17 GET routes the web page needs that Rust still answers 404 (the P1b count of 12 was low) and the 6 missing MCP tools first (T040-T047), then store-only workspace/account writes (T048), the live tail (T049, C3), and last the keychain, launcher and `claude` subprocess surfaces (T050, C3, **owner gate** on the crate and licences). `serve` stays read-only (the accounts `detect` stays in `ingest`); write routes open a write handle only when called and copy Python's contract (no `ingest.lock`, 5 s busy timeout, confirm protocol). No schema change. Waves run in worktrees and merge in order because `api.rs`/`mcp.rs` are shared; releases per milestone (`rust-v0.3.0` after waves 1-3). **⚠ decided for you — please review**: the order, `serve` staying read-only, no new dependency before the T050 gate, the release rhythm.
 **Files**: `BRAINSTORMING_LOG_RUSTP3.md`, `rust/PROJECT_KANBAN.md`
+
+## 2026-11-11 — Rust P3 wave 1 merged: kit, connectors (read-only, no keychain), reports and first-run
+**Files**: rust/crates/core/src/{kit,catalog,suggestions,reports,first_run}.rs, rust/crates/app/src/{api,mcp}.rs, rust/README.md
+- T046 (`6c727c2`), T042 (`ee78bc6`), T040 (`051cd3b`) are on `main`; 525 tests x3 TZ, leak 0 hits over 147 surfaces; independent review: no P0-P2.
+- "Decided for you": `configured` and `connector_status` are always false until T050 (no keychain, no `claude`); a corrupt saved report is a fixed 500 (the list keeps it with fired_count 0); the first-run timer hint is always `easy-personal schedule install` (Rust never runs `systemctl`); `serve`/`mcp` stay read-only; nine kit items where Rust returns null or skips and Python raises.
+- Open leads (T052): `GIT_NO_LAZY_FETCH=1` for git runs (Python has the same gap), `fired_count` partial count, stale README/mcp.rs text.
+**Why**: owner `[admin]`: "do all, you can spawn parallel". **How to apply**: new routes copy Python's status codes and fixed error texts; never echo input; register in the leak registry.

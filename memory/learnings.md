@@ -583,3 +583,11 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **`cargo test --workspace` fails `workspaces_parity::edge_store_python_values` when the checkout path sits under a hidden folder** (`.claude/worktrees/...`): the Scratch rule drops the repos. It is green from the real path (439 passed). Re-run the workspace suite from the main checkout, never trust a worktree run for that one test.
 - **The post-write hook adds every new guide to the root `PROJECT_KANBAN.md`**: delete the row each time (the Rust board is `rust/PROJECT_KANBAN.md`).
 - **A Rust agent can run for 25+ minutes (T033: 64 tool calls, 274k tokens)**: fine in the background; review only after its final report, re-running everything.
+
+## 2026-11-11 — Rust P3 wave 1 (T040, T042, T046): merging and reviewing parallel route tasks
+- **Every new route or MCP tool must be registered in `rust/parity/leak_rust.py` (`API_CALLS`, `GUARD_CALLS`, the MCP calls) and in the exact tool lists of `rust/crates/app/tests/mcp.rs`**: each agent hit "unregistered route", and those dicts, `api.rs`'s route table, the `use` lines and `rust/README.md` conflict at every merge. Resolve by keeping both sides (tool order: improvement_plan, kit_summary, connector x3).
+- **Merge a worktree agent's result with a commit in its worktree, then `git cherry-pick -n <sha>` in main** (conflicts show as `UU`; resolve; run the whole suite in main). A small Python script that rebuilds the interleaved `api.rs` hunks is quicker than hand editing when two handlers share a closing `})`.
+- **A hook ends an agent at about 90 tool calls** (T040 lost its negative-control run): put the budget in the spawn prompt and keep the last 15 calls for TZ runs, leak gate, lint and the report.
+- **Agents share scratchpad file names** (one overwrote another's `demo.sh`): tell them to use unique names.
+- **The independent read-only reviewer found nothing above P3 in 3 commits that had been checked by goldens and the leak gate**: its value was stale references (mcp.rs header, README sentences, a test duration) and three low-confidence leads; spawn it once per wave, not per task.
+- **Delivery reports render in UTC** (file stamps differ from local time by 7 h here).
