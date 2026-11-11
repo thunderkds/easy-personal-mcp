@@ -1,0 +1,30 @@
+{
+  "period": {
+    "since_utc": "2026-01-13T00:00:00.000000Z",
+    "until_utc": "2026-01-20T00:00:00.000000Z"
+  },
+  "sessions": [
+    {
+      "max_context_tokens": 20000,
+      "project": "gone-c",
+      "reasons": [
+        "tool_calls"
+      ],
+      "session_id": "00000000-0000-4000-8000-000000000138",
+      "tool_calls": 90
+    },
+    {
+      "max_context_tokens": 205000,
+      "project": "gone-a",
+      "reasons": [
+        "context_tokens"
+      ],
+      "session_id": "00000000-0000-4000-8000-000000000129",
+      "tool_calls": 10
+    }
+  ],
+  "thresholds": {
+    "context_tokens": 200000,
+    "tool_calls": 90
+  }
+}

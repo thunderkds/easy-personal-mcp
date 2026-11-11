@@ -1,0 +1,65 @@
+{
+  "by": "project",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 0.141705
+      },
+      "cache_creation_input_tokens": 14940,
+      "cache_read_input_tokens": 135000,
+      "folders": [
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.141705
+          },
+          "cache_creation_input_tokens": 14940,
+          "cache_read_input_tokens": 135000,
+          "input_tokens": 60,
+          "key": "alpha",
+          "messages": 6,
+          "output_tokens": 3000,
+          "split": {
+            "agent": 0,
+            "typed": 153000,
+            "unknown": 0
+          }
+        }
+      ],
+      "input_tokens": 60,
+      "key": "Scratch",
+      "messages": 6,
+      "output_tokens": 3000,
+      "scratch": true,
+      "split": {
+        "agent": 0,
+        "typed": 153000,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [],
+      "price_table_date": "2026-10-21",
+      "usd": 0.141705
+    },
+    "cache_creation_input_tokens": 14940,
+    "cache_read_input_tokens": 135000,
+    "input_tokens": 60,
+    "messages": 6,
+    "output_tokens": 3000,
+    "split": {
+      "agent": 0,
+      "typed": 153000,
+      "unknown": 0
+    }
+  }
+}

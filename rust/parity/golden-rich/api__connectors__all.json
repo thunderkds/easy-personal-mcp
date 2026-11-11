@@ -1,0 +1,80 @@
+{
+  "connectors": [
+    {
+      "category": "Email",
+      "claude_ai_connector": true,
+      "claude_ai_link": "https://claude.ai/settings/connectors",
+      "configured": false,
+      "fields": [
+        {
+          "env": "GMAIL_OAUTH_PATH",
+          "label": "OAuth client keys file (gcp-oauth.keys.json)",
+          "secret": false
+        }
+      ],
+      "id": "gmail",
+      "provider": "Gmail"
+    },
+    {
+      "category": "Email",
+      "claude_ai_connector": false,
+      "claude_ai_link": null,
+      "configured": false,
+      "fields": [
+        {
+          "env": "SENDGRID_API_KEY",
+          "label": "API key (SG....)",
+          "secret": true
+        }
+      ],
+      "id": "sendgrid",
+      "provider": "SendGrid"
+    },
+    {
+      "category": "Messaging",
+      "claude_ai_connector": true,
+      "claude_ai_link": "https://claude.ai/settings/connectors",
+      "configured": false,
+      "fields": [
+        {
+          "env": "SLACK_MCP_XOXB_TOKEN",
+          "label": "Bot token (xoxb-...)",
+          "secret": true
+        }
+      ],
+      "id": "slack",
+      "provider": "Slack"
+    },
+    {
+      "category": "Messaging",
+      "claude_ai_connector": true,
+      "claude_ai_link": "https://claude.ai/settings/connectors",
+      "configured": false,
+      "fields": [
+        {
+          "env": "MS365_MCP_TENANT_ID",
+          "label": "Tenant ID",
+          "secret": false
+        }
+      ],
+      "id": "teams",
+      "provider": "Teams"
+    },
+    {
+      "category": "Messaging",
+      "claude_ai_connector": false,
+      "claude_ai_link": null,
+      "configured": false,
+      "fields": [
+        {
+          "env": "DISCORD_TOKEN",
+          "label": "Bot token",
+          "secret": true
+        }
+      ],
+      "id": "discord",
+      "provider": "Discord"
+    }
+  ],
+  "workspace_connectors": []
+}

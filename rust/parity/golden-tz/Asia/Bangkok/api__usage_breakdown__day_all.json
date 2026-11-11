@@ -1,0 +1,256 @@
+{
+  "by": "day",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 250,
+      "cache_read_input_tokens": 1000,
+      "input_tokens": 16,
+      "key": "2026-01-15",
+      "messages": 4,
+      "output_tokens": 9,
+      "split": {
+        "agent": 58,
+        "typed": 1217,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1",
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 4,
+      "key": "2026-01-16",
+      "messages": 4,
+      "output_tokens": 30,
+      "split": {
+        "agent": 0,
+        "typed": 34,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1",
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 6,
+      "key": "2026-03-08",
+      "messages": 6,
+      "output_tokens": 2016,
+      "split": {
+        "agent": 0,
+        "typed": 2022,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1",
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 2,
+      "key": "2026-03-09",
+      "messages": 2,
+      "output_tokens": 6144,
+      "split": {
+        "agent": 0,
+        "typed": 6146,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1",
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 5,
+      "key": "2026-11-01",
+      "messages": 5,
+      "output_tokens": 253952,
+      "split": {
+        "agent": 0,
+        "typed": 253957,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1",
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 2,
+      "key": "2026-11-02",
+      "messages": 2,
+      "output_tokens": 786432,
+      "split": {
+        "agent": 0,
+        "typed": 786434,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1,
+      "key": "2026-12-31",
+      "messages": 1,
+      "output_tokens": 1048576,
+      "split": {
+        "agent": 0,
+        "typed": 1048577,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1",
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 3,
+      "key": "2027-01-01",
+      "messages": 3,
+      "output_tokens": 14680064,
+      "split": {
+        "agent": 0,
+        "typed": 14680067,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1,
+      "key": "2028-02-28",
+      "messages": 1,
+      "output_tokens": 16777216,
+      "split": {
+        "agent": 0,
+        "typed": 16777217,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1",
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 4,
+      "key": "2028-02-29",
+      "messages": 4,
+      "output_tokens": 503316480,
+      "split": {
+        "agent": 0,
+        "typed": 503316484,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1,
+      "key": "2028-03-01",
+      "messages": 1,
+      "output_tokens": 536870912,
+      "split": {
+        "agent": 0,
+        "typed": 536870913,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [
+        "claude-fixture-model-1",
+        "claude-fixture-model-2"
+      ],
+      "price_table_date": "2026-10-21",
+      "usd": null
+    },
+    "cache_creation_input_tokens": 250,
+    "cache_read_input_tokens": 1000,
+    "input_tokens": 45,
+    "messages": 33,
+    "output_tokens": 1073741831,
+    "split": {
+      "agent": 58,
+      "typed": 1073743068,
+      "unknown": 0
+    }
+  }
+}

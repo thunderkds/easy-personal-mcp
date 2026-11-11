@@ -1,0 +1,31 @@
+{
+  "workspaces": [
+    {
+      "folders": [
+        {
+          "easy_ui_sessions": 1,
+          "files": 2,
+          "files_capped": false,
+          "folder": "reports",
+          "newest_utc": "2026-01-18T00:00:00Z",
+          "repo": "alpha",
+          "repo_no": 0
+        },
+        {
+          "easy_ui_sessions": 0,
+          "files": 1,
+          "files_capped": false,
+          "folder": "smoke-reports",
+          "newest_utc": "2026-01-18T00:00:00Z",
+          "repo": "alpha",
+          "repo_no": 0
+        }
+      ],
+      "name": "acme"
+    },
+    {
+      "folders": [],
+      "name": "personal"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "groups": [
+    {
+      "items": [
+        {
+          "causes": [
+            {
+              "kind": "record_type",
+              "name": "another-unknown-type",
+              "text": "another-unknown-type records from Claude Code 2.1.302: 1 could not be read",
+              "unreadable": 1,
+              "version": "2.1.302"
+            },
+            {
+              "kind": "record_type",
+              "name": "future-record-type-xyz",
+              "text": "future-record-type-xyz records from Claude Code 2.1.293: 1 could not be read",
+              "unreadable": 1,
+              "version": "2.1.293"
+            },
+            {
+              "kind": "record_type",
+              "name": "future-record-type-xyz",
+              "text": "future-record-type-xyz records from Claude Code 2.1.295: 1 could not be read",
+              "unreadable": 1,
+              "version": "2.1.295"
+            }
+          ],
+          "detail": {
+            "version": "2.1.302"
+          },
+          "diagnosis": "unreadable_records",
+          "fix": "Most unreadable records are another-unknown-type records from Claude Code 2.1.302 (1 records). Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer about another-unknown-type records from Claude Code 2.1.302.",
+          "label": "aware",
+          "measured": 0.25,
+          "rule_id": "records_unreadable",
+          "steps": [
+            "Most unreadable records are another-unknown-type records from Claude Code 2.1.302 (1 records).",
+            "Update easy-personal to the latest version.",
+            "If it stays high, tell the easy-personal maintainer about another-unknown-type records from Claude Code 2.1.302."
+          ],
+          "summary": "25% of records from Claude Code 2.1.302 could not be read; target 2% or less, last 7 days",
+          "threshold": 0.02,
+          "title": "Some Claude Code records are unreadable",
+          "why": "Records the parser cannot read are left out of every number you see, so the totals are too low."
+        }
+      ],
+      "priority": 2
+    }
+  ]
+}

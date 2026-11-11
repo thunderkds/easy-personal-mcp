@@ -1,0 +1,243 @@
+{
+  "groups": [
+    {
+      "items": [
+        {
+          "cache_read_share": 0.1004,
+          "causes": [
+            {
+              "cache_reuse": 0.1022,
+              "kind": "project",
+              "name": "Scratch",
+              "text": "Scratch read 10.2% of its prompt tokens from cache (99.1% of all tokens)",
+              "token_share": 0.991,
+              "tokens": 3424100
+            }
+          ],
+          "diagnosis": "unstable_prefix",
+          "fix": "Lowest cache reuse by project: Scratch (10.2% of its prompt tokens came from cache). Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
+          "label": "warning",
+          "measured": 0.1022,
+          "rule_id": "cache_hit_low",
+          "steps": [
+            "Lowest cache reuse by project: Scratch (10.2% of its prompt tokens came from cache).",
+            "Keep the start of your prompts the same from one turn to the next.",
+            "Avoid editing CLAUDE.md or switching models in the middle of a session."
+          ],
+          "summary": "10.2% of prompt tokens came from cache; target 50% or more, last 7 days",
+          "threshold": 0.5,
+          "title": "Low cache reuse",
+          "why": "A prompt read from cache costs far less and returns faster, so a low share means you pay full price for text Claude has already seen."
+        }
+      ],
+      "priority": 1
+    },
+    {
+      "items": [
+        {
+          "causes": [
+            {
+              "kind": "record_type",
+              "name": "future-widget-qqq",
+              "text": "future-widget-qqq records from Claude Code 2.1.330: 3 could not be read",
+              "unreadable": 3,
+              "version": "2.1.330"
+            },
+            {
+              "kind": "record_type",
+              "name": "another-new-thing",
+              "text": "another-new-thing records from Claude Code 2.1.330: 1 could not be read",
+              "unreadable": 1,
+              "version": "2.1.330"
+            }
+          ],
+          "detail": {
+            "version": "2.1.330"
+          },
+          "diagnosis": "unreadable_records",
+          "fix": "Most unreadable records are future-widget-qqq records from Claude Code 2.1.330 (3 records). Update easy-personal to the latest version. If it stays high, tell the easy-personal maintainer about future-widget-qqq records from Claude Code 2.1.330.",
+          "label": "aware",
+          "measured": 0.0506,
+          "rule_id": "records_unreadable",
+          "steps": [
+            "Most unreadable records are future-widget-qqq records from Claude Code 2.1.330 (3 records).",
+            "Update easy-personal to the latest version.",
+            "If it stays high, tell the easy-personal maintainer about future-widget-qqq records from Claude Code 2.1.330."
+          ],
+          "summary": "5.1% of records from Claude Code 2.1.330 could not be read; target 2% or less, last 7 days",
+          "threshold": 0.02,
+          "title": "Some Claude Code records are unreadable",
+          "why": "Records the parser cannot read are left out of every number you see, so the totals are too low."
+        },
+        {
+          "cache_read_share": 0.1004,
+          "causes": [
+            {
+              "context_tokens": 205000,
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000129",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000129 in Scratch reached 205.0k tokens of context without compacting"
+            },
+            {
+              "context_tokens": 190000,
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000130",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000130 in Scratch reached 190.0k tokens of context without compacting"
+            },
+            {
+              "context_tokens": 180000,
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000131",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000131 in Scratch reached 180.0k tokens of context without compacting"
+            }
+          ],
+          "diagnosis": "huge_sessions",
+          "fix": "The largest open session is 00000000-0000-4000-8000-000000000129 in Scratch: 205.0k tokens of context. Run /compact when a session grows long. Start a new session before the context passes 150,000 tokens.",
+          "label": "improve",
+          "measured": 171000,
+          "rule_id": "session_huge_no_compact",
+          "steps": [
+            "The largest open session is 00000000-0000-4000-8000-000000000129 in Scratch: 205.0k tokens of context.",
+            "Run /compact when a session grows long.",
+            "Start a new session before the context passes 150,000 tokens."
+          ],
+          "summary": "The median open session reached 171,000 tokens of context; target 150,000 or fewer, last 7 days",
+          "threshold": 150000,
+          "title": "Sessions grow too large",
+          "why": "Every turn re-sends the whole conversation, so a very long session makes each reply slower and more expensive."
+        },
+        {
+          "causes": [
+            {
+              "calls": 12,
+              "error_rate": 0.75,
+              "errors": 9,
+              "kind": "tool",
+              "name": "Bash",
+              "text": "Bash: 9 of 12 calls failed (75%)"
+            },
+            {
+              "calls": 8,
+              "error_rate": 0.375,
+              "errors": 3,
+              "kind": "tool",
+              "name": "Edit",
+              "text": "Edit: 3 of 8 calls failed (37.5%)"
+            }
+          ],
+          "diagnosis": "one_tool_fails",
+          "fix": "Bash caused 9 of the 12 failed calls (75%). Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing.",
+          "label": "warning",
+          "measured": 0.4,
+          "rule_id": "tool_errors_high",
+          "steps": [
+            "Bash caused 9 of the 12 failed calls (75%).",
+            "Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing."
+          ],
+          "summary": "40% of kernel-trace tool calls failed; target 10% or less, last 7 days",
+          "threshold": 0.1,
+          "title": "Many tool calls fail",
+          "why": "Failed tool calls waste tokens and time because Claude retries and explains the error."
+        }
+      ],
+      "priority": 2
+    },
+    {
+      "items": [
+        {
+          "cache_read_share": 0.1004,
+          "causes": [
+            {
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000129",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000129 in Scratch used 618.6k tokens",
+              "token_share": 0.179,
+              "tokens": 618600
+            },
+            {
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000136",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000136 in Scratch used 367.0k tokens",
+              "token_share": 0.1062,
+              "tokens": 367000
+            },
+            {
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000130",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000130 in Scratch used 366.0k tokens",
+              "token_share": 0.1059,
+              "tokens": 366000
+            }
+          ],
+          "detail": {
+            "project": "Scratch"
+          },
+          "diagnosis": "dominant_project",
+          "fix": "Scratch used 99.1% of tokens; its largest session, 00000000-0000-4000-8000-000000000129, alone used 17.9% of all tokens. Confirm that this project should take most of your effort. Split long-running work into shorter sessions.",
+          "label": "aware",
+          "measured": 0.991,
+          "rule_id": "project_dominates",
+          "steps": [
+            "Scratch used 99.1% of tokens; its largest session, 00000000-0000-4000-8000-000000000129, alone used 17.9% of all tokens.",
+            "Confirm that this project should take most of your effort.",
+            "Split long-running work into shorter sessions."
+          ],
+          "summary": "One project (Scratch) used 99.1% of tokens; target 60% or less, last 7 days",
+          "threshold": 0.6,
+          "title": "One project uses most of your tokens",
+          "why": "A single project that crowds out the rest can hide waste, and your limit runs out sooner."
+        },
+        {
+          "cache_read_share": 0.1004,
+          "causes": [
+            {
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000129",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000129 in Scratch used 618.6k tokens",
+              "token_share": 0.179,
+              "tokens": 618600
+            },
+            {
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000136",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000136 in Scratch used 367.0k tokens",
+              "token_share": 0.1062,
+              "tokens": 367000
+            },
+            {
+              "kind": "session",
+              "name": "00000000-0000-4000-8000-000000000130",
+              "project": "Scratch",
+              "text": "00000000-0000-4000-8000-000000000130 in Scratch used 366.0k tokens",
+              "token_share": 0.1059,
+              "tokens": 366000
+            }
+          ],
+          "diagnosis": "bigger_sessions",
+          "fix": "Each session got bigger: tokens per session went from 91.2k to 287.9k (5 → 12 sessions). The largest session, 00000000-0000-4000-8000-000000000129 in Scratch, used 618.6k tokens. Run /compact in long sessions or start a new one. Decide if the rise is intended before it becomes your baseline.",
+          "label": "aware",
+          "measured": 6.5741,
+          "rule_id": "tokens_jump",
+          "steps": [
+            "Each session got bigger: tokens per session went from 91.2k to 287.9k (5 → 12 sessions).",
+            "The largest session, 00000000-0000-4000-8000-000000000129 in Scratch, used 618.6k tokens. Run /compact in long sessions or start a new one.",
+            "Decide if the rise is intended before it becomes your baseline."
+          ],
+          "summary": "Token use rose 657.4% in the last 7 days against the 7 days before; target 50% or less",
+          "threshold": 0.5,
+          "title": "Token use jumped",
+          "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost."
+        }
+      ],
+      "priority": 3
+    }
+  ]
+}

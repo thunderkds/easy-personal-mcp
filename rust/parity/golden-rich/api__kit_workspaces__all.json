@@ -1,0 +1,45 @@
+{
+  "ui_checks": {
+    "status": "no data"
+  },
+  "workspaces": [
+    {
+      "color": "#3366cc",
+      "name": "acme",
+      "repos": 2,
+      "ui": {
+        "calls": 12,
+        "last_utc": "2026-01-04T15:11:00.000000Z",
+        "sessions": 12,
+        "status": "ok"
+      },
+      "verifier": {
+        "lowest": null,
+        "mean": null,
+        "newest_utc": null,
+        "repos_scored": 0,
+        "repos_total": 1,
+        "status": "no data"
+      }
+    },
+    {
+      "color": null,
+      "name": "personal",
+      "repos": 2,
+      "ui": {
+        "calls": 0,
+        "last_utc": null,
+        "sessions": 0,
+        "status": "not used"
+      },
+      "verifier": {
+        "lowest": null,
+        "mean": null,
+        "newest_utc": null,
+        "repos_scored": 0,
+        "repos_total": 1,
+        "status": "no data"
+      }
+    }
+  ]
+}

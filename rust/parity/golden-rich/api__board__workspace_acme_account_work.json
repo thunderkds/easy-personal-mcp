@@ -1,0 +1,34 @@
+{
+  "gone": 0,
+  "projects": [
+    {
+      "abstained": 2,
+      "board": "linear",
+      "last_pull": "2026-01-18T00:00:00Z",
+      "project": "alpha",
+      "status": "ok",
+      "tasks": [
+        {
+          "id": "R-001",
+          "status": "Todo",
+          "title": "Write the invented parser"
+        },
+        {
+          "id": "R-003",
+          "status": "In Progress",
+          "title": "Port the invented report"
+        },
+        {
+          "id": "R-004",
+          "status": "Done",
+          "title": "Ship the invented slice"
+        },
+        {
+          "id": "R-006",
+          "status": "Blocked",
+          "title": "Waiting for an invented answer"
+        }
+      ]
+    }
+  ]
+}

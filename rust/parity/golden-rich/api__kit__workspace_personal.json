@@ -1,0 +1,33 @@
+{
+  "gone": 1,
+  "projects": [
+    {
+      "missing_on_disk": false,
+      "parts": {
+        "context": {
+          "status": "not in use"
+        },
+        "git": {
+          "status": "no data"
+        },
+        "kernel": {
+          "abstained": 0,
+          "error_rate": 0.1,
+          "first_utc": "2026-01-13T13:00:00.000000Z",
+          "kit_tasks": 1,
+          "last_utc": "2026-01-17T13:29:00.000000Z",
+          "status": "ok",
+          "tool_calls": 30,
+          "tool_errors": 3
+        },
+        "verifier": {
+          "status": "no data"
+        }
+      },
+      "project": "beta"
+    }
+  ],
+  "ui": {
+    "status": "no data"
+  }
+}

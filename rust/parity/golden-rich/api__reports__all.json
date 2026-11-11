@@ -1,0 +1,20 @@
+{
+  "reports": [
+    {
+      "account": null,
+      "fired_count": 4,
+      "id": 2,
+      "saved_utc": "2026-01-20T00:00:00Z",
+      "summary_first_line": "Invented scoped summary for the acme workspace.",
+      "workspace": "acme"
+    },
+    {
+      "account": null,
+      "fired_count": 6,
+      "id": 1,
+      "saved_utc": "2026-01-20T00:00:00Z",
+      "summary_first_line": "Invented summary: cache reuse is low and sessions grow large.",
+      "workspace": null
+    }
+  ]
+}

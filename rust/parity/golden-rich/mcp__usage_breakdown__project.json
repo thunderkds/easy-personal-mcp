@@ -1,0 +1,159 @@
+{
+  "by": "project",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 18.927298
+      },
+      "cache_creation_input_tokens": 3361070,
+      "cache_read_input_tokens": 1102420,
+      "folders": [
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 12.780317
+          },
+          "cache_creation_input_tokens": 2253890,
+          "cache_read_input_tokens": 338800,
+          "input_tokens": 310,
+          "key": "gone-a",
+          "messages": 31,
+          "output_tokens": 45900,
+          "split": {
+            "agent": 75600,
+            "typed": 2563300,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 3.332368
+          },
+          "cache_creation_input_tokens": 699390,
+          "cache_read_input_tokens": 411620,
+          "input_tokens": 390,
+          "key": "alpha",
+          "messages": 39,
+          "output_tokens": 39000,
+          "split": {
+            "agent": 0,
+            "typed": 1150400,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 2.41463
+          },
+          "cache_creation_input_tokens": 338880,
+          "cache_read_input_tokens": 211000,
+          "input_tokens": 120,
+          "key": "gone-b",
+          "messages": 12,
+          "output_tokens": 11400,
+          "split": {
+            "agent": 0,
+            "typed": 561400,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.141705
+          },
+          "cache_creation_input_tokens": 14940,
+          "cache_read_input_tokens": 135000,
+          "input_tokens": 60,
+          "key": "beta",
+          "messages": 6,
+          "output_tokens": 3000,
+          "split": {
+            "agent": 0,
+            "typed": 153000,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.258277
+          },
+          "cache_creation_input_tokens": 53970,
+          "cache_read_input_tokens": 6000,
+          "input_tokens": 30,
+          "key": "gone-c",
+          "messages": 3,
+          "output_tokens": 3600,
+          "split": {
+            "agent": 0,
+            "typed": 63600,
+            "unknown": 0
+          }
+        }
+      ],
+      "input_tokens": 910,
+      "key": "Scratch",
+      "messages": 91,
+      "output_tokens": 102900,
+      "scratch": true,
+      "split": {
+        "agent": 75600,
+        "typed": 4491700,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": 0.526425
+      },
+      "cache_creation_input_tokens": 68920,
+      "cache_read_input_tokens": 381000,
+      "input_tokens": 80,
+      "key": "(unknown)",
+      "messages": 8,
+      "output_tokens": 4200,
+      "split": {
+        "agent": 454200,
+        "typed": 0,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [
+        "claude-fixture-model-1"
+      ],
+      "price_table_date": "2026-10-21",
+      "usd": 19.453723
+    },
+    "cache_creation_input_tokens": 3429990,
+    "cache_read_input_tokens": 1483420,
+    "input_tokens": 990,
+    "messages": 99,
+    "output_tokens": 107100,
+    "split": {
+      "agent": 529800,
+      "typed": 4491700,
+      "unknown": 0
+    }
+  }
+}

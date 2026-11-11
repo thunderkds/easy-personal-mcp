@@ -1,0 +1,85 @@
+{
+  "counts": {
+    "abstained": 0,
+    "capped": false,
+    "dangling": 1,
+    "duplicates": 0,
+    "links": 4,
+    "notes": 3
+  },
+  "easy_memory": null,
+  "edges": [
+    {
+      "source": "kit:memory/MEMORY.md",
+      "target": "dangling:missing-note"
+    },
+    {
+      "source": "kit:memory/MEMORY.md",
+      "target": "kit:memory/decisions.md"
+    },
+    {
+      "source": "kit:memory/MEMORY.md",
+      "target": "kit:memory/glossary.md"
+    },
+    {
+      "source": "kit:memory/decisions.md",
+      "target": "kit:memory/glossary.md"
+    }
+  ],
+  "name": "alpha",
+  "nodes": [
+    {
+      "abstained": false,
+      "account": null,
+      "description": "",
+      "id": "kit:memory/MEMORY.md",
+      "kind": "kit",
+      "links_in": 0,
+      "links_out": 3,
+      "name": "MEMORY",
+      "path": "memory/MEMORY.md",
+      "ring": 0,
+      "stem": "MEMORY"
+    },
+    {
+      "abstained": false,
+      "account": null,
+      "description": "invented decision log",
+      "id": "kit:memory/decisions.md",
+      "kind": "kit",
+      "links_in": 1,
+      "links_out": 1,
+      "name": "decisions",
+      "path": "memory/decisions.md",
+      "ring": 1,
+      "stem": "decisions"
+    },
+    {
+      "abstained": false,
+      "account": null,
+      "description": "invented terms",
+      "id": "kit:memory/glossary.md",
+      "kind": "kit",
+      "links_in": 2,
+      "links_out": 0,
+      "name": "glossary",
+      "path": "memory/glossary.md",
+      "ring": 1,
+      "stem": "glossary"
+    },
+    {
+      "abstained": false,
+      "account": null,
+      "description": "",
+      "id": "dangling:missing-note",
+      "kind": "dangling",
+      "links_in": 1,
+      "links_out": 0,
+      "name": "missing-note",
+      "path": null,
+      "ring": 3,
+      "stem": "missing-note"
+    }
+  ],
+  "project": "<WORK>/kit/alpha"
+}

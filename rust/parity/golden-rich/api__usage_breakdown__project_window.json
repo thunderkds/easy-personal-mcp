@@ -1,0 +1,159 @@
+{
+  "by": "project",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 16.500355
+      },
+      "cache_creation_input_tokens": 3041260,
+      "cache_read_input_tokens": 546300,
+      "folders": [
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 11.676027
+          },
+          "cache_creation_input_tokens": 2087470,
+          "cache_read_input_tokens": 240300,
+          "input_tokens": 230,
+          "key": "gone-a",
+          "messages": 23,
+          "output_tokens": 39500,
+          "split": {
+            "agent": 75600,
+            "typed": 2291900,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 2.515132
+          },
+          "cache_creation_input_tokens": 605910,
+          "cache_read_input_tokens": 134000,
+          "input_tokens": 90,
+          "key": "alpha",
+          "messages": 9,
+          "output_tokens": 13500,
+          "split": {
+            "agent": 0,
+            "typed": 753500,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 1.980065
+          },
+          "cache_creation_input_tokens": 286440,
+          "cache_read_input_tokens": 98500,
+          "input_tokens": 60,
+          "key": "gone-b",
+          "messages": 6,
+          "output_tokens": 7500,
+          "split": {
+            "agent": 0,
+            "typed": 392500,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.070852
+          },
+          "cache_creation_input_tokens": 7470,
+          "cache_read_input_tokens": 67500,
+          "input_tokens": 30,
+          "key": "beta",
+          "messages": 3,
+          "output_tokens": 1500,
+          "split": {
+            "agent": 0,
+            "typed": 76500,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.258277
+          },
+          "cache_creation_input_tokens": 53970,
+          "cache_read_input_tokens": 6000,
+          "input_tokens": 30,
+          "key": "gone-c",
+          "messages": 3,
+          "output_tokens": 3600,
+          "split": {
+            "agent": 0,
+            "typed": 63600,
+            "unknown": 0
+          }
+        }
+      ],
+      "input_tokens": 440,
+      "key": "Scratch",
+      "messages": 44,
+      "output_tokens": 65600,
+      "scratch": true,
+      "split": {
+        "agent": 75600,
+        "typed": 3578000,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": 0.263212
+      },
+      "cache_creation_input_tokens": 47950,
+      "cache_read_input_tokens": 192000,
+      "input_tokens": 50,
+      "key": "(unknown)",
+      "messages": 5,
+      "output_tokens": 2700,
+      "split": {
+        "agent": 242700,
+        "typed": 0,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": "2026-01-13T00:00:00.000000Z",
+    "until_utc": "2026-01-20T00:00:00.000000Z"
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [
+        "claude-fixture-model-1"
+      ],
+      "price_table_date": "2026-10-21",
+      "usd": 16.763567
+    },
+    "cache_creation_input_tokens": 3089210,
+    "cache_read_input_tokens": 738300,
+    "input_tokens": 490,
+    "messages": 49,
+    "output_tokens": 68300,
+    "split": {
+      "agent": 318300,
+      "typed": 3578000,
+      "unknown": 0
+    }
+  }
+}

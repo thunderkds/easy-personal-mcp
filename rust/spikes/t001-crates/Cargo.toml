@@ -1,0 +1,18 @@
+# T001 scratch crate: proves the stack candidates compile on Ubuntu. Not product code; T002 starts the real workspace.
+[package]
+name = "t001-crates"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Empty workspace table: keeps this spike out of any future rust/Cargo.toml workspace.
+[workspace]
+
+[dependencies]
+rmcp = { version = "=3.9.0", features = ["server", "macros", "transport-io"] }
+tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros", "io-std", "net"] }
+axum = "=0.8.9"
+rusqlite = { version = "=0.41.1", features = ["bundled"] }
+serde_yaml_ng = "=0.10.0"
+clap = { version = "=4.6.7", features = ["derive"] }
+keyring = "=4.2.0"

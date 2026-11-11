@@ -1,0 +1,4 @@
+{
+  "note": "Counts cover sessions ingested since this version; run `easy-personal ingest` to refresh. Bash first words are counted but map to no provider yet.",
+  "suggestions": []
+}

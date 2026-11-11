@@ -1,0 +1,25 @@
+{
+  "abstained": {
+    "by_version": {},
+    "total": 0
+  },
+  "cache_creation_input_tokens": 14940,
+  "cache_hit_ratio": 0.9,
+  "cache_read_input_tokens": 135000,
+  "entrypoints": {
+    "cli": 153000
+  },
+  "input_tokens": 60,
+  "messages": 6,
+  "output_tokens": 3000,
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "sessions": 2,
+  "split": {
+    "agent": 0,
+    "typed": 153000,
+    "unknown": 0
+  }
+}

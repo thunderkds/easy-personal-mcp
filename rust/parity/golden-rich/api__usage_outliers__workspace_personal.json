@@ -1,0 +1,11 @@
+{
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "sessions": [],
+  "thresholds": {
+    "context_tokens": 200000,
+    "tool_calls": 90
+  }
+}

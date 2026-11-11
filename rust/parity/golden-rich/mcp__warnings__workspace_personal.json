@@ -1,0 +1,86 @@
+{
+  "abstained": [
+    {
+      "reason": "fewer than two projects with tokens in the window",
+      "rule_id": "project_dominates",
+      "title": "One project uses most of your tokens"
+    }
+  ],
+  "as_of_utc": "2026-01-20T00:00:00+00:00",
+  "hits": [
+    {
+      "cache_read_share": 0.3539,
+      "causes": [
+        {
+          "cache_reuse": 0.3609,
+          "kind": "project",
+          "name": "Scratch",
+          "text": "Scratch read 36.1% of its prompt tokens from cache (100% of all tokens)",
+          "token_share": 1.0,
+          "tokens": 469000
+        }
+      ],
+      "diagnosis": "unstable_prefix",
+      "fix": "Lowest cache reuse by project: Scratch (36.1% of its prompt tokens came from cache). Keep the start of your prompts the same from one turn to the next. Avoid editing CLAUDE.md or switching models in the middle of a session.",
+      "label": "warning",
+      "measured": 0.3609,
+      "priority": 1,
+      "rule_id": "cache_hit_low",
+      "steps": [
+        "Lowest cache reuse by project: Scratch (36.1% of its prompt tokens came from cache).",
+        "Keep the start of your prompts the same from one turn to the next.",
+        "Avoid editing CLAUDE.md or switching models in the middle of a session."
+      ],
+      "summary": "36.1% of prompt tokens came from cache; target 50% or more, last 7 days",
+      "threshold": 0.5,
+      "title": "Low cache reuse",
+      "why": "A prompt read from cache costs far less and returns faster, so a low share means you pay full price for text Claude has already seen.",
+      "window_days": 7
+    },
+    {
+      "cache_read_share": 0.3539,
+      "causes": [
+        {
+          "kind": "session",
+          "name": "00000000-0000-4000-8000-000000000133",
+          "project": "Scratch",
+          "text": "00000000-0000-4000-8000-000000000133 in Scratch used 316.0k tokens",
+          "token_share": 0.6738,
+          "tokens": 316000
+        },
+        {
+          "kind": "session",
+          "name": "00000000-0000-4000-8000-000000000145",
+          "project": "Scratch",
+          "text": "00000000-0000-4000-8000-000000000145 in Scratch used 76.5k tokens",
+          "token_share": 0.1631,
+          "tokens": 76500
+        },
+        {
+          "kind": "session",
+          "name": "00000000-0000-4000-8000-000000000146",
+          "project": "Scratch",
+          "text": "00000000-0000-4000-8000-000000000146 in Scratch used 76.5k tokens",
+          "token_share": 0.1631,
+          "tokens": 76500
+        }
+      ],
+      "diagnosis": "bigger_sessions",
+      "fix": "Each session got bigger: tokens per session went from 81.8k to 156.3k (3 → 3 sessions). The largest session, 00000000-0000-4000-8000-000000000133 in Scratch, used 316.0k tokens. Run /compact in long sessions or start a new one. Decide if the rise is intended before it becomes your baseline.",
+      "label": "aware",
+      "measured": 0.9112,
+      "priority": 3,
+      "rule_id": "tokens_jump",
+      "steps": [
+        "Each session got bigger: tokens per session went from 81.8k to 156.3k (3 → 3 sessions).",
+        "The largest session, 00000000-0000-4000-8000-000000000133 in Scratch, used 316.0k tokens. Run /compact in long sessions or start a new one.",
+        "Decide if the rise is intended before it becomes your baseline."
+      ],
+      "summary": "Token use rose 91.1% in the last 7 days against the 7 days before; target 50% or less",
+      "threshold": 0.5,
+      "title": "Token use jumped",
+      "why": "A sudden rise is easy to miss and quickly becomes the new normal, along with its cost.",
+      "window_days": 7
+    }
+  ]
+}

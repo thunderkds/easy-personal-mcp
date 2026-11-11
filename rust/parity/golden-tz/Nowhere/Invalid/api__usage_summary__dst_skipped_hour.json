@@ -1,0 +1,23 @@
+{
+  "abstained": {
+    "by_version": {},
+    "total": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_hit_ratio": null,
+  "cache_read_input_tokens": 0,
+  "entrypoints": {},
+  "input_tokens": 0,
+  "messages": 0,
+  "output_tokens": 0,
+  "period": {
+    "since_utc": "2026-03-08T02:30:00.000000Z",
+    "until_utc": "2026-03-08T04:30:00.000000Z"
+  },
+  "sessions": 0,
+  "split": {
+    "agent": 0,
+    "typed": 0,
+    "unknown": 0
+  }
+}

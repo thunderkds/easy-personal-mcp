@@ -1,0 +1,1995 @@
+{
+  "cannot_fire": {
+    "context_index_stale": "it fires only when a project's latest commit is newer than its easy-context index, which needs a git repo at a path that exists on the machine running the test; the golden must not depend on that, so the rule is measured (0 stale projects, from an easy-context reply the generator supplies) and never fires"
+  },
+  "compare_notes": {
+    "api__usage_sessions__bad_since.json": "compare status and the `error` key only: the message text is CPython-specific (datetime.fromisoformat)"
+  },
+  "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+  "entries": [
+    {
+      "file": "api__accounts__bad_by.json",
+      "method": "GET",
+      "params": {
+        "by": "bad"
+      },
+      "raw_sha256": "0128af3e857698bb2b51fea32945b29e7a3fc5afd7b12bb66bf8b863c0d444e2",
+      "request_headers": [],
+      "route": "/api/accounts",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__accounts__by_account.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "9f941cc9f23beb77236959932426afe81bcf431f48f059699137bac916066e12",
+      "request_headers": [],
+      "route": "/api/accounts",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__accounts__by_provider.json",
+      "method": "GET",
+      "params": {
+        "by": "provider"
+      },
+      "raw_sha256": "61ada58bfabac680bf3bb5d09682c164861f2d467340acbb2c6e6928770908fc",
+      "request_headers": [],
+      "route": "/api/accounts",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "78e711c8c2f731062d66fd320124ad3e0354542bb105165f18e1a240920e0e45",
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__account_unknown.json",
+      "method": "GET",
+      "params": {
+        "account": "nope"
+      },
+      "raw_sha256": "c9530a4a4d18db28220d7e448d1f133f5005ea3e5a5f698baa9301c3708d33c8",
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "cb890eef2a500f9025d7de1b00ae3a2be5a8b923b5e9f5b63318911fe39ff72a",
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "09ba9a2660a2f918dfe776f3d8726a87eaf1b35b26b54803aaf26bbdaf99189d",
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "48b9d70d69605c0f358fea49588392209224487931324223c41a5157b117347b",
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "595e520e0139d3cf778eeba419a05235bf767c431b0516ce43745c22329cb261",
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "0ae69090aa7b24a206381db38f60413a593deda81d7778c2003573571350495b",
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__connectors__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "6c22358752a88e47208f65753f2a84bc3ec3cb1d9fbd655040710f112f0dc9e4",
+      "request_headers": [],
+      "route": "/api/connectors",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__first_run__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "8fac28e4dc7322a67dc365506207da864ac6a07cab9a3e4ac30bc18e94df01b7",
+      "request_headers": [],
+      "route": "/api/first-run",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__guard__bad_host.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "2815fee6edc3716bd6c85027399f06e03168706e7fcac786ecf0c66e6190843f",
+      "request_headers": [
+        "Host"
+      ],
+      "route": "/api/usage/summary",
+      "status": 403,
+      "surface": "http"
+    },
+    {
+      "file": "api__guard__bad_origin.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "2815fee6edc3716bd6c85027399f06e03168706e7fcac786ecf0c66e6190843f",
+      "request_headers": [
+        "Origin"
+      ],
+      "route": "/api/usage/summary",
+      "status": 403,
+      "surface": "http"
+    },
+    {
+      "file": "api__guard__no_token.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "2815fee6edc3716bd6c85027399f06e03168706e7fcac786ecf0c66e6190843f",
+      "request_headers": [
+        "(no token)"
+      ],
+      "route": "/api/usage/summary",
+      "status": 403,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "53ae9edfd6047136f2ae60c47734dc9248144e275c6519735a56296c8e18d931",
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "164398bb06eb4b2ff6018ed3699cf4de6ab659ccfaf1e3abb4fd57b2af42963d",
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "71622ae31a77548b097b9eda090910511523060a70dec446de49b10a6f78df6e",
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "67e5203e368fcb430eb1b07ec791a2062d551a4067f2802567f7e2673d58c602",
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "4b2f80b3b20d2dcdc1615af60ecc72c09d7894ab7ebaff55788271bb3609dbcf",
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "8418c7d3bfbe73d742056f9358807290813b0a43b147ba8135046c3a45133be0",
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__workspace_unknown.json",
+      "method": "GET",
+      "params": {
+        "workspace": "nope"
+      },
+      "raw_sha256": "2029437ec02f4f7f30c70718308d4f000f8aef7a74b9dc862fe4f568133d812c",
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_file__html.json",
+      "method": "GET",
+      "params": {
+        "folder": "reports",
+        "path": "index.html",
+        "repo_no": "0",
+        "workspace": "acme"
+      },
+      "raw_sha256": "b9211297b5186b12b941f6654685aaee74afb96b4250430f56541409c58cc2dc",
+      "request_headers": [],
+      "route": "/api/kit/report-file",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_file__json.json",
+      "method": "GET",
+      "params": {
+        "folder": "reports",
+        "path": "session-001.json",
+        "repo_no": "0",
+        "workspace": "acme"
+      },
+      "raw_sha256": "2f5124812f9cdb587f4d42db8d47dbb0000a4fe8c323d4ca558ce5a3db5d84b7",
+      "request_headers": [],
+      "route": "/api/kit/report-file",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_file__missing.json",
+      "method": "GET",
+      "params": {
+        "folder": "reports",
+        "path": "nope.html",
+        "repo_no": "0",
+        "workspace": "acme"
+      },
+      "raw_sha256": "51d0a9e3bd9ffc25483790aaffe7a3597e642edd040dddb16aafc324e6e922ed",
+      "request_headers": [],
+      "route": "/api/kit/report-file",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_file__no_path.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "51d0a9e3bd9ffc25483790aaffe7a3597e642edd040dddb16aafc324e6e922ed",
+      "request_headers": [],
+      "route": "/api/kit/report-file",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_files__bad_repo_no.json",
+      "method": "GET",
+      "params": {
+        "folder": "reports",
+        "repo_no": "7",
+        "workspace": "acme"
+      },
+      "raw_sha256": "51d0a9e3bd9ffc25483790aaffe7a3597e642edd040dddb16aafc324e6e922ed",
+      "request_headers": [],
+      "route": "/api/kit/report-files",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_files__missing_folder.json",
+      "method": "GET",
+      "params": {
+        "folder": "docs",
+        "repo_no": "0",
+        "workspace": "acme"
+      },
+      "raw_sha256": "51d0a9e3bd9ffc25483790aaffe7a3597e642edd040dddb16aafc324e6e922ed",
+      "request_headers": [],
+      "route": "/api/kit/report-files",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_files__no_folder.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "51d0a9e3bd9ffc25483790aaffe7a3597e642edd040dddb16aafc324e6e922ed",
+      "request_headers": [],
+      "route": "/api/kit/report-files",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_files__ok.json",
+      "method": "GET",
+      "params": {
+        "folder": "reports",
+        "repo_no": "0",
+        "workspace": "acme"
+      },
+      "raw_sha256": "05d2cb737044236db4d1badd3491d1d36b57c8b6fe94a2ee9beb38521c904285",
+      "request_headers": [],
+      "route": "/api/kit/report-files",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_files__smoke.json",
+      "method": "GET",
+      "params": {
+        "folder": "smoke-reports",
+        "repo_no": "0",
+        "workspace": "acme"
+      },
+      "raw_sha256": "648c53576622db898677700b74e2339c424cf55536cfa40bc250ac222b7338ff",
+      "request_headers": [],
+      "route": "/api/kit/report-files",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_reports__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "aee129f0d127c08473a3c2fa243e1f1fd9f5c656ebfb7360df873b2d28931f7c",
+      "request_headers": [],
+      "route": "/api/kit/reports",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_workspaces__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "45a51999112123a899ab6724c5eda8115795f46bd5d3e2a02aa979d0a899d82f",
+      "request_headers": [],
+      "route": "/api/kit/workspaces",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_workspaces__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "6f6f78113978e407e8c6d3cbe9dbdaf5b503dd53e369b92e28d833b8837fa2f7",
+      "request_headers": [],
+      "route": "/api/kit/workspaces",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_workspaces__window.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "45a51999112123a899ab6724c5eda8115795f46bd5d3e2a02aa979d0a899d82f",
+      "request_headers": [],
+      "route": "/api/kit/workspaces",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__memory_graph__list.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "fdcdd4b8d09c82f0745c1a40d4a5241576db6ff78f34394424ccedc456f4eb21",
+      "request_headers": [],
+      "route": "/api/memory-graph",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__memory_graph__project.json",
+      "method": "GET",
+      "params": {
+        "project": "<WORK>/kit/alpha"
+      },
+      "raw_sha256": "386a022fe92e29e1caebe7c9ccddea2ed11dff8e98b00bff4903573c0d1a6d80",
+      "request_headers": [],
+      "route": "/api/memory-graph",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__memory_graph__unknown_project.json",
+      "method": "GET",
+      "params": {
+        "project": "nope"
+      },
+      "raw_sha256": "c97f963731e7447e0fa480d76f513b5e861d0539de749181a76df3bfb9411172",
+      "request_headers": [],
+      "route": "/api/memory-graph",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "1fa31c5c5f641d42c084e05be43070ab98cac2e4f68107e1dd986c3198c6ccd6",
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__account_unknown.json",
+      "method": "GET",
+      "params": {
+        "account": "nope"
+      },
+      "raw_sha256": "c9530a4a4d18db28220d7e448d1f133f5005ea3e5a5f698baa9301c3708d33c8",
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "6a619a382a94aa54a3112e92e9b0f00ef3d7a5c854c5503a09a19fa3a6dd5313",
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "52079309d9d8986110d589ccf88c10eccd7047367732666079d6f9f7f95f25e6",
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "4ca5ab6a26f1796646946d73fc18aea8624ffe29fbe157a02a3ea82b2afa7567",
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "9b1404ab263c2858c7d342bb95763f56669bb323a11664c42b97e9419ea27c0e",
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "40dea8ebb3d05d52de7f3a3d31596fd6414292eec57b09ee0fe5c41b3df98d43",
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__reports__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "012189e153d872ad554b6d02a45250cb8e068fe5eaa578f0b6d5726d2de658b4",
+      "request_headers": [],
+      "route": "/api/reports",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__reports_one__found.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "f911c4a1706beb2a5fd2053c99b7922e65ad8415dcad0b3c6d027b45841a0c29",
+      "request_headers": [],
+      "route": "/api/reports/{id}",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__reports_one__missing.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "0203c250b82a6612f32e3af32649cca87ea28a07e5d82bb3b270ac1285eb99cb",
+      "request_headers": [],
+      "route": "/api/reports/{id}",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__reports_one__scoped.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "e354262012c3be859ce3af5cd20957787e331124adcf252f0c12d807621197ef",
+      "request_headers": [],
+      "route": "/api/reports/{id}",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__sync_plan__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "4430e7786edc0f8419f02e909c15422ebf572287a58132d8f6f33250ce053121",
+      "request_headers": [],
+      "route": "/api/sync",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__bad_by.json",
+      "method": "GET",
+      "params": {
+        "by": "bad"
+      },
+      "raw_sha256": "6e19a16a8a2f41086b588a58fa0d0f8ab9618c18b792c3219730b8fa59ee0307",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__day.json",
+      "method": "GET",
+      "params": {
+        "by": "day"
+      },
+      "raw_sha256": "145852e91d0d919fea876ef0e9cc034e44d766325698c0b09d88007104d8dc1b",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__day_window.json",
+      "method": "GET",
+      "params": {
+        "by": "day",
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "47d5839a2fa6ea11cc6e51cd37566415e83088a6a14e2023436aeffb526942c6",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__day_workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "by": "day",
+        "workspace": "personal"
+      },
+      "raw_sha256": "fb613d12c470f9469c72f9f37b13c0a85cfc795718852ecc7afd38e9119f97b8",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model.json",
+      "method": "GET",
+      "params": {
+        "by": "model"
+      },
+      "raw_sha256": "078d437bd53feeda2655a96da663eeb070d4eae7ff7b150ae9a149e6c89b10d1",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1",
+        "by": "model"
+      },
+      "raw_sha256": "6f10bd286639d9b2a4ffcc883b9033e34c6a9042e06ef53aeb5025d00141643e",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "by": "model"
+      },
+      "raw_sha256": "95b10bc3f5c7a320bfbad27fe11d7b25ec6d4311474a0e5ae7bc10518d25b5fb",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_window.json",
+      "method": "GET",
+      "params": {
+        "by": "model",
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "9af1d4aa3fc1e7e5bd756f890254a8eb8db8081b4d26f216ed3f4ea39765ec18",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_window_mid.json",
+      "method": "GET",
+      "params": {
+        "by": "model",
+        "since": "2026-01-12T18:00:00Z",
+        "until": "2026-01-15T06:00:00Z"
+      },
+      "raw_sha256": "4d3f5589b49235fa940f64a6ec1d3567d3dd83b8d4aa2c11e670fb4ca20c060f",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "by": "model",
+        "workspace": "acme"
+      },
+      "raw_sha256": "8fc51104e9af37de16ef9779ff9ae1a7c9ecf755d5eabe45c9ed22e03b955739",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "by": "model",
+        "workspace": "acme"
+      },
+      "raw_sha256": "74402a3c7e98a87fbe2fb32340f207ffcb4e51f67eab5b1d860cf8e588ddaa9d",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "by": "model",
+        "workspace": "personal"
+      },
+      "raw_sha256": "b5c49bd20c01ebaa554fc6f9e22d01dc0336bd49a7d7f534a8a0ea68ec1fb26a",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project.json",
+      "method": "GET",
+      "params": {
+        "by": "project"
+      },
+      "raw_sha256": "e8a174e963cd6c23d2f5250ab71a710d60869205854c72bb35e1b2dac9a3853d",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project_account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1",
+        "by": "project"
+      },
+      "raw_sha256": "df0579535f24cbcc67df64acba44a02a4f6569b3ee3f4fb23044fd9c99ef278d",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "by": "project"
+      },
+      "raw_sha256": "e8332edc94b9d2cd03d262757ae3a80e46b20f7d705f3eb7ce92a7e773673e70",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project_window.json",
+      "method": "GET",
+      "params": {
+        "by": "project",
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "35877740c5bf1dbc792b4568633a9efa38b7ddd94adeb65a60901531d8126556",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project_workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "by": "project",
+        "workspace": "acme"
+      },
+      "raw_sha256": "12dcb1b1f2f1486751bb96a6f138aa2b92d17c63ebb8767525192a00f381201b",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project_workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "by": "project",
+        "workspace": "acme"
+      },
+      "raw_sha256": "61b64e0c76b884fc1575ce404a2b8d1feb0114da9f0df3973abc8866c7a7a667",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project_workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "by": "project",
+        "workspace": "personal"
+      },
+      "raw_sha256": "99a192635f1ab131a87e9e2253c8a03cf94586f8e74c8fc68a08c7fb5c5d0c83",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__tool.json",
+      "method": "GET",
+      "params": {
+        "by": "tool"
+      },
+      "raw_sha256": "d7820092943f0eb9a9215c65e39c647395d8557712d727544c1e09e3bba0340e",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__tool_window.json",
+      "method": "GET",
+      "params": {
+        "by": "tool",
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "4832eb99fc4d692bb425b638a8124bc5475283aaa261aa8d9967df4479efddab",
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "98fe5134665d29dda10eaa2984cf7f3073aacbf0bc21fcfb075640b2b58c64d8",
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "35a26bf3cdc56a08f937b870a8f5160051e437d741483e60b7e23413d261c37f",
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "98fe5134665d29dda10eaa2984cf7f3073aacbf0bc21fcfb075640b2b58c64d8",
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__window.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "8cc5611c51a4f87a9b471c7c5c880feb5f81ec457bb4d51630f378385c866494",
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "3cb0e2c65f5ae4017fd412bb5c8d11aacfeed062171c8b81199a17b8fadc1d39",
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "35a26bf3cdc56a08f937b870a8f5160051e437d741483e60b7e23413d261c37f",
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "35a26bf3cdc56a08f937b870a8f5160051e437d741483e60b7e23413d261c37f",
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "bde238275d6b48129a013bf203eb002197c9d6dcc79070d8059f28cb36bed04c",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "5bbf0f288235f84bfef599819c76aedeecd764db4d627bebc3ef2c89fb1b1bcd",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "efeedcdaed564c12cc82679d2c3b36e3e00eb3923dcdc7a5c43ed7ba01c62d85",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "compare": "compare status and the `error` key only: the message text is CPython-specific (datetime.fromisoformat)",
+      "file": "api__usage_sessions__bad_since.json",
+      "method": "GET",
+      "params": {
+        "since": "bad"
+      },
+      "raw_sha256": null,
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__window.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "fb78443c7fbf976e67a43419483bbec98617aed7644c86f3819b36bf59aeba29",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__window_mid.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-12T18:00:00Z",
+        "until": "2026-01-15T06:00:00Z"
+      },
+      "raw_sha256": "803a55267d1fda49fe39ad1f867e6977d39f373f1c8d1b80bd77571ff8e21f52",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "2705ca79ef62ab804ebbdabd313fff5f9d292731a3d9ac9ea760345f873e273d",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "4d5c00b267cb4060e60de1dd39b9e881c71f67cb412828b61fa6451a55838517",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "644123864013bc436aa59abf1f30f039366d1a8cbe554b54a43814f2dafc105d",
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "3b3a189d0e08100313e4bbd1b2e58623a19db072c734cca303ab8052b9b938b7",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__account_unknown.json",
+      "method": "GET",
+      "params": {
+        "account": "nope"
+      },
+      "raw_sha256": "c9530a4a4d18db28220d7e448d1f133f5005ea3e5a5f698baa9301c3708d33c8",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "84e3d6d7b2de18e8bc2e68c2eb6f2cc711f5368bb47ca1ff1a6d1d4e20b312a6",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "85c125a047b9b6c904b5de9bba14b60e9d8019b5e1a000f8caeec06109668c54",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__window.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "54ca5026e5a9c770bae28abde72f82c4f774b7bbdd9989b83bd28f1526f5d195",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__window_mid.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-12T18:00:00Z",
+        "until": "2026-01-15T06:00:00Z"
+      },
+      "raw_sha256": "7130971e2a6898b8ee73e1b2232607b360e35fb5287ad7cac6ac8250e4dec474",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__window_workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z",
+        "workspace": "acme"
+      },
+      "raw_sha256": "1d977dd3466cfe5ceeb15b0fa6db505db87bb34e63ed4ce7deada6eb8e4a1b41",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "b86a2fac119ac2289e150a2e70fa2c2f368bc30c8279f764eba0c13e3b93ed09",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "d1c0828173123a39ee74d768db08aeb8b83b85f864b1af845a017cbef8ac557f",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "65eab66ccedc392cc63099755c798f6b03352d1525c6e2fc45331fa89de76f6c",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__workspace_unknown.json",
+      "method": "GET",
+      "params": {
+        "workspace": "nope"
+      },
+      "raw_sha256": "2029437ec02f4f7f30c70718308d4f000f8aef7a74b9dc862fe4f568133d812c",
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__account_default.json",
+      "method": "GET",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "3325cb91604730404c0f85f61491fbe8cce866c3342c04a10e832cc9b1bb1a29",
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "47af72d94858f8aaae5f5afa8ae7eb3d62e39902a66051a8968ce7c5b8152c1c",
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "936b041136a9dff3cfbd33fdd594eb8d9f4c5039d1f07d458975b089946c0727",
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__workspace_acme.json",
+      "method": "GET",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "fd2d3b337674bf72980aa42aa19de2359ac532197915656698bab974daeb470d",
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__workspace_acme_account_work.json",
+      "method": "GET",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "c1aef838b709c2a0cd1d71bd57e3b23e51d1c25361e9618894dc7a6c3d28c11d",
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__workspace_personal.json",
+      "method": "GET",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "91968102f356066d232cad5dbd509bdef3d095f1092471f1baa927ad75eb222a",
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__workspace_unknown.json",
+      "method": "GET",
+      "params": {
+        "workspace": "nope"
+      },
+      "raw_sha256": "2029437ec02f4f7f30c70718308d4f000f8aef7a74b9dc862fe4f568133d812c",
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__workspaces__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "2ec747579377d26859054ec80535cb4aefd385b74311d5ee4a60eb07a6ad6b34",
+      "request_headers": [],
+      "route": "/api/workspaces",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__workspaces_unassigned__all.json",
+      "method": "GET",
+      "params": {},
+      "raw_sha256": "5e7d40329cdc2a4cbc6a98fec12125fb7dc496f813cfccbcbee16cae1d52cf05",
+      "request_headers": [],
+      "route": "/api/workspaces/unassigned",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "mcp__connector_catalog__all.json",
+      "params": {},
+      "raw_sha256": "bb7041d6477b7c305440c83c0a3d47f1e800f1fc945213505f54fce05ac0c0d5",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "connector_catalog"
+    },
+    {
+      "file": "mcp__connector_status__all.json",
+      "params": {},
+      "raw_sha256": "c095a77f7c1fe15ca9d94d41d39cb34ed70e3720112ff48b182c03eeca8e996d",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "connector_status"
+    },
+    {
+      "file": "mcp__connector_suggestions__all.json",
+      "params": {},
+      "raw_sha256": "4c4a0f762f8a7236ca75e57991fe9a797f1c7c238ae84c4eb9d98d3c291ee78f",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "connector_suggestions"
+    },
+    {
+      "file": "mcp__improvement_plan__account_default.json",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "1fa31c5c5f641d42c084e05be43070ab98cac2e4f68107e1dd986c3198c6ccd6",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "improvement_plan"
+    },
+    {
+      "file": "mcp__improvement_plan__account_work.json",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "6a619a382a94aa54a3112e92e9b0f00ef3d7a5c854c5503a09a19fa3a6dd5313",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "improvement_plan"
+    },
+    {
+      "file": "mcp__improvement_plan__all.json",
+      "params": {},
+      "raw_sha256": "52079309d9d8986110d589ccf88c10eccd7047367732666079d6f9f7f95f25e6",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "improvement_plan"
+    },
+    {
+      "file": "mcp__improvement_plan__workspace_acme.json",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "4ca5ab6a26f1796646946d73fc18aea8624ffe29fbe157a02a3ea82b2afa7567",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "improvement_plan"
+    },
+    {
+      "file": "mcp__improvement_plan__workspace_acme_account_work.json",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "9b1404ab263c2858c7d342bb95763f56669bb323a11664c42b97e9419ea27c0e",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "improvement_plan"
+    },
+    {
+      "file": "mcp__improvement_plan__workspace_personal.json",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "40dea8ebb3d05d52de7f3a3d31596fd6414292eec57b09ee0fe5c41b3df98d43",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "improvement_plan"
+    },
+    {
+      "file": "mcp__kit_findings__all.json",
+      "params": {},
+      "raw_sha256": "6e9a875c66494ce75890747f5c18cde863f78cc43a34aebc6cd208cc1d86e72a",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_findings"
+    },
+    {
+      "file": "mcp__kit_findings__limit_10.json",
+      "params": {
+        "limit": 10
+      },
+      "raw_sha256": "6e9a875c66494ce75890747f5c18cde863f78cc43a34aebc6cd208cc1d86e72a",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_findings"
+    },
+    {
+      "file": "mcp__kit_findings__since_week.json",
+      "params": {
+        "since": "2026-01-06T00:00:00Z"
+      },
+      "raw_sha256": "3bb626273f59137c99380973d07d9a0b008c06497dda04a13b7b5f03078cfb45",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_findings"
+    },
+    {
+      "file": "mcp__kit_summary__account_default.json",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "c60ab55e2dd6bbcfb1ede9d11174a40fe499ccc659eda0cc974dac9497257171",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_summary"
+    },
+    {
+      "file": "mcp__kit_summary__account_work.json",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "ef2e0351d2ad413bac4515759e8949bd1c19548d60dd455b453364ce15aed303",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_summary"
+    },
+    {
+      "file": "mcp__kit_summary__all.json",
+      "params": {},
+      "raw_sha256": "3459c00a6878d84376637ab104bbe40d131d7aca63d4ae11ecfb47b770ae4c85",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_summary"
+    },
+    {
+      "file": "mcp__kit_summary__workspace_acme.json",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "af073605ca02da890a3ebc0bc0178ff5cc9e91c3b1c8c72964d7ce0a88694af9",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_summary"
+    },
+    {
+      "file": "mcp__kit_summary__workspace_acme_account_work.json",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "63c6652d53fc48507f0adee6f75d21e8a793b8b5ce325251bc61a837fe41dd3f",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_summary"
+    },
+    {
+      "file": "mcp__kit_summary__workspace_personal.json",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "5dbab88c190801172ecae934774e3988fc8949581a843dc376de75bd38237654",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_summary"
+    },
+    {
+      "file": "mcp__ping__all.json",
+      "params": {},
+      "raw_sha256": "330030487fdff089d6e94b27550d9463904cbe92ecae6e8ce7d3f095c4086ac3",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "ping"
+    },
+    {
+      "file": "mcp__prompt_investigate__all.json",
+      "params": {},
+      "prompt": "investigate",
+      "raw_sha256": "445331ccf49b6923cf20cf937de09300c82954484dadeb535bb27960eca97c99",
+      "status": "ok",
+      "surface": "mcp"
+    },
+    {
+      "file": "mcp__prompt_investigate__scoped.json",
+      "params": {
+        "workspace": "acme"
+      },
+      "prompt": "investigate",
+      "raw_sha256": "9288094b54e0e19a3b60efc74a87893d8c33708630a4dec1ce77a4daa714647a",
+      "status": "ok",
+      "surface": "mcp"
+    },
+    {
+      "file": "mcp__session_outliers__all.json",
+      "params": {},
+      "raw_sha256": "98fe5134665d29dda10eaa2984cf7f3073aacbf0bc21fcfb075640b2b58c64d8",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "session_outliers"
+    },
+    {
+      "file": "mcp__session_outliers__window.json",
+      "params": {
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "8cc5611c51a4f87a9b471c7c5c880feb5f81ec457bb4d51630f378385c866494",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "session_outliers"
+    },
+    {
+      "file": "mcp__tools_list.json",
+      "params": {},
+      "raw_sha256": "6fd3cdf79390ba130bbb26ed9475692e33a77af1921f8b3c6523dd355d9839d2",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "tools/list"
+    },
+    {
+      "file": "mcp__usage_breakdown__day.json",
+      "params": {
+        "by": "day"
+      },
+      "raw_sha256": "145852e91d0d919fea876ef0e9cc034e44d766325698c0b09d88007104d8dc1b",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_breakdown__model.json",
+      "params": {
+        "by": "model"
+      },
+      "raw_sha256": "078d437bd53feeda2655a96da663eeb070d4eae7ff7b150ae9a149e6c89b10d1",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_breakdown__model_window.json",
+      "params": {
+        "by": "model",
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "9af1d4aa3fc1e7e5bd756f890254a8eb8db8081b4d26f216ed3f4ea39765ec18",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_breakdown__project.json",
+      "params": {
+        "by": "project"
+      },
+      "raw_sha256": "e8a174e963cd6c23d2f5250ab71a710d60869205854c72bb35e1b2dac9a3853d",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_breakdown__tool.json",
+      "params": {
+        "by": "tool"
+      },
+      "raw_sha256": "d7820092943f0eb9a9215c65e39c647395d8557712d727544c1e09e3bba0340e",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_summary__all.json",
+      "params": {},
+      "raw_sha256": "85c125a047b9b6c904b5de9bba14b60e9d8019b5e1a000f8caeec06109668c54",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_summary"
+    },
+    {
+      "file": "mcp__usage_summary__window.json",
+      "params": {
+        "since": "2026-01-13T00:00:00Z",
+        "until": "2026-01-20T00:00:00Z"
+      },
+      "raw_sha256": "54ca5026e5a9c770bae28abde72f82c4f774b7bbdd9989b83bd28f1526f5d195",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_summary"
+    },
+    {
+      "file": "mcp__usage_summary__window_mid.json",
+      "params": {
+        "since": "2026-01-12T18:00:00Z",
+        "until": "2026-01-15T06:00:00Z"
+      },
+      "raw_sha256": "7130971e2a6898b8ee73e1b2232607b360e35fb5287ad7cac6ac8250e4dec474",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_summary"
+    },
+    {
+      "file": "mcp__warnings__account_default.json",
+      "params": {
+        "account": "1"
+      },
+      "raw_sha256": "3325cb91604730404c0f85f61491fbe8cce866c3342c04a10e832cc9b1bb1a29",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "warnings"
+    },
+    {
+      "file": "mcp__warnings__account_work.json",
+      "params": {
+        "account": "Claude work"
+      },
+      "raw_sha256": "47af72d94858f8aaae5f5afa8ae7eb3d62e39902a66051a8968ce7c5b8152c1c",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "warnings"
+    },
+    {
+      "file": "mcp__warnings__all.json",
+      "params": {},
+      "raw_sha256": "936b041136a9dff3cfbd33fdd594eb8d9f4c5039d1f07d458975b089946c0727",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "warnings"
+    },
+    {
+      "file": "mcp__warnings__workspace_acme.json",
+      "params": {
+        "workspace": "acme"
+      },
+      "raw_sha256": "fd2d3b337674bf72980aa42aa19de2359ac532197915656698bab974daeb470d",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "warnings"
+    },
+    {
+      "file": "mcp__warnings__workspace_acme_account_work.json",
+      "params": {
+        "account": "Claude work",
+        "workspace": "acme"
+      },
+      "raw_sha256": "c1aef838b709c2a0cd1d71bd57e3b23e51d1c25361e9618894dc7a6c3d28c11d",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "warnings"
+    },
+    {
+      "file": "mcp__warnings__workspace_personal.json",
+      "params": {
+        "workspace": "personal"
+      },
+      "raw_sha256": "91968102f356066d232cad5dbd509bdef3d095f1092471f1baa927ad75eb222a",
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "warnings"
+    }
+  ],
+  "fixture_dir": "rust/parity/fixtures-rich",
+  "fixture_sha256": "d6ee89404fcf3b1d1a8bed613142dd91f9938c44ddce3c85e6ad24be1d36d94c",
+  "frozen_now": "2026-01-20T00:00:00+00:00",
+  "generator": "rust/parity/gen_golden.py --rich",
+  "key_order": "golden files: sorted keys, compared as parsed JSON; raw_sha256: the order the app emitted",
+  "note": "golden files hold the response body only; status is here. Object keys are sorted in the golden files (so a file does not show the order the app emitted); `raw_sha256` is the SHA-256 of the raw body text as the app emitted it (HTTP: the response body; MCP: the structured result as compact JSON, key order as FastMCP returned it), taken after the `<WORK>`/`<FIXTURES>`/`<REPO>` scrub. The order rule: compare the golden files as parsed JSON, and compare `raw_sha256` when the order of the keys matters. Lists keep the app's order.",
+  "patched": [
+    {
+      "reason": "keychain and `claude` CLI are machine state",
+      "to": "every connector 'not configured'",
+      "what": "api._configured, suggestions.configured_ids"
+    },
+    {
+      "reason": "the claude CLI and the keychain must never run",
+      "to": "raise (the run fails if one is reached)",
+      "what": "writer._claude, writer._keychain_item"
+    },
+    {
+      "reason": "first-run hint would otherwise differ per machine; XDG_CONFIG_HOME points at an empty folder",
+      "to": "True",
+      "what": "schedule.systemd_available"
+    },
+    {
+      "reason": "no network; the service is machine state",
+      "to": "a fixed list_indexes reply (EASY_CONTEXT_REPLY)",
+      "what": "context.call_tool"
+    },
+    {
+      "reason": "see frozen_now",
+      "to": "2026-01-20T00:00:00+00:00",
+      "what": "datetime.now in rules, kit, kitperf, reports, accounts, easymem, context"
+    }
+  ],
+  "rule_coverage": {
+    "cache_hit_low": {
+      "abstained": [],
+      "clear": [
+        "warnings__account_work",
+        "warnings__workspace_acme_account_work"
+      ],
+      "fired": [
+        "warnings__account_default",
+        "warnings__all",
+        "warnings__workspace_acme",
+        "warnings__workspace_personal"
+      ],
+      "left_out": []
+    },
+    "context_index_stale": {
+      "abstained": [],
+      "clear": [
+        "warnings__account_default",
+        "warnings__all",
+        "warnings__workspace_acme"
+      ],
+      "fired": [],
+      "left_out": [
+        "warnings__account_work",
+        "warnings__workspace_acme_account_work",
+        "warnings__workspace_personal"
+      ]
+    },
+    "project_dominates": {
+      "abstained": [
+        "warnings__workspace_acme",
+        "warnings__workspace_acme_account_work",
+        "warnings__workspace_personal"
+      ],
+      "clear": [
+        "warnings__account_work"
+      ],
+      "fired": [
+        "warnings__account_default",
+        "warnings__all"
+      ],
+      "left_out": []
+    },
+    "records_unreadable": {
+      "abstained": [],
+      "clear": [
+        "warnings__account_work",
+        "warnings__workspace_acme",
+        "warnings__workspace_acme_account_work",
+        "warnings__workspace_personal"
+      ],
+      "fired": [
+        "warnings__account_default",
+        "warnings__all"
+      ],
+      "left_out": []
+    },
+    "session_huge_no_compact": {
+      "abstained": [],
+      "clear": [
+        "warnings__account_work",
+        "warnings__workspace_acme_account_work",
+        "warnings__workspace_personal"
+      ],
+      "fired": [
+        "warnings__account_default",
+        "warnings__all",
+        "warnings__workspace_acme"
+      ],
+      "left_out": []
+    },
+    "tokens_jump": {
+      "abstained": [],
+      "clear": [
+        "warnings__account_work",
+        "warnings__workspace_acme_account_work"
+      ],
+      "fired": [
+        "warnings__account_default",
+        "warnings__all",
+        "warnings__workspace_acme",
+        "warnings__workspace_personal"
+      ],
+      "left_out": []
+    },
+    "tool_errors_high": {
+      "abstained": [],
+      "clear": [
+        "warnings__workspace_personal"
+      ],
+      "fired": [
+        "warnings__account_default",
+        "warnings__account_work",
+        "warnings__all",
+        "warnings__workspace_acme",
+        "warnings__workspace_acme_account_work"
+      ],
+      "left_out": []
+    }
+  },
+  "skipped": [
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/accounts",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/accounts/{id}/confirm",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/accounts/{id}/ignore",
+      "surface": "http"
+    },
+    {
+      "method": "PUT",
+      "reason": "write route",
+      "route": "/api/accounts/{id}/workspaces",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/connectors",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "reads the real keychain and `claude mcp list` (machine state)",
+      "route": "/api/connectors/legacy",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/connectors/legacy",
+      "surface": "http"
+    },
+    {
+      "method": "PUT",
+      "reason": "write route",
+      "route": "/api/connectors/{id}/alias",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/connectors/{id}/move",
+      "surface": "http"
+    },
+    {
+      "method": "DELETE",
+      "reason": "write route",
+      "route": "/api/connectors/{name}",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "browses an absolute folder given by the caller: needs real machine paths",
+      "route": "/api/dirs",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "reads the machine's systemd user timers and crontab (machine state)",
+      "route": "/api/jobs",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "SSE stream: never ends, and its frames carry live clock readings",
+      "route": "/api/live",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/sync",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/workspaces",
+      "surface": "http"
+    },
+    {
+      "method": "DELETE",
+      "reason": "write route",
+      "route": "/api/workspaces/{id}",
+      "surface": "http"
+    },
+    {
+      "method": "PATCH",
+      "reason": "write route",
+      "route": "/api/workspaces/{id}",
+      "surface": "http"
+    },
+    {
+      "reason": "writes a row to the store (the only MCP write tool)",
+      "surface": "mcp",
+      "tool": "save_report"
+    }
+  ],
+  "store": {
+    "bytes": 319488,
+    "file": "../store-rich/store-v11.sqlite",
+    "user_version": 11
+  },
+  "timezone": "UTC",
+  "token": "parity-token",
+  "versions": {
+    "anyio": "4.16.0",
+    "easy-personal-mcp": "0.4.0",
+    "httpx": "0.28.1",
+    "keyring": "25.7.0",
+    "mcp": "1.30.0",
+    "platform": "Linux",
+    "python": "3.14.4",
+    "sse-starlette": "3.7.0",
+    "starlette": "1.10.0",
+    "uvicorn": "0.54.0"
+  },
+  "volatile": [
+    {
+      "file": "api__accounts__by_account.json",
+      "reason": "absolute path of this run",
+      "token": "<WORK>"
+    },
+    {
+      "file": "api__accounts__by_provider.json",
+      "reason": "absolute path of this run",
+      "token": "<WORK>"
+    },
+    {
+      "file": "api__memory_graph__list.json",
+      "reason": "absolute path of this run",
+      "token": "<WORK>"
+    },
+    {
+      "file": "api__memory_graph__project.json",
+      "reason": "absolute path of this run",
+      "token": "<WORK>"
+    },
+    {
+      "file": "api__workspaces__all.json",
+      "reason": "absolute path of this run",
+      "token": "<WORK>"
+    },
+    {
+      "field": "store.events.machine_id / source_files.machine_id / kit_trace_events.machine_id / meta.machine_id",
+      "reason": "random uuid per store",
+      "token": "00000000-0000-4000-8000-0000000000aa"
+    },
+    {
+      "field": "store.* text columns holding a path (source_path, project_path, folder, repo_path, ...)",
+      "reason": "the generator's work folder is replaced by a fixed prefix; those folders do not exist on a test machine, so usage groups them as Scratch",
+      "token": "/work/rich/<relative path>"
+    },
+    {
+      "field": "store.*.inode",
+      "reason": "inode of this checkout",
+      "token": "1..N in sorted path order"
+    },
+    {
+      "field": "now (rules/kit/kitperf/accounts/reports windows)",
+      "reason": "clock patched in the generator: the routes have no parameter for it",
+      "token": "2026-01-20T00:00:00+00:00"
+    },
+    {
+      "field": "mtime of every copied fixture file",
+      "reason": "report-folder and board answers show file times",
+      "token": "2026-01-18T00:00:00Z"
+    }
+  ],
+  "windows": {
+    "mid": {
+      "since": "2026-01-12T18:00:00Z",
+      "until": "2026-01-15T06:00:00Z"
+    },
+    "rules": {
+      "since": "2026-01-13T00:00:00Z",
+      "until": "2026-01-20T00:00:00Z"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "workspaces": [
+    {
+      "color": null,
+      "description": null,
+      "email": null,
+      "icon": null,
+      "id": 1,
+      "is_orphan": true,
+      "name": "orphan",
+      "repos": []
+    },
+    {
+      "color": "#3366cc",
+      "description": "invented workspace one",
+      "email": null,
+      "icon": null,
+      "id": 2,
+      "is_orphan": false,
+      "name": "acme",
+      "repos": [
+        "<WORK>/kit/alpha",
+        "/work/rich/gone-a"
+      ]
+    },
+    {
+      "color": null,
+      "description": null,
+      "email": "invented@example.invalid",
+      "icon": null,
+      "id": 3,
+      "is_orphan": false,
+      "name": "personal",
+      "repos": [
+        "<WORK>/kit/beta",
+        "/work/rich/gone-b"
+      ]
+    }
+  ]
+}

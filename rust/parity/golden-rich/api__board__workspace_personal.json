@@ -1,0 +1,19 @@
+{
+  "gone": 1,
+  "projects": [
+    {
+      "abstained": 0,
+      "board": null,
+      "last_pull": null,
+      "project": "beta",
+      "status": "ok",
+      "tasks": [
+        {
+          "id": "B-001",
+          "status": "Todo",
+          "title": "A board with no board.json"
+        }
+      ]
+    }
+  ]
+}

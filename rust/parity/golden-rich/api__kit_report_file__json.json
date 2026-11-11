@@ -1,0 +1,11 @@
+{
+  "served_file": {
+    "headers": {
+      "cache-control": "no-store",
+      "content-disposition": "inline",
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "text": "{\"verdict\": \"pass\", \"checks\": 3}\n"
+  }
+}

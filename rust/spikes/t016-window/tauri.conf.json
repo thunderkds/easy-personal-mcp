@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "t016-window",
+  "version": "0.0.0",
+  "identifier": "dev.spike.t016",
+  "build": { "frontendDist": "./stub-frontend" },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": false }
+}

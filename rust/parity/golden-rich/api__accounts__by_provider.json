@@ -1,0 +1,49 @@
+{
+  "by": "provider",
+  "providers": {
+    "claude": [
+      {
+        "config_dir_env": null,
+        "folder": "<WORK>/agent-root/.claude",
+        "id": 1,
+        "is_default": true,
+        "label": "Claude default",
+        "provider": "claude",
+        "status": "confirmed",
+        "status_line": {
+          "email": null,
+          "last_active_utc": "2026-01-19T15:10:00.000000Z",
+          "last_model": "claude-fixture-model-1",
+          "limits": null,
+          "organization": null,
+          "plan": null,
+          "tokens_7d": 3455300,
+          "tokens_today": 0
+        },
+        "workspaces": []
+      },
+      {
+        "config_dir_env": "<WORK>/agent-root/.claude-work",
+        "folder": "<WORK>/agent-root/.claude-work",
+        "id": 2,
+        "is_default": false,
+        "label": "Claude work",
+        "provider": "claude",
+        "status": "confirmed",
+        "status_line": {
+          "email": null,
+          "last_active_utc": "2026-01-18T12:00:00.000000Z",
+          "last_model": "claude-sonnet-5-5",
+          "limits": null,
+          "organization": null,
+          "plan": null,
+          "tokens_7d": 441000,
+          "tokens_today": 0
+        },
+        "workspaces": [
+          "acme"
+        ]
+      }
+    ]
+  }
+}

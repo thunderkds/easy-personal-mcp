@@ -1,0 +1,69 @@
+{
+  "by": "model",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-2"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 3,
+      "key": "claude-fixture-model-2",
+      "messages": 3,
+      "output_tokens": 172032,
+      "split": {
+        "agent": 0,
+        "typed": 172035,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 2,
+      "key": "claude-fixture-model-1",
+      "messages": 2,
+      "output_tokens": 81920,
+      "split": {
+        "agent": 0,
+        "typed": 81922,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": "2026-11-01T01:30:00.000000Z",
+    "until_utc": "2026-11-02T00:00:00.000000Z"
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [
+        "claude-fixture-model-1",
+        "claude-fixture-model-2"
+      ],
+      "price_table_date": "2026-10-21",
+      "usd": null
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 5,
+    "messages": 5,
+    "output_tokens": 253952,
+    "split": {
+      "agent": 0,
+      "typed": 253957,
+      "unknown": 0
+    }
+  }
+}

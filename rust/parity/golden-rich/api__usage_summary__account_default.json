@@ -1,0 +1,28 @@
+{
+  "abstained": {
+    "by_version": {
+      "2.1.330": 4
+    },
+    "total": 4
+  },
+  "cache_creation_input_tokens": 3343230,
+  "cache_hit_ratio": 0.1732,
+  "cache_read_input_tokens": 700420,
+  "entrypoints": {
+    "cli": 4108300,
+    "sdk-cli": 31200
+  },
+  "input_tokens": 750,
+  "messages": 75,
+  "output_tokens": 95100,
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "sessions": 40,
+  "split": {
+    "agent": 106800,
+    "typed": 4032700,
+    "unknown": 0
+  }
+}

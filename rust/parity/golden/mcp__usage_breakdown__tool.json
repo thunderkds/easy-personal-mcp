@@ -1,0 +1,68 @@
+{
+  "by": "tool",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 200,
+      "cache_read_input_tokens": 1000,
+      "input_tokens": 10,
+      "key": "Read",
+      "messages": 1,
+      "output_tokens": 5,
+      "split": {
+        "agent": 0,
+        "typed": 1215,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 50,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 5,
+      "key": "(none)",
+      "messages": 2,
+      "output_tokens": 3,
+      "split": {
+        "agent": 58,
+        "typed": 0,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [
+        "claude-fixture-model-1"
+      ],
+      "price_table_date": "2026-10-21",
+      "usd": null
+    },
+    "cache_creation_input_tokens": 250,
+    "cache_read_input_tokens": 1000,
+    "input_tokens": 15,
+    "messages": 3,
+    "output_tokens": 8,
+    "split": {
+      "agent": 58,
+      "typed": 1215,
+      "unknown": 0
+    }
+  }
+}

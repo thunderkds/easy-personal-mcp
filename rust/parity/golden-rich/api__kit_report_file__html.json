@@ -1,0 +1,11 @@
+{
+  "served_file": {
+    "headers": {
+      "cache-control": "no-store",
+      "content-disposition": "inline",
+      "content-type": "text/html; charset=utf-8",
+      "x-content-type-options": "nosniff"
+    },
+    "text": "<!doctype html><title>invented</title><p>INVENTED_REPORT</p>\n"
+  }
+}

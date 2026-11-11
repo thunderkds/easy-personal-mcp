@@ -1,0 +1,28 @@
+{
+  "abstained": {
+    "by_version": {
+      "2.1.330": 4
+    },
+    "total": 4
+  },
+  "cache_creation_input_tokens": 3089210,
+  "cache_hit_ratio": 0.1929,
+  "cache_read_input_tokens": 738300,
+  "entrypoints": {
+    "cli": 3653600,
+    "sdk-cli": 242700
+  },
+  "input_tokens": 490,
+  "messages": 49,
+  "output_tokens": 68300,
+  "period": {
+    "since_utc": "2026-01-13T00:00:00.000000Z",
+    "until_utc": "2026-01-20T00:00:00.000000Z"
+  },
+  "sessions": 16,
+  "split": {
+    "agent": 318300,
+    "typed": 3578000,
+    "unknown": 0
+  }
+}

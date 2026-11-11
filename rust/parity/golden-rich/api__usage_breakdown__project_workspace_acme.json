@@ -1,0 +1,83 @@
+{
+  "by": "project",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 16.112686
+      },
+      "cache_creation_input_tokens": 2953280,
+      "cache_read_input_tokens": 750420,
+      "folders": [
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 12.780317
+          },
+          "cache_creation_input_tokens": 2253890,
+          "cache_read_input_tokens": 338800,
+          "input_tokens": 310,
+          "key": "gone-a",
+          "messages": 31,
+          "output_tokens": 45900,
+          "split": {
+            "agent": 75600,
+            "typed": 2563300,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 3.332368
+          },
+          "cache_creation_input_tokens": 699390,
+          "cache_read_input_tokens": 411620,
+          "input_tokens": 390,
+          "key": "alpha",
+          "messages": 39,
+          "output_tokens": 39000,
+          "split": {
+            "agent": 0,
+            "typed": 1150400,
+            "unknown": 0
+          }
+        }
+      ],
+      "input_tokens": 700,
+      "key": "Scratch",
+      "messages": 70,
+      "output_tokens": 84900,
+      "scratch": true,
+      "split": {
+        "agent": 75600,
+        "typed": 3713700,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [],
+      "price_table_date": "2026-10-21",
+      "usd": 16.112686
+    },
+    "cache_creation_input_tokens": 2953280,
+    "cache_read_input_tokens": 750420,
+    "input_tokens": 700,
+    "messages": 70,
+    "output_tokens": 84900,
+    "split": {
+      "agent": 75600,
+      "typed": 3713700,
+      "unknown": 0
+    }
+  }
+}

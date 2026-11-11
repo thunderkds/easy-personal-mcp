@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "done": true,
+      "hint": "easy-personal ingest",
+      "id": "first_ingest"
+    },
+    {
+      "done": false,
+      "hint": "easy-personal schedule install",
+      "id": "ingest_timer"
+    },
+    {
+      "done": false,
+      "hint": "Open Agents and confirm an account",
+      "id": "accounts_confirmed"
+    },
+    {
+      "done": false,
+      "hint": "Open Workspaces and create one",
+      "id": "first_workspace"
+    }
+  ]
+}

@@ -1,0 +1,394 @@
+[
+  {
+    "description": "The provider catalog: id, provider, category, whether Claude.ai has an official connector\n(and its link), and the field labels each needs. Read-only; never a secret value.",
+    "inputSchema": {
+      "properties": {},
+      "title": "connector_catalogArguments",
+      "type": "object"
+    },
+    "name": "connector_catalog",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "connector_catalogDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Per catalog id, whether the connector is configured (yes/no only): a keychain item and a\nClaude Code entry both exist. Never returns a secret or any config value.",
+    "inputSchema": {
+      "properties": {},
+      "title": "connector_statusArguments",
+      "type": "object"
+    },
+    "name": "connector_status",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "connector_statusDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Providers not yet configured that your usage points to, from counted WebFetch hosts and\nMCP tool names (metadata only), with the call counts behind each suggestion.",
+    "inputSchema": {
+      "properties": {},
+      "title": "connector_suggestionsArguments",
+      "type": "object"
+    },
+    "name": "connector_suggestions",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "connector_suggestionsDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "The fired rules grouped by priority (1 first), each with its measured value and fix.\nOptional `workspace` (name) and `account` (id or label) limit every rule to that scope.",
+    "inputSchema": {
+      "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account"
+        },
+        "workspace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workspace"
+        }
+      },
+      "title": "improvement_planArguments",
+      "type": "object"
+    },
+    "name": "improvement_plan",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "improvement_planDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Which Easy Kit MCP servers (easy-ui, easy-verifier, easy-context, easy-memory) are linked to\ncheaper or better sessions, comparing sessions with and without each server inside the same\nproject, main model and tool-call band (tokens and cost per tool call, share of good results).\n`findings` = at most `limit` (default 3, max 10) comparisons where the server side is better by at least 5 %, each\nwith numbers, group sizes and one fixed habit; `other` = every other comparison that has at least 10\nsessions on each side (no habit); `not_enough` lists servers with fewer. Worded \"linked to\", never\n\"caused\". `since` is an ISO date or datetime (without an offset: local time); omitted means all\nstored history.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 3,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        }
+      },
+      "title": "kit_findingsArguments",
+      "type": "object"
+    },
+    "name": "kit_findings",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "kit_findingsDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "What the Easy Kit did per project (folder name): kernel-trace tool calls, errors, kit\ntasks and last activity. A part with nothing to read says \"no data\". Optional `workspace`\n(name) and `account` (id or label) keep only that scope's projects.",
+    "inputSchema": {
+      "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account"
+        },
+        "workspace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workspace"
+        }
+      },
+      "title": "kit_summaryArguments",
+      "type": "object"
+    },
+    "name": "kit_summary",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "kit_summaryDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Placeholder tool: returns the shared core's status string.",
+    "inputSchema": {
+      "properties": {},
+      "title": "pingArguments",
+      "type": "object"
+    },
+    "name": "ping",
+    "outputSchema": {
+      "properties": {
+        "result": {
+          "title": "Result",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "title": "pingOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Save an `investigate` report on the dashboard's Warnings & plan page. `summary` is at most 2,000\ncharacters; `fixes` is at most 5 items, each `text` (at most 300 characters) with an optional `tool`\nand `number` it cites. Pass the same `workspace` (name) and `account` (id or label) you used for\n`warnings`. The server adds its own numbers for every rule at this moment (the rule snapshot), so\nthe page can later show before / now per warning. Refuses the whole call, naming the field, when a\nlimit is passed, the scope is unknown or any text looks like a secret; nothing is stored then.\nReturns `{id, saved_utc}`. The only tool that writes, and only to the store.",
+    "inputSchema": {
+      "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account"
+        },
+        "fixes": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Fixes",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "workspace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workspace"
+        }
+      },
+      "required": [
+        "summary",
+        "fixes"
+      ],
+      "title": "save_reportArguments",
+      "type": "object"
+    },
+    "name": "save_report",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "save_reportDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Sessions with at least 90 tool calls or a very long context, each with its measured\nvalues and the thresholds used.",
+    "inputSchema": {
+      "properties": {
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Until"
+        }
+      },
+      "title": "session_outliersArguments",
+      "type": "object"
+    },
+    "name": "session_outliers",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "session_outliersDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Tokens grouped by day (OS local time), model, project (folder name) or tool for\n[since, until), with an API-equivalent cost (price-table date shown; a model missing\nfrom the table abstains). Each group has the same typed / agent / unknown `split`. `total`\nequals usage_summary; tool groups overlap. Project groups put every scratch folder (temp,\ngone, not in a git repo, or hidden) into one group `Scratch` (`scratch: true`) that lists\nthem in `folders`.",
+    "inputSchema": {
+      "properties": {
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Until"
+        }
+      },
+      "required": [
+        "by"
+      ],
+      "title": "usage_breakdownArguments",
+      "type": "object"
+    },
+    "name": "usage_breakdown",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "usage_breakdownDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Claude Code usage for [since, until): sessions, messages, input/output and cache\ntokens, cache-hit ratio, records abstained per version, and `split`: tokens by typed (you),\nagent (sidechain, or an sdk* entrypoint) and unknown (not yet backfilled) work.\nBounds are ISO 8601 dates or datetimes; without an offset they are local time; omitted means all stored history.",
+    "inputSchema": {
+      "properties": {
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Until"
+        }
+      },
+      "title": "usage_summaryArguments",
+      "type": "object"
+    },
+    "name": "usage_summary",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "usage_summaryDictOutput",
+      "type": "object"
+    }
+  },
+  {
+    "description": "Declared usage rules over the last 7 days (or 14 for week-over-week). Each hit has the\nrule id, label (improve/aware/warning), measured value, threshold and fix line. Rules that\ncannot be measured (too little history or data) are listed under `abstained`. Optional\n`workspace` (name) and `account` (id or label) limit every rule to that scope.",
+    "inputSchema": {
+      "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account"
+        },
+        "workspace": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workspace"
+        }
+      },
+      "title": "warningsArguments",
+      "type": "object"
+    },
+    "name": "warnings",
+    "outputSchema": {
+      "additionalProperties": true,
+      "title": "warningsDictOutput",
+      "type": "object"
+    }
+  }
+]

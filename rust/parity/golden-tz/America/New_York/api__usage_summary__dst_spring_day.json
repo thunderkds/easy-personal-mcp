@@ -1,0 +1,25 @@
+{
+  "abstained": {
+    "by_version": {},
+    "total": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_hit_ratio": 0.0,
+  "cache_read_input_tokens": 0,
+  "entrypoints": {
+    "cli": 4038
+  },
+  "input_tokens": 6,
+  "messages": 6,
+  "output_tokens": 4032,
+  "period": {
+    "since_utc": "2026-03-08T05:00:00.000000Z",
+    "until_utc": "2026-03-09T04:00:00.000000Z"
+  },
+  "sessions": 1,
+  "split": {
+    "agent": 0,
+    "typed": 4038,
+    "unknown": 0
+  }
+}

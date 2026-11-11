@@ -1,0 +1,44 @@
+{
+  "by": "model",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 4.462137
+      },
+      "cache_creation_input_tokens": 662910,
+      "cache_read_input_tokens": 82000,
+      "input_tokens": 90,
+      "key": "claude-opus-5-5",
+      "messages": 9,
+      "output_tokens": 11100,
+      "split": {
+        "agent": 75600,
+        "typed": 680500,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": "2026-01-12T18:00:00.000000Z",
+    "until_utc": "2026-01-15T06:00:00.000000Z"
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [],
+      "price_table_date": "2026-10-21",
+      "usd": 4.462137
+    },
+    "cache_creation_input_tokens": 662910,
+    "cache_read_input_tokens": 82000,
+    "input_tokens": 90,
+    "messages": 9,
+    "output_tokens": 11100,
+    "split": {
+      "agent": 75600,
+      "typed": 680500,
+      "unknown": 0
+    }
+  }
+}

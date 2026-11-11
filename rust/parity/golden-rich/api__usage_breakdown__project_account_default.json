@@ -1,0 +1,141 @@
+{
+  "by": "project",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 18.502183
+      },
+      "cache_creation_input_tokens": 3316250,
+      "cache_read_input_tokens": 697420,
+      "folders": [
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 12.780317
+          },
+          "cache_creation_input_tokens": 2253890,
+          "cache_read_input_tokens": 338800,
+          "input_tokens": 310,
+          "key": "gone-a",
+          "messages": 31,
+          "output_tokens": 45900,
+          "split": {
+            "agent": 75600,
+            "typed": 2563300,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 3.190663
+          },
+          "cache_creation_input_tokens": 684450,
+          "cache_read_input_tokens": 276620,
+          "input_tokens": 330,
+          "key": "alpha",
+          "messages": 33,
+          "output_tokens": 36000,
+          "split": {
+            "agent": 0,
+            "typed": 997400,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 2.272925
+          },
+          "cache_creation_input_tokens": 323940,
+          "cache_read_input_tokens": 76000,
+          "input_tokens": 60,
+          "key": "gone-b",
+          "messages": 6,
+          "output_tokens": 8400,
+          "split": {
+            "agent": 0,
+            "typed": 408400,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.258277
+          },
+          "cache_creation_input_tokens": 53970,
+          "cache_read_input_tokens": 6000,
+          "input_tokens": 30,
+          "key": "gone-c",
+          "messages": 3,
+          "output_tokens": 3600,
+          "split": {
+            "agent": 0,
+            "typed": 63600,
+            "unknown": 0
+          }
+        }
+      ],
+      "input_tokens": 730,
+      "key": "Scratch",
+      "messages": 73,
+      "output_tokens": 93900,
+      "scratch": true,
+      "split": {
+        "agent": 75600,
+        "typed": 4032700,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 26980,
+      "cache_read_input_tokens": 3000,
+      "input_tokens": 20,
+      "key": "(unknown)",
+      "messages": 2,
+      "output_tokens": 1200,
+      "split": {
+        "agent": 31200,
+        "typed": 0,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [
+        "claude-fixture-model-1"
+      ],
+      "price_table_date": "2026-10-21",
+      "usd": 18.502183
+    },
+    "cache_creation_input_tokens": 3343230,
+    "cache_read_input_tokens": 700420,
+    "input_tokens": 750,
+    "messages": 75,
+    "output_tokens": 95100,
+    "split": {
+      "agent": 106800,
+      "typed": 4032700,
+      "unknown": 0
+    }
+  }
+}

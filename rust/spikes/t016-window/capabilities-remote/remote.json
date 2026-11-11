@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "remote-loopback",
+  "description": "T016 experiment: lets pages from the loopback server call a few Tauri commands",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:*"] },
+  "permissions": ["core:app:allow-version"]
+}

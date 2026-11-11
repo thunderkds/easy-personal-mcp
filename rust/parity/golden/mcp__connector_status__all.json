@@ -1,0 +1,24 @@
+{
+  "connectors": [
+    {
+      "configured": false,
+      "id": "discord"
+    },
+    {
+      "configured": false,
+      "id": "gmail"
+    },
+    {
+      "configured": false,
+      "id": "sendgrid"
+    },
+    {
+      "configured": false,
+      "id": "slack"
+    },
+    {
+      "configured": false,
+      "id": "teams"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "projects": [
+    {
+      "missing_on_disk": true,
+      "parts": {
+        "context": {
+          "status": "not in use"
+        },
+        "git": {
+          "status": "no data"
+        },
+        "kernel": {
+          "status": "no data"
+        },
+        "verifier": {
+          "status": "no data"
+        }
+      },
+      "project": "demo-app"
+    }
+  ],
+  "ui": {
+    "status": "no data"
+  }
+}

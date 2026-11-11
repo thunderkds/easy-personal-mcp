@@ -1,0 +1,30 @@
+{
+  "as_of": "2026-01-20T00:00:00Z",
+  "findings": [],
+  "not_enough": [
+    {
+      "server": "easy-ui",
+      "with": 0,
+      "without": 0
+    },
+    {
+      "server": "easy-verifier",
+      "with": 0,
+      "without": 0
+    },
+    {
+      "server": "easy-context",
+      "with": 0,
+      "without": 0
+    },
+    {
+      "server": "easy-memory",
+      "with": 0,
+      "without": 0
+    }
+  ],
+  "note": "linked to, not caused",
+  "other": [],
+  "sessions": 2,
+  "unknown_results": 2
+}

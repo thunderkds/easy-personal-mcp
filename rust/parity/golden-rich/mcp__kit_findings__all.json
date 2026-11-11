@@ -1,0 +1,44 @@
+{
+  "as_of": "2026-01-20T00:00:00Z",
+  "findings": [
+    {
+      "delta_pct": -28.8,
+      "habit": "Check UI changes with easy-ui before you call the work done.",
+      "measure": "tokens_per_call",
+      "server": "easy-ui",
+      "text": "Sessions that used easy-ui are linked to 28.8% fewer tokens per tool call than similar sessions without it (12 vs 12 sessions).",
+      "with": 12,
+      "without": 12
+    },
+    {
+      "delta_pct": -23.9,
+      "habit": "Check UI changes with easy-ui before you call the work done.",
+      "measure": "cost_per_call",
+      "server": "easy-ui",
+      "text": "Sessions that used easy-ui are linked to 23.9% fewer dollars of API-equivalent cost per tool call than similar sessions without it (12 vs 12 sessions).",
+      "with": 12,
+      "without": 12
+    }
+  ],
+  "not_enough": [
+    {
+      "server": "easy-verifier",
+      "with": 0,
+      "without": 0
+    },
+    {
+      "server": "easy-context",
+      "with": 1,
+      "without": 4
+    },
+    {
+      "server": "easy-memory",
+      "with": 0,
+      "without": 0
+    }
+  ],
+  "note": "linked to, not caused",
+  "other": [],
+  "sessions": 48,
+  "unknown_results": 48
+}

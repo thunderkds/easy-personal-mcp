@@ -1,0 +1,38 @@
+{
+  "detail_sessions": 50,
+  "gap_minutes": 30,
+  "period": {
+    "since_utc": "2026-01-15T10:05:00.000000Z",
+    "until_utc": "2026-01-15T10:15:00.000000Z"
+  },
+  "sessions": [
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "end_utc": "2026-01-15T10:07:00.000000Z",
+      "gaps": [],
+      "input_tokens": 0,
+      "messages": 0,
+      "models": [],
+      "output_tokens": 0,
+      "points": [],
+      "project": "demo-app",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "start_utc": "2026-01-15T10:05:00.000000Z"
+    },
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "end_utc": "2026-01-15T10:07:00.000000Z",
+      "gaps": [],
+      "input_tokens": 0,
+      "messages": 0,
+      "models": [],
+      "output_tokens": 0,
+      "points": [],
+      "project": "demo-app",
+      "session_id": "00000000-0000-4000-8000-000000000002",
+      "start_utc": "2026-01-15T10:05:00.000000Z"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# T016 throwaway spike: does a Tauri v2 window open under WSLg and load a page from a 127.0.0.1 server? Not product code.
+[package]
+name = "t016-window"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Empty workspace table: keeps this spike out of rust/Cargo.toml's workspace (same as t001-crates).
+[workspace]
+
+[dependencies]
+tauri = "=2.12.5"
+serde_json = "=1.0.154"
+# Only to log which GDK backend (Wayland or X11) the window really uses; already in tauri's tree on Linux.
+gtk = "=0.18.2"
+
+[build-dependencies]
+tauri-build = "=2.7.4"

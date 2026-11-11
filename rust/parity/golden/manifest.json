@@ -1,0 +1,654 @@
+{
+  "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+  "entries": [
+    {
+      "file": "api__accounts__bad_by.json",
+      "method": "GET",
+      "params": {
+        "by": "bad"
+      },
+      "request_headers": [],
+      "route": "/api/accounts",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__accounts__by_account.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/accounts",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__accounts__by_provider.json",
+      "method": "GET",
+      "params": {
+        "by": "provider"
+      },
+      "request_headers": [],
+      "route": "/api/accounts",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__board__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/board",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__connectors__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/connectors",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__first_run__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/first-run",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__guard__bad_host.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [
+        "Host"
+      ],
+      "route": "/api/usage/summary",
+      "status": 403,
+      "surface": "http"
+    },
+    {
+      "file": "api__guard__bad_origin.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [
+        "Origin"
+      ],
+      "route": "/api/usage/summary",
+      "status": 403,
+      "surface": "http"
+    },
+    {
+      "file": "api__guard__no_token.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [
+        "(no token)"
+      ],
+      "route": "/api/usage/summary",
+      "status": 403,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/kit",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_file__no_path.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/kit/report-file",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_report_files__no_folder.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/kit/report-files",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_reports__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/kit/reports",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__kit_workspaces__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/kit/workspaces",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__memory_graph__list.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/memory-graph",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__plan__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/plan",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__reports__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/reports",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__reports_one__missing.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/reports/{id}",
+      "status": 404,
+      "surface": "http"
+    },
+    {
+      "file": "api__sync_plan__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/sync",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__bad_by.json",
+      "method": "GET",
+      "params": {
+        "by": "bad"
+      },
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__day.json",
+      "method": "GET",
+      "params": {
+        "by": "day"
+      },
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model.json",
+      "method": "GET",
+      "params": {
+        "by": "model"
+      },
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__model_window.json",
+      "method": "GET",
+      "params": {
+        "by": "model",
+        "since": "2026-01-15T10:05:00Z",
+        "until": "2026-01-15T10:15:00Z"
+      },
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__project.json",
+      "method": "GET",
+      "params": {
+        "by": "project"
+      },
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_breakdown__tool.json",
+      "method": "GET",
+      "params": {
+        "by": "tool"
+      },
+      "request_headers": [],
+      "route": "/api/usage/breakdown",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_outliers__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/usage/outliers",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__bad_since.json",
+      "method": "GET",
+      "params": {
+        "since": "bad"
+      },
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 400,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_sessions__window.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-15T10:05:00Z",
+        "until": "2026-01-15T10:15:00Z"
+      },
+      "request_headers": [],
+      "route": "/api/usage/sessions",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__usage_summary__window.json",
+      "method": "GET",
+      "params": {
+        "since": "2026-01-15T10:05:00Z",
+        "until": "2026-01-15T10:15:00Z"
+      },
+      "request_headers": [],
+      "route": "/api/usage/summary",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__warnings__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/warnings",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__workspaces__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/workspaces",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "api__workspaces_unassigned__all.json",
+      "method": "GET",
+      "params": {},
+      "request_headers": [],
+      "route": "/api/workspaces/unassigned",
+      "status": 200,
+      "surface": "http"
+    },
+    {
+      "file": "mcp__connector_catalog__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "connector_catalog"
+    },
+    {
+      "file": "mcp__connector_status__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "connector_status"
+    },
+    {
+      "file": "mcp__connector_suggestions__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "connector_suggestions"
+    },
+    {
+      "file": "mcp__improvement_plan__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "improvement_plan"
+    },
+    {
+      "file": "mcp__kit_findings__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_findings"
+    },
+    {
+      "file": "mcp__kit_summary__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "kit_summary"
+    },
+    {
+      "file": "mcp__ping__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "ping"
+    },
+    {
+      "file": "mcp__prompt_investigate__all.json",
+      "params": {},
+      "prompt": "investigate",
+      "status": "ok",
+      "surface": "mcp"
+    },
+    {
+      "file": "mcp__prompt_investigate__scoped.json",
+      "params": {
+        "workspace": "demo"
+      },
+      "prompt": "investigate",
+      "status": "ok",
+      "surface": "mcp"
+    },
+    {
+      "file": "mcp__session_outliers__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "session_outliers"
+    },
+    {
+      "file": "mcp__tools_list.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "tools/list"
+    },
+    {
+      "file": "mcp__usage_breakdown__day.json",
+      "params": {
+        "by": "day"
+      },
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_breakdown__model.json",
+      "params": {
+        "by": "model"
+      },
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_breakdown__project.json",
+      "params": {
+        "by": "project"
+      },
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_breakdown__tool.json",
+      "params": {
+        "by": "tool"
+      },
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_breakdown"
+    },
+    {
+      "file": "mcp__usage_summary__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_summary"
+    },
+    {
+      "file": "mcp__usage_summary__window.json",
+      "params": {
+        "since": "2026-01-15T10:05:00Z",
+        "until": "2026-01-15T10:15:00Z"
+      },
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "usage_summary"
+    },
+    {
+      "file": "mcp__warnings__all.json",
+      "params": {},
+      "status": "ok",
+      "surface": "mcp",
+      "tool": "warnings"
+    }
+  ],
+  "fixture_dir": "tests/fixtures/claude_code",
+  "fixture_sha256": "17db3883b36ea9f0c7ae0fb4088b422e5a08d482ef711f9ecd74d16dab584f4a",
+  "frozen_now": "2026-01-20T00:00:00+00:00",
+  "generator": "rust/parity/gen_golden.py",
+  "note": "golden files hold the response body only; status is here. Object keys are sorted, lists keep the app's order.",
+  "patched": [
+    {
+      "reason": "keychain and `claude` CLI are machine state",
+      "to": "every connector 'not configured'",
+      "what": "api._configured, suggestions.configured_ids"
+    },
+    {
+      "reason": "first-run hint would otherwise differ per machine; XDG_CONFIG_HOME points at an empty folder so no ingest timer exists",
+      "to": "True",
+      "what": "schedule.systemd_available"
+    },
+    {
+      "reason": "see frozen_now",
+      "to": "2026-01-20T00:00:00+00:00",
+      "what": "datetime.now in rules, kit, kitperf, reports, accounts, easymem, context"
+    }
+  ],
+  "skipped": [
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/accounts",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/accounts/{id}/confirm",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/accounts/{id}/ignore",
+      "surface": "http"
+    },
+    {
+      "method": "PUT",
+      "reason": "write route",
+      "route": "/api/accounts/{id}/workspaces",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/connectors",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "reads the real keychain and `claude mcp list` (machine state)",
+      "route": "/api/connectors/legacy",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/connectors/legacy",
+      "surface": "http"
+    },
+    {
+      "method": "PUT",
+      "reason": "write route",
+      "route": "/api/connectors/{id}/alias",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/connectors/{id}/move",
+      "surface": "http"
+    },
+    {
+      "method": "DELETE",
+      "reason": "write route",
+      "route": "/api/connectors/{name}",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "browses an absolute folder given by the caller: needs real machine paths",
+      "route": "/api/dirs",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "reads the machine's systemd user timers and crontab (machine state)",
+      "route": "/api/jobs",
+      "surface": "http"
+    },
+    {
+      "method": "GET",
+      "reason": "SSE stream: never ends, and its frames carry live clock readings",
+      "route": "/api/live",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/sync",
+      "surface": "http"
+    },
+    {
+      "method": "POST",
+      "reason": "write route",
+      "route": "/api/workspaces",
+      "surface": "http"
+    },
+    {
+      "method": "DELETE",
+      "reason": "write route",
+      "route": "/api/workspaces/{id}",
+      "surface": "http"
+    },
+    {
+      "method": "PATCH",
+      "reason": "write route",
+      "route": "/api/workspaces/{id}",
+      "surface": "http"
+    },
+    {
+      "reason": "writes a row to the store (the only MCP write tool)",
+      "surface": "mcp",
+      "tool": "save_report"
+    }
+  ],
+  "store": {
+    "bytes": 163840,
+    "file": "store-v11.sqlite",
+    "user_version": 11
+  },
+  "timezone": "UTC",
+  "token": "parity-token",
+  "versions": {
+    "anyio": "4.16.0",
+    "easy-personal-mcp": "0.4.0",
+    "httpx": "0.28.1",
+    "keyring": "25.7.0",
+    "mcp": "1.30.0",
+    "platform": "Linux",
+    "python": "3.14.4",
+    "sse-starlette": "3.7.0",
+    "starlette": "1.10.0",
+    "uvicorn": "0.54.0"
+  },
+  "volatile": [
+    {
+      "field": "store.events.machine_id / source_files.machine_id / meta.machine_id",
+      "reason": "random uuid per store",
+      "token": "00000000-0000-4000-8000-0000000000aa"
+    },
+    {
+      "field": "store.events.source_path / source_files.path",
+      "reason": "absolute fixture path",
+      "token": "claude_code/<relative path>"
+    },
+    {
+      "field": "store.events.inode / source_files.inode",
+      "reason": "inode of this checkout",
+      "token": "1..N in sorted path order"
+    },
+    {
+      "field": "now (rules/kit/kitperf/accounts windows)",
+      "reason": "clock patched in the generator: the routes have no parameter for it",
+      "token": "2026-01-20T00:00:00+00:00"
+    }
+  ]
+}

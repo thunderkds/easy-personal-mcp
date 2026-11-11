@@ -1,0 +1,120 @@
+{
+  "by": "tool",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 16.366092
+      },
+      "cache_creation_input_tokens": 3002250,
+      "cache_read_input_tokens": 720300,
+      "input_tokens": 450,
+      "key": "Read",
+      "messages": 45,
+      "output_tokens": 66500,
+      "split": {
+        "agent": 211500,
+        "typed": 3578000,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 11.817075
+      },
+      "cache_creation_input_tokens": 2211980,
+      "cache_read_input_tokens": 245800,
+      "input_tokens": 220,
+      "key": "Bash",
+      "messages": 22,
+      "output_tokens": 44000,
+      "split": {
+        "agent": 0,
+        "typed": 2502000,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 2.192963
+      },
+      "cache_creation_input_tokens": 323970,
+      "cache_read_input_tokens": 36000,
+      "input_tokens": 30,
+      "key": "mcp__easy-context__search",
+      "messages": 3,
+      "output_tokens": 6000,
+      "split": {
+        "agent": 0,
+        "typed": 366000,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 0.397475
+      },
+      "cache_creation_input_tokens": 59980,
+      "cache_read_input_tokens": 15000,
+      "input_tokens": 20,
+      "key": "Grep",
+      "messages": 2,
+      "output_tokens": 600,
+      "split": {
+        "agent": 75600,
+        "typed": 0,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [
+          "claude-fixture-model-1"
+        ],
+        "price_table_date": "2026-10-21",
+        "usd": null
+      },
+      "cache_creation_input_tokens": 26980,
+      "cache_read_input_tokens": 3000,
+      "input_tokens": 20,
+      "key": "WebSearch",
+      "messages": 2,
+      "output_tokens": 1200,
+      "split": {
+        "agent": 31200,
+        "typed": 0,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": "2026-01-13T00:00:00.000000Z",
+    "until_utc": "2026-01-20T00:00:00.000000Z"
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [
+        "claude-fixture-model-1"
+      ],
+      "price_table_date": "2026-10-21",
+      "usd": 16.763567
+    },
+    "cache_creation_input_tokens": 3089210,
+    "cache_read_input_tokens": 738300,
+    "input_tokens": 490,
+    "messages": 49,
+    "output_tokens": 68300,
+    "split": {
+      "agent": 318300,
+      "typed": 3578000,
+      "unknown": 0
+    }
+  }
+}

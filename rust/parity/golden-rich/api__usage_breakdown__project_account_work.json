@@ -1,0 +1,119 @@
+{
+  "by": "project",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 0.425115
+      },
+      "cache_creation_input_tokens": 44820,
+      "cache_read_input_tokens": 405000,
+      "folders": [
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.141705
+          },
+          "cache_creation_input_tokens": 14940,
+          "cache_read_input_tokens": 135000,
+          "input_tokens": 60,
+          "key": "alpha",
+          "messages": 6,
+          "output_tokens": 3000,
+          "split": {
+            "agent": 0,
+            "typed": 153000,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.141705
+          },
+          "cache_creation_input_tokens": 14940,
+          "cache_read_input_tokens": 135000,
+          "input_tokens": 60,
+          "key": "beta",
+          "messages": 6,
+          "output_tokens": 3000,
+          "split": {
+            "agent": 0,
+            "typed": 153000,
+            "unknown": 0
+          }
+        },
+        {
+          "api_equivalent_cost": {
+            "abstained_models": [],
+            "price_table_date": "2026-10-21",
+            "usd": 0.141705
+          },
+          "cache_creation_input_tokens": 14940,
+          "cache_read_input_tokens": 135000,
+          "input_tokens": 60,
+          "key": "gone-b",
+          "messages": 6,
+          "output_tokens": 3000,
+          "split": {
+            "agent": 0,
+            "typed": 153000,
+            "unknown": 0
+          }
+        }
+      ],
+      "input_tokens": 180,
+      "key": "Scratch",
+      "messages": 18,
+      "output_tokens": 9000,
+      "scratch": true,
+      "split": {
+        "agent": 0,
+        "typed": 459000,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 0.526425
+      },
+      "cache_creation_input_tokens": 41940,
+      "cache_read_input_tokens": 378000,
+      "input_tokens": 60,
+      "key": "(unknown)",
+      "messages": 6,
+      "output_tokens": 3000,
+      "split": {
+        "agent": 423000,
+        "typed": 0,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [],
+      "price_table_date": "2026-10-21",
+      "usd": 0.95154
+    },
+    "cache_creation_input_tokens": 86760,
+    "cache_read_input_tokens": 783000,
+    "input_tokens": 240,
+    "messages": 24,
+    "output_tokens": 12000,
+    "split": {
+      "agent": 423000,
+      "typed": 459000,
+      "unknown": 0
+    }
+  }
+}

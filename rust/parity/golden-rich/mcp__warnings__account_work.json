@@ -1,0 +1,41 @@
+{
+  "abstained": [],
+  "as_of_utc": "2026-01-20T00:00:00+00:00",
+  "hits": [
+    {
+      "causes": [
+        {
+          "calls": 12,
+          "error_rate": 0.75,
+          "errors": 9,
+          "kind": "tool",
+          "name": "Bash",
+          "text": "Bash: 9 of 12 calls failed (75%)"
+        },
+        {
+          "calls": 11,
+          "error_rate": 0.5455,
+          "errors": 6,
+          "kind": "tool",
+          "name": "Edit",
+          "text": "Edit: 6 of 11 calls failed (54.5%)"
+        }
+      ],
+      "diagnosis": "one_tool_fails",
+      "fix": "Bash caused 9 of the 15 failed calls (60%). Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing.",
+      "label": "warning",
+      "measured": 0.25,
+      "priority": 2,
+      "rule_id": "tool_errors_high",
+      "steps": [
+        "Bash caused 9 of the 15 failed calls (60%).",
+        "Read the failing Bash calls in memory/event-trace/ and fix the command or permission that keeps failing."
+      ],
+      "summary": "25% of kernel-trace tool calls failed; target 10% or less, last 7 days",
+      "threshold": 0.1,
+      "title": "Many tool calls fail",
+      "why": "Failed tool calls waste tokens and time because Claude retries and explains the error.",
+      "window_days": 7
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "detail_sessions": 50,
+  "gap_minutes": 30,
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "sessions": [
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "end_utc": "2026-01-15T10:07:00.000000Z",
+      "gaps": [],
+      "input_tokens": 0,
+      "messages": 0,
+      "models": [],
+      "output_tokens": 0,
+      "points": [],
+      "project": "demo-app",
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "start_utc": "2026-01-15T10:01:00.000000Z"
+    },
+    {
+      "cache_creation_input_tokens": 250,
+      "cache_read_input_tokens": 1000,
+      "end_utc": "2026-01-15T10:21:00.000000Z",
+      "gaps": [],
+      "input_tokens": 15,
+      "messages": 2,
+      "models": [
+        "claude-fixture-model-1"
+      ],
+      "output_tokens": 8,
+      "points": [
+        {
+          "cache_creation_input_tokens": 200,
+          "cache_read_input_tokens": 1000,
+          "input_tokens": 10,
+          "model": "claude-fixture-model-1",
+          "output_tokens": 5,
+          "ts_utc": "2026-01-15T10:02:00.000000Z"
+        },
+        {
+          "cache_creation_input_tokens": 50,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 5,
+          "model": "claude-fixture-model-1",
+          "output_tokens": 3,
+          "ts_utc": "2026-01-15T10:21:00.000000Z"
+        }
+      ],
+      "project": "demo-app",
+      "session_id": "00000000-0000-4000-8000-000000000002",
+      "start_utc": "2026-01-15T10:01:00.000000Z"
+    },
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "end_utc": "2026-01-15T10:03:00.000000Z",
+      "gaps": [],
+      "input_tokens": 0,
+      "messages": 1,
+      "models": [
+        "claude-fixture-model-1"
+      ],
+      "output_tokens": 0,
+      "points": [
+        {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 0,
+          "model": "claude-fixture-model-1",
+          "output_tokens": 0,
+          "ts_utc": "2026-01-15T10:02:00.000000Z"
+        }
+      ],
+      "project": "demo-app",
+      "session_id": "00000000-0000-4000-8000-000000000003",
+      "start_utc": "2026-01-15T10:01:00.000000Z"
+    },
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "end_utc": "2026-01-15T10:00:00.000000Z",
+      "gaps": [],
+      "input_tokens": 0,
+      "messages": 0,
+      "models": [],
+      "output_tokens": 0,
+      "points": [],
+      "project": "(unknown)",
+      "session_id": "00000000-0000-4000-8000-000000000004",
+      "start_utc": "2026-01-15T10:00:00.000000Z"
+    }
+  ]
+}

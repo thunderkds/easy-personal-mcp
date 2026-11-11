@@ -1,0 +1,14 @@
+{
+  "workspaces": [
+    {
+      "color": null,
+      "description": null,
+      "email": null,
+      "icon": null,
+      "id": 1,
+      "is_orphan": true,
+      "name": "orphan",
+      "repos": []
+    }
+  ]
+}

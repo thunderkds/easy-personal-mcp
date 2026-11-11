@@ -1,0 +1,62 @@
+{
+  "by": "model",
+  "groups": [
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 2.272925
+      },
+      "cache_creation_input_tokens": 323940,
+      "cache_read_input_tokens": 76000,
+      "input_tokens": 60,
+      "key": "claude-opus-5-5",
+      "messages": 6,
+      "output_tokens": 8400,
+      "split": {
+        "agent": 0,
+        "typed": 408400,
+        "unknown": 0
+      }
+    },
+    {
+      "api_equivalent_cost": {
+        "abstained_models": [],
+        "price_table_date": "2026-10-21",
+        "usd": 0.28341
+      },
+      "cache_creation_input_tokens": 29880,
+      "cache_read_input_tokens": 270000,
+      "input_tokens": 120,
+      "key": "claude-sonnet-5-5",
+      "messages": 12,
+      "output_tokens": 6000,
+      "split": {
+        "agent": 0,
+        "typed": 306000,
+        "unknown": 0
+      }
+    }
+  ],
+  "period": {
+    "since_utc": null,
+    "until_utc": null
+  },
+  "total": {
+    "api_equivalent_cost": {
+      "abstained_models": [],
+      "price_table_date": "2026-10-21",
+      "usd": 2.556335
+    },
+    "cache_creation_input_tokens": 353820,
+    "cache_read_input_tokens": 346000,
+    "input_tokens": 180,
+    "messages": 18,
+    "output_tokens": 14400,
+    "split": {
+      "agent": 0,
+      "typed": 714400,
+      "unknown": 0
+    }
+  }
+}

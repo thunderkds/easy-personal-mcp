@@ -1,0 +1,92 @@
+{
+  "projects": [
+    {
+      "missing_on_disk": false,
+      "parts": {
+        "context": {
+          "last_index_at": "2026-01-10T00:00:00+00:00",
+          "latest_commit_utc": null,
+          "stale": null,
+          "status": "ok"
+        },
+        "git": {
+          "status": "no data"
+        },
+        "kernel": {
+          "abstained": 1,
+          "error_rate": 0.4706,
+          "first_utc": "2026-01-08T09:00:00.000000Z",
+          "kit_tasks": 2,
+          "last_utc": "2026-01-17T10:11:00.000000Z",
+          "status": "ok",
+          "tool_calls": 34,
+          "tool_errors": 16
+        },
+        "verifier": {
+          "status": "no data"
+        }
+      },
+      "project": "alpha"
+    },
+    {
+      "missing_on_disk": true,
+      "parts": {
+        "context": {
+          "last_index_at": "2026-01-05T00:00:00+00:00",
+          "latest_commit_utc": null,
+          "stale": null,
+          "status": "ok"
+        },
+        "git": {
+          "status": "no data"
+        },
+        "kernel": {
+          "status": "no data"
+        },
+        "verifier": {
+          "status": "no data"
+        }
+      },
+      "project": "gone-a"
+    },
+    {
+      "missing_on_disk": true,
+      "parts": {
+        "context": {
+          "status": "no data"
+        },
+        "git": {
+          "status": "no data"
+        },
+        "kernel": {
+          "status": "no data"
+        },
+        "verifier": {
+          "status": "no data"
+        }
+      },
+      "project": "gone-b"
+    },
+    {
+      "missing_on_disk": true,
+      "parts": {
+        "context": {
+          "status": "no data"
+        },
+        "git": {
+          "status": "no data"
+        },
+        "kernel": {
+          "status": "no data"
+        },
+        "verifier": {
+          "status": "no data"
+        }
+      },
+      "project": "gone-c"
+    }
+  ],
+  "ui": {
+    "status": "no data"
+  }
+}
