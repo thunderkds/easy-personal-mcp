@@ -67,12 +67,29 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-11T12:17:07Z by the implementing agent, on the debug binary built from the unchanged
+tree (`cargo build`, finished 12:16:48Z), `serve` and `mcp` on a temp copy of `rust/parity/store-rich/store-v11.sqlite`
+(`HOME` and `EASY_PERSONAL_HOME` pointed at a temp folder; the real home was never opened):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+--- GET /api/connectors (with token)
+HTTP/1.1 404 Not Found
+--- GET /api/connectors (no token)
+HTTP/1.1 403 Forbidden
+--- mcp tools/list over stdio
+tools/call connector_catalog -> {"code": -32602, "message": "Unknown tool: connector_catalog"}
+tools/list -> 6 tools: ['improvement_plan', 'ping', 'session_outliers', 'usage_breakdown', 'usage_summary', 'warnings']
+--- Python's answers (frozen goldens of rust/parity/golden-rich/)
+api__connectors__all -> {"connectors": [{"category": "Email", "claude_ai_connector": true, "claude_ai_link": "https://claude.ai/settings/connectors", "configured": false, "fields": [{"env": "GMAIL_OAUTH_PATH", "label": "OAut...
+mcp__connector_catalog__all -> {"connectors": [{"category": "Messaging", "claude_ai_connector": false, ... "id": "discord", "provider": "Discord"}, ...
+mcp__connector_status__all -> {"connectors": [{"configured": false, "id": "discord"}, {"configured": false, "id": "gmail"}, ...
+mcp__connector_suggestions__all -> {"note": "Counts cover sessions ingested since this version; run `easy-personal ingest` to refresh. ...", "suggestions": []}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: Agent (12:31:57Z, same script as BEFORE): `GET /api/connectors` with token 200 and the catalog JSON, without token 403; `tools/list` 9 tools (the 6 plus `connector_catalog`, `connector_status`, `connector_suggestions`).
+Supervisor re-runs in main after applying the worktree patch, 2026-11-11: `connectors_parity` goldens 8 / 8 equal, parser cases 495 / 495 equal; `connectors` binary tests 13 passed; `leak_rust.py` 0 hits over 42 canaries, 124 surfaces; `cargo test --workspace --no-fail-fast` TZ unset / Pacific/Kiritimati / Pacific/Pago_Pago 483 passed, 0 failed, 26 ignored each (the one worktree-only failure `workspaces_parity::edge_store_python_values` is green in the main checkout); clippy default and window clean; fmt clean; `git status -- src tests web Cargo.toml Cargo.lock` empty. `catalog.rs` and `suggestions.rs` contain no process, socket or keychain reference (grep by the Supervisor and a scan test).
+
+**DELTA**: The Rust MCP server and dashboard answer the connector catalog, status and suggestions reads and `GET /api/connectors` like Python does on a machine with no keychain; nothing in Rust reads a keychain or starts `claude`.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

@@ -35,7 +35,7 @@ store file itself is not changed.
 
 `serve` binds `127.0.0.1` only, on a free port, and prints the same two lines as the Python app: `dashboard: http://127.0.0.1:<port>/#<token>`
 and `Ctrl-C to stop.` (no browser is opened yet). The token is 32 random bytes, new per run, and only appears in that URL fragment. The routes
-so far are `GET /api/version` -> `{"version": "<Cargo version>"}`, the six read routes and the two workspace routes below. Every response carries the Python app's
+so far are `GET /api/version` -> `{"version": "<Cargo version>"}`, the six read routes, the two workspace routes and `GET /api/connectors` below. Every response carries the Python app's
 `Content-Security-Policy`.
 The guard matches the Python app: `Host` must be `127.0.0.1:<port>`, an `Origin` if sent must be `http://127.0.0.1:<port>`, and every
 `/api/` path needs the `x-dashboard-token` header (a token in the query string is not accepted). Failures get `403 {"error": "forbidden"}`.
@@ -71,6 +71,19 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   its API-equivalent cost and abstained models) are read-only and ignore the whole query string, as Python's handlers do. The writes of
   Python's `/api/workspaces` (`POST`, `PATCH`, `DELETE`) are absent: those methods answer `405` (the CSP still set), and
   `/api/workspaces/<id>` is a `404`.
+- `GET /api/connectors` (T046) -> `{"connectors": [...], "workspace_connectors": [...]}`. `connectors` is the provider catalog (the five entries of
+  Python's `catalog/*.yaml`), sorted by category, then the claude.ai-connector entries first, then provider; each is
+  `{id, category, provider, claude_ai_connector, claude_ai_link, fields: [{env, label, secret}], configured}`. `workspace_connectors` are the
+  stored rows `{id, alias, provider, workspace}`, by workspace name then alias. It takes no parameter (the whole query string is ignored), like
+  the workspace routes. Errors: `403` without the token or with a bad Host/Origin, `405` for `POST`, `PATCH`, `PUT` and `DELETE` (the CSP still
+  set; Python's `POST /api/connectors` is not served), `503` for a missing, newer, busy, unreadable or table-less store (the fixed texts above), `500
+  {"error": "internal error"}` if the embedded catalog ever failed to parse (a test parses every file, so this cannot ship). Fields shown, and
+  why they are safe: the catalog holds public names, labels and one fixed `https://claude.ai/settings/connectors` link (never a command line,
+  which Python's route does not show either); a stored row shows only a connector id, an alias, a provider id and a workspace name (the secrets
+  live in the keychain, which this build never reads). **`configured` is always `false`**: Python answers `true` only when the OS keychain
+  holds the item *and* `claude mcp get` knows the entry, and answers `false` when it cannot ask (no keychain backend, no `claude`), which is
+  the state of the goldens. This build asks neither (no keychain crate, no process; both arrive with T050 behind the owner's approval), so on a
+  machine where Python says `true`, this says `false`. `GET /api/connectors/legacy` and `/api/connectors/<id>` are `404`; the connector write routes are not served (`POST /api/connectors` is `405`).
 - Every other Python route is still absent (404; with `--static-dir`, a non-`/api/` path is looked up in the folder first).
 
 ```bash
@@ -78,8 +91,8 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
 curl -H "x-dashboard-token: <token>" http://127.0.0.1:<port>/api/version
 ```
 
-`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with six tools: `ping`,
-`usage_summary`, `usage_breakdown`, `session_outliers`, `warnings` and `improvement_plan`. Their names, descriptions and schemas, and their results over
+`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with nine tools: `ping`,
+`usage_summary`, `usage_breakdown`, `session_outliers`, `warnings`, `improvement_plan` and the three connector tools (T046, below). Their names, descriptions and schemas, and their results over
 `parity/store-v11.sqlite`, equal the Python app's `mcp__*` goldens; `warnings` and `improvement_plan` read the clock, so their goldens
 (default and rich store) are compared in-process at the manifest's `frozen_now`: the binary has no flag or variable that sets the clock.
 `session_outliers` takes `since` and `until` only, as in Python (it reads no clock, so its goldens are compared through the binary; an extra argument is dropped, as Python drops it). `warnings` and `improvement_plan` take `workspace` and `account` as in Python; so do `usage_summary` and `usage_breakdown` here, which
@@ -89,8 +102,17 @@ unknown workspace`, Python's text); a value that is not a string is an argument 
 (2024-11-05 to 2025-11-25) are served, the 2026-07-28 no-handshake mode is not. The server ends with exit 0 when stdin closes. Each call
 opens the store (same path rules as `store-info`) read-only; a missing store, or one newer than this build knows, is a tool error with
 no path in it. Errors in a tool are results with `isError: true` and Python's text (`Error executing tool <name>: <message>`); an
-unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other six tools, the
-`investigate` prompt and `--http`.
+unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other three tools
+(`kit_summary`, `kit_findings`, `save_report`), the `investigate` prompt and `--http`.
+
+The connector tools (T046) take no argument (an extra one is dropped, as Python drops it) and only read: `connector_catalog` ->
+`{"connectors": [{id, provider, category, claude_ai_connector, claude_ai_link, fields: [{label, secret}]}]}` in catalog-id order (no env names);
+`connector_status` -> `{"connectors": [{id, configured}]}`, **`configured` always `false`** for the reason given for `GET /api/connectors` above;
+`connector_suggestions` -> `{"suggestions": [{id, provider, webfetch_calls, mcp_calls}], "note": "..."}`: providers your stored usage points to
+(WebFetch hosts in `tool_signals` matched against the provider domains, `mcp__<server>__<tool>` names in `events.tool_names` whose server name
+contains a provider id; a `claude_ai_` server counts as already available and hides that provider), most calls first, ties in catalog order. The
+first two do not open the store; `connector_suggestions` does, read-only, and a missing, newer or unreadable store is a tool error with no path in
+it. Their names, descriptions and schemas equal Python's `tools/list` golden.
 
 ## Window (`app`, Ubuntu only so far)
 
@@ -167,6 +189,21 @@ token column or a NULL timestamp makes Python raise a `TypeError`; here it is re
 `easy_personal_core::rules::evaluate` runs the shipped rule pack (`rules.yaml`, read by a hand-written line parser) and returns the `warnings` JSON (hits with causes and diagnosis, abstained rules) equal to the Python goldens; the clock is a parameter. `rules::evaluate_scoped(conn, now_micros, &rules, Scope)` limits every metric, the kernel-trace rule (through the scope's projects) and the easy-context checks to a workspace and/or account; an unknown one is `ScopedRulesError::UnknownScope` with Python's text, even when the store has too little history to measure. Not ported yet: the `checked` list, the `config.yaml` threshold override.
 
 `easy_personal_core::plan::improvement_plan(conn, now_micros, &rules)` groups the fired rules by priority (items in `evaluate` order) and returns the `improvement_plan` JSON equal to the Python goldens in `parity/golden` and `parity/golden-rich`. `plan::improvement_plan_scoped(conn, now_micros, &rules, Scope)` is the same over `evaluate_scoped` (same error type).
+
+`easy_personal_core::catalog` (T046) is the provider catalog: `entries()` parses the five files embedded from `crates/core/catalog/` (byte-for-byte
+copies of Python's `src/easy_personal/catalog/*.yaml`; a test compares them) with a hand-written parser of Python's line format (no YAML crate);
+`parse(id, text)` accepts what Python's `catalog.parse` accepts and refuses with its `CatalogError` texts. `easy_personal_core::suggestions` has the
+read views `catalog_view`, `status`, `suggestions(conn)` and `connectors_list(conn)`; `configured_ids()` is the one place that will ask the keychain
+(T050) and is empty today. `tests/connectors_parity.rs` compares them with the 8 goldens (4 per oracle), 495 parser cases and 3,000 `shlex` strings
+answered by Python (`parity/gen_connectors_cases.py` makes `tests/connectors_cases.json`), and `crates/app/tests/connectors.rs` replays the route and
+the tools over the binaries, with a fake `claude` first on `PATH` that must never run. Where this build differs from Python on purpose
+(hostile input; all in the catalog parser, so only a file that is not the shipped one can reach them):
+- A `command` line with an unclosed quote or a trailing backslash: Python raises an uncaught `ValueError` from `shlex`; here it is a `CatalogError`
+  (`<id>: command has an unclosed quote or a trailing backslash`).
+- A catalog file that is not UTF-8: Python's `read_text()` raises `UnicodeDecodeError`; here a `CatalogError` (`<id>: the catalog file is not valid UTF-8`).
+- The pinned-version rule `\d+\.\d+\.\d+`: Python's `\d` also matches other Unicode decimal digits (`１.０.０`); here only ASCII digits pin a version.
+- `load(id)` of Python (an id the caller names) is not ported: nothing in the read surface takes one, and Python's text echoes the id.
+- The route and tools never print a command line, an env value or a path; an entry error names the entry id (and, for an unknown key, the key).
 
 ## Store writer (P2)
 

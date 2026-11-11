@@ -252,7 +252,7 @@ fn the_no_handshake_revision_is_not_enabled() {
 }
 
 #[test]
-fn tools_list_equals_the_golden_for_each_of_the_six_tools() {
+fn tools_list_equals_the_golden_for_each_of_the_nine_tools() {
     let home = Home::with_store();
     let mut mcp = Mcp::started(&home);
     let answer = mcp.request("tools/list", json!({}));
@@ -262,6 +262,9 @@ fn tools_list_equals_the_golden_for_each_of_the_six_tools() {
     assert_eq!(
         names,
         [
+            "connector_catalog",
+            "connector_status",
+            "connector_suggestions",
             "improvement_plan",
             "ping",
             "session_outliers",
@@ -751,7 +754,10 @@ fn session_outliers_is_listed_after_usage_breakdown_in_pythons_registration_orde
             "usage_breakdown",
             "session_outliers",
             "warnings",
-            "improvement_plan"
+            "improvement_plan",
+            "connector_catalog",
+            "connector_status",
+            "connector_suggestions"
         ]
     );
     let entry = answer["result"]["tools"]

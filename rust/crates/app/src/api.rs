@@ -1,5 +1,5 @@
 //! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
-//! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`.
+//! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`.
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
 //! the goldens in `rust/parity/golden*/` are the oracle. Every route sits behind the guard in `server.rs`.
 //! The first six take the optional `workspace` (a name) and `account` (an id or a label) and pass them to the core's scoped
@@ -26,6 +26,7 @@ use easy_personal_core::rules::{self, RulesError, ScopedRulesError, evaluate_sco
 use easy_personal_core::scope::Scope;
 use easy_personal_core::sessions::{session_outliers_scoped, session_timeline_scoped};
 use easy_personal_core::store::{self, StoreError};
+use easy_personal_core::suggestions::{self, ViewError};
 use easy_personal_core::workspaces;
 use rusqlite::Connection;
 use serde_json::{Value, json};
@@ -79,6 +80,7 @@ pub fn routes() -> Router<Api> {
         .route("/api/plan", get(plan))
         .route("/api/workspaces", get(workspace_list))
         .route("/api/workspaces/unassigned", get(workspaces_unassigned))
+        .route("/api/connectors", get(connectors))
 }
 
 async fn summary(State(api): State<Api>, uri: Uri) -> Response {
@@ -150,6 +152,15 @@ async fn workspaces_unassigned(State(api): State<Api>, uri: Uri) -> Response {
     .await
 }
 
+/// `GET /api/connectors` (T046): the catalog and the stored connector rows. Read-only like the workspace routes (Python's
+/// `POST` on it is a 405 here); presence is never asked (`suggestions::configured_ids`: no keychain, no `claude`).
+async fn connectors(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, _q, _now| {
+        suggestions::connectors_list(conn).map_err(view_failure)
+    })
+    .await
+}
+
 /// Parses the query, then runs `read` on a fresh read-only connection off the async workers.
 async fn serve<F>(api: Api, uri: Uri, read: F) -> Response
 where
@@ -197,6 +208,14 @@ fn store_failure(error: StoreError) -> Failure {
         }
     };
     (StatusCode::SERVICE_UNAVAILABLE, text)
+}
+
+/// A catalog that does not parse cannot happen in a shipped build (a test parses every embedded file): fixed 500.
+fn view_failure(error: ViewError) -> Failure {
+    match error {
+        ViewError::Store(error) => store_failure(error),
+        ViewError::Catalog(_) => internal(),
+    }
 }
 
 /// Python answers a `ValueError` from the core with 400 and `{"error": str(exc)}`; the core's text equals it.

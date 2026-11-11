@@ -1,0 +1,8 @@
+# Gmail. https://www.npmjs.com/package/@gongrzhe/server-gmail-autoauth-mcp
+# One-time browser `auth` step per its README (OAuth client keys file at the path below). Unverified.
+category: Email
+provider: Gmail
+claude_ai_connector: yes
+claude_ai_link: https://claude.ai/settings/connectors
+command: npx -y @gongrzhe/server-gmail-autoauth-mcp@1.1.11
+field: GMAIL_OAUTH_PATH | OAuth client keys file (gcp-oauth.keys.json) | plain

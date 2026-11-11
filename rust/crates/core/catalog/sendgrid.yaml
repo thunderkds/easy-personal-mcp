@@ -1,0 +1,6 @@
+# SendGrid. https://www.npmjs.com/package/sendgrid-mcp
+category: Email
+provider: SendGrid
+claude_ai_connector: no
+command: npx -y sendgrid-mcp@1.4.0
+field: SENDGRID_API_KEY | API key (SG....) | secret

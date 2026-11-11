@@ -1,12 +1,13 @@
 //! `mcp` subcommand: the MCP server on stdio with `ping`, `usage_summary`, `usage_breakdown` (T008), `session_outliers`
 //! (T020), `warnings` and `improvement_plan` (T015). `usage_summary`, `usage_breakdown`, `warnings` and
 //! `improvement_plan` take an optional `workspace` and `account` (T019); `session_outliers` takes `since` and `until`
-//! only, as Python's tool does.
+//! only, as Python's tool does. `connector_catalog`, `connector_status` and `connector_suggestions` (T046) take no
+//! argument; presence is never asked (no keychain, no `claude`: `suggestions::configured_ids`).
 //!
 //! Everything that touches `rmcp` lives in this file, so a later major version of the SDK changes one module.
 //! stdout is the protocol channel: nothing here prints to it, and nothing is logged.
 //! Tool names, descriptions and schemas are copied from the Python app's `tools/list` golden
-//! (`rust/parity/golden/mcp__tools_list.json`); a test compares them. The six tools only read the store.
+//! (`rust/parity/golden/mcp__tools_list.json`); a test compares them. The nine tools only read the store.
 
 use easy_personal_core::clock;
 use easy_personal_core::metrics::{usage_breakdown_scoped, usage_summary_scoped};
@@ -15,6 +16,7 @@ use easy_personal_core::rules::{evaluate_scoped, shipped_rules};
 use easy_personal_core::scope::Scope;
 use easy_personal_core::sessions::session_outliers;
 use easy_personal_core::store::{StoreError, open_checked, store_path};
+use easy_personal_core::suggestions::{self, ViewError};
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ErrorData,
     Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ProtocolVersion,
@@ -40,6 +42,12 @@ const OUTLIERS_DESCRIPTION: &str = "Sessions with at least 90 tool calls or a ve
 const WARNINGS_DESCRIPTION: &str = "Declared usage rules over the last 7 days (or 14 for week-over-week). Each hit has the\nrule id, label (improve/aware/warning), measured value, threshold and fix line. Rules that\ncannot be measured (too little history or data) are listed under `abstained`. Optional\n`workspace` (name) and `account` (id or label) limit every rule to that scope.";
 
 const PLAN_DESCRIPTION: &str = "The fired rules grouped by priority (1 first), each with its measured value and fix.\nOptional `workspace` (name) and `account` (id or label) limit every rule to that scope.";
+
+const CONNECTOR_CATALOG_DESCRIPTION: &str = "The provider catalog: id, provider, category, whether Claude.ai has an official connector\n(and its link), and the field labels each needs. Read-only; never a secret value.";
+
+const CONNECTOR_STATUS_DESCRIPTION: &str = "Per catalog id, whether the connector is configured (yes/no only): a keychain item and a\nClaude Code entry both exist. Never returns a secret or any config value.";
+
+const CONNECTOR_SUGGESTIONS_DESCRIPTION: &str = "Providers not yet configured that your usage points to, from counted WebFetch hosts and\nMCP tool names (metadata only), with the call counts behind each suggestion.";
 
 const BREAKDOWN_DESCRIPTION: &str = "Tokens grouped by day (OS local time), model, project (folder name) or tool for\n[since, until), with an API-equivalent cost (price-table date shown; a model missing\nfrom the table abstains). Each group has the same typed / agent / unknown `split`. `total`\nequals usage_summary; tool groups overlap. Project groups put every scratch folder (temp,\ngone, not in a git repo, or hidden) into one group `Scratch` (`scratch: true`) that lists\nthem in `folders`.";
 
@@ -191,6 +199,9 @@ impl ServerHandler for Server {
                 | "session_outliers"
                 | "warnings"
                 | "improvement_plan"
+                | "connector_catalog"
+                | "connector_status"
+                | "connector_suggestions"
         ) {
             return Err(ErrorData::invalid_params(
                 format!("Unknown tool: {name}"),
@@ -227,6 +238,7 @@ fn tools() -> Vec<Tool> {
             "type": "object"
         })
     };
+    let no_input = |title: &str| json!({"properties": {}, "title": title, "type": "object"});
     vec![
         tool(
             "ping",
@@ -285,6 +297,24 @@ fn tools() -> Vec<Tool> {
             PLAN_DESCRIPTION,
             scope_input("improvement_planArguments"),
             dict_output("improvement_planDictOutput"),
+        ),
+        tool(
+            "connector_catalog",
+            CONNECTOR_CATALOG_DESCRIPTION,
+            no_input("connector_catalogArguments"),
+            dict_output("connector_catalogDictOutput"),
+        ),
+        tool(
+            "connector_status",
+            CONNECTOR_STATUS_DESCRIPTION,
+            no_input("connector_statusArguments"),
+            dict_output("connector_statusDictOutput"),
+        ),
+        tool(
+            "connector_suggestions",
+            CONNECTOR_SUGGESTIONS_DESCRIPTION,
+            no_input("connector_suggestionsArguments"),
+            dict_output("connector_suggestionsDictOutput"),
         ),
     ]
 }
@@ -364,7 +394,26 @@ fn run_tool(
             })?;
             Ok(CallToolResult::structured(body))
         }
+        // no arguments (an extra one is dropped, as in Python); the first two never open the store
+        "connector_catalog" => Ok(CallToolResult::structured(
+            suggestions::catalog_view().map_err(view_error)?,
+        )),
+        "connector_status" => Ok(CallToolResult::structured(suggestions::status())),
+        "connector_suggestions" => {
+            let body = with_store(&store, |conn| {
+                suggestions::suggestions(conn).map_err(view_error)
+            })?;
+            Ok(CallToolResult::structured(body))
+        }
         _ => unreachable!("call_tool checks the name first"),
+    }
+}
+
+/// A catalog that does not parse cannot happen in a shipped build; the store's text has no path (NFR-002).
+fn view_error(error: ViewError) -> String {
+    match error {
+        ViewError::Store(error) => error.to_string(),
+        ViewError::Catalog(_) => "internal error".to_string(),
     }
 }
 

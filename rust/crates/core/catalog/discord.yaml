@@ -1,0 +1,6 @@
+# Discord. https://www.npmjs.com/package/@pasympa/discord-mcp
+category: Messaging
+provider: Discord
+claude_ai_connector: no
+command: npx -y @pasympa/discord-mcp@2.2.0
+field: DISCORD_TOKEN | Bot token | secret

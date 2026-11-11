@@ -1,3 +1,4 @@
+pub mod catalog;
 pub mod clock;
 pub mod ingest;
 pub mod ingest_lock;
@@ -8,5 +9,6 @@ pub mod rules;
 pub mod scope;
 pub mod sessions;
 pub mod store;
+pub mod suggestions;
 pub mod workspaces;
 pub mod writer;

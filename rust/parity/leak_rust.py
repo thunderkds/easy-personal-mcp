@@ -69,6 +69,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/workspaces": [""],
     "/api/workspaces/unassigned": [""],
+    "/api/connectors": ["", "?workspace=acme"],
     "/api/warnings": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
 }  # fmt: skip
@@ -97,6 +98,9 @@ MCP_CALLS: dict[str, list[dict]] = {
     "session_outliers": [{}, {"since": "2026-01-01"}, {"until": "garbage"}],
     "warnings": [{}, {"workspace": "acme"}, {"account": "1"}, {"workspace": "acme", "account": "1"}, {"account": "nope"}],
     "improvement_plan": [{}, {"workspace": "acme"}, {"account": "1"}],
+    "connector_catalog": [{}, {"workspace": "acme"}],
+    "connector_status": [{}, {"account": "1"}],
+    "connector_suggestions": [{}, {"workspace": "acme"}],
 }  # fmt: skip
 MCP_RAW = [  # (label, line) answered by the protocol layer, not a tool
     (
