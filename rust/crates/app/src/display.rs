@@ -365,6 +365,10 @@ mod tests {
         let dir = temp_dir("dead");
         let secret = dir.join("secret-socket-name");
         drop(UnixListener::bind(&secret).unwrap());
+        assert!(
+            refused_soon(|| unix_answers(&secret, LIMIT)),
+            "the dropped socket kept answering"
+        );
         let display = format!("unix:{}", secret.display());
         let err = check(
             &env(Some(&display), Some(secret.to_str().unwrap()), None),

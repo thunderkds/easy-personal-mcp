@@ -9,11 +9,15 @@
 ## Board
 
 ### Todo
-- [ ] **T033** — P2b: `kit_trace`, `ui`, `verifier` sources in Rust (replace-all semantics, size and symlink limits) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T033.md`; Depends on T029, T030
 
 ### In Progress
+- [ ] **T034** — P2c: `easy-personal-rs schedule install|remove` (systemd user timer, same unit names as Python, Rust command line; fake `systemctl` in every test) | Backend-Developer | C2 | Risk: Medium | P2 | started 2026-11-11: guide `tasks/TASK_GUIDE_T034.md`, own worktree
+- [ ] **T037** — Rust `ingest` step and leak-gate line in the `/verify` recipe (`skills/verify/SKILL.md`, additions only) | Backend-Developer | C1 | Risk: Low | P2 | started 2026-11-11: guide `tasks/TASK_GUIDE_T037.md`, own worktree
+- [ ] **T038** — Hardening: stale doc comment in `folders.rs`, readers test 15-round cap becomes a deadline | Backend-Developer | C1 | Risk: Low | P2 | started 2026-11-11: guide `tasks/TASK_GUIDE_T038.md`, own worktree
+- [ ] **T033** — P2b: `kit_trace`, `ui`, `verifier` sources in Rust (replace-all semantics, size and symlink limits) | Backend-Implementer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T033.md`; Depends on T029, T030 | started 2026-11-11: guide `tasks/TASK_GUIDE_T033.md` written (Stage 2), agent backend-developer running
 
 ### Ready for Review
+- [ ] **T036** — Remove the `display::tests` flake (`when_both_fail_the_message_names_each_variable_and_no_path_or_value` drops a socket and checks it without the `refused_soon` wait) | Backend-Developer | C1 | Risk: Low | P2 | implemented 2026-11-11 (one assert; 0 of 200 red under load vs 8 of 100 before); Stage 4 pending; guide `tasks/TASK_GUIDE_T036.md`, runs in its own worktree beside T033; only `display.rs` changes
 
 ### Done
 
