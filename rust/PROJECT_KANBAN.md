@@ -87,4 +87,4 @@
 | 0 Define | ✅ Done (brainstorming log; owner approved 2026-11-10) |
 | 1 Set up | ✅ Done (T001 spike, toolchain and Ubuntu packages) |
 | 2 Plan | ✅ Done for P2 (`BRAINSTORMING_LOG_RUSTP2.md` locked 2026-11-11); P3 not planned yet |
-| 3 Execute | 🔄 In Progress (P0, P1, P1b Done; P2a started 2026-11-11) |
+| 3 Execute | 🔄 In Progress (P0, P1, P1b, P2 Done; P3 not planned) |

@@ -576,3 +576,10 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **`cargo test -p <crate> -- --ignored` also runs helper tests marked `#[ignore]` that only work when a parent test starts them** (`usage_child`, `zone_child`): always name the test target (`--test writer_python -- --ignored`).
 - **CPython 3.14.4 with an 8 MB stack parses JSON nested up to about 57,890 levels** (measured: 57,890-57,945 on the ingest path); deeper, `json.loads` raises `RecursionError` and Python's ingest crashes and sticks on that file forever.
 - **Check every number in a close-out write-up against the agent's report before committing it** (the T031 write-up said 180 races and 104 polls; the report said 8 cases of 20 = 160 races and 180 polls, 100 counted).
+
+## 2026-11-11 — Parallel agents in worktrees (T033-T038)
+- **A worktree agent starts from the commit `HEAD` pointed at when the harness made it (here `e2ba53d`), not from the Supervisor's latest commit**, and untracked guides and review files are not in it. Commit the guides first, tell the agent to `git merge --ff-only <sha>` in its own worktree, and apply its result to `main` by `git diff <files> > patch` plus `git apply` (check with `--check` first). Do not let it edit the main checkout (the harness refuses it).
+- **`rust/parity/.venv` is git-ignored, so a worktree has none**: the real-Python tests and `leak_rust.py` need the main checkout's venv (a symlink works for the ignored half, removed after).
+- **`cargo test --workspace` fails `workspaces_parity::edge_store_python_values` when the checkout path sits under a hidden folder** (`.claude/worktrees/...`): the Scratch rule drops the repos. It is green from the real path (439 passed). Re-run the workspace suite from the main checkout, never trust a worktree run for that one test.
+- **The post-write hook adds every new guide to the root `PROJECT_KANBAN.md`**: delete the row each time (the Rust board is `rust/PROJECT_KANBAN.md`).
+- **A Rust agent can run for 25+ minutes (T033: 64 tool calls, 274k tokens)**: fine in the background; review only after its final report, re-running everything.

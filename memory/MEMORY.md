@@ -23,6 +23,7 @@
      The enforced gate is the 42,000-character whole-file budget above. -->
 
 ### Decisions
+- [Rust P2 complete (T033 kit sources, T034 scheduler, T036-T038)](decisions.md#2026-11-11--rust-p2-complete-kit-sources-t033-scheduler-t034-hardening-t036-t038) — `ac84de9`; ingest fills kit/ui/verifier, `schedule install|remove` (same unit names as Python); Rust skips where Python crashes; release 0.2.0 and P3 not planned.
 - [rust-v0.1.0 release approved; operator executes](decisions.md#2026-11-11--rust-v010-release-approved-p0--p1--p1b--p2a-the-operator-executes) — tag `77df906`; install = copy to `~/.local/bin`; plan in `docs/release/rust-v0.1.0.md`; Rust app never migrates, Python untouched; T033 (kit_trace/ui/verifier) not included; commits after `cf5b1de` still local (owner pushes).
 - [Rust P2 ingest: shadow writer on schema v11, events first](decisions.md#2026-11-11--rust-p2-ingest-shadow-writer-on-schema-v11-events-first-option-a-shaped-as-c) — no Rust migration in P2 (v12 locks Python out → P6); P2a events T026-T032, P2b kit_trace/ui/verifier T033, P2c scheduler; context and live.py out; Python is the oracle; defaults flagged.
 - [Rust port P0-P1b closed; window and close-out decisions](decisions.md#2026-11-11--rust-port-p0-p1-and-p1b-closed-window-and-close-out-decisions-t023-t025) — default binary for CLI/MCP (window binary links GTK at load); MPL-2.0 accepted; 25 cards Done, pushed; 12 dashboard routes still 404; admin-mode choices flagged in `rust/docs/closeout-2026-11-11.md`.
@@ -45,6 +46,7 @@
 - [HUN-46 servers: Gmail, SendGrid, Teams, Discord](decisions.md#2026-10-22--hun-46-catalog-servers-gmail-sendgrid-teams-discord) — pinned community servers; `claude_ai_link` required with yes.
 - [Workspaces; agent account picks workspace](decisions.md#2026-10-26--workspaces-group-connectors-the-agent-account-picks-its-workspace) — workspace = email/repos/connectors, no agent settings; Codex listed only (DDR-0001 stands); not yet planned.
 ### Learnings
+- [Parallel agents in worktrees (T033-T038)](learnings.md#2026-11-11--parallel-agents-in-worktrees-t033-t038) — worktree starts at an older HEAD (commit guides first, ff-merge, apply by patch); venv missing in worktrees; workspaces_parity fails under a hidden path; post-write hook adds root KANBAN rows.
 - [Rust usage metrics: round_py, float_roundtrip, git, time zone gap](learnings.md#2026-11-10--rust-usage-metrics-rounding-floats-git-time-zone-t005) — copy Python round(); local-zone parity is open (T009): no usage surface until it lands.
 - [Rust HTTP guard: raw-path keying, binary-spawn tests](learnings.md#2026-11-10--rust-http-guard-raw-path-keying-and-the-binary-spawn-test-pattern-t004) — encoded paths 404 today; add a test when a static fallback lands; `pkill -f` kills the tool shell.
 - [Rust P2a build gotchas (T026-T035)](learnings.md#2026-11-11--rust-p2a-build-gotchas-t026-t035) — agents stop at ~90 tool calls; gate rejects `env $VAR` and git+`$`; `/tmp` is RAM tmpfs (clear scratch copies); work root padded 240 chars; Rust never creates ingest.lock; name the test target with `--ignored`; Python JSON depth limit 57,890; verify numbers in write-ups.
