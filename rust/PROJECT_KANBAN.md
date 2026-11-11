@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T024** — A Rust step in the `/verify` recipe (`skills/verify/SKILL.md`, additions only; every command run and pasted) | Common-Infrastructure | C1 | Risk: Low | P2 | guide `tasks/TASK_GUIDE_T024.md`; Started: 2026-11-11; Depends on T023
 
 ### Ready for Review
 - [ ] **T022** — Core `workspaces::list_all` and `unassigned` and their two GET routes (4 goldens; writes stay 405) | Backend-Implementer | C2 | Risk: Medium | P1 | PR/branch: committed to `main` 2026-11-11 (8d78a3d, 2247fd4, c26d7d4); review pending; evidence `tasks/TASK_REVIEW_T022.md`, reports `reports/code-review_main_20261110T231200.html`, `reports/security-review_main_20261110T231300.html`; open: README heading 'no CLI/API yet' is stale; shared spawn-test helpers duplicated in `tests/workspaces.rs`
