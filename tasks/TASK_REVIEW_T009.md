@@ -84,5 +84,4 @@ $ TZ=Asia/Bangkok cargo test   -> usage_tz_parity: 9 passed; usage_parity: 22 pa
 
 **DELTA**: the Rust core groups `by=day` and reads offset-less `since` / `until` in the machine's own zone, DST-aware, and returns the same JSON as Python in Bangkok and New York; the usage gate from T005 is lifted.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T009.jsonl`, never the
-implementing agent alone]
+**WITNESS**: derived from `memory/event-trace/T009.jsonl` by the delivery-report renderer (tool-call records and their timestamp span); Supervisor close-out 2026-11-11.

@@ -53,10 +53,10 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | verify | ☑ pass | library functions only (no CLI/API wiring in this task); the parity tests call them over the fixture store and equal the Python goldens — pass. A hung `git` returns within about 5 s (real-timeout test) — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | reviewed `rust/crates/core/src/{metrics,prices,store}.rs`, the three test files and `rust/README.md`; `rust/crates/app/**` and `rust/parity/**` untouched |
 | Full smoke suite still green (no regression) | ☑ pass | T002 `store_info` (12), T004 app tests (22) still green |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 

@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ N/A | spike with no product code: nothing to test; the checks are the toolchain and crate runs in the rows below |
 | Verification command run | ☑ pass | Supervisor re-ran: `cargo 1.99.1`, `rustc 1.99.1`, scratch `cargo check` exit 0 (`Finished dev profile`), `rust/docs/spike-T001.md` 119 lines |
 | Negative cases hold | ☑ pass | keyring on headless Ubuntu printed a clear `unavailable` error and wrote nothing; `git status --short -- src web tests pyproject.toml` empty before and after (Supervisor re-checked); `~/.bashrc/.zshrc/.profile` last modified 2026-11-08, before T001 ran, and the one cargo line in `.profile` predates it |
 | verify | ☑ N/A | no runtime feature in this task (environment and research); the toolchain run above is the check — pass |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | reviewed `rust/spikes/t001-crates/src/main.rs` (72 lines) and `rust/docs/spike-T001.md`; no product code exists in this task. code-review `reports/code-review_main_20261111T112728.html`, security-review `reports/security-review_main_20261111T112729.html` (Supervisor, inline, 2026-11-11) |
 | Full smoke suite still green (no regression) | ☑ N/A | no Python or Rust product code changed |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 

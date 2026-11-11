@@ -120,3 +120,7 @@ exit=0
 3. BEFORE taken on `e06f7bd`, after the T023 code existed in `c26d7d4`: accepted as stated.
 4. Display going away and second launch: stay documented as not done.
 5. A Rust step in the `/verify` recipe: added by T024.
+
+## Real dashboard check (close-out 2026-11-11)
+
+The dashboard was built for the first time (`npm --prefix web ci` and `run build`, 496 KB, gitignored output). Supervisor runs against a temp copy of the rich synthetic store: `serve --static-dir <built bundle>`: `/` 200 `text/html`, the JS bundle 200 `text/javascript`, a CSP header on the response. `app --self-test --static-dir <built bundle>` (feature build, WSLg): `self-test: ok`, exit 0, no `easy-personal-rs` or WebKit process left. The dashboard calls 12 `/api` routes the Rust server does not serve yet (accounts, connectors, dirs, kit/*, live, memory-graph, reports, sync): those views are the P2/P3 ports listed in `rust/PROJECT_SPEC.md`.

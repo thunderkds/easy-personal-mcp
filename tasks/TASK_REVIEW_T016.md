@@ -88,3 +88,5 @@ $ cd rust/spikes/t016-window && timeout 90 cargo run -q        # rc=0, 0.71 s wa
 **DELTA**: it is now proven on this machine that a Tauri v2 window opens under WSLg and its webview can load a loopback page, read the token from the URL fragment and call the guarded API under the dashboard CSP, so P1b can build the real window on a verified base.
 
 **WITNESS**: Supervisor, 2026-11-10, ran the spike independently of the implementing agent.
+
+**Stage 4 report (added at close-out 2026-11-11):** code-review `reports/code-review_main_20261111T112730.html` (Supervisor, inline): 0 P0, 0 P1, 0 P2, 2 P3 (deliberate in a throwaway).

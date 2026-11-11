@@ -84,3 +84,7 @@ $ grep -n "static-dir\|static_dir" rust/crates/app/src/*.rs | head -2
 **DELTA**: `serve --static-dir <DIR>` now serves the built dashboard from the API's own origin behind the same guard, so the P1b window can load `http://127.0.0.1:<port>/#<token>`; nothing outside the folder can be read.
 
 **WITNESS**: Supervisor, 2026-11-10, reran the whole workspace under three zones, the oracle hash and the Python-tree check, and probed a live server with traversal, symlink, dotfile and guard cases independently of the implementing agent.
+
+## Real dashboard check (close-out 2026-11-11)
+
+The dashboard was built for the first time (`npm --prefix web ci` and `run build`, 496 KB, gitignored output). Supervisor runs against a temp copy of the rich synthetic store: `serve --static-dir <built bundle>`: `/` 200 `text/html`, the JS bundle 200 `text/javascript`, a CSP header on the response. `app --self-test --static-dir <built bundle>` (feature build, WSLg): `self-test: ok`, exit 0, no `easy-personal-rs` or WebKit process left. The dashboard calls 12 `/api` routes the Rust server does not serve yet (accounts, connectors, dirs, kit/*, live, memory-graph, reports, sync): those views are the P2/P3 ports listed in `rust/PROJECT_SPEC.md`.

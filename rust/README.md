@@ -136,7 +136,7 @@ SIGINT or SIGTERM stops the server and exits 0, and no WebKit process is left be
   dashboard in the binary, and focusing the first window when `app` runs twice (each run gets its own port and token). The real
   dashboard is not built here (`web/` needs `npm ci`).
 
-## Ported library functions (core crate, no CLI/API yet)
+## Ported library functions (core crate)
 
 `easy_personal_core::metrics::usage_summary` and `usage_breakdown` (by `day`, `model`, `project`, `tool`), with the `prices` line parser;
 they return JSON equal to the Python goldens over `parity/store-v11.sqlite`. `usage_summary_scoped` and `usage_breakdown_scoped` take a

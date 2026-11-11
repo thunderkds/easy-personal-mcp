@@ -53,10 +53,10 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | verify | ☑ pass | ran `serve` and sent requests with curl as listed above; `GET /api/version` with the token returned `200 {"version":"0.1.0"}` — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `rust/crates/app/**`, the 4 added lines in `rust/Cargo.toml`, `rust/README.md`; `rust/crates/core/**` is T005's and was not reviewed here |
 | Full smoke suite still green (no regression) | ☑ pass | `cli.rs` (6) still passes; no Python code changed |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 
