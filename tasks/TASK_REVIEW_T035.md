@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/ingest_folders_parity.rs` (21 tests: goldens S01-S07, S08a, S10a/b, S13, S14, the four Rust-differs cases, offsets, accounts, order, skips), `ingest_folders_privacy.rs` (canary in store/WAL/SHM with a non-vacuity control), `ingest_folders_python.rs` (2 ignored: real Python coexistence), helper `ingest_folders_common/mod.rs` |
+| Verification command run | ☑ pass | Supervisor, own runs 2026-11-11T07:21:38Z: `cargo test --workspace --no-fail-fast` = 378 passed, 0 failed, 12 ignored under TZ unset, `Pacific/Kiritimati` and `Pacific/Pago_Pago`; `cargo fmt --check` ok; clippy `-D warnings` exit 0 (default and `--features window`); ignored `ingest_folders_python` = `2 passed`; `git status` for `src tests web rust/crates/app rust/parity` the T028 parse files, `metrics.rs`, Cargo files = 0 entries |
+| Negative cases hold | ☑ pass | agent-reported mutation checks, each red then restored (`cmp` identical, 21 of 21 green again): sort by string → `files_are_read_in_path_component_order` and `s06a_deep_nesting_abstains_and_later_files_are_read`; follow folder symlinks → `s06_cold_ingest_of_the_synthetic_set`; drop the `offset > st_size` reset → `a_shrunk_file_with_the_same_inode_restarts_from_zero`; `--show-toplevel` only → `s06_cold_ingest_of_the_synthetic_set`; skip the NULL-to-default update → `untagged_rows_are_given_to_the_default_account` (left 39, right 0). Not re-run by the Supervisor |
+| verify | ☑ pass | real runtime check by the Supervisor 2026-11-11T07:21:38Z: `cargo test -p easy-personal-core --test ingest_folders_python -- --ignored`: Rust ingest of the S01 folder `files 6 new_events 39`, then the real Python ingest on the same store `exit 0 files 6 new_events 0`; and Python first (`new_events 39`) then Rust `files 6 new_events 0`: two implementations share one store. The `/verify` recipe itself was not run (no command yet: T029) |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | read by the Supervisor: all of `folders.rs` (239 lines: roots, discovery, project resolution, offsets, the per-file loop, retire); `accounts.rs` (96 lines) and the test files were not read line by line (their results were re-run). Scope: `rust/crates/core/src/ingest/{folders,accounts,mod}.rs`, `writer.rs` (+18 lines: `file_offsets`, `pub(crate) conn()`), four test files, `rust/README.md`; T028's parse files, `metrics.rs`, Cargo files, `rust/parity`, `src`, `tests`, `web`, the app crate untouched. code-review `reports/code-review_main_20261111T142356.html`: 0 P0, 0 P1, 1 P2, 4 P3. security-review `reports/security-review_main_20261111T142357.html`: nothing at confidence 8 or above |
+| Full smoke suite still green (no regression) | ☑ pass | whole workspace 378 passed, 0 failed under three zones (Supervisor); every earlier test unchanged |
+| **Companion score (easy-verifier)** | ☑ N/A | `score` not run in this session |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no UI |
 
 ---
 
@@ -67,12 +67,37 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-11T07:04:30Z (UTC), before any T035 code change, in `rust/`:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ cargo build
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.86s
+$ cargo test -p easy-personal-core --test ingest_folders_python -- --ignored
+error: no test target named `ingest_folders_python` in `easy-personal-core` package
+help: available test targets:
+    git_timeout
+    ingest_parse_corpus
+    ... (writer_parity, writer_python, writer_save)
+$ grep -cx "pub fn ingest_accounts" rust/crates/core/src/ingest/*.rs
+rust/crates/core/src/ingest/json.rs:0
+rust/crates/core/src/ingest/claude_code.rs:0
+rust/crates/core/src/ingest/label.rs:0
+rust/crates/core/src/ingest/mod.rs:0
+rust/crates/core/src/ingest/secret.rs:0
+rust/crates/core/src/ingest/signals.rs:0
+rust/crates/core/src/ingest/time.rs:0
+(grep exit 1: no match)
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: Supervisor run 2026-11-11T07:21:38Z after the change: `cargo test --workspace` = 378 passed, 0 failed, 12 ignored (three zones); fmt ok; clippy 0 (both builds); the ignored coexistence run printed `rust ingest: files 6 new_events 39` / `python ingest: exit 0 files 6 new_events 0` and the reverse order; the agent's full Verification Command at 07:20:06Z ended with `2 passed` for the ignored test.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: the Rust core can ingest a whole set of Claude Code project folders into the shared store (same files, order, accounts, project identity and offsets as Python, 21 oracle scenarios equal row for row) and can safely run before or after the Python ingest on the same store.
+
+**WITNESS**: Supervisor re-ran the tests, lint and the real Python coexistence test after the implementing agent; tool calls recorded in `memory/event-trace/T035.jsonl`.
+
+## Choices for the owner (decided in `[admin]` mode, ⚠ decided for you — please review)
+
+1. Where Rust differs from Python (all are Python crashes or silent drops that would stick or hide data): a `*.jsonl` that is a directory or other non-regular file is skipped and counted (Python: `IsADirectoryError`, stuck on every run); an unstattable, unreadable or non-UTF-8-path file is skipped, counted and its offset kept; a folder it cannot list is counted (Python ignores it silently); an inode beyond i64 or a negative stored offset is skipped; a read error in the middle of a file skips that file with nothing saved.
+2. `ingest_accounts` lives in `ingest::folders` and calls `accounts::detect` itself, as Python's CLI does before it; the result has a third count, `skipped`, that Python does not have.
+3. `Store::conn()` is a `pub(crate)` accessor added to `writer.rs` so the ingest can run its own SQL on the writer's connection.
+4. A file's lines are collected, then saved in one transaction: memory grows with the events of one file (T032 measures it).

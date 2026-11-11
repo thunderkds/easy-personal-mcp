@@ -196,6 +196,19 @@ only where Python crashes, and abstains the record (or drops the timestamp) inst
 - a timestamp whose UTC value leaves years 1-9999;
 - a `cwd` holding a lone surrogate (Python raises `UnicodeEncodeError` binding the row).
 
+## Ingest of folders (P2a)
+
+`easy_personal_core::ingest::folders::ingest_accounts(store, opts)` runs Python's `accounts.detect`, gives untagged rows to the default
+account, then reads every confirmed Claude account's `projects/` folder (or `opts.projects_override`). It finds every `*.jsonl`
+(sorted by path components, folder symlinks not followed), resumes each file from its stored offset (back to 0 for a new inode or a
+file shorter than the offset), resolves each `cwd` to its project through `git` (a worktree maps to its main repo, a relative `cwd`
+is read from `opts.cwd_base`), and saves each file in one transaction. It returns `files` and `new_events` as Python prints them, plus
+`skipped`. No command calls it yet (the `ingest` command is T029). Its tests rebuild the T026 oracle cases and match the goldens' tables
+(`tests/ingest_folders_parity.rs`). A real run shows that Rust and Python share one store, and the second ingest adds 0
+(`cargo test -p easy-personal-core --test ingest_folders_python -- --ignored`, needs `parity/.venv`). Where Python crashes and stays
+stuck, Rust skips the entry, counts it in `skipped` and reads on: a folder named `x.jsonl`, an entry it cannot list, stat or read,
+or a path that is not UTF-8.
+
 ## Test
 
 ```bash

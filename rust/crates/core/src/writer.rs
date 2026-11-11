@@ -283,6 +283,24 @@ impl Store {
         &self.machine_id
     }
 
+    /// The connection, for the ingest's account rows (`ingest::accounts`, `ingest::folders`: Python's `detect`,
+    /// `account_roots` and the `NULL -> default account` update run their SQL on the ingest's own connection).
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// `store.file_offsets` (store.py:131-137): the known files of `source` on this machine, path -> (inode, offset of
+    /// the next unread line). Read-only.
+    pub fn file_offsets(&self, source: &str) -> Result<HashMap<String, (i64, i64)>, WriteError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT path, inode, byte_offset FROM source_files WHERE machine_id = ? AND source = ?",
+        )?;
+        let rows = stmt.query_map(params![self.machine_id, source], |r| {
+            Ok((r.get(0)?, (r.get(1)?, r.get(2)?)))
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// `store.save_file`: one file's new events, the session-entrypoint back-fill, its tool signals and its new offset
     /// in **one** transaction; returns the rows added. The stored offset is the last `next_offset` in `lines`, else
     /// `offset`. `account_id` tags the events (None: untagged); it must name an `agent_accounts` row. Any failure

@@ -10,7 +10,9 @@
 //!
 //! The helper modules are public so the differential corpora (`parity/ingest/golden/corpus-*.json`) can test them.
 
+pub mod accounts;
 pub mod claude_code;
+pub mod folders;
 pub mod json;
 pub mod label;
 pub mod secret;

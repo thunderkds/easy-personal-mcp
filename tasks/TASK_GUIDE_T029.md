@@ -47,7 +47,7 @@ Before writing any code:
 
 ## Dependencies & Reachability
 
-**Depends on**: T035 (folders), T028 (parse layer), T027 (writer, lock)
+**Depends on**: T035 (folders), T028 (parse layer), T027 (writer, lock). **Built API (T035, 2026-11-11):** `easy_personal_core::ingest::folders::ingest_accounts(&mut Store, &Options { agent_root, projects_override: Option<PathBuf>, cwd_base: PathBuf }) -> Result<Summary { files, new_events, skipped }, WriteError>`; it calls `ingest::accounts::detect` itself first (a second call is harmless). Writer: `writer::{open_for_write, Store::prune}`, lock: `ingest_lock::{ingest_lock, LockError}` (takes the **data dir**).
 **Entry point**: `easy-personal-rs ingest`
 
 ---
@@ -61,7 +61,7 @@ Before writing any code:
 | 3 | **Order** = Python `_ingest`: take the lock (`ingest_lock(data dir, timeout)`) **before** opening the store → `open_for_write` → `accounts::detect` → `ingest_accounts` → optional prune → print. The lock is held until the result is printed | same order |
 | 4 | **Busy lock** (S09): stderr is exactly `another ingest is running; try again later` plus a newline, stdout empty, exit code **75**, `ingest.lock` exists afterwards (never deleted) | S09 |
 | 5 | **Refused stores** (decided in T027 and T026, ⚠ decided for you): a store newer than v11 → the clean `Newer` message on stderr, exit **2** (Python: traceback, exit 1; S11); an older store (`1..=10` with tables) → `store is schema v<N>: run the Python app once to migrate it`, exit **2** (S12); neither leaves a `-wal`/`-shm`, creates a backup or changes a byte of the store. A missing store is **created** (T027) | S11, S12 |
-| 6 | **JSON output**: `indent=2`, keys **sorted**, the same number formatting as Python's `json.dumps(..., indent=2, sort_keys=True)`, a trailing newline, ASCII only. For the events source it holds `files` and `new_events` (equal to the S01..S06, S10 goldens' numbers) and, with `--retention-days`, `pruned` (equal to S08b). **It must not contain `kit_trace`, `context`, `ui` or `verifier` keys with invented values**: instead it contains `"not_ingested": ["context", "kit_trace", "ui", "verifier"]` (sorted) saying what P2a skipped. **⚠ decided for you** (the Python output shape has those four keys; Rust prints only what it did) | honest output |
+| 6 | **JSON output**: `indent=2`, keys **sorted**, the same number formatting as Python's `json.dumps(..., indent=2, sort_keys=True)`, a trailing newline, ASCII only. For the events source it holds `files` and `new_events` (equal to the S01..S06, S10 goldens' numbers) and **`skipped`** (the count of entries Rust skipped: Python has no such key; it prints it so a skipped file is never silent; **⚠ decided for you**) and, with `--retention-days`, `pruned` (equal to S08b). **It must not contain `kit_trace`, `context`, `ui` or `verifier` keys with invented values**: instead it contains `"not_ingested": ["context", "kit_trace", "ui", "verifier"]` (sorted) saying what P2a skipped. **⚠ decided for you** (the Python output shape has those four keys; Rust prints only what it did) | honest output |
 | 7 | **Exit codes**: 0 success; 75 busy; 2 a store that must not be touched or a usage error; 1 any other failure with a one-line message that holds no path, SQL or row value; never a panic or a Rust backtrace. An unreadable agent root or projects folder is a counted skip inside the result's `files`/zero numbers (as Python), not an error | exit codes |
 | 8 | **Oracle replay through the real binary** (spawn `target/debug/easy-personal-rs ingest` with a built env, like the T004/T023 tests): S01, S02, S03, S04, S05, S06, S07, S08a, S08b, S10a, S10b: compare stdout numbers and the four tables to the goldens (use the T035 test helpers; do not duplicate the layout code); S09, S11, S12: compare exit code and stderr | RS-003 |
 | 9 | **Retention**: `--retention-days 36500` prunes nothing; `--retention-days 1` deletes every row with a timestamp and keeps NULL-timestamp rows, `source_files` untouched (S08a, S08b); the result's `pruned` equals the golden's | S08 |
@@ -107,6 +107,7 @@ Before writing any code:
 ## Edge Case Checklist
 
 - [ ] The data dir is created 0700 only when it did not exist; an existing dir keeps its mode
+- [ ] A relative `--source` or `EASY_PERSONAL_CLAUDE_PROJECTS` is normalised like Python's `Path(...)`: a leading `./`, repeated separators and a trailing separator are dropped before it is handed to `ingest_accounts` (T035's `components()` keeps a leading `./`, where Python drops it)
 - [ ] `EASY_PERSONAL_HOME` pointing at a file, a dangling symlink or an unwritable dir gives a one-line message, exit 1
 - [ ] The lock is taken before the store is opened, so a busy lock never touches the store
 - [ ] stdout carries only the JSON (nothing else, no warnings); diagnostics go to stderr
