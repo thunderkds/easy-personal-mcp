@@ -13,3 +13,9 @@ dist/
 
 # Built dashboard (HUN-48): produced by `npm --prefix web run build`, shipped in the wheel
 /src/easy_personal/dashboard/static/
+
+# Rust port
+rust/target/
+rust/spikes/**/target/
+rust/parity/.venv/
+rust/parity/.gen_golden.json
