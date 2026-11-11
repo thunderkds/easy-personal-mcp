@@ -75,6 +75,9 @@ API_CALLS: dict[str, list[str]] = {
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/kit/workspaces": ["", "?since=2026-01-01&until=2027-01-01", "?account=1", "?account=nope", "?since=garbage"],
     "/api/kit/reports": [""],
+    "/api/reports": [""],
+    "/api/reports/{id}": [""],  # asked literally (not digits: the 404); the numeric ids are in GUARD_CALLS
+    "/api/first-run": [""],
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -84,6 +87,9 @@ GUARD_CALLS = [
     ("wrong origin", "GET", "/api/usage/summary", {"Origin": "http://evil.invalid"}),
     ("write method", "POST", "/api/workspaces", {}),
     ("unknown route", "GET", "/api/nope", {}),
+    ("report id", "GET", "/api/reports/1", {}),
+    ("report id too long", "GET", "/api/reports/1000000000000000000", {}),
+    ("report write method", "DELETE", "/api/reports/1", {}),
     ("static index", "GET", "/", {"x-dashboard-token": None}),
     ("static file", "GET", "/index.html", {"x-dashboard-token": None}),
     ("static missing", "GET", "/nope.js", {"x-dashboard-token": None}),

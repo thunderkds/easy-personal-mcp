@@ -1,11 +1,13 @@
 pub mod catalog;
 pub mod clock;
+pub mod first_run;
 pub mod ingest;
 pub mod ingest_lock;
 pub mod kit;
 pub mod metrics;
 pub mod plan;
 pub mod prices;
+pub mod reports;
 pub mod rules;
 pub mod scope;
 pub mod sessions;

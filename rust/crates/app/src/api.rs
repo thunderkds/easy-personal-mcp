@@ -1,5 +1,7 @@
 //! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
-//! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`, `/api/kit/workspaces`, `/api/kit/reports`.
+//! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
+//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/reports`, `/api/reports/{id}` and `/api/first-run` (read-only; T040: an id that is not
+//! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500).
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
 //! the goldens in `rust/parity/golden*/` are the oracle. Every route sits behind the guard in `server.rs`.
 //! The first six take the optional `workspace` (a name) and `account` (an id or a label) and pass them to the core's scoped
@@ -20,9 +22,11 @@ use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use easy_personal_core::clock::now_micros;
+use easy_personal_core::first_run;
 use easy_personal_core::kit;
 use easy_personal_core::metrics::{self, MetricsError};
 use easy_personal_core::plan::improvement_plan_scoped;
+use easy_personal_core::reports::{self, ReportsError};
 use easy_personal_core::rules::{self, RulesError, ScopedRulesError, evaluate_scoped};
 use easy_personal_core::scope::Scope;
 use easy_personal_core::sessions::{session_outliers_scoped, session_timeline_scoped};
@@ -85,6 +89,9 @@ pub fn routes() -> Router<Api> {
         .route("/api/kit", get(kit_projects))
         .route("/api/kit/workspaces", get(kit_workspaces))
         .route("/api/kit/reports", get(kit_reports))
+        .route("/api/reports", get(report_list))
+        .route("/api/reports/{id}", get(report_one))
+        .route("/api/first-run", get(first_run_steps))
 }
 
 async fn summary(State(api): State<Api>, uri: Uri) -> Response {
@@ -188,6 +195,62 @@ async fn connectors(State(api): State<Api>, uri: Uri) -> Response {
     .await
 }
 
+async fn report_list(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, _q, _now| {
+        reports::list_reports(conn).map_err(reports_failure)
+    })
+    .await
+}
+
+/// The id is read from the path as Python's `raw.isascii() and raw.isdecimal() and len(raw) < 19` does, after the
+/// percent-decoding Starlette does: plain ASCII digits, fewer than 19. Any other text (a byte that is not UTF-8
+/// included), and an id with no report, is the same 404 with the same body.
+async fn report_one(State(api): State<Api>, uri: Uri) -> Response {
+    let id = report_id(uri.path().strip_prefix("/api/reports/").unwrap_or(""));
+    serve(api, uri, move |conn, _q, now| {
+        let found = match id {
+            Some(id) => reports::get_report(conn, id, now).map_err(reports_failure)?,
+            None => None,
+        };
+        found.ok_or((StatusCode::NOT_FOUND, "no such report".to_string()))
+    })
+    .await
+}
+
+/// `segment` is the path part as sent (percent-encoded); `None` unless it decodes to 1 to 18 ASCII digits.
+fn report_id(segment: &str) -> Option<i64> {
+    let bytes = segment.as_bytes();
+    let hex = |b: Option<&u8>| b.and_then(|b| (*b as char).to_digit(16));
+    let (mut digits, mut i) = (String::new(), 0);
+    while i < bytes.len() {
+        let byte = match (bytes[i], hex(bytes.get(i + 1)), hex(bytes.get(i + 2))) {
+            (b'%', Some(high), Some(low)) => {
+                i += 2;
+                (high * 16 + low) as u8
+            }
+            (byte, _, _) => byte,
+        };
+        if !byte.is_ascii_digit() {
+            return None;
+        }
+        digits.push(byte as char);
+        i += 1;
+    }
+    if digits.is_empty() || digits.len() > 18 {
+        return None;
+    }
+    digits.parse().ok()
+}
+
+/// The unit folder is read from `XDG_CONFIG_HOME` / `HOME` on each request, like Python's `schedule.unit_dir()`.
+async fn first_run_steps(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, _q, _now| {
+        first_run::steps(conn, first_run::unit_dir().as_deref())
+            .map_err(|e| store_failure(StoreError::from(e)))
+    })
+    .await
+}
+
 /// Parses the query, then runs `read` on a fresh read-only connection off the async workers.
 async fn serve<F>(api: Api, uri: Uri, read: F) -> Response
 where
@@ -260,6 +323,14 @@ fn scoped_rules_failure(error: ScopedRulesError) -> Failure {
     match error {
         ScopedRulesError::UnknownScope(text) => (StatusCode::BAD_REQUEST, text),
         ScopedRulesError::Rules(error) => rules_failure(error),
+    }
+}
+
+fn reports_failure(error: ReportsError) -> Failure {
+    match error {
+        ReportsError::Corrupt => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
+        ReportsError::Rules(error) => rules_failure(error),
+        ReportsError::Store(error) => store_failure(error),
     }
 }
 

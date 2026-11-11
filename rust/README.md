@@ -88,6 +88,28 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   `account` as the usage routes do (same 400 texts); `/api/kit/workspaces` takes `since`, `until` and `account` (a `workspace` is ignored, as in Python);
   `/api/kit/reports` takes no parameter. A `since` or `until` that is not a date is `400` with an `error` key (the text is CPython's, ours says the
   same for the same inputs). `/api/kit/report-files` and `/api/kit/report-file` are still absent (404). Writes are 405.
+- `GET /api/reports` -> `{"reports": [...]}` (T040: the newest 50 saved investigate reports, newest first; each `{id, saved_utc, workspace, account,
+  fired_count, summary_first_line}`), `GET /api/reports/{id}` -> one report (`{id, saved_utc, server_version, workspace, account, summary, fixes,
+  as_of_utc, now_as_of_utc, rules: [{rule_id, title, before, now}]}`: `before` is the saved snapshot, `now` is each rule measured on this request for the
+  saved scope, with the system clock) and `GET /api/first-run` -> `{"steps": [{id, done, hint}]}` (first ingest, daily timer, a confirmed account whose
+  folder exists, a workspace besides the orphan). All three are read-only, take no parameter (the whole query string is ignored) and show the report text
+  (`summary`, `fixes`) as stored: it is the one text the store keeps, and it is neither logged nor put in any error. Errors:
+
+  | Request | Answer |
+  |---|---|
+  | `GET /api/reports/{id}`, `{id}` not 1 to 18 ASCII digits (after `%XX` decoding), or no such report | `404 {"error": "no such report"}` (leading zeros are fine: `001` is 1) |
+  | `GET /api/reports/{id}`, a saved snapshot or fixes value that is not what `save_report` writes | `500 {"error": "the saved report cannot be read"}` |
+  | any of the three, no token, bad Host or Origin | `403 {"error": "forbidden"}` (before anything else) |
+  | `POST`, `PUT`, `PATCH`, `DELETE` on any of the three | `405`, empty body, CSP set (`HEAD` answers like `GET`) |
+  | no store, a store newer than this build, a busy, unreadable or non-file store | `503`, as for the other routes |
+
+  Decided for you (T040; Rust differs from Python): a report whose snapshot Python cannot read is a fixed `500` here (Python: a traceback), and in the list it
+  is kept with `fired_count` 0 (Python fails the whole list); the first-run hint for the timer is always `easy-personal schedule install` (Python asks
+  `systemctl --user show-environment` per request and, on a machine with no systemd user session, answers a crontab line built from its own command path:
+  the Rust server never starts `systemctl`; the install command prints that cron line itself); the timer is looked up under `XDG_CONFIG_HOME` (empty counts as unset)
+  or `$HOME/.config` read per request, and with neither set it counts as not installed (Python asks the passwd entry); the report's `now` side uses the shipped
+  rule pack like `/api/warnings` (the `config.yaml` threshold override is not ported); a `{id}` that decodes to text with a `/` (`/api/reports/1%2F2`) is the JSON
+  `404 no such report` here (Python: Starlette's plain-text `Not Found`, no route matches), and `/api/reports/` with no id is the empty `404` (Python: the same plain text).
 - Every other Python route is still absent (404; with `--static-dir`, a non-`/api/` path is looked up in the folder first).
 
 ```bash
@@ -190,7 +212,9 @@ a model abstained). `tests/workspaces_parity.rs` compares them with the four gol
 token column or a NULL timestamp makes Python raise a `TypeError`; here it is read as 0 / empty. `GET /api/workspaces` and
 `GET /api/workspaces/unassigned` call them.
 
-`easy_personal_core::rules::evaluate` runs the shipped rule pack (`rules.yaml`, read by a hand-written line parser) and returns the `warnings` JSON (hits with causes and diagnosis, abstained rules) equal to the Python goldens; the clock is a parameter. `rules::evaluate_scoped(conn, now_micros, &rules, Scope)` limits every metric, the kernel-trace rule (through the scope's projects) and the easy-context checks to a workspace and/or account; an unknown one is `ScopedRulesError::UnknownScope` with Python's text, even when the store has too little history to measure. Not ported yet: the `checked` list, the `config.yaml` threshold override.
+`easy_personal_core::rules::evaluate` runs the shipped rule pack (`rules.yaml`, read by a hand-written line parser) and returns the `warnings` JSON (hits with causes and diagnosis, abstained rules) equal to the Python goldens; the clock is a parameter. `rules::evaluate_scoped(conn, now_micros, &rules, Scope)` limits every metric, the kernel-trace rule (through the scope's projects) and the easy-context checks to a workspace and/or account; an unknown one is `ScopedRulesError::UnknownScope` with Python's text, even when the store has too little history to measure. `rules::evaluate_checked_scoped` adds Python's `checked=True` list (every measured rule with `title`, `measured`, `threshold`, `fired`; T040) and `rules::left_out_ids` the ids of the rules left out because their kit part is not in use. Not ported yet: the `config.yaml` threshold override.
+
+`easy_personal_core::reports::list_reports(conn)` and `get_report(conn, id, now_micros)` (T040; read-only, `reports.rs`) return the JSON of Python's `reports.list_reports` and `reports.get_report`: the saved snapshot is the `before` side of each rule, and `now` is `rules::evaluate_checked_scoped` over the saved workspace and account at `now_micros` (`not measured now` when the saved scope is gone or the rule is absent, `not in use` for a rule left out). `first_run::steps(conn, unit_dir)` is Python's `first_run.steps` with the unit folder passed in (`first_run::unit_dir()` reads `XDG_CONFIG_HOME` / `HOME`). `tests/reports_parity.rs` compares them with the eight goldens (`api__reports__all`, `api__reports_one__{found,missing,scoped}`, `api__first_run__all` of `parity/golden` and `parity/golden-rich`, counted from the manifests, under `frozen_now`) and `crates/app/tests/reports.rs` over the binary. The rich store's confirmed accounts name `/work/rich/...` folders that do not exist on a test machine (Python's golden run had them), so the tests point the copy's account rows at temp folders.
 
 `easy_personal_core::plan::improvement_plan(conn, now_micros, &rules)` groups the fired rules by priority (items in `evaluate` order) and returns the `improvement_plan` JSON equal to the Python goldens in `parity/golden` and `parity/golden-rich`. `plan::improvement_plan_scoped(conn, now_micros, &rules, Scope)` is the same over `evaluate_scoped` (same error type).
 

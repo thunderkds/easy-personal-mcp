@@ -67,12 +67,20 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-11T12:17:51Z, before any implementation file existed: the debug binary (`cargo build` at the guide's commit) run as `serve` over a temp copy of `rust/parity/store-rich/store-v11.sqlite` (`HOME`, `EASY_PERSONAL_HOME`, `XDG_CONFIG_HOME` temp folders, `TZ=UTC`), each route requested with `curl -H "x-dashboard-token: <token>"`. The goldens (`rust/parity/golden-rich/api__reports__all.json` etc.) hold Python's 200 / 404 answers; Rust answers 404 with an empty body for all of them:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+== BEFORE 2026-11-11T12:17:51Z debug binary, temp copy of store-rich
+--- GET /api/reports        -> HTTP 404 (empty body)
+--- GET /api/reports/1      -> HTTP 404 (empty body)
+--- GET /api/reports/2      -> HTTP 404 (empty body)
+--- GET /api/reports/99     -> HTTP 404 (empty body)
+--- GET /api/reports/abc    -> HTTP 404 (empty body)
+--- GET /api/first-run      -> HTTP 404 (empty body)
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER**: 2026-11-11T14:22:31Z (agent, same procedure) and re-run by the Supervisor in `main` after the merge: `GET /api/reports` 200 (`{"reports":[{"account":null,"fired_count":4,"id":2,...}]}`), `/api/reports/1` and `/2` 200, `/api/reports/99` and `/abc` 404 `{"error":"no such report"}`, `/api/first-run` 200 (`{"steps":[{"done":true,"hint":"easy-personal ingest","id":"first_ingest"},...`), no token 403, `POST /api/reports` 405. Goldens 8/8 equal (core and over the binary); Python `get_report` against the Rust server over 14 edited store copies: 14/14 equal. In `main`: 525 tests x 3 TZ (0 failed, 26 ignored), clippy x2 and fmt clean, leak 0 hits over 42 canaries and 147 surfaces.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: The Rust dashboard now lists saved investigate reports, opens one with its before/now rule values, and shows the first-run checklist, where all three answered 404.
+
+**WITNESS**: derived by the delivery-report renderer from `memory/event-trace/T040.jsonl`; the Supervisor re-ran the merged tree on 2026-11-11 (tests, leak gate, clippy, fmt).

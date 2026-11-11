@@ -1689,6 +1689,7 @@ pub fn evaluate(conn: &Connection, now_micros: i64, rules: &[Rule]) -> Result<Va
         now_micros,
         rules,
         &scope::resolve(conn, Scope::default())?,
+        false,
     )
 }
 
@@ -1702,12 +1703,49 @@ pub fn evaluate_scoped(
     scope: Scope,
 ) -> std::result::Result<Value, ScopedRulesError> {
     let resolved = scope::resolve(conn, scope)?;
-    Ok(evaluate_in(conn, now_micros, rules, &resolved)?)
+    Ok(evaluate_in(conn, now_micros, rules, &resolved, false)?)
 }
 
-fn evaluate_in(conn: &Connection, now_micros: i64, rules: &[Rule], sc: &Resolved) -> Result<Value> {
+/// [`evaluate_scoped`] plus Python's `checked=True`: a `checked` list (by rule id) of every measured rule with its
+/// `title`, `measured`, `threshold` and `fired`, so a rule that did not fire still has its value (saved reports, FR-076).
+pub fn evaluate_checked_scoped(
+    conn: &Connection,
+    now_micros: i64,
+    rules: &[Rule],
+    scope: Scope,
+) -> std::result::Result<Value, ScopedRulesError> {
+    let resolved = scope::resolve(conn, scope)?;
+    Ok(evaluate_in(conn, now_micros, rules, &resolved, true)?)
+}
+
+/// The ids of the rules [`evaluate`] leaves out in this scope because the kit part they check is not in use (FR-080;
+/// Python's `rules.left_out`), in rule order. An unknown workspace or account is refused as for [`evaluate_scoped`].
+pub fn left_out_ids(
+    conn: &Connection,
+    now_micros: i64,
+    rules: &[Rule],
+    scope: Scope,
+) -> std::result::Result<Vec<String>, ScopedRulesError> {
+    let resolved = scope::resolve(conn, scope)?;
+    let mut ids = Vec::new();
+    for rule in rules {
+        if left_out(rule, conn, &resolved, now_micros)? {
+            ids.push(rule.id.clone());
+        }
+    }
+    Ok(ids)
+}
+
+fn evaluate_in(
+    conn: &Connection,
+    now_micros: i64,
+    rules: &[Rule],
+    sc: &Resolved,
+    checked: bool,
+) -> Result<Value> {
     let mut hits: Vec<Map<String, Value>> = Vec::new();
     let mut abstained: Vec<(String, Value)> = Vec::new();
+    let mut measured_rules: Vec<(String, Value)> = Vec::new();
     let mut win = Windows::new(conn, sc);
     for rule in rules {
         if left_out(rule, conn, sc, now_micros)? {
@@ -1728,6 +1766,15 @@ fn evaluate_in(conn: &Connection, now_micros: i64, rules: &[Rule], sc: &Resolved
             Op::Lt => m < t,
             Op::Gt => m > t,
         };
+        if checked {
+            measured_rules.push((
+                rule.id.clone(),
+                json!({
+                    "rule_id": rule.id, "title": rule.title, "measured": measured.json(),
+                    "threshold": rule.threshold.json(), "fired": fired,
+                }),
+            ));
+        }
         if !fired {
             continue;
         }
@@ -1757,11 +1804,16 @@ fn evaluate_in(conn: &Connection, now_micros: i64, rules: &[Rule], sc: &Resolved
     };
     hits.sort_by_key(rank);
     abstained.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(json!({
+    let mut found = json!({
         "as_of_utc": iso(now_micros),
         "hits": hits,
         "abstained": abstained.into_iter().map(|(_, v)| v).collect::<Vec<_>>(),
-    }))
+    });
+    if checked {
+        measured_rules.sort_by(|a, b| a.0.cmp(&b.0));
+        found["checked"] = Value::Array(measured_rules.into_iter().map(|(_, v)| v).collect());
+    }
+    Ok(found)
 }
 
 #[cfg(test)]

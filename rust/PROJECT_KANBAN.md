@@ -20,7 +20,7 @@
 - [ ] **T051** — P3 S12: `context` ingest, MCP `--http`, dashboard start-up ingest | Backend-Developer | C2 | Risk: Medium | P3 | wave 5, optional; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
 
 ### In Progress
-- [ ] **T040** — P3 S1: `/api/reports`, `/api/reports/{id}`, `/api/first-run` (Rust, read-only) | Backend-Developer | C2 | Risk: Low | P1 | wave 1; oracle: goldens `api__reports__*`, `api__first_run__all`; plan `BRAINSTORMING_LOG_RUSTP3.md`; started 2026-11-11: guide `tasks/TASK_GUIDE_T040.md`, own worktree, wave 1
+- [x] **T040** — P3 S1: `/api/reports`, `/api/reports/{id}`, `/api/first-run` (Rust, read-only) | Backend-Developer | C2 | Risk: Low | P1 | wave 1; oracle: goldens `api__reports__*`, `api__first_run__all`; plan `BRAINSTORMING_LOG_RUSTP3.md`; started 2026-11-11: guide `tasks/TASK_GUIDE_T040.md`, own worktree, wave 1 | committed to `main` 2026-11-11 (wave 1, merged on top of T046 and T042 by cherry-pick; route table, README and leak registry conflicts kept both sides); re-run in main: goldens 8/8, Python cross-check 14/14, 525 tests x3 TZ, clippy x2, fmt, leak 0 hits over 147 surfaces; "decided for you": a corrupt saved report is a fixed 500 (list keeps it with fired_count 0), the first-run timer hint is always `easy-personal schedule install` (Rust never runs `systemctl`), timer looked up under XDG_CONFIG_HOME/HOME, `now` side uses the shipped rule pack, an id with `/` is the JSON 404; `rules.rs` gained `evaluate_checked_scoped` and `left_out_ids` (existing output unchanged); evidence `tasks/TASK_REVIEW_T040.md`
 
 ### Ready for Review
 
