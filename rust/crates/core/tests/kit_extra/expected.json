@@ -1,0 +1,2030 @@
+{
+ "api_acme": {
+  "gone": 2,
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-10T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": null,
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "reason": "unknown_schema_version",
+      "status": "abstained"
+     }
+    },
+    "project": "plain"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-01T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-12T01:00:00+00:00",
+      "stale": true,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 3,
+      "commits_by_day": {
+       "2026-01-05": 2,
+       "2026-01-12": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.3333,
+      "first_utc": "2026-01-14T10:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-15T11:00:00.000000Z",
+      "status": "ok",
+      "tool_calls": 3,
+      "tool_errors": 1
+     },
+     "verifier": {
+      "generated_at": "2026-01-10T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 80
+      },
+      "scope": "changes",
+      "status": "ok"
+     }
+    },
+    "project": "repo-a"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-04T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-03T12:00:00+00:00",
+      "stale": false,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "api_acme_work": {
+  "gone": 0,
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "api_all": {
+  "gone": 4,
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-10T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.1,
+      "first_utc": "2026-01-13T13:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-01-17T13:29:00.000000Z",
+      "status": "ok",
+      "tool_calls": 30,
+      "tool_errors": 3
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "beta"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": null,
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "reason": "unknown_schema_version",
+      "status": "abstained"
+     }
+    },
+    "project": "plain"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-01T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-12T01:00:00+00:00",
+      "stale": true,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 3,
+      "commits_by_day": {
+       "2026-01-05": 2,
+       "2026-01-12": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.3333,
+      "first_utc": "2026-01-14T10:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-15T11:00:00.000000Z",
+      "status": "ok",
+      "tool_calls": 3,
+      "tool_errors": 1
+     },
+     "verifier": {
+      "generated_at": "2026-01-10T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 80
+      },
+      "scope": "changes",
+      "status": "ok"
+     }
+    },
+    "project": "repo-a"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-04T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-03T12:00:00+00:00",
+      "stale": false,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2099-01-01T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": true,
+       "reason_code": "too_little",
+       "value": null
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-c"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "api_default": {
+  "gone": 4,
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-10T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": null,
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "reason": "unknown_schema_version",
+      "status": "abstained"
+     }
+    },
+    "project": "plain"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-01T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-12T01:00:00+00:00",
+      "stale": true,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 3,
+      "commits_by_day": {
+       "2026-01-05": 2,
+       "2026-01-12": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.3333,
+      "first_utc": "2026-01-14T10:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-15T11:00:00.000000Z",
+      "status": "ok",
+      "tool_calls": 3,
+      "tool_errors": 1
+     },
+     "verifier": {
+      "generated_at": "2026-01-10T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 80
+      },
+      "scope": "changes",
+      "status": "ok"
+     }
+    },
+    "project": "repo-a"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2099-01-01T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": true,
+       "reason_code": "too_little",
+       "value": null
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-c"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "api_personal": {
+  "gone": 1,
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.1,
+      "first_utc": "2026-01-13T13:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-01-17T13:29:00.000000Z",
+      "status": "ok",
+      "tool_calls": 30,
+      "tool_errors": 3
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "beta"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": true,
+       "reason_code": "too_little",
+       "value": null
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-c"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "api_work": {
+  "gone": 1,
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.1,
+      "first_utc": "2026-01-13T13:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-01-17T13:29:00.000000Z",
+      "status": "ok",
+      "tool_calls": 30,
+      "tool_errors": 3
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "beta"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "mcp_acme": {
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-10T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 90
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "missing"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": null,
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "reason": "unknown_schema_version",
+      "status": "abstained"
+     }
+    },
+    "project": "plain"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-01T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-12T01:00:00+00:00",
+      "stale": true,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 3,
+      "commits_by_day": {
+       "2026-01-05": 2,
+       "2026-01-12": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.3333,
+      "first_utc": "2026-01-14T10:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-15T11:00:00.000000Z",
+      "status": "ok",
+      "tool_calls": 3,
+      "tool_errors": 1
+     },
+     "verifier": {
+      "generated_at": "2026-01-10T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 80
+      },
+      "scope": "changes",
+      "status": "ok"
+     }
+    },
+    "project": "repo-a"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-04T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-03T12:00:00+00:00",
+      "stale": false,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-05T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-a"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "mcp_acme_work": {
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "mcp_all": {
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-10T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.1,
+      "first_utc": "2026-01-13T13:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-01-17T13:29:00.000000Z",
+      "status": "ok",
+      "tool_calls": 30,
+      "tool_errors": 3
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "beta"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 90
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "missing"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": null,
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "reason": "unknown_schema_version",
+      "status": "abstained"
+     }
+    },
+    "project": "plain"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-01T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-12T01:00:00+00:00",
+      "stale": true,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 3,
+      "commits_by_day": {
+       "2026-01-05": 2,
+       "2026-01-12": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.3333,
+      "first_utc": "2026-01-14T10:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-15T11:00:00.000000Z",
+      "status": "ok",
+      "tool_calls": 3,
+      "tool_errors": 1
+     },
+     "verifier": {
+      "generated_at": "2026-01-10T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 80
+      },
+      "scope": "changes",
+      "status": "ok"
+     }
+    },
+    "project": "repo-a"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-04T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-03T12:00:00+00:00",
+      "stale": false,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2099-01-01T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": true,
+       "reason_code": "too_little",
+       "value": null
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-c"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-05T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-a"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-b"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-c"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "mcp_default": {
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-10T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 90
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "missing"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": null,
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "reason": "unknown_schema_version",
+      "status": "abstained"
+     }
+    },
+    "project": "plain"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-01T00:00:00+00:00",
+      "latest_commit_utc": "2026-01-12T01:00:00+00:00",
+      "stale": true,
+      "status": "ok"
+     },
+     "git": {
+      "commits": 3,
+      "commits_by_day": {
+       "2026-01-05": 2,
+       "2026-01-12": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.3333,
+      "first_utc": "2026-01-14T10:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-15T11:00:00.000000Z",
+      "status": "ok",
+      "tool_calls": 3,
+      "tool_errors": 1
+     },
+     "verifier": {
+      "generated_at": "2026-01-10T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 80
+      },
+      "scope": "changes",
+      "status": "ok"
+     }
+    },
+    "project": "repo-a"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "last_index_at": "2099-01-01T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": true,
+       "reason_code": "too_little",
+       "value": null
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-c"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "last_index_at": "2026-01-05T00:00:00+00:00",
+      "latest_commit_utc": null,
+      "stale": null,
+      "status": "ok"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-a"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-b"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "no data"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-c"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "mcp_personal": {
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.1,
+      "first_utc": "2026-01-13T13:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-01-17T13:29:00.000000Z",
+      "status": "ok",
+      "tool_calls": 30,
+      "tool_errors": 3
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "beta"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "generated_at": "2026-01-11T00:00:00Z",
+      "overall": {
+       "abstained": true,
+       "reason_code": "too_little",
+       "value": null
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-c"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-b"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "mcp_work": {
+  "projects": [
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 1,
+      "error_rate": 0.4706,
+      "first_utc": "2026-01-08T09:00:00.000000Z",
+      "kit_tasks": 2,
+      "last_utc": "2026-01-17T10:11:00.000000Z",
+      "status": "ok",
+      "tool_calls": 34,
+      "tool_errors": 16
+     },
+     "verifier": {
+      "generated_at": "2026-01-09T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 61.3
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "alpha"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "abstained": 0,
+      "error_rate": 0.1,
+      "first_utc": "2026-01-13T13:00:00.000000Z",
+      "kit_tasks": 1,
+      "last_utc": "2026-01-17T13:29:00.000000Z",
+      "status": "ok",
+      "tool_calls": 30,
+      "tool_errors": 3
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "beta"
+   },
+   {
+    "missing_on_disk": false,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "commits": 1,
+      "commits_by_day": {
+       "2026-01-03": 1
+      },
+      "status": "ok"
+     },
+     "kernel": {
+      "abstained": 2,
+      "error_rate": null,
+      "first_utc": null,
+      "kit_tasks": 0,
+      "last_utc": null,
+      "status": "ok",
+      "tool_calls": 0,
+      "tool_errors": 0
+     },
+     "verifier": {
+      "generated_at": "2026-01-12T00:00:00Z",
+      "overall": {
+       "abstained": false,
+       "reason_code": null,
+       "value": 72.5
+      },
+      "scope": "all",
+      "status": "ok"
+     }
+    },
+    "project": "repo-b"
+   },
+   {
+    "missing_on_disk": true,
+    "parts": {
+     "context": {
+      "status": "not in use"
+     },
+     "git": {
+      "status": "no data"
+     },
+     "kernel": {
+      "status": "no data"
+     },
+     "verifier": {
+      "status": "no data"
+     }
+    },
+    "project": "gone-b"
+   }
+  ],
+  "ui": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  }
+ },
+ "reports": {
+  "workspaces": [
+   {
+    "folders": [
+     {
+      "easy_ui_sessions": 1,
+      "files": 2,
+      "files_capped": false,
+      "folder": "reports",
+      "newest_utc": "2026-01-18T00:00:00Z",
+      "repo": "alpha",
+      "repo_no": 0
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 1,
+      "files_capped": false,
+      "folder": "smoke-reports",
+      "newest_utc": "2026-01-18T00:00:00Z",
+      "repo": "alpha",
+      "repo_no": 0
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 1,
+      "files_capped": false,
+      "folder": "Reports-Archive",
+      "newest_utc": "2026-01-17T23:59:55Z",
+      "repo": "repo-a",
+      "repo_no": 3
+     },
+     {
+      "easy_ui_sessions": 1,
+      "files": 3,
+      "files_capped": false,
+      "folder": "test-reports",
+      "newest_utc": "2026-01-18T00:00:01Z",
+      "repo": "repo-a",
+      "repo_no": 3
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-1",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-2",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-3",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-4",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-5",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-6",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-7",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     },
+     {
+      "easy_ui_sessions": 0,
+      "files": 0,
+      "files_capped": false,
+      "folder": "report-8",
+      "newest_utc": null,
+      "repo": "repo-b",
+      "repo_no": 4
+     }
+    ],
+    "name": "acme"
+   },
+   {
+    "folders": [],
+    "name": "personal"
+   }
+  ]
+ },
+ "rollup_all": {
+  "ui_checks": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  },
+  "workspaces": [
+   {
+    "color": "#3366cc",
+    "name": "acme",
+    "repos": 6,
+    "ui": {
+     "calls": 15,
+     "last_utc": "2026-01-16T10:00:00.000000Z",
+     "sessions": 14,
+     "status": "ok"
+    },
+    "verifier": {
+     "lowest": {
+      "project": "alpha",
+      "value": 61.3
+     },
+     "mean": 71.3,
+     "newest_utc": "2026-01-12T00:00:00Z",
+     "repos_scored": 3,
+     "repos_total": 4,
+     "status": "ok"
+    }
+   },
+   {
+    "color": null,
+    "name": "personal",
+    "repos": 3,
+    "ui": {
+     "calls": 1,
+     "last_utc": "2026-01-10T10:00:00.000000Z",
+     "sessions": 1,
+     "status": "ok"
+    },
+    "verifier": {
+     "lowest": null,
+     "mean": null,
+     "newest_utc": null,
+     "repos_scored": 0,
+     "repos_total": 2,
+     "status": "no data"
+    }
+   }
+  ]
+ },
+ "rollup_window": {
+  "ui_checks": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  },
+  "workspaces": [
+   {
+    "color": "#3366cc",
+    "name": "acme",
+    "repos": 6,
+    "ui": {
+     "calls": 1,
+     "last_utc": "2026-01-16T10:00:00.000000Z",
+     "sessions": 1,
+     "status": "ok"
+    },
+    "verifier": {
+     "lowest": {
+      "project": "alpha",
+      "value": 61.3
+     },
+     "mean": 71.3,
+     "newest_utc": "2026-01-12T00:00:00Z",
+     "repos_scored": 3,
+     "repos_total": 4,
+     "status": "ok"
+    }
+   },
+   {
+    "color": null,
+    "name": "personal",
+    "repos": 3,
+    "ui": {
+     "calls": 0,
+     "last_utc": null,
+     "sessions": 0,
+     "status": "not used"
+    },
+    "verifier": {
+     "lowest": null,
+     "mean": null,
+     "newest_utc": null,
+     "repos_scored": 0,
+     "repos_total": 2,
+     "status": "no data"
+    }
+   }
+  ]
+ },
+ "rollup_work": {
+  "ui_checks": {
+   "actions": 15,
+   "failed": 1,
+   "first_utc": "2026-01-05T10:00:00.000000Z",
+   "last_utc": "2026-01-07T10:00:00.000000Z",
+   "other": 1,
+   "passed": 1,
+   "sessions": 3,
+   "status": "ok"
+  },
+  "workspaces": [
+   {
+    "color": "#3366cc",
+    "name": "acme",
+    "repos": 6,
+    "ui": {
+     "calls": 0,
+     "last_utc": null,
+     "sessions": 0,
+     "status": "not used"
+    },
+    "verifier": {
+     "lowest": {
+      "project": "alpha",
+      "value": 61.3
+     },
+     "mean": 71.3,
+     "newest_utc": "2026-01-12T00:00:00Z",
+     "repos_scored": 3,
+     "repos_total": 4,
+     "status": "ok"
+    }
+   },
+   {
+    "color": null,
+    "name": "personal",
+    "repos": 3,
+    "ui": {
+     "calls": 0,
+     "last_utc": null,
+     "sessions": 0,
+     "status": "not used"
+    },
+    "verifier": {
+     "lowest": null,
+     "mean": null,
+     "newest_utc": null,
+     "repos_scored": 0,
+     "repos_total": 2,
+     "status": "no data"
+    }
+   }
+  ]
+ }
+}

@@ -84,6 +84,10 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   holds the item *and* `claude mcp get` knows the entry, and answers `false` when it cannot ask (no keychain backend, no `claude`), which is
   the state of the goldens. This build asks neither (no keychain crate, no process; both arrive with T050 behind the owner's approval), so on a
   machine where Python says `true`, this says `false`. `GET /api/connectors/legacy` and `/api/connectors/<id>` are `404`; the connector write routes are not served (`POST /api/connectors` is `405`).
+- `GET /api/kit`, `GET /api/kit/workspaces` and `GET /api/kit/reports` (T042, read-only; below, "Kit"). `/api/kit` takes the optional `workspace` and
+  `account` as the usage routes do (same 400 texts); `/api/kit/workspaces` takes `since`, `until` and `account` (a `workspace` is ignored, as in Python);
+  `/api/kit/reports` takes no parameter. A `since` or `until` that is not a date is `400` with an `error` key (the text is CPython's, ours says the
+  same for the same inputs). `/api/kit/report-files` and `/api/kit/report-file` are still absent (404). Writes are 405.
 - Every other Python route is still absent (404; with `--static-dir`, a non-`/api/` path is looked up in the folder first).
 
 ```bash
@@ -91,8 +95,8 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
 curl -H "x-dashboard-token: <token>" http://127.0.0.1:<port>/api/version
 ```
 
-`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with nine tools: `ping`,
-`usage_summary`, `usage_breakdown`, `session_outliers`, `warnings`, `improvement_plan` and the three connector tools (T046, below). Their names, descriptions and schemas, and their results over
+`mcp` serves the MCP protocol on stdio (newline-delimited JSON-RPC; stdout carries nothing else) with ten tools: `ping`,
+`usage_summary`, `usage_breakdown`, `session_outliers`, `warnings`, `improvement_plan`, `kit_summary` (T042: optional `workspace` and `account`, `null`, absent and `""` mean no filter; the projects whose folder is gone are listed with `missing_on_disk: true`, as Python's tool lists them) and the three connector tools (T046, below). Their names, descriptions and schemas, and their results over
 `parity/store-v11.sqlite`, equal the Python app's `mcp__*` goldens; `warnings` and `improvement_plan` read the clock, so their goldens
 (default and rich store) are compared in-process at the manifest's `frozen_now`: the binary has no flag or variable that sets the clock.
 `session_outliers` takes `since` and `until` only, as in Python (it reads no clock, so its goldens are compared through the binary; an extra argument is dropped, as Python drops it). `warnings` and `improvement_plan` take `workspace` and `account` as in Python; so do `usage_summary` and `usage_breakdown` here, which
@@ -102,8 +106,8 @@ unknown workspace`, Python's text); a value that is not a string is an argument 
 (2024-11-05 to 2025-11-25) are served, the 2026-07-28 no-handshake mode is not. The server ends with exit 0 when stdin closes. Each call
 opens the store (same path rules as `store-info`) read-only; a missing store, or one newer than this build knows, is a tool error with
 no path in it. Errors in a tool are results with `isError: true` and Python's text (`Error executing tool <name>: <message>`); an
-unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other three tools
-(`kit_summary`, `kit_findings`, `save_report`), the `investigate` prompt and `--http`.
+unknown tool is a JSON-RPC error; a line that is not JSON is answered with `-32700` and a null id. Not ported yet: the other two tools
+(`kit_findings`, `save_report`), the `investigate` prompt and `--http`.
 
 The connector tools (T046) take no argument (an extra one is dropped, as Python drops it) and only read: `connector_catalog` ->
 `{"connectors": [{id, provider, category, claude_ai_connector, claude_ai_link, fields: [{label, secret}]}]}` in catalog-id order (no env names);
@@ -391,6 +395,39 @@ Runs the daily ingest on a **systemd user timer** (Linux), the way `easy-persona
 
 Test it without touching your machine: `cargo test -p easy-personal-rs --test schedule_cli` runs the binary in throwaway folders with a
 fake `systemctl` first on a `PATH` of its own (see `parity/README.md`, "Schedule oracle").
+
+## Kit (T042)
+
+`easy_personal_core::kit` (read-only; `kit.rs`) ports `kit_summary`, `workspace_rollup` and `report_folders` of Python's `core/kit.py` with the parts they call
+(`git_local`, `ui`, `verifier`, `context`). `kit_summary(conn, now_micros, Scope, hide_gone)` lists every project seen in usage (in the scope, a gone worktree
+as its owner project) by folder name with its `kernel` (trace calls, errors, error rate rounded to 4 places, kit tasks, first and last time, abstained rows),
+`git` (commits per OS-local day from `git rev-list --timestamp`, an argument list, 10 s limit: `abstained` when git is too slow, `no data` when it is not a
+repo or fails), `context` (index time, latest commit, `stale` judged at the injected clock with the 60 s skew; `not in use` when no easy-context tool call
+in the 7 days before `now`) and `verifier` parts, and the overall `ui` check summary; `hide_gone` (the dashboard route) drops the projects whose folder is
+missing and adds `gone`. `workspace_rollup` gives per non-orphan workspace the verifier mean and lowest score (stored scores only; Python's `sum` is
+reproduced, so the mean rounds alike) and the easy-ui sessions and calls of the period and account. `report_folders` lists per workspace repo the folders directly
+inside it with `report` in their lowercase name (at most 8 per repo, by name, symlinks and non-directories skipped): the repo folder name, the report folder
+name, a file count (regular files to 3 levels, 2000 at most, `files_capped` past it), the number of `session-*.json` files and the newest file time. It reads
+names and `lstat` only: no file is opened, no symlink followed.
+
+What an answer can show: the project folder name (last path component), the workspace name and colour, the repo folder name and the report folder name,
+counts and times. Never a full path, a file name, a commit message or an author. No error body or log line carries a path, SQL or caller text.
+
+Tests: `crates/core/tests/kit_parity.rs` replays the 17 goldens of `golden-rich` (7 `api__kit__*`, 3 `api__kit_workspaces__*`, `api__kit_reports__all`, 6
+`mcp__kit_summary__*`) and the 4 of `golden`, over a temp copy of the rich store whose `/work/rich/kit` paths point at a temp copy of `fixtures-rich/kit`
+(the temp folder must sort before `/work/rich`), and a hand-made store (`tests/kit_extra/extra.sql`, four git repos, report folders) against Python's answers
+(`tests/kit_extra/expected.json`, made by `make_expected.py` under `TZ=UTC`; `commits_by_day` is checked apart under each `TZ` against the C `date`).
+`crates/core/tests/kit_abstain.rs` (20 s: it waits for the 10 s limit twice) proves a hung `git` is `abstained`; `crates/app/tests/kit.rs` runs the three
+routes and the tool over the real binaries (guard, 405, 400 texts, golden equality, `tools/list` text).
+
+Where this port differs from Python (Python raises there, so its HTTP answer is a 500 or a crash):
+- a stored score that is not a finite number is `null` (and a workspace mean that is not finite is `null`), a NULL `ts_utc` of an easy-ui event counts as the empty
+  string, a stored score with a NULL `generated_at_utc` sorts before any time (Python compares `None` with text and raises), a `git rev-list` line that is not
+  `<seconds> <hash>` is skipped, and a report or repo folder whose name is not UTF-8 is not listed;
+- a score whole-valued and above 9e18 stays a float (Python prints a long integer); a file time is read through the platform's `SystemTime`, as
+  `lstat`'s `st_mtime` float (`sec + nsec * 1e-9`, rounded half to even to the microsecond, then the second shown) and a time outside years 1..9999 is `null`, as Python's `_file_utc`;
+- an unreadable store problem is the fixed 503 text of the other routes, not Python's traceback;
+- a timeout is seen by `git rev-list` only (`abstained`); the `git log` of the index check keeps the other kit rules' behaviour (a slow git gives no commit time).
 
 ## Test
 

@@ -218,7 +218,7 @@ fn local_to_utc(clock: i64, zone: &TimeZone) -> Option<i64> {
 }
 
 /// The calendar day (`YYYY-MM-DD`) of a UTC instant in `zone`.
-fn local_day(micros: i64, zone: &TimeZone) -> Option<String> {
+pub(crate) fn local_day(micros: i64, zone: &TimeZone) -> Option<String> {
     let day = zone
         .to_datetime(Timestamp::from_microsecond(micros).ok()?)
         .date();
@@ -792,7 +792,21 @@ fn run_git(cwd: &str, args: &[&str]) -> Option<String> {
 /// process is killed and the answer is `None`; Python's callers (`owners._lines`, `discovery._git`) treat
 /// `TimeoutExpired` the same way, as "no answer". `rules::latest_commit` waits 10 s, everything else 5 s.
 pub(crate) fn run_git_within(cwd: &str, args: &[&str], timeout: Duration) -> Option<String> {
-    let mut child = Command::new("git")
+    run_git_timed(cwd, args, timeout).ok().flatten()
+}
+
+/// A git call that ran past its limit and was killed: Python's `subprocess.TimeoutExpired`.
+#[derive(Debug)]
+pub(crate) struct GitTimedOut;
+
+/// [`run_git_within`] that tells a timeout (`Err`) from any other failure or empty output (`Ok(None)`), for the
+/// callers Python lets see `TimeoutExpired` (`git_local.git_part` answers `abstained`).
+pub(crate) fn run_git_timed(
+    cwd: &str,
+    args: &[&str],
+    timeout: Duration,
+) -> std::result::Result<Option<String>, GitTimedOut> {
+    let Ok(mut child) = Command::new("git")
         .args(["-c", "core.fsmonitor=false", "-C", cwd])
         .args(args)
         .env("GIT_OPTIONAL_LOCKS", "0")
@@ -800,8 +814,12 @@ pub(crate) fn run_git_within(cwd: &str, args: &[&str], timeout: Duration) -> Opt
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .ok()?;
-    let mut stdout = child.stdout.take()?;
+    else {
+        return Ok(None);
+    };
+    let Some(mut stdout) = child.stdout.take() else {
+        return Ok(None);
+    };
     let (tx, rx) = mpsc::channel();
     // A reader thread, so a full pipe cannot block git; it is left to finish on its own after a timeout.
     thread::spawn(move || {
@@ -814,18 +832,24 @@ pub(crate) fn run_git_within(cwd: &str, args: &[&str], timeout: Duration) -> Opt
         match child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
-            _ => {
+            other => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return None;
+                return if matches!(other, Ok(None)) {
+                    Err(GitTimedOut)
+                } else {
+                    Ok(None)
+                };
             }
         }
     };
-    let buf = rx
-        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-        .ok()?;
+    let buf = match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        Ok(buf) => buf,
+        Err(mpsc::RecvTimeoutError::Timeout) => return Err(GitTimedOut),
+        Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(None),
+    };
     let text = String::from_utf8_lossy(&buf).trim().to_string();
-    (status.success() && !text.is_empty()).then_some(text)
+    Ok((status.success() && !text.is_empty()).then_some(text))
 }
 
 /// The git repo an existing folder is in (a worktree gives its main repo), else `None`.

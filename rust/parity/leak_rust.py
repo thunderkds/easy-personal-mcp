@@ -72,6 +72,9 @@ API_CALLS: dict[str, list[str]] = {
     "/api/connectors": ["", "?workspace=acme"],
     "/api/warnings": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
+    "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
+    "/api/kit/workspaces": ["", "?since=2026-01-01&until=2027-01-01", "?account=1", "?account=nope", "?since=garbage"],
+    "/api/kit/reports": [""],
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -98,6 +101,7 @@ MCP_CALLS: dict[str, list[dict]] = {
     "session_outliers": [{}, {"since": "2026-01-01"}, {"until": "garbage"}],
     "warnings": [{}, {"workspace": "acme"}, {"account": "1"}, {"workspace": "acme", "account": "1"}, {"account": "nope"}],
     "improvement_plan": [{}, {"workspace": "acme"}, {"account": "1"}],
+    "kit_summary": [{}, {"workspace": "acme"}, {"account": "1"}, {"workspace": "nope"}, {"account": "nope"}, {"workspace": 5}],
     "connector_catalog": [{}, {"workspace": "acme"}],
     "connector_status": [{}, {"account": "1"}],
     "connector_suggestions": [{}, {"workspace": "acme"}],

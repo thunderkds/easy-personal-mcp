@@ -10,6 +10,7 @@
 //! (`rust/parity/golden/mcp__tools_list.json`); a test compares them. The nine tools only read the store.
 
 use easy_personal_core::clock;
+use easy_personal_core::kit::kit_summary;
 use easy_personal_core::metrics::{usage_breakdown_scoped, usage_summary_scoped};
 use easy_personal_core::plan::improvement_plan_scoped;
 use easy_personal_core::rules::{evaluate_scoped, shipped_rules};
@@ -42,6 +43,8 @@ const OUTLIERS_DESCRIPTION: &str = "Sessions with at least 90 tool calls or a ve
 const WARNINGS_DESCRIPTION: &str = "Declared usage rules over the last 7 days (or 14 for week-over-week). Each hit has the\nrule id, label (improve/aware/warning), measured value, threshold and fix line. Rules that\ncannot be measured (too little history or data) are listed under `abstained`. Optional\n`workspace` (name) and `account` (id or label) limit every rule to that scope.";
 
 const PLAN_DESCRIPTION: &str = "The fired rules grouped by priority (1 first), each with its measured value and fix.\nOptional `workspace` (name) and `account` (id or label) limit every rule to that scope.";
+
+const KIT_DESCRIPTION: &str = "What the Easy Kit did per project (folder name): kernel-trace tool calls, errors, kit\ntasks and last activity. A part with nothing to read says \"no data\". Optional `workspace`\n(name) and `account` (id or label) keep only that scope's projects.";
 
 const CONNECTOR_CATALOG_DESCRIPTION: &str = "The provider catalog: id, provider, category, whether Claude.ai has an official connector\n(and its link), and the field labels each needs. Read-only; never a secret value.";
 
@@ -199,6 +202,7 @@ impl ServerHandler for Server {
                 | "session_outliers"
                 | "warnings"
                 | "improvement_plan"
+                | "kit_summary"
                 | "connector_catalog"
                 | "connector_status"
                 | "connector_suggestions"
@@ -299,6 +303,12 @@ fn tools() -> Vec<Tool> {
             dict_output("improvement_planDictOutput"),
         ),
         tool(
+            "kit_summary",
+            KIT_DESCRIPTION,
+            scope_input("kit_summaryArguments"),
+            dict_output("kit_summaryDictOutput"),
+        ),
+        tool(
             "connector_catalog",
             CONNECTOR_CATALOG_DESCRIPTION,
             no_input("connector_catalogArguments"),
@@ -391,6 +401,14 @@ fn run_tool(
                     improvement_plan_scoped(conn, now_micros, &rules, scope)
                         .map_err(|e| e.to_string())
                 }
+            })?;
+            Ok(CallToolResult::structured(body))
+        }
+        "kit_summary" => {
+            let (workspace, account) = scope_args(args)?;
+            let body = with_store(&store, |conn| {
+                kit_summary(conn, now_micros, scope_of(&workspace, &account), false)
+                    .map_err(|e| e.to_string())
             })?;
             Ok(CallToolResult::structured(body))
         }

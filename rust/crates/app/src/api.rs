@@ -1,5 +1,5 @@
 //! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
-//! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`.
+//! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`, `/api/kit/workspaces`, `/api/kit/reports`.
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
 //! the goldens in `rust/parity/golden*/` are the oracle. Every route sits behind the guard in `server.rs`.
 //! The first six take the optional `workspace` (a name) and `account` (an id or a label) and pass them to the core's scoped
@@ -20,6 +20,7 @@ use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use easy_personal_core::clock::now_micros;
+use easy_personal_core::kit;
 use easy_personal_core::metrics::{self, MetricsError};
 use easy_personal_core::plan::improvement_plan_scoped;
 use easy_personal_core::rules::{self, RulesError, ScopedRulesError, evaluate_scoped};
@@ -81,6 +82,9 @@ pub fn routes() -> Router<Api> {
         .route("/api/workspaces", get(workspace_list))
         .route("/api/workspaces/unassigned", get(workspaces_unassigned))
         .route("/api/connectors", get(connectors))
+        .route("/api/kit", get(kit_projects))
+        .route("/api/kit/workspaces", get(kit_workspaces))
+        .route("/api/kit/reports", get(kit_reports))
 }
 
 async fn summary(State(api): State<Api>, uri: Uri) -> Response {
@@ -148,6 +152,29 @@ async fn workspace_list(State(api): State<Api>, uri: Uri) -> Response {
 async fn workspaces_unassigned(State(api): State<Api>, uri: Uri) -> Response {
     serve(api, uri, |conn, _q, _now| {
         workspaces::unassigned(conn).map_err(metrics_failure)
+    })
+    .await
+}
+
+async fn kit_projects(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, now| {
+        kit::kit_summary(conn, now, q.scope(), true).map_err(metrics_failure)
+    })
+    .await
+}
+
+/// Takes `since`, `until` and `account`; a `workspace` is ignored, as Python's route ignores it.
+async fn kit_workspaces(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, _now| {
+        kit::workspace_rollup(conn, q.get("since"), q.get("until"), q.scope().account)
+            .map_err(metrics_failure)
+    })
+    .await
+}
+
+async fn kit_reports(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, _q, _now| {
+        kit::report_folders(conn).map_err(metrics_failure)
     })
     .await
 }

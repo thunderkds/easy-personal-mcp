@@ -30,7 +30,7 @@ const SECOND: f64 = 1_000_000.0;
 const CAUSE_LIMIT: usize = 3;
 const MIN_PROJECT_SHARE: f64 = 0.05; // a project needs this share of tokens to be named for low cache reuse
 const BIGGER_SESSIONS_FROM: f64 = 0.10; // tokens per session up by more than this = bigger sessions
-const IN_USE_DAYS: i64 = 7; // easy-context counts as in use with a tool call this recently (FR-080)
+pub(crate) const IN_USE_DAYS: i64 = 7; // easy-context counts as in use with a tool call this recently (FR-080)
 const SKEW_S: f64 = 60.0; // an index this close to a commit, or ahead of the clock, is not called stale
 const TOOL_PREFIX: &str = "mcp__easy-context__";
 
@@ -674,7 +674,12 @@ fn kernel_errors_by_tool(
 }
 
 /// True when the stored events in [since, until) hold a call to a tool of easy-context (FR-080).
-fn easy_context_in_use(conn: &Connection, sc: &Resolved, since: i64, until: i64) -> Result<bool> {
+pub(crate) fn easy_context_in_use(
+    conn: &Connection,
+    sc: &Resolved,
+    since: i64,
+    until: i64,
+) -> Result<bool> {
     let clause = scope_clause(conn, sc, since, until)?;
     let mut stmt = conn.prepare(&format!(
         "SELECT 1 FROM events WHERE abstained = 0 AND ts_utc >= ? AND ts_utc < ? AND {}
@@ -686,10 +691,10 @@ fn easy_context_in_use(conn: &Connection, sc: &Resolved, since: i64, until: i64)
     ))?)
 }
 
-struct Freshness {
-    last_index_at: Option<String>,
-    latest_commit_utc: Option<String>,
-    stale: Option<bool>,
+pub(crate) struct Freshness {
+    pub(crate) last_index_at: Option<String>,
+    pub(crate) latest_commit_utc: Option<String>,
+    pub(crate) stale: Option<bool>,
 }
 
 /// Epoch of the newest commit on any local ref; `None` for no repo, no commits or a slow git (10 s).
@@ -711,7 +716,11 @@ fn latest_commit(project: &str) -> Option<i64> {
 
 /// `None` = no index row. Else the index time, the latest commit time and whether the index is stale
 /// (`None` when it cannot be judged).
-fn freshness(conn: &Connection, project: &str, now_micros: i64) -> Result<Option<Freshness>> {
+pub(crate) fn freshness(
+    conn: &Connection,
+    project: &str,
+    now_micros: i64,
+) -> Result<Option<Freshness>> {
     let mut stmt =
         conn.prepare("SELECT last_index_at_utc FROM context_index WHERE project_path = ?1")?;
     let mut rows = stmt.query(params![project])?;

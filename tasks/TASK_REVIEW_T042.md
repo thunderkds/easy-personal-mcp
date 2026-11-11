@@ -67,12 +67,28 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-11T12:18:19Z by the T042 implementing agent, before any implementation file existed.
+Debug binary `rust/target/debug/easy-personal-rs` built from the guide's base commit, `serve` and `mcp` over a temp copy of
+`rust/parity/store-rich/store-v11.sqlite` (script kept in the agent's scratchpad), token sent as `X-Dashboard-Token`:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+2026-11-11T12:18:19Z
+GET /api/kit            -> status 404
+GET /api/kit/workspaces -> status 404
+GET /api/kit/reports    -> status 404
+--- mcp tools/list and tools/call kit_summary
+tools: ['improvement_plan', 'ping', 'session_outliers', 'usage_breakdown', 'usage_summary', 'warnings']
+kit_summary call: {"jsonrpc": "2.0", "id": 3, "error": {"code": -32602, "message": "Unknown tool: kit_summary"}}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Python's answers for the same routes are the goldens `rust/parity/golden-rich/api__kit__all.json`, `api__kit_workspaces__all.json`,
+`api__kit_reports__all.json` and `mcp__kit_summary__all.json` (HTTP 200 and a body).
+
+**AFTER**: Agent (12:38:39Z, same script as BEFORE, temp copy of the default store, token): `GET /api/kit`, `/api/kit/workspaces`, `/api/kit/reports` 200 and equal to the goldens; `tools/list` includes `kit_summary` and the call returns its result.
+Agent counts: golden-rich 17 / 17 equal, golden 4 / 4 equal, hand-made store (git repos, scores, ui rows, stale and fresh index, report folders) 16 / 16 equal to Python's answers.
+Supervisor re-runs in main after merging T042 on top of T046 (three-way cherry-pick; conflicts in `api.rs`, `mcp.rs`, `tests/mcp.rs`, `leak_rust.py` and `README.md` resolved by keeping both sides in Python's tool order), 2026-11-11: `kit_parity` 11 passed (the seventeen goldens, the four default goldens, the hand-made store); `mcp` 28 passed; `leak_rust.py` 0 hits over 42 canaries, 141 surfaces; `cargo test --workspace --no-fail-fast` TZ unset / Pacific/Kiritimati / Pacific/Pago_Pago 503 passed, 0 failed, 26 ignored each; clippy default and window clean; fmt clean. `git` runs with an argument list, `-c core.fsmonitor=false`, `GIT_OPTIONAL_LOCKS=0` and a timeout; the module reads folder names and `lstat` only (no file opened, no symlink followed).
+
+**DELTA**: The Rust dashboard server and MCP serve the Kit data (per-project kit stage, trace counts, verifier and UI parts, workspace roll-up, report folders) like Python does, read-only.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
