@@ -161,7 +161,7 @@ def labels_table() -> list[dict]:
 
 
 def apply(op: dict, root: Path, conn) -> None:
-    path = root / op["path"]
+    path = root / op["path"] if "path" in op else root
     data = bytes.fromhex(op["hex"]) if "hex" in op else op.get("text", "").encode("utf-8", "surrogatepass")
     kind = op["op"]
     if kind in ("write", "append"):
@@ -182,6 +182,12 @@ def apply(op: dict, root: Path, conn) -> None:
     elif kind == "symlink":
         path.parent.mkdir(parents=True, exist_ok=True)
         os.symlink(root / op["target"], path)
+    elif kind == "account":  # T049 fix round: an `agent_accounts` row; `folder` is relative to the work folder
+        conn.execute(
+            "INSERT INTO agent_accounts (id, provider, folder, label, status, config_dir_env) VALUES (?, ?, ?, ?, ?, ?)",
+            (op["id"], "claude", str(root.parent / op["folder"]), op.get("label"), op["status"], op.get("env")),
+        )
+        conn.commit()
     else:
         raise ValueError(kind)
 
@@ -375,12 +381,25 @@ def scripts() -> list[dict]:
     return [run_script(n, st) for n, st in named]
 
 
+def scripts_2() -> list[dict]:
+    """T049 fix round: scripts added after review, kept in their own file so `scripts.json` stays byte-identical."""
+    accounts = [
+        {"now": 0, "ops": [{"op": "account", "id": 1, "label": "Work", "status": "confirmed", "folder": "acct", "env": "/e"},
+                           {"op": "account", "id": 2, "status": "detected", "folder": "home/.claude"}]},
+        {"now": 5, "ops": [{"op": "append", "path": "../acct/projects/p/w.jsonl", "text": user("sw", 1, [("w1", True)])}]},
+        {"now": 6, "ops": [{"op": "append", "path": "p/d.jsonl", "text": user("sd", 2, [("d1", True)])}]},
+    ]  # fmt: skip
+    named = [("accounts", accounts)]
+    return [run_script(n, st) for n, st in named]
+
+
 def main() -> None:
     WORK.mkdir(parents=True, exist_ok=True)
     OUT.mkdir(exist_ok=True)
     data = {"items.json": {"source": claude_code.SOURCE, "items": items_table()},
             "labels.json": labels_table(),
-            "scripts.json": {"t0": int(T0.timestamp()), "priced": PRICED, "canary": CANARY, "scripts": scripts()}}  # fmt: skip
+            "scripts.json": {"t0": int(T0.timestamp()), "priced": PRICED, "canary": CANARY, "scripts": scripts()},
+            "scripts-2.json": {"t0": int(T0.timestamp()), "canary": CANARY, "scripts": scripts_2()}}  # fmt: skip
     for name, value in data.items():
         (OUT / name).write_text(json.dumps(value, indent=1, sort_keys=True) + "\n")
     print({k: len(v) if isinstance(v, list) else len(v.get("items", v.get("scripts", []))) for k, v in data.items()})

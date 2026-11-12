@@ -546,10 +546,13 @@ fn file_offsets(conn: &Connection) -> rusqlite::Result<HashMap<String, (i64, i64
     rows.collect()
 }
 
-/// `_refresh_roots`'s labels: every account's label, and `None` -> the default account's label.
-fn account_labels(conn: &Connection) -> rusqlite::Result<HashMap<Option<i64>, String>> {
+/// `_refresh_roots`'s labels: every account's label (NULL for a detected or ignored row), and `None` -> the default
+/// account's label, else [`DEFAULT_LABEL`] (Python's `labels.get(default_id) or DEFAULT_LABEL`).
+type Labels = HashMap<Option<i64>, Option<String>>;
+
+fn account_labels(conn: &Connection) -> rusqlite::Result<Labels> {
     let mut stmt = conn.prepare("SELECT id, label FROM agent_accounts")?;
-    let mut labels: HashMap<Option<i64>, String> = stmt
+    let mut labels: Labels = stmt
         .query_map([], |r| Ok((Some(r.get(0)?), r.get(1)?)))?
         .collect::<Result<_, _>>()?;
     let default: Option<i64> = conn
@@ -560,10 +563,10 @@ fn account_labels(conn: &Connection) -> rusqlite::Result<HashMap<Option<i64>, St
         )
         .optional()?;
     let label = default
-        .and_then(|d| labels.get(&Some(d)).cloned())
+        .and_then(|d| labels.get(&Some(d)).cloned().flatten())
         .filter(|l| !l.is_empty())
         .unwrap_or_else(|| DEFAULT_LABEL.to_owned());
-    labels.insert(None, label);
+    labels.insert(None, Some(label));
     Ok(labels)
 }
 
@@ -671,7 +674,7 @@ struct Attention {
 
 #[derive(Debug)]
 struct Session {
-    account: String,
+    account: Option<String>,
     project: Option<String>,
     last_ts: String,
     tool_calls: i64,
@@ -694,7 +697,7 @@ impl Session {
 struct Buffered {
     id: i64,
     session_id: String,
-    account: String,
+    account: Option<String>,
     project: Option<String>,
     ts: String,
     kind: Kind,
@@ -859,14 +862,14 @@ impl LiveTail {
         roots: &[Root],
         now: i64,
         known: &HashMap<String, (i64, i64)>,
-        labels: &HashMap<Option<i64>, String>,
+        labels: &Labels,
     ) {
         let mut seen: HashSet<String> = HashSet::new();
         for root in roots {
             let label = labels
                 .get(&root.account)
                 .cloned()
-                .unwrap_or_else(|| DEFAULT_LABEL.to_owned());
+                .unwrap_or_else(|| Some(DEFAULT_LABEL.to_owned()));
             for (path, inode, size, mtime) in jsonl_files(&root.projects) {
                 seen.insert(path.clone());
                 let mut own = self.offsets.get(&path).copied();
@@ -883,7 +886,9 @@ impl LiveTail {
                     if warm
                         && at > 0
                         && now as f64 / 1e6 - mtime <= FORGET_AFTER_S as f64
-                        && self.warm(&label, &path, inode, size, at, now).is_err()
+                        && self
+                            .warm(label.as_deref(), &path, inode, size, at, now)
+                            .is_err()
                     {
                         continue;
                     }
@@ -892,7 +897,7 @@ impl LiveTail {
                 if size <= at {
                     continue;
                 }
-                let _ = self.follow(&label, &path, inode, now);
+                let _ = self.follow(label.as_deref(), &path, inode, now);
             }
         }
         self.offsets.retain(|path, _| seen.contains(path));
@@ -913,7 +918,7 @@ impl LiveTail {
     /// FR-086: replay the complete lines below the store cursor into session state only (no event, no id).
     fn warm(
         &mut self,
-        account: &str,
+        account: Option<&str>,
         path: &str,
         inode: u64,
         size: u64,
@@ -974,7 +979,13 @@ impl LiveTail {
 
     /// `_follow`, publish-only: every new complete line from the tail's own offset, in batches of
     /// [`MAX_BATCH_LINES`].
-    fn follow(&mut self, account: &str, path: &str, inode: u64, now: i64) -> io::Result<()> {
+    fn follow(
+        &mut self,
+        account: Option<&str>,
+        path: &str,
+        inode: u64,
+        now: i64,
+    ) -> io::Result<()> {
         let Some((file, meta)) = open_regular(Path::new(path)) else {
             return Ok(()); // gone, a symlink or not a file now: skipped this step
         };
@@ -1012,7 +1023,7 @@ impl LiveTail {
 
     // -- state updates ------------------------------------------------------------------------------------------------
 
-    fn publish(&mut self, account: &str, path: &str, items: Vec<Item>, now: i64) {
+    fn publish(&mut self, account: Option<&str>, path: &str, items: Vec<Item>, now: i64) {
         let mut tried = false; // the stream's meta file was looked for in this step (one path per call)
         let sub_agent = Path::new(path)
             .components()
@@ -1020,7 +1031,7 @@ impl LiveTail {
         for item in items {
             let mut appended: Vec<Pending> = Vec::new();
             let session = self.sessions.entry(&item.session_id, || Session {
-                account: account.to_owned(),
+                account: account.map(str::to_owned),
                 project: None,
                 last_ts: String::new(),
                 tool_calls: 0,
@@ -1085,7 +1096,7 @@ impl LiveTail {
                 self.buffer.push_back(Buffered {
                     id: self.last_id,
                     session_id: item.session_id.clone(),
-                    account: account.to_owned(),
+                    account: account.map(str::to_owned),
                     project: item.project.clone().filter(|p| !p.is_empty()),
                     ts: item.ts.clone(),
                     kind,

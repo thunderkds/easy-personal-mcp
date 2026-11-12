@@ -77,7 +77,9 @@ fn tail() -> LiveTail {
 }
 
 fn apply(op: &Value, root: &Path, store: &Path, t0: i64) {
-    let path = root.join(op["path"].as_str().unwrap());
+    let path = op["path"]
+        .as_str()
+        .map_or(root.to_path_buf(), |p| root.join(p));
     let data: Vec<u8> = match op.get("hex") {
         Some(h) => {
             let h = h.as_str().unwrap();
@@ -132,13 +134,32 @@ fn apply(op: &Value, root: &Path, store: &Path, t0: i64) {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::os::unix::fs::symlink(root.join(op["target"].as_str().unwrap()), &path).unwrap();
         }
+        "account" => {
+            let conn = Connection::open(store).unwrap();
+            conn.execute(
+                "INSERT INTO agent_accounts (id, provider, status, folder, config_dir_env, label) \
+                 VALUES (?, 'claude', ?, ?, ?, ?)",
+                rusqlite::params![
+                    op["id"].as_i64().unwrap(),
+                    op["status"].as_str().unwrap(),
+                    root.parent()
+                        .unwrap()
+                        .join(op["folder"].as_str().unwrap())
+                        .to_str()
+                        .unwrap(),
+                    op["env"].as_str(),
+                    op["label"].as_str()
+                ],
+            )
+            .unwrap();
+        }
         other => panic!("unknown op {other}"),
     }
 }
 
 /// Replays every script; checks each step against Python when `check`, and returns every output text.
-fn run_scripts(check: bool) -> (usize, Vec<String>) {
-    let g = golden("scripts.json");
+fn run_scripts(file: &str, check: bool) -> (usize, Vec<String>) {
+    let g = golden(file);
     let t0 = g["t0"].as_i64().unwrap();
     let mut outputs = Vec::new();
     let mut steps = 0;
@@ -207,7 +228,7 @@ fn items_equal_python() {
         let got = line_item(line.as_bytes(), &mut |c: &str| c.to_owned()).map(|i| i.to_json());
         assert_eq!(got.unwrap_or(Value::Null), row["item"], "line {line}");
     }
-    assert!(rows.len() >= 25, "{} items", rows.len());
+    assert_eq!(rows.len(), 28, "items");
 }
 
 #[test]
@@ -224,13 +245,13 @@ fn labels_equal_python() {
         };
         assert_eq!(got, row["out"], "{row}");
     }
-    assert!(rows.len() >= 80, "{} label inputs", rows.len());
+    assert_eq!(rows.len(), 100, "label inputs");
 }
 
 #[test]
 fn scripts_equal_python_after_every_step() {
-    let (steps, _) = run_scripts(true);
-    assert!(steps >= 60, "{steps} steps");
+    let (steps, _) = run_scripts("scripts.json", true);
+    assert_eq!(steps, 72, "steps of scripts.json");
 }
 
 #[test]
@@ -239,7 +260,8 @@ fn no_canary_in_any_output() {
         .as_str()
         .unwrap()
         .to_owned();
-    let (_, mut outputs) = run_scripts(false);
+    let (_, mut outputs) = run_scripts("scripts.json", false);
+    outputs.extend(run_scripts("scripts-2.json", false).1);
     for row in golden("items.json")["items"].as_array().unwrap() {
         let line = row["line"].as_str().unwrap();
         let item = line_item(line.as_bytes(), &mut |c: &str| c.to_owned());
@@ -391,3 +413,12 @@ fn publish_only_and_read_only() {
         "{names:?}"
     );
 }
+
+/// T049 fix round: the scripts added after review (`scripts-2.json`): accounts with labels (a NULL label included).
+#[test]
+fn scripts_2_equal_python_after_every_step() {
+    let (steps, _) = run_scripts("scripts-2.json", true);
+    assert_eq!(steps, SCRIPTS_2_STEPS, "steps of scripts-2.json");
+}
+
+const SCRIPTS_2_STEPS: usize = 3;

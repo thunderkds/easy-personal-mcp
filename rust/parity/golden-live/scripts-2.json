@@ -1,0 +1,159 @@
+{
+ "canary": "CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt",
+ "scripts": [
+  {
+   "name": "accounts",
+   "steps": [
+    {
+     "events": [],
+     "now": 0,
+     "ops": [
+      {
+       "env": "/e",
+       "folder": "acct",
+       "id": 1,
+       "label": "Work",
+       "op": "account",
+       "status": "confirmed"
+      },
+      {
+       "folder": "home/.claude",
+       "id": 2,
+       "op": "account",
+       "status": "detected"
+      }
+     ],
+     "snapshot": {
+      "active_window_s": 300,
+      "last_id": 0,
+      "open_call_minutes": 10,
+      "sessions": [],
+      "state_version": 0
+     }
+    },
+    {
+     "events": [
+      {
+       "account": "Work",
+       "agent": null,
+       "cache_creation": null,
+       "cache_read": null,
+       "cost_usd": null,
+       "id": 1,
+       "is_error": true,
+       "is_sidechain": false,
+       "kind": "tool_result",
+       "label": null,
+       "project": "demo",
+       "session_id": "sw",
+       "tokens_in": null,
+       "tokens_out": null,
+       "tool": null,
+       "ts": "2026-01-20T00:00:01.000000Z"
+      }
+     ],
+     "now": 5,
+     "ops": [
+      {
+       "op": "append",
+       "path": "../acct/projects/p/w.jsonl",
+       "text": "{\"type\": \"user\", \"sessionId\": \"sw\", \"timestamp\": \"2026-01-20T00:00:01.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": \"w1\", \"is_error\": true, \"content\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}]}}\n"
+      }
+     ],
+     "snapshot": {
+      "active_window_s": 300,
+      "last_id": 1,
+      "open_call_minutes": 10,
+      "sessions": [
+       {
+        "account": "Work",
+        "attention": [],
+        "cache_creation": 0,
+        "cache_read": 0,
+        "cost_usd": 0,
+        "last_ts": "2026-01-20T00:00:01.000000Z",
+        "project": "demo",
+        "session_id": "sw",
+        "stage": null,
+        "stage_skill": null,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "tool_calls": 0
+       }
+      ],
+      "state_version": 0
+     }
+    },
+    {
+     "events": [
+      {
+       "account": "Claude default",
+       "agent": null,
+       "cache_creation": null,
+       "cache_read": null,
+       "cost_usd": null,
+       "id": 2,
+       "is_error": true,
+       "is_sidechain": false,
+       "kind": "tool_result",
+       "label": null,
+       "project": "demo",
+       "session_id": "sd",
+       "tokens_in": null,
+       "tokens_out": null,
+       "tool": null,
+       "ts": "2026-01-20T00:00:02.000000Z"
+      }
+     ],
+     "now": 6,
+     "ops": [
+      {
+       "op": "append",
+       "path": "p/d.jsonl",
+       "text": "{\"type\": \"user\", \"sessionId\": \"sd\", \"timestamp\": \"2026-01-20T00:00:02.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": \"d1\", \"is_error\": true, \"content\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}]}}\n"
+      }
+     ],
+     "snapshot": {
+      "active_window_s": 300,
+      "last_id": 2,
+      "open_call_minutes": 10,
+      "sessions": [
+       {
+        "account": "Claude default",
+        "attention": [],
+        "cache_creation": 0,
+        "cache_read": 0,
+        "cost_usd": 0,
+        "last_ts": "2026-01-20T00:00:02.000000Z",
+        "project": "demo",
+        "session_id": "sd",
+        "stage": null,
+        "stage_skill": null,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "tool_calls": 0
+       },
+       {
+        "account": "Work",
+        "attention": [],
+        "cache_creation": 0,
+        "cache_read": 0,
+        "cost_usd": 0,
+        "last_ts": "2026-01-20T00:00:01.000000Z",
+        "project": "demo",
+        "session_id": "sw",
+        "stage": null,
+        "stage_skill": null,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "tool_calls": 0
+       }
+      ],
+      "state_version": 0
+     }
+    }
+   ]
+  }
+ ],
+ "t0": 1768867200
+}
