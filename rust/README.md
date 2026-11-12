@@ -860,7 +860,7 @@ app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `li
     confirmed accounts (and no override) still completes the first scan, so the first account confirmed later has its
     whole history published, with no warm start. Python prunes offsets and sets `_primed` the same way.
 
-**Tests** (`crates/core/tests/live_parity.rs`, 13 tests, oracle `parity/golden-live/` from `parity/gen_live.py`). Fix
+**Tests** (`crates/core/tests/live_parity.rs`, 15 tests, oracle `parity/golden-live/` from `parity/gen_live.py`). Fix
 round: `scripts-2.json` (6 scripts, 39 steps: accounts with a confirmed `Work` row and a detected NULL-label row, all 19
 mapped skills one per step, and the boundaries `META_WAIT_S`, `FORGET_AFTER_S`, `OPEN_CALL_MAX_S`, `MAX_BATCH_LINES`),
 `labels-2.json` (`COMMAND_READ_CHARS` at 4096/4097/4098); Rust-only: a failed store step and a failed first step, huge

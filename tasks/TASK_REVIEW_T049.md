@@ -127,6 +127,28 @@ The BEFORE script's two-line case (a `Skill` `code-review` call, then its failed
 | Undocumented differences from Python; AC 6 wording | `0da0f61` |
 | parity README counts and new golden files | `00ec78f` |
 | Stage-map mutation: all 19 values red, no script change needed | (no commit) |
+| F1 (P2) core did not compile on macOS (fallback `sys` lacked the flags). No darwin target installed (`rustup target list --installed`: `x86_64-unknown-linux-gnu`); cfg proxy in a scratch copy (fallback `sys` active on Linux): before `error[E0432]: unresolved imports ...sys::O_NOFOLLOW, ...sys::O_NONBLOCK`, after `Finished dev profile` | `40c6be8` |
+| F2 (P2) skip path "store opens but the cursor/label query fails" untested; queries ran twice. New tests rename `source_files` away for a step; the `false` mutant (scratch copy): `14 passed; 1 failed` (`a_cursor_query_failing_on_the_first_step_keeps_the_warm_start`), also red against the refactored code's mutant; worktree `15 passed`. The good/broken/good test stays green under the mutant (a steady state does not use the cursor) and guards the skip itself | `b219fd8` |
+| F3 (P3) README: history re-published when a root's files come back; zero-account first scan (both as Python, accepted unless the owner overrules) | `1a077e4` |
+| F4 (P3) README item 9: Python's pre-`try` open of a file over 64 MiB does not bump `state_version`; Rust always bumps | `9e01842` |
+
+Last re-run (backend-developer, 2026-11-12T15:54:02Z-15:58:05Z, HEAD `9e01842`, TMPDIR `/var/tmp/t049-verify-f-20261112T155402/tmp`, removed after):
+
+```
+== live_parity TZ=unset: test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.33s
+== live_parity TZ=Pacific/Kiritimati: test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+== live_parity TZ=Pacific/Pago_Pago: test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.75s
+== cargo test --workspace --no-fail-fast (TZ unset) exit 101
+65 suites, passed=676 failed=1 ignored=26
+test edge_store_python_values ... FAILED      (known: worktree under .claude/, learnings.md:583)
+leak check: 0 hits over 42 canaries, 248 surfaces, 937511 bytes
+== clippy -D warnings exit 0
+== clippy --features window -D warnings exit 0
+== cargo fmt --check exit 0
+== golden deletions vs 0ad72fb: 0; golden-live changes since 00ec78f: 0 lines
+== oracle regenerated into a scratch copy, diff -r exit 0 (0 diff lines)
+== leftovers: suite TMPDIR 9 entries (0 live-*); regen target 0; rust/target/tmp live-* 0; /var/tmp/t049-* other than this run 0
+```
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
