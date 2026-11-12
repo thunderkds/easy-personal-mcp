@@ -389,8 +389,63 @@ def scripts_2() -> list[dict]:
         {"now": 5, "ops": [{"op": "append", "path": "../acct/projects/p/w.jsonl", "text": user("sw", 1, [("w1", True)])}]},
         {"now": 6, "ops": [{"op": "append", "path": "p/d.jsonl", "text": user("sd", 2, [("d1", True)])}]},
     ]  # fmt: skip
-    named = [("accounts", accounts)]
+    skills = ["brainstorming", "ideate", "git-guardrails-claude-code", "map-codebase", "craft-agent", "grill-with-docs",
+              "to-issues", "tdd", "bugfix", "diagnose", "craft-spawn-prompt", "migration-safety", "code-review",
+              "security-review", "blast-radius", "html-report", "verify", "ship", "delivery-report"]  # fmt: skip
+    assert set(skills) == set(live.STAGE_MAP), "every mapped skill is observed"
+    stage_all = [{"now": 0}] + [
+        {"now": 10 + i, "ops": [{"op": "append", "path": "p/st.jsonl",
+                                 "text": asst("sx", 10 + i, "m%d" % i, [use("k%d" % i, "Skill", {"skill": name})])}]}
+        for i, name in enumerate(skills)
+    ]  # fmt: skip
+
+    def sub(name, sec):
+        return {"op": "append", "path": "p/s9/subagents/agent-%s.jsonl" % name, "text": user("s9", sec, [("q", False)])}
+
+    meta = "p/s9/subagents/agent-%s.meta.json"
+    meta_wait = [  # META_WAIT_S = 30: not settled at 29 s (the meta file is still read), settled at exactly 30 s
+        {"now": 0},
+        {"now": 1000, "ops": [sub("x", 1000)]},
+        {"now": 1029, "ops": [sub("x", 1029)]},
+        {"now": 1029.5, "ops": [{"op": "write", "path": meta % "x", "text": json.dumps({"agentType": "Late"})},
+                                sub("x", 1029.5)]},
+        {"now": 1100, "ops": [sub("y", 1100)]},
+        {"now": 1130, "ops": [sub("y", 1130)]},
+        {"now": 1131, "ops": [{"op": "write", "path": meta % "y", "text": json.dumps({"agentType": "Late"})},
+                              sub("y", 1131)]},
+    ]  # fmt: skip
+
+    def call(sid, sec, mid, bid=None):
+        return asst(sid, sec, mid, [use(bid, "Read")])
+
+    forget = [  # FORGET_AFTER_S = 3600: kept at exactly 1 h, forgotten 1 µs later
+        {"now": 2000, "ops": [{"op": "append", "path": "p/f.jsonl", "text": call("f1", 2000, "a") + call("f2", 2000, "b")}]},
+        {"now": 5600},
+        {"now": 5600.000001, "ops": [{"op": "append", "path": "p/f.jsonl", "text": call("f1", 5600.000001, "c")}]},
+        {"now": 5601, "ops": [{"op": "append", "path": "p/f.jsonl", "text": call("f2", 5601, "d")}]},
+    ]  # fmt: skip
+    open_max = [  # OPEN_CALL_MAX_S = 24 h: an open call is kept at exactly 24 h, dropped 1 µs later
+        {"now": 10000, "ops": [{"op": "append", "path": "p/o.jsonl", "text": call("oc", 10000, "m", "oc1")}]},
+        {"now": 96400},
+        {"now": 96400.000001},
+    ]  # fmt: skip
+    batch = [  # MAX_BATCH_LINES = 500: failing at the end of the first batch, cleared in the second (+2 state_version)
+        {"now": 0},
+        {"now": 50, "ops": [{"op": "append", "path": "p/b.jsonl", "text": "".join(
+            user("sb", 40 + i * 0.001, [("n%d" % i, i in (497, 498, 499))]) for i in range(501))}], "summary": True},
+    ]  # fmt: skip
+    named = [("accounts", accounts), ("stage_all", stage_all), ("meta_wait", meta_wait), ("forget", forget),
+             ("open_max", open_max), ("batch", batch)]  # fmt: skip
     return [run_script(n, st) for n, st in named]
+
+
+def labels_2() -> list[dict]:
+    """COMMAND_READ_CHARS = 4096: a `cd` prefix whose command is cut at the 4096th character."""
+    rows = []
+    for k in (4087, 4088, 4089):
+        command = "cd " + "d" * k + " && ls"
+        rows.append({"fn": "bash", "input": json.dumps(command), "out": live._bash_label(command)})
+    return rows
 
 
 def main() -> None:
@@ -399,7 +454,8 @@ def main() -> None:
     data = {"items.json": {"source": claude_code.SOURCE, "items": items_table()},
             "labels.json": labels_table(),
             "scripts.json": {"t0": int(T0.timestamp()), "priced": PRICED, "canary": CANARY, "scripts": scripts()},
-            "scripts-2.json": {"t0": int(T0.timestamp()), "canary": CANARY, "scripts": scripts_2()}}  # fmt: skip
+            "scripts-2.json": {"t0": int(T0.timestamp()), "canary": CANARY, "scripts": scripts_2()},
+            "labels-2.json": labels_2()}  # fmt: skip
     for name, value in data.items():
         (OUT / name).write_text(json.dumps(value, indent=1, sort_keys=True) + "\n")
     print({k: len(v) if isinstance(v, list) else len(v.get("items", v.get("scripts", []))) for k, v in data.items()})

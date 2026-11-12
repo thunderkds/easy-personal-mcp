@@ -422,7 +422,11 @@ fn publish_only_and_read_only() {
     // is ever written: the store file keeps its bytes and mtime (above) and the `-wal` holds no frame.
     let wal = tmp.0.join("store.sqlite-wal");
     if wal.exists() {
-        assert_eq!(fs::metadata(&wal).unwrap().len(), 0, "a WAL frame was written");
+        assert_eq!(
+            fs::metadata(&wal).unwrap().len(),
+            0,
+            "a WAL frame was written"
+        );
     }
 }
 
@@ -433,7 +437,7 @@ fn scripts_2_equal_python_after_every_step() {
     assert_eq!(steps, SCRIPTS_2_STEPS, "steps of scripts-2.json");
 }
 
-const SCRIPTS_2_STEPS: usize = 3;
+const SCRIPTS_2_STEPS: usize = 39;
 
 /// A store with one confirmed account (`folder/projects` is its root, not an override) and its transcript.
 fn account_store(tmp: &Temp, lines: &str, cursor: Option<i64>) -> PathBuf {
@@ -590,3 +594,71 @@ fn pairing_100k_calls_is_fast() {
 
 /// The buffer keeps 2,000 events: 1,000 here are the last results.
 const BUFFER_HELD: usize = 1000;
+
+/// `COMMAND_READ_CHARS` = 4096 against Python (`labels-2.json`: a `cd` prefix cut at 4096, 4097 and 4098 characters).
+#[test]
+fn command_read_chars_boundary_equals_python() {
+    let rows = golden("labels-2.json");
+    let rows = rows.as_array().unwrap();
+    assert_eq!(rows.len(), 3);
+    for row in rows {
+        let input = json::loads(row["input"].as_str().unwrap().as_bytes()).unwrap();
+        assert_eq!(json!(bash_label(&input)), row["out"]);
+    }
+}
+
+/// FR-086's 64 MiB bound: the warm replay starts at the first line start inside the file's last 64 MiB. A sparse
+/// file: line A at byte 0, a hole of 70 MiB, then a newline, lines B (below the cursor) and C.
+#[test]
+fn warm_start_reads_only_the_last_64_mib() {
+    use std::io::{Seek, SeekFrom};
+    within_timeout(|| {
+        let tmp = Temp::new("warm-trim");
+        make_store(&tmp.store());
+        let file = tmp.projects().join("p/s.jsonl");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        let call = |sid: &str, id: &str| {
+            format!(
+                "{{\"type\":\"assistant\",\"sessionId\":\"{sid}\",\"timestamp\":\"2026-01-20T00:00:00Z\",\"message\":{{\"id\":\"{id}\",\"content\":[{{\"type\":\"tool_use\",\"id\":\"{id}\",\"name\":\"Read\"}}]}}}}\n"
+            )
+        };
+        let mut f = File::create(&file).unwrap();
+        f.write_all(call("a", "a1").as_bytes()).unwrap();
+        f.seek(SeekFrom::Start(70 * 1024 * 1024)).unwrap();
+        f.write_all(b"\n").unwrap();
+        f.write_all(call("b", "b1").as_bytes()).unwrap();
+        let cursor = f.stream_position().unwrap();
+        f.write_all(call("c", "c1").as_bytes()).unwrap();
+        f.set_modified(UNIX_EPOCH + Duration::from_micros(NOW as u64))
+            .unwrap();
+        drop(f);
+        let conn = Connection::open(tmp.store()).unwrap();
+        conn.execute(
+            "INSERT INTO source_files VALUES ('machine-1', 'claude_code', ?, ?, ?)",
+            rusqlite::params![
+                file.to_str().unwrap(),
+                fs::metadata(&file).unwrap().ino() as i64,
+                cursor as i64
+            ],
+        )
+        .unwrap();
+        drop(conn);
+        let mut live = tail();
+        live.poll_store(&tmp.store(), Some(&tmp.projects()), NOW);
+        let sessions: Vec<String> = live.snapshot(NOW)["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["session_id"].as_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(sessions.len(), 2, "{sessions:?}");
+        assert!(sessions.contains(&"b".into()) && sessions.contains(&"c".into()));
+        assert!(
+            !sessions.contains(&"a".into()),
+            "line A is outside the last 64 MiB"
+        );
+        let events = live.events_since(0);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0]["session_id"], "c");
+    });
+}
