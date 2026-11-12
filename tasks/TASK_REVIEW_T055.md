@@ -47,8 +47,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/resolver_parity.rs`, `rust/crates/core/tests/paths_common/mod.rs`, `rust/crates/core/tests/writes_parity.rs` (53 inputs), `rust/crates/core/src/workspaces.rs` (create-race unit test), `rust/crates/core/tests/memgraph_parity.rs`, `rust/crates/app/tests/writes_coexist.rs`; oracle: `rust/parity/golden-writes/paths.json`, `paths-relative.json` via `rust/parity/gen_writes.py` |
+| Verification command run | ☑ pass (one known failure) | build ok; `cargo test --workspace --no-fail-fast` x3 TZ: 666 passed, 1 failed (`edge_store_python_values`, known, worktree under `.claude/`), 26 ignored; leak `0 hits`; clippy x2 and fmt clean (see AFTER) |
 | Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
@@ -103,9 +103,22 @@ easy-personal-rs-t041-hand-<pid>-{...}  (3)   ep-t033-cfg-<pid>  (1)
 workspace totals: passed 661, failed 1 (workspaces_parity::edge_store_python_values: the known failure inside a worktree under .claude/), ignored 26
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (implementing agent, same worktree, 2026-11-12, branch `worktree-agent-a60889f929c8fa520` after commits 5ce96a6..aeb658e plus the README commit):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+(a) `TMPDIR=/home/thunderkds/t055-b cargo test -p easy-personal-core --test memgraph_parity` -> `test result: ok. 27 passed; 0 failed`; with `TMPDIR` unset and with `/var/tmp/t055-d` the same, 27 of 27.
+Root cause (AC 5): only the test depended on the temp path. The golden `list.projects` was recorded by Python under `/tmp/easy-personal-t043-gen-*`, which sorts after `/nonexistent-t043/zz`; Rust and Python both sort project keys by text, so under a `TMPDIR` that sorts before `/nonexistent` (e.g. `/home/...`) the same five rows come in another order: Rust `[proj, proj600, projcap, zz, claude-bare]`, golden as recorded `[zz, proj, proj600, projcap, claude-bare]`. No row was missing. `cases()` now sorts the golden rows by `project` text after `<T>` is put back (Python's own `sorted()` rule); no expected value was edited.
+
+(b) the resolvers on the BEFORE fixture: there is now one (`metrics::resolve_path`; `metrics::realpath` wraps it). `tests/resolver_parity.rs` (4 tests) compares it with Python's answers: 46 absolute inputs of `golden-writes/paths.json` (53 entries, 9 new from Python: chains of 41 and 60 links, loops with a tail or `..`, `..` after a dangling link), 22 relative inputs of the new `golden-writes/paths-relative.json`, the depth-30 doubling chain in well under 1 s, and the edge inputs. Red before the change: all 4 failed against the old `realpath` (`tri-a/x` gave `tri-b/x`; the doubling chain gave `hop30/hop30/hop27/...`). `<F>/a/x` and `<F>/l1/x` now answer `<F>/a/x` and `<F>/d/x`, as Python does, from all callers.
+
+(c) `cargo test --workspace --no-fail-fast`, three runs, each with a new empty `TMPDIR` on `/var/tmp`: `LEFT in TMPDIR: 0` after each (before: 9). Totals per run (TZ unset, Pacific/Kiritimati, Pacific/Pago_Pago): 666 passed, 1 failed (`workspaces_parity::edge_store_python_values`, the known failure inside a worktree under `.claude/`), 26 ignored. Before: 661 passed, 1 failed, 26 ignored (+5 = 4 `resolver_parity` + 1 create-race unit test).
+
+(d) `writes_coexist`: 10 of 10 passed on a quiet host and 10 of 10 under twelve `yes > /dev/null` loops (181, 193, ... rounds; 0 retries needed). Deliberate break (first POST expecting 202): the panic prints `POST /api/workspaces: wanted 202, got 201 after 0 retries so far: ...`, then `ingest child: still running when the test failed; exit code None` and the `--- ingest stdout ---` / `--- ingest stderr ---` blocks (both empty: the child was killed while running).
+
+(e) create-race: unit test `workspaces::tests::a_store_removed_after_the_probe_is_refused_and_not_created` removes the store between probe and open: red with `open_for_write` (the store was recreated), green with `open_existing_for_write` (`Err(WriteFail::Write(WriteError::Io(NotFound)))`, nothing created).
+
+(f) `leak_rust.py`: `leak check: 0 hits over 42 canaries, 248 surfaces`. clippy `--all-targets` and `--all-targets --features window` with `-D warnings`: clean. `cargo fmt --check`: clean. `git diff --stat 0ad72fb -- rust/parity`: 164 insertions, 3 deletions (the 3 are lines of `gen_writes.py` and `parity/README.md` that were reworded; the golden folder: only insertions, `paths.json` +36, new `paths-relative.json`). `git status -- src tests web`: empty. `Cargo.toml`/`Cargo.lock`: unchanged.
+
+**DELTA**: the Rust app has one path resolver that answers as Python 3.14 does on loops and long link chains, a workspace/account write can no longer re-create a deleted store, and the suite passes under any disk `TMPDIR`, tolerates a busy store, explains an ingest failure, and leaves no temp folder behind.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

@@ -420,7 +420,8 @@ What the Python app's own handlers answer to the store-only write routes, and wh
 `TestClient` over a temp copy of `store-rich/store-v11.sqlite` per case (a folder tree, setup SQL and the requests are the case's), and writes:
 
 - `golden-writes/cases.json`: 262 cases / 355 requests, each with the status and JSON of every answer, the tables that changed (rows) and the name of every table;
-- `golden-writes/paths.json`: 44 inputs of `workspaces.normalise_repo` over a folder with real, relative, dangling, looping, chained and (T054) doubling links, a 3-link loop and a self-link.
+- `golden-writes/paths.json`: 53 inputs of `workspaces.normalise_repo` over a folder with real, relative, dangling, looping, chained and (T054) doubling links, a 3-link loop and a self-link, and (T055) chains of 41 and 60 links, loops with a tail or a `..`, a `..` after a dangling link.
+- `golden-writes/paths-relative.json` (T055): 22 relative inputs, `os.path.realpath` and `Path.resolve()` (they must agree) with the working folder at the same fixture; `crates/core/tests/resolver_parity.rs` changes into its copy of the folder and replays them.
 
 ```bash
 rust/parity/.venv/bin/python rust/parity/gen_writes.py              # rewrites rust/parity/golden-writes/ (a re-run changes nothing)
