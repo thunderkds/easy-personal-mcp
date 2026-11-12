@@ -12,10 +12,8 @@
 //! beside the folder) and `<folder>/easy-personal-limits.json` (the status-line snapshot). Nothing else in a folder is
 //! opened or listed; no key, token or other field of those files is read out. All SQL has bound values only.
 
-use crate::metrics::{DAY_MICROS, MetricsError, format_stored, is_dir};
-use crate::workspaces::{
-    WriteFail, begin, expanduser, is_constraint, py_strip, refuse, resolve_path,
-};
+use crate::metrics::{DAY_MICROS, MetricsError, format_stored, is_dir, resolve_path};
+use crate::workspaces::{Done, WriteFail, begin, expanduser, is_constraint, py_strip, refuse};
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -60,7 +58,7 @@ pub fn grouped_in(
     if by != "account" && by != "provider" {
         return Err(MetricsError::Invalid(BY_ERROR.to_string()));
     }
-    let default_folder = resolve(&agent_root.join(".claude"))
+    let default_folder = resolve_path(&agent_root.join(".claude"))
         .to_string_lossy()
         .into_owned();
     let accounts = list(conn)?;
@@ -135,25 +133,6 @@ fn default_id(conn: &Connection) -> Result<Option<i64>> {
             |r| r.get(0),
         )
         .optional()?)
-}
-
-/// Python's `Path.resolve()` (not strict): the longest existing part is resolved, the rest is appended.
-fn resolve(path: &Path) -> PathBuf {
-    let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
-    let (mut head, mut tail) = (absolute.clone(), Vec::new());
-    loop {
-        if let Ok(mut done) = fs::canonicalize(&head) {
-            done.extend(tail.iter().rev());
-            return done;
-        }
-        match (head.parent(), head.file_name()) {
-            (Some(parent), Some(name)) => {
-                tail.push(name.to_os_string());
-                head = parent.to_path_buf();
-            }
-            _ => return absolute,
-        }
-    }
 }
 
 /// `{account id or None: (tokens since local midnight, tokens in the last 7 x 24 h)}`, one row per message (the largest
@@ -362,15 +341,15 @@ fn limits(account: &Account, now: i64) -> Value {
 // 404 `no such account`) and its fixed text, which never names the caller's input. The account detection Python runs
 // before each of these is `ingest::accounts::detect`, called by the route.
 
-type Done<T> = std::result::Result<T, WriteFail>;
-
 const MAX_LABEL: usize = 60;
 
 /// The agent root's `.claude` folder, resolved: the default account's (`accounts.py`: `agent_root() / ".claude"`).
 fn default_folder(agent_root: &Path) -> String {
-    resolve_path(&agent_root.join(".claude").to_string_lossy())
-        .to_string_lossy()
-        .into_owned()
+    resolve_path(Path::new(
+        &agent_root.join(".claude").to_string_lossy().into_owned(),
+    ))
+    .to_string_lossy()
+    .into_owned()
 }
 
 /// `_get`: the stored row with its `status` (`missing` when the folder is gone and the account is not ignored),
@@ -418,7 +397,7 @@ fn find(conn: &Connection, reference: &str) -> Done<i64> {
                 Err(_) => None, // past 64 bits: no account has it (Python's sqlite3 raises OverflowError: a 500)
             }
         } else {
-            find_folder(conn, &resolve_path(&expanduser(reference)))?
+            find_folder(conn, &resolve_path(Path::new(&expanduser(reference))))?
         };
     found.ok_or_else(|| refuse(404, "no such account"))
 }
@@ -509,12 +488,12 @@ pub fn prepare_add(path: &Value) -> Done<Folder> {
     if py_strip(text).is_empty() || text.contains('\0') {
         return Err(not_a_folder());
     }
-    let folder = resolve_path(&expanduser(text));
+    let folder = resolve_path(Path::new(&expanduser(text)));
     let Some(name) = folder.to_str().filter(|_| folder.is_dir()) else {
         return Err(not_a_folder());
     };
     // Python looks the new row up with `_find(str(folder))`, which strips the text and resolves it again
-    let key = resolve_path(&expanduser(py_strip(name)));
+    let key = resolve_path(Path::new(&expanduser(py_strip(name))));
     Ok(Folder {
         name: name.to_string(),
         key,

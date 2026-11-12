@@ -175,6 +175,42 @@
   {
    "input": "@W@/selfie/x",
    "ok": "<WORK>/selfie/x"
+  },
+  {
+   "input": "@W@/c41-0",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/c41-0/x",
+   "ok": "<WORK>/real/x"
+  },
+  {
+   "input": "@W@/c41-0/../y",
+   "ok": "<WORK>/y"
+  },
+  {
+   "input": "@W@/c60-0",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/c60-0/x",
+   "ok": "<WORK>/real/x"
+  },
+  {
+   "input": "@W@/loop-b/x/y",
+   "ok": "<WORK>/loop-b/x/y"
+  },
+  {
+   "input": "@W@/tri-b/../z",
+   "ok": "<WORK>/z"
+  },
+  {
+   "input": "@W@/tri-a/x/..",
+   "ok": "<WORK>/tri-a"
+  },
+  {
+   "input": "@W@/dangle/../w",
+   "ok": "<WORK>/w"
   }
  ]
 }

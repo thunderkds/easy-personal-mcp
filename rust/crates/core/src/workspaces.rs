@@ -8,7 +8,7 @@
 //! missing from the table abstains), and finds a project's key with the shared `metrics::project_map` (owner project, else
 //! `Scratch`, else the path). Path-aware cover is `scope::under` (`/a/b` never covers `/a/bc`).
 
-use crate::metrics::{MetricsError, SCRATCH, folder, project_map, round_py};
+use crate::metrics::{MetricsError, SCRATCH, folder, project_map, resolve_path, round_py};
 use crate::prices::PriceTable;
 use crate::scope::under;
 use rusqlite::{Connection, OptionalExtension};
@@ -19,11 +19,11 @@ use crate::store::{self, StoreError};
 use crate::sync::{self, SyncError};
 use crate::writer::{self, WriteError};
 use rusqlite::{ErrorCode, Transaction, TransactionBehavior, params, params_from_iter};
-use std::ffi::OsString;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
 
 type Result<T> = std::result::Result<T, MetricsError>;
-type Done<T> = std::result::Result<T, WriteFail>;
+/// The result of a write (shared by `accounts`): its refusal, or the value.
+pub(crate) type Done<T> = std::result::Result<T, WriteFail>;
 /// A `repos` value already normalised: see [`prepare_repos`].
 pub type Repos = Done<Vec<Done<String>>>;
 
@@ -274,9 +274,14 @@ pub struct Outcome {
     pub pending: bool,
 }
 
-/// `str.strip()`: Unicode white space, which includes `\x1c`..`\x1f` (Rust's `trim` does not).
+/// `str.isspace()`: Unicode White_Space plus U+001C to U+001F (Rust's `char::is_whitespace` lacks the four).
+pub fn py_space(c: char) -> bool {
+    c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
+}
+
+/// `str.strip()`: [`py_space`] at both ends. The one copy: `catalog` uses it too.
 pub fn py_strip(text: &str) -> &str {
-    text.trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
+    text.trim_matches(py_space)
 }
 
 /// `os.path.expanduser`: `~` is `$HOME` (an unset `HOME` leaves the text as it is: Python asks the password database
@@ -313,73 +318,6 @@ pub(crate) fn expanduser(path: &str) -> String {
     }
 }
 
-/// What is left of a path to resolve: a name to look at, or the end of a link's target (that link is now resolved).
-enum Step {
-    Name(OsString),
-    Resolved(PathBuf),
-}
-
-/// `Path.resolve()` (not strict): `.` and `..` are folded, a symlink is followed, and what does not exist is kept as
-/// typed. A relative path starts at the working folder. It is CPython 3.14's `posixpath.realpath`: `seen` maps a link to
-/// its fully resolved target (`None` while it is being resolved), so a link met again is read from there, not expanded
-/// again (a chain that doubles at every link costs one expansion per link), and a link met while it is being resolved is
-/// a loop: it is kept as it is, with the rest of the path as typed.
-pub(crate) fn resolve_path(path: &str) -> PathBuf {
-    let given = Path::new(path);
-    let absolute = if given.is_absolute() {
-        given.to_path_buf()
-    } else {
-        std::env::current_dir().unwrap_or_default().join(given)
-    };
-    let names = |p: &Path| -> Vec<OsString> {
-        p.components()
-            .filter_map(|c| match c {
-                Component::Normal(n) => Some(n.to_os_string()),
-                Component::ParentDir => Some("..".into()),
-                _ => None,
-            })
-            .collect()
-    };
-    // the next name to look at is the last one
-    let mut rest: Vec<Step> = names(&absolute).into_iter().rev().map(Step::Name).collect();
-    let mut resolved = PathBuf::from("/");
-    let mut seen: HashMap<PathBuf, Option<PathBuf>> = HashMap::new();
-    while let Some(step) = rest.pop() {
-        let name = match step {
-            Step::Resolved(link) => {
-                seen.insert(link, Some(resolved.clone()));
-                continue;
-            }
-            Step::Name(name) => name,
-        };
-        if name == ".." {
-            resolved.pop();
-            continue;
-        }
-        let next = resolved.join(&name);
-        if !std::fs::symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink()) {
-            resolved = next;
-            continue;
-        }
-        if let Some(done) = seen.get(&next) {
-            // resolved before: its result; still being resolved: a loop, kept as it is
-            resolved = done.clone().unwrap_or(next);
-            continue;
-        }
-        let Ok(target) = std::fs::read_link(&next) else {
-            resolved = next;
-            continue;
-        };
-        if target.is_absolute() {
-            resolved = PathBuf::from("/");
-        }
-        seen.insert(next.clone(), None);
-        rest.push(Step::Resolved(next));
-        rest.extend(names(&target).into_iter().rev().map(Step::Name));
-    }
-    resolved
-}
-
 /// `normalise_repo`: `~` expanded, made absolute and resolved, no trailing slash. The folder need not exist.
 pub fn normalise_repo(path: &Value) -> Done<String> {
     let text = match path {
@@ -391,7 +329,7 @@ pub fn normalise_repo(path: &Value) -> Done<String> {
         return Err(refuse(400, "repo path must be absolute or start with ~"));
     }
     // a resolved path that is not UTF-8 matches no folder the store can hold (Python answers 500): refused
-    match resolve_path(&expanded).to_str() {
+    match resolve_path(Path::new(&expanded)).to_str() {
         Some(resolved) => Ok(resolved.to_string()),
         None => Err(refuse(400, "repo path must be a non-empty string")),
     }

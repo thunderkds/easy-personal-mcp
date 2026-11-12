@@ -1,0 +1,92 @@
+{
+ "cases": [
+  {
+   "input": "real",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "link",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "link/x/../y",
+   "ok": "<WORK>/real/y"
+  },
+  {
+   "input": "rel/z",
+   "ok": "<WORK>/real/z"
+  },
+  {
+   "input": "dangle",
+   "ok": "<WORK>/nowhere"
+  },
+  {
+   "input": "dangle/../w",
+   "ok": "<WORK>/w"
+  },
+  {
+   "input": "loop-a",
+   "ok": "<WORK>/loop-a"
+  },
+  {
+   "input": "loop-a/x",
+   "ok": "<WORK>/loop-a/x"
+  },
+  {
+   "input": "tri-a/x",
+   "ok": "<WORK>/tri-a/x"
+  },
+  {
+   "input": "tri-b/../z",
+   "ok": "<WORK>/z"
+  },
+  {
+   "input": "c41-0",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "c41-0/x",
+   "ok": "<WORK>/real/x"
+  },
+  {
+   "input": "c60-0/../y",
+   "ok": "<WORK>/y"
+  },
+  {
+   "input": "hop0/x",
+   "ok": "<WORK>/x"
+  },
+  {
+   "input": ".",
+   "ok": "<WORK>"
+  },
+  {
+   "input": "",
+   "ok": "<WORK>"
+  },
+  {
+   "input": "./real/../link",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "deep/..",
+   "ok": "<WORK>"
+  },
+  {
+   "input": "deep/../deep/.",
+   "ok": "<WORK>/deep"
+  },
+  {
+   "input": "file/x",
+   "ok": "<WORK>/file/x"
+  },
+  {
+   "input": "selfie/x",
+   "ok": "<WORK>/selfie/x"
+  },
+  {
+   "input": "real//x/",
+   "ok": "<WORK>/real/x"
+  }
+ ]
+}

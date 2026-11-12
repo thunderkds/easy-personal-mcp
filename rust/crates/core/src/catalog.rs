@@ -12,6 +12,7 @@
 //!
 //! Nothing here reads a keychain, starts a process or touches the network; the catalog holds public names and URLs.
 
+use crate::workspaces::{py_space, py_strip};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -285,15 +286,6 @@ fn valid_pinned(package: &str) -> bool {
                     && s.bytes()
                         .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
             }))
-}
-
-/// Python's `str.isspace()`: Unicode White_Space plus U+001C to U+001F.
-fn py_space(c: char) -> bool {
-    c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
-}
-
-fn py_strip(s: &str) -> &str {
-    s.trim_matches(py_space)
 }
 
 /// Python's `str.splitlines()`: breaks at `\n \r \r\n \v \f \x1c \x1d \x1e \x85    `, no empty last line.
