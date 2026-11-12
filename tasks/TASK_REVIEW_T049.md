@@ -47,12 +47,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass / ☐ fail | `rust/crates/core/tests/live_parity.rs` (13 tests), oracle `rust/parity/gen_live.py` -> `rust/parity/golden-live/{items,labels,scripts,scripts-2,labels-2}.json` (28 items, 100 + 3 labels, 10 + 6 scripts, 72 + 39 steps, exact counts asserted) |
+| Verification command run | ☑ pass / ☐ fail | Run by backend-developer 2026-11-12T15:22:41Z-15:30:13Z at HEAD `00ec78f`, TMPDIR `/var/tmp/t049-verify-20261112T152241/tmp` (removed after). `cargo build && cargo test --workspace --no-fail-fast` TZ unset: build exit 0, 65 suites, passed=674 failed=1 ignored=26, the 1 = `workspaces_parity::edge_store_python_values` (known: checkout under `.claude/`, learnings.md:583). TZ=Pacific/Kiritimati: passed=673 failed=2 ignored=26: the same one plus `a_crontab_of_ten_thousand_lines_with_hostile_lines_is_listed_fast` (timing; re-run alone under Kiritimati: `... ok`; not in this diff). `live_parity` TZ unset / Pacific/Kiritimati / Pacific/Pago_Pago: `ok. 13 passed; 0 failed` each. Leak gate: `check planted sources unchanged ok (sha256 of the tree)`, `leak check: 0 hits over 42 canaries, 248 surfaces, 937243 bytes`. `clippy --workspace --all-targets -- -D warnings` exit 0; same `--features window` exit 0; `cargo fmt --check` exit 0. `git diff 0ad72fb..HEAD --numstat -- rust/parity`: README 25/0, gen_live.py 465/0, items.json 360/0, labels-2.json 17/0, labels.json 536/0, scripts-2.json 1909/0, scripts.json 4050/0 (deletions in any golden folder: 0; scripts/items/labels.json unchanged vs `1ec8e02`). Oracle regenerated into a scratch copy: `diff -r` exit 0, 0 lines. Leftover temp folders: 19 entries in the suite's TMPDIR (other suites' files; live_parity writes under `CARGO_TARGET_TMPDIR` only, all removed); 1 `live-pairing-100k-*` in `rust/target/tmp` left by the deliberate red run of fix 4 (process ended on the 60 s timeout while the worker thread held it), removed by hand. |
+| Negative cases hold | ☑ pass / ☐ fail | First round: a changed golden value (attention count, a Bash label) turned `scripts_equal_python_after_every_step` and `labels_equal_python` red. Fix round, red before each fix: accounts `"Claude default"` vs Python `"Work"` (fix 1); `history published again` / 3 events instead of 1 (fix 2); `attempt to subtract with overflow` (fix 3); 100k pairing timed out at 60 s (fix 4); `["projects", "store.sqlite", "store.sqlite-shm", "store.sqlite-wal"]` on a WAL store (fix 5). Mutants of `live.rs`: 14 bound/stage mutants (fix 6) and each of the 19 STAGE_MAP values set to "9" in a scratch copy: 33/33 red, 0 survived. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass / ☐ fail | No regression from this diff: the only failures are the known worktree-path test (`edge_store_python_values`, fails at base too per learnings.md:583) and one timing test under load that passes alone; see the Verification row. |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -99,9 +99,34 @@ $ date -u; PYTHONPATH=src rust/parity/.venv/bin/python before.py .scratch
 {"active_window_s": 300, "last_id": 3, "state_version": 1, "open_call_minutes": 10, "sessions": [{"session_id": "s1", "account": "Claude default", "project": "demo", "last_ts": "2026-01-20T00:00:01.000000Z", "tool_calls": 1, "tokens_in": 10, "tokens_out": 5, "cache_creation": 0, "cache_read": 0, "cost_usd": null, "attention": [], "stage": "4", "stage_skill": "code-review"}]}
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured by backend-developer at HEAD `00ec78f`, 2026-11-12T15:22:41Z-15:30:13Z (the combined run, Evidence row "Verification command run"). (a) Rust now has the module: `rust/crates/core/src/live.rs` (`pub mod live;` in `lib.rs`); `api.rs` still serves no `/api/live` (T056). (b) The same Python `LiveTail` is now the oracle: `gen_live.py` runs it over 16 scripts / 111 steps and the Rust engine gives equal events and snapshots after every step:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+== live_parity TZ=unset: test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+== live_parity TZ=Pacific/Kiritimati: test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.20s
+== live_parity TZ=Pacific/Pago_Pago: test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+== oracle regenerated into a scratch copy, diff -r exit 0 (0 diff lines)
+leak check: 0 hits over 42 canaries, 248 surfaces, 937243 bytes
+```
+
+The BEFORE script's two-line case (a `Skill` `code-review` call, then its failed result) is the first-round "stage" / "pairing" pattern; the Rust engine has no CLI of its own yet (T056 adds the route), so it is shown through the parity test, not a second script.
+
+**DELTA**: The Rust core can now follow Claude transcripts the way Python's live tail does (same events, session totals, kit stage, open calls and attention states, publish-only and read-only), so T056 can serve `/api/live` from Rust.
+
+**Fix round** (review findings after `1ec8e02`, one commit each):
+
+| Finding | Commit |
+|---|---|
+| P1 NULL account label made every account "Claude default" | `2d0831f` |
+| P1 one failed store open re-published all history / used up the warm start | `b571e90` |
+| P2 i64 overflow in token sums, growth and `rolled_past` | `212e8c4` |
+| P2 `Ordered::pop` O(n) (100k calls ~ 1e10 steps) | `c1ac3ce` |
+| P2 read-only claim false for a WAL store (sidecars) | `fe5e3ea` |
+| Test gaps: stage values, five bounds, exact counts, 64 MiB trim | `061b22f` |
+| P3 hand-coded open flags | `f234f19` |
+| Undocumented differences from Python; AC 6 wording | `0da0f61` |
+| parity README counts and new golden files | `00ec78f` |
+| Stage-map mutation: all 19 values red, no script change needed | (no commit) |
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
