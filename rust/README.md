@@ -814,6 +814,10 @@ app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `li
    after a file shrinks in place (same inode) its cursor is its own; here the cursor is what the scheduled ingest stored. A
    file rewritten shorter but still at least as long as the stored cursor restarts at that cursor (Python: at 0 once it
    had stored past the new size). The oracle does not cover that case.
+   **What "read-only" means for the store**: it is opened with `store::open_checked` (SQLite read-only flag,
+   `query_only`). The store is WAL; when its `-wal` / `-shm` files are absent (no other connection open), SQLite creates
+   them for the read and may leave them. The store file's bytes and mtime never change and no WAL frame is written;
+   no `ingest.lock` and no `-journal` appear.
 2. Hostile files: every `*.jsonl` and `*.meta.json` is opened `O_NOFOLLOW | O_NONBLOCK` and judged on the open handle (a
    regular file, the scanned inode). A symlinked transcript is not followed (Python follows it); a file whose open fails
    for any reason is skipped for this step (Python's poll stops at any error but `FileNotFoundError`).
@@ -836,6 +840,7 @@ against Python's `_item` (AC 1); 100 label inputs against `_safe` / `_bash_label
 steps, events and snapshot equal to Python after every step (pairing, failing, waiting, stage, streams with sub-agent meta
 files, usage, files with offsets / partial lines / truncation / replacement / 1,203 lines, warm start, a 2,001-event buffer
 with `events_since` / `rolled_past` probes, idle sessions and a clock going back) (AC 4-7); hostile files under a 60 s
-timeout (AC 8); store, transcripts and folders byte- and mtime-unchanged, no lock or journal file (AC 9); canaries in
+timeout (AC 8); over a WAL store: the store file, transcripts and folders byte- and mtime-unchanged, an empty `-wal` if
+any (`-wal` / `-shm` may appear), no lock or journal file (AC 9); canaries in
 text, thinking, tool content, tool inputs and a meta `description` absent from every event, snapshot and `Debug` line
 (AC 10).

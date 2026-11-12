@@ -377,6 +377,11 @@ fn publish_only_and_read_only() {
     fs::write(&file, line("s", "b1").repeat(4)).unwrap();
     {
         let conn = Connection::open(tmp.store()).unwrap();
+        // The real store is WAL (Python's `store.connect`); closing the last writer removes `-wal` and `-shm`.
+        let mode: String = conn
+            .query_row("PRAGMA journal_mode=WAL", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(mode, "wal");
         conn.execute(
             "INSERT INTO source_files VALUES ('machine-1', 'claude_code', ?, ?, 0)",
             rusqlite::params![
@@ -410,9 +415,15 @@ fn publish_only_and_read_only() {
     assert!(
         !names
             .iter()
-            .any(|n| n.contains("lock") || n.contains("-wal") || n.contains("-journal")),
+            .any(|n| n.contains("lock") || n.contains("-journal")),
         "{names:?}"
     );
+    // A read-only open of a WAL store may create `-wal` and `-shm` (SQLite needs the shared-memory index); no page
+    // is ever written: the store file keeps its bytes and mtime (above) and the `-wal` holds no frame.
+    let wal = tmp.0.join("store.sqlite-wal");
+    if wal.exists() {
+        assert_eq!(fs::metadata(&wal).unwrap().len(), 0, "a WAL frame was written");
+    }
 }
 
 /// T049 fix round: the scripts added after review (`scripts-2.json`): accounts with labels (a NULL label included).
