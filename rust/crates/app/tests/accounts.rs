@@ -524,13 +524,19 @@ fn a_new_agent_folder_shows_after_ingest_not_at_page_load() {
     assert!(!s.home.join("store.sqlite-wal").exists());
 }
 
+/// T048 serves `POST /api/accounts` and the three sub-paths (`writes.rs`); the apply of `/api/sync` is still not served.
+/// Without a content type a served write is a 415 and opens nothing.
 #[test]
-fn writes_are_405_and_the_account_writes_are_not_served_here() {
+fn other_methods_are_405_and_the_account_writes_answer_415_without_a_content_type() {
     let s = Server::with_store("store-rich/store-v11.sqlite");
     let before = std::fs::read(s.home.join("store.sqlite")).unwrap();
     for route in ["/api/accounts", "/api/sync"] {
         for method in ["POST", "PATCH", "PUT", "DELETE"] {
             let r = s.send(method, route, &[]);
+            if (route, method) == ("/api/accounts", "POST") {
+                r.assert_json(415);
+                continue;
+            }
             assert_eq!(r.status, 405, "{method} {route}");
             r.assert_csp();
             assert!(r.body.is_empty(), "{method} {route}: {:?}", r.body);
@@ -539,18 +545,19 @@ fn writes_are_405_and_the_account_writes_are_not_served_here() {
         assert_eq!(head.status, 200, "{route}");
         assert!(head.body.is_empty());
     }
-    // T048 owns these: no route here, so 404 (or 405), never a change
     for (method, route) in [
         ("PUT", "/api/accounts/2/workspaces"),
         ("POST", "/api/accounts/2/confirm"),
         ("POST", "/api/accounts/2/ignore"),
     ] {
-        let r = s.send(method, route, &[]);
-        assert!(
-            r.status == 404 || r.status == 405,
-            "{method} {route}: {}",
-            r.status
-        );
+        s.send(method, route, &[]).assert_json(415);
+    }
+    for (method, route) in [
+        ("GET", "/api/accounts/2/workspaces"),
+        ("POST", "/api/accounts/2/workspaces"),
+        ("PUT", "/api/accounts/2/confirm"),
+    ] {
+        assert_eq!(s.send(method, route, &[]).status, 405, "{method} {route}");
     }
     assert_eq!(std::fs::read(s.home.join("store.sqlite")).unwrap(), before);
 }

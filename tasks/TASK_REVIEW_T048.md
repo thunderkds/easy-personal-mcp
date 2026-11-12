@@ -67,12 +67,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-12T04:18:04Z by the implementing agent, base `90b7254`, binary `target/debug/easy-personal-rs serve` built from it, before any T048 file existed; `env -i`, temp copy of `rust/parity/store-rich/store-v11.sqlite`, temp `HOME`/`EASY_PERSONAL_HOME`/`EASY_PERSONAL_AGENT_ROOT`, token read from the printed URL; the guide names no Demonstration command, so this shows the guide's seven write routes with a guarded `curl`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+--- POST /api/workspaces {"name":"newone"}                 HTTP 405
+--- PATCH /api/workspaces/2 {"description":"x"}            HTTP 404
+--- DELETE /api/workspaces/2 {"confirm":true}              HTTP 404
+--- POST /api/accounts {"path":"/nonexistent"}             HTTP 405
+--- POST /api/accounts/1/confirm {"label":"L"}             HTTP 404
+--- POST /api/accounts/1/ignore {}                         HTTP 404
+--- PUT /api/accounts/1/workspaces {"workspaces":[]}       HTTP 404
+```
+(the answers had empty bodies: Python answers 201/200/400/404 with JSON for the same requests)
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER** (implementing agent, 2026-11-12, same binary built from the final tree; evidence of the run, not the reviewer's verify):
+`cargo test --workspace --no-fail-fast` under TZ unset, Pacific/Kiritimati, Pacific/Pago_Pago: each 602 passed, 1 failed, 26 ignored; the one failure is `workspaces_parity::edge_store_python_values`, which the guide says fails inside a worktree under `.claude/` (not touched by T048).
+Oracle: `writes oracle: 262 cases, 355 requests, 0 different` (`crates/app/tests/writes.rs`; mutation of one refusal text -> `4 different`, reverted). Paths: 37 inputs equal Python (`crates/core/tests/writes_parity.rs`).
+Concurrency: `writes while ingesting: 49 rounds of 2-3 requests, ingest stored 240000 new events` (`writes_coexist.rs`). `leak_rust.py`: `leak check: 0 hits over 42 canaries, 236 surfaces, 910728 bytes`.
+`cargo clippy --workspace --all-targets -- -D warnings` (default and `--features window`) clean; `cargo fmt --check` ok; `git status -- src tests web rust/Cargo.toml rust/Cargo.lock` empty.
+
+**DELTA**: the dashboard can create, edit and delete workspaces and add, confirm, ignore and set the workspaces of agent accounts against the Rust server with Python's statuses and texts, changing only the store; a change that needs the claude CLI is refused with a fixed 409 until T050.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

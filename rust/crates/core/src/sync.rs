@@ -55,13 +55,27 @@ pub struct Step {
 
 impl Step {
     /// `Step.line()`.
-    fn line(&self) -> String {
+    pub(crate) fn line(&self) -> String {
         let target = format!("exec {}", self.connector_id);
         match self.action {
             Action::Add => format!("{}: add {} -> {target}", self.account, self.alias),
             Action::Remove => format!("{}: remove {} ({target})", self.account, self.alias),
             Action::Skipped => format!("{}: skipped ({})", self.account, self.note),
         }
+    }
+
+    /// The connector a step is about (`Step.connector_id`; empty for a `skipped` step).
+    pub(crate) fn connector_id(&self) -> &str {
+        &self.connector_id
+    }
+
+    /// Whether `apply` would run `claude` for it (Python's `APPLIED`: `add`, `remove`).
+    pub(crate) fn needs_claude(&self) -> bool {
+        matches!(self.action, Action::Add | Action::Remove)
+    }
+
+    pub(crate) fn is_skipped(&self) -> bool {
+        self.action == Action::Skipped
     }
 
     fn as_dict(&self) -> Value {
@@ -150,7 +164,7 @@ fn pairs(conn: &Connection, sql: &str, account_id: i64) -> Result<BTreeMap<Strin
 }
 
 /// The steps that make one account match its picks, with `claude` taken as absent (see the module text).
-fn plan(conn: &Connection, account_id: i64) -> Result<Vec<Step>> {
+pub(crate) fn plan(conn: &Connection, account_id: i64) -> Result<Vec<Step>> {
     let (provider, folder, label, status): (String, String, Option<String>, String) = conn
         .query_row(
             "SELECT provider, folder, label, status FROM agent_accounts WHERE id = ?1",

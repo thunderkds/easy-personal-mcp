@@ -69,6 +69,10 @@ API_CALLS: dict[str, list[str]] = {
     "/api/usage/sessions": ["", "?since=2026-01-01", "?until=2027-01-01", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/workspaces": [""],
     "/api/workspaces/unassigned": [""],
+    "/api/workspaces/{id}": [""],  # asked literally with GET (the 405); the writes are in WRITE_CALLS and GUARD_CALLS
+    "/api/accounts/{id}/confirm": [""],
+    "/api/accounts/{id}/ignore": [""],
+    "/api/accounts/{id}/workspaces": [""],
     "/api/connectors": ["", "?workspace=acme"],
     "/api/warnings": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
@@ -94,16 +98,24 @@ GUARD_CALLS = [
     ("wrong token", "GET", "/api/usage/summary", {"x-dashboard-token": "wrong"}),
     ("wrong host", "GET", "/api/usage/summary", {"Host": "localhost:1"}),
     ("wrong origin", "GET", "/api/usage/summary", {"Origin": "http://evil.invalid"}),
-    ("write method", "POST", "/api/workspaces", {}),
+    ("workspace add without a body", "POST", "/api/workspaces", {}),
+    ("workspace add no token", "POST", "/api/workspaces", {"x-dashboard-token": None}),
+    ("workspace edit no token", "PATCH", "/api/workspaces/2", {"x-dashboard-token": None}),
+    ("workspace delete foreign origin", "DELETE", "/api/workspaces/2", {"Origin": "http://evil.invalid"}),
+    ("account add no token", "POST", "/api/accounts", {"x-dashboard-token": None}),
+    ("account confirm wrong host", "POST", "/api/accounts/1/confirm", {"Host": "localhost:1"}),
+    ("account ignore no token", "POST", "/api/accounts/1/ignore", {"x-dashboard-token": None}),
+    ("account workspaces foreign origin", "PUT", "/api/accounts/1/workspaces", {"Origin": "http://evil.invalid"}),
+    ("workspace read method", "GET", "/api/workspaces/2", {}),
     ("unknown route", "GET", "/api/nope", {}),
     ("report id", "GET", "/api/reports/1", {}),
     ("report id too long", "GET", "/api/reports/1000000000000000000", {}),
     ("report write method", "DELETE", "/api/reports/1", {}),
     ("report file write method", "POST", "/api/kit/report-file?workspace=acme&repo_no=0&folder=reports&path=index.html", {}),
     ("report files no token", "GET", "/api/kit/report-files?workspace=acme&repo_no=0&folder=reports", {"x-dashboard-token": None}),
-    ("accounts write method", "POST", "/api/accounts", {}),
+    ("account add without a body", "POST", "/api/accounts", {}),
     ("sync apply method", "POST", "/api/sync", {}),
-    ("account workspaces write", "PUT", "/api/accounts/1/workspaces", {}),
+    ("account workspaces without a body", "PUT", "/api/accounts/1/workspaces", {}),
     ("dirs write method", "POST", "/api/dirs", {}),
     ("jobs write method", "DELETE", "/api/jobs", {}),
     ("dirs no token", "GET", "/api/dirs", {"x-dashboard-token": None}),
@@ -113,6 +125,34 @@ GUARD_CALLS = [
     ("static dotfile", "GET", "/.env", {"x-dashboard-token": None}),
     ("static traversal", "GET", "/%2e%2e/%2e%2e/etc/passwd", {"x-dashboard-token": None}),
     ("double slash", "GET", "//api/version", {"x-dashboard-token": None}),
+]
+# The write routes (T048) with a body: (label, method, path, body). `{key}` is the planted API key: a refused write must not
+# echo it, store it or log it. The accepted ones carry harmless text only.
+WRITE_CALLS = [
+    ("workspace add", "POST", "/api/workspaces", '{"name":"leak-check","description":"plain text","repos":["/leak/check"]}'),
+    ("workspace add key as name", "POST", "/api/workspaces", '{"name":"{key}"}'),
+    ("workspace add key as colour", "POST", "/api/workspaces", '{"name":"x","color":"{key}"}'),
+    ("workspace add key as repo", "POST", "/api/workspaces", '{"name":"x","repos":["{key}","/{key}"]}'),
+    ("workspace add key as field", "POST", "/api/workspaces", '{"name":"x","{key}":1}'),
+    ("workspace add key not JSON", "POST", "/api/workspaces", '{{key}'),
+    ("workspace edit key as name", "PATCH", "/api/workspaces/2", '{"name":"{key}"}'),
+    ("workspace edit key as text", "PATCH", "/api/workspaces/2", '{"description":["{key}"],"icon":"{key}"}'),
+    ("workspace edit key as confirm", "PATCH", "/api/workspaces/2", '{"confirm":"{key}"}'),
+    ("workspace edit unknown", "PATCH", "/api/workspaces/999", '{"description":"{key}"}'),
+    ("workspace delete plan", "DELETE", "/api/workspaces/2", ""),
+    ("workspace delete key as confirm", "DELETE", "/api/workspaces/2", '{"confirm":"{key}"}'),
+    ("workspace delete key as id", "DELETE", "/api/workspaces/{key}", '{"confirm":true}'),
+    ("account add key as path", "POST", "/api/accounts", '{"path":"{key}"}'),
+    ("account add key as absolute path", "POST", "/api/accounts", '{"path":"/{key}"}'),
+    ("account add key as type", "POST", "/api/accounts", '{"path":["{key}"]}'),
+    ("account confirm key as type", "POST", "/api/accounts/1/confirm", '{"label":["{key}"]}'),
+    ("account confirm unknown", "POST", "/api/accounts/999/confirm", '{"label":"{key}"}'),
+    ("account confirm key as id", "POST", "/api/accounts/{key}/confirm", '{"label":"x"}'),
+    ("account ignore unknown", "POST", "/api/accounts/999/ignore", '{"label":"{key}"}'),
+    ("account ignore key as confirm", "POST", "/api/accounts/1/ignore", '{"confirm":"{key}"}'),
+    ("account workspaces key as name", "PUT", "/api/accounts/1/workspaces", '{"workspaces":["{key}"]}'),
+    ("account workspaces key as type", "PUT", "/api/accounts/1/workspaces", '{"workspaces":"{key}"}'),
+    ("account workspaces accepted", "PUT", "/api/accounts/1/workspaces", '{"workspaces":["leak-check"]}'),
 ]
 # MCP tool -> argument variants (the Python suite's MCP_CALLS for these tools, plus error paths).
 MCP_CALLS: dict[str, list[dict]] = {
@@ -435,13 +475,16 @@ class Lines:
         return line + b"\n"
 
 
-def request(port: int, method: str, path: str, headers: dict[str, str]) -> tuple[int, bytes]:
+def request(port: int, method: str, path: str, headers: dict[str, str], body: bytes | None = None) -> tuple[int, bytes]:
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=15)
     try:
         conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
         for key, value in headers.items():
             conn.putheader(key, value)
-        conn.endheaders()
+        if body is not None:
+            conn.putheader("content-type", "application/json")
+            conn.putheader("content-length", str(len(body)))
+        conn.endheaders(body)
         res = conn.getresponse()
         body = res.read()
         head = f"{res.status} {res.reason}\n" + "".join(f"{k}: {v}\n" for k, v in res.getheaders())
@@ -450,7 +493,7 @@ def request(port: int, method: str, path: str, headers: dict[str, str]) -> tuple
         conn.close()
 
 
-def serve(run: Run, checks: list[str]) -> None:
+def serve(run: Run, checks: list[str], key: str) -> None:
     static = run.logs / "static"
     static.mkdir()
     (static / "index.html").write_text("<!doctype html><title>leak check</title>\n")
@@ -490,6 +533,11 @@ def serve(run: Run, checks: list[str]) -> None:
             headers = {k: v for k, v in {**base, **change}.items() if v is not None}
             status, blob = request(port, method, path, headers)
             run.add(f"api {label} {method} {path} -> {status}", blob)
+        for label, method, path, body in WRITE_CALLS:
+            status, blob = request(port, method, path.replace("{key}", key), base, body.replace("{key}", key).encode())
+            run.add(f"api write {label} {method} {path} -> {status}", blob)
+            if label == "workspace add":
+                checks.append(f"check api workspace add works        {'ok' if status == 201 else 'FAILED'} (status {status})")
         run.add("serve stdout (first line, token inside)", first + lines.buf)
     finally:
         rc = run.stop("serve", proc, kids, signal.SIGINT)
@@ -616,7 +664,7 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     run.dump("store .dump (after ingest #1)")
     run.run("store-info", "store-info")
     run.run("store-info --json", "store-info", "--json")
-    serve(run, checks)
+    serve(run, checks, canaries.values["api_key"])
     mcp(run, checks, canaries)
     again = run.ingest("ingest #2 (same input again)")
     checks.append(

@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 pub const DEFAULT_LABEL: &str = "Claude default";
 
 /// `_provider_of`: Claude (`projects/` or `settings.json`), Codex (`config.toml`), else none.
-fn provider_of(folder: &Path) -> Option<&'static str> {
+pub(crate) fn provider_of(folder: &Path) -> Option<&'static str> {
     if folder.join("projects").is_dir() || folder.join("settings.json").is_file() {
         Some("claude")
     } else if folder.join("config.toml").is_file() {
@@ -24,7 +24,12 @@ fn provider_of(folder: &Path) -> Option<&'static str> {
 
 /// `_insert`: the default account is `confirmed` with its label and no `CLAUDE_CONFIG_DIR`; any other is `detected`,
 /// and a Claude one names its folder as `config_dir_env`.
-fn insert(conn: &Connection, provider: &str, folder: &str, default: bool) -> rusqlite::Result<()> {
+pub(crate) fn insert(
+    conn: &Connection,
+    provider: &str,
+    folder: &str,
+    default: bool,
+) -> rusqlite::Result<()> {
     let (label, status) = if default {
         (Some(DEFAULT_LABEL), "confirmed")
     } else {
