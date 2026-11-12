@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/memgraph_parity.rs` and `rust/crates/app/tests/` (cases from the BEFORE block now permanent), golden `rust/parity/golden-memgraph/cases-t053.json`, fixtures `rust/parity/fixtures-memgraph/{em-store,projem,seed-t053.sql}`, per-project leak scan with a mutation proof in `rust/parity/leak_rust.py` |
+| Verification command run | ☑ pass | Author, commit b2b7af0, three TZ runs: 632 passed / 2 failed, 633 / 1, 633 / 1. The failures are the known `workspaces_parity::edge_store_python_values` (worktree under `.claude/`) and one unrelated timing flake. `leak check: 0 hits over 42 canaries`; clippy and fmt clean; goldens had no deletions. Independent re-verification re-ran the generator: both golden files byte-identical to the committed ones. |
+| Negative cases hold | ☑ pass | BEFORE block (cases 1-6) is the red evidence against a59def6: `\\*` gave `* hi`, a FIFO `.git` hung, a 100 MB `commondir` was read whole, dangling symlinks were mis-scored, duplicate ids put link counts on the wrong node; the leak scan has a mutation proof. |
+| verify | ☑ pass | Independent qa-expert run, 2026-11-12, HEAD b2b7af0, `TZ` unset, worktree under `.claude/`: `cargo test --workspace --no-fail-fast` 632 passed / 2 failed / 26 ignored. Failures: the known `workspaces_parity::edge_store_python_values`, and `ingest_coexist::serve_mcp_and_store_info_answer_while_a_rust_ingest_runs` with `StorageFull` while writing its fixture (`/tmp` was 95% full from parallel agents; re-run alone: `1 passed`). T053 tests: `memgraph_parity` 27/27, `--lib` 36/36, `board_memgraph` 3/3. `leak_rust.py`: `leak check: 0 hits over 42 canaries, 212 surfaces, 913260 bytes`. Clippy (default and `--features window`) and `cargo fmt --check` clean. Hostile drive over a real `serve` (temp copy of `store-rich`, `env -i`): a project whose `.git` is a FIFO answered `GET /api/memory-graph` and `?project=` in 0.045 s (200); a worktree-style `.git` with a 20 MB `commondir` answered in 0.025 s (200), server peak RSS 18 MB; no token / bad Host / bad Origin -> 403, POST -> 405. Not re-run here: the TZ=Pacific/Kiritimati and Pago_Pago suites and the leak mutation proof (author and earlier reviewer evidence stand). |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Independent re-verifier on b2b7af0 (read-only): no P0, P1 or P2. Accepted P3s are listed in the review notes: `metrics.rs` `realpath` has a 40-link cap and no seen map, a NUL in a `.git` line, 4096 bytes vs characters, HOME-empty wording, `is_dir` left in `identity`, hard-link dedupe by inode. |
+| Full smoke suite still green (no regression) | ☑ pass | Same author runs: 633 passed, 1 failed (known). |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier not run for this task. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | No UI file changed (Rust routes, docs and tests only). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | No UI file changed (Rust routes, docs and tests only). |
+| **UI: Responsiveness at target viewports** | ☑ N/A | No UI file changed (Rust routes, docs and tests only). |
 
 ---
 

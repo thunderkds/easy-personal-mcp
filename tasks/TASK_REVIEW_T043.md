@@ -47,16 +47,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/memgraph_parity.rs`, `rust/crates/app/tests/` board and memory-graph route tests, goldens `rust/parity/golden-memgraph/` (12/12 plus a hostile-tree oracle) |
+| Verification command run | ☑ pass | Supervisor ran the verification command on the staged T043 tree (identical to a59def6) before unstaging it: everything green. Not re-run on the final merged tree yet. T053's results (below) cover the fixed tree. |
+| Negative cases hold | ☑ pass | Stage 4 reviewers reproduced the defects in the T043 sources (backslash drop in `drop_escapes`, `.git` and `commondir` reads that follow symlinks and are unbounded); T053 holds the red evidence for their fixes (see TASK_REVIEW_T053.md). |
+| verify | ☑ pass | Independent qa-expert run, 2026-11-12, HEAD b2b7af0, worktree under `.claude/`, `TZ` unset: `cargo build` ok; `cargo test --workspace --no-fail-fast` 632 passed / 2 failed / 26 ignored: the known `workspaces_parity::edge_store_python_values` (worktree under `.claude/`) and `ingest_coexist::serve_mcp_and_store_info_answer_while_a_rust_ingest_runs` (`StorageFull`, `/tmp` at 95% from parallel agents; passes alone: `1 passed`); `memgraph_parity` 27/27, `--lib` 36/36, `board_memgraph` 3/3; `leak_rust.py` `leak check: 0 hits over 42 canaries, 212 surfaces, 913260 bytes`; clippy default and `--features window` clean, `cargo fmt --check` clean. `serve` over a temp copy of `store-rich`: board and memory-graph routes 200/400 as in the AFTER block, 403/403/403/405 for no token / bad Host / bad Origin / POST; FIFO `.git` and a 20 MB `commondir` answered in 0.045 s and 0.025 s. See Demonstration AFTER. |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Three independent read-only reviewers (correctness opus, security opus, testing sonnet) on a59def6: P1s and P2s found, all fixed by T053 and re-verified independently with no P0, P1 or P2 (reports/code-review_T043_20261112T090000.html, reports/security-review_T043_20261112T090100.html in the main checkout). Skipped: Python source (oracle only). |
+| Full smoke suite still green (no regression) | ☑ pass | Independent QA run on b2b7af0, TZ unset: 632 passed, 2 failed, 26 ignored. One failure is the known `workspaces_parity::edge_store_python_values`; the other, `ingest_coexist::serve_mcp_and_store_info_answer_while_a_rust_ingest_runs`, failed with `StorageFull` because /tmp was at 95%, and passed when re-run alone (1 passed). The author's TZ runs were 633 passed, 1 failed. T053's own tests: memgraph_parity 27/27, lib 36/36, board_memgraph 3/3. |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier not run for this task. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | No UI file changed (Rust routes, docs and tests only). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | No UI file changed (Rust routes, docs and tests only). |
+| **UI: Responsiveness at target viewports** | ☑ N/A | No UI file changed (Rust routes, docs and tests only). |
 
 ---
 
@@ -82,9 +82,18 @@ GET /api/memory-graph -> 404 b''
 GET /api/memory-graph?project=nope -> 404 b''
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (captured 2026-11-12T08:13:42Z by the independent Stage 5 verifier on HEAD b2b7af0 (T053 on T043), `rust/target/debug/easy-personal-rs serve` over a temp copy of `rust/parity/store-rich`, `env -i` with `HOME`/`EASY_PERSONAL_HOME`/`EASY_MEMORY_HOME`/`EASY_PERSONAL_AGENT_ROOT` in a temp folder, `TZ=UTC`, GET with the per-run token; same five requests as BEFORE, plus the 400 text). The fixture's stored folders (`/work/rich/...`) do not exist on this machine, so the lists are empty and `gone` counts them (the goldens' `gone: 3` with live folders is proved by the parity test, not this run):
+```
+2026-11-12T08:13:42Z GET /api/kit/reports -> 200 (0.003003s) {"workspaces":[{"folders":[],"name":"acme"},{"folders":[],"name":"personal"}]} [78 bytes]   (control: a served route)
+2026-11-12T08:13:42Z GET /api/board -> 200 (0.023281s) {"gone":5,"projects":[]} [24 bytes]
+2026-11-12T08:13:42Z GET /api/board?workspace=acme -> 200 (0.029676s) {"gone":2,"projects":[]} [24 bytes]
+2026-11-12T08:13:42Z GET /api/board?workspace=nope -> 400 (0.003212s) {"error":"unknown workspace"} [29 bytes]
+2026-11-12T08:13:42Z GET /api/memory-graph -> 200 (0.025658s) {"gone":0,"projects":[]} [24 bytes]
+2026-11-12T08:13:42Z GET /api/memory-graph?project=nope -> 400 (0.024058s) {"error":"unknown project"} [27 bytes]
+```
+Guards and a live project (second run, 2026-11-12T08:13:32Z, one stored project path of the temp store copy pointed at a temp folder `$T/hostile` with `memory/MEMORY.md` and a FIFO as its `.git`): no token -> 403, bad `Host` -> 403, bad `Origin` -> 403, POST -> 405; `GET /api/board` -> 200 `{"gone":4,"projects":[{"abstained":0,"board":null,"last_pull":null,"project":"hostile","status":"no data","tasks":[]}]}`; `GET /api/memory-graph?project=$T/hostile` -> 200 in 0.045 s with the note node `hostile-note` and one dangling link `nope` (`"counts":{"dangling":1,"links":1,"notes":1}`). Before T043 every one of these routes answered 404 with an empty body.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: the dashboard can now read the kanban board of every project and the memory-note graph from the Rust server (the same answers as Python, read-only, with every file read bounded and non-following), where before both routes answered 404.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
