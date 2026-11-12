@@ -13,7 +13,7 @@ use crate::prices::PriceTable;
 use crate::scope::under;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{Map, Value, json};
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::store::{self, StoreError};
 use crate::sync::{self, SyncError};
@@ -24,6 +24,8 @@ use std::path::{Component, Path, PathBuf};
 
 type Result<T> = std::result::Result<T, MetricsError>;
 type Done<T> = std::result::Result<T, WriteFail>;
+/// A `repos` value already normalised: see [`prepare_repos`].
+pub type Repos = Done<Vec<Done<String>>>;
 
 /// `{"workspaces": [...]}`: orphan first, then by name (SQLite's `BINARY` order, as Python's `ORDER BY is_orphan DESC, name`);
 /// each workspace `{id, name, color, icon, description, email, is_orphan, repos}` with `repos` in `repo_path` order.
@@ -311,8 +313,17 @@ pub(crate) fn expanduser(path: &str) -> String {
     }
 }
 
+/// What is left of a path to resolve: a name to look at, or the end of a link's target (that link is now resolved).
+enum Step {
+    Name(OsString),
+    Resolved(PathBuf),
+}
+
 /// `Path.resolve()` (not strict): `.` and `..` are folded, a symlink is followed, and what does not exist is kept as
-/// typed. A relative path starts at the working folder. A link met again while it is being resolved (a loop) is kept as it is, with the rest of the path as typed.
+/// typed. A relative path starts at the working folder. It is CPython 3.14's `posixpath.realpath`: `seen` maps a link to
+/// its fully resolved target (`None` while it is being resolved), so a link met again is read from there, not expanded
+/// again (a chain that doubles at every link costs one expansion per link), and a link met while it is being resolved is
+/// a loop: it is kept as it is, with the rest of the path as typed.
 pub(crate) fn resolve_path(path: &str) -> PathBuf {
     let given = Path::new(path);
     let absolute = if given.is_absolute() {
@@ -329,41 +340,42 @@ pub(crate) fn resolve_path(path: &str) -> PathBuf {
             })
             .collect()
     };
-    // the second field marks the end of a link's target: until it is reached the link is being resolved
-    let mut pending: VecDeque<(OsString, Option<PathBuf>)> =
-        names(&absolute).into_iter().map(|n| (n, None)).collect();
+    // the next name to look at is the last one
+    let mut rest: Vec<Step> = names(&absolute).into_iter().rev().map(Step::Name).collect();
     let mut resolved = PathBuf::from("/");
-    let mut resolving = BTreeSet::new();
-    while let Some((name, done)) = pending.pop_front() {
-        if let Some(link) = done {
-            resolving.remove(&link);
-            continue;
-        }
+    let mut seen: HashMap<PathBuf, Option<PathBuf>> = HashMap::new();
+    while let Some(step) = rest.pop() {
+        let name = match step {
+            Step::Resolved(link) => {
+                seen.insert(link, Some(resolved.clone()));
+                continue;
+            }
+            Step::Name(name) => name,
+        };
         if name == ".." {
             resolved.pop();
             continue;
         }
         let next = resolved.join(&name);
-        let is_link = std::fs::symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink());
-        // a link met again while it is being resolved is a loop: it stays as it is, and so does the rest
-        let target = if is_link && !resolving.contains(&next) {
-            std::fs::read_link(&next).ok()
-        } else {
-            None
-        };
-        match target {
-            Some(target) => {
-                if target.is_absolute() {
-                    resolved = PathBuf::from("/");
-                }
-                pending.push_front((OsString::new(), Some(next.clone())));
-                resolving.insert(next);
-                for part in names(&target).into_iter().rev() {
-                    pending.push_front((part, None));
-                }
-            }
-            None => resolved = next,
+        if !std::fs::symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink()) {
+            resolved = next;
+            continue;
         }
+        if let Some(done) = seen.get(&next) {
+            // resolved before: its result; still being resolved: a loop, kept as it is
+            resolved = done.clone().unwrap_or(next);
+            continue;
+        }
+        let Ok(target) = std::fs::read_link(&next) else {
+            resolved = next;
+            continue;
+        };
+        if target.is_absolute() {
+            resolved = PathBuf::from("/");
+        }
+        seen.insert(next.clone(), None);
+        rest.push(Step::Resolved(next));
+        rest.extend(names(&target).into_iter().rev().map(Step::Name));
     }
     resolved
 }
@@ -378,7 +390,33 @@ pub fn normalise_repo(path: &Value) -> Done<String> {
     if !expanded.starts_with('/') {
         return Err(refuse(400, "repo path must be absolute or start with ~"));
     }
-    Ok(resolve_path(&expanded).to_string_lossy().into_owned())
+    // a resolved path that is not UTF-8 matches no folder the store can hold (Python answers 500): refused
+    match resolve_path(&expanded).to_str() {
+        Some(resolved) => Ok(resolved.to_string()),
+        None => Err(refuse(400, "repo path must be a non-empty string")),
+    }
+}
+
+/// The repo paths of a `repos` value after [`normalise_repo`], one result each in list order (the list stops at the
+/// first refusal: nothing after it is read), or the refusal for a value that is not a list. Resolving a path is
+/// filesystem work: a route does it before it takes the write lock and passes this to [`add`] / [`edit`] / [`patch`],
+/// where [`check_repos`] reports the first refusal at the position Python reports it. `None` is an absent `repos`: `[]`.
+pub fn prepare_repos(repos: Option<&Value>) -> Repos {
+    let list = match repos {
+        None => return Ok(Vec::new()),
+        Some(Value::Array(list)) => list,
+        Some(_) => return Err(refuse(400, "repos must be a list of paths")),
+    };
+    let mut out = Vec::new();
+    for repo in list {
+        let one = normalise_repo(repo);
+        let stop = one.is_err();
+        out.push(one);
+        if stop {
+            break;
+        }
+    }
+    Ok(out)
 }
 
 fn check_name(name: &Value) -> Done<String> {
@@ -420,13 +458,10 @@ fn check_text(field: &str, max: usize, value: &Value) -> Done<Option<String>> {
     }
 }
 
-fn check_repos(repos: &Value) -> Done<Vec<String>> {
-    let Value::Array(list) = repos else {
-        return Err(refuse(400, "repos must be a list of paths"));
-    };
+fn check_repos(repos: Repos) -> Done<Vec<String>> {
     let mut clean = BTreeSet::new();
-    for repo in list {
-        clean.insert(normalise_repo(repo)?);
+    for repo in repos? {
+        clean.insert(repo?);
     }
     Ok(clean.into_iter().collect())
 }
@@ -448,7 +483,7 @@ fn insert_repos(conn: &Connection, id: i64, repos: &[String]) -> rusqlite::Resul
 
 /// `add`: create a workspace from the body's `name`, `repos` and text fields. The checks run in Python's order (the
 /// text fields, then the repos, then the name) before the store is touched; a taken name is 409.
-pub fn add(conn: &Connection, body: &Map<String, Value>) -> Done<Value> {
+pub fn add(conn: &Connection, body: &Map<String, Value>, repos: Repos) -> Done<Value> {
     if body.keys().any(|k| !FIELDS.contains(&k.as_str())) {
         return Err(refuse(400, "unknown field"));
     }
@@ -457,38 +492,52 @@ pub fn add(conn: &Connection, body: &Map<String, Value>) -> Done<Value> {
     for (field, max) in TEXT_FIELDS {
         text.push(check_text(field, max, body.get(field).unwrap_or(&null))?);
     }
-    let repos = check_repos(body.get("repos").unwrap_or(&json!([])))?;
+    let repos = check_repos(repos)?;
     let name = check_name(body.get("name").unwrap_or(&null))?;
     let tx = begin(conn)?;
+    // the id is the workspace row's, read before the repo rows are inserted (Python's `cur.lastrowid`)
     let stored = tx
         .execute(
             "INSERT INTO workspaces (name, color, icon, description, email) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![name, text[0], text[1], text[2], text[3]],
         )
-        .and_then(|_| insert_repos(&tx, tx.last_insert_rowid(), &repos));
-    match stored {
-        Ok(()) => {}
+        .and_then(|_| {
+            let id = tx.last_insert_rowid();
+            insert_repos(&tx, id, &repos).map(|()| id)
+        });
+    let id = match stored {
+        Ok(id) => id,
         Err(e) if is_constraint(&e) => {
             return Err(refuse(409, "a workspace with this name exists"));
         }
         Err(e) => return Err(e.into()),
-    }
-    let id = tx.last_insert_rowid();
+    };
     tx.commit()?;
     get(conn, id)
 }
 
 /// `edit`: [`edit_in_txn`] in a transaction of its own.
-pub fn edit(conn: &Connection, id: i64, changes: &[(String, Value)]) -> Done<Value> {
+pub fn edit(
+    conn: &Connection,
+    id: i64,
+    changes: &[(String, Value)],
+    repos: Option<Repos>,
+) -> Done<Value> {
     let tx = begin(conn)?;
-    let workspace = edit_in_txn(&tx, id, changes)?;
+    let workspace = edit_in_txn(&tx, id, changes, repos)?;
     tx.commit()?;
     Ok(workspace)
 }
 
 /// `edit_in_txn`: any of `name`, `color`, `icon`, `description`, `email`, `repos`, given in the body's order (the first
 /// bad text field is the one named). `repos` replaces the list; a rename keeps the id. The caller owns the transaction.
-pub(crate) fn edit_in_txn(conn: &Connection, id: i64, changes: &[(String, Value)]) -> Done<Value> {
+/// `repos` is [`prepare_repos`] of the `repos` change, `Some` exactly when there is one.
+pub(crate) fn edit_in_txn(
+    conn: &Connection,
+    id: i64,
+    changes: &[(String, Value)],
+    repos: Option<Repos>,
+) -> Done<Value> {
     if get(conn, id)?["is_orphan"] == true {
         return Err(refuse(403, "the orphan workspace cannot be changed"));
     }
@@ -504,10 +553,7 @@ pub(crate) fn edit_in_txn(conn: &Connection, id: i64, changes: &[(String, Value)
     if let Some((_, value)) = changes.iter().find(|(k, _)| k == "name") {
         columns.push(("name", Some(check_name(value)?)));
     }
-    let repos = match changes.iter().find(|(k, _)| k == "repos") {
-        Some((_, value)) => Some(check_repos(value)?),
-        None => None,
-    };
+    let repos = repos.map(check_repos).transpose()?;
     let written = (|| {
         if !columns.is_empty() {
             // the column names are the fixed ones above; the values are bound
@@ -666,6 +712,7 @@ pub fn patch(
     conn: &Connection,
     id: i64,
     mut changes: Vec<(String, Value)>,
+    repos: Option<Repos>,
     yes: bool,
 ) -> Done<Outcome> {
     let current = get(conn, id)?;
@@ -676,7 +723,7 @@ pub fn patch(
         .query_map([id], |r| r.get(0))?
         .collect::<std::result::Result<Vec<String>, _>>()?;
     if !renamed || held.is_empty() {
-        edit(conn, id, &changes)?;
+        edit(conn, id, &changes, repos)?;
         return Ok(Outcome {
             status: 0,
             lines: Vec::new(),
@@ -684,7 +731,7 @@ pub fn patch(
         });
     }
     change(conn, yes, |conn| {
-        let name = edit_in_txn(conn, id, &changes)?["name"]
+        let name = edit_in_txn(conn, id, &changes, repos)?["name"]
             .as_str()
             .unwrap_or_default()
             .to_string();

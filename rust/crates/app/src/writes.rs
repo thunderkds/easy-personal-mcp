@@ -4,8 +4,9 @@
 //! `_json_body`, `_workspace_call`, `_account_write`, `_run_writer`); the oracle is `rust/parity/golden-writes/`.
 //!
 //! Order of a request: the guard in `server.rs` (token, Host, Origin), then the content type (415), the body (400, 413),
-//! the id in the path (404) and the `confirm` flag (400), and only then the store: a bad request never opens it for
-//! writing. The store is opened for writing inside the request (`workspaces::write_session`: it never creates a store,
+//! the id in the path (404) and the `confirm` flag (400), and only then the store: a request whose body, id or `confirm`
+//! is bad never opens it for writing (the field checks that follow run on the write handle, as in Python). Paths are
+//! resolved before the write lock is taken (`run`'s `prepare`). The store is opened for writing inside the request (`workspaces::write_session`: it never creates a store,
 //! needs schema v11, waits 5 s for a busy writer) and closed before the answer. One in-process lock lets one write run at
 //! a time, as Python's `_WRITE_LOCK` does for the connector routes; there is no `ingest.lock` (Python takes none).
 //!
@@ -27,6 +28,7 @@ use easy_personal_core::workspaces::{self, FIELDS, Outcome, WriteFail, py_strip}
 use easy_personal_core::writer::WriteError;
 use rusqlite::Connection;
 use serde_json::{Map, Value, json};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -65,6 +67,8 @@ async fn raw_body(req: Request) -> Result<(String, Vec<u8>), Response> {
     }
     match to_bytes(body, MAX_BODY).await {
         Ok(bytes) => Ok((parts.uri.path().to_string(), bytes.to_vec())),
+        // `to_bytes` fails for a body over the cap, and also when the connection breaks while the body is read; the
+        // second has no client left to read a 413, so one answer serves both
         Err(_) => Err(fail(
             StatusCode::PAYLOAD_TOO_LARGE,
             "request body too large",
@@ -115,10 +119,12 @@ async fn account_body(req: Request) -> Result<(String, Map<String, Value>), Resp
 }
 
 /// The keys of the top-level object in the order they first appear (a repeated key keeps its first place, as Python's
-/// `dict` does): the order of the checks of a `PATCH` follows it. The text is valid JSON already.
+/// `dict` does): the order of the checks of a `PATCH` follows it. The text is valid JSON already. A set beside the list
+/// keeps the scan linear in the size of the body (about 95,000 keys fit in the 1 MiB cap).
 fn key_order(raw: &[u8]) -> Vec<String> {
     let raw = raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(raw);
     let (mut keys, mut depth, mut want_key, mut i) = (Vec::new(), 0usize, false, 0usize);
+    let mut known: HashSet<String> = HashSet::new();
     while i < raw.len() {
         match raw[i] {
             b'{' | b'[' => {
@@ -146,7 +152,7 @@ fn key_order(raw: &[u8]) -> Vec<String> {
                     if let Some(key) = raw
                         .get(start..i)
                         .and_then(|t| serde_json::from_slice::<String>(t).ok())
-                        && !keys.contains(&key)
+                        && known.insert(key.clone())
                     {
                         keys.push(key);
                     }
@@ -210,18 +216,28 @@ fn refusal(failure: WriteFail) -> Response {
     }
 }
 
-/// Runs `work` in a write session off the async workers, under the write lock. `detect` is the agent root whose
+/// Runs `prepare`, then `work` in a write session, off the async workers. `prepare` is everything that needs neither
+/// the store nor the lock (resolving a path, reading a body's keys): it runs first, so a slow one never holds the write
+/// lock or the write handle. `work` runs under the lock and gets what `prepare` made. `detect` is the agent root whose
 /// folders are detected first (the account routes: Python's `accounts.detect`).
-async fn run<F>(api: Api, detect: Option<PathBuf>, status: StatusCode, work: F) -> Response
+async fn run<P, F>(
+    api: Api,
+    detect: Option<PathBuf>,
+    status: StatusCode,
+    prepare: impl FnOnce() -> P + Send + 'static,
+    work: F,
+) -> Response
 where
-    F: FnOnce(&Connection) -> Result<Value, WriteFail> + Send + 'static,
+    P: Send + 'static,
+    F: FnOnce(&Connection, P) -> Result<Value, WriteFail> + Send + 'static,
 {
     let outcome = tokio::task::spawn_blocking(move || {
+        let prepared = prepare();
         let path = (api.store_path)().map_err(WriteFail::Store)?;
         let _one_at_a_time = WRITE_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        workspaces::write_session(&path, detect.as_deref(), work)
+        workspaces::write_session(&path, detect.as_deref(), |conn| work(conn, prepared))
     })
     .await;
     match outcome {
@@ -245,9 +261,13 @@ pub(crate) async fn workspace_add(State(api): State<Api>, req: Request) -> Respo
     if body.keys().any(|k| !FIELDS.contains(&k.as_str())) {
         return fail(StatusCode::BAD_REQUEST, "unknown field");
     }
-    run(api, None, StatusCode::CREATED, move |conn| {
-        Ok(json!({ "workspace": workspaces::add(conn, &body)? }))
-    })
+    run(
+        api,
+        None,
+        StatusCode::CREATED,
+        move || (workspaces::prepare_repos(body.get("repos")), body),
+        |conn, (repos, body)| Ok(json!({ "workspace": workspaces::add(conn, &body, repos)? })),
+    )
     .await
 }
 
@@ -265,16 +285,28 @@ pub(crate) async fn workspace_edit(State(api): State<Api>, req: Request) -> Resp
         Ok(yes) => yes,
         Err(response) => return response,
     };
-    let changes: Vec<(String, Value)> = key_order(&raw)
-        .into_iter()
-        .filter_map(|key| body.remove(&key).map(|value| (key, value)))
-        .collect();
-    run(api, None, StatusCode::OK, move |conn| {
-        let outcome = workspaces::patch(conn, id, changes, yes)?;
-        let mut body = answer(&outcome);
-        body["workspace"] = workspaces::get(conn, id)?;
-        Ok(body)
-    })
+    run(
+        api,
+        None,
+        StatusCode::OK,
+        move || {
+            let changes: Vec<(String, Value)> = key_order(&raw)
+                .into_iter()
+                .filter_map(|key| body.remove(&key).map(|value| (key, value)))
+                .collect();
+            let repos = changes
+                .iter()
+                .find(|(key, _)| key == "repos")
+                .map(|(_, value)| workspaces::prepare_repos(Some(value)));
+            (changes, repos)
+        },
+        move |conn, (changes, repos)| {
+            let outcome = workspaces::patch(conn, id, changes, repos, yes)?;
+            let mut body = answer(&outcome);
+            body["workspace"] = workspaces::get(conn, id)?;
+            Ok(body)
+        },
+    )
     .await
 }
 
@@ -292,29 +324,44 @@ pub(crate) async fn workspace_delete(State(api): State<Api>, req: Request) -> Re
         Ok(yes) => yes,
         Err(response) => return response,
     };
-    run(api, None, StatusCode::OK, move |conn| {
-        let outcome = workspaces::delete(conn, id, yes)?;
-        let mut body = answer(&outcome);
-        body["deleted"] = if outcome.status == 0 {
-            json!(id)
-        } else {
-            Value::Null
-        };
-        Ok(body)
-    })
+    run(
+        api,
+        None,
+        StatusCode::OK,
+        || (),
+        move |conn, ()| {
+            let outcome = workspaces::delete(conn, id, yes)?;
+            let mut body = answer(&outcome);
+            body["deleted"] = if outcome.status == 0 {
+                json!(id)
+            } else {
+                Value::Null
+            };
+            Ok(body)
+        },
+    )
     .await
 }
 
-/// Parses an account write (`_account_write`): body, then the id of the path, then `work(conn, id, body, root)`.
-async fn account_write<F>(
+/// Parses an account write (`_account_write`): body, then the id of the path, then `work(conn, id, body, root,
+/// prepared)`, where `prepared` is what `prepare` made of the body before the write lock was taken.
+async fn account_write<P, F>(
     api: Api,
     req: Request,
     with_id: bool,
     status: StatusCode,
+    prepare: fn(&Map<String, Value>) -> P,
     work: F,
 ) -> Response
 where
-    F: FnOnce(&Connection, &str, &Map<String, Value>, &std::path::Path) -> Result<Value, WriteFail>
+    P: Send + 'static,
+    F: FnOnce(
+            &Connection,
+            &str,
+            &Map<String, Value>,
+            &std::path::Path,
+            P,
+        ) -> Result<Value, WriteFail>
         + Send
         + 'static,
 {
@@ -332,9 +379,13 @@ where
     };
     let root = agent_root();
     let detect = Some(root.clone());
-    run(api, detect, status, move |conn| {
-        work(conn, &id, &body, &root)
-    })
+    run(
+        api,
+        detect,
+        status,
+        move || (prepare(&body), body),
+        move |conn, (prepared, body)| work(conn, &id, &body, &root, prepared),
+    )
     .await
 }
 
@@ -345,43 +396,112 @@ pub(crate) async fn account_add(State(api): State<Api>, req: Request) -> Respons
         req,
         false,
         StatusCode::CREATED,
-        |conn, _, body, root| accounts::add(conn, body.get("path").unwrap_or(&Value::Null), root),
+        |body| accounts::prepare_add(body.get("path").unwrap_or(&Value::Null)),
+        |conn, _, _, root, folder| accounts::add(conn, folder, root),
     )
     .await
 }
 
 /// `POST /api/accounts/{id}/confirm` with `{"label": ...}`.
 pub(crate) async fn account_confirm(State(api): State<Api>, req: Request) -> Response {
-    account_write(api, req, true, StatusCode::OK, |conn, id, body, root| {
-        accounts::confirm(conn, id, body.get("label").unwrap_or(&Value::Null), root)
-    })
+    account_write(
+        api,
+        req,
+        true,
+        StatusCode::OK,
+        |_| (),
+        |conn, id, body, root, ()| {
+            accounts::confirm(conn, id, body.get("label").unwrap_or(&Value::Null), root)
+        },
+    )
     .await
 }
 
 /// `POST /api/accounts/{id}/ignore`.
 pub(crate) async fn account_ignore(State(api): State<Api>, req: Request) -> Response {
-    account_write(api, req, true, StatusCode::OK, |conn, id, _, root| {
-        accounts::ignore(conn, id, root)
-    })
+    account_write(
+        api,
+        req,
+        true,
+        StatusCode::OK,
+        |_| (),
+        |conn, id, _, root, ()| accounts::ignore(conn, id, root),
+    )
     .await
 }
 
 /// `PUT /api/accounts/{id}/workspaces` with `{"workspaces": [names]}`. Store only: it is not synced to Claude Code.
 pub(crate) async fn account_workspaces(State(api): State<Api>, req: Request) -> Response {
-    account_write(api, req, true, StatusCode::OK, |conn, id, body, root| {
-        accounts::use_workspaces(
-            conn,
-            id,
-            body.get("workspaces").unwrap_or(&Value::Null),
-            root,
-        )
-    })
+    account_write(
+        api,
+        req,
+        true,
+        StatusCode::OK,
+        |_| (),
+        |conn, id, body, root, ()| {
+            accounts::use_workspaces(
+                conn,
+                id,
+                body.get("workspaces").unwrap_or(&Value::Null),
+                root,
+            )
+        },
+    )
     .await
 }
 
 #[cfg(test)]
 mod tests {
-    use super::key_order;
+    use super::{WRITE_LOCK, key_order, run};
+    use crate::api::Api;
+    use axum::http::StatusCode;
+    use serde_json::json;
+    use std::path::PathBuf;
+    use std::sync::mpsc::channel;
+    use std::time::Duration;
+
+    /// The slow part of a request (resolving a path) runs before the write lock is taken: while `prepare` is still
+    /// running, another write can take the lock. (The store is not there: the request ends in a 503 once it has it.)
+    #[test]
+    fn prepare_runs_before_the_write_lock_is_taken() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .build()
+            .unwrap();
+        let api = Api::new(|| Ok(PathBuf::from("/nonexistent-t054/store.sqlite")), || 0);
+        let (started_tx, started) = channel();
+        let (release, released) = channel::<()>();
+        let slow = runtime.spawn(run(
+            api,
+            None,
+            StatusCode::OK,
+            move || {
+                started_tx.send(()).unwrap();
+                released.recv_timeout(Duration::from_secs(10)).unwrap();
+            },
+            |_, ()| Ok(json!({})),
+        ));
+        started.recv_timeout(Duration::from_secs(10)).unwrap();
+        let free = WRITE_LOCK.try_lock().is_ok();
+        release.send(()).unwrap();
+        let answer = runtime.block_on(slow).unwrap();
+        assert!(free, "the write lock is held while the request prepares");
+        assert_eq!(answer.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn ninety_five_thousand_keys_are_scanned_in_linear_time() {
+        let keys: Vec<String> = (0..95_000).map(|n| format!("\"k{n:05}\":1")).collect();
+        let body = format!("{{{}}}", keys.join(","));
+        let started = std::time::Instant::now();
+        let order = key_order(body.as_bytes());
+        assert_eq!(order.len(), 95_000);
+        assert!(
+            started.elapsed() < Duration::from_secs(1),
+            "{:?}",
+            started.elapsed()
+        );
+    }
 
     #[test]
     fn key_order_is_the_order_of_first_appearance() {

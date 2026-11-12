@@ -1,7 +1,8 @@
-//! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
+//! The dashboard API's routes: the read routes `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
 //! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}` and `/api/first-run` (read-only; T040: an id that is not
-//! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500).
+//! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
+//! and the seven store-only write routes of T048, which `writes.rs` serves.
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
 //! the goldens in `rust/parity/golden*/` are the oracle. Every route sits behind the guard in `server.rs`.
 //! The first six take the optional `workspace` (a name) and `account` (an id or a label) and pass them to the core's scoped
@@ -12,7 +13,8 @@
 //! are registered here and served by `writes.rs`; every other method of these paths is a 405.
 //!
 //! Each request reads the store on its own: a new read-only connection inside `spawn_blocking` (never on an async
-//! worker), closed when the answer is built. The server never creates or writes the store. The core's JSON is passed
+//! worker), closed when the answer is built. No read route creates or writes the store, and neither does start-up: only the
+//! seven write routes of `writes.rs` open it for writing, inside their request, and none creates a store. The core's JSON is passed
 //! through as a `serde_json::Value`; no body carries a path, SQL or row text (NFR-002): a store problem becomes one of
 //! a few fixed texts.
 

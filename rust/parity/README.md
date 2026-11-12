@@ -183,8 +183,8 @@ lists every entry per rule and state (the generator fails the run if a rule is n
 without a window, under `TZ=UTC` in a child process) and `rules::evaluate` against the unscoped goldens (API and MCP). It also recounts the
 rule coverage from the files, checks the `raw_sha256` and `bad_since` rules above, and runs a mutation check (one changed value in a temp copy of the
 store fails the usage and the warnings comparison). The 77 entries with a `workspace` or `account` parameter and the 7 report-folder entries are listed
-there as not testable yet (the Rust core does not serve them); so are the routes it does not serve at all (kit, board, accounts, workspaces, reports,
-memory graph, sessions, outliers, plan).
+there as not testable yet (the Rust core does not serve them); so are the routes it does not serve at all (board, memory graph, live). Kit, accounts, workspaces,
+reports, sessions, outliers and plan have their own oracles (see the sections below and `golden-writes`).
 
 ## Ingest oracle (T026)
 
@@ -405,3 +405,20 @@ a marker on both streams (so a test can prove the tool's output is never echoed)
 itself (`easy-personal-rs ingest`) on purpose. In Q01 the Rust test puts its own binary at the same path (a hard link, so `current_exe` is that
 path) and compares the quoted line as it is. Folder names with `:` are left out: `PATH` cannot hold them. A newline in the path, and `%`
 or `\` in it (which systemd reads as specifiers and escapes even inside quotes), are not handled by Python either; Rust copies `shlex.quote`.
+
+## Write oracle (`golden-writes`, T048, T054)
+
+What the Python app's own handlers answer to the store-only write routes, and what they leave in the store. `gen_writes.py` runs `api.create_app` under Starlette's
+`TestClient` over a temp copy of `store-rich/store-v11.sqlite` per case (a folder tree, setup SQL and the requests are the case's), and writes:
+
+- `golden-writes/cases.json`: 262 cases / 355 requests, each with the status and JSON of every answer, the tables that changed (rows) and the name of every table;
+- `golden-writes/paths.json`: 44 inputs of `workspaces.normalise_repo` over a folder with real, relative, dangling, looping, chained and (T054) doubling links, a 3-link loop and a self-link.
+
+```bash
+rust/parity/.venv/bin/python rust/parity/gen_writes.py              # rewrites rust/parity/golden-writes/ (a re-run changes nothing)
+rust/parity/.venv/bin/python rust/parity/gen_writes.py --out DIR    # elsewhere, to diff
+cd rust && cargo test -p easy-personal-rs --test writes             # replays every case over the real `serve` binary: asserts 262 cases, 355 requests
+cd rust && cargo test -p easy-personal-core --test writes_parity    # replays the 44 paths: asserts 44
+```
+
+The tests assert the exact numbers, so a dropped or added case fails until the numbers are changed on purpose. Python's own crashes (5xx) are not in the oracle: the generator stops on one.

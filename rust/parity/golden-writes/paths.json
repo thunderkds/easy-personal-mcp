@@ -147,6 +147,34 @@
   {
    "error": "repo path must be a non-empty string",
    "input": 5
+  },
+  {
+   "input": "@W@/hop0",
+   "ok": "<WORK>"
+  },
+  {
+   "input": "@W@/hop0/real",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/tri-a",
+   "ok": "<WORK>/tri-a"
+  },
+  {
+   "input": "@W@/tri-a/x",
+   "ok": "<WORK>/tri-a/x"
+  },
+  {
+   "input": "@W@/tri-c/x",
+   "ok": "<WORK>/tri-c/x"
+  },
+  {
+   "input": "@W@/selfie",
+   "ok": "<WORK>/selfie"
+  },
+  {
+   "input": "@W@/selfie/x",
+   "ok": "<WORK>/selfie/x"
   }
  ]
 }

@@ -402,15 +402,19 @@ fn find(conn: &Connection, reference: &str) -> Done<i64> {
                 Err(_) => None, // past 64 bits: no account has it (Python's sqlite3 raises OverflowError: a 500)
             }
         } else {
-            let folder = resolve_path(&expanduser(reference));
-            conn.query_row(
-                "SELECT id FROM agent_accounts WHERE folder = ?1",
-                [folder.to_string_lossy()],
-                |r| r.get(0),
-            )
-            .optional()?
+            find_folder(conn, &resolve_path(&expanduser(reference)))?
         };
     found.ok_or_else(|| refuse(404, "no such account"))
+}
+
+/// The account whose stored folder is this (already resolved) path.
+fn find_folder(conn: &Connection, folder: &Path) -> rusqlite::Result<Option<i64>> {
+    conn.query_row(
+        "SELECT id FROM agent_accounts WHERE folder = ?1",
+        [folder.to_string_lossy()],
+        |r| r.get(0),
+    )
+    .optional()
 }
 
 /// `confirm`: name an account and mark it confirmed; confirming again with a new label renames it. The label is
@@ -472,9 +476,16 @@ pub fn ignore(conn: &Connection, reference: &str, agent_root: &Path) -> Done<Val
     get(conn, id, agent_root)
 }
 
-/// `add`: a folder by hand, anywhere; it must exist and pass the content check. A new one starts `detected`
-/// (`confirmed` as "Claude default" for the agent root's own `.claude`); one already stored is returned as it is.
-pub fn add(conn: &Connection, path: &Value, agent_root: &Path) -> Done<Value> {
+/// A folder for [`add`] after its filesystem work: the folder (resolved, UTF-8, an existing directory) and the path
+/// `_find` resolves for it afterwards.
+pub struct Folder {
+    name: String,
+    key: PathBuf,
+}
+
+/// The first half of `add`: the checks that need no store, and every resolution of a path. A route does this before it
+/// takes the write lock (a hostile link chain must not hold it) and passes the result to [`add`].
+pub fn prepare_add(path: &Value) -> Done<Folder> {
     let not_a_folder = || refuse(400, "not an agent folder: it must be an existing directory");
     let Value::String(text) = path else {
         return Err(not_a_folder());
@@ -486,16 +497,28 @@ pub fn add(conn: &Connection, path: &Value, agent_root: &Path) -> Done<Value> {
     let Some(name) = folder.to_str().filter(|_| folder.is_dir()) else {
         return Err(not_a_folder());
     };
-    let Some(provider) = crate::ingest::accounts::provider_of(&folder) else {
+    // Python looks the new row up with `_find(str(folder))`, which strips the text and resolves it again
+    let key = resolve_path(&expanduser(py_strip(name)));
+    Ok(Folder {
+        name: name.to_string(),
+        key,
+    })
+}
+
+/// `add`: a folder by hand, anywhere; it must exist and pass the content check. A new one starts `detected`
+/// (`confirmed` as "Claude default" for the agent root's own `.claude`); one already stored is returned as it is.
+pub fn add(conn: &Connection, folder: Done<Folder>, agent_root: &Path) -> Done<Value> {
+    let Folder { name, key } = folder?;
+    let Some(provider) = crate::ingest::accounts::provider_of(Path::new(&name)) else {
         return Err(refuse(
             400,
             "not an agent folder: no projects/, settings.json or config.toml",
         ));
     };
     let tx = begin(conn)?;
-    crate::ingest::accounts::insert(&tx, provider, name, name == default_folder(agent_root))?;
+    crate::ingest::accounts::insert(&tx, provider, &name, name == default_folder(agent_root))?;
     tx.commit()?;
-    let id = find(conn, name)?;
+    let id = find_folder(conn, &key)?.ok_or_else(|| refuse(404, "no such account"))?;
     get(conn, id, agent_root)
 }
 

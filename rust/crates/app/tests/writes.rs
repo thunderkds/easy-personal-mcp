@@ -465,13 +465,22 @@ fn every_write_equals_what_python_answered_and_left_in_the_store() {
         serde_json::from_str(&std::fs::read_to_string(parity("golden-writes/cases.json")).unwrap())
             .unwrap();
     let cases = golden["cases"].as_array().unwrap();
-    assert!(cases.len() >= 250, "{} cases", cases.len());
+    // the committed file is the generator's output: a smaller one (a dropped case) must fail here, not pass
+    assert_eq!(cases.len(), 262, "cases");
     let mut problems = Vec::new();
     let mut requests = 0;
     for case in cases {
-        requests += case["requests"].as_array().unwrap().len();
+        let asked = case["requests"].as_array().unwrap().len();
+        assert_eq!(
+            asked,
+            case["answers"].as_array().unwrap().len(),
+            "{}: requests and answers",
+            case["name"]
+        );
+        requests += asked;
         problems.extend(replay(case));
     }
+    assert_eq!(requests, 355, "requests");
     println!(
         "writes oracle: {} cases, {requests} requests, {} different",
         cases.len(),
@@ -935,6 +944,63 @@ fn two_writes_at_once_both_finish_and_the_store_is_intact() {
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .unwrap();
     assert_eq!(check, "ok");
+}
+
+/// T054: a link chain that doubles at every hop (30 deep: 2^30 expansions without a cache of resolved links) as a repo
+/// path and as an agent folder, and a 1 MiB PATCH body of 95,000 distinct keys, are each answered in under a second. T048
+/// walked the chain while it held the write lock and scanned the keys in quadratic time.
+#[test]
+fn a_hostile_link_chain_and_a_body_of_95000_keys_are_answered_in_under_a_second() {
+    let home = Home::rich(&[]);
+    let chain = home.dir.join("chain");
+    std::fs::create_dir_all(chain.join("cfg/projects")).unwrap();
+    for i in 0..30 {
+        std::os::unix::fs::symlink(
+            format!("hop{}/hop{}", i + 1, i + 1),
+            chain.join(format!("hop{i}")),
+        )
+        .unwrap();
+    }
+    std::os::unix::fs::symlink(".", chain.join("hop30")).unwrap();
+    let work = chain.display();
+    let server = Server::start(&home);
+    let timed = |method: &str, path: &str, body: &[u8]| {
+        let started = std::time::Instant::now();
+        let got = server.send(method, path, Some("application/json"), body);
+        (got, started.elapsed())
+    };
+    let (got, took) = timed(
+        "POST",
+        "/api/workspaces",
+        json!({"name": "chained", "repos": [format!("{work}/hop0/x")]})
+            .to_string()
+            .as_bytes(),
+    );
+    assert_eq!(got.status, 201, "{}", got.body);
+    assert_eq!(
+        got.json()["workspace"]["repos"],
+        json!([format!("{work}/x")])
+    );
+    assert!(took < Duration::from_secs(1), "repo chain took {took:?}");
+    let (got, took) = timed(
+        "POST",
+        "/api/accounts",
+        json!({"path": format!("{work}/hop0/cfg")})
+            .to_string()
+            .as_bytes(),
+    );
+    assert_eq!(got.status, 201, "{}", got.body);
+    assert_eq!(got.json()["folder"], json!(format!("{work}/cfg")));
+    assert!(took < Duration::from_secs(1), "account chain took {took:?}");
+    let keys: Vec<String> = (0..95_000).map(|n| format!("\"k{n:05}\":1")).collect();
+    let big = format!("{{{}}}", keys.join(","));
+    assert!(big.len() < 1 << 20, "{} bytes", big.len());
+    let (got, took) = timed("PATCH", "/api/workspaces/2", big.as_bytes());
+    assert_eq!(
+        (got.status, got.error()),
+        (400, "unknown field".to_string())
+    );
+    assert!(took < Duration::from_secs(1), "95,000 keys took {took:?}");
 }
 
 #[test]

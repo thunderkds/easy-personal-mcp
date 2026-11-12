@@ -111,8 +111,8 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   rule pack like `/api/warnings` (the `config.yaml` threshold override is not ported); a `{id}` that decodes to text with a `/` (`/api/reports/1%2F2`) is the JSON
   `404 no such report` here (Python: Starlette's plain-text `Not Found`, no route matches), and `/api/reports/` with no id is the empty `404` (Python: the same plain text).
 - `GET /api/accounts?by=account|provider` and `GET /api/sync?account=<id>` (T041; read-only). **No account detection**: Python's two handlers first run
-  `accounts.detect`, which INSERTs the `.claude*` / `.codex*` folders it finds; the Rust server never does (the detect stays in `ingest`), so a new agent
-  folder appears after the next `ingest`, not at page load. Nothing is written and no process is started (no `claude`, no keychain).
+  `accounts.detect`, which INSERTs the `.claude*` / `.codex*` folders it finds; these two `GET` handlers never do (the detect stays in `ingest`, and runs in the T048 account *write* routes), so a new agent
+  folder appears after the next `ingest` or account write, not at page load. Nothing is written and no process is started (no `claude`, no keychain).
   - `/api/accounts` -> `{"by": "account", "accounts": [...]}` (`by` defaults to `account`) or `{"by": "provider", "providers": {"claude": [...], ...}}`. Each
     account is `{id, provider, label, folder, status, config_dir_env, is_default, workspaces, status_line}`: `status` is `missing` when the folder is gone and the
     account is not ignored; `workspaces` are the names it picked; `status_line` is `{email, plan, organization, last_model, last_active_utc, tokens_today,
@@ -270,7 +270,7 @@ the tools over the binaries, with a fake `claude` first on `PATH` that must neve
 
 ## Store writer (P2)
 
-The read-only `store` module (`store-info`, `serve`, `mcp`) still never writes. Writing is a separate module, `easy_personal_core::writer`
+The read-only `store` module never writes. `store-info` never writes either; `serve` writes only inside the seven write routes of T048 (never at start-up, never on a `GET`) and `mcp` only in `save_report` (T047). Writing is a separate module, `easy_personal_core::writer`
 (T027), with the lock in `ingest_lock`; the `ingest` command (T029, below) calls them. `writer::open_for_write(path)` creates a
 new store from `src/schema_v11.sql` (a byte-equal copy of `parity/ingest/golden/schema-v11.sql`) when there is no file, an empty file or
 no table, opens a `user_version` 11 store, and refuses every other store before writing a byte: newer -> the reader's "newer" text, older ->
@@ -622,9 +622,49 @@ Python's own handlers over copies of `store-rich`; `crates/app/tests/writes.rs` 
 table**: 0 different; a case Python leaves unchanged leaves the store file byte for byte as it was). Order of a request: the guard; `Content-Type` `application/json` (else `415`
 `content-type must be application/json`); the body (`400 body must be JSON`, `400 body must be a JSON object`; account routes: `400 body must be an object with boolean
 confirm`; `413 request body too large` over 1 MiB); the id in the path (`404 unknown workspace` / `404 no such account`); `confirm` (`400 confirm must be true or false`); and only then
-the store: **a bad request never opens it for writing**. The store is opened inside the request (`writer::open_for_write`: 5 s busy timeout, foreign keys on, schema 11 only,
+the store: **a request whose body, id or `confirm` is bad never opens it for writing**. The field checks that follow (names, texts, repos, labels, the account's state) run on the write handle, as in Python, and for the account routes `detect` has already committed by then (decided 4). The folder resolution of a repo or account path is done before the write lock is taken (T054). The store is opened inside the request (`writer::open_for_write`: 5 s busy timeout, foreign keys on, schema 11 only,
 never created), one transaction per change, and closed before the answer. One in-process lock lets one write run at a time; there is no `ingest.lock` (Python takes none), and
-`writes_coexist.rs` runs the writes during an ingest of 240,000 events (49 rounds, `integrity_check` ok, no lock text in any body).
+`writes_coexist.rs` runs the writes during a long ingest (`integrity_check` ok, no lock text in any body).
+
+Every answer of the seven routes, by status. `{field}` is `color`, `icon`, `description` or `email`. Every body is `{"error": "<text>"}` and the text is fixed: it never names the caller's input (the one text that carries a stored id and alias is decided 8).
+
+| Status | Text | Where |
+|---|---|---|
+| `201` | `{"workspace": {...}}` / the account row | `POST /api/workspaces` / `POST /api/accounts` |
+| `200` | `{"status", "lines", "pending", ...}` / the account row | `PATCH`, `DELETE /api/workspaces/{id}` / the three `/api/accounts/{id}/...` routes |
+| `400` | `body must be JSON` | every route |
+| `400` | `body must be a JSON object` | the workspace routes |
+| `400` | `body must be an object with boolean confirm` | the account routes |
+| `400` | `confirm must be true or false` | `PATCH`, `DELETE /api/workspaces/{id}` |
+| `400` | `unknown field` | `POST`, `PATCH` workspaces |
+| `400` | `{field} must be text of at most {N} characters` (`color` 7, `icon` 32, `description` 500, `email` 254) | `POST`, `PATCH` workspaces |
+| `400` | `color must look like #rrggbb` | `POST`, `PATCH` workspaces |
+| `400` | `repos must be a list of paths` | `POST`, `PATCH` workspaces |
+| `400` | `repo path must be a non-empty string` (also a path that resolves to non-UTF-8 bytes, T054) | `POST`, `PATCH` workspaces |
+| `400` | `repo path must be absolute or start with ~` | `POST`, `PATCH` workspaces |
+| `400` | `name must match [a-z0-9][a-z0-9-]{0,39}` | `POST`, `PATCH` workspaces |
+| `400` | `the name 'orphan' is reserved` | `POST`, `PATCH` workspaces |
+| `400` | `alias for connector <id> is too long or has invalid characters; it must match [a-z0-9][a-z0-9_-]{0,63}` | `PATCH` workspaces (rename) |
+| `400` | `alias '<alias>' is in use by connector <id>; nothing was changed` | `PATCH` workspaces (rename) |
+| `400` | `the store refused the change; nothing was changed` | any write a store rule stops (decided 5) |
+| `400` | `not an agent folder: it must be an existing directory` | `POST /api/accounts` |
+| `400` | `not an agent folder: no projects/, settings.json or config.toml` | `POST /api/accounts` |
+| `400` | `label must be 1 to 60 characters` | `.../confirm` |
+| `400` | `the default account cannot be ignored` | `.../ignore` |
+| `400` | `only confirmed Claude accounts pick workspaces` | `PUT .../workspaces` |
+| `400` | `workspaces must be a list of workspace names` | `PUT .../workspaces` |
+| `400` | `unknown workspace` | `PUT .../workspaces` (a name that is no workspace) |
+| `400` | `the orphan workspace cannot be picked` | `PUT .../workspaces` |
+| `403` | `forbidden` | every route without the token, Host or Origin (before anything else) |
+| `403` | `the orphan workspace cannot be changed` / `the orphan workspace cannot be deleted` | `PATCH` / `DELETE /api/workspaces/{id}` |
+| `404` | `unknown workspace` | `PATCH`, `DELETE /api/workspaces/{id}` (and `/api/workspaces/unassigned`, decided 9) |
+| `404` | `no such account` | the three `/api/accounts/{id}/...` routes |
+| `405` | none (empty body) | every other method of these paths |
+| `409` | `a workspace with this name exists` | `POST`, `PATCH` workspaces |
+| `409` | `this change must update an agent account's Claude Code entries, which needs the claude CLI; this build cannot run it yet, so nothing was changed` (Rust only) | a confirmed `PATCH` rename or `DELETE` whose plan needs `claude` |
+| `413` | `request body too large` | every route with a body over 1 MiB |
+| `415` | `content-type must be application/json` | every route |
+| `503` | `no store yet: ...`, the newer-store text, `store is schema v10: run the Python app once to migrate it`, `the store is busy (another process is writing); try again in a moment`, `the store cannot be written right now; try again in a moment` | every route, when the store cannot be opened for writing |
 
 `PATCH` / `DELETE` and the confirm protocol: an edit without a new name is applied at once. A new name of a workspace that holds connectors, and every `DELETE`, first answer the plan
 (`pending: true`, `status: 1`, the `lines` of Python's plan, nothing changed); `confirm: true` applies it, and the answer ends "nothing to change." (Python's `apply` with nothing to run).
@@ -650,12 +690,23 @@ whether an entry exists, so it never plans Python's `record`, `forget` or `refus
    nesting past 128 levels are `400 body must be JSON` (a UTF-8 byte order mark is accepted, as Python does); a store rule that no check caught (UNIQUE, CHECK, trigger) is
    `400 the store refused the change; nothing was changed` (Python: 500).
 6. When `HOME` is unset, `~` in a repo or account path is not expanded (Python asks the password database); `~name` is read from `/etc/passwd`. `Path.resolve()` is ported by hand
-   (`workspaces::resolve_path`; 37 inputs incl. dot segments, relative, dangling, chained and looping links equal Python: `parity/golden-writes/paths.json`, `tests/writes_parity.rs`); a link met again while
+   (`workspaces::resolve_path`, CPython 3.14's `posixpath.realpath` with its `seen` map, so a chain that doubles at every hop costs one expansion per link, not 2^n; 44 inputs incl. dot segments, relative, dangling,
+   chained, doubling and looping links and a self-link equal Python: `parity/golden-writes/paths.json`, `tests/writes_parity.rs`); a link met again while
    it is resolved (a loop) is kept as it is, as Python keeps it.
 7. The checks of a `PATCH` run in the body's key order (Python's `dict`), so the first bad text field is the one named: `writes.rs` reads the key order from the body text, because `serde_json` here sorts keys.
 8. The `400` of a rename whose default alias is taken or too long names the connector id and the alias (`alias 'firm-slack' is in use by connector other-slack; ...`): Python's text, built from the stored id and the
    workspace name that already passed the `[a-z0-9-]` check. It is the one answer that names something derived from the input.
 9. `GET /api/workspaces/<id>` and the write routes' other methods are `405`; `PATCH`/`DELETE /api/workspaces/unassigned` are `404 unknown workspace` after the body checks (Python's routing falls through to `{id}`).
+
+Added by T054 (the review fixes of T048):
+
+10. A resolved repo path that is not valid UTF-8 (a link to a folder whose name holds the byte `0xff`) is `400 repo path must be a non-empty string`, as an account path already was: Python resolves it to a
+    text with a lone surrogate and then fails at the store (500); T048 stored it with U+FFFD, a path that matches no folder.
+11. The folder resolution of a repo path or an agent folder (and the second resolution `_find` does for the new account row) runs before the write lock and the write handle, not under them; the order of the
+    400 texts is unchanged (the first refusal of the list is reported where Python reports it). The default account's own folder (`<agent root>/.claude`) is still resolved under the lock: it comes from the environment, not from the caller.
+12. A body of 95,000 distinct keys (about 1 MiB) is scanned in linear time (`key_order`), and the scan runs in the blocking task, not on an async worker.
+13. A fact, not a choice: the in-process `WRITE_LOCK` is not what makes the concurrent test pass (six writers also pass without it, because `BEGIN IMMEDIATE` and the 5 s busy timeout are enough); it is kept.
+14. A `413` also answers a body whose read fails (a broken connection): no client is left to read it.
 
 Stale reference (report only): `docs/release/rust-v0.2.0.md` "not in this release" should drop the workspace and account writes.
 

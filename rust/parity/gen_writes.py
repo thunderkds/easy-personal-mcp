@@ -364,6 +364,8 @@ PATHS = [
     "/a/b", "//a", "///a/b", "/a//b/", "/a/./b", "/a/../b", "/../..", "/", "//", "/a/../../x", "/a/b/..", "/a/b/.", "/a/b/\\", "  /a/b  ",
     "/é/ü", "/a/ b /c", "/" + "a" * 300, "@W@/link", "@W@/link/x/../y", "@W@/link/..", "@W@/rel", "@W@/rel/z", "@W@/dangle", "@W@/dangle/x",
     "@W@/loop-a", "@W@/loop-a/x", "@W@/file", "@W@/file/x", "@W@/deep/../link", "@W@/chain1", "@W@/dir-link/real", "relative", ".", "", "   ", "a\u0000b", 5,
+    # T054: a chain of 30 links that doubles at every hop, a loop of three links, a link to itself
+    "@W@/hop0", "@W@/hop0/real", "@W@/tri-a", "@W@/tri-a/x", "@W@/tri-c/x", "@W@/selfie", "@W@/selfie/x",
 ]
 
 
@@ -382,6 +384,13 @@ def path_corpus(base: Path) -> dict:
     (work / "loop-b").symlink_to(work / "loop-a")
     (work / "chain1").symlink_to(work / "link")
     (work / "dir-link").symlink_to(work / "deep" / "..")
+    for i in range(30):  # hop0 -> hop1/hop1 -> ... -> hop30 -> `.`: 2**30 expansions without a cache of resolved links
+        (work / f"hop{i}").symlink_to(f"hop{i + 1}/hop{i + 1}")
+    (work / "hop30").symlink_to(".")
+    (work / "tri-a").symlink_to("tri-b")
+    (work / "tri-b").symlink_to("tri-c")
+    (work / "tri-c").symlink_to("tri-a")
+    (work / "selfie").symlink_to("selfie")
     out = []
     for text in PATHS:
         arg = text.replace("@W@", str(work)) if isinstance(text, str) else text
