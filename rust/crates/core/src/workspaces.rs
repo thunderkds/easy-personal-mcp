@@ -249,6 +249,18 @@ pub fn write_session<T>(
     detect_in: Option<&Path>,
     work: impl FnOnce(&Connection) -> Done<T>,
 ) -> Done<T> {
+    session(path, detect_in, || {}, work)
+}
+
+/// [`write_session`] with a point between the read-only probe and the write open (`after_probe`, a no-op in production), so
+/// a test can remove the store inside that window. The write handle is `open_existing_for_write`: a store removed in the
+/// window is refused (`WriteError::Io(NotFound)`) and is not created again.
+fn session<T>(
+    path: &Path,
+    detect_in: Option<&Path>,
+    after_probe: impl FnOnce(),
+    work: impl FnOnce(&Connection) -> Done<T>,
+) -> Done<T> {
     let probe = store::open_checked(path).map_err(WriteFail::Store)?;
     let has_tables: bool =
         probe.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master)", [], |r| {
@@ -258,7 +270,8 @@ pub fn write_session<T>(
     if !has_tables {
         return Err(WriteFail::Store(StoreError::NoStore));
     }
-    let mut store = writer::open_for_write(path).map_err(WriteFail::Write)?;
+    after_probe();
+    let mut store = writer::open_existing_for_write(path).map_err(WriteFail::Write)?;
     if let Some(root) = detect_in {
         crate::ingest::accounts::detect(&mut store, root).map_err(WriteFail::Write)?;
     }
@@ -730,7 +743,46 @@ pub fn delete(conn: &Connection, id: i64, yes: bool) -> Done<Outcome> {
 
 #[cfg(test)]
 mod tests {
-    use super::name_of;
+    use super::{WriteFail, name_of, session};
+    use crate::writer::{WriteError, open_for_write};
+
+    /// A store removed between the read-only probe and the write open is refused and not created again (T055; T054 left
+    /// it recreated as an empty v11 store).
+    #[test]
+    fn a_store_removed_after_the_probe_is_refused_and_not_created() {
+        let dir =
+            std::env::temp_dir().join(format!("easy-personal-rs-t055-race-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("store.sqlite");
+        drop(open_for_write(&path).unwrap());
+        let got = session(
+            &path,
+            None,
+            || {
+                for suffix in ["", "-wal", "-shm"] {
+                    let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
+                }
+            },
+            |_| Ok(()),
+        );
+        let left: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name())
+            .collect();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            matches!(
+                got,
+                Err(WriteFail::Write(WriteError::Io(
+                    std::io::ErrorKind::NotFound
+                )))
+            ),
+            "{got:?}"
+        );
+        assert!(left.is_empty(), "something was created: {left:?}");
+    }
 
     /// Expected values are Python's `Path(key).name or key` for the same keys.
     #[test]
