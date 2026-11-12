@@ -170,17 +170,18 @@ fn writes_and_an_ingest_share_the_wal_store_without_a_lock_error() {
         requests += 1;
     }
     let out = ingest.wait(Duration::from_secs(120));
-    println!(
-        "writes while ingesting: {requests} rounds of 2-3 requests, {retries} designed 503 answers retried, ingest stored {} new events (exit {:?})",
-        out.new_events(),
-        out.code
-    );
+    // the exit status and both streams are judged before stdout is parsed: a failed child has no JSON to parse
     assert_eq!(
         out.code,
         Some(0),
         "the ingest child failed: stdout {:?}, stderr {:?}",
         out.stdout,
         out.stderr
+    );
+    println!(
+        "writes while ingesting: {requests} rounds of 2-3 requests, {retries} designed 503 answers retried, ingest stored {} new events (exit {:?})",
+        out.new_events(),
+        out.code
     );
     assert!(
         requests >= 2,
