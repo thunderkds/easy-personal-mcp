@@ -799,3 +799,89 @@ cargo test && cargo clippy --all-targets -- -D warnings
 ```
 
 Tests build their own temp stores and never open `~/.easy-personal`.
+
+## Live tail engine (T049)
+
+`easy_personal_core::live` is the engine of Python's live tail (`src/easy_personal/core/live.py`, FR-043..FR-049,
+FR-071, FR-081..FR-083, FR-086): `LiveTail::poll_once(roots, now, store)` (or `poll_store(store_path, projects_override,
+now)`, which opens the store with `store::open_checked` for that one step) walks each account's `projects/` tree (main and
+`subagents/` files), reads only complete new lines from a per-file offset, and keeps the same metadata events (a buffer of
+2,000 with ids from 1), per-session state (totals, kit stage, open calls, failing / waiting / needs attention, sub-agent
+types) and snapshots as Python. `events_since`, `rolled_past`, `snapshot`, `last_id` and `state_version` mirror Python's
+methods. There is no thread and no clock inside: `now` (microseconds, UTC) is an input.
+
+**Ported**: `_item`, `_safe`, `_bash_label`, `_call_label`, `_meta_agent_type`, `_jsonl_files`, `_cursor`, `_scan`, `_warm`,
+`_follow` (its publish path), `_publish`, `_agent_of`, `_set_stage`, `_pair`, `_evaluate`, `_attention`, `_count_usage`,
+`_append`, `snapshot`. The parser is the existing `ingest::claude_code::parse_record`; projects go through
+`ingest::folders::resolve_project` (widened to `pub(crate)`, no change), costs through `prices.rs`.
+
+**Not ported here**: the polling thread, `GET /api/live`, SSE framing and `Last-Event-ID` (T056); the kit-trace feed and the
+app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `live_open_call_minutes` 10 are fixed).
+
+**Decided for you** (where Rust differs from Python on purpose):
+
+1. Publish-only: the engine never writes the store and never creates or takes `ingest.lock` (the owner's Path 1). Every
+   line is published from the tail's own offset, which is Python's FR-071 path. Python as shipped stores what it reads, so
+   after a file shrinks in place (same inode) its cursor is its own; here the cursor is what the scheduled ingest stored. A
+   file rewritten shorter but still at least as long as the stored cursor restarts at that cursor (Python: at 0 once it
+   had stored past the new size). The oracle does not cover that case.
+   **What "read-only" means for the store**: it is opened with `store::open_checked` (SQLite read-only flag,
+   `query_only`). The store is WAL; when its `-wal` / `-shm` files are absent (no other connection open), SQLite creates
+   them for the read and may leave them. The store file's bytes and mtime never change and no WAL frame is written;
+   no `ingest.lock` and no `-journal` appear.
+2. Hostile files: every `*.jsonl` and `*.meta.json` is opened `O_NOFOLLOW | O_NONBLOCK` and judged on the open handle (a
+   regular file, the scanned inode). A symlinked transcript is not followed (Python follows it); a file whose open fails
+   for any reason is skipped for this step (Python's poll stops at any error but `FileNotFoundError`).
+3. One line is held to at most 32 MiB (`MAX_LINE_BYTES`): a longer line is skipped once its newline arrives (no event;
+   Python parses it); until then the file waits without holding more than the bound.
+4. `MAX_BATCH_LINES` (500) is the publish batch, as in Python, which reads every new line of a file in one poll: the
+   engine does the same, so batch boundaries (and `state_version`) equal Python's.
+5. The roots and the account labels are read on every step (Python refreshes them once a second). A step whose store
+   is missing, busy, newer or broken, or whose account rows, cursors or labels cannot be read, **skips its scan**: no
+   offset is dropped, the first scan is not used up (the warm start still runs on the first good step), and only the
+   time-based states move; no error text. (Python raises before it prunes or marks the first scan done, so it never
+   reaches this state; T049 fix round, item 2.)
+6. A lone surrogate in a Bash command reaches `jobs::command_name` as U+FFFD (Python passes the surrogate); the first word
+   must then pass the ASCII label pattern, so the label is `None` either way.
+7. Python's one-time warning for a block without an id is not logged (the core has no logger); the block is not tracked,
+   as in Python.
+8. Token sums in the snapshot and a message's growth (`new - old`) saturate at the `i64` bounds (Python's ints are
+   exact); a hostile value never panics or wraps. `rolled_past(i64::MAX)` is `false` (no overflow on a client's
+   `Last-Event-ID`). Rust-only test, no golden (Python's exact answer cannot be held in an `i64`).
+9. A warm start bumps `state_version` even when the file's open fails (as Python's `finally` does when `_warm` raises
+   after the bump point); the file is then skipped for that step. Difference: Python opens a file over 64 MiB (to find
+   the first line start) before its `try`, so a failed open there does not bump `state_version`; Rust always bumps.
+10. A transcript whose file name is not valid UTF-8 is skipped (Python yields it through `surrogateescape`).
+11. A `cwd` holding a lone surrogate makes the whole record abstain (the shared parser's rule, `ingest/claude_code.rs`;
+    Python crashes binding it).
+12. A file replaced (new inode) between the scan and the open is skipped for that step and picked up by the next.
+13. Root and override path strings are used as given (`Path::join`), not normalised the way Python's `Path` drops repeated
+    or trailing separators; a cursor row is matched on the path text the scan produces.
+14. AC 6's "at most 500 lines per file per step" is implemented as Python's 500-line batches, looped until the file's
+    complete lines are read in that step (item 4): equality with Python wins over a per-step cap. The Supervisor accepts
+    or rejects this explicitly.
+15. The open flags come from the crate's one per-arch table (`report_files::sys::{O_NOFOLLOW, O_NONBLOCK}`, widened to
+    `pub(crate)`): Linux on the listed arches, and macOS on purpose (its `0x4` / `0x100` in the fallback `sys`, so the
+    core still compiles there as `rust/PROJECT_SPEC.md` plans). Any other target fails to compile, also on purpose. No
+    darwin target is installed here: the macOS branch was checked by a cfg proxy in a scratch copy (fallback `sys` made
+    active on Linux, `cargo check -p easy-personal-core --all-targets` finished), not by a real macOS build.
+16. Same as Python, accepted unless the owner overrules: (a) when a root's files disappear for one step and come back
+    (the project folder unreadable for a step, or an account flipped confirmed -> ignored -> confirmed), their offsets
+    are pruned and the files are read again from byte 0, so that history is published again; (b) a store with zero
+    confirmed accounts (and no override) still completes the first scan, so the first account confirmed later has its
+    whole history published, with no warm start. Python prunes offsets and sets `_primed` the same way.
+
+**Tests** (`crates/core/tests/live_parity.rs`, 15 tests, oracle `parity/golden-live/` from `parity/gen_live.py`). Fix
+round: `scripts-2.json` (6 scripts, 39 steps: accounts with a confirmed `Work` row and a detected NULL-label row, all 19
+mapped skills one per step, and the boundaries `META_WAIT_S`, `FORGET_AFTER_S`, `OPEN_CALL_MAX_S`, `MAX_BATCH_LINES`),
+`labels-2.json` (`COMMAND_READ_CHARS` at 4096/4097/4098); Rust-only: a failed store step and a failed first step, huge
+token values, 100,000 calls paired, the 64 MiB warm-start trim. 14 mutants of `live.rs` (stage values, the five bounds)
+each turn a test red. First round: 28 lines
+against Python's `_item` (AC 1); 100 label inputs against `_safe` / `_bash_label` / `_call_label` (AC 2); 10 scripts, 72
+steps, events and snapshot equal to Python after every step (pairing, failing, waiting, stage, streams with sub-agent meta
+files, usage, files with offsets / partial lines / truncation / replacement / 1,203 lines, warm start, a 2,001-event buffer
+with `events_since` / `rolled_past` probes, idle sessions and a clock going back) (AC 4-7); hostile files under a 60 s
+timeout (AC 8); over a WAL store: the store file, transcripts and folders byte- and mtime-unchanged, an empty `-wal` if
+any (`-wal` / `-shm` may appear), no lock or journal file (AC 9); canaries in
+text, thinking, tool content, tool inputs and a meta `description` absent from every event, snapshot and `Debug` line
+(AC 10).

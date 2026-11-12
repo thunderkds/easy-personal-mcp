@@ -133,7 +133,7 @@ fn discover(root: &Path, skipped: &mut i64) -> Vec<PathBuf> {
 /// `discovery.resolve_project`: a `cwd` that is not an existing folder is its own project; else its git repo (a
 /// worktree gives its main repo, `metrics::repo_of`, 5 s per git call), else the `cwd` itself. A relative `cwd` is
 /// looked up from `base`, the returned text is the `cwd` as written when git gives no answer.
-fn resolve_project(cwd: &str, base: &Path) -> String {
+pub(crate) fn resolve_project(cwd: &str, base: &Path) -> String {
     let folder = base.join(cwd);
     if !folder.is_dir() {
         return cwd.to_owned();

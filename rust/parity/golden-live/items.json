@@ -1,0 +1,360 @@
+{
+ "items": [
+  {
+   "item": {
+    "events": [
+     {
+      "block_id": "t1",
+      "is_error": false,
+      "kind": "tool_use",
+      "label": "code-review",
+      "tool": "Skill"
+     },
+     {
+      "block_id": "t2",
+      "is_error": false,
+      "kind": "tool_use",
+      "label": "ls",
+      "tool": "Bash"
+     }
+    ],
+    "is_sidechain": false,
+    "message_id": "m1",
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": [
+     "m1",
+     "claude-haiku-5-5",
+     10,
+     2,
+     3,
+     4,
+     false
+    ]
+   },
+   "line": "{\"type\": \"assistant\", \"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"content\": [{\"type\": \"text\", \"text\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"thinking\", \"thinking\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"tool_use\", \"name\": \"Skill\", \"input\": {\"skill\": \"code-review\"}, \"id\": \"t1\"}, {\"type\": \"tool_use\", \"name\": \"Bash\", \"input\": {\"command\": \"ls -la\"}, \"id\": \"t2\"}], \"id\": \"m1\", \"usage\": {\"input_tokens\": 10, \"output_tokens\": 2, \"cache_creation_input_tokens\": 3, \"cache_read_input_tokens\": 4}, \"model\": \"claude-haiku-5-5\"}}\n"
+  },
+  {
+   "item": {
+    "events": [
+     {
+      "block_id": "t3",
+      "is_error": false,
+      "kind": "tool_use",
+      "label": {
+       "server": "srv",
+       "tool": "do_it"
+      },
+      "tool": "mcp__srv__do_it"
+     },
+     {
+      "block_id": null,
+      "is_error": false,
+      "kind": "tool_use",
+      "label": null,
+      "tool": "Read"
+     }
+    ],
+    "is_sidechain": false,
+    "message_id": "m2",
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:02.000000Z",
+    "usage": null
+   },
+   "line": "{\"type\": \"assistant\", \"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:02.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"content\": [{\"type\": \"text\", \"text\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"thinking\", \"thinking\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"tool_use\", \"name\": \"mcp__srv__do_it\", \"input\": {\"prompt\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\", \"description\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, \"id\": \"t3\"}, {\"type\": \"tool_use\", \"name\": \"Read\", \"input\": {\"prompt\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\", \"description\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}}, {\"type\": \"tool_use\", \"name\": \"bad name\", \"input\": {\"prompt\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\", \"description\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, \"id\": \"t4\"}, \"notadict\", 7], \"id\": \"m2\"}}\n"
+  },
+  {
+   "item": {
+    "events": [
+     {
+      "block_id": "t5",
+      "is_error": false,
+      "kind": "tool_use",
+      "label": null,
+      "tool": "Edit"
+     }
+    ],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:03.000000Z",
+    "usage": null
+   },
+   "line": "{\"type\": \"assistant\", \"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:03.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"content\": [{\"type\": \"text\", \"text\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"thinking\", \"thinking\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"tool_use\", \"name\": \"Edit\", \"input\": {\"prompt\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\", \"description\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, \"id\": \"t5\"}]}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": "m3",
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:04.000000Z",
+    "usage": null
+   },
+   "line": "{\"type\": \"assistant\", \"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:04.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"content\": [{\"type\": \"text\", \"text\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"thinking\", \"thinking\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"tool_result\", \"tool_use_id\": \"x\"}], \"id\": \"m3\"}}\n"
+  },
+  {
+   "item": {
+    "events": [
+     {
+      "block_id": "t1",
+      "is_error": true,
+      "kind": "tool_result",
+      "tool": null
+     },
+     {
+      "block_id": "t2",
+      "is_error": false,
+      "kind": "tool_result",
+      "tool": null
+     },
+     {
+      "block_id": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+      "is_error": true,
+      "kind": "tool_result",
+      "tool": null
+     }
+    ],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:05.000000Z",
+    "usage": null
+   },
+   "line": "{\"type\": \"user\", \"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:05.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": \"t1\", \"is_error\": true, \"content\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"tool_result\", \"tool_use_id\": \"t2\", \"is_error\": false, \"content\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, {\"type\": \"tool_result\", \"tool_use_id\": \"ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\", \"is_error\": true, \"content\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}]}}\n"
+  },
+  {
+   "item": {
+    "events": [
+     {
+      "block_id": "t9",
+      "is_error": false,
+      "kind": "tool_result",
+      "tool": null
+     }
+    ],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:06.000000Z",
+    "usage": null
+   },
+   "line": "{\"type\": \"user\", \"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:06.000000Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"message\": {\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": \"t9\", \"is_error\": \"yes\", \"content\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}]}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"user\", \"message\": {\"content\": [{\"type\": \"tool_use\", \"name\": \"Read\", \"input\": {\"prompt\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\", \"description\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}, \"id\": \"t6\"}]}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"user\"}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"user\", \"message\": {\"content\": \"text CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"user\", \"message\": \"flat\"}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": "m4",
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": {\"id\": \"m4\", \"content\": {\"type\": \"tool_use\"}}}\n"
+  },
+  {
+   "item": null,
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": \"no dict\"}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"system\", \"subtype\": \"x\", \"content\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"attachment\", \"attachment\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": null,
+    "project": null,
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:02.000000Z",
+    "usage": null
+   },
+   "line": "{\"type\": \"file-history-snapshot\", \"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:02Z\"}\n"
+  },
+  {
+   "item": null,
+   "line": "{\"type\": \"summary\", \"summary\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\", \"sessionId\": \"s1\"}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": true,
+    "message_id": "m5",
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"isSidechain\": true, \"message\": {\"id\": \"m5\", \"content\": []}}\n"
+  },
+  {
+   "item": null,
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": null, \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": {\"id\": \"m6\"}}\n"
+  },
+  {
+   "item": null,
+   "line": "{\"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"user\"}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": "m7",
+    "project": null,
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": {\"id\": \"m7\"}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": "m8",
+    "project": "/",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": {\"id\": \"m8\"}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": "m9",
+    "project": "..",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/a/b/..\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": {\"id\": \"m9\"}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": "m10",
+    "project": "proj",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": null
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"rel/proj/\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": {\"id\": \"m10\"}}\n"
+  },
+  {
+   "item": null,
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"message\": {\"id\": \"m11\", \"usage\": {\"input_tokens\": null}}}\n"
+  },
+  {
+   "item": {
+    "events": [],
+    "is_sidechain": false,
+    "message_id": "m12",
+    "project": "demo",
+    "session_id": "s1",
+    "ts": "2026-01-20T00:00:01.000000Z",
+    "usage": [
+     "m12",
+     "nope",
+     1,
+     2,
+     3,
+     4,
+     true
+    ]
+   },
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:01Z\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"assistant\", \"isApiErrorMessage\": true, \"message\": {\"id\": \"m12\", \"model\": \"nope\", \"usage\": {\"input_tokens\": 1, \"output_tokens\": 2, \"cache_creation_input_tokens\": 3, \"cache_read_input_tokens\": 4}}}\n"
+  },
+  {
+   "item": null,
+   "line": "{\"sessionId\": \"s1\", \"timestamp\": \"2026-01-20T00:00:03\", \"cwd\": \"/work/demo\", \"version\": \"2.0.0\", \"type\": \"user\"}\n"
+  },
+  {
+   "item": null,
+   "line": "[1, 2]\n"
+  },
+  {
+   "item": null,
+   "line": "not json\n"
+  }
+ ],
+ "source": "claude_code"
+}

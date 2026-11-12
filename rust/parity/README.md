@@ -431,3 +431,28 @@ cd rust && cargo test -p easy-personal-core --test writes_parity    # replays th
 ```
 
 The tests assert the exact numbers, so a dropped or added case fails until the numbers are changed on purpose. Python's own crashes (5xx) are not in the oracle: the generator stops on one.
+
+## Live tail (T049)
+
+What Python's live tail (`easy_personal.core.live`, imported read-only) answers. `gen_live.py` writes `golden-live/`:
+
+- `items.json`: 28 transcript lines and `live._item(record, claude_code.parse_record(record, identity))` for each;
+- `labels.json`: 100 inputs (stored as JSON text, so a lone surrogate survives) and `_safe`, `_bash_label`, `_call_label`;
+- `scripts.json`: 10 scripts, 72 steps. Each step is a list of file operations on a temp `projects/` tree (write, append,
+  replace, delete, mtime, store cursor, symlink) and a frozen `now`; after `LiveTail.poll_once` the generator keeps the new
+  buffered events (or their count), the snapshot and, for the buffer script, `events_since` / `rolled_past` probes.
+- `scripts-2.json` (T049 fix round, a separate file so the three above stay byte-identical): 6 scripts, 39 steps, same
+  format plus an `account` operation (an `agent_accounts` row): `accounts` (a confirmed `Work` account and a detected
+  row with a NULL label, a transcript under each root), `stage_all` (each of the 19 mapped skills, one per step),
+  `meta_wait` (`META_WAIT_S` at 29 s and 30 s), `forget` (`FORGET_AFTER_S` at 1 h and 1 h + 1 µs), `open_max`
+  (`OPEN_CALL_MAX_S` at 24 h and 24 h + 1 µs), `batch` (501 lines: failing at the end of the first 500-line batch);
+- `labels-2.json`: 3 inputs, a `cd` prefix whose command is cut at `COMMAND_READ_CHARS` (4096, 4097, 4098 characters).
+
+Python runs as shipped, so it also stores what it reads in its temp store; the Rust engine is publish-only. The scripts keep
+to cases where that cannot change an answer (see `rust/README.md`, "Live tail engine (T049)", item 1). The temp folders are
+made under `rust/target/` and removed; `EASY_PERSONAL_HOME` and `EASY_PERSONAL_CLAUDE_PROJECTS` point at them.
+
+```bash
+rust/parity/.venv/bin/python rust/parity/gen_live.py            # rewrites rust/parity/golden-live/ (a re-run changes nothing)
+cd rust && cargo test -p easy-personal-core --test live_parity  # replays all of it; asserts exactly 28 items, 100 + 3 labels, 72 + 39 steps
+```
