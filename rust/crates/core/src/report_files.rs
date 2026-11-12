@@ -153,6 +153,13 @@ pub(crate) mod sys {
     use std::fs::File;
     use std::io;
 
+    // macOS's `O_NONBLOCK` / `O_NOFOLLOW` for the live tail (`live.rs`). macOS only, on purpose: any other target this
+    // table does not list fails to compile there instead of opening with a wrong flag.
+    #[cfg(target_os = "macos")]
+    pub(crate) const O_NONBLOCK: i32 = 0x4;
+    #[cfg(target_os = "macos")]
+    pub(crate) const O_NOFOLLOW: i32 = 0x100;
+
     fn unsupported<T>() -> io::Result<T> {
         Err(io::ErrorKind::Unsupported.into())
     }

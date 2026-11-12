@@ -849,7 +849,10 @@ app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `li
     complete lines are read in that step (item 4): equality with Python wins over a per-step cap. The Supervisor accepts
     or rejects this explicitly.
 15. The open flags come from the crate's one per-arch table (`report_files::sys::{O_NOFOLLOW, O_NONBLOCK}`, widened to
-    `pub(crate)`): a target it does not list (non-Linux, or an arch not in its list) fails to compile.
+    `pub(crate)`): Linux on the listed arches, and macOS on purpose (its `0x4` / `0x100` in the fallback `sys`, so the
+    core still compiles there as `rust/PROJECT_SPEC.md` plans). Any other target fails to compile, also on purpose. No
+    darwin target is installed here: the macOS branch was checked by a cfg proxy in a scratch copy (fallback `sys` made
+    active on Linux, `cargo check -p easy-personal-core --all-targets` finished), not by a real macOS build.
 
 **Tests** (`crates/core/tests/live_parity.rs`, 13 tests, oracle `parity/golden-live/` from `parity/gen_live.py`). Fix
 round: `scripts-2.json` (6 scripts, 39 steps: accounts with a confirmed `Work` row and a detected NULL-label row, all 19
