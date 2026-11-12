@@ -1,7 +1,11 @@
 //! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
-//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}` and `/api/first-run` (read-only; T040: an id that is not
+//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
+//! `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500).
+//! All are `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
+//! calls of `jobs.rs` (the first word of an agent command only); `/api/kit/report-file` reads one capped file of a
+//! report folder by handle (`report_files.rs`). The others read the store.
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
 //! the goldens in `rust/parity/golden*/` are the oracle. Every route sits behind the guard in `server.rs`.
 //! The first six take the optional `workspace` (a name) and `account` (an id or a label) and pass them to the core's scoped
@@ -10,8 +14,9 @@
 //! The two workspace routes are read-only (the writes of Python's `/api/workspaces` stay absent: those methods are 405)
 //! and, like Python's `_query` handlers, ignore the whole query string.
 //!
-//! Each request reads the store on its own: a new read-only connection inside `spawn_blocking` (never on an async
-//! worker), closed when the answer is built. The server never creates or writes the store. The core's JSON is passed
+//! Each request that reads the store does so on its own: a new read-only connection inside `spawn_blocking` (never on an
+//! async worker), closed when the answer is built (`/api/dirs`, `/api/jobs` and `/api/version` do not open it). The
+//! server never creates or writes the store. The core's JSON is passed
 //! through as a `serde_json::Value`; no body carries a path, SQL or row text (NFR-002): a store problem becomes one of
 //! a few fixed texts.
 

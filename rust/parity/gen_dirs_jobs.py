@@ -137,6 +137,20 @@ MAILTO=nobody@example.invalid
 1 2 3 4
 """
 
+CRON_STEPS = """1/9223372036854775807 * * * * claude -p huge-step
+0 1/9223372036854775807 * * * claude -p huge-hour-step
+*/9223372036854775807 * * * * claude -p huge-star-step
+1-30/9223372036854775807 * * * * claude -p huge-range-step
+1/99999999999999999999999 * * * * claude -p step-beyond-64-bits
+*/0 * * * * claude -p step-zero
+5/0 * * * * claude -p first-step-zero
+*/-1 * * * * claude -p step-minus-one
+*/-9223372036854775808 * * * * claude -p step-min
+*/100 * * * * claude -p step-wider-than-range
+30/100 * * * * claude -p first-step-wider-than-range
+*/20 * * * * claude -p ordinary-step
+"""
+
 TIMERS = [
     {"unit": "easy-personal-ingest.timer", "activates": "easy-personal-ingest.service", "next": 1_793_444_400_000_000, "last": 1_793_433_606_000_000},
     {"unit": "kit-check.timer", "activates": "kit-check.service", "next": 1_793_448_000_999_999, "last": 1_793_430_000_000_000},
@@ -180,6 +194,7 @@ def jobs_cases(root: Path) -> list[dict]:
         ("no_tools", dict(with_systemctl=False, with_crontab=False)),
         ("only_crontab", dict(crontab="0 7 * * * claude\n", with_systemctl=False)),
         ("empty", dict(timers=[], crontab="")),
+        ("cron_steps", dict(crontab=CRON_STEPS, with_systemctl=False)),  # T052: steps no 64-bit integer can add twice
     ]
     cases = []
     for name, kwargs in variants:

@@ -286,15 +286,50 @@ fn the_three_routes_equal_the_goldens_over_the_binary() {
 #[test]
 fn the_now_side_is_measured_on_the_request_for_the_saved_scope() {
     let s = Server::with_store("store-rich/store-v11.sqlite");
-    // the system clock is far past the fixture's week: every windowed rule abstains or is clear now, none fires
-    let body = s.authed("/api/reports/1").json();
-    let now_as_of = body["now_as_of_utc"].as_str().unwrap();
-    assert!(now_as_of > "2026-11", "{now_as_of}");
-    let rules = body["rules"].as_array().unwrap();
-    assert!(!rules.is_empty());
-    for rule in rules {
-        assert!(rule["now"]["state"].is_string(), "{rule}");
-        assert_ne!(rule["now"]["state"], "fired", "{rule}");
+    // the binary reads the system clock, so no value of the now side is asserted: only that it was measured at all (a
+    // state per rule, a time of its own that is not the saved one) for the report's saved scope (report 2 is the acme one)
+    for id in [1, 2] {
+        let body = s.authed(&format!("/api/reports/{id}")).json();
+        let now_as_of = body["now_as_of_utc"].as_str().unwrap();
+        assert!(now_as_of.ends_with("+00:00"), "{now_as_of}");
+        assert_ne!(
+            now_as_of, body["as_of_utc"],
+            "measured on the request, not copied"
+        );
+        let rules = body["rules"].as_array().unwrap();
+        assert!(!rules.is_empty());
+        for rule in rules {
+            let state = rule["now"]["state"].as_str().unwrap();
+            assert!(
+                ["fired", "clear", "abstained", "not_in_use"].contains(&state),
+                "{rule}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_report_whose_fixes_or_snapshot_lack_what_save_writes_is_the_same_fixed_500() {
+    let s = Server::launch(|home| {
+        let store = home.join("store.sqlite");
+        std::fs::copy(parity("store-rich/store-v11.sqlite"), &store).unwrap();
+        rusqlite::Connection::open(&store)
+            .unwrap()
+            .execute_batch(
+                "UPDATE investigate_reports SET fixes_json = 'PRIVATE-FIXES-TEXT' WHERE id = 1; \
+                 UPDATE investigate_reports SET snapshot_json = json_remove(snapshot_json, '$.as_of_utc') WHERE id = 2",
+            )
+            .unwrap();
+    });
+    for id in [1, 2] {
+        let r = s.authed(&format!("/api/reports/{id}"));
+        r.assert_json(500);
+        assert_eq!(
+            r.json(),
+            json!({"error": "the saved report cannot be read"}),
+            "{id}"
+        );
+        assert!(!r.body.contains("PRIVATE-FIXES-TEXT"));
     }
 }
 

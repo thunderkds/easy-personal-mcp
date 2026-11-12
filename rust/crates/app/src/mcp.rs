@@ -1,7 +1,9 @@
 //! `mcp` subcommand: the MCP server on stdio with `ping`, `usage_summary`, `usage_breakdown` (T008), `session_outliers`
-//! (T020), `warnings` and `improvement_plan` (T015). `usage_summary`, `usage_breakdown`, `warnings` and
+//! (T020), `warnings` and `improvement_plan` (T015), `kit_summary`, `kit_findings`, `connector_catalog`,
+//! `connector_status`, `connector_suggestions` and `save_report` (the 12 tools of Python's `tools/list`). `usage_summary`, `usage_breakdown`, `warnings` and
 //! `improvement_plan` take an optional `workspace` and `account` (T019); `session_outliers` takes `since` and `until`
-//! only, as Python's tool does. `connector_catalog`, `connector_status` and `connector_suggestions` (T046) take no
+//! only, as Python's tool does. `kit_summary` takes the same `workspace` and `account` and `kit_findings` takes `limit`
+//! and `since`; `kit_summary` also reads the kit projects' own files and runs `git` (read-only). `connector_catalog`, `connector_status` and `connector_suggestions` (T046) take no
 //! argument; presence is never asked (no keychain, no `claude`: `suggestions::configured_ids`).
 //!
 //! `save_report` and the `investigate` prompt (T047): the prompt is fixed text (Python's, with the scope line); `save_report`

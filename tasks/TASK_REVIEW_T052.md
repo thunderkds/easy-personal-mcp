@@ -67,8 +67,34 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-12T04:19Z-04:20Z in this worktree, before any implementation commit; the new red tests and the
+new Python-made oracle cases were written first, no `src` file of the fixes was touched yet). The guide names no
+Demonstration command, so the commands are `cargo test -p easy-personal-core --lib` and `cargo test -p easy-personal-core
+--test <name>` from `rust/`, against the unfixed code:
+
+```
+$ cargo test -p easy-personal-core --lib            # 2026-11-12T04:19:53Z   (24 passed; 5 failed)
+---- jobs::tests::a_step_too_big_to_add_stops_the_field_instead_of_overflowing
+panicked at crates/core/src/jobs.rs:327:13:  attempt to add with overflow
+---- reports::tests::a_malformed_checked_entry_makes_the_whole_count_zero
+panicked at crates/core/src/reports.rs:663:9:  assertion `left == right` failed  left: 1  right: 0
+---- secret::tests::a_secret_behind_a_non_word_alphabetic_mark_is_found      panicked: "Ⓐsk-abc"
+---- secret::tests::word_is_pythons_w_for_every_code_point
+273 range(s) where `word` differs from Python's `\w`: [(345, 345), (363, 36F), (5B0, 5BD), ... (24B6, 24E9), ... (1F130, 1F149), (1F150, 1F169), (1F170, 1F189), ... (323B0, 33479)]
+---- accounts::read_json_tests::the_cap_is_applied_to_the_bytes_read_not_to_a_size_asked_for_earlier
+panicked at crates/core/src/accounts.rs:279:9:  more than 1 byte read against a cap of 1
+$ cargo test -p easy-personal-core --test jobs_parity            # 2026-11-12T04:20:27Z
+every_jobs_case_equals_python_and_asks_only_the_same_read_only_calls ... FAILED   panicked at jobs.rs:327:13: attempt to add with overflow
+$ cargo test -p easy-personal-core --test save_report_parity
+the_secret_check_matches_pythons_on_the_corpus ... FAILED    "Ⓐsk-abc"  left: false  right: true
+every_case_stores_or_refuses_what_python_did ... FAILED      del_in_fix: the stored row  fixes_json  left: "...\u{7f}..." (raw DEL)  right: "...\\u007f..."
+$ cargo test -p easy-personal-core --test lazy_fetch_env
+every_git_run_says_never_to_fetch_lazily ... FAILED   GIT_NO_LAZY_FETCH as each git run saw it: ["unset", "unset"]
+$ cargo test -p easy-personal-core --test writer_no_create
+error[E0432]: unresolved import `easy_personal_core::writer::open_existing_for_write`   (does not compile: the handle does not exist yet)
+$ rust/parity/.venv/bin/python rust/parity/leak_rust.py --self-test
+self-test tree digest     FAILED      (the digest skipped every file named argv.log, not only <plant>/bin/argv.log)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

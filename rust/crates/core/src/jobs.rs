@@ -1,8 +1,9 @@
 //! Scheduled jobs (FR-040): systemd user timers and crontab lines that run an agent command.
 //!
 //! Port of `src/easy_personal/core/jobs.py`. Read-only. The only processes started are the rows of [`READ_ONLY`]
-//! (`systemctl --user list-timers|show`, `crontab -l`), each with an argument list (never a shell), a cleared
-//! environment plus `LC_ALL=C`, a closed stdin, a read cap and a [`TIMEOUT`]. Only the command's first word
+//! (`systemctl --user list-timers|show`, `crontab -l`), each with an argument list (never a shell), the [`ProcessEnv`] it
+//! is given plus `LC_ALL=C` (the route passes this process's own environment, as Python does: the user bus variables
+//! are in it; the tests pass a `PATH` alone), a closed stdin, a read cap and a [`TIMEOUT`]. Only the command's first word
 //! (basename) leaves this module: arguments, the full `ExecStart` and environment lines are parsed in memory to find
 //! that word and then dropped. Each kind that cannot be read (no tool, no user bus, timeout) is `no data`; the other
 //! still lists.
@@ -282,7 +283,9 @@ pub fn command_name(line: &str) -> Option<String> {
 
 // ---- crontab ---------------------------------------------------------------------------------------------------
 
-/// Python's `int(text)` for the plain forms: an optional sign and digits (single `_` between digits allowed).
+/// Python's `int(text)` for the plain forms: an optional sign and digits (single `_` between digits allowed). A Python
+/// int has no limit; one beyond 64 bits is the nearest `i64`, which every use here (a bound against 0-59, a step) treats
+/// the same.
 fn py_int(text: &str) -> Option<i64> {
     let digits = text.strip_prefix(['+', '-']).unwrap_or(text);
     let clean = !digits.is_empty()
@@ -293,7 +296,12 @@ fn py_int(text: &str) -> Option<i64> {
     if !clean {
         return None;
     }
-    text.replace('_', "").parse().ok()
+    let number = text.replace('_', "");
+    Some(number.parse().unwrap_or(if number.starts_with('-') {
+        i64::MIN
+    } else {
+        i64::MAX
+    }))
 }
 
 fn field(text: &str, low: i64, high: i64) -> Option<BTreeSet<i64>> {
@@ -324,7 +332,10 @@ fn field(text: &str, low: i64, high: i64) -> Option<BTreeSet<i64>> {
         let mut n = first;
         while n <= last {
             out.insert(n);
-            n += step;
+            let Some(next) = n.checked_add(step) else {
+                break; // past every i64: Python's `range` ends here too
+            };
+            n = next;
         }
     }
     Some(out)
@@ -731,6 +742,40 @@ pub fn list_jobs_here(now_micros: i64) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jiff::civil::date;
+
+    /// Python's `set(range(first, last + 1, step))` for a step no `i64` can add twice: one value, and no panic or wrap.
+    #[test]
+    fn a_step_too_big_to_add_stops_the_field_instead_of_overflowing() {
+        let set = |v: &[i64]| Some(v.iter().copied().collect::<BTreeSet<i64>>());
+        assert_eq!(field("1/9223372036854775807", 0, 59), set(&[1]));
+        assert_eq!(field("*/9223372036854775807", 0, 59), set(&[0]));
+        assert_eq!(field("0-59/9223372036854775807", 0, 59), set(&[0]));
+        assert_eq!(field("5/99999999999999999999999", 0, 59), set(&[5])); // a Python int has no limit
+        assert_eq!(field("*/100", 0, 59), set(&[0])); // a step wider than the range
+        assert_eq!(field("*/20", 0, 59), set(&[0, 20, 40]));
+        // Python refuses a step below 1, and an out-of-range or negative bound
+        for bad in [
+            "*/0",
+            "*/-1",
+            "5/0",
+            "*/-9223372036854775808",
+            "-1/2",
+            "1/",
+            "1/x",
+        ] {
+            assert_eq!(field(bad, 0, 59), None, "{bad}");
+        }
+        let after = date(2026, 11, 11).at(10, 0, 0, 0);
+        for line in [
+            "1/9223372036854775807 * * * *",
+            "0 1/9223372036854775807 * * *",
+            "1/99999999999999999999999 * * * *",
+        ] {
+            assert!(next_cron(line, after).is_some(), "{line}");
+        }
+        assert_eq!(next_cron("*/-1 * * * *", after), None);
+    }
 
     #[test]
     fn only_the_read_only_calls_pass_the_allow_list() {

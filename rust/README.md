@@ -35,7 +35,8 @@ store file itself is not changed.
 
 `serve` binds `127.0.0.1` only, on a free port, and prints the same two lines as the Python app: `dashboard: http://127.0.0.1:<port>/#<token>`
 and `Ctrl-C to stop.` (no browser is opened yet). The token is 32 random bytes, new per run, and only appears in that URL fragment. The routes
-so far are `GET /api/version` -> `{"version": "<Cargo version>"}`, the six read routes, the two workspace routes and `GET /api/connectors` below. Every response carries the Python app's
+so far are `GET /api/version` -> `{"version": "<Cargo version>"}` and the read routes described in the sections below (usage, warnings and plan, workspaces, connectors, kit and
+its report files, saved reports and first-run, accounts, sync, folders and scheduled jobs); every one is a `GET`. Every response carries the Python app's
 `Content-Security-Policy`.
 The guard matches the Python app: `Host` must be `127.0.0.1:<port>`, an `Origin` if sent must be `http://127.0.0.1:<port>`, and every
 `/api/` path needs the `x-dashboard-token` header (a token in the query string is not accepted). Failures get `403 {"error": "forbidden"}`.
@@ -487,8 +488,10 @@ and two optional arguments; `initialize` advertises `prompts` (`{}`; Python adds
 JSON-RPC error (`Unknown prompt: nope`).
 
 *Decided for you.* (1) A wrong argument type gets a short fixed text; Python's pydantic text echoes the offending value (`input_value=...`), which for a summary would
-put the report text in an error. (2) The secret check is judged on text as Rust sees it: a combining mark that is part of a letter counts as a letter here and not
-in Python, so `<mark>sk-abc` is judged differently (corpus equal on all 86 strings). (3) Python crashes or stores oddly on a lone surrogate (`\ud800`) in the text and
+put the report text in an error. (2) The secret check's `\b` uses Python's `\w` (`str.isalnum()` or `_`), not Rust's wider `char::is_alphanumeric`: a table of the 273
+ranges where the two differ (circled and squared letters such as U+24B6, combining marks such as U+0345 and U+093F) is carried in `secret.rs`, and a test compares
+`word` with Python's answer for every code point (`golden-save-report/word_table.json`, made by `gen_word_table.py`); T052 closed the miss where `<circled letter>sk-abc` was saved
+(corpus equal on all 105 strings). The table follows the Unicode version of the Python that made it (16.0.0). (3) Python crashes or stores oddly on a lone surrogate (`\ud800`) in the text and
 on an integer above 64 bits or a float outside the double range: here the JSON line is a parse error (`-32700`) or the number is read as a double
 (`1e+23` for `10**23`), never a crash. (4) The scope is checked on a read-only handle, and the write handle opens only after the rules are measured, so Python's
 "measure then insert" has one extra step between them that no reader can see. (5) The store file's journal mode: a store still in `delete` mode (the test fixture
@@ -515,7 +518,7 @@ Tests: `crates/core/tests/kit_parity.rs` replays the 17 goldens of `golden-rich`
 `mcp__kit_summary__*`) and the 4 of `golden`, over a temp copy of the rich store whose `/work/rich/kit` paths point at a temp copy of `fixtures-rich/kit`
 (the temp folder must sort before `/work/rich`), and a hand-made store (`tests/kit_extra/extra.sql`, four git repos, report folders) against Python's answers
 (`tests/kit_extra/expected.json`, made by `make_expected.py` under `TZ=UTC`; `commits_by_day` is checked apart under each `TZ` against the C `date`).
-`crates/core/tests/kit_abstain.rs` (20 s: it waits for the 10 s limit twice) proves a hung `git` is `abstained`; `crates/app/tests/kit.rs` runs the three
+`crates/core/tests/kit_abstain.rs` (20 s, measured in T052 with a fake `git` that logs each start: two 5 s waits for the project's repository lookup, then the 10 s git-part limit once) proves a hung `git` is `abstained`; `crates/app/tests/kit.rs` runs the three
 routes and the tool over the real binaries (guard, 405, 400 texts, golden equality, `tools/list` text).
 
 Where this port differs from Python (Python raises there, so its HTTP answer is a 500 or a crash):
@@ -564,7 +567,8 @@ Decided for you (Rust differs from Python on purpose):
 - a file with **more than one hard link** is a 404 (Python serves it; a hard link to a file kept elsewhere is a name for outside content). The cost: a report file that something else
   also links to is listed as openable but not served. The case table has `hard.html` (to a file outside), `hard-in.html` and `linked.html` (both names of one file inside);
 - a path **part that starts with a dot** is a 404 (Python serves `.hidden.html`; `.html` alone, with no extension, is a 404 in both). The listing is Python's, so `.hidden.html` is listed as openable;
-- a **name that is not UTF-8** is left out of the listing and cannot be asked for (Python's JSON encoder fails on it: a 500 with a traceback). A report folder or repo whose name is not UTF-8 was already unlisted;
+- a **name that is not UTF-8** is left out of the listing and cannot be asked for (Python's route fails on it: a 500 with a traceback. Measured in T052: `os.listdir` gives a surrogate-escaped name; plain `json.dumps` escapes it
+  and does not fail, but Starlette's `JSONResponse` encodes with `ensure_ascii=False` and then to UTF-8 and raises `UnicodeEncodeError`). A report folder or repo whose name is not UTF-8 was already unlisted;
 - `/proc` must be mounted (a container without it answers 404 to every call: fail closed);
 - the repo folder is opened following symlinks (the owner put it there, as Python does), but the report folder under it, and every level below, may not be a symlink.
 
@@ -597,8 +601,34 @@ Decided for you (differences from Python, all on hostile or unusual input):
   `thresholds: kit_error_rate` is not read (the default 0.04 is used).
 - Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
 
-Not served yet: the other Python routes (`/api/sync`, `/api/memory-graph`, `/api/live`, the accounts and connector writes, the report files). The release note
-`docs/release/rust-v0.2.0.md` "not in this release" list still names these three; it is the Supervisor's to update.
+Not served yet: the other Python routes (`/api/memory-graph`, `/api/live`, and the workspace, account and connector writes). `/api/accounts`, `/api/sync` and the report files are served now. The release note
+`docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
+
+## Review fixes of waves 1-2 (T052)
+
+Each fix has a test that failed before it. Oracle cases were added by regenerating with Python (`gen_dirs_jobs.py`, `gen_save_report.py`, the new `gen_word_table.py`);
+`git diff --stat` shows insertions only in the `golden-*` folders, no existing case changed.
+
+- **Crontab steps** (`jobs.rs`): `1/9223372036854775807 * * * * claude` panicked in a debug build (`n += step`) and wrapped in a release build. The loop now stops on overflow, so the set is
+  Python's `range(first, last + 1, step)`. A step beyond 64 bits (`1/99999999999999999999999`) is read as the nearest `i64` (a Python int has no limit; it gave "unknown" here before).
+  A step of `0` or `-1` is refused as in Python. New oracle case `cron_steps` (12 lines) in `golden-jobs/jobs.json`; `/api/jobs` answers 200 with every row.
+- **DEL** (`reports.rs`): `0x7f` is escaped as `\u007f` in `fixes_json` and `snapshot_json`, as `json.dumps(ensure_ascii=True)`. Cases `del_in_summary`, `del_in_fix`.
+- **Secret word boundary** (`secret.rs`): see "Decided for you (2)" of the save section; the README claim there is corrected.
+- **Account files** (`accounts.rs` `read_json`): the file is opened once (`O_NONBLOCK`, so a pipe never blocks), judged on that handle, and read through `take(max + 1)`; more than the cap is "no file",
+  however the size changed since the open. A test reads `/proc/sys/kernel/pid_max` (size 0, more bytes than a cap of 1) and is skipped where there is no `/proc`.
+- **Hardening, decided here (Rust-only)**: (a) every `git` run (`run_git_timed`) carries `GIT_NO_LAZY_FETCH=1`, so a partial-clone repository can never make `rev-list` fetch over the network
+  (Python has the same gap; a test with a fake `git` reads the variable); (b) `save_report` opens its write handle with `open_existing_for_write`, without `SQLITE_OPEN_CREATE`: a store removed
+  between the read-only check and the write is refused (`WriteError::Io`) and not created again (ingest's `open_for_write` still creates); (c) the leak gate's tree digest skips only
+  `<plant root>/bin/argv.log`, not every file of that name (the gate's `--self-test` checks it).
+- **`fired_count`** (`/api/reports` list): a snapshot where any `checked` entry has no boolean `fired` counts 0 for the whole report (a partial count would look like a healthy one).
+  Tests: `{"checked":[{"fired":true},{}]}`, a `fixes_json` that is not JSON and a snapshot without `as_of_utc` (both a fixed 500 with none of the text).
+  The "now side" test no longer depends on the system clock.
+- **Stale text corrected**: the `mcp.rs` and `api.rs` headers, the routes list above, `jobs.rs` (the route passes this process's environment, as Python), `kit_abstain.rs` (the measured wait is
+  2 x 5 s + 10 s, not 10 s twice), `report_files.rs` (Python's non-UTF-8 failure is Starlette's encoder, not `json.dumps`), `parity/README.md` (the venv and `uv`), and "Not served yet".
+  `report-files` still lists a dot-file or a multi-link file as `openable` while `report-file` answers 404 for it (parity with Python's listing; documented in `report_files.rs`).
+- **Recorded, not fixed here**: the `TimersMonotonic` scan in `schedule()` is quadratic on 8 MiB of crafted `systemctl` text (Python's `(On\w+Sec=...)` regex is quadratic too: 0.18 s, 0.73 s,
+  3.06 s for 20, 40, 80 thousand characters of `On` repeated; the text is the user's own unit files); a reader thread that stays blocked when a killed child's grandchild keeps stdout open;
+  replacing the `/proc/self/fd` technique with `openat` (a `Cargo.toml` change); the per-request 10 MiB buffer of `report-file`.
 
 ## Test
 

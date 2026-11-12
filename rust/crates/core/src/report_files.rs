@@ -16,8 +16,15 @@
 //! target (macOS and Windows are later phases) compiles without them and answers `NotFound` to every call.
 //!
 //! The listing (`report_files`) is Python's: to `REPORT_DEPTH` levels, newest first (`-mtime`, then path), 200 at
-//! most, 2000 files counted; but it walks by handle too, and a name that is not UTF-8 is left out (Python's JSON
-//! encoder fails on it: a 500 with a traceback there).
+//! most, 2000 files counted; but it walks by handle too, and a name that is not UTF-8 is left out. Python's route fails
+//! on such a name (a 500 with a traceback): `os.listdir` gives a surrogate-escaped `str`, plain `json.dumps` (which
+//! escapes it as `\udcff`) would not fail, but Starlette's `JSONResponse` encodes with `ensure_ascii=False` and then to
+//! UTF-8, which raises `UnicodeEncodeError` (measured with the parity venv's Python, T052). The skip is a decided
+//! difference (README "Decided for you").
+//!
+//! The listing marks a file `openable` by its extension and size only (Python's rule), so a dot-file or a file with a
+//! second link is listed as `openable` while `report-file` answers 404 for it (the path rules and the link check apply
+//! there only): kept as it is, for parity with Python's listing.
 
 use crate::kit::file_time;
 use crate::metrics::MetricsError;

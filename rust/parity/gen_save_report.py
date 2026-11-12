@@ -47,6 +47,10 @@ CORPUS = [
     "", " ", "ordinary words about cache hits", "ask-me later", "task-1234", "disk-usage", "sk", "sk-", "sk--", "SK-abc",
     "ghp", "gh_abc", "ＡＫＩＡABCD", "Ａ" * 40, "٣" * 40, "ⅷ" * 40, "sk-é", "sk-٣", "emoji 🔑 sk-abc", "sk-́abc",
     "tab\tsk-abc", "line\nsk-abc", "line\r\n-----BEGIN", " sk-abc", " ghp_abc",
+    # T052: Other_Alphabetic characters that are not letters or digits are not `\w` in Python, so `\b` holds before `sk-`
+    "Ⓐsk-abc", "ⓩsk-abc", "ⓐghp_abc", "ͅsk-abc", "िsk-abc", "ःxoxb-1234", "̀sk-abc",
+    "\U0001f130sk-abc", "\U0001f150sk-abc", "\U0001f170sk-abc", "Ⅰsk-abc", "²sk-abc", "½sk-abc", "①sk-abc",
+    "xͅsk-abc", "ⒶAKIAABCD", "Ⓐgithub_pat_", "ͅ" + "a" * 32, "Ⓐ-----BEGIN",
 ]
 
 
@@ -116,6 +120,9 @@ def cases() -> list[dict]:
         one("unknown_account", account="nope"),
         one("unknown_scope_and_bad_text", summary="", workspace="nope"),
         one("secret_then_unknown_scope", summary="sk-abc", workspace="nope"),
+        # T052: DEL (0x7f) is escaped as \u007f by `json.dumps(ensure_ascii=True)`; the stored bytes must equal Python's
+        one("del_in_summary", summary="before\x7fafter"),
+        one("del_in_fix", fixes=[{"text": "trim\x7fthe prefix", "tool": "usage\x7fbreakdown", "number": "1\x7f2"}]),
     ]
 
 

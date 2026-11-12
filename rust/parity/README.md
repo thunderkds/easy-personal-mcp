@@ -24,6 +24,11 @@ rust/parity/.venv/bin/python -m pytest tests/surfaces/test_api.py -q   # the app
 
 (Neither `uv` command was run on the machine that wrote this note: `uv` is not installed there. The venv in use was built with a bare `pip install -e .`, as the next paragraph warns against.)
 
+Both routes need `uv` (the second one for `uv export`). The leak gate (`parity/leak_rust.py`, part of the verification command)
+and every `gen_*.py` run with this venv's interpreter, `rust/parity/.venv/bin/python`: without the venv none of them runs.
+`gen_word_table.py` (T052) writes `golden-save-report/word_table.json` from the Unicode data of the Python that runs it
+(`--check` compares); a different Python version can make it differ at the newest code points.
+
 Do not use a bare `pip install -e .`: it resolves the newest versions that `pyproject.toml` allows and ignores `uv.lock`, so the
 venv drifts (on 2026-11-10: starlette 1.10.0 installed against 1.9.0 locked, anyio 4.16.0 against 4.15.1, sse-starlette 3.7.0
 against 3.5.0). A new starlette can change a response body or a header, and then a regeneration on another machine writes

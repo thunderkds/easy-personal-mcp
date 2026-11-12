@@ -339,6 +339,34 @@ fn jobs_lists_what_the_fakes_say_and_nothing_else() {
     let _ = tree;
 }
 
+/// T052: a crontab step no 64-bit integer can add twice (`1/9223372036854775807`) used to panic the request thread (debug)
+/// or wrap (release); the route answers 200 with every line's row, as Python's set of `range(first, last + 1, step)`.
+#[test]
+fn crontab_steps_that_overflow_still_answer_200_with_every_row() {
+    let (server, _tree) = launch("cron_steps");
+    let got = server.get("/api/jobs");
+    assert_eq!(got.status, 200);
+    let body = got.json();
+    let golden = read_json("golden-jobs/jobs.json");
+    let case = golden["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["case"] == "cron_steps")
+        .unwrap();
+    let schedules = |v: &Value| -> Vec<(Value, bool)> {
+        v["jobs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|j| (j["schedule"].clone(), j["next_run"].is_null())) // next_run is counted from the real clock here
+            .collect()
+    };
+    assert_eq!(schedules(&body), schedules(&case["body"]));
+    assert_eq!(body["jobs"].as_array().unwrap().len(), 12);
+    assert_eq!(body["sources"], case["body"]["sources"]);
+}
+
 #[test]
 fn with_an_empty_path_both_kinds_are_no_data_and_the_route_still_answers_200() {
     let (server, _tree) = launch("");

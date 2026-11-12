@@ -243,12 +243,28 @@ fn status_line(
 
 /// Parsed JSON of a small regular file, or `None` when it is missing, not a file, too big, unreadable or not JSON
 /// (a literal `null` too, as Python's `_read_json` + `is None`). A folder or a pipe is never read.
+///
+/// The file is opened once (`O_NONBLOCK`, so a pipe never blocks the open), judged on that handle (a regular file) and read
+/// through `take(max + 1)`: more than `max` bytes is "too big" however the size changed since the open.
 fn read_json(path: &Path, max_bytes: u64) -> Option<Value> {
-    let meta = fs::metadata(path).ok()?;
-    if !meta.is_file() || meta.len() > max_bytes {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    /// The Linux value on x86, x86-64, arm, aarch64 and riscv64 (as in `report_files.rs`).
+    const O_NONBLOCK: i32 = 0o4000;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(O_NONBLOCK)
+        .open(path)
+        .ok()?;
+    if !file.metadata().ok()?.is_file() {
         return None;
     }
-    serde_json::from_slice(&fs::read(path).ok()?)
+    let mut data = Vec::new();
+    file.take(max_bytes + 1).read_to_end(&mut data).ok()?;
+    if data.len() as u64 > max_bytes {
+        return None;
+    }
+    serde_json::from_slice(&data)
         .ok()
         .filter(|v: &Value| !v.is_null())
 }
@@ -334,4 +350,52 @@ fn limits(account: &Account, now: i64) -> Value {
         "five_hour": five.map(|w| w.0), "seven_day": seven.map(|w| w.0),
         "written_at": iso(data.get("written_at")), "stale": stale,
     })
+}
+
+#[cfg(test)]
+mod read_json_tests {
+    use super::read_json;
+    use std::io::Write;
+
+    fn scratch(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "easy-personal-rs-t052-{tag}-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// The size is judged on what is read from the open file, not on a size looked up earlier: a file that says it is empty
+    /// (every `/proc` file) and prints more than the cap is refused. `pid_max` is a number (valid JSON) of 7 or 8 digits.
+    #[test]
+    fn the_cap_is_applied_to_the_bytes_read_not_to_a_size_asked_for_earlier() {
+        let proc = std::path::Path::new("/proc/sys/kernel/pid_max");
+        if !proc.is_file() {
+            return; // not Linux
+        }
+        assert_eq!(std::fs::metadata(proc).unwrap().len(), 0, "procfs says 0");
+        assert!(
+            read_json(proc, 1).is_none(),
+            "more than 1 byte read against a cap of 1"
+        );
+        assert!(read_json(proc, 64).is_some_and(|v| v.is_number()));
+    }
+
+    /// A file of exactly the cap reads, one byte more is refused, a folder is not read, a literal `null` is no file.
+    #[test]
+    fn the_cap_is_exact_and_only_a_regular_file_is_read() {
+        let dir = scratch("cap");
+        let file = dir.join("a.json");
+        let mut f = std::fs::File::create(&file).unwrap();
+        f.write_all(br#"{"a":1}"#).unwrap();
+        drop(f);
+        assert_eq!(read_json(&file, 7).unwrap()["a"], 1);
+        assert!(read_json(&file, 6).is_none());
+        assert!(read_json(&dir, 1 << 20).is_none(), "a folder");
+        assert!(read_json(&dir.join("missing.json"), 1 << 20).is_none());
+        std::fs::write(&file, "null").unwrap();
+        assert!(read_json(&file, 1 << 20).is_none(), "null is no file");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
