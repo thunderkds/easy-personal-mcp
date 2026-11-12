@@ -1,7 +1,7 @@
 //! The agent accounts list, read part of `src/easy_personal/core/accounts.py` (`_row`, `_with_picks`, `list_accounts`,
 //! `group_by_provider`, `status_lines`, `grouped`; HUN-62, HUN-115), served as `GET /api/accounts` (T041).
 //!
-//! Read-only, and **no account detection**: Python's `grouped` runs `detect(conn)` first, which INSERTs the `.claude*` /
+//! Read-only here (the writes are at the end of the file, T048), and **no account detection**: Python's `grouped` runs `detect(conn)` first, which INSERTs the `.claude*` /
 //! `.codex*` folders it finds. Here that stays in `ingest` (`ingest::accounts::detect`): a new account folder shows after
 //! the next ingest, not at page load (decision Q3). Nothing is written; the connection may be read-only.
 //!
@@ -13,6 +13,9 @@
 //! opened or listed; no key, token or other field of those files is read out. All SQL has bound values only.
 
 use crate::metrics::{DAY_MICROS, MetricsError, format_stored, is_dir};
+use crate::workspaces::{
+    WriteFail, begin, expanduser, is_constraint, py_strip, refuse, resolve_path,
+};
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -350,6 +353,245 @@ fn limits(account: &Account, now: i64) -> Value {
         "five_hour": five.map(|w| w.0), "seven_day": seven.map(|w| w.0),
         "written_at": iso(data.get("written_at")), "stale": stale,
     })
+}
+
+// ---- writes (T048) ----
+//
+// `add`, `confirm`, `ignore` and `use` of `accounts.py` and the `_get` / `_find` they share, store only. Each answers
+// the account row as `_get` does (no status line). A refusal is a [`WriteFail::Refused`] with Python's status (400, or
+// 404 `no such account`) and its fixed text, which never names the caller's input. The account detection Python runs
+// before each of these is `ingest::accounts::detect`, called by the route.
+
+type Done<T> = std::result::Result<T, WriteFail>;
+
+const MAX_LABEL: usize = 60;
+
+/// The agent root's `.claude` folder, resolved: the default account's (`accounts.py`: `agent_root() / ".claude"`).
+fn default_folder(agent_root: &Path) -> String {
+    resolve_path(&agent_root.join(".claude").to_string_lossy())
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// `_get`: the stored row with its `status` (`missing` when the folder is gone and the account is not ignored),
+/// `is_default` and the picked workspace names.
+fn get(conn: &Connection, id: i64, agent_root: &Path) -> Done<Value> {
+    let account = conn.query_row(
+        "SELECT id, provider, folder, label, status, config_dir_env FROM agent_accounts WHERE id = ?1",
+        [id],
+        |r| {
+            Ok(Account {
+                id: r.get(0)?,
+                provider: r.get(1)?,
+                folder: r.get(2)?,
+                label: r.get(3)?,
+                status: r.get(4)?,
+                env: r.get(5)?,
+            })
+        },
+    )?;
+    let status = if account.status != "ignored" && !is_dir(&account.folder) {
+        "missing"
+    } else {
+        account.status.as_str()
+    };
+    let names = picks(conn, id).map_err(WriteFail::from)?;
+    Ok(json!({
+        "id": account.id, "provider": account.provider, "label": account.label, "folder": account.folder,
+        "status": status, "config_dir_env": account.env,
+        "is_default": account.folder == default_folder(agent_root),
+        "workspaces": names,
+    }))
+}
+
+/// `_find`: the account id for an id (plain digits) or a folder path; 404 `no such account`.
+fn find(conn: &Connection, reference: &str) -> Done<i64> {
+    let reference = py_strip(reference);
+    let found: Option<i64> =
+        if !reference.is_empty() && reference.bytes().all(|b| b.is_ascii_digit()) {
+            match reference.parse::<i64>() {
+                Ok(id) => conn
+                    .query_row("SELECT id FROM agent_accounts WHERE id = ?1", [id], |r| {
+                        r.get(0)
+                    })
+                    .optional()?,
+                Err(_) => None, // past 64 bits: no account has it (Python's sqlite3 raises OverflowError: a 500)
+            }
+        } else {
+            find_folder(conn, &resolve_path(&expanduser(reference)))?
+        };
+    found.ok_or_else(|| refuse(404, "no such account"))
+}
+
+/// The account whose stored folder is this (already resolved) path.
+fn find_folder(conn: &Connection, folder: &Path) -> rusqlite::Result<Option<i64>> {
+    conn.query_row(
+        "SELECT id FROM agent_accounts WHERE folder = ?1",
+        [folder.to_string_lossy()],
+        |r| r.get(0),
+    )
+    .optional()
+}
+
+/// `confirm`: name an account and mark it confirmed; confirming again with a new label renames it. The label is
+/// stripped and must be 1 to 60 characters; that is checked before the account is looked up.
+pub fn confirm(
+    conn: &Connection,
+    reference: &str,
+    label: &Value,
+    agent_root: &Path,
+) -> Done<Value> {
+    let label = match label {
+        Value::String(text) => py_strip(text),
+        _ => "",
+    };
+    let length = label.chars().count();
+    if !(1..=MAX_LABEL).contains(&length) {
+        return Err(refuse(
+            400,
+            format!("label must be 1 to {MAX_LABEL} characters"),
+        ));
+    }
+    let id = find(conn, reference)?;
+    let tx = begin(conn)?;
+    match tx.execute(
+        "UPDATE agent_accounts SET status = 'confirmed', label = ?1 WHERE id = ?2",
+        params![label, id],
+    ) {
+        Ok(_) => {}
+        // the table's own length rule (it stops at a NUL, Python's `len` does not): Python raises, this refuses
+        Err(e) if is_constraint(&e) => {
+            return Err(refuse(
+                400,
+                format!("label must be 1 to {MAX_LABEL} characters"),
+            ));
+        }
+        Err(e) => return Err(e.into()),
+    }
+    tx.commit()?;
+    get(conn, id, agent_root)
+}
+
+/// `ignore`: the default account (`<agent root>/.claude`) cannot be ignored.
+pub fn ignore(conn: &Connection, reference: &str, agent_root: &Path) -> Done<Value> {
+    let id = find(conn, reference)?;
+    let folder: String = conn.query_row(
+        "SELECT folder FROM agent_accounts WHERE id = ?1",
+        [id],
+        |r| r.get(0),
+    )?;
+    if folder == default_folder(agent_root) {
+        return Err(refuse(400, "the default account cannot be ignored"));
+    }
+    let tx = begin(conn)?;
+    tx.execute(
+        "UPDATE agent_accounts SET status = 'ignored' WHERE id = ?1",
+        [id],
+    )?;
+    tx.commit()?;
+    get(conn, id, agent_root)
+}
+
+/// A folder for [`add`] after its filesystem work: the folder (resolved, UTF-8, an existing directory) and the path
+/// `_find` resolves for it afterwards.
+pub struct Folder {
+    name: String,
+    key: PathBuf,
+}
+
+/// The first half of `add`: the checks that need no store, and every resolution of a path. A route does this before it
+/// takes the write lock (a hostile link chain must not hold it) and passes the result to [`add`].
+pub fn prepare_add(path: &Value) -> Done<Folder> {
+    let not_a_folder = || refuse(400, "not an agent folder: it must be an existing directory");
+    let Value::String(text) = path else {
+        return Err(not_a_folder());
+    };
+    if py_strip(text).is_empty() || text.contains('\0') {
+        return Err(not_a_folder());
+    }
+    let folder = resolve_path(&expanduser(text));
+    let Some(name) = folder.to_str().filter(|_| folder.is_dir()) else {
+        return Err(not_a_folder());
+    };
+    // Python looks the new row up with `_find(str(folder))`, which strips the text and resolves it again
+    let key = resolve_path(&expanduser(py_strip(name)));
+    Ok(Folder {
+        name: name.to_string(),
+        key,
+    })
+}
+
+/// `add`: a folder by hand, anywhere; it must exist and pass the content check. A new one starts `detected`
+/// (`confirmed` as "Claude default" for the agent root's own `.claude`); one already stored is returned as it is.
+pub fn add(conn: &Connection, folder: Done<Folder>, agent_root: &Path) -> Done<Value> {
+    let Folder { name, key } = folder?;
+    let Some(provider) = crate::ingest::accounts::provider_of(Path::new(&name)) else {
+        return Err(refuse(
+            400,
+            "not an agent folder: no projects/, settings.json or config.toml",
+        ));
+    };
+    let tx = begin(conn)?;
+    crate::ingest::accounts::insert(&tx, provider, &name, name == default_folder(agent_root))?;
+    tx.commit()?;
+    let id = find_folder(conn, &key)?.ok_or_else(|| refuse(404, "no such account"))?;
+    get(conn, id, agent_root)
+}
+
+/// `use`: the workspaces a confirmed Claude account picks, by name (replaces the list; empty clears it). Changes only
+/// the store: syncing the account's Claude config is T050.
+pub fn use_workspaces(
+    conn: &Connection,
+    reference: &str,
+    names: &Value,
+    agent_root: &Path,
+) -> Done<Value> {
+    let id = find(conn, reference)?;
+    let (provider, status): (String, String) = conn.query_row(
+        "SELECT provider, status FROM agent_accounts WHERE id = ?1",
+        [id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    if (provider.as_str(), status.as_str()) != ("claude", "confirmed") {
+        return Err(refuse(
+            400,
+            "only confirmed Claude accounts pick workspaces",
+        ));
+    }
+    let names: Vec<&str> = match names {
+        Value::Array(list) => list.iter().map(Value::as_str).collect::<Option<_>>(),
+        _ => None,
+    }
+    .ok_or_else(|| refuse(400, "workspaces must be a list of workspace names"))?;
+    let mut ids = std::collections::BTreeSet::new();
+    for name in names {
+        let row: Option<(i64, i64)> = conn
+            .query_row(
+                "SELECT id, is_orphan FROM workspaces WHERE name = ?1",
+                [name],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        match row {
+            None => return Err(refuse(400, "unknown workspace")),
+            Some((_, orphan)) if orphan != 0 => {
+                return Err(refuse(400, "the orphan workspace cannot be picked"));
+            }
+            Some((workspace, _)) => {
+                ids.insert(workspace);
+            }
+        }
+    }
+    let tx = begin(conn)?;
+    tx.execute("DELETE FROM account_workspaces WHERE account_id = ?1", [id])?;
+    for workspace in ids {
+        tx.execute(
+            "INSERT INTO account_workspaces VALUES (?1, ?2)",
+            [id, workspace],
+        )?;
+    }
+    tx.commit()?;
+    get(conn, id, agent_root)
 }
 
 #[cfg(test)]

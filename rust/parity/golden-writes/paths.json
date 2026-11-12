@@ -1,0 +1,180 @@
+{
+ "cases": [
+  {
+   "input": "/a/b",
+   "ok": "/a/b"
+  },
+  {
+   "input": "//a",
+   "ok": "/a"
+  },
+  {
+   "input": "///a/b",
+   "ok": "/a/b"
+  },
+  {
+   "input": "/a//b/",
+   "ok": "/a/b"
+  },
+  {
+   "input": "/a/./b",
+   "ok": "/a/b"
+  },
+  {
+   "input": "/a/../b",
+   "ok": "/b"
+  },
+  {
+   "input": "/../..",
+   "ok": "/"
+  },
+  {
+   "input": "/",
+   "ok": "/"
+  },
+  {
+   "input": "//",
+   "ok": "/"
+  },
+  {
+   "input": "/a/../../x",
+   "ok": "/x"
+  },
+  {
+   "input": "/a/b/..",
+   "ok": "/a"
+  },
+  {
+   "input": "/a/b/.",
+   "ok": "/a/b"
+  },
+  {
+   "input": "/a/b/\\",
+   "ok": "/a/b/\\"
+  },
+  {
+   "input": "  /a/b  ",
+   "ok": "/a/b"
+  },
+  {
+   "input": "/é/ü",
+   "ok": "/é/ü"
+  },
+  {
+   "input": "/a/ b /c",
+   "ok": "/a/ b /c"
+  },
+  {
+   "input": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "ok": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+   "input": "@W@/link",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/link/x/../y",
+   "ok": "<WORK>/real/y"
+  },
+  {
+   "input": "@W@/link/..",
+   "ok": "<WORK>"
+  },
+  {
+   "input": "@W@/rel",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/rel/z",
+   "ok": "<WORK>/real/z"
+  },
+  {
+   "input": "@W@/dangle",
+   "ok": "<WORK>/nowhere"
+  },
+  {
+   "input": "@W@/dangle/x",
+   "ok": "<WORK>/nowhere/x"
+  },
+  {
+   "input": "@W@/loop-a",
+   "ok": "<WORK>/loop-a"
+  },
+  {
+   "input": "@W@/loop-a/x",
+   "ok": "<WORK>/loop-a/x"
+  },
+  {
+   "input": "@W@/file",
+   "ok": "<WORK>/file"
+  },
+  {
+   "input": "@W@/file/x",
+   "ok": "<WORK>/file/x"
+  },
+  {
+   "input": "@W@/deep/../link",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/chain1",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/dir-link/real",
+   "ok": "<WORK>/real"
+  },
+  {
+   "error": "repo path must be absolute or start with ~",
+   "input": "relative"
+  },
+  {
+   "error": "repo path must be absolute or start with ~",
+   "input": "."
+  },
+  {
+   "error": "repo path must be a non-empty string",
+   "input": ""
+  },
+  {
+   "error": "repo path must be a non-empty string",
+   "input": "   "
+  },
+  {
+   "error": "repo path must be a non-empty string",
+   "input": "a\u0000b"
+  },
+  {
+   "error": "repo path must be a non-empty string",
+   "input": 5
+  },
+  {
+   "input": "@W@/hop0",
+   "ok": "<WORK>"
+  },
+  {
+   "input": "@W@/hop0/real",
+   "ok": "<WORK>/real"
+  },
+  {
+   "input": "@W@/tri-a",
+   "ok": "<WORK>/tri-a"
+  },
+  {
+   "input": "@W@/tri-a/x",
+   "ok": "<WORK>/tri-a/x"
+  },
+  {
+   "input": "@W@/tri-c/x",
+   "ok": "<WORK>/tri-c/x"
+  },
+  {
+   "input": "@W@/selfie",
+   "ok": "<WORK>/selfie"
+  },
+  {
+   "input": "@W@/selfie/x",
+   "ok": "<WORK>/selfie/x"
+  }
+ ]
+}

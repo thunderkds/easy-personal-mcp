@@ -1,9 +1,10 @@
-//! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
+//! The dashboard API's routes: the read routes `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
 //! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
 //! `/api/board` and `/api/memory-graph` (T043), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
-//! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500).
-//! All are `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
+//! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
+//! and the seven store-only write routes of T048, which `writes.rs` serves.
+//! The read routes are all `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
 //! calls of `jobs.rs` (the first word of an agent command only); `/api/kit/report-file` reads one capped file of a
 //! report folder by handle (`report_files.rs`). The others read the store.
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
@@ -11,15 +12,18 @@
 //! The first six take the optional `workspace` (a name) and `account` (an id or a label) and pass them to the core's scoped
 //! functions; an unknown one is a 400 with the core's fixed text (it names none of the input). The sessions route
 //! always asks the core for 50 detailed sessions (`TIMELINE_DETAIL_SESSIONS` in Python): it has no parameter for it.
-//! The two workspace routes are read-only (the writes of Python's `/api/workspaces` stay absent: those methods are 405)
-//! and, like Python's `_query` handlers, ignore the whole query string.
+//! The two workspace read routes ignore the whole query string, like Python's `_query` handlers. The store-only writes (T048:
+//! `POST/PATCH/DELETE /api/workspaces[/{id}]`, `POST /api/accounts[/{id}/confirm|ignore]`, `PUT /api/accounts/{id}/workspaces`)
+//! are registered here and served by `writes.rs`; every other method of these paths is a 405.
 //!
 //! Each request that reads the store does so on its own: a new read-only connection inside `spawn_blocking` (never on an
-//! async worker), closed when the answer is built (`/api/dirs`, `/api/jobs` and `/api/version` do not open it). The
-//! server never creates or writes the store. The core's JSON is passed
+//! async worker), closed when the answer is built (`/api/dirs`, `/api/jobs` and `/api/version` do not open it). No read route
+//! creates or writes the store, and neither does start-up: only the seven write routes of `writes.rs` open it for writing,
+//! inside their request, and none creates a store. The core's JSON is passed
 //! through as a `serde_json::Value`; no body carries a path, SQL or row text (NFR-002): a store problem becomes one of
 //! a few fixed texts.
 
+use crate::writes;
 use axum::Router;
 use axum::extract::State;
 use axum::http::header::{
@@ -27,7 +31,7 @@ use axum::http::header::{
 };
 use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, patch, post, put};
 use easy_personal_core::accounts;
 use easy_personal_core::board;
 use easy_personal_core::clock::now_micros;
@@ -54,7 +58,7 @@ use std::sync::Arc;
 /// Answer for a store that is busy, not a regular file or unreadable. Fixed on purpose: the core's text for these
 /// can name a SQLite error code, and a body must never carry a path, SQL or row text.
 const UNREADABLE: &str = "the store cannot be read right now; try again in a moment";
-const INTERNAL: &str = "internal error";
+pub(crate) const INTERNAL: &str = "internal error";
 
 /// Sessions that carry `points` and `gaps` in `/api/usage/sessions` (Python's `TIMELINE_DETAIL_SESSIONS`: the page draws 50).
 const TIMELINE_DETAIL_SESSIONS: usize = 50;
@@ -67,7 +71,7 @@ type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 /// The binary passes the real ones ([`Api::system`]); the clock can be injected only in-process, by a test.
 #[derive(Clone)]
 pub struct Api {
-    store_path: StorePath,
+    pub(crate) store_path: StorePath,
     clock: Clock,
 }
 
@@ -96,8 +100,20 @@ pub fn routes() -> Router<Api> {
         .route("/api/usage/outliers", get(outliers))
         .route("/api/warnings", get(warnings))
         .route("/api/plan", get(plan))
-        .route("/api/workspaces", get(workspace_list))
-        .route("/api/workspaces/unassigned", get(workspaces_unassigned))
+        .route(
+            "/api/workspaces",
+            get(workspace_list).post(writes::workspace_add),
+        )
+        .route(
+            "/api/workspaces/unassigned",
+            get(workspaces_unassigned)
+                .patch(writes::workspace_edit)
+                .delete(writes::workspace_delete),
+        )
+        .route(
+            "/api/workspaces/{id}",
+            patch(writes::workspace_edit).delete(writes::workspace_delete),
+        )
         .route("/api/connectors", get(connectors))
         .route("/api/kit", get(kit_projects))
         .route("/api/kit/workspaces", get(kit_workspaces))
@@ -109,7 +125,13 @@ pub fn routes() -> Router<Api> {
         .route("/api/board", get(board_view))
         .route("/api/memory-graph", get(memory_graph))
         .route("/api/first-run", get(first_run_steps))
-        .route("/api/accounts", get(account_list))
+        .route("/api/accounts", get(account_list).post(writes::account_add))
+        .route("/api/accounts/{id}/confirm", post(writes::account_confirm))
+        .route("/api/accounts/{id}/ignore", post(writes::account_ignore))
+        .route(
+            "/api/accounts/{id}/workspaces",
+            put(writes::account_workspaces),
+        )
         .route("/api/sync", get(sync_plan))
         .route("/api/dirs", get(dirs))
         .route("/api/jobs", get(jobs))
@@ -308,7 +330,7 @@ async fn report_one(State(api): State<Api>, uri: Uri) -> Response {
 }
 
 /// `segment` is the path part as sent (percent-encoded); `None` unless it decodes to 1 to 18 ASCII digits.
-fn report_id(segment: &str) -> Option<i64> {
+pub(crate) fn report_id(segment: &str) -> Option<i64> {
     let bytes = segment.as_bytes();
     let hex = |b: Option<&u8>| b.and_then(|b| (*b as char).to_digit(16));
     let (mut digits, mut i) = (String::new(), 0);
@@ -343,7 +365,7 @@ async fn first_run_steps(State(api): State<Api>, uri: Uri) -> Response {
 
 /// `GET /api/accounts?by=account|provider` (T041): the stored accounts with their status lines. Read-only and with no
 /// account detection (Python's handler INSERTs new account rows first; here that stays in `ingest`). `by` is `account`
-/// when absent; the writes of Python's `/api/accounts` are 405 here (T048). The agent root (`EASY_PERSONAL_AGENT_ROOT`,
+/// when absent; its writes are in `writes.rs` (T048). The agent root (`EASY_PERSONAL_AGENT_ROOT`,
 /// else `HOME`) only decides `is_default`.
 async fn account_list(State(api): State<Api>, uri: Uri) -> Response {
     serve(api, uri, |conn, q, now| {
@@ -364,7 +386,7 @@ async fn sync_plan(State(api): State<Api>, uri: Uri) -> Response {
 }
 
 /// Python's `config.agent_root()`: `EASY_PERSONAL_AGENT_ROOT`, else the home folder (an empty value counts as unset).
-fn agent_root() -> PathBuf {
+pub(crate) fn agent_root() -> PathBuf {
     let set = |name| std::env::var_os(name).filter(|v| !v.is_empty());
     set("EASY_PERSONAL_AGENT_ROOT")
         .or_else(|| set("HOME"))
@@ -420,11 +442,11 @@ where
     }
 }
 
-fn error_body(text: &str) -> Value {
+pub(crate) fn error_body(text: &str) -> Value {
     json!({ "error": text })
 }
 
-fn respond(status: StatusCode, body: &Value) -> Response {
+pub(crate) fn respond(status: StatusCode, body: &Value) -> Response {
     (
         status,
         [(CONTENT_TYPE, "application/json")],

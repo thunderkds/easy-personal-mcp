@@ -301,13 +301,24 @@ fn the_query_string_is_ignored() {
 
 // ---- methods ----
 
+/// T048 serves `POST /api/workspaces` and `PATCH`/`DELETE` on `/api/workspaces/{id}` (and so on `/api/workspaces/unassigned`,
+/// which Python's routing hands to `{id}`: a 404 after the body checks). Without a content type they answer 415 and open nothing.
 #[test]
-fn writes_are_405_with_the_csp_and_head_is_answered_like_get() {
+fn other_methods_are_405_with_the_csp_and_head_is_answered_like_get() {
     let s = Server::with_store("store-rich/store-v11.sqlite");
     let before = std::fs::read(s.home.join("store.sqlite")).unwrap();
+    let served = [
+        ("/api/workspaces", "POST"),
+        ("/api/workspaces/unassigned", "PATCH"),
+        ("/api/workspaces/unassigned", "DELETE"),
+    ];
     for route in ROUTES {
         for method in ["POST", "PATCH", "PUT", "DELETE"] {
             let r = s.send(method, route, &[]);
+            if served.contains(&(route, method)) {
+                r.assert_json(415);
+                continue;
+            }
             assert_eq!(r.status, 405, "{method} {route}");
             r.assert_csp();
             assert!(r.body.is_empty(), "{method} {route}: {:?}", r.body);
@@ -317,17 +328,12 @@ fn writes_are_405_with_the_csp_and_head_is_answered_like_get() {
         assert!(head.body.is_empty());
         head.assert_csp();
     }
-    // a write with a body is no different, and `/api/workspaces/{id}` is not a route here
-    let r = s.raw(&format!(
-        "POST /api/workspaces HTTP/1.1\r\nHost: {}\r\nx-dashboard-token: {}\r\nContent-Type: application/json\r\nContent-Length: 15\r\nConnection: close\r\n\r\n{{\"name\":\"nope\"}}",
-        s.host(),
-        s.token
-    ));
-    assert_eq!(r.status, 405);
+    // `/api/workspaces/{id}` is a write route: a GET is a 405, a write without a content type is a 415
+    assert_eq!(s.send("GET", "/api/workspaces/2", &[]).status, 405);
     for method in ["PATCH", "DELETE"] {
         assert_eq!(
             s.send(method, "/api/workspaces/2", &[]).status,
-            404,
+            415,
             "{method}"
         );
     }
@@ -396,7 +402,13 @@ fn encoded_or_doubled_paths_are_never_served() {
             } else {
                 s.get(path, Some(&s.host()), &[])
             };
-            assert!(r.status == 404 || r.status == 403, "{path}: {}", r.status);
+            // `/api/workspaces/<escaped name>` is a write route's `{id}` since T048: a GET there is a 405
+            let write_route = path.starts_with("/api/workspaces/") && !path.contains("//");
+            assert!(
+                r.status == 404 || r.status == 403 || (r.status == 405 && write_route),
+                "{path}: {}",
+                r.status
+            );
             r.assert_csp();
             assert!(
                 !r.body.contains("workspaces") && !r.body.contains("orphan"),

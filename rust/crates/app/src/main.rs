@@ -12,6 +12,7 @@ mod schedule_cmd;
 mod server;
 mod static_files;
 mod window;
+mod writes;
 
 #[derive(Parser)]
 #[command(version, about = "Rust port of easy-personal")]
