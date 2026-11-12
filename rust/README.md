@@ -853,6 +853,11 @@ app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `li
     core still compiles there as `rust/PROJECT_SPEC.md` plans). Any other target fails to compile, also on purpose. No
     darwin target is installed here: the macOS branch was checked by a cfg proxy in a scratch copy (fallback `sys` made
     active on Linux, `cargo check -p easy-personal-core --all-targets` finished), not by a real macOS build.
+16. Same as Python, accepted unless the owner overrules: (a) when a root's files disappear for one step and come back
+    (the project folder unreadable for a step, or an account flipped confirmed -> ignored -> confirmed), their offsets
+    are pruned and the files are read again from byte 0, so that history is published again; (b) a store with zero
+    confirmed accounts (and no override) still completes the first scan, so the first account confirmed later has its
+    whole history published, with no warm start. Python prunes offsets and sets `_primed` the same way.
 
 **Tests** (`crates/core/tests/live_parity.rs`, 13 tests, oracle `parity/golden-live/` from `parity/gen_live.py`). Fix
 round: `scripts-2.json` (6 scripts, 39 steps: accounts with a confirmed `Work` row and a detected NULL-label row, all 19
