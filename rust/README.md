@@ -821,8 +821,11 @@ app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `li
    Python parses it); until then the file waits without holding more than the bound.
 4. `MAX_BATCH_LINES` (500) is the publish batch, as in Python, which reads every new line of a file in one poll: the
    engine does the same, so batch boundaries (and `state_version`) equal Python's.
-5. The roots and the account labels are read on every step (Python refreshes them once a second); a store that is
-   missing, busy, newer or broken leaves the tail running on `projects_override` alone, untagged, with no error text.
+5. The roots and the account labels are read on every step (Python refreshes them once a second). A step whose store
+   is missing, busy, newer or broken, or whose account rows, cursors or labels cannot be read, **skips its scan**: no
+   offset is dropped, the first scan is not used up (the warm start still runs on the first good step), and only the
+   time-based states move; no error text. (Python raises before it prunes or marks the first scan done, so it never
+   reaches this state; T049 fix round, item 2.)
 6. A lone surrogate in a Bash command reaches `jobs::command_name` as U+FFFD (Python passes the surrogate); the first word
    must then pass the ASCII label pattern, so the label is `None` either way.
 7. Python's one-time warning for a block without an id is not logged (the core has no logger); the block is not tracked,

@@ -835,20 +835,26 @@ impl LiveTail {
     // -- polling ------------------------------------------------------------------------------------------------------
 
     /// One step over the store at `store_path`: opened read-only (`store::open_checked`) for this step and closed.
-    /// A store that is missing, busy, newer or broken still lets the tail run on `projects_override` alone, untagged.
+    /// A store that is missing, busy, newer or broken (or whose account rows cannot be read) skips the scan of this
+    /// step: no offset is dropped, the first scan is not used up (warm start stays), only the time-based states move.
     pub fn poll_store(&mut self, store_path: &Path, projects_override: Option<&Path>, now: i64) {
-        match store::open_checked(store_path) {
-            Ok(conn) => {
-                let roots = account_roots(&conn, projects_override)
-                    .unwrap_or_else(|_| override_root(projects_override));
-                self.poll_once(&roots, now, Some(&conn));
-            }
-            Err(_) => self.poll_once(&override_root(projects_override), now, None),
+        let Ok(conn) = store::open_checked(store_path) else {
+            return self.evaluate(now);
+        };
+        match account_roots(&conn, projects_override) {
+            Ok(roots) => self.poll_once(&roots, now, Some(&conn)),
+            Err(_) => self.evaluate(now),
         }
     }
 
-    /// One scan and read pass over every root (Python's `poll_once`), then the time-based states move.
+    /// One scan and read pass over every root (Python's `poll_once`), then the time-based states move. With a store
+    /// whose cursors or labels cannot be read, the scan is skipped (as `poll_store` does for a store it cannot open).
     pub fn poll_once(&mut self, roots: &[Root], now: i64, store: Option<&Connection>) {
+        if let Some(c) = store
+            && (file_offsets(c).is_err() || account_labels(c).is_err())
+        {
+            return self.evaluate(now);
+        }
         let known = store.and_then(|c| file_offsets(c).ok()).unwrap_or_default();
         let labels = store
             .and_then(|c| account_labels(c).ok())
@@ -1142,17 +1148,6 @@ impl LiveTail {
 type Figs = Option<Figures>;
 /// An event waiting for its id: kind, tool, `is_error`, label, token figures.
 type Pending = (Kind, Option<String>, bool, Option<Label>, Figs);
-
-fn override_root(projects_override: Option<&Path>) -> Vec<Root> {
-    projects_override
-        .map(|o| {
-            vec![Root {
-                account: None,
-                projects: o.to_path_buf(),
-            }]
-        })
-        .unwrap_or_default()
-}
 
 /// FR-082: `None` on the main thread, else the stream's agent type (`SUB_AGENT` while it is not known). The meta file
 /// is looked for at most once per stream per step, until it gives a type or `META_WAIT_S` passed since the first look.

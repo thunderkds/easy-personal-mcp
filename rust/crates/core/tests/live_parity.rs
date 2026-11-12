@@ -306,7 +306,8 @@ fn hostile_files_never_block_or_leave_the_root() {
         let outside = tmp.0.join("outside.jsonl");
         fs::write(&outside, line("out", "o1").repeat(3)).unwrap();
         let mut live = tail();
-        live.poll_store(&tmp.store(), Some(&tmp.projects()), NOW); // no store: runs on the override alone
+        make_store(&tmp.store());
+        live.poll_store(&tmp.store(), Some(&tmp.projects()), NOW);
         std::os::unix::fs::symlink(&outside, p.join("link.jsonl")).unwrap();
         let fifo = p.join("fifo.jsonl");
         assert!(
@@ -422,3 +423,82 @@ fn scripts_2_equal_python_after_every_step() {
 }
 
 const SCRIPTS_2_STEPS: usize = 3;
+
+/// A store with one confirmed account (`folder/projects` is its root, not an override) and its transcript.
+fn account_store(tmp: &Temp, lines: &str, cursor: Option<i64>) -> PathBuf {
+    make_store(&tmp.store());
+    let file = tmp.0.join("acct/projects/p/s.jsonl");
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    fs::write(&file, lines).unwrap();
+    let at = UNIX_EPOCH + Duration::from_micros(NOW as u64);
+    File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(at)
+        .unwrap();
+    let conn = Connection::open(tmp.store()).unwrap();
+    conn.execute(
+        "INSERT INTO agent_accounts VALUES (1, 'claude', 'confirmed', ?, '/e', 'Work')",
+        [tmp.0.join("acct").to_str().unwrap()],
+    )
+    .unwrap();
+    if let Some(offset) = cursor {
+        conn.execute(
+            "INSERT INTO source_files VALUES ('machine-1', 'claude_code', ?, ?, ?)",
+            rusqlite::params![
+                file.to_str().unwrap(),
+                fs::metadata(&file).unwrap().ino() as i64,
+                offset
+            ],
+        )
+        .unwrap();
+    }
+    file
+}
+
+#[test]
+fn a_failed_store_step_keeps_offsets_and_publishes_nothing_again() {
+    let tmp = Temp::new("failed-step");
+    account_store(&tmp, &line("s", "b1").repeat(3), None);
+    let (store, gone) = (tmp.store(), tmp.0.join("store.gone"));
+    let mut live = tail();
+    live.poll_store(&store, None, NOW); // first scan: no cursor, so the file is read from 0
+    let first = live.last_id();
+    assert_eq!(first, 3);
+    fs::rename(&store, &gone).unwrap(); // a missing store: the step fails
+    live.poll_store(&store, None, NOW + SECOND);
+    fs::rename(&gone, &store).unwrap();
+    live.poll_store(&store, None, NOW + 2 * SECOND);
+    assert_eq!(
+        live.events_since(first),
+        Vec::<Value>::new(),
+        "history published again"
+    );
+}
+
+#[test]
+fn a_failed_first_step_keeps_the_warm_start() {
+    let tmp = Temp::new("failed-first");
+    let below = line("s", "b1").repeat(2);
+    let all = below.clone() + &line("s", "b2");
+    account_store(&tmp, &all, Some(below.len() as i64));
+    let (store, gone) = (tmp.store(), tmp.0.join("store.gone"));
+    let mut live = tail();
+    fs::rename(&store, &gone).unwrap();
+    live.poll_store(&store, None, NOW);
+    fs::rename(&gone, &store).unwrap();
+    live.poll_store(&store, None, NOW + SECOND);
+    let events = live.events_since(0);
+    assert_eq!(
+        events.len(),
+        1,
+        "only the line from the cursor on is live: {events:?}"
+    );
+    assert_eq!(
+        live.state_version(),
+        1,
+        "the warm replay ran on the first good step"
+    );
+    assert_eq!(events[0]["account"], "Work");
+}
