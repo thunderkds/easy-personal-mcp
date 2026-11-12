@@ -64,20 +64,9 @@ pub const MAX_LINE_BYTES: usize = 32 * 1024 * 1024;
 const WAITING_TOOLS: [&str; 2] = ["AskUserQuestion", "ExitPlanMode"];
 const SECOND: i64 = 1_000_000;
 
-// `os.O_NOFOLLOW | os.O_NONBLOCK` (std has no names for them; `libc` is not a dependency of this crate).
-#[cfg(target_os = "linux")]
-const O_NONBLOCK: i32 = 0o4000;
-#[cfg(all(target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
-const O_NOFOLLOW: i32 = 0o100000;
-#[cfg(all(
-    target_os = "linux",
-    not(any(target_arch = "arm", target_arch = "aarch64"))
-))]
-const O_NOFOLLOW: i32 = 0o400000;
-#[cfg(not(target_os = "linux"))]
-const O_NONBLOCK: i32 = 0x4;
-#[cfg(not(target_os = "linux"))]
-const O_NOFOLLOW: i32 = 0x100;
+// `os.O_NOFOLLOW | os.O_NONBLOCK`: the one per-arch table of the crate (`report_files::sys`); a target it does not list
+// fails to compile here instead of opening with a wrong flag.
+use crate::report_files::sys::{O_NOFOLLOW, O_NONBLOCK};
 
 /// FR-083: the kit stage of a skill (owner choice 2026-11-06); a skill not listed leaves the stage unchanged.
 fn stage_of(skill: &str) -> Option<&'static str> {

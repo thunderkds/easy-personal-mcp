@@ -89,15 +89,15 @@ pub(crate) mod sys {
     use std::os::fd::AsRawFd;
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 
-    const O_NONBLOCK: i32 = 0o4000;
+    pub(crate) const O_NONBLOCK: i32 = 0o4000;
     #[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "riscv64"))]
     const O_DIRECTORY: i32 = 0o200_000;
     #[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "riscv64"))]
-    const O_NOFOLLOW: i32 = 0o400_000;
+    pub(crate) const O_NOFOLLOW: i32 = 0o400_000;
     #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
     const O_DIRECTORY: i32 = 0o40_000;
     #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
-    const O_NOFOLLOW: i32 = 0o100_000;
+    pub(crate) const O_NOFOLLOW: i32 = 0o100_000;
 
     /// The repository folder of a store row: its own path may hold symlinks (the owner put it there).
     pub fn open_root(path: &str) -> io::Result<File> {
