@@ -1,0 +1,11 @@
+{"time": "2026-01-19T12:00:00Z", "effective": "on", "injected": true, "prompt": "CANARY-LOGPROMPT-T053"}
+{"time": "2026-01-19T13:00:00Z", "effective": "on", "injected": false}
+{"time": "2026-01-19T14:00:00Z", "effective": "off", "injected": true}
+{"time": "2025-01-01T00:00:00Z", "effective": "on", "injected": true}
+﻿{"time": "2026-01-18T12:00:00Z", "effective": "on", "injected": true}
+not json
+[1, 2]
+{"time": "2026-01-19T09:59:59Z", "effective": "on", "injected": true}
+{"time": "2026-01-19T10:59:59Z", "effective": "on", "injected": true}
+{"time": "2026-01-21T00:00:00Z", "effective": "on", "injected": true}
+{"time": "2026-01-18T12:00:00", "effective": "on", "injected": 1}

@@ -11,10 +11,15 @@
 //!    The tree is built here the same way, in a temp folder, with `HOME` and the easy-memory folder pointing at temp folders.
 //! 3. Rust-only cases for what Python does differently by decision (a symlink inside the memory folder is skipped) and the
 //!    size cases (100,000 kanban lines, a 1 MB line).
+//! 4. T053: `golden-memgraph/cases-t053.json`, Python's answers over a second tree (`build_t053`): hostile notes, two Claude
+//!    folders that resolve to one project (duplicate node ids), a worktree `.git`, a store path through a link and `..`, and
+//!    an easy-memory store that holds notes (cited files, `prompts.log`, `report.json`, `trash/`, BOMs), the easy-memory
+//!    panel under four time zones, and the hostile `.git` / link-count / limit cases that only Rust answers.
 //!
 //! The owner's real `~/.easy-personal`, `~/.claude*` and `~/.easy-memory` are never opened: every folder is a temp one.
 
 use easy_personal_core::board::{board, parse_text, read_project};
+use easy_personal_core::easymem;
 use easy_personal_core::memgraph::{Env, project_graph, project_list};
 use easy_personal_core::metrics::MetricsError;
 use easy_personal_core::scope::Scope;
@@ -380,7 +385,7 @@ fn kanban_texts_parse_as_python_does() {
     let t = Dir::new();
     let want = cases(&t);
     let all = want["parse"].as_array().unwrap();
-    assert_eq!(all.len(), 14);
+    assert_eq!(all.len(), 17);
     for case in all {
         let got = parse_text(case["text"].as_str().unwrap()).unwrap_or(Value::Null);
         assert_eq!(got, case["result"], "{}", case["name"]);
@@ -430,6 +435,7 @@ fn a_symlinked_kanban_or_board_file_is_no_data_and_no_board() {
 
 #[test]
 fn a_huge_kanban_is_read_in_time() {
+    let started = std::time::Instant::now();
     let mut text = String::from("## Board\n### Todo\n");
     for i in 0..100_000 {
         text += &format!("- T-{i} task\n");
@@ -444,6 +450,9 @@ fn a_huge_kanban_is_read_in_time() {
             .len(),
         300
     );
+    // a regex that restarts a search from every `[` would take minutes on these inputs; the debug build needs about a second
+    let took = started.elapsed();
+    assert!(took < Duration::from_secs(20), "took {took:?}");
 }
 
 #[test]
@@ -463,5 +472,613 @@ fn an_unknown_scope_is_the_fixed_400_text() {
             Err(MetricsError::Invalid(text)) => assert!(!text.contains("nope"), "{text}"),
             other => panic!("{other:?}"),
         }
+    }
+}
+
+// ---- 4. T053: the easy-memory layer and the review fixes ----
+
+/// The first place two JSON values differ, for a short failure message.
+fn first_difference(got: &Value, want: &Value, at: &str) -> String {
+    match (got, want) {
+        (Value::Object(a), Value::Object(b)) => {
+            for key in a.keys().chain(b.keys()) {
+                let (x, y) = (a.get(key), b.get(key));
+                if x != y {
+                    return first_difference(
+                        x.unwrap_or(&Value::Null),
+                        y.unwrap_or(&Value::Null),
+                        &format!("{at}.{key}"),
+                    );
+                }
+            }
+            String::new()
+        }
+        (Value::Array(a), Value::Array(b)) if a.len() == b.len() => {
+            for (i, (x, y)) in a.iter().zip(b).enumerate() {
+                if x != y {
+                    return first_difference(x, y, &format!("{at}[{i}]"));
+                }
+            }
+            String::new()
+        }
+        _ => format!("{at}: got {got}, want {want}"),
+    }
+}
+
+fn mkfifo(path: &Path) {
+    let made = Command::new("mkfifo")
+        .env_clear()
+        .arg(path)
+        .status()
+        .unwrap();
+    assert!(made.success());
+}
+
+fn encode(path: &Path) -> String {
+    path.to_str()
+        .unwrap()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
+}
+
+/// A `prompts.log` line of exactly `total` bytes, newline included.
+fn log_line(total: usize) -> Vec<u8> {
+    let head = br#"{"time":"2026-01-19T12:00:00Z","effective":"on","injected":true,"pad":""#;
+    let tail = b"\"}\n";
+    let mut line = head.to_vec();
+    line.resize(total - tail.len(), b'x');
+    line.extend_from_slice(tail);
+    line
+}
+
+/// `gen_memgraph.py` `build_t053`, in Rust: the tree is `<t>/t053`.
+fn build_t053(t: &Path) {
+    let fix = parity_dir().join("fixtures-memgraph");
+    let t2 = t.join("t053");
+    let projh = t2.join("projh/memory");
+    fs::create_dir_all(&projh).unwrap();
+    fs::write(
+        projh.join("plain.md"),
+        "---\nname: plain\ndescription: ok\n---\n[[nul-note]] [[big]] [[nested]]\n",
+    )
+    .unwrap();
+    fs::write(
+        projh.join("nul.md"),
+        "---\nname: a\0b\ndescription: nul\n---\nbody [[plain]]\n",
+    )
+    .unwrap();
+    fs::write(
+        projh.join("bigdesc.md"),
+        format!(
+            "---\nname: big\ndescription: {}\n---\n",
+            "d".repeat(100_000)
+        ),
+    )
+    .unwrap();
+    fs::write(
+        projh.join("nested.md"),
+        "---\nname:\n  first: 1\n  second: [a, b]\ndescription:\n  deep:\n    deeper: x\n---\n[[plain]]\n",
+    )
+    .unwrap();
+    mkfifo(&projh.join("fifo.md"));
+    let dup = t2.join("projdup");
+    fs::create_dir_all(&dup).unwrap();
+    let projects = t2.join("acct/projects");
+    let first = projects.join(encode(&dup)).join("memory");
+    fs::create_dir_all(&first).unwrap();
+    fs::write(first.join("MEMORY.md"), "---\nname: idx-a\n---\n[[c1]]\n").unwrap();
+    fs::write(first.join("c1.md"), "---\nname: c1\n---\n").unwrap();
+    fs::create_dir_all(projects.join("zzsub/memory")).unwrap();
+    fs::write(
+        projects.join("zzsub/memory/MEMORY.md"),
+        "---\nname: idx-b\n---\n",
+    )
+    .unwrap();
+    fs::write(
+        projects.join("zzsub/t.jsonl"),
+        format!("{{\"cwd\": \"{}\"}}\n", dup.display()),
+    )
+    .unwrap();
+    copy_tree(&fix.join("projem"), &t2.join("projem"));
+    let root = t2.join("projem");
+    let link = std::os::unix::fs::symlink;
+    link("missing.txt", root.join("dang")).unwrap();
+    link("/etc/nowhere", root.join("out")).unwrap();
+    link("src/a.py", root.join("ln")).unwrap();
+    link("src", root.join("linkdir")).unwrap();
+    mkfifo(&root.join("pipe"));
+    fs::File::create(root.join("big.bin"))
+        .unwrap()
+        .set_len(10 * 1024 * 1024 + 1)
+        .unwrap();
+    fs::create_dir_all(t2.join("projwt")).unwrap();
+    fs::write(
+        t2.join("projwt/.git"),
+        format!("gitdir: {}/gd\n", t2.display()),
+    )
+    .unwrap();
+    fs::create_dir_all(t2.join("gd")).unwrap();
+    fs::write(t2.join("gd/commondir"), "../common\n").unwrap();
+    fs::create_dir_all(t2.join("common")).unwrap();
+    fs::create_dir_all(t2.join("projdd/sub")).unwrap();
+    link("projdd/sub", t2.join("lnk")).unwrap();
+    copy_tree(&fix.join("em-store"), &t2.join("em"));
+    for key in ["k1", "k2", "k3"] {
+        let meta = t2.join("em").join(key).join("meta.json");
+        let bytes = fs::read(&meta).unwrap();
+        let at = bytes.windows(3).position(|w| w == b"@T@").unwrap();
+        let mut replaced = bytes[..at].to_vec();
+        replaced.extend_from_slice(t.to_str().unwrap().as_bytes());
+        replaced.extend_from_slice(&bytes[at + 3..]);
+        fs::write(&meta, replaced).unwrap();
+    }
+    fs::create_dir(t2.join("em/k1/notes/x.json")).unwrap();
+    let mut log = fs::OpenOptions::new()
+        .append(true)
+        .open(t2.join("em/k1/prompts.log"))
+        .unwrap();
+    for total in [65537, 65538, 200_000] {
+        std::io::Write::write_all(&mut log, &log_line(total)).unwrap();
+    }
+    std::io::Write::write_all(
+        &mut log,
+        b"{\"time\":\"2026-01-19T15:00:00Z\",\"effective\":\"on\",\"injected\":true}\n",
+    )
+    .unwrap();
+}
+
+/// A temp copy of the default store with `events` rows for `projects` and the confirmed Claude account `acct`.
+fn store_with(t: &Dir, acct: Option<&Path>, projects: &[String]) -> Connection {
+    let store = t.0.join("store-t053.sqlite");
+    fs::copy(parity_dir().join("store-v11.sqlite"), &store).unwrap();
+    let mut sql = String::from("DELETE FROM events; DELETE FROM agent_accounts;");
+    if let Some(acct) = acct {
+        sql += &format!(
+            "INSERT INTO agent_accounts (id, provider, folder, label, status) VALUES (1, 'claude', '{}', 'W', 'confirmed');",
+            acct.display()
+        );
+    }
+    for (i, project) in projects.iter().enumerate() {
+        sql += &format!(
+            "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, project_path) VALUES ('m', 'claude_code', '/x/{i}.jsonl', {i}, 0, 0, '{project}');"
+        );
+    }
+    Connection::open(&store)
+        .unwrap()
+        .execute_batch(&sql)
+        .unwrap();
+    open_read_only(&store).unwrap()
+}
+
+fn seeded_t053(t: &Dir) -> Connection {
+    build_t053(&t.0);
+    let store = t.0.join("store-t053.sqlite");
+    fs::copy(parity_dir().join("store-v11.sqlite"), &store).unwrap();
+    let seed =
+        read_text(&parity_dir().join("fixtures-memgraph/seed-t053.sql")).replace("@T@", t.text());
+    Connection::open(&store)
+        .unwrap()
+        .execute_batch(&seed)
+        .unwrap();
+    open_read_only(&store).unwrap()
+}
+
+fn cases_t053(t: &Dir) -> Value {
+    let text =
+        read_text(&parity_dir().join("golden-memgraph/cases-t053.json")).replace("<T>", t.text());
+    serde_json::from_str(&text).unwrap()
+}
+
+fn env_t053(t: &Dir, zone: TimeZone) -> Env {
+    Env {
+        em_home: t.0.join("t053/em"),
+        zone,
+        now_micros: FROZEN_NOW,
+    }
+}
+
+#[test]
+fn the_t053_tree_gives_python_answers() {
+    let t = Dir::new();
+    let conn = seeded_t053(&t);
+    let want = cases_t053(&t);
+    let env = env_t053(&t, TimeZone::UTC);
+    let list = project_list(&conn, &env).unwrap();
+    assert!(
+        list == want["list"],
+        "list: {}",
+        first_difference(&list, &want["list"], "")
+    );
+    let graphs = want["graphs"].as_object().unwrap();
+    assert_eq!(graphs.len(), 5);
+    for (key, graph) in graphs {
+        let got = project_graph(&conn, &env, key).unwrap();
+        assert!(
+            &got == graph,
+            "graph {key}: {}",
+            first_difference(&got, graph, "")
+        );
+    }
+}
+
+#[test]
+fn the_easy_memory_panel_is_python_s_under_four_time_zones() {
+    let t = Dir::new();
+    let conn = seeded_t053(&t);
+    let want = cases_t053(&t);
+    let project = format!("{}/t053/projem", t.text());
+    let zones = want["zones"].as_object().unwrap();
+    assert_eq!(zones.len(), 4);
+    let mut days = std::collections::BTreeSet::new();
+    for (name, panel) in zones {
+        let zone = TimeZone::get(name).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let graph = project_graph(&conn, &env_t053(&t, zone), &project).unwrap();
+        let got = &graph["easy_memory"];
+        assert!(
+            got == panel,
+            "zone {name}: {}",
+            first_difference(got, panel, "")
+        );
+        days.insert(graph["easy_memory"]["days"].to_string());
+    }
+    // "now" is 2026-01-20T00:00Z and the notes sit at 09:59:59Z..11:00:00Z: every zone has its own window and local days,
+    // so the three `TZ` runs of the suite (which do not reach `Env { zone }`) were vacuous for this slice
+    assert_eq!(days.len(), 4, "each zone gives its own day list");
+}
+
+#[test]
+fn no_prompt_answer_or_session_text_leaves_the_easy_memory_layer() {
+    let t = Dir::new();
+    let conn = seeded_t053(&t);
+    let env = env_t053(&t, TimeZone::UTC);
+    let mut all = project_list(&conn, &env).unwrap().to_string();
+    for name in ["projem", "projwt", "projdd", "projh", "projdup"] {
+        let key = format!("{}/t053/{name}", t.text());
+        all += &project_graph(&conn, &env, &key).unwrap().to_string();
+    }
+    assert!(all.contains("easy_memory"), "the layer is in the answers");
+    assert!(
+        !all.contains("CANARY"),
+        "a planted easy-memory text came out"
+    );
+}
+
+#[test]
+fn an_easy_memory_store_without_a_note_is_no_layer() {
+    let t = Dir::new();
+    let conn = seeded_t053(&t);
+    let key = format!("{}/t053/projdup", t.text());
+    let graph = project_graph(&conn, &env_t053(&t, TimeZone::UTC), &key).unwrap();
+    assert!(graph["easy_memory"].is_null());
+}
+
+#[test]
+fn duplicate_node_ids_put_the_counts_on_the_later_node() {
+    let t = Dir::new();
+    let conn = seeded_t053(&t);
+    let key = format!("{}/t053/projdup", t.text());
+    let graph = project_graph(&conn, &env_t053(&t, TimeZone::UTC), &key).unwrap();
+    let rows: Vec<(&str, u64, u64)> = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| {
+            (
+                n["name"].as_str().unwrap(),
+                n["links_in"].as_u64().unwrap(),
+                n["links_out"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(rows, [("idx-a", 0, 0), ("c1", 1, 0), ("idx-b", 0, 1)]);
+}
+
+#[test]
+fn a_store_path_through_a_link_and_dot_dot_is_resolved_link_first() {
+    let t = Dir::new();
+    let conn = seeded_t053(&t);
+    let list = project_list(&conn, &env_t053(&t, TimeZone::UTC)).unwrap();
+    let row = list["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "projdd")
+        .expect("projdd has an easy-memory note through `lnk/..`");
+    assert_eq!(row["easy_memory_notes"], 1);
+}
+
+#[test]
+fn a_dangling_cited_link_is_gone_and_one_that_leaves_the_project_is_outside() {
+    let t = Dir::new();
+    let conn = seeded_t053(&t);
+    let key = format!("{}/t053/projem", t.text());
+    let graph = project_graph(&conn, &env_t053(&t, TimeZone::UTC), &key).unwrap();
+    let nodes = graph["nodes"].as_array().unwrap();
+    let state = |path: &str| {
+        nodes
+            .iter()
+            .find(|n| n["path"] == path)
+            .map(|n| n["stale"].clone())
+    };
+    assert_eq!(state("dang"), Some(json!("gone")));
+    assert_eq!(state("out"), None, "a link out of the project is left out");
+    assert!(graph["easy_memory"]["outside"].as_u64().unwrap() >= 3);
+}
+
+/// Runs `work` in a thread and waits `secs` for its answer: a hang is a test failure, not a stuck run.
+fn within<T: Send + 'static>(secs: u64, work: impl FnOnce() -> T + Send + 'static) -> T {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(work());
+    });
+    rx.recv_timeout(Duration::from_secs(secs))
+        .expect("did not return in time (a blocking open?)")
+}
+
+/// Bytes this thread has asked the kernel to read (`rchar` of `/proc/thread-self/io`).
+fn read_bytes() -> u64 {
+    fs::read_to_string("/proc/thread-self/io")
+        .unwrap()
+        .lines()
+        .find_map(|l| l.strip_prefix("rchar: "))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap()
+}
+
+/// An easy-memory store whose one folder is keyed by `project`.
+fn store_of(t: &Dir, project: &Path) -> easymem::Store {
+    let home = t.0.join("em-hostile");
+    fs::create_dir_all(home.join("k1")).unwrap();
+    fs::write(
+        home.join("k1/meta.json"),
+        format!("{{\"path\": \"{}\"}}", project.display()),
+    )
+    .unwrap();
+    easymem::load(&home)
+}
+
+/// A project whose `.git` file names a gitdir that holds `commondir`; `make` creates the `commondir`.
+fn worktree_with(t: &Dir, make: impl FnOnce(&Path)) -> (PathBuf, easymem::Store) {
+    let project = t.0.join("wt");
+    let gitdir = t.0.join("gd");
+    fs::create_dir_all(&project).unwrap();
+    fs::create_dir_all(&gitdir).unwrap();
+    fs::write(
+        project.join(".git"),
+        format!("gitdir: {}\n", gitdir.display()),
+    )
+    .unwrap();
+    make(&gitdir.join("commondir"));
+    // keyed by a folder that does not exist: only a `commondir` that names it could match the project
+    let store = store_of(t, &t.0.join("nowhere"));
+    (project, store)
+}
+
+#[test]
+fn a_dot_git_that_is_a_fifo_does_not_block() {
+    let t = Dir::new();
+    let project = t.0.join("p");
+    fs::create_dir_all(&project).unwrap();
+    mkfifo(&project.join(".git"));
+    let store = store_of(&t, &project);
+    let key = project.to_str().unwrap().to_string();
+    let found = within(5, move || store.find(&key));
+    assert!(found.is_some(), "the store path still matches the folder");
+}
+
+#[test]
+fn a_commondir_is_read_for_at_most_4096_bytes() {
+    let t = Dir::new();
+    let (project, store) = worktree_with(&t, |path| {
+        fs::File::create(path)
+            .unwrap()
+            .set_len(100 * 1024 * 1024)
+            .unwrap();
+    });
+    let before = read_bytes();
+    let found = store.find(project.to_str().unwrap());
+    let read = read_bytes() - before;
+    assert!(
+        found.is_none(),
+        "a commondir of NUL bytes names no store folder"
+    );
+    assert!(read <= 16 * 1024, "read {read} bytes of a 100 MB commondir");
+}
+
+#[test]
+fn a_commondir_that_is_a_link_to_dev_zero_is_refused_without_a_read() {
+    let t = Dir::new();
+    let (project, store) = worktree_with(&t, |path| {
+        std::os::unix::fs::symlink("/dev/zero", path).unwrap();
+    });
+    let key = project.to_str().unwrap().to_string();
+    let (found, read) = within(10, move || {
+        let before = read_bytes();
+        (store.find(&key), read_bytes() - before)
+    });
+    assert!(found.is_none());
+    assert!(
+        read <= 16 * 1024,
+        "read {read} bytes through a link to /dev/zero"
+    );
+}
+
+#[test]
+fn a_worktree_commondir_still_names_the_repo_it_belongs_to() {
+    let t = Dir::new();
+    let common = t.0.join("common");
+    fs::create_dir_all(&common).unwrap();
+    let (project, _) = worktree_with(&t, |path| {
+        fs::write(path, "../common\n").unwrap();
+    });
+    // the store is keyed by the repo folder, so the worktree is found through its `commondir`
+    let home = t.0.join("em-wt");
+    fs::create_dir_all(home.join("k9")).unwrap();
+    fs::write(
+        home.join("k9/meta.json"),
+        format!("{{\"path\": \"{}\"}}", common.display()),
+    )
+    .unwrap();
+    let by_common = easymem::load(&home);
+    assert!(by_common.find(project.to_str().unwrap()).is_some());
+}
+
+/// 5,000 notes with 40 distinct `[[links]]` each: 200,000 edges, each counted on both ends.
+#[test]
+fn two_hundred_thousand_links_are_counted_in_time() {
+    let t = Dir::new();
+    let project = t.0.join("pbig");
+    fs::create_dir_all(project.join("memory")).unwrap();
+    for i in 0..5000 {
+        let links: String = (1..=40)
+            .map(|k| format!("[[n{}]] ", (i + k) % 5000))
+            .collect();
+        fs::write(
+            project.join(format!("memory/n{i}.md")),
+            format!("---\nname: n{i}\n---\n{links}\n"),
+        )
+        .unwrap();
+    }
+    let conn = store_with(&t, None, &[project.to_str().unwrap().to_string()]);
+    let started = std::time::Instant::now();
+    let graph = project_graph(&conn, &t.env(), project.to_str().unwrap()).unwrap();
+    let took = started.elapsed();
+    assert_eq!(graph["counts"]["links"], 200_000);
+    let nodes = graph["nodes"].as_array().unwrap();
+    assert!(
+        nodes
+            .iter()
+            .all(|n| n["links_in"] == 40 && n["links_out"] == 40)
+    );
+    assert!(took < Duration::from_secs(5), "took {took:?}");
+    eprintln!("200,000 links: {took:?}");
+}
+
+// ---- 5. T053: Rust-only limits and refusals (no Python answer: Python follows, hangs or crashes) ----
+
+fn paths_of(graph: &Value) -> Vec<String> {
+    graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["path"].as_str().map(str::to_string))
+        .collect()
+}
+
+#[test]
+fn a_hard_linked_note_is_listed_once() {
+    // Python lists both names (it dedupes by real path, and a hard link has two); Rust reads one inode once (decided for you)
+    let t = Dir::new();
+    let project = t.0.join("ph");
+    fs::create_dir_all(project.join("memory")).unwrap();
+    fs::write(project.join("memory/a.md"), "---\nname: a\n---\n").unwrap();
+    fs::hard_link(project.join("memory/a.md"), project.join("memory/b.md")).unwrap();
+    let key = project.to_str().unwrap().to_string();
+    let conn = store_with(&t, None, std::slice::from_ref(&key));
+    let graph = project_graph(&conn, &t.env(), &key).unwrap();
+    assert_eq!(paths_of(&graph), ["memory/a.md"]);
+}
+
+#[test]
+fn a_folder_deeper_than_64_levels_is_not_entered() {
+    let t = Dir::new();
+    let project = t.0.join("pd");
+    let mut deep = project.join("memory");
+    for level in 1..=65 {
+        deep = deep.join("d");
+        fs::create_dir_all(&deep).unwrap();
+        if level >= 64 {
+            fs::write(deep.join(format!("n{level}.md")), "---\nname: x\n---\n").unwrap();
+        }
+    }
+    let key = project.to_str().unwrap().to_string();
+    let conn = store_with(&t, None, std::slice::from_ref(&key));
+    let graph = project_graph(&conn, &t.env(), &key).unwrap();
+    let paths = paths_of(&graph);
+    assert_eq!(paths.len(), 1, "{paths:?}");
+    assert!(paths[0].ends_with("/n64.md"), "{paths:?}");
+}
+
+#[test]
+fn a_name_that_is_not_utf8_is_skipped_and_the_rest_is_read() {
+    use std::os::unix::ffi::OsStrExt;
+    let t = Dir::new();
+    let project = t.0.join("pu");
+    fs::create_dir_all(project.join("memory")).unwrap();
+    fs::write(project.join("memory/ok.md"), "---\nname: ok\n---\n").unwrap();
+    fs::write(
+        project
+            .join("memory")
+            .join(std::ffi::OsStr::from_bytes(b"\xff.md")),
+        "---\nname: bad\n---\n",
+    )
+    .unwrap();
+    let dir = project
+        .join("memory")
+        .join(std::ffi::OsStr::from_bytes(b"\xfe"));
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("inner.md"), "---\nname: inner\n---\n").unwrap();
+    let key = project.to_str().unwrap().to_string();
+    let conn = store_with(&t, None, std::slice::from_ref(&key));
+    let graph = project_graph(&conn, &t.env(), &key).unwrap();
+    assert_eq!(paths_of(&graph), ["memory/ok.md"]);
+}
+
+#[test]
+fn a_symlinked_memory_folder_or_projects_folder_is_not_a_source() {
+    let t = Dir::new();
+    let (project, real) = (t.0.join("pl"), t.0.join("real-memory"));
+    fs::create_dir_all(&project).unwrap();
+    fs::create_dir_all(&real).unwrap();
+    fs::write(real.join("a.md"), "---\nname: a\n---\n").unwrap();
+    std::os::unix::fs::symlink(&real, project.join("memory")).unwrap();
+    let key = project.to_str().unwrap().to_string();
+    // a Claude account whose `projects` folder is a link to a tree that holds a memory folder for the same project
+    let elsewhere = t.0.join("elsewhere");
+    fs::create_dir_all(elsewhere.join(encode(&project)).join("memory")).unwrap();
+    fs::write(
+        elsewhere.join(encode(&project)).join("memory/c.md"),
+        "---\nname: c\n---\n",
+    )
+    .unwrap();
+    fs::create_dir_all(t.0.join("acct")).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, t.0.join("acct/projects")).unwrap();
+    let conn = store_with(&t, Some(&t.0.join("acct")), std::slice::from_ref(&key));
+    let list = project_list(&conn, &t.env()).unwrap();
+    assert_eq!(list["projects"], json!([]), "{list}");
+    match project_graph(&conn, &t.env(), &key) {
+        Err(MetricsError::Invalid(text)) => assert_eq!(text, "unknown project"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_board_json_that_is_not_plain_json_names_no_board() {
+    let t = Dir::new();
+    for (name, json_text) in [
+        ("nan", "{\"board\": NaN}".to_string()),
+        ("nested", format!("{}1{}", "[".repeat(300), "]".repeat(300))),
+        (
+            "deep_object",
+            format!("{}{}", "{\"board\":".repeat(300), "1"),
+        ),
+    ] {
+        let project = t.0.join(name);
+        fs::create_dir_all(project.join(".claude")).unwrap();
+        fs::write(
+            project.join("PROJECT_KANBAN.md"),
+            "## Board\n### Todo\n- T-1 one\n",
+        )
+        .unwrap();
+        fs::write(project.join(".claude/board.json"), json_text).unwrap();
+        let entry = read_project(project.to_str().unwrap());
+        assert_eq!(entry["status"], "ok", "{name}");
+        assert!(
+            entry["board"].is_null() && entry["last_pull"].is_null(),
+            "{name}: {entry}"
+        );
     }
 }

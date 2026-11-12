@@ -7,6 +7,12 @@ Builds `fixtures-memgraph/` (plus the files a repository cannot hold: a note ove
 The Rust test (`crates/core/tests/memgraph_parity.rs`) builds the same tree and compares every case. Nothing outside the
 temp folder is read or written; `HOME` and `EASY_MEMORY_HOME` point at empty temp folders (no real home is opened).
 
+T053 adds a second tree, built by `build_t053` under `<T>/t053` (kept apart so `cases.json` only gains parse cases): a project
+with hostile notes, two Claude folders that resolve to one project (duplicate node ids), a git worktree identity and an
+easy-memory store with notes (a cited file inside and outside the project, a stale and a gone one, `prompts.log`, `report.json`,
+a `trash/` note, BOMs). It writes `cases-t053.json`: Python's answers for it, the easy-memory panel under four time zones
+(`TZ` set before the run, "now" frozen at 2026-01-20T00:00:00Z) and the code points of Python's `\\d`.
+
 Run (read-only use of the parity venv):  PYTHONPATH=src rust/parity/.venv/bin/python rust/parity/gen_memgraph.py
 """
 
@@ -17,6 +23,8 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 PARITY = Path(__file__).resolve().parent
@@ -40,7 +48,13 @@ PARSE = [
     ("headings", "##   Board  \n###  in progress \n- T-1 a\n### READY FOR REVIEW\n- T-2 b\n### Closed (Will Not Do)\n- T-3 c\n### Todo extra\n- T-4 d\n## BLOCKED\n- T-5 e\n"),
     ("dashes_after_id", "## Board\n### Todo\n- T-1 —–:- - dashes\n- **T-2**:: x\n- ***T-3*** y\n- ** T-4 ** z\n- **T-5\n"),
     ("empty", ""),
+    # T053: `_ESCAPE.sub(r"\1", ..)` keeps the escaped character and does not overlap the next match
+    ("escaped_backslash_pairs", "## Board\n### Todo\n- T-1 \\\\* hi\n- T-2 \\\\\\\\y\n| T-3 | \\\\_u \\\\\\* |\n"),
+    ("escaped_backslash_runs", "## Board\n### Todo\n- T-1 \\\\\\\\\\\\ end\n- T-2 \\\\ \\\\\\ \\\n- T-3 \\\\[a](b) \\\\`x\\\\`\n"),
+    ("backslash_before_plain", "## Board\n### Todo\n- T-1 a\\b \\z \\é \\\n- T-2 \\1 \\ x \\\\\n"),
 ]
+NOW_S = 1768867200  # 2026-01-20T00:00:00Z, the instant the Rust tests freeze
+ZONES = ["UTC", "Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Los_Angeles"]
 
 
 def enc(path: str) -> str:
@@ -95,6 +109,110 @@ def build(t: Path) -> None:
             os.utime(path, (MTIME, MTIME))
 
 
+def log_line(total: int) -> bytes:
+    """A `prompts.log` line of exactly `total` bytes, newline included (the cap is 64 KiB per line)."""
+    head, tail = b'{"time":"2026-01-19T12:00:00Z","effective":"on","injected":true,"pad":"', b'"}\n'
+    return head + b"x" * (total - len(head) - len(tail)) + tail
+
+
+def build_t053(t: Path) -> None:
+    """The T053 tree under `t / "t053"` (the Rust test builds the same)."""
+    t2 = t / "t053"
+    projh = t2 / "projh" / "memory"
+    projh.mkdir(parents=True)
+    (projh / "plain.md").write_text("---\nname: plain\ndescription: ok\n---\n[[nul-note]] [[big]] [[nested]]\n")
+    (projh / "nul.md").write_text("---\nname: a\0b\ndescription: nul\n---\nbody [[plain]]\n")
+    (projh / "bigdesc.md").write_text("---\nname: big\ndescription: " + "d" * 100_000 + "\n---\n")
+    (projh / "nested.md").write_text("---\nname:\n  first: 1\n  second: [a, b]\ndescription:\n  deep:\n    deeper: x\n---\n[[plain]]\n")
+    os.mkfifo(projh / "fifo.md")
+    dup = t2 / "projdup"  # two Claude folders of one account that resolve to one project: duplicate node ids
+    dup.mkdir()
+    projects = t2 / "acct" / "projects"
+    first = projects / enc(str(dup)) / "memory"
+    first.mkdir(parents=True)
+    (first / "MEMORY.md").write_text("---\nname: idx-a\n---\n[[c1]]\n")
+    (first / "c1.md").write_text("---\nname: c1\n---\n")
+    (projects / "zzsub" / "memory").mkdir(parents=True)
+    (projects / "zzsub" / "memory" / "MEMORY.md").write_text("---\nname: idx-b\n---\n")
+    (projects / "zzsub" / "t.jsonl").write_text(json.dumps({"cwd": str(dup)}) + "\n")
+    shutil.copytree(FIX / "projem", t2 / "projem")
+    root = t2 / "projem"
+    os.symlink("missing.txt", root / "dang")
+    os.symlink("/etc/nowhere", root / "out")
+    os.symlink("src/a.py", root / "ln")
+    os.symlink("src", root / "linkdir")
+    os.mkfifo(root / "pipe")
+    with open(root / "big.bin", "wb") as big:
+        big.truncate(10 * 1024 * 1024 + 1)
+    (t2 / "projwt").mkdir()  # a worktree: `.git` is a file, its `commondir` names the repo the store is keyed by
+    (t2 / "projwt" / ".git").write_text(f"gitdir: {t2}/gd\n")
+    (t2 / "gd").mkdir()
+    (t2 / "gd" / "commondir").write_text("../common\n")
+    (t2 / "common").mkdir()
+    (t2 / "projdd" / "sub").mkdir(parents=True)  # the store's path is `lnk/..`: the link is resolved first, so it names projdd
+    os.symlink("projdd/sub", t2 / "lnk")
+    shutil.copytree(FIX / "em-store", t2 / "em")
+    for meta in (t2 / "em").glob("*/meta.json"):
+        meta.write_bytes(meta.read_bytes().replace(b"@T@", str(t).encode()))
+    (t2 / "em" / "k1" / "notes" / "x.json").mkdir()  # a folder named like a note: abstained
+    with open(t2 / "em" / "k1" / "prompts.log", "ab") as log:
+        for total in (65537, 65538, 200_000):  # a line of 64 KiB + 1 with its newline is read, a longer one is skipped
+            log.write(log_line(total))
+        log.write(b'{"time":"2026-01-19T15:00:00Z","effective":"on","injected":true}\n')
+
+
+def digits() -> list[list[int]]:
+    """The code points where Python's `re.match(r"\\d", c)` holds, as `[first, last]` runs."""
+    runs: list[list[int]] = []
+    for point in range(0x110000):
+        if re.match(r"\d", chr(point)):
+            if runs and runs[-1][1] == point - 1:
+                runs[-1][1] = point
+            else:
+                runs.append([point, point])
+    return runs
+
+
+def run_t053(t: Path, memgraph, easymem, store, config) -> dict:
+    """Python's answers over the T053 tree, the easy-memory panel under each zone, and the `\\d` table."""
+    t2 = t / "t053"
+    build_t053(t)
+    (t / "home053").mkdir()
+    shutil.copy(PARITY / "store-v11.sqlite", t / "home053" / "store.sqlite")
+    seed = sqlite3.connect(t / "home053" / "store.sqlite")
+    seed.executescript((FIX / "seed-t053.sql").read_text().replace("@T@", str(t)))
+    seed.commit()
+    seed.close()
+    os.environ["EASY_PERSONAL_HOME"] = str(t / "home053")
+    os.environ["EASY_MEMORY_HOME"] = str(t2 / "em")
+    real_summary = easymem.summary
+
+    def frozen(folder, project, today=None):  # "now" is NOW_S in the zone of the process
+        return real_summary(folder, project, today or datetime.fromtimestamp(NOW_S, UTC).astimezone().date())
+
+    easymem.summary = frozen
+    out: dict = {"python": sys.version.split()[0], "graphs": {}, "zones": {}}
+    try:
+        project = str(t2 / "projem")
+        for zone in ZONES:
+            os.environ["TZ"] = zone
+            time.tzset()
+            with store.opened(config.store_path()) as conn:
+                graph = memgraph.project_graph(conn, project)
+                if zone == "UTC":
+                    out["list"] = memgraph.project_list(conn)
+                    out["graphs"][project] = graph
+                    for name in ["projh", "projdup", "projwt", "projdd"]:
+                        out["graphs"][str(t2 / name)] = memgraph.project_graph(conn, str(t2 / name))
+                out["zones"][zone] = graph["easy_memory"]
+    finally:
+        easymem.summary = real_summary
+        os.environ["TZ"] = "UTC"
+        time.tzset()
+    out["digits"] = digits()
+    return out
+
+
 def main() -> None:
     t = Path(tempfile.mkdtemp(prefix="easy-personal-t043-gen-"))
     try:
@@ -102,7 +220,7 @@ def main() -> None:
         os.environ["HOME"] = str(t / "home")
         os.environ["EASY_MEMORY_HOME"] = str(t / "em-none")
         sys.path.insert(0, str(PARITY.parent.parent / "src"))
-        from easy_personal.core import board, config, memgraph, store
+        from easy_personal.core import board, config, easymem, memgraph, store
 
         build(t)
         (t / "home").mkdir()
@@ -134,6 +252,10 @@ def main() -> None:
         OUT.mkdir(exist_ok=True)
         (OUT / "cases.json").write_text(text + "\n")
         print(f"wrote {OUT / 'cases.json'}: {len(out['graphs'])} graphs, {len(out['boards'])} boards, {len(PARSE)} parse cases")
+        more = run_t053(t, memgraph, easymem, store, config)
+        text = json.dumps(more, indent=1, sort_keys=True, ensure_ascii=False).replace(str(t), "<T>")
+        (OUT / "cases-t053.json").write_text(text + "\n")
+        print(f"wrote {OUT / 'cases-t053.json'}: {len(more['graphs'])} graphs, {len(more['zones'])} zones, {len(more['digits'])} digit runs")
     finally:
         shutil.rmtree(t, ignore_errors=True)
 

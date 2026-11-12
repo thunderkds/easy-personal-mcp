@@ -1,0 +1,15 @@
+{
+ "v": 1,
+ "time": "2026-01-19T10:59:59Z",
+ "files": {
+  "pipe": "h",
+  "big.bin": "h",
+  ".": "h",
+  "src": "h",
+  "": "h",
+  "src/a.py": 5
+ },
+ "prompt": "CANARY-PROMPT-T053",
+ "answer": "CANARY-ANSWER-T053",
+ "session_id": "CANARY-SESSION-T053"
+}

@@ -46,19 +46,32 @@ pub struct Env {
 }
 
 impl Env {
-    /// `$EASY_MEMORY_HOME` when set and not empty, else `$HOME/.easy-memory` (as easy-memory itself does).
+    /// `$EASY_MEMORY_HOME` when set and not empty, else `$HOME/.easy-memory` (as easy-memory itself does). With neither
+    /// set the store is absent: the path is empty and opens nothing (never a `.easy-memory` below the working folder;
+    /// Python asks the user database for the home folder, decided for you).
     pub fn system(now_micros: i64) -> Env {
-        let home = match std::env::var_os("EASY_MEMORY_HOME").filter(|v| !v.is_empty()) {
-            Some(path) => PathBuf::from(path),
-            None => {
-                PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".easy-memory")
-            }
-        };
         Env {
-            em_home: home,
+            em_home: store_home(
+                std::env::var_os("EASY_MEMORY_HOME"),
+                std::env::var_os("HOME"),
+            ),
             zone: TimeZone::system(),
             now_micros,
         }
+    }
+}
+
+/// The easy-memory store folder from `$EASY_MEMORY_HOME` and `$HOME`; empty (opens nothing) when neither is set.
+fn store_home(
+    override_home: Option<std::ffi::OsString>,
+    home: Option<std::ffi::OsString>,
+) -> PathBuf {
+    match override_home.filter(|v| !v.is_empty()) {
+        Some(path) => PathBuf::from(path),
+        None => home
+            .filter(|v| !v.is_empty())
+            .map(|home| PathBuf::from(home).join(".easy-memory"))
+            .unwrap_or_default(),
     }
 }
 
@@ -468,10 +481,20 @@ fn ring(entry: &Entry) -> i64 {
     }
 }
 
-/// `Path(name).stem`: the name without its last suffix (a leading dot is not a suffix).
+/// `Path(path).name`: the last part, with empty parts and `.` dropped (`dir/` is `dir`, `.` has no name).
+fn path_name(path: &str) -> &str {
+    path.split('/')
+        .rfind(|part| !part.is_empty() && *part != ".")
+        .unwrap_or("")
+}
+
+/// `Path(name).stem` of Python 3.14 (the oracle): the name without its last suffix. Leading dots are not a suffix
+/// (`..md` and `.md` keep their name) and a trailing dot is one (`Makefile.` gives `Makefile`); Python 3.11 treats a
+/// trailing dot as part of the stem and `..md` as the stem `.` (decided for you).
 fn stem(name: &str) -> &str {
+    let lead = name.len() - name.trim_start_matches('.').len();
     match name.rfind('.') {
-        Some(i) if i > 0 && i < name.len() - 1 => &name[..i],
+        Some(i) if i >= lead && i > 0 => &name[..i],
         _ => name,
     }
 }
@@ -630,12 +653,19 @@ pub fn project_graph(conn: &Connection, env: &Env, project: &str) -> Result<Valu
             }
         }
     }
+    // id -> index, built once; two nodes with one id (two Claude folders of one account and key, each with a
+    // `memory/MEMORY.md`) put the counts on the later one, as Python's `{id: node}` does
+    let index: HashMap<String, usize> = nodes
+        .iter()
+        .enumerate()
+        .map(|(at, n)| (n.id.clone(), at))
+        .collect();
     for (from, to) in &edges {
-        if let Some(node) = nodes.iter_mut().find(|n| &n.id == from) {
-            node.links_out += 1;
+        if let Some(&at) = index.get(from) {
+            nodes[at].links_out += 1;
         }
-        if let Some(node) = nodes.iter_mut().find(|n| &n.id == to) {
-            node.links_in += 1;
+        if let Some(&at) = index.get(to) {
+            nodes[at].links_in += 1;
         } else if let Some(node) = dangling.get_mut(to) {
             node.links_in += 1;
         }
@@ -660,7 +690,7 @@ pub fn project_graph(conn: &Connection, env: &Env, project: &str) -> Result<Valu
                 hit = true;
             }
             if !hit {
-                let name = item.path.rsplit('/').next().unwrap_or("");
+                let name = path_name(&item.path);
                 let mut node = Node::special(
                     format!("easymem:{}", item.path),
                     "easy_memory",
@@ -708,11 +738,41 @@ mod tests {
     }
 
     #[test]
+    fn an_unset_home_is_an_absent_store_not_a_folder_below_the_working_folder() {
+        let os = |text: &str| Some(std::ffi::OsString::from(text));
+        assert_eq!(store_home(os("/em"), os("/h")), PathBuf::from("/em"));
+        assert_eq!(store_home(None, os("/h")), PathBuf::from("/h/.easy-memory"));
+        assert_eq!(
+            store_home(os(""), os("/h")),
+            PathBuf::from("/h/.easy-memory")
+        );
+        assert_eq!(store_home(None, None), PathBuf::new());
+        assert_eq!(store_home(None, os("")), PathBuf::new());
+        assert!(easymem::load(&store_home(None, None)).find("/x").is_none());
+    }
+
+    #[test]
     fn stems_follow_pathlib() {
         assert_eq!(stem("a.md"), "a");
         assert_eq!(stem("a.b.md"), "a.b");
         assert_eq!(stem(".md"), ".md");
-        assert_eq!(stem("..md"), ".");
+        // Python 3.14 (the oracle): leading dots are no suffix, a trailing dot is one
+        assert_eq!(stem("..md"), "..md");
+        assert_eq!(stem("..jsonl"), "..jsonl");
+        assert_eq!(stem("Makefile."), "Makefile");
+        assert_eq!(stem("a.."), "a.");
+        assert_eq!(stem("..."), "...");
+        assert_eq!(stem(".a.b"), ".a");
+        assert_eq!(stem(""), "");
+    }
+
+    #[test]
+    fn names_follow_pathlib() {
+        assert_eq!(path_name("src/a.py"), "a.py");
+        assert_eq!(path_name("dir/"), "dir");
+        assert_eq!(path_name("a/./b"), "b");
+        assert_eq!(path_name("."), "");
+        assert_eq!(path_name("a//b/."), "b");
     }
 
     #[test]

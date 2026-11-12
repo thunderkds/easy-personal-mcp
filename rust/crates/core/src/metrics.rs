@@ -1025,27 +1025,57 @@ pub(crate) fn owner_map(branches: &BTreeMap<String, BTreeSet<String>>) -> HashMa
     mapping
 }
 
-/// Longest existing prefix resolved through symlinks, the rest appended (Python's non-strict `os.path.realpath`).
+/// Python's non-strict `os.path.realpath`: the path is walked part by part and each symlink is replaced by its text as it
+/// is met (a dangling link's text too, and `..` after a link goes up from the link's target); a part that does not exist is
+/// kept as written. At most 40 links are followed (a loop leaves the looping part as written). A relative path starts at the
+/// working folder.
 pub(crate) fn realpath(path: &str) -> String {
-    let mut existing = Path::new(path);
-    let mut rest = Vec::new();
-    while std::fs::canonicalize(existing).is_err() {
-        let (Some(name), Some(parent)) = (existing.file_name(), existing.parent()) else {
-            return path.to_string();
-        };
-        rest.push(name.to_string_lossy().into_owned());
-        existing = parent;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+    const MAX_LINKS: usize = 40;
+    let parts = |text: &[u8]| -> Vec<Vec<u8>> {
+        text.split(|&b| b == b'/')
+            .rev()
+            .map(<[u8]>::to_vec)
+            .collect()
+    };
+    let mut pending = parts(path.as_bytes());
+    if !path.starts_with('/')
+        && let Ok(cwd) = std::env::current_dir()
+    {
+        pending.extend(parts(cwd.as_os_str().as_bytes()));
     }
-    let mut real = std::fs::canonicalize(existing)
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    for name in rest.iter().rev() {
-        if !real.ends_with('/') {
-            real.push('/');
+    let (mut out, mut links): (Vec<Vec<u8>>, usize) = (Vec::new(), 0);
+    while let Some(name) = pending.pop() {
+        match name.as_slice() {
+            b"" | b"." => continue,
+            b".." => {
+                out.pop();
+                continue;
+            }
+            _ => {}
         }
-        real.push_str(name);
+        let mut at = vec![b'/'];
+        at.extend(out.join(&b'/'));
+        if !out.is_empty() {
+            at.push(b'/');
+        }
+        at.extend(&name);
+        let target = std::fs::symlink_metadata(std::ffi::OsStr::from_bytes(&at))
+            .ok()
+            .filter(|meta| meta.file_type().is_symlink() && links < MAX_LINKS)
+            .and_then(|_| std::fs::read_link(std::ffi::OsStr::from_bytes(&at)).ok());
+        let Some(target) = target else {
+            out.push(name);
+            continue;
+        };
+        links += 1;
+        let target = target.into_os_string().into_vec();
+        if target.starts_with(b"/") {
+            out.clear();
+        }
+        pending.extend(parts(&target));
     }
-    real
+    String::from_utf8_lossy(&[b"/".as_slice(), &out.join(&b'/')].concat()).into_owned()
 }
 
 /// FR-069 (a)-(d) for a path with no owner project; a path under a temp folder is decided before any git call.

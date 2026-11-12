@@ -1,0 +1,10 @@
+{
+ "v": 1,
+ "time": "2026-01-19T11:00:00+00:00",
+ "files": {
+  "src/a.py": "62BDB208DE6DC6B169A467F646F50CA39E6C203FA6F6732431624D8DEC1E77FB"
+ },
+ "prompt": "CANARY-PROMPT-T053",
+ "answer": "CANARY-ANSWER-T053",
+ "session_id": "CANARY-SESSION-T053"
+}

@@ -1,0 +1,9 @@
+{
+ "v": 1,
+ "files": {
+  "src/b.py": "04afcd0b7fc08f0a9eabd716dc3f0e84fa8771b23a05b981b00261434dd23c06"
+ },
+ "prompt": "CANARY-PROMPT-T053",
+ "answer": "CANARY-ANSWER-T053",
+ "session_id": "CANARY-SESSION-T053"
+}

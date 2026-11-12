@@ -60,6 +60,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 ---
 
+## Notes
+
+- `git` is spawned (T053 AC 8): `memgraph.rs` `resolve_project` -> `metrics::repo_of` runs `git` for a Claude transcript's `cwd` that is a folder, exactly where Python does (`discovery.resolve_project`), with the mitigations Rust already has (`core.fsmonitor` off, `GIT_OPTIONAL_LOCKS=0`, stdin null, a timeout, a kill). Decided in T053: kept, as Python parity (also in `rust/README.md` "Decided for you"). `GIT_NO_LAZY_FETCH=1` is T052's AC 5a and is not set on this base.
+
+---
+
 ## Demonstration
 
 > Anchors what this task delivered to an observable before/after pair. BEFORE has no `N/A` path:

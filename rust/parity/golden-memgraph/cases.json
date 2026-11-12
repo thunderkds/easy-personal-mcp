@@ -13512,6 +13512,73 @@
    "name": "empty",
    "result": null,
    "text": ""
+  },
+  {
+   "name": "escaped_backslash_pairs",
+   "result": {
+    "abstained": 0,
+    "tasks": [
+     {
+      "id": "T-1",
+      "status": "Todo",
+      "title": "\\* hi"
+     },
+     {
+      "id": "T-2",
+      "status": "Todo",
+      "title": "\\\\y"
+     },
+     {
+      "id": "T-3",
+      "status": "Todo",
+      "title": "\\_u \\*"
+     }
+    ]
+   },
+   "text": "## Board\n### Todo\n- T-1 \\\\* hi\n- T-2 \\\\\\\\y\n| T-3 | \\\\_u \\\\\\* |\n"
+  },
+  {
+   "name": "escaped_backslash_runs",
+   "result": {
+    "abstained": 0,
+    "tasks": [
+     {
+      "id": "T-1",
+      "status": "Todo",
+      "title": "\\\\\\ end"
+     },
+     {
+      "id": "T-2",
+      "status": "Todo",
+      "title": "\\ \\\\ \\"
+     },
+     {
+      "id": "T-3",
+      "status": "Todo",
+      "title": "\\a \\x\\"
+     }
+    ]
+   },
+   "text": "## Board\n### Todo\n- T-1 \\\\\\\\\\\\ end\n- T-2 \\\\ \\\\\\ \\\n- T-3 \\\\[a](b) \\\\`x\\\\`\n"
+  },
+  {
+   "name": "backslash_before_plain",
+   "result": {
+    "abstained": 0,
+    "tasks": [
+     {
+      "id": "T-1",
+      "status": "Todo",
+      "title": "a\\b \\z \\é \\"
+     },
+     {
+      "id": "T-2",
+      "status": "Todo",
+      "title": "\\1 \\ x \\"
+     }
+    ]
+   },
+   "text": "## Board\n### Todo\n- T-1 a\\b \\z \\é \\\n- T-2 \\1 \\ x \\\\\n"
   }
  ],
  "python": "3.14.4",

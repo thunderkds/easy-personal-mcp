@@ -14,6 +14,7 @@
 
 use crate::board::{open_regular, read_capped, strip};
 use crate::memgraph::names;
+use crate::metrics::realpath;
 use crate::report_files::sys;
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
@@ -22,7 +23,7 @@ use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{BufRead, Read};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 const FORMAT_VERSION: i64 = 1;
 const MAX_NOTE_BYTES: u64 = 1024 * 1024;
@@ -37,45 +38,21 @@ const MAX_HASH_BYTES: u64 = 10 * 1024 * 1024;
 const MAX_NODES: usize = 30;
 const DAYS: i64 = 30;
 
-/// `os.path.realpath` (not strict): symlinks resolved as far as the path exists, the rest joined lexically.
-fn realpath(path: &str) -> String {
-    let mut base = PathBuf::new();
-    let mut rest: Vec<std::ffi::OsString> = Vec::new();
-    for part in Path::new(path).components() {
-        match part {
-            Component::RootDir => base.push("/"),
-            Component::Normal(name) => rest.push(name.to_owned()),
-            Component::ParentDir => {
-                rest.pop();
-            }
-            _ => {}
-        }
-    }
-    let mut resolved = base.clone();
-    let mut missing = false;
-    for part in rest {
-        let next = resolved.join(&part);
-        if missing {
-            resolved = next;
-        } else if let Ok(real) = std::fs::canonicalize(&next) {
-            resolved = real;
-        } else {
-            missing = true;
-            resolved = next;
-        }
-    }
-    resolved.to_string_lossy().into_owned()
-}
-
 /// The store, indexed once: `meta` = real identity path -> folder, `keyed` = folder name -> folder (no usable meta).
 pub struct Store {
     meta: BTreeMap<String, PathBuf>,
     keyed: BTreeMap<String, PathBuf>,
 }
 
+/// Python's `json.loads(bytes)`: the codec is sniffed, so a UTF-8 byte order mark is accepted (`meta.json`, a `prompts.log`
+/// line). `json.loads(raw.decode("utf-8"))` (a note, `report.json`) rejects it, and so does `serde_json` as it is.
+fn json_with_bom(bytes: &[u8]) -> Option<Value> {
+    serde_json::from_slice(bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)).ok()
+}
+
 fn meta_path(dir: &File) -> Option<String> {
     let (file, meta) = open_regular(dir, "meta.json")?;
-    let data: Value = serde_json::from_slice(&read_capped(file, &meta, MAX_META_BYTES)?).ok()?;
+    let data = json_with_bom(&read_capped(file, &meta, MAX_META_BYTES)?)?;
     let path = data.as_object()?.get("path")?.as_str()?;
     (!path.is_empty() && !path.contains('\0')).then(|| path.to_string())
 }
@@ -109,40 +86,37 @@ pub fn load(home: &Path) -> Store {
     store
 }
 
-/// easy-memory's identity path of a folder without a `git` call: its git common dir, else its real path.
+/// easy-memory's identity path of a folder without a `git` call: its git common dir, else its real path. `.git` and
+/// `commondir` are opened below a held folder handle without following a symlink and judged on the handle (a FIFO or a
+/// device is not read), and only their first 4096 bytes are read (Python's `readline(4096)`).
 fn identity(project: &str) -> String {
     let real = realpath(project);
     let dot_git = format!("{real}/.git");
     if Path::new(&dot_git).is_dir() {
         return realpath(&dot_git);
     }
-    let first = f_line(&dot_git);
+    let Some(first) = first_line(&real, ".git") else {
+        return real;
+    };
     let Some(rest) = first.strip_prefix("gitdir:") else {
         return real;
     };
     let gitdir = realpath(&join(&real, strip(rest)));
-    match std::fs::read(format!("{gitdir}/commondir")) {
-        Ok(bytes) => {
-            let line = String::from_utf8_lossy(&bytes[..bytes.len().min(4096)]).to_string();
-            realpath(&join(&gitdir, strip(line.lines().next().unwrap_or(""))))
-        }
-        Err(_) => gitdir,
+    match first_line(&gitdir, "commondir") {
+        Some(line) => realpath(&join(&gitdir, strip(&line))),
+        None => gitdir,
     }
 }
 
-/// The first line (at most 4096 bytes) of a small file, empty when it cannot be read as UTF-8.
-fn f_line(path: &str) -> String {
-    let Ok(file) = File::open(path) else {
-        return String::new();
-    };
+/// The first line (at most 4096 bytes) of the regular file `name` in folder `dir`, `None` when it cannot be opened without
+/// following a symlink, is not a regular file or is not UTF-8.
+fn first_line(dir: &str, name: &str) -> Option<String> {
+    let (file, _) = open_regular(&sys::open_root(dir).ok()?, name)?;
     let mut bytes = Vec::new();
-    if std::io::BufReader::new(file.take(4096))
+    std::io::BufReader::new(file.take(4096))
         .read_until(b'\n', &mut bytes)
-        .is_err()
-    {
-        return String::new();
-    }
-    String::from_utf8(bytes).unwrap_or_default()
+        .ok()?;
+    String::from_utf8(bytes).ok()
 }
 
 /// `os.path.join(base, part)`: an absolute `part` replaces `base`.
@@ -346,7 +320,7 @@ fn prompts(folder: &Path, start: Date, today: Date, zone: &TimeZone) -> (u64, u6
             }
             continue;
         }
-        let Ok(record) = serde_json::from_slice::<Value>(&line) else {
+        let Some(record) = json_with_bom(&line) else {
             continue;
         };
         let Some(record) = record.as_object() else {
@@ -595,5 +569,76 @@ mod tests {
             sha256_hex(b""),
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         );
+    }
+
+    /// Values from Python's `hashlib.sha256` (and the NIST 448-bit message): inputs of two and many blocks, and the
+    /// lengths around the 55/56 and 63/64 byte padding boundaries.
+    #[test]
+    fn sha256_matches_hashlib_over_many_blocks_and_padding_edges() {
+        let nist = b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+        assert_eq!(
+            sha256_hex(nist),
+            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+        );
+        assert_eq!(
+            sha256_hex(&[b'a'; 64]),
+            "ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb"
+        );
+        let kib64: Vec<u8> = (0..=255u8).cycle().take(65536).collect();
+        assert_eq!(
+            sha256_hex(&kib64),
+            "7daca2095d0438260fa849183dfc67faa459fdf4936e1bc91eec6b281b27e4c2"
+        );
+        assert_eq!(
+            sha256_hex(&vec![b'a'; 1_000_000]),
+            "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+        );
+        for (len, want) in [
+            (
+                55,
+                "d5e285683cd4efc02d021a5c62014694958901005d6f71e89e0989fac77e4072",
+            ),
+            (
+                56,
+                "04c26261370ee7541549d16dee320c723e3fd14671e66a099afe0a377c16888e",
+            ),
+            (
+                63,
+                "75220b47218278e656f2013bb8f0c455a25eaf01e86c64924e9d48d89776d6f2",
+            ),
+            (
+                64,
+                "7ce100971f64e7001e8fe5a51973ecdfe1ced42befe7ee8d5fd6219506b5393c",
+            ),
+            (
+                65,
+                "9537c5fdf120482f7d58d25e9ed583f52c02b4e304ea814db1633ad565aed7e9",
+            ),
+            (
+                119,
+                "000b48d4edf0fa7bee3c6236ecd2785baa5db4eeb8bb54341b029e0d9fa5fb0c",
+            ),
+            (
+                120,
+                "13f05a0b594787f5ecd315edc96141bd3243203d1b7d4f0836f37308b276ba98",
+            ),
+            (
+                128,
+                "24da1b81d0b16df6428eee73c69fcb2a93c76bc6df706f0c6670fe6bfe800464",
+            ),
+        ] {
+            assert_eq!(sha256_hex(&vec![b'x'; len]), want, "{len} bytes");
+        }
+    }
+
+    #[test]
+    fn a_json_byte_order_mark_is_taken_only_where_python_takes_it() {
+        assert_eq!(
+            json_with_bom(b"\xEF\xBB\xBF{\"a\": 1}"),
+            Some(json!({"a": 1}))
+        );
+        assert_eq!(json_with_bom(b"{\"a\": 1}"), Some(json!({"a": 1})));
+        assert_eq!(json_with_bom(b"\xEF\xBB\xBF\xEF\xBB\xBF{}"), None);
+        assert_eq!(json_with_bom(b"\xEF\xBB"), None);
     }
 }

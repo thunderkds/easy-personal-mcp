@@ -1,0 +1,1 @@
+{"v": 1, "generated": "2026-01-19T00:00:00Z", "min_sessions": 5, "too_few": false, "on_vs_off_pct": -12.5, "groups": {"on": {"sessions": 7, "tokens_all_median": 1200.5}, "off": {"sessions": 9, "tokens_all_median": 1500}}}

@@ -68,12 +68,27 @@ impl Server {
 
     /// `(status, body)` of one request; `headers` replace the good Host and token when their name matches.
     fn send(&self, method: &str, path: &str, host: Option<&str>, token: bool) -> (u16, String) {
+        self.send_with_origin(method, path, host, token, None)
+    }
+
+    /// As [`Server::send`], with an `Origin` header when `origin` is given.
+    fn send_with_origin(
+        &self,
+        method: &str,
+        path: &str,
+        host: Option<&str>,
+        token: bool,
+        origin: Option<&str>,
+    ) -> (u16, String) {
         let host = host.map_or(format!("127.0.0.1:{}", self.port), str::to_string);
         let mut request = format!(
             "{method} {path} HTTP/1.1\r\nHost: {host}\r\nContent-Length: 0\r\nConnection: close\r\n"
         );
         if token {
             request += &format!("x-dashboard-token: {}\r\n", self.token);
+        }
+        if let Some(origin) = origin {
+            request += &format!("Origin: {origin}\r\n");
         }
         request += "\r\n";
         let mut stream = TcpStream::connect(("127.0.0.1", self.port)).unwrap();
@@ -145,6 +160,11 @@ fn caller_mistakes_are_400_with_fixed_texts_that_do_not_echo_the_input() {
     let (status, body) = server.get("/api/board?account=nope-secret");
     assert_eq!(status, 400);
     assert!(!body.to_string().contains("nope-secret"), "{body}");
+    // the exact text (Python's `accounts.resolve`): the valid labels of the store, never the caller's word
+    assert_eq!(
+        body["error"].as_str(),
+        Some("unknown account; valid labels: (none)")
+    );
 }
 
 #[test]
@@ -160,6 +180,24 @@ fn the_guard_and_the_methods_are_the_same_as_for_the_other_routes() {
             server.send("GET", path, Some("localhost:1"), true).0,
             403,
             "{path} with a wrong Host"
+        );
+        // a page from another origin is refused, the page's own origin is let through
+        for origin in ["http://evil.example", "http://127.0.0.1:1", "null"] {
+            assert_eq!(
+                server
+                    .send_with_origin("GET", path, None, true, Some(origin))
+                    .0,
+                403,
+                "{path} with Origin {origin}"
+            );
+        }
+        let own = format!("http://127.0.0.1:{}", server.port);
+        assert_eq!(
+            server
+                .send_with_origin("GET", path, None, true, Some(&own))
+                .0,
+            200,
+            "{path} with its own Origin"
         );
         for method in ["POST", "PUT", "DELETE", "PATCH"] {
             assert_eq!(

@@ -125,7 +125,8 @@ fn drop_links(text: &str) -> String {
     out
 }
 
-/// `_ESCAPE.sub(r"\1", text)`: a backslash before one of ``\`*_{}[]()#+-.!|<>~`` is dropped.
+/// `_ESCAPE.sub(r"\1", text)`: a backslash before one of ``\`*_{}[]()#+-.!|<>~`` is dropped and the escaped character is
+/// kept (and consumed: a match does not overlap the next one, so `\\*` gives `\*`, not `*`).
 fn drop_escapes(text: &str) -> String {
     let mut out = String::new();
     let mut chars = text.chars().peekable();
@@ -134,7 +135,9 @@ fn drop_escapes(text: &str) -> String {
             && let Some(&next) = chars.peek()
             && "\\`*_{}[]()#+-.!|<>~".contains(next)
         {
-            continue; // the escaped character is pushed on the next turn
+            out.push(next);
+            chars.next();
+            continue;
         }
         out.push(c);
     }
@@ -482,6 +485,45 @@ mod tests {
     fn unicode_digits_are_python_digits() {
         assert!(is_digit('7') && is_digit('\u{663}') && is_digit('\u{ff17}'));
         assert!(!is_digit('\u{b2}') && !is_digit('a') && !is_digit('\u{2167}'));
+    }
+
+    /// Every code point Python's `re.match(r"\\d", c)` accepts (dumped by `gen_memgraph.py` into `cases-t053.json`).
+    #[test]
+    fn the_digit_table_is_pythons_over_every_code_point() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../parity/golden-memgraph/cases-t053.json");
+        let golden: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let runs: Vec<(u32, u32)> = golden["digits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| (r[0].as_u64().unwrap() as u32, r[1].as_u64().unwrap() as u32))
+            .collect();
+        let mut wrong = Vec::new();
+        for point in 0..=0x10FFFF_u32 {
+            let Some(c) = char::from_u32(point) else {
+                continue;
+            };
+            let want = runs.iter().any(|&(a, b)| (a..=b).contains(&point));
+            if is_digit(c) != want {
+                wrong.push(format!("{point:#x}"));
+            }
+        }
+        assert!(wrong.is_empty(), "differs from Python at {wrong:?}");
+        assert!(runs.len() > 60, "the dump holds the digit runs");
+    }
+
+    #[test]
+    fn an_escaped_backslash_keeps_one_backslash() {
+        // Python's `_ESCAPE.sub(r"\1", ..)`: the escaped character stays, and a match does not overlap the next
+        assert_eq!(drop_escapes("\\\\* hi"), "\\* hi");
+        assert_eq!(drop_escapes("\\\\\\\\y"), "\\\\y");
+        assert_eq!(drop_escapes("\\*star\\*"), "*star*");
+        assert_eq!(drop_escapes("a\\b \\"), "a\\b \\"); // a backslash before a plain character or at the end stays
+        assert_eq!(
+            parse_text("## Board\n### Todo\n- T1 \\\\* hi\n").unwrap()["tasks"][0]["title"],
+            "\\* hi"
+        );
     }
 
     #[test]
