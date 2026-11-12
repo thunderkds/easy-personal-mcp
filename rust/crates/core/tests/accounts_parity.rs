@@ -36,7 +36,23 @@ fn read_json(path: &Path) -> Value {
         .unwrap()
 }
 
-fn temp_dir(tag: &str) -> PathBuf {
+/// A temp folder that is removed when it drops, also when an assertion fails (T055).
+struct Tmp(PathBuf);
+
+impl std::ops::Deref for Tmp {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Tmp {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn temp_dir(tag: &str) -> Tmp {
     static N: AtomicU32 = AtomicU32::new(0);
     let dir = std::env::temp_dir().join(format!(
         "easy-personal-rs-t041-{tag}-{}-{}",
@@ -44,7 +60,7 @@ fn temp_dir(tag: &str) -> PathBuf {
         N.fetch_add(1, Ordering::SeqCst)
     ));
     fs::create_dir_all(&dir).unwrap();
-    fs::canonicalize(dir).unwrap()
+    Tmp(fs::canonicalize(dir).unwrap())
 }
 
 /// `value` with every `from` in a string replaced by `to`.
@@ -226,7 +242,7 @@ fn hand_made_store_is_equal_in_three_zones() {
 }
 
 /// The hand-made store in a temp work folder, for the cases below.
-fn hand_made() -> (PathBuf, Connection) {
+fn hand_made() -> (Tmp, Connection) {
     let dir = parity_dir().join("golden-accounts");
     let work = temp_dir("edge");
     fs::create_dir_all(work.join("agent-root/.claude-work")).unwrap();

@@ -21,9 +21,10 @@ use rusqlite::{Connection, params_from_iter};
 use serde_json::{Map, Value, json};
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::ffi::OsString;
 use std::fmt;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
@@ -1026,57 +1027,78 @@ pub(crate) fn owner_map(branches: &BTreeMap<String, BTreeSet<String>>) -> HashMa
     mapping
 }
 
-/// Python's non-strict `os.path.realpath`: the path is walked part by part and each symlink is replaced by its text as it
-/// is met (a dangling link's text too, and `..` after a link goes up from the link's target); a part that does not exist is
-/// kept as written. At most 40 links are followed (a loop leaves the looping part as written). A relative path starts at the
-/// working folder.
-pub(crate) fn realpath(path: &str) -> String {
-    use std::os::unix::ffi::{OsStrExt, OsStringExt};
-    const MAX_LINKS: usize = 40;
-    let parts = |text: &[u8]| -> Vec<Vec<u8>> {
-        text.split(|&b| b == b'/')
-            .rev()
-            .map(<[u8]>::to_vec)
+/// What is left of a path to resolve: a name to look at, or the end of a link's target (that link is now resolved).
+enum Step {
+    Name(OsString),
+    Resolved(PathBuf),
+}
+
+/// The one port of Python's non-strict `Path.resolve()` / `os.path.realpath` (CPython 3.14's `posixpath.realpath`; used by
+/// the metrics' scratch rule, the easy-memory and memory-graph reads, the folder list, the account paths and the workspace
+/// repos): the path is walked name by name; `.` and `..` are folded (`..` goes up from where the walk is, after any link
+/// before it has been replaced by its target); a symlink is followed, a dangling one by its text too; a name that does not
+/// exist is kept as typed. A relative path starts at the working folder. There is no cap on links. `seen` maps a link to its
+/// fully resolved target (`None` while it is being resolved), so a link met again is read from there, not expanded again (a
+/// chain that doubles at every link costs one expansion per link), and a link met while it is being resolved is a loop: it is
+/// kept as it is, with the rest of the path as typed.
+pub fn resolve_path(path: &Path) -> PathBuf {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir().unwrap_or_default().join(path)
+    };
+    let names = |p: &Path| -> Vec<OsString> {
+        p.components()
+            .filter_map(|c| match c {
+                Component::Normal(n) => Some(n.to_os_string()),
+                Component::ParentDir => Some("..".into()),
+                _ => None,
+            })
             .collect()
     };
-    let mut pending = parts(path.as_bytes());
-    if !path.starts_with('/')
-        && let Ok(cwd) = std::env::current_dir()
-    {
-        pending.extend(parts(cwd.as_os_str().as_bytes()));
-    }
-    let (mut out, mut links): (Vec<Vec<u8>>, usize) = (Vec::new(), 0);
-    while let Some(name) = pending.pop() {
-        match name.as_slice() {
-            b"" | b"." => continue,
-            b".." => {
-                out.pop();
+    // the next name to look at is the last one
+    let mut rest: Vec<Step> = names(&absolute).into_iter().rev().map(Step::Name).collect();
+    let mut resolved = PathBuf::from("/");
+    let mut seen: HashMap<PathBuf, Option<PathBuf>> = HashMap::new();
+    while let Some(step) = rest.pop() {
+        let name = match step {
+            Step::Resolved(link) => {
+                seen.insert(link, Some(resolved.clone()));
                 continue;
             }
-            _ => {}
+            Step::Name(name) => name,
+        };
+        if name == ".." {
+            resolved.pop();
+            continue;
         }
-        let mut at = vec![b'/'];
-        at.extend(out.join(&b'/'));
-        if !out.is_empty() {
-            at.push(b'/');
+        let next = resolved.join(&name);
+        if !std::fs::symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink()) {
+            resolved = next;
+            continue;
         }
-        at.extend(&name);
-        let target = std::fs::symlink_metadata(std::ffi::OsStr::from_bytes(&at))
-            .ok()
-            .filter(|meta| meta.file_type().is_symlink() && links < MAX_LINKS)
-            .and_then(|_| std::fs::read_link(std::ffi::OsStr::from_bytes(&at)).ok());
-        let Some(target) = target else {
-            out.push(name);
+        if let Some(done) = seen.get(&next) {
+            // resolved before: its result; still being resolved: a loop, kept as it is
+            resolved = done.clone().unwrap_or(next);
+            continue;
+        }
+        let Ok(target) = std::fs::read_link(&next) else {
+            resolved = next;
             continue;
         };
-        links += 1;
-        let target = target.into_os_string().into_vec();
-        if target.starts_with(b"/") {
-            out.clear();
+        if target.is_absolute() {
+            resolved = PathBuf::from("/");
         }
-        pending.extend(parts(&target));
+        seen.insert(next.clone(), None);
+        rest.push(Step::Resolved(next));
+        rest.extend(names(&target).into_iter().rev().map(Step::Name));
     }
-    String::from_utf8_lossy(&[b"/".as_slice(), &out.join(&b'/')].concat()).into_owned()
+    resolved
+}
+
+/// [`resolve_path`] over text: a name that is not UTF-8 comes back with U+FFFD.
+pub fn realpath(path: &str) -> String {
+    resolve_path(Path::new(path)).to_string_lossy().into_owned()
 }
 
 /// FR-069 (a)-(d) for a path with no owner project; a path under a temp folder is decided before any git call.

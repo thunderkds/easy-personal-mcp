@@ -169,7 +169,8 @@ pub fn open_for_write(path: &Path) -> Result<Store, WriteError> {
     open_store(path, true)
 }
 
-/// [`open_for_write`] for a store that must already be there (`save_report`, which checked it read-only first): without
+/// [`open_for_write`] for a store that must already be there (`save_report` and the workspace and account write routes, which
+/// check it read-only first): without
 /// `SQLITE_OPEN_CREATE`, a file removed since that check is `WriteError::Io(NotFound)` and is not created again.
 pub fn open_existing_for_write(path: &Path) -> Result<Store, WriteError> {
     open_store(path, false)

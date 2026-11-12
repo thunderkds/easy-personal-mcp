@@ -366,6 +366,10 @@ PATHS = [
     "@W@/loop-a", "@W@/loop-a/x", "@W@/file", "@W@/file/x", "@W@/deep/../link", "@W@/chain1", "@W@/dir-link/real", "relative", ".", "", "   ", "a\u0000b", 5,
     # T054: a chain of 30 links that doubles at every hop, a loop of three links, a link to itself
     "@W@/hop0", "@W@/hop0/real", "@W@/tri-a", "@W@/tri-a/x", "@W@/tri-c/x", "@W@/selfie", "@W@/selfie/x",
+    # T055: one resolver for every `Path.resolve()` / `os.path.realpath` port. Chains of 41 and 60 links (no cap of 40), a
+    # `..` after a chain, a 2-link loop and a 3-link loop with a tail and a `..`, a `..` after a dangling link
+    "@W@/c41-0", "@W@/c41-0/x", "@W@/c41-0/../y", "@W@/c60-0", "@W@/c60-0/x", "@W@/loop-b/x/y", "@W@/tri-b/../z", "@W@/tri-a/x/..",
+    "@W@/dangle/../w",
 ]
 
 
@@ -391,6 +395,10 @@ def path_corpus(base: Path) -> dict:
     (work / "tri-b").symlink_to("tri-c")
     (work / "tri-c").symlink_to("tri-a")
     (work / "selfie").symlink_to("selfie")
+    for name, length in (("c41", 41), ("c60", 60)):  # T055: `<name>-0 -> <name>-1 -> ... -> real`, `length` links
+        for i in range(length - 1):
+            (work / f"{name}-{i}").symlink_to(f"{name}-{i + 1}")
+        (work / f"{name}-{length - 1}").symlink_to("real")
     out = []
     for text in PATHS:
         arg = text.replace("@W@", str(work)) if isinstance(text, str) else text
@@ -399,7 +407,30 @@ def path_corpus(base: Path) -> dict:
         except workspaces.WorkspaceError as error:
             result = {"error": str(error)}
         out.append({"input": text, **result})
-    return {"cases": out}
+    return {"cases": out}, relative_corpus(work)
+
+
+# T055: relative inputs, which `normalise_repo` refuses: Python's `Path.resolve()` / `os.path.realpath` start at the working
+# folder, here `@W@` (the Rust test changes into its copy of the folder first)
+RELATIVE = [
+    "real", "link", "link/x/../y", "rel/z", "dangle", "dangle/../w", "loop-a", "loop-a/x", "tri-a/x", "tri-b/../z", "c41-0", "c41-0/x",
+    "c60-0/../y", "hop0/x", ".", "", "./real/../link", "deep/..", "deep/../deep/.", "file/x", "selfie/x", "real//x/",
+]
+
+
+def relative_corpus(work: Path) -> dict:
+    """`Path(text).resolve()` and `os.path.realpath(text)` with `work` as the working folder (they must agree)."""
+    here = os.getcwd()
+    os.chdir(work)
+    try:
+        out = []
+        for text in RELATIVE:
+            real, resolved = os.path.realpath(text), str(Path(text).resolve())
+            assert real == resolved, (text, real, resolved)
+            out.append({"input": text, "ok": scrub(real, str(work))})
+        return {"cases": out}
+    finally:
+        os.chdir(here)
 
 
 def run(out: Path) -> None:
@@ -456,7 +487,7 @@ def run(out: Path) -> None:
                 "tables": sorted(after),
             })
         shutil.which = real_which
-        paths = path_corpus(base)
+        paths, relative = path_corpus(base)
     crashed = [(c["name"], a["status"]) for c in done for a in c["answers"] if a["status"] >= 500]
     if crashed:
         sys.exit(f"Python answered 5xx in: {crashed} (such a case belongs in the README list, not in the oracle)")
@@ -469,6 +500,7 @@ def run(out: Path) -> None:
     }
     (out / "cases.json").write_text(json.dumps(manifest, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
     (out / "paths.json").write_text(json.dumps(paths, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
+    (out / "paths-relative.json").write_text(json.dumps(relative, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
     requests = sum(len(c["answers"]) for c in done)
     changed = sum(1 for c in done if c["changed"])
     print(f"{len(done)} cases, {requests} requests ({changed} cases change the store) -> {out}")
