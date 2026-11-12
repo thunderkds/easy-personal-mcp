@@ -838,7 +838,8 @@ app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `li
    exact); a hostile value never panics or wraps. `rolled_past(i64::MAX)` is `false` (no overflow on a client's
    `Last-Event-ID`). Rust-only test, no golden (Python's exact answer cannot be held in an `i64`).
 9. A warm start bumps `state_version` even when the file's open fails (as Python's `finally` does when `_warm` raises
-   after the bump point); the file is then skipped for that step.
+   after the bump point); the file is then skipped for that step. Difference: Python opens a file over 64 MiB (to find
+   the first line start) before its `try`, so a failed open there does not bump `state_version`; Rust always bumps.
 10. A transcript whose file name is not valid UTF-8 is skipped (Python yields it through `surrogateescape`).
 11. A `cwd` holding a lone surrogate makes the whole record abstain (the shared parser's rule, `ingest/claude_code.rs`;
     Python crashes binding it).
