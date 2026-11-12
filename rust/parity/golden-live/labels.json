@@ -1,0 +1,536 @@
+[
+ {
+  "fn": "safe",
+  "input": "\"a\"",
+  "out": "a"
+ },
+ {
+  "fn": "safe",
+  "input": "\"A1\"",
+  "out": "A1"
+ },
+ {
+  "fn": "safe",
+  "input": "\"code-review\"",
+  "out": "code-review"
+ },
+ {
+  "fn": "safe",
+  "input": "\"kit:tdd\"",
+  "out": "kit:tdd"
+ },
+ {
+  "fn": "safe",
+  "input": "\"x.y_z-1\"",
+  "out": "x.y_z-1"
+ },
+ {
+  "fn": "safe",
+  "input": "\"_lead\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"-lead\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\".lead\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\":lead\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"has space\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"a\\n\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"na\\u00efve\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"a/b\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"a@b\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"a+b\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"sk-ABCDEF\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"sk-\"",
+  "out": "sk-"
+ },
+ {
+  "fn": "safe",
+  "input": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"abababababababababababababababab!\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"0123456789abcdef0123456789abcdef\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"ghp_abc\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"AKIAABCD1234\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"-----BEGIN\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"\\udc80\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "\"\\u00e9\\u00e9\\u00e9\"",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "null",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "1",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "1.5",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "true",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "[]",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "{}",
+  "out": null
+ },
+ {
+  "fn": "safe",
+  "input": "[\"code-review\"]",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"git status\"",
+  "out": "git"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd x && cmd\"",
+  "out": "cmd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd \\\"a b\\\";cmd\"",
+  "out": "cmd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd 'a b' && cmd --x\"",
+  "out": "cmd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd a && cd b && make test\"",
+  "out": "make"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd a; cd b; cd c ; npm run\"",
+  "out": "npm"
+ },
+ {
+  "fn": "bash",
+  "input": "\"  cd   /x   &&   pytest -q\"",
+  "out": "pytest"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd && ls\"",
+  "out": "cd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd x &&\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd x\"",
+  "out": "cd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cdx && ls\"",
+  "out": "cdx"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd x | ls\"",
+  "out": "cd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd x & ls\"",
+  "out": "cd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd \\\"a b\\\"x; ls\"",
+  "out": "cd"
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd /x && sk-ABCDEFGHIJKLMNOPQRSTUVWX deploy\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"   \"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"/usr/bin/python3 -m x\"",
+  "out": "python3"
+ },
+ {
+  "fn": "bash",
+  "input": "\"VAR=1 cargo test\"",
+  "out": "cargo"
+ },
+ {
+  "fn": "bash",
+  "input": "\"sudo rm -rf /\"",
+  "out": "sudo"
+ },
+ {
+  "fn": "bash",
+  "input": "\"./run.sh\"",
+  "out": "run.sh"
+ },
+ {
+  "fn": "bash",
+  "input": "\"echo CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"",
+  "out": "echo"
+ },
+ {
+  "fn": "bash",
+  "input": "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd && ls\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"(ls)\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"ls\\u00a0-la\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd\\u3000x && ls\"",
+  "out": "ls"
+ },
+ {
+  "fn": "bash",
+  "input": "\"python -m easy_personal.cli ingest\"",
+  "out": "easy-personal"
+ },
+ {
+  "fn": "bash",
+  "input": "\"env A=1 B=2 make\"",
+  "out": "make"
+ },
+ {
+  "fn": "bash",
+  "input": "\"time ls\"",
+  "out": "time"
+ },
+ {
+  "fn": "bash",
+  "input": "\"\\udc80 ls\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "\"cd x\\n&& ls\"",
+  "out": "ls"
+ },
+ {
+  "fn": "bash",
+  "input": "\"'quoted cmd' arg\"",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "null",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "5",
+  "out": null
+ },
+ {
+  "fn": "bash",
+  "input": "[\"ls\"]",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"skill\": \"code-review\"}",
+  "name": "Skill",
+  "out": "code-review"
+ },
+ {
+  "fn": "call",
+  "input": "{\"skill\": \"kit:tdd\"}",
+  "name": "Skill",
+  "out": "kit:tdd"
+ },
+ {
+  "fn": "call",
+  "input": "{\"skill\": 5}",
+  "name": "Skill",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "Skill",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "null",
+  "name": "Skill",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "\"code-review\"",
+  "name": "Skill",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"skill\": \"sk-ABCDEFGH\"}",
+  "name": "Skill",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"subagent_type\": \"Explore\", \"description\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}",
+  "name": "Agent",
+  "out": "Explore"
+ },
+ {
+  "fn": "call",
+  "input": "{\"subagent_type\": \"general\"}",
+  "name": "Task",
+  "out": "general"
+ },
+ {
+  "fn": "call",
+  "input": "{\"subagent_type\": null}",
+  "name": "Agent",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"prompt\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}",
+  "name": "Task",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"command\": \"cd x && make\"}",
+  "name": "Bash",
+  "out": "make"
+ },
+ {
+  "fn": "call",
+  "input": "{\"command\": 5}",
+  "name": "Bash",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "Bash",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"file_path\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}",
+  "name": "Read",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "Edit",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"query\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}",
+  "name": "mcp__easy-memory__memory_search",
+  "out": {
+   "server": "easy-memory",
+   "tool": "memory_search"
+  }
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "mcp__srv__",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "mcp____tool",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "mcp__srv",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "mcp__s v__t",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "mcp__srv__tool__more",
+  "out": {
+   "server": "srv",
+   "tool": "tool__more"
+  }
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "mcp__sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss__t",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{}",
+  "name": "mcp__srv__sk-ABCDEFGH",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"url\": \"https://x\"}",
+  "name": "WebFetch",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"skill\": \"x\"}",
+  "name": "Unknown",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"skill\": \"x\"}",
+  "name": "skill",
+  "out": null
+ },
+ {
+  "fn": "call",
+  "input": "{\"command\": \"cd x && git push\", \"description\": \"CANARY-7f3a sk-ABCDEFGHIJKLMNOPQRSTUVWX /home/canary/secret.txt\"}",
+  "name": "Bash",
+  "out": "git"
+ }
+]
