@@ -899,20 +899,15 @@ impl LiveTail {
         self.primed = true;
     }
 
-    fn parse_lines(&mut self, lines: &[Vec<u8>]) -> Vec<Item> {
-        let mut projects = std::mem::take(&mut self.projects);
-        let mut resolve = |cwd: &str| {
+    /// One line to its item, parsed as soon as it is read: a batch holds items, never raw lines (bounded memory).
+    fn parse_one(&mut self, line: &[u8]) -> Option<Item> {
+        let projects = &mut self.projects;
+        line_item(line, &mut |cwd: &str| {
             projects
                 .entry(cwd.to_owned())
                 .or_insert_with(|| resolve_project(cwd, Path::new("")))
                 .clone()
-        };
-        let items = lines
-            .iter()
-            .filter_map(|line| line_item(line, &mut resolve))
-            .collect();
-        self.projects = projects;
-        items
+        })
     }
 
     /// FR-086: replay the complete lines below the store cursor into session state only (no event, no id).
@@ -954,7 +949,7 @@ impl LiveTail {
                     match next_line(&mut reader)? {
                         Next::Line(l) => {
                             offset += l.len() as u64;
-                            batch.push(l);
+                            batch.extend(self.parse_one(&l));
                         }
                         Next::Skipped(n) => offset += n,
                         Next::End => {
@@ -967,7 +962,7 @@ impl LiveTail {
                 if rows == 0 {
                     break;
                 }
-                let items = self.parse_lines(&batch);
+                let items = batch;
                 self.publish(account, path, items, now);
             }
             Ok(())
@@ -995,7 +990,7 @@ impl LiveTail {
                 match next_line(&mut reader)? {
                     Next::Line(l) => {
                         next += l.len() as u64;
-                        lines.push(l);
+                        lines.extend(self.parse_one(&l));
                     }
                     Next::Skipped(n) => next += n,
                     Next::End => break,
@@ -1005,7 +1000,7 @@ impl LiveTail {
             if rows == 0 {
                 return Ok(());
             }
-            let items = self.parse_lines(&lines);
+            let items = lines;
             self.publish(account, path, items, now);
             own = next;
             self.offsets.insert(path.to_owned(), (inode, own));

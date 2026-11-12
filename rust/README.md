@@ -788,3 +788,51 @@ cargo test && cargo clippy --all-targets -- -D warnings
 ```
 
 Tests build their own temp stores and never open `~/.easy-personal`.
+
+## Live tail engine (T049)
+
+`easy_personal_core::live` is the engine of Python's live tail (`src/easy_personal/core/live.py`, FR-043..FR-049,
+FR-071, FR-081..FR-083, FR-086): `LiveTail::poll_once(roots, now, store)` (or `poll_store(store_path, projects_override,
+now)`, which opens the store with `store::open_checked` for that one step) walks each account's `projects/` tree (main and
+`subagents/` files), reads only complete new lines from a per-file offset, and keeps the same metadata events (a buffer of
+2,000 with ids from 1), per-session state (totals, kit stage, open calls, failing / waiting / needs attention, sub-agent
+types) and snapshots as Python. `events_since`, `rolled_past`, `snapshot`, `last_id` and `state_version` mirror Python's
+methods. There is no thread and no clock inside: `now` (microseconds, UTC) is an input.
+
+**Ported**: `_item`, `_safe`, `_bash_label`, `_call_label`, `_meta_agent_type`, `_jsonl_files`, `_cursor`, `_scan`, `_warm`,
+`_follow` (its publish path), `_publish`, `_agent_of`, `_set_stage`, `_pair`, `_evaluate`, `_attention`, `_count_usage`,
+`_append`, `snapshot`. The parser is the existing `ingest::claude_code::parse_record`; projects go through
+`ingest::folders::resolve_project` (widened to `pub(crate)`, no change), costs through `prices.rs`.
+
+**Not ported here**: the polling thread, `GET /api/live`, SSE framing and `Last-Event-ID` (T056); the kit-trace feed and the
+app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `live_open_call_minutes` 10 are fixed).
+
+**Decided for you** (where Rust differs from Python on purpose):
+
+1. Publish-only: the engine never writes the store and never creates or takes `ingest.lock` (the owner's Path 1). Every
+   line is published from the tail's own offset, which is Python's FR-071 path. Python as shipped stores what it reads, so
+   after a file shrinks in place (same inode) its cursor is its own; here the cursor is what the scheduled ingest stored. A
+   file rewritten shorter but still at least as long as the stored cursor restarts at that cursor (Python: at 0 once it
+   had stored past the new size). The oracle does not cover that case.
+2. Hostile files: every `*.jsonl` and `*.meta.json` is opened `O_NOFOLLOW | O_NONBLOCK` and judged on the open handle (a
+   regular file, the scanned inode). A symlinked transcript is not followed (Python follows it); a file whose open fails
+   for any reason is skipped for this step (Python's poll stops at any error but `FileNotFoundError`).
+3. One line is held to at most 32 MiB (`MAX_LINE_BYTES`): a longer line is skipped once its newline arrives (no event;
+   Python parses it); until then the file waits without holding more than the bound.
+4. `MAX_BATCH_LINES` (500) is the publish batch, as in Python, which reads every new line of a file in one poll: the
+   engine does the same, so batch boundaries (and `state_version`) equal Python's.
+5. The roots and the account labels are read on every step (Python refreshes them once a second); a store that is
+   missing, busy, newer or broken leaves the tail running on `projects_override` alone, untagged, with no error text.
+6. A lone surrogate in a Bash command reaches `jobs::command_name` as U+FFFD (Python passes the surrogate); the first word
+   must then pass the ASCII label pattern, so the label is `None` either way.
+7. Python's one-time warning for a block without an id is not logged (the core has no logger); the block is not tracked,
+   as in Python.
+
+**Tests** (`crates/core/tests/live_parity.rs`, 6 tests, oracle `parity/golden-live/` from `parity/gen_live.py`): 28 lines
+against Python's `_item` (AC 1); 100 label inputs against `_safe` / `_bash_label` / `_call_label` (AC 2); 10 scripts, 72
+steps, events and snapshot equal to Python after every step (pairing, failing, waiting, stage, streams with sub-agent meta
+files, usage, files with offsets / partial lines / truncation / replacement / 1,203 lines, warm start, a 2,001-event buffer
+with `events_since` / `rolled_past` probes, idle sessions and a clock going back) (AC 4-7); hostile files under a 60 s
+timeout (AC 8); store, transcripts and folders byte- and mtime-unchanged, no lock or journal file (AC 9); canaries in
+text, thinking, tool content, tool inputs and a meta `description` absent from every event, snapshot and `Debug` line
+(AC 10).

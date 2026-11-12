@@ -430,3 +430,22 @@ cd rust && cargo test -p easy-personal-core --test writes_parity    # replays th
 ```
 
 The tests assert the exact numbers, so a dropped or added case fails until the numbers are changed on purpose. Python's own crashes (5xx) are not in the oracle: the generator stops on one.
+
+## Live tail (T049)
+
+What Python's live tail (`easy_personal.core.live`, imported read-only) answers. `gen_live.py` writes `golden-live/`:
+
+- `items.json`: 28 transcript lines and `live._item(record, claude_code.parse_record(record, identity))` for each;
+- `labels.json`: 100 inputs (stored as JSON text, so a lone surrogate survives) and `_safe`, `_bash_label`, `_call_label`;
+- `scripts.json`: 10 scripts, 72 steps. Each step is a list of file operations on a temp `projects/` tree (write, append,
+  replace, delete, mtime, store cursor, symlink) and a frozen `now`; after `LiveTail.poll_once` the generator keeps the new
+  buffered events (or their count), the snapshot and, for the buffer script, `events_since` / `rolled_past` probes.
+
+Python runs as shipped, so it also stores what it reads in its temp store; the Rust engine is publish-only. The scripts keep
+to cases where that cannot change an answer (see `rust/README.md`, "Live tail engine (T049)", item 1). The temp folders are
+made under `rust/target/` and removed; `EASY_PERSONAL_HOME` and `EASY_PERSONAL_CLAUDE_PROJECTS` point at them.
+
+```bash
+rust/parity/.venv/bin/python rust/parity/gen_live.py            # rewrites rust/parity/golden-live/ (a re-run changes nothing)
+cd rust && cargo test -p easy-personal-core --test live_parity  # replays all of it; asserts >= 25 items, >= 80 labels, >= 60 steps
+```
