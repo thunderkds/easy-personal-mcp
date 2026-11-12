@@ -492,6 +492,68 @@ fn a_failed_store_step_keeps_offsets_and_publishes_nothing_again() {
     );
 }
 
+/// Breaks (or repairs) the cursor query of a store that still opens and still lists its accounts.
+fn cursor_table(store: &Path, broken: bool) {
+    let (from, to) = if broken {
+        ("source_files", "source_files_away")
+    } else {
+        ("source_files_away", "source_files")
+    };
+    let conn = Connection::open(store).unwrap();
+    conn.execute_batch(&format!("ALTER TABLE {from} RENAME TO {to}"))
+        .unwrap();
+}
+
+#[test]
+fn a_store_whose_cursor_query_fails_skips_the_scan() {
+    let tmp = Temp::new("query-fails");
+    account_store(&tmp, &line("s", "b1").repeat(3), None);
+    let store = tmp.store();
+    let mut live = tail();
+    live.poll_store(&store, None, NOW);
+    let first = live.last_id();
+    assert_eq!(first, 3);
+    cursor_table(&store, true);
+    live.poll_store(&store, None, NOW + SECOND);
+    cursor_table(&store, false);
+    live.poll_store(&store, None, NOW + 2 * SECOND);
+    assert_eq!(
+        live.events_since(first),
+        Vec::<Value>::new(),
+        "history published again"
+    );
+}
+
+#[test]
+fn a_cursor_query_failing_on_the_first_step_keeps_the_warm_start() {
+    let tmp = Temp::new("query-fails-first");
+    let below = line("s", "b1").repeat(2);
+    let all = below.clone() + &line("s", "b2");
+    account_store(&tmp, &all, Some(below.len() as i64));
+    let store = tmp.store();
+    let mut live = tail();
+    cursor_table(&store, true);
+    live.poll_store(&store, None, NOW);
+    assert_eq!(
+        live.last_id(),
+        0,
+        "nothing is read while the cursors cannot be"
+    );
+    cursor_table(&store, false);
+    live.poll_store(&store, None, NOW + SECOND);
+    let events = live.events_since(0);
+    assert_eq!(
+        events.len(),
+        1,
+        "only the line from the cursor on is live: {events:?}"
+    );
+    assert_eq!(
+        live.state_version(),
+        1,
+        "the warm replay ran on the first good step"
+    );
+}
+
 #[test]
 fn a_failed_first_step_keeps_the_warm_start() {
     let tmp = Temp::new("failed-first");

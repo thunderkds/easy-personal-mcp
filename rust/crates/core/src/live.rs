@@ -850,15 +850,14 @@ impl LiveTail {
     /// One scan and read pass over every root (Python's `poll_once`), then the time-based states move. With a store
     /// whose cursors or labels cannot be read, the scan is skipped (as `poll_store` does for a store it cannot open).
     pub fn poll_once(&mut self, roots: &[Root], now: i64, store: Option<&Connection>) {
-        if let Some(c) = store
-            && (file_offsets(c).is_err() || account_labels(c).is_err())
-        {
-            return self.evaluate(now);
-        }
-        let known = store.and_then(|c| file_offsets(c).ok()).unwrap_or_default();
-        let labels = store
-            .and_then(|c| account_labels(c).ok())
-            .unwrap_or_default();
+        // Each query runs once: a BUSY on a second read cannot turn into an empty map.
+        let (known, labels) = match store {
+            Some(c) => match (file_offsets(c), account_labels(c)) {
+                (Ok(known), Ok(labels)) => (known, labels),
+                _ => return self.evaluate(now),
+            },
+            None => (HashMap::new(), HashMap::new()),
+        };
         self.scan(roots, now, &known, &labels);
         self.evaluate(now);
     }
