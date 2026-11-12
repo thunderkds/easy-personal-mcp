@@ -502,3 +502,33 @@ fn a_failed_first_step_keeps_the_warm_start() {
     );
     assert_eq!(events[0]["account"], "Work");
 }
+
+fn usage_line(mid: &str, input: i64, output: i64) -> String {
+    format!(
+        "{{\"type\":\"assistant\",\"sessionId\":\"s\",\"timestamp\":\"2026-01-20T00:00:00Z\",\"message\":{{\"id\":\"{mid}\",\"model\":\"x\",\"usage\":{{\"input_tokens\":{input},\"output_tokens\":{output},\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0}},\"content\":[]}}}}\n"
+    )
+}
+
+/// Rust-only (decided: token sums and growth saturate at the `i64` bounds; Python's ints are exact): hostile token
+/// values never panic or wrap, and a client's `Last-Event-ID` of `i64::MAX` is answered.
+#[test]
+fn huge_token_values_saturate_and_never_panic() {
+    let tmp = Temp::new("overflow");
+    make_store(&tmp.store());
+    let file = tmp.projects().join("p/s.jsonl");
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let mut live = tail();
+    live.poll_store(&tmp.store(), Some(&tmp.projects()), NOW);
+    let text = usage_line("m1", i64::MAX, i64::MIN)
+        + &usage_line("m2", i64::MAX, 0)
+        + &usage_line("m1", 0, 5);
+    fs::write(&file, text).unwrap();
+    live.poll_store(&tmp.store(), Some(&tmp.projects()), NOW);
+    let snapshot = live.snapshot(NOW);
+    assert_eq!(snapshot["sessions"][0]["tokens_in"], i64::MAX);
+    let events = live.events_since(0);
+    assert_eq!(events.len(), 3, "{events:?}");
+    assert_eq!(events[2]["tokens_out"], i64::MAX, "5 - i64::MIN saturates");
+    assert!(!live.rolled_past(i64::MAX));
+    assert!(live.events_since(i64::MAX).is_empty());
+}

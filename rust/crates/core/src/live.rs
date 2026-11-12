@@ -789,7 +789,9 @@ impl LiveTail {
 
     /// True when events after `last_id` were already dropped from the buffer (send a fresh snapshot).
     pub fn rolled_past(&self, last_id: i64) -> bool {
-        self.buffer.front().is_some_and(|e| last_id + 1 < e.id)
+        self.buffer
+            .front()
+            .is_some_and(|e| last_id.saturating_add(1) < e.id)
     }
 
     /// Active sessions with running totals and the `last_id` they include. A session with an open call is listed
@@ -802,7 +804,7 @@ impl LiveTail {
                 continue;
             }
             let figures: Vec<&Figures> = s.messages.values().collect();
-            let sum = |i: usize| figures.iter().map(|f| f.0[i]).sum::<i64>();
+            let sum = |i: usize| figures.iter().fold(0i64, |a, f| a.saturating_add(f.0[i]));
             let cost = if figures.is_empty() {
                 json!(0) // Python's `sum([])` is the int 0
             } else if figures.iter().any(|f| f.1.is_none()) {
@@ -1293,7 +1295,7 @@ fn count_usage(prices: &PriceTable, session: &mut Session, u: &Usage) -> Option<
     }
     let [i, o, c, r] = largest;
     let cost = prices.cost(model, i, o, c, r);
-    let delta: [i64; 4] = std::array::from_fn(|k| largest[k] - before[k]);
+    let delta: [i64; 4] = std::array::from_fn(|k| largest[k].saturating_sub(before[k]));
     let delta_cost = match (cost, before_cost) {
         (Some(a), Some(b)) => Some(a - b),
         _ => None,
