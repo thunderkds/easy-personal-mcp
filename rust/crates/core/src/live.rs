@@ -572,11 +572,12 @@ fn account_labels(conn: &Connection) -> rusqlite::Result<Labels> {
 
 // ---- state ----------------------------------------------------------------------------------------------------------
 
-/// An insertion-ordered map (Python's `dict`): a re-set key keeps its place, iteration is in insertion order.
+/// An insertion-ordered map (Python's `dict`): a re-set key keeps its place, iteration is in insertion order. A removed
+/// key leaves a tombstone (`pop` is O(1)); the slots are compacted once tombstones outnumber the live keys.
 #[derive(Debug)]
 struct Ordered<V> {
     index: HashMap<String, usize>,
-    items: Vec<(String, V)>,
+    items: Vec<Option<(String, V)>>,
 }
 
 impl<V> Default for Ordered<V> {
@@ -589,54 +590,62 @@ impl<V> Default for Ordered<V> {
 }
 
 impl<V> Ordered<V> {
+    fn slot(&self, i: usize) -> &V {
+        &self.items[i].as_ref().expect("indexed slot is live").1
+    }
     fn get(&self, key: &str) -> Option<&V> {
-        self.index.get(key).map(|&i| &self.items[i].1)
+        self.index.get(key).map(|&i| self.slot(i))
     }
     fn get_mut(&mut self, key: &str) -> Option<&mut V> {
-        self.index.get(key).map(|&i| &mut self.items[i].1)
+        let i = *self.index.get(key)?;
+        self.items[i].as_mut().map(|(_, v)| v)
     }
     fn entry(&mut self, key: &str, make: impl FnOnce() -> V) -> &mut V {
-        let i = match self.index.get(key) {
-            Some(&i) => i,
-            None => {
-                self.items.push((key.to_owned(), make()));
-                self.index.insert(key.to_owned(), self.items.len() - 1);
-                self.items.len() - 1
-            }
-        };
-        &mut self.items[i].1
+        if !self.index.contains_key(key) {
+            self.items.push(Some((key.to_owned(), make())));
+            self.index.insert(key.to_owned(), self.items.len() - 1);
+        }
+        self.get_mut(key).expect("just inserted")
     }
     fn set_value(&mut self, key: &str, value: V) {
-        match self.index.get(key) {
-            Some(&i) => self.items[i].1 = value,
+        match self.get_mut(key) {
+            Some(slot) => *slot = value,
             None => {
-                self.items.push((key.to_owned(), value));
+                self.items.push(Some((key.to_owned(), value)));
                 self.index.insert(key.to_owned(), self.items.len() - 1);
             }
         }
     }
     fn retain(&mut self, mut keep: impl FnMut(&str, &mut V) -> bool) {
-        self.items.retain_mut(|(k, v)| keep(k, v));
+        self.items
+            .retain_mut(|slot| slot.as_mut().is_some_and(|(k, v)| keep(k, v)));
         self.index = self
             .items
             .iter()
             .enumerate()
-            .map(|(i, (k, _))| (k.clone(), i))
+            .filter_map(|(i, slot)| slot.as_ref().map(|(k, _)| (k.clone(), i)))
             .collect();
     }
+    fn iter(&self) -> impl Iterator<Item = (&String, &V)> {
+        self.items.iter().flatten().map(|(k, v)| (k, v))
+    }
     fn values(&self) -> impl Iterator<Item = &V> {
-        self.items.iter().map(|(_, v)| v)
+        self.items.iter().flatten().map(|(_, v)| v)
+    }
+    fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
+        self.items.iter_mut().flatten().map(|(_, v)| v)
+    }
+    fn len(&self) -> usize {
+        self.index.len()
     }
     fn is_empty(&self) -> bool {
-        self.items.is_empty()
+        self.index.is_empty()
     }
     fn pop(&mut self, key: &str) -> Option<V> {
         let i = self.index.remove(key)?;
-        let (_, v) = self.items.remove(i);
-        for slot in self.index.values_mut() {
-            if *slot > i {
-                *slot -= 1;
-            }
+        let (_, v) = self.items[i].take()?;
+        if self.items.len() > 2 * self.index.len() + 16 {
+            self.retain(|_, _| true); // compaction: amortised O(1) per pop
         }
         Some(v)
     }
@@ -742,7 +751,7 @@ pub struct LiveTail {
 impl fmt::Debug for LiveTail {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LiveTail")
-            .field("sessions", &self.sessions.items.len())
+            .field("sessions", &self.sessions.len())
             .field("files", &self.offsets.len())
             .field("buffered", &self.buffer.len())
             .field("last_id", &self.last_id)
@@ -799,7 +808,7 @@ impl LiveTail {
     pub fn snapshot(&self, now: i64) -> Json {
         let cutoff = format_stored(now - ACTIVE_WINDOW_S * SECOND);
         let mut sessions: Vec<(&String, Json)> = Vec::new();
-        for (id, s) in &self.sessions.items {
+        for (id, s) in self.sessions.iter() {
             if s.last_ts < cutoff && !s.has_open_call() {
                 continue;
             }
@@ -1130,7 +1139,7 @@ impl LiveTail {
         let quiet = before(OPEN_CALL_MINUTES * 60);
         let mut moved = 0;
         self.sessions.retain(|_, session| {
-            for (_, stream) in session.streams.items.iter_mut() {
+            for stream in session.streams.values_mut() {
                 stream.open.retain(|_, call| call.ts >= call_horizon);
             }
             if session.last_ts < forget && !session.has_open_call() {

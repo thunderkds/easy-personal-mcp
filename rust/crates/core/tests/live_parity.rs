@@ -8,7 +8,7 @@
 //! Every folder is a temp one under `CARGO_TARGET_TMPDIR`, removed even when an assertion fails; no real home is read.
 
 use easy_personal_core::ingest::json;
-use easy_personal_core::live::{LiveTail, bash_label, call_label, line_item, safe};
+use easy_personal_core::live::{LiveTail, Root, bash_label, call_label, line_item, safe};
 use easy_personal_core::prices::PriceTable;
 use rusqlite::Connection;
 use serde_json::{Value, json};
@@ -532,3 +532,50 @@ fn huge_token_values_saturate_and_never_panic() {
     assert!(!live.rolled_past(i64::MAX));
     assert!(live.events_since(i64::MAX).is_empty());
 }
+
+/// Pairing 100,000 calls with their results is linear: one line with 100,000 `tool_use` blocks, then their results.
+#[test]
+fn pairing_100k_calls_is_fast() {
+    within_timeout(|| {
+        let tmp = Temp::new("pairing-100k");
+        let file = tmp.projects().join("p/s.jsonl");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        let roots = [Root {
+            account: None,
+            projects: tmp.projects(),
+        }];
+        let mut live = tail();
+        live.poll_once(&roots, NOW, None);
+        let n = 100_000;
+        let uses: Vec<String> = (0..n)
+            .map(|i| format!("{{\"type\":\"tool_use\",\"id\":\"b{i}\",\"name\":\"Read\"}}"))
+            .collect();
+        let results: Vec<String> = (0..n)
+            .map(|i| format!("{{\"type\":\"tool_result\",\"tool_use_id\":\"b{i}\"}}"))
+            .collect();
+        let head = "\"sessionId\":\"s\",\"timestamp\":\"2026-01-20T00:00:00Z\"";
+        let text = format!(
+            "{{\"type\":\"assistant\",{head},\"message\":{{\"id\":\"m1\",\"content\":[{}]}}}}\n\
+             {{\"type\":\"user\",{head},\"message\":{{\"content\":[{}]}}}}\n",
+            uses.join(","),
+            results.join(",")
+        );
+        fs::write(&file, text).unwrap();
+        let started = std::time::Instant::now();
+        live.poll_once(&roots, NOW, None);
+        let took = started.elapsed();
+        let events = live.events_since(0);
+        assert_eq!(events.len(), 2 * BUFFER_HELD.min(n));
+        assert_eq!(
+            events.last().unwrap()["tool"],
+            "Read",
+            "the last result is paired"
+        );
+        assert_eq!(live.snapshot(NOW)["sessions"][0]["attention"], json!([]));
+        eprintln!("pairing 100k calls: {took:?}");
+        assert!(took < Duration::from_secs(5), "{took:?}");
+    });
+}
+
+/// The buffer keeps 2,000 events: 1,000 here are the last results.
+const BUFFER_HELD: usize = 1000;
