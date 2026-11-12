@@ -834,8 +834,29 @@ app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `li
    must then pass the ASCII label pattern, so the label is `None` either way.
 7. Python's one-time warning for a block without an id is not logged (the core has no logger); the block is not tracked,
    as in Python.
+8. Token sums in the snapshot and a message's growth (`new - old`) saturate at the `i64` bounds (Python's ints are
+   exact); a hostile value never panics or wraps. `rolled_past(i64::MAX)` is `false` (no overflow on a client's
+   `Last-Event-ID`). Rust-only test, no golden (Python's exact answer cannot be held in an `i64`).
+9. A warm start bumps `state_version` even when the file's open fails (as Python's `finally` does when `_warm` raises
+   after the bump point); the file is then skipped for that step.
+10. A transcript whose file name is not valid UTF-8 is skipped (Python yields it through `surrogateescape`).
+11. A `cwd` holding a lone surrogate makes the whole record abstain (the shared parser's rule, `ingest/claude_code.rs`;
+    Python crashes binding it).
+12. A file replaced (new inode) between the scan and the open is skipped for that step and picked up by the next.
+13. Root and override path strings are used as given (`Path::join`), not normalised the way Python's `Path` drops repeated
+    or trailing separators; a cursor row is matched on the path text the scan produces.
+14. AC 6's "at most 500 lines per file per step" is implemented as Python's 500-line batches, looped until the file's
+    complete lines are read in that step (item 4): equality with Python wins over a per-step cap. The Supervisor accepts
+    or rejects this explicitly.
+15. The open flags come from the crate's one per-arch table (`report_files::sys::{O_NOFOLLOW, O_NONBLOCK}`, widened to
+    `pub(crate)`): a target it does not list (non-Linux, or an arch not in its list) fails to compile.
 
-**Tests** (`crates/core/tests/live_parity.rs`, 6 tests, oracle `parity/golden-live/` from `parity/gen_live.py`): 28 lines
+**Tests** (`crates/core/tests/live_parity.rs`, 13 tests, oracle `parity/golden-live/` from `parity/gen_live.py`). Fix
+round: `scripts-2.json` (6 scripts, 39 steps: accounts with a confirmed `Work` row and a detected NULL-label row, all 19
+mapped skills one per step, and the boundaries `META_WAIT_S`, `FORGET_AFTER_S`, `OPEN_CALL_MAX_S`, `MAX_BATCH_LINES`),
+`labels-2.json` (`COMMAND_READ_CHARS` at 4096/4097/4098); Rust-only: a failed store step and a failed first step, huge
+token values, 100,000 calls paired, the 64 MiB warm-start trim. 14 mutants of `live.rs` (stage values, the five bounds)
+each turn a test red. First round: 28 lines
 against Python's `_item` (AC 1); 100 label inputs against `_safe` / `_bash_label` / `_call_label` (AC 2); 10 scripts, 72
 steps, events and snapshot equal to Python after every step (pairing, failing, waiting, stage, streams with sub-agent meta
 files, usage, files with offsets / partial lines / truncation / replacement / 1,203 lines, warm start, a 2,001-event buffer
