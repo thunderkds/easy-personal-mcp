@@ -1,6 +1,6 @@
 //! The read routes of the dashboard API: `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
-//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}` and `/api/first-run` (read-only; T040: an id that is not
+//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`, `/api/board` and `/api/memory-graph` (T043) and `/api/first-run` (read-only; T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500).
 //! They answer the same JSON and status codes as `src/easy_personal/surfaces/api.py` (`_query`, `_period`, `_who`);
 //! the goldens in `rust/parity/golden*/` are the oracle. Every route sits behind the guard in `server.rs`.
@@ -24,10 +24,12 @@ use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use easy_personal_core::accounts;
+use easy_personal_core::board;
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::first_run;
 use easy_personal_core::folders;
 use easy_personal_core::kit;
+use easy_personal_core::memgraph::{self, Env};
 use easy_personal_core::metrics::{self, MetricsError};
 use easy_personal_core::plan::improvement_plan_scoped;
 use easy_personal_core::report_files::{self, ReportError, parse_repo_no};
@@ -99,6 +101,8 @@ pub fn routes() -> Router<Api> {
         .route("/api/kit/report-file", get(kit_report_file))
         .route("/api/reports", get(report_list))
         .route("/api/reports/{id}", get(report_one))
+        .route("/api/board", get(board_view))
+        .route("/api/memory-graph", get(memory_graph))
         .route("/api/first-run", get(first_run_steps))
         .route("/api/accounts", get(account_list))
         .route("/api/sync", get(sync_plan))
@@ -250,6 +254,28 @@ async fn kit_report_file(State(api): State<Api>, uri: Uri) -> Response {
 async fn connectors(State(api): State<Api>, uri: Uri) -> Response {
     serve(api, uri, |conn, _q, _now| {
         suggestions::connectors_list(conn).map_err(view_failure)
+    })
+    .await
+}
+
+/// `GET /api/board` (T043): the kanban of each project folder in the `workspace` / `account` scope.
+async fn board_view(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, _now| {
+        board::board(conn, q.scope()).map_err(metrics_failure)
+    })
+    .await
+}
+
+/// `GET /api/memory-graph[?project=]` (T043): no `project` (or an empty one) lists the projects that have memory notes;
+/// with one, that project's nodes and edges (an unknown one is a 400 `unknown project`).
+async fn memory_graph(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, now| {
+        let env = Env::system(now);
+        match q.get("project").filter(|p| !p.is_empty()) {
+            Some(project) => memgraph::project_graph(conn, &env, project),
+            None => memgraph::project_list(conn, &env),
+        }
+        .map_err(metrics_failure)
     })
     .await
 }

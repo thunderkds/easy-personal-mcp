@@ -597,8 +597,49 @@ Decided for you (differences from Python, all on hostile or unusual input):
   `thresholds: kit_error_rate` is not read (the default 0.04 is used).
 - Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
 
-Not served yet: the other Python routes (`/api/sync`, `/api/memory-graph`, `/api/live`, the accounts and connector writes, the report files). The release note
-`docs/release/rust-v0.2.0.md` "not in this release" list still names these three; it is the Supervisor's to update.
+Not served yet: the other Python routes (`/api/live`, the accounts and connector writes). This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
+`/api/dirs` are served); T043 serves `/api/board` and `/api/memory-graph`. The release note `docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
+
+## Board and memory graph (T043)
+
+`GET /api/board[?workspace=&account=]` and `GET /api/memory-graph[?project=]` answer what Python answers (`core/board.rs`, `core/memgraph.rs`, `core/easymem.rs`), read-only.
+`board`: every project seen in usage (in the `workspace` / `account` scope, a `.claude/worktrees/...` path skipped, a project whose folder is gone counted in `gone`) with the
+tasks of its `PROJECT_KANBAN.md` (`id`, `title` cut at 300 characters, `status`), `abstained` (rows with no id or in an unknown `###` subsection), and, only when
+`.claude/board.json` names a board, `board` (40 characters) and `last_pull` (the file's time). A missing, over 5,000,000 bytes, non-UTF-8, not-regular or board-less file is `{"status": "no data"}`.
+`memory-graph` without `project` (or with an empty one) lists the projects that have notes (`kit_notes`, `claude_notes`, `easy_memory_notes`); with one it gives that project's
+`nodes`, `edges`, `counts` and the `easy_memory` panel. Errors: an unknown `workspace` / `account` or `project` is `400` with the core's fixed text (`unknown workspace`, `unknown account`,
+`unknown project`: none names the input); a folder that cannot be read is skipped, never an error; the usual `403` (token, Host, Origin), `405` for a write method, `503` for the store states.
+Shown, and why it is safe: the folder name, the task ids and titles, the board name, a note's file path, its frontmatter `name` and `description` (200 characters) and its `[[link]]`
+targets: all the owner's own text, shown as Python shows it. A note body, an easy-memory `prompt`, `answer` or `session_id`, a file's content and any path outside the project never leave; no error,
+log line or `Debug` output holds a title, a note text or a path. Every file is opened `O_NOFOLLOW | O_NONBLOCK` from a held folder handle (the repository folder and the account folder by
+their own path), judged on the open handle (regular file) and read through `take(cap + 1)` (caps: kanban 5,000,000, board.json 5,000,000, note 1 MiB, 5000 notes per folder, 64 KB for meta/report,
+10 MiB to hash a cited file). The Rust tests point `HOME`, `EASY_MEMORY_HOME` and the account folders at temp folders.
+
+Oracle: `parity/golden-rich` and `golden` (`api__board__*` 8, `api__memory_graph__*` 4), and `parity/golden-memgraph/cases.json` (made by `parity/gen_memgraph.py`: Python's own functions over
+the tree of `parity/fixtures-memgraph/` plus 600 notes, 5001 notes, a 1 MiB+1 note, a non-UTF-8 note, symlinks, claude memory, board files of every kind and 17 kanban texts); `crates/core/tests/memgraph_parity.rs`,
+`crates/app/tests/board_memgraph.rs` (HTTP). T053 adds `parity/golden-memgraph/cases-t053.json` (same generator, a second tree under `<T>/t053`): hostile notes (a NUL, a 100 KB description, a nested mapping, a FIFO),
+two Claude folders that resolve to one project (duplicate node ids), a worktree `.git` and a store path through `link/..`, and an **easy-memory store that holds notes** (`fixtures-memgraph/em-store/`: 14 note files of every kind, a cited
+file inside and outside the project, a stale, a gone, a dangling-link and a FIFO one, 49 cited files against the 30 drawn, `prompts.log` with a BOM line and lines of 64 KiB + 1, + 2 and 200 KB, `report.json`, a `trash/` note, a `meta.json` with a BOM).
+Python's "now" is frozen at 2026-01-20T00:00:00Z and its panel is made under four zones (`TZ` set before the run), so the Rust tests compare the layer under `UTC`, `America/Los_Angeles`, `Pacific/Kiritimati` and
+`Pacific/Pago_Pago` through `Env { zone, .. }`: the three `TZ` runs of the whole suite never reached the layer (the zone is a field of `Env`, not read from `TZ`) and were vacuous for it. The same file holds every code point of
+Python's `\d` (the unit test in `board.rs` compares the table over all 0x110000 points), and the planted canaries (`CANARY-*` in a note's `prompt`/`answer`/`session_id`, a log line, a `trash/` note) must not appear in any answer.
+
+Decided for you (Rust differs from Python on purpose):
+- A symlink is never followed: a symlinked `PROJECT_KANBAN.md` or `.claude/board.json` is no file; a symlinked note, a symlinked sub-folder and a symlinked `memory`, `projects`, `notes`, `prompts.log`, `report.json` or `meta.json` are skipped. Python follows a
+  symlink that stays inside the memory folder (and a symlinked `memory` folder).
+- A note with two names (a hard link) is listed once (by inode); Python dedupes by real path.
+- A folder or file name that is not UTF-8 is skipped (Python would put surrogates in the JSON). A memory folder deeper than 64 levels is not entered (Python has no limit).
+- `.claude/board.json` has Python's lack of a cap replaced by 5,000,000 bytes; a JSON nested deeper than 128 levels or with `NaN` is "no board" (Python crashes on the first, parses the second).
+- A transcript is read for its `cwd` in 8 KiB chunks as Python's text reader does (a bad byte in the chunk of the first line skips the file), and at most 1 MiB; `prompts.log` at most 64 MiB; a cited file is hashed through a no-follow chain after Python's `realpath` rule decides it stays inside the project.
+- easy-memory times are parsed as RFC 3339 / ISO 8601 by `jiff`; a time with no offset is UTC. Python's `fromisoformat` accepts a few more spellings. The easy-memory layer (`easymem.rs`: panel, cited files, `report`, the 30-day `prompts.log` window) is compared with Python's answers over a store that holds notes (`cases-t053.json`, above).
+- T053 (review fixes). A UTF-8 byte order mark is taken in `meta.json` and in a `prompts.log` line (Python's `json.loads(bytes)` sniffs the codec) and refused in a note and `report.json` (Python decodes first, and `json.loads(str)` refuses a BOM): both as Python does. A JSON file in UTF-16 or UTF-32 (Python sniffs those too) is not read.
+- T053. `<project>/.git` and `<gitdir>/commondir` are opened below a held folder handle with `O_NOFOLLOW | O_NONBLOCK`, judged on the handle and read for at most 4096 bytes (Python: `open` follows links and blocks on a FIFO; it reads `readline(4096)`). A `.git` FIFO, device or symlinked `.git` file is treated as no worktree file; a `commondir` that is a symlink, a FIFO, a device or not UTF-8 is treated as absent (the gitdir itself is the identity; Python: a symlink is followed, a bad byte raises and gives the same result). A lone `\r` ends a line in Python's text mode and not here (`.git`, `commondir`).
+- T053. `realpath` is Python's `os.path.realpath` (a dangling link's text is followed, `..` after a link goes up from the link's target, at most 40 links). `metrics::realpath` is the one copy (the second one in `easymem.rs` is gone); it also serves `/api/dirs` and the scratch rule, where it is now closer to Python as well.
+- T053. `Path(name).stem` follows Python 3.14, the oracle (a leading dot is no suffix: `..md` keeps its name; a trailing dot is one: `Makefile.` gives `Makefile`); Python 3.11 differs for those names. `Path(cited).name` drops empty parts and `.` (`dir/` is `dir`, `.` has no name).
+- T053. With neither `EASY_MEMORY_HOME` nor `HOME` set (or `HOME` empty) the easy-memory store is absent; Rust never looks for `.easy-memory` below the working folder (Python asks the user database for the home folder).
+- T053. `/api/board` shows `board: null` when `.claude` itself is a symlink (Python follows it); a symlinked easy-memory store key folder (`<store>/<key>`) is skipped (Python follows it). The easy-memory `load()` keeps each folder's path string and opens `notes/`, `prompts.log` and `report.json` by it later (not a held handle): a folder swapped for a symlink between the two calls is the one gap, left as it is (no new signature across four functions for a local, owner-owned store).
+- T053. Rust spawns `git` (`metrics::repo_of`, through `memgraph::resolve_project`) exactly where Python does (`discovery.resolve_project`: a transcript's `cwd` that is a folder), with the mitigations Rust already has (`core.fsmonitor` off, `GIT_OPTIONAL_LOCKS=0`, stdin null, a timeout, a kill). Kept as Python parity (decided in T053). `GIT_NO_LAZY_FETCH=1` is T052's AC 5a and is not added here.
+- The regular expressions of `board.py` are hand-coded (no new crate); `\d` is Python 3.14's Unicode 16.0 table of decimal digits, `casefold` is `scope::casefold` (an approximation outside everyday text).
 
 ## Test
 

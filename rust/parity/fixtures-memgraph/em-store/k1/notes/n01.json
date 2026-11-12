@@ -1,0 +1,16 @@
+{
+ "v": 1,
+ "time": "2026-01-19T09:59:59Z",
+ "files": {
+  "src/a.py": "62bdb208de6dc6b169a467f646f50ca39e6c203fa6f6732431624d8dec1e77fb",
+  "src/b.py": "fb837287e56779ec43529dc89cfc97baa12304ebd9498022c96db3381ae217a7",
+  "memory/decisions.md": "b449ad8b0985f736da28122ad3c241d8ebbbb57d51179d6a39424806de926536",
+  "src/gone.py": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+  "dang": "h",
+  "out": "h",
+  "ln": "62bdb208de6dc6b169a467f646f50ca39e6c203fa6f6732431624d8dec1e77fb"
+ },
+ "prompt": "CANARY-PROMPT-T053",
+ "answer": "CANARY-ANSWER-T053",
+ "session_id": "CANARY-SESSION-T053"
+}

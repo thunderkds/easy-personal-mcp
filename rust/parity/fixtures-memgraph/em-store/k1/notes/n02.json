@@ -1,0 +1,14 @@
+{
+ "v": 1,
+ "time": "2026-01-19T10:00:00Z",
+ "files": {
+  "src/a.py": "62bdb208de6dc6b169a467f646f50ca39e6c203fa6f6732431624d8dec1e77fb",
+  "linkdir/a.py": "62bdb208de6dc6b169a467f646f50ca39e6c203fa6f6732431624d8dec1e77fb",
+  "../up.py": "h",
+  "/etc/passwd": "h",
+  "src/b.py": "fb837287e56779ec43529dc89cfc97baa12304ebd9498022c96db3381ae217a7"
+ },
+ "prompt": "CANARY-PROMPT-T053",
+ "answer": "CANARY-ANSWER-T053",
+ "session_id": "CANARY-SESSION-T053"
+}

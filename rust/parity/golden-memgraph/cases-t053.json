@@ -1,0 +1,2064 @@
+{
+ "digits": [
+  [
+   48,
+   57
+  ],
+  [
+   1632,
+   1641
+  ],
+  [
+   1776,
+   1785
+  ],
+  [
+   1984,
+   1993
+  ],
+  [
+   2406,
+   2415
+  ],
+  [
+   2534,
+   2543
+  ],
+  [
+   2662,
+   2671
+  ],
+  [
+   2790,
+   2799
+  ],
+  [
+   2918,
+   2927
+  ],
+  [
+   3046,
+   3055
+  ],
+  [
+   3174,
+   3183
+  ],
+  [
+   3302,
+   3311
+  ],
+  [
+   3430,
+   3439
+  ],
+  [
+   3558,
+   3567
+  ],
+  [
+   3664,
+   3673
+  ],
+  [
+   3792,
+   3801
+  ],
+  [
+   3872,
+   3881
+  ],
+  [
+   4160,
+   4169
+  ],
+  [
+   4240,
+   4249
+  ],
+  [
+   6112,
+   6121
+  ],
+  [
+   6160,
+   6169
+  ],
+  [
+   6470,
+   6479
+  ],
+  [
+   6608,
+   6617
+  ],
+  [
+   6784,
+   6793
+  ],
+  [
+   6800,
+   6809
+  ],
+  [
+   6992,
+   7001
+  ],
+  [
+   7088,
+   7097
+  ],
+  [
+   7232,
+   7241
+  ],
+  [
+   7248,
+   7257
+  ],
+  [
+   42528,
+   42537
+  ],
+  [
+   43216,
+   43225
+  ],
+  [
+   43264,
+   43273
+  ],
+  [
+   43472,
+   43481
+  ],
+  [
+   43504,
+   43513
+  ],
+  [
+   43600,
+   43609
+  ],
+  [
+   44016,
+   44025
+  ],
+  [
+   65296,
+   65305
+  ],
+  [
+   66720,
+   66729
+  ],
+  [
+   68912,
+   68921
+  ],
+  [
+   68928,
+   68937
+  ],
+  [
+   69734,
+   69743
+  ],
+  [
+   69872,
+   69881
+  ],
+  [
+   69942,
+   69951
+  ],
+  [
+   70096,
+   70105
+  ],
+  [
+   70384,
+   70393
+  ],
+  [
+   70736,
+   70745
+  ],
+  [
+   70864,
+   70873
+  ],
+  [
+   71248,
+   71257
+  ],
+  [
+   71360,
+   71369
+  ],
+  [
+   71376,
+   71395
+  ],
+  [
+   71472,
+   71481
+  ],
+  [
+   71904,
+   71913
+  ],
+  [
+   72016,
+   72025
+  ],
+  [
+   72688,
+   72697
+  ],
+  [
+   72784,
+   72793
+  ],
+  [
+   73040,
+   73049
+  ],
+  [
+   73120,
+   73129
+  ],
+  [
+   73552,
+   73561
+  ],
+  [
+   90416,
+   90425
+  ],
+  [
+   92768,
+   92777
+  ],
+  [
+   92864,
+   92873
+  ],
+  [
+   93008,
+   93017
+  ],
+  [
+   93552,
+   93561
+  ],
+  [
+   118000,
+   118009
+  ],
+  [
+   120782,
+   120831
+  ],
+  [
+   123200,
+   123209
+  ],
+  [
+   123632,
+   123641
+  ],
+  [
+   124144,
+   124153
+  ],
+  [
+   124401,
+   124410
+  ],
+  [
+   125264,
+   125273
+  ],
+  [
+   130032,
+   130041
+  ]
+ ],
+ "graphs": {
+  "<T>/t053/projdd": {
+   "counts": {
+    "abstained": 0,
+    "capped": false,
+    "dangling": 0,
+    "duplicates": 0,
+    "links": 0,
+    "notes": 0
+   },
+   "easy_memory": {
+    "abstained": 0,
+    "days": [
+     {
+      "count": 0,
+      "date": "2025-12-22"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-23"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-24"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-25"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-26"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-27"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-28"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-29"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-30"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-31"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-01"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-02"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-03"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-04"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-05"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-06"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-07"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-08"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-09"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-10"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-11"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-12"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-13"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-14"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-15"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-16"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-17"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-18"
+     },
+     {
+      "count": 1,
+      "date": "2026-01-19"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-20"
+     }
+    ],
+    "files_cited": 0,
+    "files_not_drawn": 0,
+    "injected": 0,
+    "notes": 1,
+    "outside": 0,
+    "prompts_on": 0,
+    "report": {
+     "state": "none"
+    }
+   },
+   "edges": [],
+   "name": "projdd",
+   "nodes": [],
+   "project": "<T>/t053/projdd"
+  },
+  "<T>/t053/projdup": {
+   "counts": {
+    "abstained": 0,
+    "capped": false,
+    "dangling": 0,
+    "duplicates": 0,
+    "links": 1,
+    "notes": 3
+   },
+   "easy_memory": null,
+   "edges": [
+    {
+     "source": "claude:1:memory/MEMORY.md",
+     "target": "claude:1:memory/c1.md"
+    }
+   ],
+   "name": "projdup",
+   "nodes": [
+    {
+     "abstained": false,
+     "account": "W",
+     "description": "",
+     "id": "claude:1:memory/MEMORY.md",
+     "kind": "claude",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "idx-a",
+     "path": "memory/MEMORY.md",
+     "ring": 1,
+     "stem": "MEMORY"
+    },
+    {
+     "abstained": false,
+     "account": "W",
+     "description": "",
+     "id": "claude:1:memory/c1.md",
+     "kind": "claude",
+     "links_in": 1,
+     "links_out": 0,
+     "name": "c1",
+     "path": "memory/c1.md",
+     "ring": 2,
+     "stem": "c1"
+    },
+    {
+     "abstained": false,
+     "account": "W",
+     "description": "",
+     "id": "claude:1:memory/MEMORY.md",
+     "kind": "claude",
+     "links_in": 0,
+     "links_out": 1,
+     "name": "idx-b",
+     "path": "memory/MEMORY.md",
+     "ring": 1,
+     "stem": "MEMORY"
+    }
+   ],
+   "project": "<T>/t053/projdup"
+  },
+  "<T>/t053/projem": {
+   "counts": {
+    "abstained": 0,
+    "capped": false,
+    "dangling": 0,
+    "duplicates": 0,
+    "links": 1,
+    "notes": 2
+   },
+   "easy_memory": {
+    "abstained": 6,
+    "days": [
+     {
+      "count": 0,
+      "date": "2025-12-22"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-23"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-24"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-25"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-26"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-27"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-28"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-29"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-30"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-31"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-01"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-02"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-03"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-04"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-05"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-06"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-07"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-08"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-09"
+     },
+     {
+      "count": 1,
+      "date": "2026-01-10"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-11"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-12"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-13"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-14"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-15"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-16"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-17"
+     },
+     {
+      "count": 1,
+      "date": "2026-01-18"
+     },
+     {
+      "count": 4,
+      "date": "2026-01-19"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-20"
+     }
+    ],
+    "files_cited": 49,
+    "files_not_drawn": 19,
+    "injected": 6,
+    "notes": 9,
+    "outside": 3,
+    "prompts_on": 8,
+    "report": {
+     "generated": "2026-01-19T00:00:00Z",
+     "min_sessions": 5,
+     "off": {
+      "sessions": 9,
+      "tokens_all_median": 1500
+     },
+     "on": {
+      "sessions": 7,
+      "tokens_all_median": 1200.5
+     },
+     "on_vs_off_pct": -12.5,
+     "state": "ok",
+     "too_few": false
+    }
+   },
+   "edges": [
+    {
+     "source": "kit:memory/MEMORY.md",
+     "target": "kit:memory/decisions.md"
+    }
+   ],
+   "name": "projem",
+   "nodes": [
+    {
+     "abstained": false,
+     "account": null,
+     "description": "the index",
+     "id": "kit:memory/MEMORY.md",
+     "kind": "kit",
+     "links_in": 0,
+     "links_out": 1,
+     "name": "index",
+     "path": "memory/MEMORY.md",
+     "ring": 0,
+     "stem": "MEMORY"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "description": "",
+     "id": "kit:memory/decisions.md",
+     "kind": "kit",
+     "links_in": 1,
+     "links_out": 0,
+     "name": "decisions",
+     "path": "memory/decisions.md",
+     "ring": 1,
+     "stem": "decisions"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 5,
+     "description": "",
+     "id": "easymem:src/a.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "a.py",
+     "newest": "2026-01-19",
+     "path": "src/a.py",
+     "ring": 4,
+     "stale": "fresh",
+     "stem": "a"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 3,
+     "description": "",
+     "id": "easymem:src/b.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "b.py",
+     "newest": "2026-01-19",
+     "path": "src/b.py",
+     "ring": 4,
+     "stale": "stale",
+     "stem": "b"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:.",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "",
+     "newest": "2026-01-19",
+     "path": ".",
+     "ring": 4,
+     "stale": "unchecked",
+     "stem": ""
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:big.bin",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "big.bin",
+     "newest": "2026-01-19",
+     "path": "big.bin",
+     "ring": 4,
+     "stale": "unchecked",
+     "stem": "big"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:dang",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "dang",
+     "newest": "2026-01-19",
+     "path": "dang",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "dang"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f00.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f00.py",
+     "newest": "2026-01-10",
+     "path": "f00.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f00"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f01.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f01.py",
+     "newest": "2026-01-10",
+     "path": "f01.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f01"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f02.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f02.py",
+     "newest": "2026-01-10",
+     "path": "f02.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f02"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f03.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f03.py",
+     "newest": "2026-01-10",
+     "path": "f03.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f03"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f04.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f04.py",
+     "newest": "2026-01-10",
+     "path": "f04.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f04"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f05.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f05.py",
+     "newest": "2026-01-10",
+     "path": "f05.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f05"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f06.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f06.py",
+     "newest": "2026-01-10",
+     "path": "f06.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f06"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f07.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f07.py",
+     "newest": "2026-01-10",
+     "path": "f07.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f07"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f08.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f08.py",
+     "newest": "2026-01-10",
+     "path": "f08.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f08"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f09.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f09.py",
+     "newest": "2026-01-10",
+     "path": "f09.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f09"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f10.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f10.py",
+     "newest": "2026-01-10",
+     "path": "f10.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f10"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f11.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f11.py",
+     "newest": "2026-01-10",
+     "path": "f11.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f11"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f12.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f12.py",
+     "newest": "2026-01-10",
+     "path": "f12.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f12"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f13.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f13.py",
+     "newest": "2026-01-10",
+     "path": "f13.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f13"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f14.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f14.py",
+     "newest": "2026-01-10",
+     "path": "f14.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f14"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f15.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f15.py",
+     "newest": "2026-01-10",
+     "path": "f15.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f15"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f16.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f16.py",
+     "newest": "2026-01-10",
+     "path": "f16.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f16"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f17.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f17.py",
+     "newest": "2026-01-10",
+     "path": "f17.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f17"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f18.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f18.py",
+     "newest": "2026-01-10",
+     "path": "f18.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f18"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f19.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f19.py",
+     "newest": "2026-01-10",
+     "path": "f19.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f19"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f20.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f20.py",
+     "newest": "2026-01-10",
+     "path": "f20.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f20"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f21.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f21.py",
+     "newest": "2026-01-10",
+     "path": "f21.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f21"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f22.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f22.py",
+     "newest": "2026-01-10",
+     "path": "f22.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f22"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f23.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f23.py",
+     "newest": "2026-01-10",
+     "path": "f23.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f23"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:f24.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "f24.py",
+     "newest": "2026-01-10",
+     "path": "f24.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "f24"
+    }
+   ],
+   "project": "<T>/t053/projem"
+  },
+  "<T>/t053/projh": {
+   "counts": {
+    "abstained": 0,
+    "capped": false,
+    "dangling": 1,
+    "duplicates": 0,
+    "links": 5,
+    "notes": 4
+   },
+   "easy_memory": null,
+   "edges": [
+    {
+     "source": "kit:memory/nested.md",
+     "target": "kit:memory/plain.md"
+    },
+    {
+     "source": "kit:memory/nul.md",
+     "target": "kit:memory/plain.md"
+    },
+    {
+     "source": "kit:memory/plain.md",
+     "target": "dangling:nul-note"
+    },
+    {
+     "source": "kit:memory/plain.md",
+     "target": "kit:memory/bigdesc.md"
+    },
+    {
+     "source": "kit:memory/plain.md",
+     "target": "kit:memory/nested.md"
+    }
+   ],
+   "name": "projh",
+   "nodes": [
+    {
+     "abstained": false,
+     "account": null,
+     "description": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+     "id": "kit:memory/bigdesc.md",
+     "kind": "kit",
+     "links_in": 1,
+     "links_out": 0,
+     "name": "big",
+     "path": "memory/bigdesc.md",
+     "ring": 1,
+     "stem": "bigdesc"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "description": "",
+     "id": "kit:memory/nested.md",
+     "kind": "kit",
+     "links_in": 1,
+     "links_out": 1,
+     "name": "nested",
+     "path": "memory/nested.md",
+     "ring": 1,
+     "stem": "nested"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "description": "nul",
+     "id": "kit:memory/nul.md",
+     "kind": "kit",
+     "links_in": 0,
+     "links_out": 1,
+     "name": "a\u0000b",
+     "path": "memory/nul.md",
+     "ring": 1,
+     "stem": "nul"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "description": "ok",
+     "id": "kit:memory/plain.md",
+     "kind": "kit",
+     "links_in": 2,
+     "links_out": 3,
+     "name": "plain",
+     "path": "memory/plain.md",
+     "ring": 1,
+     "stem": "plain"
+    },
+    {
+     "abstained": false,
+     "account": null,
+     "description": "",
+     "id": "dangling:nul-note",
+     "kind": "dangling",
+     "links_in": 1,
+     "links_out": 0,
+     "name": "nul-note",
+     "path": null,
+     "ring": 3,
+     "stem": "nul-note"
+    }
+   ],
+   "project": "<T>/t053/projh"
+  },
+  "<T>/t053/projwt": {
+   "counts": {
+    "abstained": 0,
+    "capped": false,
+    "dangling": 0,
+    "duplicates": 0,
+    "links": 0,
+    "notes": 0
+   },
+   "easy_memory": {
+    "abstained": 0,
+    "days": [
+     {
+      "count": 0,
+      "date": "2025-12-22"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-23"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-24"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-25"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-26"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-27"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-28"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-29"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-30"
+     },
+     {
+      "count": 0,
+      "date": "2025-12-31"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-01"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-02"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-03"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-04"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-05"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-06"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-07"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-08"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-09"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-10"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-11"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-12"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-13"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-14"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-15"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-16"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-17"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-18"
+     },
+     {
+      "count": 1,
+      "date": "2026-01-19"
+     },
+     {
+      "count": 0,
+      "date": "2026-01-20"
+     }
+    ],
+    "files_cited": 1,
+    "files_not_drawn": 0,
+    "injected": 0,
+    "notes": 1,
+    "outside": 0,
+    "prompts_on": 0,
+    "report": {
+     "state": "none"
+    }
+   },
+   "edges": [],
+   "name": "projwt",
+   "nodes": [
+    {
+     "abstained": false,
+     "account": null,
+     "cited": 1,
+     "description": "",
+     "id": "easymem:x.py",
+     "kind": "easy_memory",
+     "links_in": 0,
+     "links_out": 0,
+     "name": "x.py",
+     "newest": "2026-01-19",
+     "path": "x.py",
+     "ring": 4,
+     "stale": "gone",
+     "stem": "x"
+    }
+   ],
+   "project": "<T>/t053/projwt"
+  }
+ },
+ "list": {
+  "gone": 0,
+  "projects": [
+   {
+    "claude_notes": 0,
+    "easy_memory_notes": 1,
+    "kit_notes": 0,
+    "name": "projdd",
+    "project": "<T>/t053/projdd"
+   },
+   {
+    "claude_notes": 3,
+    "easy_memory_notes": 0,
+    "kit_notes": 0,
+    "name": "projdup",
+    "project": "<T>/t053/projdup"
+   },
+   {
+    "claude_notes": 0,
+    "easy_memory_notes": 9,
+    "kit_notes": 2,
+    "name": "projem",
+    "project": "<T>/t053/projem"
+   },
+   {
+    "claude_notes": 0,
+    "easy_memory_notes": 0,
+    "kit_notes": 4,
+    "name": "projh",
+    "project": "<T>/t053/projh"
+   },
+   {
+    "claude_notes": 0,
+    "easy_memory_notes": 1,
+    "kit_notes": 0,
+    "name": "projwt",
+    "project": "<T>/t053/projwt"
+   }
+  ]
+ },
+ "python": "3.14.4",
+ "zones": {
+  "America/Los_Angeles": {
+   "abstained": 6,
+   "days": [
+    {
+     "count": 0,
+     "date": "2025-12-21"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-22"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-23"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-24"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-25"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-26"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-27"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-28"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-29"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-30"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-31"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-01"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-02"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-03"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-04"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-05"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-06"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-07"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-08"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-09"
+    },
+    {
+     "count": 1,
+     "date": "2026-01-10"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-11"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-12"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-13"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-14"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-15"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-16"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-17"
+    },
+    {
+     "count": 1,
+     "date": "2026-01-18"
+    },
+    {
+     "count": 4,
+     "date": "2026-01-19"
+    }
+   ],
+   "files_cited": 49,
+   "files_not_drawn": 19,
+   "injected": 6,
+   "notes": 9,
+   "outside": 3,
+   "prompts_on": 8,
+   "report": {
+    "generated": "2026-01-19T00:00:00Z",
+    "min_sessions": 5,
+    "off": {
+     "sessions": 9,
+     "tokens_all_median": 1500
+    },
+    "on": {
+     "sessions": 7,
+     "tokens_all_median": 1200.5
+    },
+    "on_vs_off_pct": -12.5,
+    "state": "ok",
+    "too_few": false
+   }
+  },
+  "Pacific/Kiritimati": {
+   "abstained": 6,
+   "days": [
+    {
+     "count": 0,
+     "date": "2025-12-22"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-23"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-24"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-25"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-26"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-27"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-28"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-29"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-30"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-31"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-01"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-02"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-03"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-04"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-05"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-06"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-07"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-08"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-09"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-10"
+    },
+    {
+     "count": 1,
+     "date": "2026-01-11"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-12"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-13"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-14"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-15"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-16"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-17"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-18"
+    },
+    {
+     "count": 2,
+     "date": "2026-01-19"
+    },
+    {
+     "count": 3,
+     "date": "2026-01-20"
+    }
+   ],
+   "files_cited": 49,
+   "files_not_drawn": 19,
+   "injected": 6,
+   "notes": 9,
+   "outside": 3,
+   "prompts_on": 8,
+   "report": {
+    "generated": "2026-01-19T00:00:00Z",
+    "min_sessions": 5,
+    "off": {
+     "sessions": 9,
+     "tokens_all_median": 1500
+    },
+    "on": {
+     "sessions": 7,
+     "tokens_all_median": 1200.5
+    },
+    "on_vs_off_pct": -12.5,
+    "state": "ok",
+    "too_few": false
+   }
+  },
+  "Pacific/Pago_Pago": {
+   "abstained": 6,
+   "days": [
+    {
+     "count": 0,
+     "date": "2025-12-21"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-22"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-23"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-24"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-25"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-26"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-27"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-28"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-29"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-30"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-31"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-01"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-02"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-03"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-04"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-05"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-06"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-07"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-08"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-09"
+    },
+    {
+     "count": 1,
+     "date": "2026-01-10"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-11"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-12"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-13"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-14"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-15"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-16"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-17"
+    },
+    {
+     "count": 4,
+     "date": "2026-01-18"
+    },
+    {
+     "count": 1,
+     "date": "2026-01-19"
+    }
+   ],
+   "files_cited": 49,
+   "files_not_drawn": 19,
+   "injected": 6,
+   "notes": 9,
+   "outside": 3,
+   "prompts_on": 8,
+   "report": {
+    "generated": "2026-01-19T00:00:00Z",
+    "min_sessions": 5,
+    "off": {
+     "sessions": 9,
+     "tokens_all_median": 1500
+    },
+    "on": {
+     "sessions": 7,
+     "tokens_all_median": 1200.5
+    },
+    "on_vs_off_pct": -12.5,
+    "state": "ok",
+    "too_few": false
+   }
+  },
+  "UTC": {
+   "abstained": 6,
+   "days": [
+    {
+     "count": 0,
+     "date": "2025-12-22"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-23"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-24"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-25"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-26"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-27"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-28"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-29"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-30"
+    },
+    {
+     "count": 0,
+     "date": "2025-12-31"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-01"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-02"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-03"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-04"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-05"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-06"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-07"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-08"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-09"
+    },
+    {
+     "count": 1,
+     "date": "2026-01-10"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-11"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-12"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-13"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-14"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-15"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-16"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-17"
+    },
+    {
+     "count": 1,
+     "date": "2026-01-18"
+    },
+    {
+     "count": 4,
+     "date": "2026-01-19"
+    },
+    {
+     "count": 0,
+     "date": "2026-01-20"
+    }
+   ],
+   "files_cited": 49,
+   "files_not_drawn": 19,
+   "injected": 6,
+   "notes": 9,
+   "outside": 3,
+   "prompts_on": 8,
+   "report": {
+    "generated": "2026-01-19T00:00:00Z",
+    "min_sessions": 5,
+    "off": {
+     "sessions": 9,
+     "tokens_all_median": 1500
+    },
+    "on": {
+     "sessions": 7,
+     "tokens_all_median": 1200.5
+    },
+    "on_vs_off_pct": -12.5,
+    "state": "ok",
+    "too_few": false
+   }
+  }
+ }
+}

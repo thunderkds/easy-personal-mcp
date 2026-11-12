@@ -177,14 +177,17 @@ lists every entry per rule and state (the generator fails the run if a rule is n
 - Machine state: keychain, `claude` CLI and systemd are patched as in the default mode, and the two `writer` calls that would reach them raise.
 - Leaks: the run fails on `/home/`, `/Users/`, `sk-` (at the start of a word) or `ghp_` in any golden, the manifest or any fixture file, and checks that the saved store holds no work folder path.
 
-### Rust tests and what is not testable yet
+### Rust tests
 
 `rust/crates/core/tests/rich_parity.rs` reads the manifest and compares, as parsed JSON, `usage_summary` and `usage_breakdown` (all `by`, with and
 without a window, under `TZ=UTC` in a child process) and `rules::evaluate` against the unscoped goldens (API and MCP). It also recounts the
 rule coverage from the files, checks the `raw_sha256` and `bad_since` rules above, and runs a mutation check (one changed value in a temp copy of the
-store fails the usage and the warnings comparison). The 77 entries with a `workspace` or `account` parameter and the 7 report-folder entries are listed
-there as not testable yet (the Rust core does not serve them); so are the routes it does not serve at all (kit, board, accounts, workspaces, reports,
-memory graph, sessions, outliers, plan).
+store fails the usage and the warnings comparison). It only counts the entries with a `workspace` or `account` parameter, the report-folder entries and the
+entries of the other routes; those are compared by the test of their own slice: `scope_parity.rs` (the 41 scoped usage, warnings and plan entries), `plan_parity.rs`,
+`sessions_parity.rs`, `kit_parity.rs` and `kitperf_parity.rs`, `report_files_parity.rs`, `reports_parity.rs`, `accounts_parity.rs`, `workspaces_parity.rs`,
+`connectors_parity.rs`, `folders_parity.rs`, `jobs_parity.rs` and `memgraph_parity.rs` (the board and the memory graph, with `golden-memgraph/`). On this branch every GET route
+of the Rust server and every MCP tool it serves has a golden or an oracle; the Python routes it does not serve at all are `/api/live` and the write routes
+(the accounts, connector and workspace writes), which are other tasks.
 
 ## Ingest oracle (T026)
 

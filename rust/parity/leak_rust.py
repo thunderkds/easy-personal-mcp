@@ -83,6 +83,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/reports": [""],
     "/api/reports/{id}": [""],  # asked literally (not digits: the 404); the numeric ids are in GUARD_CALLS
     "/api/first-run": [""],
+    "/api/board": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
+    "/api/memory-graph": ["", "?project=nope", "?project=%2Ftmp", "?project="],
     "/api/accounts": ["", "?by=provider", "?by=bad", "?by="],
     "/api/sync": ["", "?account=1", "?account=99", "?account=nope", "?account=99999999999999999999"],
     "/api/dirs": ["", "?path=%2F", "?path=%2Fproc%2Fself", "?path=%2Fdev", "?path=relative", "?path=%00", "?path=%2Ftmp%2F..%2Ftmp%2F"],
@@ -106,6 +108,8 @@ GUARD_CALLS = [
     ("account workspaces write", "PUT", "/api/accounts/1/workspaces", {}),
     ("dirs write method", "POST", "/api/dirs", {}),
     ("jobs write method", "DELETE", "/api/jobs", {}),
+    ("board write method", "POST", "/api/board", {}),
+    ("memory graph no token", "GET", "/api/memory-graph", {"x-dashboard-token": None}),
     ("dirs no token", "GET", "/api/dirs", {"x-dashboard-token": None}),
     ("static index", "GET", "/", {"x-dashboard-token": None}),
     ("static file", "GET", "/index.html", {"x-dashboard-token": None}),
@@ -486,6 +490,17 @@ def serve(run: Run, checks: list[str]) -> None:
                     checks.append(
                         f"check api summary has data          {'ok' if ok else 'FAILED'} (status {status})"
                     )
+        # T053 (as `tests/leak/harness.py` does for HUN-164): the graph of every project the list names, with its easy-memory
+        # layer (the planted prompt, answer, session and trash canaries must stay out of every one)
+        status, blob = request(port, "GET", "/api/memory-graph", base)
+        listed = json.loads(blob.split(b"\n\n", 1)[1]).get("projects", []) if status == 200 else []
+        checks.append(f"check memory-graph lists a project   {'ok' if listed else 'FAILED'} ({len(listed)} listed)")
+        layered = False
+        for project in listed:
+            _, blob = request(port, "GET", f"/api/memory-graph?project={quote(project['project'], safe='')}", base)
+            run.add(f"api GET /api/memory-graph project={project['name']}", blob)
+            layered = layered or b'"kind":"easy_memory"' in blob
+        checks.append(f"check a graph carries the easy-memory layer  {'ok' if layered else 'FAILED'}")
         for label, method, path, change in GUARD_CALLS:
             headers = {k: v for k, v in {**base, **change}.items() if v is not None}
             status, blob = request(port, method, path, headers)

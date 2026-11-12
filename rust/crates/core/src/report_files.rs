@@ -76,7 +76,7 @@ impl From<MetricsError> for ReportError {
         target_arch = "riscv64"
     )
 ))]
-mod sys {
+pub(crate) mod sys {
     use std::fs::{File, OpenOptions};
     use std::io;
     use std::os::fd::AsRawFd;
@@ -142,7 +142,7 @@ mod sys {
         target_arch = "riscv64"
     )
 )))]
-mod sys {
+pub(crate) mod sys {
     use std::fs::File;
     use std::io;
 
