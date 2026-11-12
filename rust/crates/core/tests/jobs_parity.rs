@@ -136,7 +136,7 @@ fn every_jobs_case_equals_python_and_asks_only_the_same_read_only_calls() {
         let _ = fs::remove_dir_all(&dir);
     }
     println!("jobs oracle equal/total: {equal}/{total}");
-    assert_eq!(total, 7);
+    assert_eq!(total, 8); // T052 added `cron_steps`
 }
 
 #[test]

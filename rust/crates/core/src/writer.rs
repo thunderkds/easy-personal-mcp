@@ -166,22 +166,31 @@ pub struct Store {
 /// file with no table. Refuses (before any write, the file untouched) a store whose `user_version` is not 11.
 /// Sets `busy_timeout=5000`, `foreign_keys=ON`, `journal_mode=WAL` like `store.connect`, and never migrates.
 pub fn open_for_write(path: &Path) -> Result<Store, WriteError> {
+    open_store(path, true)
+}
+
+/// [`open_for_write`] for a store that must already be there (`save_report`, which checked it read-only first): without
+/// `SQLITE_OPEN_CREATE`, a file removed since that check is `WriteError::Io(NotFound)` and is not created again.
+pub fn open_existing_for_write(path: &Path) -> Result<Store, WriteError> {
+    open_store(path, false)
+}
+
+fn open_store(path: &Path, may_create: bool) -> Result<Store, WriteError> {
     match fs::metadata(path) {
         Ok(meta) if meta.is_file() => {}
         Ok(_) => return Err(WriteError::NotAStore),
-        Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+        Err(e) if may_create && e.kind() == io::ErrorKind::NotFound => {}
         // A symlink that cannot be followed for another reason than a missing target: a loop (ELOOP).
         Err(_) if fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) => {
             return Err(WriteError::NotAStore);
         }
         Err(e) => return Err(WriteError::Io(e.kind())),
     }
-    let conn = Connection::open_with_flags(
-        path,
-        OpenFlags::SQLITE_OPEN_READ_WRITE
-            | OpenFlags::SQLITE_OPEN_CREATE
-            | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )?;
+    let mut flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    if may_create {
+        flags |= OpenFlags::SQLITE_OPEN_CREATE;
+    }
+    let conn = Connection::open_with_flags(path, flags)?;
     // store.py:104-105. Neither pragma writes the file.
     conn.busy_timeout(BUSY_TIMEOUT)?;
     conn.execute_batch("PRAGMA foreign_keys=ON")?;

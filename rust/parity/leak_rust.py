@@ -249,7 +249,22 @@ def self_test(canaries: Canaries, work: Path) -> list[str]:
         for h in hits
     )
     lines.append(f"self-test masked report   {'ok' if masked else 'FAILED'}")
+    lines.append(f"self-test tree digest     {'ok' if digest_skips_only_the_fakes_log(work) else 'FAILED'}")
     return lines
+
+
+def digest_skips_only_the_fakes_log(work: Path) -> bool:
+    """`tree_digest` ignores `<root>/bin/argv.log` (the fakes' own log) and nothing else, not any file of that name."""
+    root = work / "digest"
+    (root / "bin").mkdir(parents=True)
+    (root / "agent").mkdir()
+    (root / "bin" / "argv.log").write_text("one\n")
+    (root / "agent" / "argv.log").write_text("one\n")
+    before = tree_digest(root)
+    (root / "bin" / "argv.log").write_text("two\n")
+    fakes_log_ignored = tree_digest(root) == before
+    (root / "agent" / "argv.log").write_text("two\n")
+    return fakes_log_ignored and tree_digest(root) != before
 
 
 # -- planting (as tests/leak/conftest.py::leak_run) ------------------------------------------------------------
@@ -308,7 +323,7 @@ def planted_where(canaries: Canaries, root: Path) -> dict[str, list[str]]:
 def tree_digest(root: Path) -> str:
     h = hashlib.sha256()
     for p in sorted(root.rglob("*")):
-        if p.name == "argv.log":  # the fake systemctl/crontab (a test double) logs each call it answers; the binary writes nothing
+        if p == root / "bin" / "argv.log":  # the fake systemctl/crontab (a test double) logs each call it answers; the binary writes nothing, so no other file of that name is skipped
             continue
         h.update(p.relative_to(root).as_posix().encode() + b"\0")
         if p.is_file():

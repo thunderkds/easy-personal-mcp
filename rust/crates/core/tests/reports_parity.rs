@@ -452,6 +452,32 @@ fn a_snapshot_python_cannot_read_is_refused_for_one_report_and_counted_as_zero_i
     );
 }
 
+/// T052: the two stored values the 500 path must also refuse: a `fixes_json` that is not JSON, and a snapshot that is whole
+/// except for `as_of_utc`. Neither names the stored text.
+#[test]
+fn fixes_that_are_not_json_and_a_snapshot_without_as_of_utc_are_refused() {
+    let temp = TempDir::new();
+    let path = temp.store("store-rich/store-v11.sqlite", "");
+    let c = Connection::open(&path).unwrap();
+    c.execute(
+        "UPDATE investigate_reports SET fixes_json = 'PRIVATE-FIXES-TEXT' WHERE id = 1",
+        [],
+    )
+    .unwrap();
+    c.execute(
+        "UPDATE investigate_reports SET snapshot_json = json_remove(snapshot_json, '$.as_of_utc') WHERE id = 2",
+        [],
+    )
+    .unwrap();
+    drop(c);
+    let conn = open_read_only(&path).unwrap();
+    for id in [1, 2] {
+        let error = get_report(&conn, id, FROZEN_NOW).unwrap_err();
+        assert!(matches!(error, ReportsError::Corrupt), "{id}: {error}");
+        assert_eq!(error.to_string(), "the saved report cannot be read");
+    }
+}
+
 #[test]
 fn the_list_shows_the_newest_fifty_with_the_first_line_of_the_summary() {
     let temp = TempDir::new();

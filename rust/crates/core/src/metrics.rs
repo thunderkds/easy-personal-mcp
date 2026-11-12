@@ -810,6 +810,7 @@ pub(crate) fn run_git_timed(
         .args(["-c", "core.fsmonitor=false", "-C", cwd])
         .args(args)
         .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_NO_LAZY_FETCH", "1") // a partial clone must never make a read fetch over the network (Rust-only hardening)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

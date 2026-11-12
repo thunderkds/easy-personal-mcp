@@ -663,6 +663,140 @@
         "crontab": true,
         "systemctl": true
       }
+    },
+    {
+      "body": {
+        "hidden": 0,
+        "jobs": [
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T10:01:00Z",
+            "schedule": "1/9223372036854775807 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-12T01:00:00Z",
+            "schedule": "0 1/9223372036854775807 * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T11:00:00Z",
+            "schedule": "*/9223372036854775807 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T10:01:00Z",
+            "schedule": "1-30/9223372036854775807 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T10:01:00Z",
+            "schedule": "1/99999999999999999999999 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "*/0 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "5/0 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "*/-1 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": null,
+            "schedule": "*/-9223372036854775808 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T11:00:00Z",
+            "schedule": "*/100 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T10:30:00Z",
+            "schedule": "30/100 * * * *"
+          },
+          {
+            "command": "claude",
+            "kind": "cron",
+            "last_exit": null,
+            "last_run": null,
+            "name": "(crontab) claude",
+            "next_run": "2026-11-11T10:20:00Z",
+            "schedule": "*/20 * * * *"
+          }
+        ],
+        "sources": {
+          "cron": "ok",
+          "systemd": "no data"
+        }
+      },
+      "calls": [
+        {
+          "argv": [
+            "crontab",
+            "-l"
+          ],
+          "exit": 0,
+          "stdout": "1/9223372036854775807 * * * * claude -p huge-step\n0 1/9223372036854775807 * * * claude -p huge-hour-step\n*/9223372036854775807 * * * * claude -p huge-star-step\n1-30/9223372036854775807 * * * * claude -p huge-range-step\n1/99999999999999999999999 * * * * claude -p step-beyond-64-bits\n*/0 * * * * claude -p step-zero\n5/0 * * * * claude -p first-step-zero\n*/-1 * * * * claude -p step-minus-one\n*/-9223372036854775808 * * * * claude -p step-min\n*/100 * * * * claude -p step-wider-than-range\n30/100 * * * * claude -p first-step-wider-than-range\n*/20 * * * * claude -p ordinary-step\n"
+        }
+      ],
+      "case": "cron_steps",
+      "tools": {
+        "crontab": true,
+        "systemctl": false
+      }
     }
   ],
   "now": [

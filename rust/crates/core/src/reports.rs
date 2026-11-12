@@ -15,7 +15,7 @@ use crate::rules::{self, Rule, RulesError, ScopedRulesError};
 use crate::scope::{self, Scope, ScopeError};
 use crate::secret::looks_secret;
 use crate::store::{KNOWN_MIGRATION, StoreError, open_checked};
-use crate::writer::{WriteError, open_for_write};
+use crate::writer::{WriteError, open_existing_for_write};
 use rusqlite::{Connection, TransactionBehavior, params};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -93,17 +93,24 @@ pub fn list_reports(conn: &Connection) -> Result<Value> {
     Ok(json!({ "reports": reports }))
 }
 
-/// Rules of the snapshot's `checked` list that fired; 0 for a snapshot that is not what `save` writes.
+/// Rules of the snapshot's `checked` list that fired; 0 for a snapshot that is not what `save` writes, and that includes
+/// one where any `checked` entry has no boolean `fired` (the whole report counts 0, never a partial number).
 fn fired_count(snapshot: &str) -> usize {
-    serde_json::from_str::<Value>(snapshot)
+    let Some(checked) = serde_json::from_str::<Value>(snapshot)
         .ok()
         .and_then(|s| s.get("checked").and_then(Value::as_array).cloned())
-        .map_or(0, |checked| {
-            checked
-                .iter()
-                .filter(|r| r.get("fired").and_then(Value::as_bool) == Some(true))
-                .count()
-        })
+    else {
+        return 0;
+    };
+    let mut fired = 0;
+    for rule in &checked {
+        match rule.get("fired").and_then(Value::as_bool) {
+            Some(true) => fired += 1,
+            Some(false) => {}
+            None => return 0,
+        }
+    }
+    fired
 }
 
 /// `(text.splitlines() or [""])[0]`: up to the first line boundary of Python's `str.splitlines`.
@@ -510,7 +517,7 @@ fn write_string(text: &str, out: &mut String) {
             '\t' => out.push_str("\\t"),
             '\u{8}' => out.push_str("\\b"),
             '\u{c}' => out.push_str("\\f"),
-            c if (c as u32) < 0x20 || (c as u32) > 0x7f => {
+            c if (c as u32) < 0x20 || (c as u32) >= 0x7f => {
                 let mut units = [0u16; 2];
                 for unit in c.encode_utf16(&mut units) {
                     out.push_str(&format!("\\u{unit:04x}"));
@@ -611,7 +618,7 @@ pub fn save(
         .map_err(|_| SaveError::Failed("the clock is out of range".into()))?
         .strftime("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
-    let store = open_for_write(path).map_err(failed_write)?;
+    let store = open_existing_for_write(path).map_err(failed_write)?; // never creates: a store removed since the check stays gone
     let id = {
         let tx = rusqlite::Transaction::new_unchecked(store.conn(), TransactionBehavior::Immediate)
             .map_err(|e| failed_write(e.into()))?;
@@ -649,7 +656,25 @@ fn failed_write(error: WriteError) -> SaveError {
 
 #[cfg(test)]
 mod tests {
-    use super::first_line;
+    use super::{fired_count, first_line};
+
+    /// One `checked` entry with no boolean `fired` makes the whole snapshot "not what `save` writes": 0, never a partial count.
+    #[test]
+    fn a_malformed_checked_entry_makes_the_whole_count_zero() {
+        let count = fired_count;
+        assert_eq!(
+            count(r#"{"checked":[{"fired":true},{"fired":false},{"fired":true}]}"#),
+            2
+        );
+        assert_eq!(count(r#"{"checked":[]}"#), 0);
+        assert_eq!(count(r#"{"checked":[{"fired":true},{}]}"#), 0);
+        assert_eq!(count(r#"{"checked":[{},{"fired":true}]}"#), 0);
+        assert_eq!(count(r#"{"checked":[{"fired":true},{"fired":1}]}"#), 0);
+        assert_eq!(count(r#"{"checked":[{"fired":true},"x"]}"#), 0);
+        assert_eq!(count(r#"{"checked":{"fired":true}}"#), 0);
+        assert_eq!(count(r#"{}"#), 0);
+        assert_eq!(count("not json"), 0);
+    }
 
     /// `(text.splitlines() or [""])[0]` for every boundary Python knows.
     #[test]
