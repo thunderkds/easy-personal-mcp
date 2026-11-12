@@ -2,19 +2,44 @@
 //! `Path.resolve()` / `os.path.realpath`: a `seen` map, no cap on links, a link met while it is being resolved is a loop
 //! and stays as typed. It is replayed against the answers Python gave (`rust/parity/golden-writes/paths.json` for absolute
 //! inputs, `paths-relative.json` for relative ones, over the folder `gen_writes.py` builds), plus the edge inputs the
-//! corpus cannot hold. This test changes the working folder, so it has a binary of its own.
+//! corpus cannot hold. Two tests read or change the process's working folder; tests of one binary run on parallel threads,
+//! so they hold `Cwd` (one mutex; the folder is put back when it drops, also after a panic) for their whole run.
 
 use easy_personal_core::metrics::{realpath, resolve_path};
 use paths_common::{Temp, links_folder};
 use serde_json::Value;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::symlink;
-use std::path::Path;
-use std::sync::mpsc;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, mpsc};
 use std::time::{Duration, Instant};
 
 #[path = "paths_common/mod.rs"]
 mod paths_common;
+
+static CWD: Mutex<()> = Mutex::new(());
+
+/// The lock on the working folder, and the folder to put back (T055: a test that reads it must not see another's change).
+struct Cwd {
+    saved: PathBuf,
+    _lock: MutexGuard<'static, ()>,
+}
+
+impl Cwd {
+    fn hold() -> Cwd {
+        let lock = CWD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        Cwd {
+            saved: std::env::current_dir().unwrap(),
+            _lock: lock,
+        }
+    }
+}
+
+impl Drop for Cwd {
+    fn drop(&mut self) {
+        let _ = std::env::set_current_dir(&self.saved);
+    }
+}
 
 fn golden(file: &str) -> Value {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -64,6 +89,7 @@ fn absolute_inputs_equal_python_over_links_loops_and_chains() {
 fn relative_inputs_start_at_the_working_folder() {
     let work = links_folder("resolver-rel");
     let corpus = golden("paths-relative.json");
+    let _cwd = Cwd::hold(); // declared after `work`: the folder is put back before `work` is removed
     std::env::set_current_dir(&*work).unwrap();
     let cases = corpus["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 22);
@@ -74,7 +100,6 @@ fn relative_inputs_start_at_the_working_folder() {
             assert_eq!(got, want, "{name}({input:?})");
         }
     }
-    std::env::set_current_dir("/").unwrap();
 }
 
 /// `hop_i -> hop_{i+1}/hop_{i+1}`, `hop_30 -> .` expands 2^30 times without a cache of resolved links. The work runs on a
@@ -102,6 +127,7 @@ fn the_depth_30_doubling_chain_is_answered_in_under_a_second() {
 #[test]
 fn the_edges_of_a_path() {
     let work = Temp::new("resolver-edge");
+    let _cwd = Cwd::hold();
     // `..` at the root stays at the root; a doubled or trailing slash and a `.` fold away
     for (input, want) in [
         ("/", "/"),
