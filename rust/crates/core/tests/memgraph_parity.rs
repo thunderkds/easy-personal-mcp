@@ -338,7 +338,22 @@ fn seeded(t: &Dir) -> Connection {
 
 fn cases(t: &Dir) -> Value {
     let text = read_text(&parity_dir().join("golden-memgraph/cases.json")).replace("<T>", t.text());
-    serde_json::from_str(&text).unwrap()
+    let mut want: Value = serde_json::from_str(&text).unwrap();
+    sort_like_python(&mut want["list"]["projects"]);
+    want
+}
+
+/// Python lists the projects sorted by key text (`sorted(_sources(..).items())`). The golden was recorded under
+/// `/tmp/easy-personal-t043-gen-*` and `<T>` is put back as this run's temp folder, which sorts before or after
+/// `/nonexistent-t043/zz` depending on `TMPDIR`: the same rows, sorted by Python's own rule for this path (T055).
+fn sort_like_python(projects: &mut Value) {
+    let rows = projects.as_array_mut().unwrap();
+    rows.sort_by(|a, b| {
+        a["project"]
+            .as_str()
+            .unwrap()
+            .cmp(b["project"].as_str().unwrap())
+    });
 }
 
 #[test]
@@ -667,7 +682,11 @@ fn seeded_t053(t: &Dir) -> Connection {
 fn cases_t053(t: &Dir) -> Value {
     let text =
         read_text(&parity_dir().join("golden-memgraph/cases-t053.json")).replace("<T>", t.text());
-    serde_json::from_str(&text).unwrap()
+    let mut want: Value = serde_json::from_str(&text).unwrap();
+    if want["list"]["projects"].is_array() {
+        sort_like_python(&mut want["list"]["projects"]);
+    }
+    want
 }
 
 fn env_t053(t: &Dir, zone: TimeZone) -> Env {

@@ -241,7 +241,7 @@ pub(crate) fn begin(conn: &Connection) -> Done<Transaction<'_>> {
 }
 
 /// One write request's handle on the store: checks that a store with tables is there (a write never creates one),
-/// opens it for writing (`writer::open_for_write`: 5 s busy timeout, foreign keys on, schema v11 only), runs
+/// opens it for writing (`writer::open_existing_for_write`: 5 s busy timeout, foreign keys on, schema v11 only), runs
 /// `detect_in` (Python's `accounts.detect` that precedes an account write: an `INSERT OR IGNORE` of the agent folders
 /// of that root) and then `work`, and closes the handle before it returns. Opened only here, never at start-up.
 pub fn write_session<T>(
