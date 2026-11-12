@@ -109,11 +109,19 @@ mod tests {
     use super::*;
 
     fn value(text: &str, section: &str) -> Option<String> {
-        let dir = std::env::temp_dir().join(format!("ep-t033-cfg-{}", std::process::id()));
+        // one folder per call (the tests run in parallel threads), removed once read (T055)
+        static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ep-t033-cfg-{}-{}",
+            std::process::id(),
+            N.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        ));
         fs::create_dir_all(&dir).unwrap();
-        let file = dir.join(format!("{}.yaml", text.len()));
+        let file = dir.join("config.yaml");
         fs::write(&file, text).unwrap();
-        read_flat_value(&file, section, "reports_dir")
+        let got = read_flat_value(&file, section, "reports_dir");
+        let _ = fs::remove_dir_all(&dir);
+        got
     }
 
     #[test]

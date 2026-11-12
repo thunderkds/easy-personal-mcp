@@ -50,6 +50,52 @@ impl Api {
     }
 }
 
+/// The one designed answer of a busy store (`writes.rs` `BUSY`), after the 5 s busy wait.
+const BUSY_TEXT: &str = "the store is busy (another process is writing); try again in a moment";
+/// How many times one request is tried when it is answered with the designed busy answer.
+const TRIES: u32 = 6;
+
+impl Api {
+    /// [`Api::send`], tried again (up to [`TRIES`] times in all) while the answer is the designed 503 with its fixed text;
+    /// every retry is counted. Any other answer is returned as it is; the caller judges it.
+    fn send_retrying(
+        &self,
+        method: &str,
+        path: &str,
+        body: &str,
+        retries: &mut u32,
+    ) -> (u16, String) {
+        for attempt in 1..=TRIES {
+            let (status, text) = self.send(method, path, body);
+            let busy = status == 503 && text.contains(BUSY_TEXT);
+            if !busy || attempt == TRIES {
+                return (status, text);
+            }
+            *retries += 1;
+        }
+        unreachable!()
+    }
+}
+
+/// Fails the test with the ingest child's state: it is stopped (its group killed) and its exit code, stdout and stderr
+/// are printed, because a bare `{body}` can be an empty line.
+fn explain(mut ingest: Proc, what: &str) -> ! {
+    let was_running = ingest.running();
+    ingest.terminate();
+    let out = ingest.wait(Duration::from_secs(30));
+    panic!(
+        "{what}\ningest child: {} when the test failed; exit code {:?}\n--- ingest stdout ---\n{}\n--- ingest stderr ---\n{}",
+        if was_running {
+            "still running"
+        } else {
+            "already finished"
+        },
+        out.code,
+        out.stdout,
+        out.stderr
+    );
+}
+
 #[test]
 fn writes_and_an_ingest_share_the_wal_store_without_a_lock_error() {
     let case = Case::new();
@@ -73,52 +119,88 @@ fn writes_and_an_ingest_share_the_wal_store_without_a_lock_error() {
     };
 
     let mut ingest = Spec::rust(&case, &["ingest"]).spawn();
-    let (mut requests, mut kept) = (0, Vec::new());
+    let (mut requests, mut kept, mut retries) = (0, Vec::new(), 0u32);
+    // Each request must be answered with its own status. The designed 503 (busy past the 5 s wait) is retried; a 500, a
+    // lock-error text, an exhausted bound or any other status stops the test with the ingest child's state.
+    macro_rules! write {
+        ($want:expr, $method:expr, $path:expr, $body:expr) => {{
+            let (status, body) = api.send_retrying($method, $path, $body, &mut retries);
+            if status != $want || body.to_lowercase().contains("locked") {
+                explain(
+                    ingest,
+                    &format!(
+                        "{} {}: wanted {}, got {status} after {retries} retries so far: {body:?}",
+                        $method, $path, $want
+                    ),
+                );
+            }
+            body
+        }};
+    }
     while ingest.running() {
         let name = format!("w{requests}");
-        let (status, body) = api.send(
+        let body = write!(
+            201,
             "POST",
             "/api/workspaces",
-            &format!("{{\"name\":\"{name}\"}}"),
+            &format!("{{\"name\":\"{name}\"}}")
         );
-        assert_eq!(status, 201, "{body}");
         let id = body
             .split("\"id\":")
             .nth(1)
             .and_then(|r| r.split([',', '}']).next())
             .unwrap()
             .to_string();
-        let (status, body) = api.send(
+        write!(
+            200,
             "PATCH",
             &format!("/api/workspaces/{id}"),
-            "{\"description\":\"renamed while ingesting\"}",
+            "{\"description\":\"renamed while ingesting\"}"
         );
-        assert_eq!(status, 200, "{body}");
         if requests % 2 == 0 {
-            let (status, body) = api.send(
+            write!(
+                200,
                 "DELETE",
                 &format!("/api/workspaces/{id}"),
-                "{\"confirm\":true}",
+                "{\"confirm\":true}"
             );
-            assert_eq!(status, 200, "{body}");
         } else {
             kept.push(name);
         }
-        assert!(!body.to_lowercase().contains("locked"), "{body}");
         requests += 1;
     }
     let out = ingest.wait(Duration::from_secs(120));
     println!(
-        "writes while ingesting: {requests} rounds of 2-3 requests, ingest stored {} new events",
-        out.new_events()
+        "writes while ingesting: {requests} rounds of 2-3 requests, {retries} designed 503 answers retried, ingest stored {} new events (exit {:?})",
+        out.new_events(),
+        out.code
+    );
+    assert_eq!(
+        out.code,
+        Some(0),
+        "the ingest child failed: stdout {:?}, stderr {:?}",
+        out.stdout,
+        out.stderr
     );
     assert!(
         requests >= 2,
-        "the ingest ended before two rounds of writes ran: {requests}"
+        "the ingest ended before two rounds of writes ran: {requests}; ingest stdout {:?}, stderr {:?}",
+        out.stdout,
+        out.stderr
     );
-    assert!(out.new_events() > 0, "the ingest stored nothing");
+    assert!(
+        out.new_events() > 0,
+        "the ingest stored nothing: stdout {:?}, stderr {:?}",
+        out.stdout,
+        out.stderr
+    );
     // the last round may have landed after the ingest ended: one more write proves the store is free
-    let (status, body) = api.send("POST", "/api/workspaces", "{\"name\":\"after\"}");
+    let (status, body) = api.send_retrying(
+        "POST",
+        "/api/workspaces",
+        "{\"name\":\"after\"}",
+        &mut retries,
+    );
     assert_eq!(status, 201, "{body}");
     kept.push("after".into());
 

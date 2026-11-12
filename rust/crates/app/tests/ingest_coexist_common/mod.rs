@@ -319,6 +319,12 @@ impl Proc {
         }
     }
 
+    /// SIGKILL to the whole group, then the child stays to be collected with [`Proc::wait`] (T055: a failing test reads
+    /// the child's exit status, stdout and stderr).
+    pub fn terminate(&self) {
+        kill_group(self.pid);
+    }
+
     /// SIGKILL to the whole group. Returns whether the child had already exited before the kill.
     pub fn kill(mut self) -> bool {
         let exited = matches!(self.child.try_wait(), Ok(Some(_)));
