@@ -10,6 +10,16 @@ publish.workspace = true
 [features]
 window = ["dep:tauri", "dep:tauri-build"]
 
+# The default binary `easy-personal-rs` is `src/main.rs`. The connector launcher (T050) is a second, small one: Claude Code
+# runs `easy-personal-launch exec <connector>`; it links only `src/keychain.rs`.
+[[bin]]
+name = "easy-personal-rs"
+path = "src/main.rs"
+
+[[bin]]
+name = "easy-personal-launch"
+path = "src/launch.rs"
+
 [dependencies]
 easy-personal-core = { path = "../core" }
 clap.workspace = true
