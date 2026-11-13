@@ -1,0 +1,268 @@
+{
+  "generator": "rust/parity/gen_store_health.py",
+  "python_sqlite": "3.47.1",
+  "latest_migration": 11,
+  "cases": [
+    {
+      "name": "clean",
+      "fixture": "clean",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "empty",
+      "fixture": "empty",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "behind",
+      "fixture": "behind",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "newer",
+      "fixture": "newer",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "corrupt_page",
+      "fixture": "corrupt_page",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "corrupt_page_full",
+      "fixture": "corrupt_page",
+      "options": {
+        "full": true
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "damaged_index",
+      "fixture": "damaged_index",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "wal_no_shm",
+      "fixture": "wal_no_shm",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite",
+        "store.sqlite-wal"
+      ]
+    },
+    {
+      "name": "locked",
+      "fixture": "locked",
+      "options": {
+        "budget_s": 0.3
+      },
+      "setup": "lock",
+      "files": [
+        "store.sqlite",
+        "store.sqlite-shm",
+        "store.sqlite-wal"
+      ]
+    },
+    {
+      "name": "hostile",
+      "fixture": "hostile",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "blob_time",
+      "fixture": "blob_time",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "int_time",
+      "fixture": "int_time",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "missing",
+      "fixture": "missing",
+      "options": {},
+      "setup": null,
+      "files": []
+    },
+    {
+      "name": "missing_with_wal",
+      "fixture": "missing_with_wal",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite-wal",
+        "store.sqlite.bak-v3"
+      ]
+    },
+    {
+      "name": "zero_byte",
+      "fixture": "zero_byte",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "not_a_database",
+      "fixture": "not_a_database",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "backups",
+      "fixture": "backups",
+      "options": {},
+      "setup": null,
+      "files": [
+        "CANARY-SECRET-244.txt",
+        "store.sqlite",
+        "store.sqlite.bak-v",
+        "store.sqlite.bak-v007",
+        "store.sqlite.bak-v10",
+        "store.sqlite.bak-v3",
+        "store.sqlite.bak-v3-wal",
+        "store.sqlite.bak-v4",
+        "store.sqlite.bak-v5-CANARY-SECRET-244",
+        "store.sqlite.bak-v7"
+      ]
+    },
+    {
+      "name": "fk_violation",
+      "fixture": "fk_violation",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "later_table",
+      "fixture": "later_table",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "bad_table_name",
+      "fixture": "bad_table_name",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite",
+        "store.sqlite-wal"
+      ]
+    },
+    {
+      "name": "no_optional_tables",
+      "fixture": "no_optional_tables",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "budget_zero",
+      "fixture": "big",
+      "options": {
+        "budget_s": 0.0
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "budget_zero_and_behind",
+      "fixture": "behind",
+      "options": {
+        "budget_s": 0.0
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "quick_check",
+      "fixture": "clean",
+      "options": {
+        "full_check_max_bytes": 1
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "full_no_budget",
+      "fixture": "big",
+      "options": {
+        "full": true,
+        "budget_s": 0.0
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "full_on_a_clean_store",
+      "fixture": "clean",
+      "options": {
+        "full": true
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    }
+  ]
+}

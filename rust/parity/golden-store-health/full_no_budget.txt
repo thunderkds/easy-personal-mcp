@@ -1,0 +1,8 @@
+file: store.sqlite 532480 bytes (wal 0 bytes)
+schema: user_version 11, code has 11, migration pending: no
+integrity_check: ok
+foreign_key_check: ok
+tables: account_registrations 0, account_workspaces 0, agent_accounts 0, connectors 0, context_index 0, events 1500, investigate_reports 0, kit_trace_events 0, meta 1, source_files 0, tool_signals 0, ui_sessions 0, verifier_scores 0, workspace_repos 0, workspaces 1
+sources: claude_code last 2026-01-01T00:24:59.000000Z, abstained 0; kit_trace no data; context no data; ui no data; verifier no data
+backups: none
+verdict: healthy
