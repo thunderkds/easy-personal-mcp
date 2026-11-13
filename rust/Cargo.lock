@@ -903,6 +903,7 @@ dependencies = [
  "axum",
  "clap",
  "easy-personal-core",
+ "futures-core",
  "getrandom 0.4.3",
  "http-body-util",
  "rmcp",

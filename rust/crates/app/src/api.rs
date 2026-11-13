@@ -4,6 +4,8 @@
 //! `/api/board` and `/api/memory-graph` (T043), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
 //! and the seven store-only write routes of T048, which `writes.rs` serves.
+//! `GET /api/live` (T056) is the one stream: Server-Sent Events from the live feed (`live_feed.rs`); it reads no store
+//! itself, and it is the one route whose token may come in the query (`server.rs`).
 //! The read routes are all `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
 //! calls of `jobs.rs` (the first word of an agent command only); `/api/kit/report-file` reads one capped file of a
 //! report folder by handle (`report_files.rs`). The others read the store.
@@ -23,13 +25,15 @@
 //! through as a `serde_json::Value`; no body carries a path, SQL or row text (NFR-002): a store problem becomes one of
 //! a few fixed texts.
 
+use crate::live_feed::{LIVE_PATH, SharedTail, SseBody, resume_id};
 use crate::writes;
 use axum::Router;
+use axum::body::Body;
 use axum::extract::State;
 use axum::http::header::{
     CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE, X_CONTENT_TYPE_OPTIONS,
 };
-use axum::http::{StatusCode, Uri};
+use axum::http::{HeaderMap, HeaderName, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, post, put};
 use easy_personal_core::accounts;
@@ -54,6 +58,7 @@ use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 /// Answer for a store that is busy, not a regular file or unreadable. Fixed on purpose: the core's text for these
 /// can name a SQLite error code, and a body must never carry a path, SQL or row text.
@@ -65,7 +70,7 @@ const TIMELINE_DETAIL_SESSIONS: usize = 50;
 
 type Failure = (StatusCode, String);
 type StorePath = Arc<dyn Fn() -> Result<PathBuf, StoreError> + Send + Sync>;
-type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
+pub(crate) type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 
 /// What the routes need from outside: where the store is, and what time it is (microseconds since the epoch, UTC).
 /// The binary passes the real ones ([`Api::system`]); the clock can be injected only in-process, by a test.
@@ -73,6 +78,10 @@ type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 pub struct Api {
     pub(crate) store_path: StorePath,
     clock: Clock,
+    /// The tail `GET /api/live` reads (`None`: no feed runs, the stream sends Python's empty snapshot).
+    live: Option<SharedTail>,
+    /// Set when the server stops: every open stream ends at its next tick.
+    stopping: Arc<AtomicBool>,
 }
 
 impl Api {
@@ -83,7 +92,16 @@ impl Api {
         Api {
             store_path: Arc::new(store_path),
             clock: Arc::new(clock),
+            live: None,
+            stopping: Arc::default(),
         }
+    }
+
+    /// The live feed's tail for `GET /api/live`, and the flag that ends the open streams.
+    pub(crate) fn with_live(mut self, live: Option<SharedTail>, stopping: Arc<AtomicBool>) -> Self {
+        self.live = live;
+        self.stopping = stopping;
+        self
     }
 
     /// `EASY_PERSONAL_HOME` / `HOME` read on each request (like Python's `config.store_path()`), and the system clock.
@@ -94,6 +112,7 @@ impl Api {
 
 pub fn routes() -> Router<Api> {
     Router::new()
+        .route(LIVE_PATH, get(live))
         .route("/api/usage/summary", get(summary))
         .route("/api/usage/breakdown", get(breakdown))
         .route("/api/usage/sessions", get(sessions))
@@ -135,6 +154,34 @@ pub fn routes() -> Router<Api> {
         .route("/api/sync", get(sync_plan))
         .route("/api/dirs", get(dirs))
         .route("/api/jobs", get(jobs))
+}
+
+/// `GET /api/live` (T056): Python's `live_stream`, served by `live_feed::SseBody`. A repeated `Last-Event-ID` is
+/// refused like a repeated Host or token header.
+async fn live(State(api): State<Api>, headers: HeaderMap) -> Response {
+    let mut ids = headers.get_all("last-event-id").iter();
+    let resume = match (ids.next(), ids.next()) {
+        (None, _) => None,
+        (Some(id), None) => resume_id(id.as_bytes()),
+        _ => {
+            return (
+                StatusCode::FORBIDDEN,
+                [(CONTENT_TYPE, "application/json")],
+                r#"{"error":"forbidden"}"#,
+            )
+                .into_response();
+        }
+    };
+    let body = SseBody::new(resume, api.live, api.stopping, api.clock);
+    (
+        [
+            (CONTENT_TYPE, "text/event-stream"),
+            (CACHE_CONTROL, "no-store"),
+            (HeaderName::from_static("x-accel-buffering"), "no"),
+        ],
+        Body::from_stream(body),
+    )
+        .into_response()
 }
 
 async fn summary(State(api): State<Api>, uri: Uri) -> Response {
