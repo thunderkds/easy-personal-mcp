@@ -13,7 +13,7 @@
 
 ### In Progress
 - [x] **T057** — Rust live feed 2: `app --self-test` opens `/api/live` and reads the first snapshot | Backend-Developer | C3 | Risk: High | P1 | merged to `main` 2026-11-13 (`0ab9ae2`) on the owner's go-ahead; Step 0 found Python has no separate kit-trace feed (the kit stage is already in the snapshot), so AC 2, 4, 5 were dropped; Stage 4 code and security review clean; 713 passed, 0 failed; owner's end-to-end check of the Live tab in the window (AC 7) still open
-- [ ] **T051** — P3 S12: `context` ingest, MCP `--http`, dashboard start-up ingest | Backend-Developer | C2 | Risk: Medium | P3 | wave 5, optional; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts; started 2026-11-13: own worktree `easy-personal-mcp-wt/<id>`, parallel with the other open tasks
+- [x] **T051** — P3 S12: start-up ingest in `serve`/`app` (`--no-ingest`), `mcp --transport http` (loopback, stateless), `context` ingest (hand-written loopback client, no new crate) | Backend-Developer | C2 | Risk: Medium | P3 | merged to `main` 2026-11-13 (`1101672`) on the owner's go-ahead; Stage 4 code review (1 P2, fixed) and security review (clean, P3s fixed); 747 passed, 0 failed under three TZ; leak gate 0 hits over 336 surfaces; oracle `golden-context` equal; not checked: window binary at run time, a real easy-context service
 
 ### Ready for Review
 
