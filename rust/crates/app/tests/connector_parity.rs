@@ -270,8 +270,17 @@ fn read_log(path: &Path, norm: &Norm) -> Vec<Value> {
         .collect()
 }
 
-fn hex(s: &str) -> String {
-    s.bytes().map(|b| format!("{b:02x}")).collect()
+/// The fake's folder name for an account (`fake-claude.sh`): every byte outside `[A-Za-z0-9._-]` as `_`.
+fn ccd_key(s: &str) -> String {
+    s.bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b"._-".contains(&b) {
+                b as char
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn unhex(s: &str) -> Vec<u8> {
@@ -293,11 +302,12 @@ fn read_state(dir: &Path) -> Value {
         .collect();
     folders.sort();
     for folder in folders {
-        let ccd = String::from_utf8(unhex(folder.file_name().unwrap().to_str().unwrap())).unwrap();
+        let ccd = std::fs::read_to_string(folder.join(".ccd")).unwrap();
         let mut files: Vec<PathBuf> = std::fs::read_dir(&folder)
             .unwrap()
             .flatten()
             .map(|e| e.path())
+            .filter(|p| p.file_name().is_some_and(|n| n != ".ccd"))
             .collect();
         files.sort();
         let entries: Map<String, Value> = files
@@ -367,8 +377,10 @@ fn replay(case: &Value) -> Vec<String> {
         )
         .unwrap();
         for (ccd, entries) in accounts {
-            let folder = state.join(hex(&ccd.replace("@W@", &work)));
+            let value = ccd.replace("@W@", &work);
+            let folder = state.join(ccd_key(&value));
             std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(folder.join(".ccd"), &value).unwrap();
             for (alias, entry) in entries.as_object().unwrap() {
                 let command = entry[0].as_str().unwrap().replace("@LAUNCHER@", LAUNCH);
                 std::fs::write(

@@ -209,8 +209,8 @@ pub(crate) async fn connector_add(State(api): State<Api>, req: Request) -> Respo
 /// `writer.new_id`: `c` and 8 hex digits from the OS random source.
 fn new_id() -> Done<String> {
     let mut bytes = [0u8; 4];
-    getrandom::fill(&mut bytes)
-        .map_err(|_| refuse(400, "the store refused the change; nothing was changed"))?;
+    // no OS random source: the fixed 500, nothing written
+    getrandom::fill(&mut bytes).map_err(|_| refuse(500, crate::api::INTERNAL))?;
     Ok(format!(
         "c{}",
         bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()

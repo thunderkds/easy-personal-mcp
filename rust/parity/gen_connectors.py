@@ -32,6 +32,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -261,13 +262,16 @@ def read_log(path: Path, work: str) -> list[dict]:
 
 
 def ccd_key(ccd: str) -> str:
-    return ccd.encode().hex()
+    """The fake's folder name for an account: every byte outside `[A-Za-z0-9._-]` as `_` (its `.ccd` file holds the value)."""
+    return re.sub(rb"[^A-Za-z0-9._-]", b"_", ccd.encode()).decode()
 
 
 def write_state(state_dir: Path, claude: dict, work: str) -> None:
     for ccd, entries in claude.items():
-        folder = state_dir / ccd_key(ccd.replace("@W@", work))
+        value = ccd.replace("@W@", work)
+        folder = state_dir / ccd_key(value)
         folder.mkdir(parents=True, exist_ok=True)
+        (folder / ".ccd").write_text(value)
         for name, (command, args) in entries.items():
             (folder / name).write_text(f"Command: {command.replace('@LAUNCHER@', FAKE_LAUNCHER)}\nArgs: {args}\n")
 
@@ -275,8 +279,8 @@ def write_state(state_dir: Path, claude: dict, work: str) -> None:
 def read_state(state_dir: Path, work: str) -> dict:
     out = {}
     for folder in sorted(p for p in state_dir.iterdir() if p.is_dir()) if state_dir.exists() else []:
-        ccd = scrub(bytes.fromhex(folder.name).decode(), work)
-        out[ccd] = {f.name: scrub(f.read_text(), work) for f in sorted(folder.iterdir())}
+        ccd = scrub((folder / ".ccd").read_text(), work)
+        out[ccd] = {f.name: scrub(f.read_text(), work) for f in sorted(folder.iterdir()) if f.name != ".ccd"}
     return out
 
 

@@ -14,13 +14,16 @@
 
 use easy_personal_core::pyjson::py_list;
 pub use easy_personal_core::pyjson::py_object;
-use serde_json::{Map, Value};
+#[cfg(any(debug_assertions, test))]
+use serde_json::Map;
+use serde_json::Value;
 
 pub const SERVICE_PREFIX: &str = "easy-personal/";
 pub const ITEM_USER: &str = "connector";
 pub const NO_BACKEND: &str = "no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. \
                               Secrets are never stored in plaintext";
 /// The debug-build switch to the file-backed fake (see the module text).
+#[cfg(debug_assertions)]
 pub const TEST_KEYCHAIN_ENV: &str = "EASY_PERSONAL_TEST_KEYCHAIN";
 
 /// Python's `LaunchError`: an expected failure whose text is safe to print.
