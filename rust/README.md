@@ -80,15 +80,15 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   Python's `catalog/*.yaml`), sorted by category, then the claude.ai-connector entries first, then provider; each is
   `{id, category, provider, claude_ai_connector, claude_ai_link, fields: [{env, label, secret}], configured}`. `workspace_connectors` are the
   stored rows `{id, alias, provider, workspace}`, by workspace name then alias. It takes no parameter (the whole query string is ignored), like
-  the workspace routes. Errors: `403` without the token or with a bad Host/Origin, `405` for `POST`, `PATCH`, `PUT` and `DELETE` (the CSP still
-  set; Python's `POST /api/connectors` is not served), `503` for a missing, newer, busy, unreadable or table-less store (the fixed texts above), `500
+  the workspace routes. Errors: `403` without the token or with a bad Host/Origin, `405` for `PATCH`, `PUT` and `DELETE` (the CSP still
+  set; `POST` is the add, T050, below "Connector writes"), `503` for a missing, newer, busy, unreadable or table-less store (the fixed texts above), `500
   {"error": "internal error"}` if the embedded catalog ever failed to parse (a test parses every file, so this cannot ship). Fields shown, and
   why they are safe: the catalog holds public names, labels and one fixed `https://claude.ai/settings/connectors` link (never a command line,
   which Python's route does not show either); a stored row shows only a connector id, an alias, a provider id and a workspace name (the secrets
-  live in the keychain, which this build never reads). **`configured` is always `false`**: Python answers `true` only when the OS keychain
+  live in the keychain, which this route never reads). **`configured` is always `false`**: Python answers `true` only when the OS keychain
   holds the item *and* `claude mcp get` knows the entry, and answers `false` when it cannot ask (no keychain backend, no `claude`), which is
-  the state of the goldens. This build asks neither (no keychain crate, no process; both arrive with T050 behind the owner's approval), so on a
-  machine where Python says `true`, this says `false`. `GET /api/connectors/legacy` and `/api/connectors/<id>` are `404`; the connector write routes are not served (`POST /api/connectors` is `405`).
+  the state of the goldens. This route asks neither (T050 left the T046 read side as it was), so on a machine where Python says `true`, this says
+  `false`. The connector writes and `/api/connectors/legacy` are T050 (below, "Connector writes, keychain and launcher").
 - `GET /api/kit`, `GET /api/kit/workspaces` and `GET /api/kit/reports` (T042, read-only; below, "Kit"). `/api/kit` takes the optional `workspace` and
   `account` as the usage routes do (same 400 texts); `/api/kit/workspaces` takes `since`, `until` and `account` (a `workspace` is ignored, as in Python);
   `/api/kit/reports` takes no parameter. A `since` or `until` that is not a date is `400` with an `error` key (the text is CPython's, ours says the
@@ -127,7 +127,8 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
     and `<folder>/easy-personal-limits.json` (`five_hour` / `seven_day` `used_percentage`, `resets_at`, `written_at`). Nothing else in a folder is opened or listed.
   - `/api/sync` -> `{"steps": [{account_id, account, action, alias, connector_id, line}]}`: what applying the store's picks would change in each confirmed Claude
     account (and each ignored one that still holds registrations); `?account=<id>` selects one (an empty value is no filter). The lines are data from the store
-    (an account label or alias with a newline or quotes is JSON-escaped, never run). The apply (`POST /api/sync`) is `405`; the account writes
+    (an account label or alias with a newline or quotes is JSON-escaped, never run). Since T050 the plan asks `claude mcp get` per entry when `claude`
+    is on `PATH`, as Python does (then a step can also be `record`, `forget` or `refused`); the apply `POST /api/sync` is T050 (below); the account writes
     (`POST /api/accounts`, `.../confirm`, `.../ignore`, `PUT .../workspaces`) are served since T048 (below, "Write routes").
 
   | Request | Answer |
@@ -136,7 +137,7 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   | `account` not plain ASCII digits | `400 {"error": "account must be an account id"}` |
   | `account` with no account (`0`, `99`, 20 digits) | `404 {"error": "no such account"}` |
   | no token, bad Host or Origin | `403 {"error": "forbidden"}` (before anything else) |
-  | `PUT`, `PATCH`, `DELETE` on either route, `POST` on `/api/sync` | `405`, empty body, CSP set (`HEAD` answers like `GET`); `POST /api/accounts` is a write (T048, below) |
+  | `PUT`, `PATCH`, `DELETE` on either route | `405`, empty body, CSP set (`HEAD` answers like `GET`); `POST /api/accounts` (T048) and `POST /api/sync` (T050) are writes (below) |
   | no store, a store newer than this build, a busy, unreadable or non-file store | `503`, as for the other routes |
 
   Decided for you (T041; Rust differs from Python): (1) the guide's checklist said Rust never opens an account folder, but Python's status line (and the `missing`
@@ -682,7 +683,7 @@ Decided for you (differences from Python, all on hostile or unusual input):
   `thresholds: kit_error_rate` is not read (the default 0.04 is used).
 - Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
 
-Not served yet: the other Python routes (the connector writes and the sync apply (T050); `/api/live` is served since T056). This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
+Not served yet: `GET /api/store/health` (T059). The connector writes and the sync apply are served since T050; `/api/live` since T056. This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
 `/api/dirs` are served); T043 serves `/api/board` and `/api/memory-graph`, and T048 the store-only workspace and account writes. The release note `docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
 
 ## Board and memory graph (T043)
@@ -813,7 +814,6 @@ Every answer of the seven routes, by status. `{field}` is `color`, `icon`, `desc
 | `404` | `no such account` | the three `/api/accounts/{id}/...` routes |
 | `405` | none (empty body) | every other method of these paths |
 | `409` | `a workspace with this name exists` | `POST`, `PATCH` workspaces |
-| `409` | `this change must update an agent account's Claude Code entries, which needs the claude CLI; this build cannot run it yet, so nothing was changed` (Rust only) | a confirmed `PATCH` rename or `DELETE` whose plan needs `claude` |
 | `413` | `request body too large` | every route with a body over 1 MiB |
 | `415` | `content-type must be application/json` | every route |
 | `503` | `no store yet: ...`, the newer-store text, `store is schema v10: run the Python app once to migrate it`, `the store is busy (another process is writing); try again in a moment`, `the store cannot be written right now; try again in a moment` | every route, when the store cannot be opened for writing |
@@ -825,17 +825,14 @@ A workspace with no connector is renamed or deleted fully. The account routes fi
 Errors of the store: `503` `no store yet: ...` (missing, empty or table-less file: **nothing is created**), `503` the newer-store text (`user_version` 12), `503` `store is schema v10: run the
 Python app once to migrate it`, `503` `the store is busy (another process is writing); try again in a moment` (after 5 s; no SQLite text), `503` `the store cannot be written right now; try again in a moment`.
 
-**Refused until T050 (the `claude` CLI and the keychain).** A confirmed `PATCH` rename or `DELETE` whose plan holds an `add` or `remove` step for an agent account (the workspace's connectors are
-picked by an account, or an account has them registered) is `409 {"error": "this change must update an agent account's Claude Code entries, which needs the claude CLI; this build cannot
-run it yet, so nothing was changed"}` and **changes nothing**. The plan itself (without `confirm`) is shown, as Python shows it when `claude` is not on PATH (this build never asks `claude`
-whether an entry exists, so it never plans Python's `record`, `forget` or `refused` steps). The connector routes (`/api/connectors*`, `POST /api/sync`) are still not served.
+**Since T050** a confirmed `PATCH` rename or `DELETE` whose plan changes an agent account's entries is committed and then applied through `claude`, as Python's `sync.apply`
+does (with no `claude` on `PATH`: status 0 and the commands to run by hand). The T048 `409` is gone (below, "Connector writes, keychain and launcher").
 
 ### Decided for you (T048, for the owner's review)
 
 1. One lock covers all seven write routes (Python locks only the plan-first routes). A write waits for the lock without a time limit, then up to 5 s for SQLite.
 2. A body over 1 MiB is `413 request body too large` (Python has no cap). The content type is judged before the body is read.
-3. The confirmed plan that needs `claude` is `409` with a fixed text, not Python's status 0 with snippets: Python commits the store and prints `claude` commands to run by hand, which
-   would leave the Rust app's accounts and the store out of step. Plans with nothing for `claude` to do are applied.
+3. (Replaced by T050.) The confirmed plan that needed `claude` was a `409`; it is now applied as Python applies it.
 4. A refused account write can leave behind the agent folders `detect` inserted first (Python does the same); no other table changes. A write never creates a store.
 5. Where Python crashes (500) or reads text this build does not: an id in non-ASCII digits (`%D9%A3`) or past 18 digits is `404`; a label that starts with NUL (the table's length check stops at the NUL)
    is `400 label must be 1 to 60 characters`; a NUL in an account path is `400 not an agent folder: ...`; `NaN`, `Infinity`, a number past a double, a lone surrogate, UTF-16/32 text and
@@ -872,6 +869,89 @@ Stale reference (report only): `docs/release/rust-v0.2.0.md` "not in this releas
 6. **`writes_coexist`** retries the designed `503` (`the store is busy (another process is writing); try again in a moment`) up to 6 times per request and counts the retries; any other status, a lock-error text, an exhausted bound or a failed ingest stops it, printing the ingest child's exit status, stdout and stderr. 10 of 10 runs passed on a quiet host and 10 of 10 under twelve `yes > /dev/null` loops (0 retries needed in either).
 7. **Temp folders** made by `accounts_parity.rs`, the `ingest/config.rs` unit test, and the T055 tests are removed on drop (also when an assertion fails).
 8. **A third semantic is left, on purpose.** `ingest/accounts.rs` (`detect`) and `ingest/verifier.rs` still use `fs::canonicalize` where Python uses `.resolve()`. It is accepted because `detect` checks `is_dir()` first (the path exists, so it is no loop or dangling link, where `canonicalize` and the one resolver agree) and `verifier.rs` only compares folders that exist and refuses when either cannot be resolved. The owner can overrule: pointing both at `metrics::resolve_path` is a few lines.
+
+## Connector writes, keychain and launcher (T050)
+
+The Rust app does what Python's connector code does: secrets in the OS keychain, the launcher program, the connector writes, the
+sync apply and the adoption of pre-workspace connectors. Oracle: `parity/gen_connectors.py` -> `parity/golden-connectors/` (40 cases,
+102 requests, 175 `claude` calls, 14 launcher runs), replayed over the binaries by `crates/app/tests/connector_parity.rs`; the cases Python
+cannot answer are in `tests/connector_writes.rs`, `tests/launcher.rs` and the unit tests of `keychain.rs`, `claude_cli.rs`, `sync_apply.rs`.
+
+**Dependency (Step 0).** One crate, owner gate passed 2026-11-13 (`docs/T050_CRATE_OPTIONS.md`, option A), app crate only:
+`keyring = { version = "=3.6.3", default-features = false, features = ["sync-secret-service", "crypto-rust"] }`. 74 new lock entries, all
+MIT / Apache-2.0 / BSD (the record is in `tasks/TASK_REVIEW_T050.md`); 28 new packages in the default build. With these features the
+compiled path is `dbus-secret-service` over the C library `libdbus-1` (Ubuntu: `libdbus-1-3` at run time, `libdbus-1-dev` to build); the
+`zbus` crates are in the lock only. No other crate; the `claude` calls use `std::process::Command`.
+
+**Keychain** (`crates/app/src/keychain.rs`, behind the `Keychain` trait). One item per connector: service `easy-personal/<name>`, user
+`connector`, secret = `{"command": [...], "env": {...}, "headers": {...}}` written byte for byte as Python's `json.dumps` writes it, so Python
+and Rust read each other's items (`keyring` finds an item Python wrote, which has no `target` attribute, by its fallback search of the default
+collection). Name rule `[a-z0-9][a-z0-9_-]{0,63}`, checked before any backend call (`invalid connector name`). No usable backend, a locked
+one or any backend error: `no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in
+plaintext`, nothing written. Removing an absent item is not an error. Linux Secret Service only: on another OS there is no backend (every
+write refused; nothing kept in memory or a file). **Debug builds only**: `EASY_PERSONAL_TEST_KEYCHAIN=<file>` swaps in a file-backed fake
+(`unusable` = no backend; a file holding `locked` = a backend that refuses), which the tests and the leak gate use; a release build has no
+such switch. The cross-check with the real keychain is an ignored test the owner runs once by hand:
+`cargo test -p easy-personal-rs --bin easy-personal-rs real_keychain -- --ignored` (it writes and deletes two `easy-personal/t050-crosscheck-*`
+items and needs `parity/.venv` with the Python app).
+
+**Launcher** `easy-personal-launch exec|headers <connector>` (second binary of the app crate, `src/launch.rs`; it links `keychain.rs` only).
+`exec` reads the item and `exec`s the provider command with the item's `env` added to its own environment: the secret is in the provider's
+environment, never its argv; stdin, stdout, stderr, signals and the exit code are the provider's own (it replaces the launcher process, as
+`os.execvpe` does). `headers` prints the item's `headers` as one JSON line. The command comes from the keychain item only. Python's fixed texts
+on stderr with `easy-personal: ` and exit 1: `connector '<name>' is not configured`, `... has an unreadable keychain entry`, `... has no provider
+command`, `cannot start provider command for '<name>'`, `invalid connector name`, the no-backend text; bad usage is exit 2. It adds about
+1 ms before the provider runs (NFR-006: < 200 ms; `tests/launcher.rs` measures it).
+
+**`claude` subprocess** (`crates/app/src/claude_cli.rs`, the core's `Claude` trait; argument lists in `crates/core/src/sync.rs`): `claude` is
+found on `PATH` (an executable regular file), run with an argument list (never a shell), this process's environment minus
+`CLAUDE_CONFIG_DIR`, plus `CLAUDE_CONFIG_DIR=<folder>` for an account that is not the default one (the folder comes from the account's row,
+never the request), stdin closed, a 60 s timeout (then killed; the call answers 127, as Python does). stdout is kept up to 1 MiB and only parsed
+(`Command:` / `Args:` of `claude mcp get`); stderr is read and dropped. Calls: `mcp get <alias>`, `mcp add-json <alias> {"type": "stdio",
+"command": "<launcher>", "args": ["exec", "<id>"]} --scope user`, `mcp remove <alias> --scope user`. The launcher path is the
+`easy-personal-launch` beside the running binary, else on `PATH`.
+
+**Routes** (guard, `application/json`, the 1 MiB cap and the one write lock as the T048 writes; answers are Python's `{"status", "lines",
+"pending"}` with HTTP 200, or `{"error"}`):
+
+| Route | What |
+|---|---|
+| `POST /api/connectors` `{provider, workspace, values: {ENV: value}, alias?, confirm?}` | add to a workspace: keychain item `easy-personal/c<8 hex>` and one row; no `claude` call (`sync` registers it). Store refuses the row: the item is deleted again |
+| `DELETE /api/connectors/{id}` `{confirm?}` | a stored connector: unregister it from every account through `claude`, then delete item and row once no account holds it; a catalog id with no row: its own entry in the default account (only if it points at the launcher) and its item; anything else `404 unknown connector` with no keychain or `claude` call (HUN-72) |
+| `POST /api/connectors/{id}/move` `{workspace, confirm?}` | move (orphan included); the plan, then commit and apply |
+| `PUT /api/connectors/{id}/alias` `{alias: text \| null, confirm?}` | custom alias, or `null` back to `<workspace>-<provider>` |
+| `GET /api/connectors/legacy` | `{"legacy": [{id, keychain, claude, foreign}]}`, `503` with the keychain text when there is no backend (the store is only read) |
+| `POST /api/connectors/legacy` `{confirm?}` | adopt into orphan, remove our own entry from the default account; a foreign entry is left |
+| `POST /api/sync` `{account?, confirm?}` | the plan of every confirmed Claude account (or one), applied step by step with `confirm: true`; the first failing `claude` call stops the run (status 1) |
+
+Texts are Python's (`unknown provider; see GET /api/connectors`, `workspace is required (a workspace name)`, `alias must be a string`, `values
+must map field names to strings`, `unknown connector`, `account must be an account id`, `no such account`, ...); none names a secret, and a
+`values` secret goes to the keychain only.
+
+### Decided for you (T050, for the owner's review)
+
+1. **Never shown: `claude`'s stderr.** Python adds it as a line after a failed `claude` call; Rust shows the exit code only (the task: the raw
+   output is never shown). The oracle's failing cases print nothing on stderr, so the answers are equal; the leak gate plants a canary there.
+2. **The debug-build test keychain** `EASY_PERSONAL_TEST_KEYCHAIN` (a plaintext JSON file). `cargo build` (this README's build) is a debug build,
+   so a debug binary honours it when the variable is set; nothing sets it but the tests. Whoever can set it can also set `PATH`. A release build
+   (`cargo build --release`) ignores it. The alternative (a Cargo feature) was a dependency-rule change.
+3. **`headers` output is in key order** (`serde_json` without `preserve_order`; Python keeps the stored order). Python's own writes always store
+   `headers: {}`; only an item written by hand with two or more headers shows a different order.
+4. **One failure stops the whole sync run**, as Python's `sync.apply` does (the guide's "one account failing does not stop the others" is
+   not what Python does; a *skipped* account, e.g. a missing folder, does not stop the others).
+5. **The launcher-not-found text is Python's** (`cannot find easy-personal-launch; reinstall easy-personal (uv tool install) so it is on
+   disk`), kept for parity although `uv` does not install the Rust build.
+6. **`GET /api/sync` asks `claude`** when it is on `PATH`, as Python does; it still detects no accounts and writes nothing.
+7. Where Python crashes (500) and Rust answers: a keychain that raises on read is the no-backend text (Python: a traceback); an empty
+   `PATH` entry is not searched for `claude` (Python's `shutil.which` looks in the working folder); a provider env name with `=` or an
+   empty one is `cannot start provider command` (Python: the same, from `execvpe`'s `ValueError`).
+8. **The provider gets the default `SIGPIPE`** (Rust's `exec` restores it; Python's `execvpe` passes on Python's ignored `SIGPIPE`).
+9. `POST`/`DELETE` on `/api/connectors/legacy` follow Python's routing: `DELETE` is the remove route (`404 unknown connector`).
+10. The account folder in an account row is used as it is (no "outside its root" or symlink refusal): Python refuses neither. It only ever
+    reaches `claude` as the value of `CLAUDE_CONFIG_DIR` (a test proves a folder named with `$(...)` and backticks runs nothing).
+
+Not built (cut list): the `connector ...` and `doctor` CLI commands (T060), macOS and Windows keychains, retries, a new catalog entry,
+`configured` in `GET /api/connectors` (T046 read side unchanged).
 
 ## Test
 
