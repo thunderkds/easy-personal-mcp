@@ -105,6 +105,21 @@ $ grep -n "new EventSource" web/src/LiveView.jsx
 302:    const source = new EventSource(`/api/live?token=${encodeURIComponent(readToken())}`)
 ```
 
+Supervisor narrowed T057 after Step 0 to AC 3 (self-test), AC 6 (regression) and AC 8 (docs). BEFORE of the self-test
+(window build under WSLg, temp `HOME`, before any code change): it passes on one `/api/version` call and never opens `/api/live`.
+
+```
+2026-11-13T08:31:39Z
+5493d24 T057: Step 0 recorded (Python has no live kit-trace feed; stop rule applies)
+$ HOME=<temp> EASY_PERSONAL_HOME=<temp> target/debug/easy-personal-rs app --self-test --static-dir crates/app/tests/fixtures/self-test
+easy-personal-rs: window open on http://127.0.0.1:34091/
+self-test: ok
+easy-personal-rs: window closed
+exit=0
+$ grep -n "api/live\|snapshot" crates/app/src/window.rs
+(no match: the self-test never opens /api/live)
+```
+
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
