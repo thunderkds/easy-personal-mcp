@@ -20,6 +20,7 @@ Refuses to run when an env var or the temp folder points at the owner's real hom
 
 import argparse
 import base64
+import contextlib
 import hashlib
 import http.client
 import json
@@ -42,6 +43,8 @@ PARITY = Path(__file__).resolve().parent
 RUST = PARITY.parent
 REPO = RUST.parent
 BINARY = RUST / "target" / "debug" / "easy-personal-rs"
+LAUNCHER = RUST / "target" / "debug" / "easy-personal-launch"  # T050
+FAKE_CLAUDE = PARITY / "golden-connectors" / "fake-claude.sh"  # T050: the connector oracle's fake `claude`
 sys.path.insert(0, str(PARITY))
 sys.path.insert(0, str(REPO / "tests"))
 import gen_golden
@@ -60,7 +63,7 @@ DATA_FILES = {
 }  # all the data folder may hold
 CHILD_TIMEOUT = 60
 SERVER_TIMEOUT = 300
-API_ROUTE = re.compile(r'\.route\("(/api/[^"]+)"')
+API_ROUTE = re.compile(r'\.route\(\s*"(/api/[^"]+)"')  # T050: also a route whose path is on the next line
 # Every `/api/*` route of the Rust server -> query variants (the Python suite's API_CALLS for these routes, plus bad input).
 API_CALLS: dict[str, list[str]] = {
     "/api/version": [""],
@@ -77,6 +80,10 @@ API_CALLS: dict[str, list[str]] = {
     "/api/accounts/{id}/ignore": [""],
     "/api/accounts/{id}/workspaces": [""],
     "/api/connectors": ["", "?workspace=acme"],
+    "/api/connectors/legacy": [""],  # T050: no keychain in this run: the fixed 503; the keychain run is `connectors()`
+    "/api/connectors/{id}": [""],  # asked literally with GET (the 405); the writes are in `connectors()`
+    "/api/connectors/{id}/move": [""],
+    "/api/connectors/{id}/alias": [""],
     "/api/warnings": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/plan": ["", "?workspace=acme", "?account=1", "?account=nope"],
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
@@ -122,7 +129,7 @@ GUARD_CALLS = [
     ("report file write method", "POST", "/api/kit/report-file?workspace=acme&repo_no=0&folder=reports&path=index.html", {}),
     ("report files no token", "GET", "/api/kit/report-files?workspace=acme&repo_no=0&folder=reports", {"x-dashboard-token": None}),
     ("account add without a body", "POST", "/api/accounts", {}),
-    ("sync apply method", "POST", "/api/sync", {}),
+    ("sync apply without a body", "POST", "/api/sync", {}),
     ("account workspaces without a body", "PUT", "/api/accounts/1/workspaces", {}),
     ("dirs write method", "POST", "/api/dirs", {}),
     ("jobs write method", "DELETE", "/api/jobs", {}),
@@ -394,6 +401,7 @@ class Run:
             "EASY_PERSONAL_UI_REPORTS": str(planted["ui_reports"]), "EASY_PERSONAL_VERIFIER_REPORTS": str(planted["verifier"]),
             "EASY_PERSONAL_LOCK_TIMEOUT": "30", "TZ": "UTC", "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8",
             "RUST_LOG": "trace", "RUST_BACKTRACE": "1", "NO_COLOR": "1",
+            "DBUS_SESSION_BUS_ADDRESS": "unix:path=/nonexistent/leak-rs-no-bus",  # T050: no real keychain is reachable
             "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
         }  # fmt: skip
         for name in ("HOME", "EASY_PERSONAL_HOME", "EASY_PERSONAL_AGENT_ROOT", "EASY_PERSONAL_CLAUDE_PROJECTS",
@@ -750,6 +758,139 @@ def mcp_http(run: Run, checks: list[str], canaries: Canaries) -> None:
     checks.append(f"check mcp http stopped (SIGINT)    ok (exit {rc}, {n - 10} tool calls, no process left)")
 
 
+# -- T050: connector writes, sync apply, legacy, launcher ------------------------------------------------------
+
+
+def connectors(run: Run, checks: list[str], canaries: Canaries) -> None:
+    """Canaries in env values, header values and keychain secrets (the debug-build fake keychain file), in `claude`'s
+    stderr (the oracle's fake `claude`, a failing call) and in an account folder's path. Every new route over real HTTP,
+    then the launcher with a provider child. Scanned: the server's stdout and stderr, every answer, the fake `claude`'s
+    argv log, the store and `.dump`, the launcher's output and the provider's `/proc` command line. The keychain file is
+    the keychain (it holds the secrets on purpose) and is not a surface. The account-path marker may show as an account's
+    folder (by design, `GET /api/accounts`), so it is checked on the argv log and the logs only, with a positive control."""
+    key = canaries.values["api_key"]
+    header = canaries.values[next(n for n in sorted(canaries.values) if n != "api_key")]
+    marker = f"acctpath-{hashlib.sha256(key.encode()).hexdigest()[:12]}"
+    agents = run.root / "conn-agents"
+    hostile = agents / f".claude-{marker}"
+    for folder in (agents / ".claude" / "projects", hostile / "projects"):
+        folder.mkdir(parents=True)
+    cbin, log, state, keychain = run.root / "conn-bin", run.logs / "claude-argv.log", run.logs / "claude-state", run.root / "keychain.json"
+    cbin.mkdir()
+    shutil.copy(FAKE_CLAUDE, cbin / "claude")
+    (cbin / "claude").chmod(0o755)
+    item = lambda command, env, headers: json.dumps({"command": command, "env": env, "headers": headers})  # noqa: E731
+    keychain.write_text(json.dumps({
+        "easy-personal/discord": item(["npx", "-y", "x@1"], {"DISCORD_TOKEN": key}, {"Authorization": header}),
+        "easy-personal/leakprov": item(["/bin/sh", "-c", "sleep 5"], {"LEAK_SECRET": key}, {"X-Leak": header}),
+    }))  # fmt: skip
+    saved = dict(run.env)
+    run.env.update({"PATH": f"{cbin}:/usr/bin:/bin", "EASY_PERSONAL_AGENT_ROOT": str(agents), "EASY_PERSONAL_TEST_KEYCHAIN": str(keychain),
+                    "FAKE_CLAUDE_LOG": str(log), "FAKE_CLAUDE_STATE": str(state), "FAKE_CLAUDE_STDERR": key,
+                    "FAKE_CLAUDE_FAIL": "add-json leak-conn-slack"})  # fmt: skip
+    proc, errlog = run.popen(SERVER_TIMEOUT, "serve", "--no-ingest", err=run.logs / "conn-serve.stderr")
+    kids, first, statuses = [], b"", {}
+    try:
+        lines = Lines(proc.stdout.fileno())
+        first = lines.read(20) or b""
+        match = re.fullmatch(rb"dashboard: http://127\.0\.0\.1:(\d+)/#([A-Za-z0-9_-]{43})\n", first)
+        if not match:
+            raise Fatal("connectors serve: no `dashboard:` line within 20 s")
+        port, token = int(match[1]), match[2].decode()
+        kids = children(proc.pid)
+        base = {"Host": f"127.0.0.1:{port}", "x-dashboard-token": token}
+
+        def call(label: str, method: str, path: str, body=None) -> dict:
+            data = None if body is None else json.dumps(body).encode()
+            status, blob = request(port, method, path, base, data)
+            run.add(f"conn {label} {method} -> {status}", blob)
+            statuses[label] = status
+            try:
+                return json.loads(blob.split(b"\n\n", 1)[1])
+            except ValueError:
+                return {}
+
+        call("workspace add", "POST", "/api/workspaces", {"name": "leak-conn"})
+        added = call("add confirm", "POST", "/api/connectors", {"provider": "slack", "workspace": "leak-conn", "values": {"SLACK_MCP_XOXB_TOKEN": key}, "confirm": True})
+        cid = next((m for m in re.findall(r"\bc[0-9a-f]{8}\b", " ".join(added.get("lines", [])))), "c00000000")
+        kept = json.loads(keychain.read_text()).get(f"easy-personal/{cid}", "")
+        ok = statuses.get("add confirm") == 200 and added.get("status") == 0 and key in kept  # positive control
+        checks.append(f"check conn add stored the secret in the keychain only  {'ok' if ok else 'FAILED'}")
+        call("add preview", "POST", "/api/connectors", {"provider": "gmail", "workspace": "leak-conn", "values": {"GMAIL_OAUTH_PATH": key}})
+        call("add twice", "POST", "/api/connectors", {"provider": "slack", "workspace": "leak-conn", "values": {"SLACK_MCP_XOXB_TOKEN": key}, "confirm": True})
+        for label, body in (("key as provider", {"provider": key, "workspace": "leak-conn"}), ("key as workspace", {"provider": "slack", "workspace": key, "values": {"SLACK_MCP_XOXB_TOKEN": key}, "confirm": True}),
+                            ("key as alias", {"provider": "slack", "workspace": "leak-conn", "alias": key, "values": {"SLACK_MCP_XOXB_TOKEN": key}, "confirm": True}),
+                            ("key as value name", {"provider": "slack", "workspace": "leak-conn", "values": {key: 1}})):  # fmt: skip
+            call(f"add {label}", "POST", "/api/connectors", body)
+        account = call("account add", "POST", "/api/accounts", {"path": str(hostile)})
+        aid = account.get("id", 0)
+        call("account confirm", "POST", f"/api/accounts/{aid}/confirm", {"label": "Leak work"})
+        call("account picks", "PUT", f"/api/accounts/{aid}/workspaces", {"workspaces": ["leak-conn"]})
+        call("sync plan", "GET", "/api/sync")
+        call("sync preview", "POST", "/api/sync", {})
+        synced = call("sync apply (claude fails, a canary on its stderr)", "POST", "/api/sync", {"confirm": True})
+        call("sync one account", "POST", "/api/sync", {"account": aid, "confirm": True})
+        call("sync key as account", "POST", "/api/sync", {"account": key})
+        call("alias key", "PUT", f"/api/connectors/{cid}/alias", {"alias": key, "confirm": True})
+        call("alias", "PUT", f"/api/connectors/{cid}/alias", {"alias": "leak-chat", "confirm": True})
+        call("move key", "POST", f"/api/connectors/{cid}/move", {"workspace": key, "confirm": True})
+        call("move to orphan", "POST", f"/api/connectors/{cid}/move", {"workspace": "orphan", "confirm": True})
+        call("legacy status", "GET", "/api/connectors/legacy")
+        call("legacy preview", "POST", "/api/connectors/legacy", {})
+        call("legacy adopt", "POST", "/api/connectors/legacy", {"confirm": True})
+        call("remove", "DELETE", f"/api/connectors/{cid}", {"confirm": True})
+        call("remove key as name", "DELETE", f"/api/connectors/{quote(key, safe='')}", {"confirm": True})
+        call("remove pre-workspace", "DELETE", "/api/connectors/slack", {"confirm": True})
+        call("connectors list", "GET", "/api/connectors")
+        run.add("conn serve stdout (first line, token inside)", first + lines.buf)
+    finally:
+        rc = run.stop("connectors serve", proc, kids, signal.SIGINT)
+        errlog.close()
+        run.add("conn serve stdout (after stop)", proc.stdout.read() if proc.stdout else b"")
+        run.add("conn serve stderr", (run.logs / "conn-serve.stderr").read_bytes())
+    argv_log = log.read_text() if log.exists() else ""
+    run.add("conn fake claude argv log", argv_log)
+    ok = f"easy-personal/{cid}" not in json.loads(keychain.read_text())
+    checks.append(f"check conn remove deleted the keychain item           {'ok' if ok else 'FAILED'}")
+    ok = "boom" not in json.dumps(synced) and synced.get("status") == 1 and "add-json" in argv_log
+    checks.append(f"check conn claude failed, its stderr not shown         {'ok' if ok else 'FAILED'}")
+    argv_lines = [ln for ln in argv_log.splitlines() if not ln.startswith("CCD=")]
+    ok = f"CCD={hostile}" in argv_log and not any(marker in ln for ln in argv_lines)
+    ok = ok and marker not in (run.logs / "conn-serve.stderr").read_text(errors="replace")
+    checks.append(f"check conn account path only in CLAUDE_CONFIG_DIR     {'ok' if ok else 'FAILED'}")
+    adopted = statuses.get("legacy adopt") == 200 and statuses.get("legacy status") == 200
+    checks.append(f"check conn legacy routes served                      {'ok' if adopted else 'FAILED'}")
+    # the launcher: the provider child has the secret in its environment and not in its command line
+    env = {**run.env}
+    child = subprocess.Popen([str(LAUNCHER), "exec", "leakprov"], env=env, cwd=run.nowhere, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # fmt: skip
+    try:
+        cmdline, environ = b"", b""
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not cmdline.startswith(b"/bin/sh"):
+            time.sleep(0.05)
+            with contextlib.suppress(OSError):
+                cmdline = Path(f"/proc/{child.pid}/cmdline").read_bytes()
+                environ = Path(f"/proc/{child.pid}/environ").read_bytes()
+        run.add("launcher provider /proc cmdline", cmdline)
+        ok = cmdline.startswith(b"/bin/sh") and key.encode() in environ  # positive control: the secret is in its env
+        checks.append(f"check launcher provider env holds the secret, argv not  {'ok' if ok else 'FAILED'}")
+    finally:
+        child.kill()  # our own child, by PID
+        out, err = child.communicate(timeout=15)
+        run.add("launcher exec stdout", out)
+        run.add("launcher exec stderr", err)
+    for label, args in (("unknown", ["exec", "nope"]), ("bad name", ["exec", key]), ("headers unknown", ["headers", "nope"])):
+        done = subprocess.run([str(LAUNCHER), *args], env=env, cwd=run.nowhere, capture_output=True, stdin=subprocess.DEVNULL,
+                              timeout=CHILD_TIMEOUT, check=False)  # fmt: skip
+        run.add(f"launcher {label} stdout", done.stdout)
+        run.add(f"launcher {label} stderr", done.stderr)
+    run.env.clear()
+    run.env.update(saved)
+    run.store_files("store (after the connector writes)")
+    run.dump("store .dump (after the connector writes)")
+
+
 # -- the run ---------------------------------------------------------------------------------------------------
 
 
@@ -808,6 +949,7 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     ok = bool(calls) and set(calls) == {"list_indexes"} and set(roots) == {str(repo)}
     checks.append(f"check context service saw 1 read tool {'ok' if ok else 'FAILED'} ({len(calls)} calls)")
     context_failures(run, canaries, checks, url_host_port=url.rsplit("/", 1)[0], repo=repo)
+    connectors(run, checks, canaries)
 
 
 def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
@@ -905,8 +1047,9 @@ def main() -> int:
         print("\n".join(report))
         shutil.rmtree(root)
         return 0 if selftest_ok else 1
-    if not BINARY.is_file():
-        sys.exit(f"no binary at {BINARY.relative_to(REPO)}: run `cargo build` in rust/ first")
+    for binary in (BINARY, LAUNCHER):
+        if not binary.is_file():
+            sys.exit(f"no binary at {binary.relative_to(REPO)}: run `cargo build` in rust/ first")
     plant_root = root / "plant"
     planted = plant(canaries, plant_root)
     where = planted_where(canaries, plant_root)
