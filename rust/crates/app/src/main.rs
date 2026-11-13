@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 mod api;
+mod cli_cmds;
 #[cfg(any(feature = "window", test))]
 mod display;
 mod ingest_cmd;
@@ -45,7 +46,8 @@ enum Command {
         #[command(subcommand)]
         action: schedule_cmd::Action,
     },
-    /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C
+    /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C; `dashboard` is Python's name for it
+    #[command(alias = "dashboard")]
     Serve {
         /// Also serve the built dashboard's files from this folder, from the same origin (no token for the page)
         #[arg(long, value_name = "DIR")]
@@ -53,6 +55,24 @@ enum Command {
         /// Do not ingest before the start (default: ingest first, as Python's `dashboard`)
         #[arg(long)]
         no_ingest: bool,
+    },
+    /// Print the shared core status (the MCP `ping` text)
+    Ping,
+    /// Usage summary for a period, or its breakdown with `--by` (same JSON as the MCP `usage_summary` / `usage_breakdown`)
+    Usage(cli_cmds::UsageArgs),
+    /// Long or tool-heavy sessions (same JSON as the MCP `session_outliers`)
+    Outliers(cli_cmds::OutliersArgs),
+    /// Kit servers linked to cheaper or better sessions (same as the MCP `kit_findings`)
+    KitFindings(cli_cmds::KitFindingsArgs),
+    /// List, create, edit or delete workspaces (store only: a change that needs the `claude` CLI is refused until T050)
+    Workspace {
+        #[command(subcommand)]
+        action: cli_cmds::WorkspaceAction,
+    },
+    /// Agent accounts under the agent root (`EASY_PERSONAL_AGENT_ROOT`, else `HOME`): list, confirm, ignore, add, use
+    Account {
+        #[command(subcommand)]
+        action: cli_cmds::AccountAction,
     },
     /// Serve the MCP tools over stdio (JSON-RPC on stdout, nothing else) or over loopback HTTP (`--transport http`)
     Mcp(mcp::Args),
@@ -118,5 +138,11 @@ fn main() -> ExitCode {
             window::run(&static_dir, self_test)
         }
         Command::Mcp(args) => mcp::main(args),
+        Command::Ping => cli_cmds::ping(),
+        Command::Usage(args) => cli_cmds::usage(args),
+        Command::Outliers(args) => cli_cmds::outliers(args),
+        Command::KitFindings(args) => cli_cmds::kit_findings(args),
+        Command::Workspace { action } => cli_cmds::workspace(action),
+        Command::Account { action } => cli_cmds::account(action),
     }
 }

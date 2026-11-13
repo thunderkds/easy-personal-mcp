@@ -50,7 +50,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 
 /// What Python's `core.ping()` returns.
-const PING_TEXT: &str = "easy-personal core ok";
+pub(crate) const PING_TEXT: &str = "easy-personal core ok";
 
 const SUMMARY_DESCRIPTION: &str = "Claude Code usage for [since, until): sessions, messages, input/output and cache\ntokens, cache-hit ratio, records abstained per version, and `split`: tokens by typed (you),\nagent (sidechain, or an sdk* entrypoint) and unknown (not yet backfilled) work.\nBounds are ISO 8601 dates or datetimes; without an offset they are local time; omitted means all stored history.";
 
