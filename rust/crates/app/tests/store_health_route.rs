@@ -358,3 +358,30 @@ fn concurrent_requests_all_get_the_same_answer() {
         "{answers:?}"
     );
 }
+
+#[test]
+fn the_route_never_runs_the_full_check_on_a_store_over_the_size_limit() {
+    // 33 MB of events: past `FULL_CHECK_MAX_BYTES`, where only a quick check (or none, when the budget runs out) is allowed
+    let server = Server::start(Some("clean"));
+    let conn = rusqlite::Connection::open(server.home.join("store.sqlite")).unwrap();
+    conn.execute_batch(
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 160000)
+         INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, ts_utc, session_id, project_path, model, message_id, input_tokens, output_tokens)
+         SELECT 'm', 'claude_code', '/big', 1, i, 0, '2026-01-01T00:00:00.000000Z', 's' || (i % 500), '/w/p', 'model-0', 'id' || i, 10, 5 FROM n;
+         PRAGMA wal_checkpoint(TRUNCATE);",
+    )
+    .unwrap();
+    drop(conn);
+    assert!(
+        fs::metadata(server.home.join("store.sqlite"))
+            .unwrap()
+            .len()
+            > 32_000_000
+    );
+    let body = server.get(URL).json();
+    assert_ne!(body["integrity_check"]["mode"], "full", "{body}");
+    match body["integrity_check"]["mode"].as_str() {
+        Some(mode) => assert_eq!(mode, "quick"),
+        None => assert_eq!(body["healthy"], Value::Null, "{body}"),
+    }
+}

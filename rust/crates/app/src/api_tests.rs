@@ -833,3 +833,19 @@ async fn a_missing_data_folder_is_the_503_every_route_gives() {
         json!({"error": "cannot find the data folder: set EASY_PERSONAL_HOME or HOME"})
     );
 }
+
+#[tokio::test]
+async fn the_route_never_runs_the_full_check_and_keeps_the_default_budget() {
+    // `--full` is for the command line only: it has no time limit, and a request must not be able to start it
+    let store = TempStore::new("store-v11.sqlite");
+    let (app, api, _) = health_app(store.path());
+    get(&app, "/api/store/health", true).await;
+    let used = api.health.used.lock().unwrap().clone();
+    assert_eq!(used.len(), 1);
+    assert!(!used[0].full, "the route ran the full check");
+    assert_eq!(used[0].budget, easy_personal_core::store_health::BUDGET);
+    assert_eq!(
+        used[0].full_check_max_bytes,
+        easy_personal_core::store_health::FULL_CHECK_MAX_BYTES
+    );
+}

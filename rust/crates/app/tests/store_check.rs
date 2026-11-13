@@ -380,6 +380,96 @@ fn ctrl_c_during_full_stops_with_130_no_panic_text_and_no_process_left() {
     assert_eq!(out, "", "no partial answer on stdout");
 }
 
+/// Starts `store-check --full --json` over a store of 600k events, with an empty `-wal` and no `-shm` (so the store is copied
+/// to a private temp folder first), with `TMPDIR` in the home's own folder; returns the child once its notice is on stderr.
+fn running_full_check_with_a_private_copy(
+    home: &Home,
+) -> (
+    std::process::Child,
+    BufReader<std::process::ChildStderr>,
+    PathBuf,
+) {
+    big_store(home);
+    fs::write(home.0.join("store.sqlite-wal"), b"").unwrap();
+    let tmp = home.0.join("tmp");
+    fs::create_dir(&tmp).unwrap();
+    let mut child = home
+        .command(&["--full", "--json"])
+        .env("TMPDIR", &tmp)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    let mut first = String::new();
+    stderr.read_line(&mut first).unwrap();
+    std::thread::sleep(Duration::from_millis(600)); // the copy is made and the reads are running
+    assert!(
+        child.try_wait().unwrap().is_none(),
+        "the check ended before the signal: the store is too small for this machine"
+    );
+    (child, stderr, tmp)
+}
+
+fn wait_for(child: &mut std::process::Child, secs: u64) -> std::process::ExitStatus {
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            return status;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(secs),
+            "did not stop within {secs} s"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[test]
+fn sigterm_stops_like_ctrl_c_and_the_private_copy_is_removed() {
+    let home = Home::with("clean");
+    let (mut child, mut stderr, tmp) = running_full_check_with_a_private_copy(&home);
+    assert!(
+        fs::read_dir(&tmp).unwrap().count() >= 1,
+        "the private copy exists while the check runs"
+    );
+    assert!(
+        Command::new("kill")
+            .args(["-TERM", &child.id().to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
+    let status = wait_for(&mut child, 5);
+    let mut rest = String::new();
+    stderr.read_to_string(&mut rest).unwrap();
+    assert_eq!(status.code(), Some(130));
+    assert_eq!(rest, "store-check: stopped\n");
+    assert_eq!(
+        fs::read_dir(&tmp).unwrap().count(),
+        0,
+        "no private copy is left"
+    );
+}
+
+#[test]
+fn a_second_ctrl_c_ends_the_process_at_once_with_130() {
+    let home = Home::with("clean");
+    let (mut child, _stderr, _tmp) = running_full_check_with_a_private_copy(&home);
+    let pid = child.id().to_string();
+    for _ in 0..2 {
+        assert!(
+            Command::new("kill")
+                .args(["-INT", &pid])
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let status = wait_for(&mut child, 5);
+    assert_eq!(status.code(), Some(130));
+}
+
 #[test]
 #[ignore = "writes a store of about 360 MB; run: cargo test --release -p easy-personal-rs --test store_check -- --ignored --nocapture"]
 fn a_store_of_a_million_events_answers_in_budget_or_says_unknown() {

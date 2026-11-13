@@ -1091,15 +1091,24 @@ did not finish: "not fully checked").
 - **Speed.** The four reads (`integrity_check`, `foreign_key_check`, table counts, sources) run in parallel threads, each on its own read-only connection,
   and stop at one deadline of 1.5 s. A store over 32 MB gets `quick_check` (`mode: "quick"`) in a default run. `--full` has no deadline and always runs
   the full `integrity_check`; it prints `full check: this can take minutes; Ctrl-C stops it` on stderr first, so `--json` stdout stays pure JSON. The route never does this.
-- **Open mode, decided once.** No `-wal`: `immutable=1` (no lock, no side file). `-wal` and `-shm`: `mode=ro`. `-wal` and no `-shm`: SQLite would create the `-shm`,
-  so the store and its `-wal` are copied to a private temp folder (mode 0700, removed after the check) and read there. A symlinked store reads the `-wal` beside its target.
+- **Open mode, decided once.** No `-wal`: `immutable=1` (no lock, no side file; on a store in rollback-journal mode this ignores locks, as in Python). `-wal` and `-shm`: `mode=ro`;
+  the check creates nothing, but SQLite itself touches an existing `-shm` of a live WAL store, so the hash and mtime of the `-shm` can change (the store and the `-wal` do not).
+  `-wal` and no `-shm`: SQLite would create the `-shm`, so the store and its `-wal` are copied to a private temp folder (folder mode 0700, files 0600, removed after the check) and read there.
+  A symlinked store reads the `-wal` beside its target. A `-wal` or `-shm` that is a symlink, a FIFO or anything but a regular file is never opened or copied: the answer is `unreadable: ["file"]`,
+  the verdict is `NOT healthy` and the exit code is 1 (and no size is read through the link, `wal_bytes` is 0). A SIGKILL or an OOM kill can leave a private copy in the temp folder;
+  every check removes the `easy-personal-check-*` folders that are older than 10 minutes, owned by this user, mode 0700 and not links.
+- **Stopping.** The deadline and Ctrl-C stop a running statement through SQLite's progress handler, which looks only inside a statement of 1000 or more VM steps; the loops of short
+  statements (the table counts, the sources) look at the cancel flag every round and at the deadline every 64th round. Ctrl-C and SIGTERM stop the check the same way (exit 130, the private
+  copy is removed); a second signal ends the process at once with 130.
+- **Caps.** At most 200 tables, 200 sources and 200 backup names are listed. The rest is counted: `tables_more`, `sources_more` and `backups_more` appear in the JSON only when above 0, and the text
+  ends the line with `(N more not shown)`. The rows of a table past the cap are not counted. Python has no cap: below it the answers are equal, above it Rust differs.
 - **Route.** `GET /api/store/health` is behind the same guard as every `/api/*` route (a missing or wrong token, a wrong Host or a foreign Origin is `403`; the
   token is not read from the query). `POST`, `PUT`, `PATCH` and `DELETE` are `405`. `HEAD` answers headers only and runs no check. One check runs at a time (a request that
   comes meanwhile waits and gets its answer) and an answer is reused for 5 s per store path. A missing, empty or damaged store is a `200` answer that says so;
   only "no data folder" is a `503`. The body equals `store-check --json`.
-- **Oracle.** `parity/gen_store_health.py` runs Python's `store_health.check` over 26 cases (clean, empty, one migration behind, newer than the code, a corrupt page with
+- **Oracle.** `parity/gen_store_health.py` runs Python's `store_health.check` over 27 cases (clean, empty, one migration behind, newer than the code, a corrupt page with
   and without `--full`, a damaged index, a WAL without SHM, a locked store, hostile table and source names, a BLOB and an integer time, a missing store, a missing
-  store with a `-wal`, a zero-byte file, not a database, backups, a foreign-key violation, a later table, a table name that is not UTF-8, no optional table, the budget
+  store with a `-wal`, a zero-byte file, not a database, backups, a foreign-key violation, a later table, 150 tables, sources and backups (long lists under the cap), a table name that is not UTF-8, no optional table, the budget
   forced to 0 with and without a pending migration, `quick_check` forced, `--full` with a 0 budget). The golden is `parity/golden-store-health/` (fixture stores, `<case>.json`, `<case>.txt`).
   The Rust JSON and lines equal it for every case (`crates/core/tests/store_health_parity.rs`), and the real command's stdout equals it byte for byte for every plain case
   (`crates/app/tests/store_check.rs`). The `locked` case repeats its setup in the test: a writer in exclusive WAL mode over a store that has a stale `-wal` and `-shm`.
@@ -1108,8 +1117,8 @@ did not finish: "not fully checked").
 
 1. **One `unsafe` block.** The deadline and Ctrl-C stop a running SQL statement through SQLite's progress handler, as Python does (every 1000 VM steps). rusqlite's wrapper for it
    sits behind its `hooks` feature, which the workspace does not enable, and enabling it would change `Cargo.toml`. So `store_health.rs` calls `rusqlite::ffi::sqlite3_progress_handler`
-   itself (two `unsafe` calls in `Reader`, each with a safety note; the callback is removed before the connection closes). Nothing else in the workspace is `unsafe`. If the owner prefers the feature, the
-   change is one line in `Cargo.toml` and the two calls become safe code.
+   itself (three `unsafe` sites in `store_health.rs`: the callback `stop_now` that reads its context, and the two calls in `Reader` that set and clear the handler; each has a safety note, and the callback is removed
+   before the connection closes). Nothing else in the workspace is `unsafe`. If the owner prefers the feature, the change is one line in `Cargo.toml` and the three sites become safe code.
 2. **`isprintable` is approximated.** Python's `str.isprintable()` uses its Unicode table; Rust has no such function. For ASCII it is exact. Beyond ASCII a character is replaced by `?` when it is a
    control, separator (`is_whitespace`), format or private-use character or a noncharacter. A code point that is unassigned counts as printable here and as not printable in Python. The oracle's
    hostile names (ANSI escape, newline, zero-width space, no-break space, a long name, an accent and a symbol) are equal.
@@ -1119,6 +1128,8 @@ did not finish: "not fully checked").
 6. **JSON key order in the route.** The route sends serde_json's sorted keys; Python's route sends keys in insertion order. The parsed objects are equal. The CLI's `--json` is byte for byte Python's.
 7. **Per-source queries.** A table that is missing in an old schema is "no data" (as Python). A time that is text but not UTF-8 in `context_index`, `ui_sessions` or `verifier_scores` is "no data" too (Python catches
    the decode error of that query the same way); in `events` it makes `sources` unreadable.
-8. **The leak gate and the "table name" canary.** A table name is printed (it comes from the schema, not from content), so a canary in a table *name* would always be a hit. The gate plants the canaries in the
-   *rows* of a table whose name is hostile (an escape sequence and a newline), plus a source path, `meta`, and the names of files beside the store, and requires 0 hits.
+8. **The leak gate and the "table name" canary.** A table name, a source name and a time are shown by design (they come from the schema and the store, capped at 64 characters), so a canary in the first 64
+   characters of one would always be a hit. The gate plants the canaries in the *rows* of a table whose name is hostile (an escape sequence and a newline), in a source path, in `meta`, in the names of files beside the store,
+   in a source name and a time that are text with the canary past the 64th character (cut off), and in the same two as BLOBs (unreadable, so not shown). It also covers a WAL with no SHM, the error answers (no store, not a database,
+   locked, a symlinked store, no data folder), a second (cached) route answer, and that no `easy-personal-check-*` folder is left in the temp folder. 0 hits are required.
 9. **Not built (cut list):** repair, `VACUUM`, `REINDEX`, backup, a page, an MCP tool, a history of checks, a locked-store test that does not need two stale files (a plain lock cannot be made: a store with no `-wal` is read with `immutable=1`, which ignores locks).

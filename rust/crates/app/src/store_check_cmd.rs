@@ -4,7 +4,7 @@
 //! 0 healthy, 1 a problem found, 3 not fully checked, 130 for Ctrl-C. `--json` prints Python's
 //! `json.dumps(indent=2, sort_keys=True)` byte for byte (every non-ASCII character as `\uXXXX`). Nothing is written, and
 //! no answer carries an absolute path or a row's content. Ctrl-C stops every running read (the `cancel` flag of the check)
-//! and the command ends with one line on stderr, no partial answer and no panic text.
+//! (SIGTERM counts as Ctrl-C; a second signal ends the process at once) and the command ends with one line on stderr, no partial answer and no panic text.
 
 use easy_personal_core::store::store_path;
 use easy_personal_core::store_health::{Options, check};
@@ -51,8 +51,9 @@ pub fn run(json: bool, full: bool) -> ExitCode {
     ExitCode::from(health.exit_code())
 }
 
-/// Sets `cancel` on the first SIGINT. Returns once the handler is installed (or could not be: then Ctrl-C ends the process
-/// as it always does).
+/// Sets `cancel` on the first SIGINT or SIGTERM (a stopped check ends with exit 130, and its private copy is removed as it
+/// drops). A second signal ends the process at once with 130 (a private copy may stay: the next check sweeps it). Returns once
+/// the handlers are installed (or could not be: then the signals act as they always do).
 fn watch_ctrl_c(cancel: &Arc<AtomicBool>) {
     let flag = Arc::clone(cancel);
     let (ready, installed) = std::sync::mpsc::channel();
@@ -65,11 +66,17 @@ fn watch_ctrl_c(cancel: &Arc<AtomicBool>) {
             return;
         };
         runtime.block_on(async {
-            let signal = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt());
+            use tokio::signal::unix::{SignalKind, signal};
+            let handlers = (
+                signal(SignalKind::interrupt()),
+                signal(SignalKind::terminate()),
+            );
             let _ = ready.send(());
-            if let Ok(mut signal) = signal {
-                signal.recv().await;
+            if let (Ok(mut int), Ok(mut term)) = handlers {
+                tokio::select! { _ = int.recv() => {}, _ = term.recv() => {} }
                 flag.store(true, Ordering::SeqCst);
+                tokio::select! { _ = int.recv() => {}, _ = term.recv() => {} }
+                std::process::exit(130);
             }
         });
     });

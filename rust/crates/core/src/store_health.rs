@@ -17,13 +17,15 @@
 //!
 //! The stop is SQLite's progress handler (every [`PROGRESS_OPS`] VM steps, like Python), set through `rusqlite::ffi`
 //! because rusqlite's own wrapper sits behind its `hooks` feature, which this workspace does not enable. That call is the
-//! only `unsafe` here ([`Reader`]).
+//! only `unsafe` here (three small sites: the callback `stop_now` and the two calls in [`Reader`]).
 
 use rusqlite::{Connection, ErrorCode, OpenFlags, ffi, types::ValueRef};
 use serde_json::{Map, Value, json};
 use std::ffi::c_void;
 use std::fs;
+use std::io::{Read, Write};
 use std::os::raw::c_int;
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -39,6 +41,15 @@ pub const FULL_CHECK_MAX_BYTES: u64 = 32_000_000;
 const PROGRESS_OPS: c_int = 1000;
 /// The wait for a lock when there is no deadline (Python's `BUSY_TIMEOUT_MS`).
 const BUSY_WAIT: Duration = Duration::from_millis(5000);
+/// The most tables, sources and backups that are listed; the rest is counted (`tables_more`, `sources_more`, `backups_more`).
+/// Python lists all of them; below the cap the answers are equal.
+pub const LIST_CAP: usize = 200;
+/// A private copy older than this, left behind by a killed process, is removed by the next check.
+const STALE_AFTER: Duration = Duration::from_secs(600);
+/// Between two looks at the deadline inside a loop of short statements (a statement of its own is stopped by SQLite's progress
+/// handler only once it runs 1000 VM steps; a cancel is looked at every time).
+const DEADLINE_EVERY: usize = 64;
+
 /// The longest text of the store that is shown.
 pub const TEXT_LIMIT: usize = 64;
 /// The sources that always have an entry, in this order ("no data" when the store has no row for them).
@@ -116,6 +127,10 @@ pub struct Health {
     pub tables: Option<Vec<(String, Option<i64>)>>,
     pub sources: Option<Vec<(String, SourceInfo)>>,
     pub backups: Vec<String>,
+    /// How many tables, sources and backups are past [`LIST_CAP`] and not listed (0 below the cap).
+    pub tables_more: usize,
+    pub sources_more: usize,
+    pub backups_more: usize,
     /// Parts that did not finish in time (or were cut off): `schema`, `integrity_check`, `foreign_key_check`, `tables`, `sources`.
     pub incomplete: Vec<&'static str>,
     /// Parts SQLite could not read.
@@ -157,7 +172,7 @@ impl Health {
                     .collect(),
             ),
         };
-        json!({
+        let mut answer = json!({
             "store_file": self.store_file,
             "exists": self.exists,
             "readable": self.readable,
@@ -176,7 +191,20 @@ impl Health {
             "incomplete": self.incomplete,
             "unreadable": self.unreadable,
             "healthy": self.healthy,
-        })
+        });
+        // keys Python has not: only when something is past the cap, so every answer below it equals Python's
+        if let Some(object) = answer.as_object_mut() {
+            for (key, more) in [
+                ("tables_more", self.tables_more),
+                ("sources_more", self.sources_more),
+                ("backups_more", self.backups_more),
+            ] {
+                if more > 0 {
+                    object.insert(key.into(), json!(more));
+                }
+            }
+        }
+        answer
     }
 
     /// 0 healthy, 1 a problem was found, 3 not fully checked.
@@ -228,6 +256,11 @@ impl Health {
             )
         } else if self.locked {
             format!("{} {size}, unreadable (locked)", self.store_file)
+        } else if self.unreadable.contains(&"file") {
+            format!(
+                "{} {size}, side file is not a regular file or could not be copied",
+                self.store_file
+            )
         } else if !self.readable {
             format!("{} {size}, not a readable database", self.store_file)
         } else {
@@ -249,26 +282,30 @@ impl Health {
         let tables = || match &self.tables {
             None => "not checked".to_string(),
             Some(t) if t.is_empty() => "none".to_string(),
-            Some(t) => t
-                .iter()
-                .map(|(n, c)| match c {
-                    None => format!("{n} ?"),
-                    Some(c) => format!("{n} {c}"),
-                })
-                .collect::<Vec<_>>()
-                .join(", "),
+            Some(t) => {
+                t.iter()
+                    .map(|(n, c)| match c {
+                        None => format!("{n} ?"),
+                        Some(c) => format!("{n} {c}"),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                    + &more_text(self.tables_more)
+            }
         };
         let sources = || match &self.sources {
             None => "not checked".to_string(),
-            Some(s) => s
-                .iter()
-                .map(|(name, s)| match (&s.last_ingest_utc, s.abstained) {
-                    (None, _) => format!("{name} no data"),
-                    (Some(last), None) => format!("{name} last {last}"),
-                    (Some(last), Some(a)) => format!("{name} last {last}, abstained {a}"),
-                })
-                .collect::<Vec<_>>()
-                .join("; "),
+            Some(s) => {
+                s.iter()
+                    .map(|(name, s)| match (&s.last_ingest_utc, s.abstained) {
+                        (None, _) => format!("{name} no data"),
+                        (Some(last), None) => format!("{name} last {last}"),
+                        (Some(last), Some(a)) => format!("{name} last {last}, abstained {a}"),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("; ")
+                    + &more_text(self.sources_more)
+            }
         };
         let word = match self.healthy {
             Some(true) => "healthy".to_string(),
@@ -304,11 +341,20 @@ impl Health {
                 if self.backups.is_empty() {
                     "none".to_string()
                 } else {
-                    self.backups.join(", ")
+                    self.backups.join(", ") + &more_text(self.backups_more)
                 }
             ),
             format!("verdict: {word}"),
         ]
+    }
+}
+
+/// ` (N more not shown)` for a list cut at [`LIST_CAP`]; nothing when the list is whole.
+fn more_text(more: usize) -> String {
+    if more == 0 {
+        String::new()
+    } else {
+        format!(" ({more} more not shown)")
     }
 }
 
@@ -347,8 +393,13 @@ fn clean(text: &str) -> String {
         .collect()
 }
 
+/// The size of a regular file; `None` for a missing one, a symlink or anything that is not a regular file (a size is never
+/// read through a link).
 fn file_size(path: &Path) -> Option<u64> {
-    fs::metadata(path).ok().map(|m| m.len())
+    fs::symlink_metadata(path)
+        .ok()
+        .filter(|m| m.is_file())
+        .map(|m| m.len())
 }
 
 /// `<path>-wal` / `<path>-shm`: the name of SQLite's side file.
@@ -359,9 +410,9 @@ fn side(path: &Path, suffix: &str) -> PathBuf {
 }
 
 /// The names of the `<store>.bak-v<N>` files beside the store, lowest version first (never `-wal` / `-shm`).
-fn backups(path: &Path) -> Vec<String> {
+fn backups(path: &Path) -> (Vec<String>, usize) {
     let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-        return Vec::new();
+        return (Vec::new(), 0);
     };
     let prefix = format!("{name}.bak-v");
     let Some(parent) = path.parent().map(|p| {
@@ -371,10 +422,10 @@ fn backups(path: &Path) -> Vec<String> {
             p
         }
     }) else {
-        return Vec::new();
+        return (Vec::new(), 0);
     };
     let Ok(entries) = fs::read_dir(parent) else {
-        return Vec::new();
+        return (Vec::new(), 0);
     };
     // sort key: the number without its leading zeros (a longer one is bigger), then the name
     let mut found: Vec<(usize, String, String)> = entries
@@ -390,7 +441,9 @@ fn backups(path: &Path) -> Vec<String> {
         })
         .collect();
     found.sort();
-    found.into_iter().map(|(_, _, name)| name).collect()
+    let more = found.len().saturating_sub(LIST_CAP);
+    found.truncate(LIST_CAP);
+    (found.into_iter().map(|(_, _, name)| name).collect(), more)
 }
 
 /// A path as a `file:` URI (every byte but `A-Za-z0-9-._~/` percent-encoded), the form SQLite reads its options from.
@@ -410,6 +463,7 @@ fn file_uri(path: &Path) -> String {
 // ---- what to open ------------------------------------------------------------------------------------------------------
 
 /// A folder made for one run and removed with its content when dropped (a private copy of a store with a `-wal` and no `-shm`).
+/// A killed process (SIGKILL, the OOM killer) cannot run this; [`sweep_stale_copies`] removes what it left, at the next check.
 struct PrivateCopy(PathBuf);
 
 impl Drop for PrivateCopy {
@@ -418,17 +472,112 @@ impl Drop for PrivateCopy {
     }
 }
 
+/// `easy-personal-check-<pid>-<nanos>-<n>`: the folder name that [`target`] makes.
+fn is_copy_name(name: &str) -> bool {
+    let Some(rest) = name.strip_prefix("easy-personal-check-") else {
+        return false;
+    };
+    let parts: Vec<&str> = rest.split('-').collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Removes the private copies in `temp` that a killed process left: a real folder (not a link) with the name of
+/// [`is_copy_name`], owned by this user, mode 0700 and not changed for `max_age`. Anything else is left alone. Returns how
+/// many it removed. Without `/proc/self` (to learn this user's id) it removes nothing.
+pub fn sweep_stale_copies(temp: &Path, max_age: Duration) -> usize {
+    let Some(me) = fs::metadata("/proc/self").ok().map(|m| m.uid()) else {
+        return 0;
+    };
+    let Ok(entries) = fs::read_dir(temp) else {
+        return 0;
+    };
+    let mut removed = 0;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if !name.to_str().is_some_and(is_copy_name) {
+            continue;
+        }
+        let Ok(meta) = fs::symlink_metadata(entry.path()) else {
+            continue;
+        };
+        let stale = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age >= max_age);
+        if meta.is_dir()
+            && meta.uid() == me
+            && meta.permissions().mode() & 0o7777 == 0o700
+            && stale
+            && fs::remove_dir_all(entry.path()).is_ok()
+        {
+            removed += 1;
+        }
+    }
+    removed
+}
+
+/// What a side file (`-wal`, `-shm`) is: absent, a regular file, or something SQLite must not be pointed at (a symlink, a FIFO,
+/// a device, a folder: opening a FIFO would wait for ever).
+enum Side {
+    Absent,
+    Regular,
+    Other,
+}
+
+fn side_kind(path: &Path) -> Side {
+    match fs::symlink_metadata(path) {
+        Ok(m) if m.is_file() => Side::Regular,
+        Ok(_) => Side::Other,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Side::Absent,
+        Err(_) => Side::Other,
+    }
+}
+
+/// Copies a regular file to a new file of mode 0600, a megabyte at a time, and stops when `cancel` is set.
+fn copy_private(from: &Path, to: &Path, cancel: &AtomicBool) -> std::io::Result<()> {
+    let mut source = fs::File::open(from)?;
+    if !source.metadata()?.is_file() {
+        return Err(std::io::ErrorKind::InvalidInput.into());
+    }
+    let mut target = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(to)?;
+    let mut chunk = vec![0u8; 1 << 20];
+    loop {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(std::io::ErrorKind::Interrupted.into());
+        }
+        let n = source.read(&mut chunk)?;
+        if n == 0 {
+            return Ok(());
+        }
+        target.write_all(&chunk[..n])?;
+    }
+}
+
 /// The URI to read, decided once before any thread starts. Nothing is ever created beside the store.
 /// - No `-wal`: no process has the store open, so `immutable=1` (no locks, no side files) is safe.
-/// - `-wal` and `-shm`: a live store; `mode=ro` creates nothing.
+/// - `-wal` and `-shm`: a live store; `mode=ro` creates nothing (SQLite itself may touch an existing `-shm`).
 /// - `-wal` but no `-shm`: `mode=ro` would create the `-shm`. A private copy in a temp folder is read instead.
-fn target(real: &Path) -> std::io::Result<(String, Option<PrivateCopy>)> {
+/// - A `-wal` or `-shm` that is not a regular file (a symlink, a FIFO): an error, nothing is opened or copied.
+fn target(real: &Path, cancel: &AtomicBool) -> std::io::Result<(String, Option<PrivateCopy>)> {
     let (wal, shm) = (side(real, "-wal"), side(real, "-shm"));
-    if !wal.exists() {
-        return Ok((format!("{}?mode=ro&immutable=1", file_uri(real)), None));
-    }
-    if shm.exists() {
-        return Ok((format!("{}?mode=ro", file_uri(real)), None));
+    let kinds = (side_kind(&wal), side_kind(&shm));
+    match kinds {
+        (Side::Other, _) | (_, Side::Other) => return Err(std::io::ErrorKind::InvalidInput.into()),
+        (Side::Absent, _) => {
+            return Ok((format!("{}?mode=ro&immutable=1", file_uri(real)), None));
+        }
+        (Side::Regular, Side::Regular) => {
+            return Ok((format!("{}?mode=ro", file_uri(real)), None));
+        }
+        (Side::Regular, Side::Absent) => {}
     }
     static N: AtomicU32 = AtomicU32::new(0);
     let nanos = std::time::SystemTime::now()
@@ -439,14 +588,11 @@ fn target(real: &Path) -> std::io::Result<(String, Option<PrivateCopy>)> {
         std::process::id(),
         N.fetch_add(1, Ordering::SeqCst)
     ));
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        fs::DirBuilder::new().mode(0o700).create(&folder)?; // fails on a name that exists: never reuses a planted folder
-    }
+    fs::DirBuilder::new().mode(0o700).create(&folder)?; // fails on a name that exists: never reuses a planted folder
     let copy = PrivateCopy(folder.clone());
     let store = folder.join("store.sqlite");
-    fs::copy(real, &store)?;
-    fs::copy(&wal, side(&store, "-wal"))?;
+    copy_private(real, &store, cancel)?;
+    copy_private(&wal, &side(&store, "-wal"), cancel)?;
     Ok((format!("{}?mode=ro", file_uri(&store)), Some(copy)))
 }
 
@@ -456,6 +602,16 @@ fn target(real: &Path) -> std::io::Result<(String, Option<PrivateCopy>)> {
 struct Stop {
     deadline: Option<Instant>,
     cancel: Arc<AtomicBool>,
+}
+
+impl Stop {
+    /// For a loop of short statements, which SQLite's progress handler never sees (it counts the steps of one statement):
+    /// a cancel is honoured at once, the deadline every [`DEADLINE_EVERY`] rounds (`round` counts from 0).
+    fn should_stop(&self, round: usize) -> bool {
+        self.cancel.load(Ordering::Relaxed)
+            || (round % DEADLINE_EVERY == DEADLINE_EVERY - 1
+                && self.deadline.is_some_and(|d| Instant::now() >= d))
+    }
 }
 
 /// SQLite's progress callback: a non-zero answer ends the running statement with "interrupted".
@@ -517,6 +673,8 @@ impl Drop for Reader {
 enum Failure {
     Sqlite(rusqlite::Error),
     Bad,
+    /// A loop of short statements saw the deadline or the cancel flag.
+    Late,
 }
 
 impl From<rusqlite::Error> for Failure {
@@ -548,14 +706,15 @@ enum Status<T> {
 fn read<T>(
     uri: &str,
     stop: &Arc<Stop>,
-    work: impl FnOnce(&Connection) -> Result<T, Failure>,
+    work: impl FnOnce(&Connection, &Stop) -> Result<T, Failure>,
 ) -> Status<T> {
     let result = Reader::open(uri, stop)
         .map_err(Failure::from)
-        .and_then(|reader| work(&reader.conn));
+        .and_then(|reader| work(&reader.conn, stop));
     match result {
         Ok(value) => Status::Ok(value),
         Err(Failure::Bad) => Status::Error,
+        Err(Failure::Late) => Status::Late,
         Err(Failure::Sqlite(e)) => match code(&e) {
             Some(ErrorCode::OperationInterrupted) => Status::Late,
             Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => Status::Locked,
@@ -618,8 +777,12 @@ fn foreign_keys(conn: &Connection) -> Result<Verdict, Failure> {
     })
 }
 
-/// Row count of every table in the schema (`None` for a table SQLite cannot read; a cut-off read is an error).
-fn tables(conn: &Connection) -> Result<Vec<(String, Option<i64>)>, Failure> {
+/// A list of names with a value, cut at [`LIST_CAP`], and how many were left out.
+type Listed<V> = (Vec<(String, V)>, usize);
+
+/// Row count of every table in the schema, and how many tables are past [`LIST_CAP`] (those are not counted). `None` for a table
+/// SQLite cannot read; a cut-off read is an error.
+fn tables(conn: &Connection, stop: &Stop) -> Result<Listed<Option<i64>>, Failure> {
     let mut names: Vec<String> = Vec::new();
     let mut statement = conn.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -634,18 +797,30 @@ fn tables(conn: &Connection) -> Result<Vec<(String, Option<i64>)>, Failure> {
             ),
             _ => return Err(Failure::Bad),
         }
+        if names.len().is_multiple_of(DEADLINE_EVERY) && stop.should_stop(DEADLINE_EVERY - 1) {
+            return Err(Failure::Late);
+        }
     }
     let mut counts: Vec<(String, Option<i64>)> = Vec::new();
-    for name in names {
+    let mut more = 0;
+    for (round, name) in names.iter().enumerate() {
+        if stop.should_stop(round) {
+            return Err(Failure::Late);
+        }
+        let key = clean(name);
+        if counts.len() >= LIST_CAP && !counts.iter().any(|(k, _)| *k == key) {
+            more += 1; // past the cap: listed as a count, its rows are not counted
+            continue;
+        }
         let sql = format!("SELECT COUNT(*) FROM \"{}\"", name.replace('"', "\"\""));
         let count = match conn.query_row(&sql, [], |r| r.get::<_, i64>(0)) {
             Ok(n) => Some(n),
             Err(e) if interrupted(&e) => return Err(e.into()),
             Err(_) => None,
         };
-        put(&mut counts, clean(&name), count);
+        put(&mut counts, key, count);
     }
-    Ok(counts)
+    Ok((counts, more))
 }
 
 fn no_sources() -> Vec<(String, SourceInfo)> {
@@ -693,27 +868,37 @@ enum Cell {
 }
 
 /// Per source: newest record time and abstained rows; both `None` when the source has no rows ("no data").
-fn sources(conn: &Connection) -> Result<Vec<(String, SourceInfo)>, Failure> {
+fn sources(conn: &Connection, stop: &Stop) -> Result<Listed<SourceInfo>, Failure> {
     let mut found = no_sources();
+    let mut more = 0;
     let mut statement =
         conn.prepare("SELECT source, MAX(ts_utc), SUM(abstained) FROM events GROUP BY source")?;
     let mut rows = statement.query([])?;
+    let mut round = 0;
     while let Some(row) = rows.next()? {
+        if stop.should_stop(round) {
+            return Err(Failure::Late);
+        }
+        round += 1;
         let name = cleaned(row.get_ref(0)?)?.ok_or(Failure::Bad)?;
         let last = cleaned(row.get_ref(1)?)?;
         let abstained = counted(row.get_ref(2)?)?.unwrap_or(0);
-        put(
-            &mut found,
-            name,
-            SourceInfo {
-                last_ingest_utc: last,
-                abstained: Some(abstained),
-            },
-        );
+        let info = SourceInfo {
+            last_ingest_utc: last,
+            abstained: Some(abstained),
+        };
+        if found.len() >= LIST_CAP && !found.iter().any(|(k, _)| *k == name) {
+            more += 1; // past the cap: counted, not listed
+        } else {
+            put(&mut found, name, info);
+        }
     }
     drop(rows);
     drop(statement);
-    for (name, sql) in SOURCE_QUERIES {
+    for (round, (name, sql)) in SOURCE_QUERIES.into_iter().enumerate() {
+        if stop.should_stop(round) {
+            return Err(Failure::Late);
+        }
         let row = conn.query_row(sql, [], |r| {
             let last = match r.get_ref(0)? {
                 ValueRef::Null => Cell::Null,
@@ -752,7 +937,7 @@ fn sources(conn: &Connection) -> Result<Vec<(String, SourceInfo)>, Failure> {
             Err(e) => return Err(e.into()),
         }
     }
-    Ok(found)
+    Ok((found, more))
 }
 
 // ---- the check ---------------------------------------------------------------------------------------------------------
@@ -761,6 +946,7 @@ fn sources(conn: &Connection) -> Result<Vec<(String, SourceInfo)>, Failure> {
 ///
 /// `cancel`: set it to stop every running read; what did not finish is then named in `incomplete`.
 pub fn check(path: &Path, options: &Options, cancel: &Arc<AtomicBool>) -> Health {
+    sweep_stale_copies(&std::env::temp_dir(), STALE_AFTER);
     let deadline = if options.full {
         None
     } else {
@@ -778,6 +964,7 @@ pub fn check(path: &Path, options: &Options, cancel: &Arc<AtomicBool>) -> Health
         _ => path.to_path_buf(),
     });
     let exists = fs::metadata(path).is_ok_and(|m| m.is_file());
+    let backups_list = backups(path);
     let mut out = Health {
         store_file: path
             .file_name()
@@ -796,13 +983,16 @@ pub fn check(path: &Path, options: &Options, cancel: &Arc<AtomicBool>) -> Health
         foreign_key_check: None,
         tables: None,
         sources: None,
-        backups: backups(path),
+        backups: backups_list.0,
+        tables_more: 0,
+        sources_more: 0,
+        backups_more: backups_list.1,
         incomplete: Vec::new(),
         unreadable: Vec::new(),
         healthy: None,
     };
     if exists {
-        match target(&real) {
+        match target(&real, &stop.cancel) {
             Ok((uri, _copy)) => fill(&mut out, &uri, &stop, options), // `_copy` lives until here
             Err(_) => out.unreadable.push("file"), // the private copy could not be made
         }
@@ -817,7 +1007,7 @@ pub fn check(path: &Path, options: &Options, cancel: &Arc<AtomicBool>) -> Health
 }
 
 fn fill(out: &mut Health, uri: &str, stop: &Arc<Stop>, options: &Options) {
-    let found = match read(uri, stop, version) {
+    let found = match read(uri, stop, |conn, _| version(conn)) {
         Status::Ok(v) => v,
         status => {
             out.locked = matches!(status, Status::Locked);
@@ -843,8 +1033,8 @@ fn fill(out: &mut Health, uri: &str, stop: &Arc<Stop>, options: &Options) {
         "full"
     });
     let (integrity, foreign, counts, found_sources) = std::thread::scope(|scope| {
-        let integrity = scope.spawn(|| read(uri, stop, verdict(pragma)));
-        let foreign = scope.spawn(|| read(uri, stop, foreign_keys));
+        let integrity = scope.spawn(|| read(uri, stop, |conn, _| verdict(pragma)(conn)));
+        let foreign = scope.spawn(|| read(uri, stop, |conn, _| foreign_keys(conn)));
         let counts = scope.spawn(|| read(uri, stop, tables));
         let found_sources = scope.spawn(|| read(uri, stop, sources));
         (
@@ -873,12 +1063,18 @@ fn fill(out: &mut Health, uri: &str, stop: &Arc<Stop>, options: &Options) {
         Err(_) => out.unreadable.push("foreign_key_check"),
     }
     match counts {
-        Ok(Status::Ok(v)) => out.tables = Some(v),
+        Ok(Status::Ok((v, more))) => {
+            out.tables = Some(v);
+            out.tables_more = more;
+        }
         Ok(Status::Error) | Err(_) => out.unreadable.push("tables"),
         Ok(_) => out.incomplete.push("tables"),
     }
     match found_sources {
-        Ok(Status::Ok(v)) => out.sources = Some(v),
+        Ok(Status::Ok((v, more))) => {
+            out.sources = Some(v);
+            out.sources_more = more;
+        }
         Ok(Status::Error) | Err(_) => out.unreadable.push("sources"),
         Ok(_) => out.incomplete.push("sources"),
     }
@@ -906,5 +1102,71 @@ fn judge(out: &Health) -> Option<bool> {
         Some(true)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn stop(deadline: Option<Instant>, cancelled: bool) -> Stop {
+        Stop {
+            deadline,
+            cancel: Arc::new(AtomicBool::new(cancelled)),
+        }
+    }
+
+    /// A plain connection with no progress handler, so only the loops themselves can notice a deadline or a cancel.
+    fn database(tables: usize) -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        for n in 0..tables {
+            conn.execute_batch(&format!("CREATE TABLE t{n:04} (a)"))
+                .unwrap();
+        }
+        conn
+    }
+
+    #[test]
+    fn a_cancel_is_seen_every_round_and_the_deadline_every_64th() {
+        let past = Instant::now() - Duration::from_secs(1);
+        let late = stop(Some(past), false);
+        assert!((0..63).all(|round| !late.should_stop(round)));
+        assert!(late.should_stop(63) && !late.should_stop(64) && late.should_stop(127));
+        assert!(stop(None, true).should_stop(0));
+        assert!(!stop(None, false).should_stop(63));
+        assert!(!stop(Some(Instant::now() + Duration::from_secs(60)), false).should_stop(63));
+    }
+
+    #[test]
+    fn the_table_loop_stops_at_a_passed_deadline_with_no_progress_handler_to_help() {
+        let conn = database(200);
+        let past = Some(Instant::now() - Duration::from_secs(1));
+        assert!(matches!(
+            tables(&conn, &stop(past, false)),
+            Err(Failure::Late)
+        ));
+        assert!(matches!(
+            tables(&conn, &stop(None, true)),
+            Err(Failure::Late)
+        ));
+        let (counted, more) = tables(&conn, &stop(None, false)).ok().unwrap();
+        assert_eq!((counted.len(), more), (200, 0));
+        // under 64 tables a passed deadline changes nothing (the oracle's `budget_zero` answers)
+        assert!(tables(&database(10), &stop(past, false)).is_ok());
+    }
+
+    #[test]
+    fn the_source_loop_stops_at_a_cancel() {
+        let conn = database(0);
+        conn.execute_batch(
+            "CREATE TABLE events (source, ts_utc, abstained);
+             INSERT INTO events VALUES ('claude_code', '2026-01-01', 0);",
+        )
+        .unwrap();
+        assert!(matches!(
+            sources(&conn, &stop(None, true)),
+            Err(Failure::Late)
+        ));
+        assert!(sources(&conn, &stop(None, false)).is_ok());
     }
 }

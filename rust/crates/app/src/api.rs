@@ -500,6 +500,9 @@ struct HealthCache {
     /// How many checks ran (a test counts them; the route reads nothing else from it).
     #[cfg(test)]
     runs: std::sync::atomic::AtomicUsize,
+    /// The options of every check that ran (a test proves the route never asks for `--full`).
+    #[cfg(test)]
+    used: Mutex<Vec<store_health::Options>>,
 }
 
 impl Default for HealthCache {
@@ -509,6 +512,8 @@ impl Default for HealthCache {
             ttl: HEALTH_CACHE,
             #[cfg(test)]
             runs: Default::default(),
+            #[cfg(test)]
+            used: Mutex::default(),
         }
     }
 }
@@ -525,8 +530,10 @@ impl HealthCache {
         }
         #[cfg(test)]
         self.runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        let value =
-            store_health::check(path, &store_health::Options::default(), &Arc::default()).json();
+        let options = store_health::Options::default(); // never `full`: that is for the command line only
+        #[cfg(test)]
+        self.used.lock().unwrap().push(options.clone());
+        let value = store_health::check(path, &options, &Arc::default()).json();
         answers.insert(path.to_path_buf(), (Instant::now(), value.clone()));
         value
     }

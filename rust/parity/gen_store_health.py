@@ -259,6 +259,20 @@ def c_bad_table_name(f):
     conn.close()  # the last connection merges and removes the `-wal` (a checkpoint would have to read the bad name)
 
 
+def c_many_listed(f):
+    """150 added tables, 150 added sources and 150 backups: long lists that stay under Rust's cap of 200 (Python has none)."""
+    path = seeded(f)
+    with sqlite3.connect(path) as conn:
+        for n in range(150):
+            conn.execute(f"CREATE TABLE extra_{n:03} (a)")
+            conn.execute(
+                "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, ts_utc)"
+                " VALUES ('m', ?, '/y', 1, ?, 0, '2026-01-01T00:00:00.000000Z')", (f"source_{n:03}", 100 + n))
+    checkpointed(path)
+    for n in range(1, 151):
+        (f / f"store.sqlite.bak-v{n}").write_bytes(b"x")
+
+
 def c_big(f):
     big(f, 1500)
 
@@ -277,7 +291,7 @@ FIXTURES = {  # fixture folder -> builder (several cases may read one fixture)
     "damaged_index": c_damaged_index, "wal_no_shm": c_wal_no_shm, "locked": c_locked, "hostile": c_hostile,
     "blob_time": c_blob_time, "int_time": c_int_time, "missing": c_missing, "missing_with_wal": c_missing_with_wal,
     "zero_byte": c_zero_byte, "not_a_database": c_not_a_database, "backups": c_backups, "fk_violation": c_fk_violation,
-    "later_table": c_later_table, "bad_table_name": c_bad_table_name, "no_optional_tables": c_no_events, "big": c_big,
+    "later_table": c_later_table, "many_listed": c_many_listed, "bad_table_name": c_bad_table_name, "no_optional_tables": c_no_events, "big": c_big,
 }  # fmt: skip
 CASES = [  # (case, fixture, options, setup)
     ("clean", "clean", {}, None),
@@ -299,6 +313,7 @@ CASES = [  # (case, fixture, options, setup)
     ("backups", "backups", {}, None),
     ("fk_violation", "fk_violation", {}, None),
     ("later_table", "later_table", {}, None),
+    ("many_listed", "many_listed", {}, None),
     ("bad_table_name", "bad_table_name", {}, None),
     ("no_optional_tables", "no_optional_tables", {}, None),
     ("budget_zero", "big", {"budget_s": 0.0}, None),
