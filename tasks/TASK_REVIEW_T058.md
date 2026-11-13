@@ -61,8 +61,48 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured by the implementing agent (backend-developer) before any implementation commit; binary built from `cd5d2ef` (`cargo build`), temp copy of `rust/parity/store-rich` as the store, `HOME`, `EASY_PERSONAL_HOME` and `EASY_PERSONAL_AGENT_ROOT` all in a temp folder (first 3 lines of each output):
+
+```
+# captured 2026-11-13T11:30:58Z on cd5d2ef, no implementation commit yet; temp store copy of rust/parity/store-rich, temp HOME and agent root
+$ easy-personal-rs ping
+error: unrecognized subcommand 'ping'
+
+  tip: a similar subcommand exists: 'ingest'
+exit=2
+$ easy-personal-rs usage
+error: unrecognized subcommand 'usage'
+
+Usage: easy-personal-rs <COMMAND>
+exit=2
+$ easy-personal-rs outliers
+error: unrecognized subcommand 'outliers'
+
+Usage: easy-personal-rs <COMMAND>
+exit=2
+$ easy-personal-rs kit-findings
+error: unrecognized subcommand 'kit-findings'
+
+Usage: easy-personal-rs <COMMAND>
+exit=2
+$ easy-personal-rs workspace list
+error: unrecognized subcommand 'workspace'
+
+Usage: easy-personal-rs <COMMAND>
+exit=2
+$ easy-personal-rs account list
+error: unrecognized subcommand 'account'
+
+Usage: easy-personal-rs <COMMAND>
+exit=2
+$ easy-personal-rs dashboard --no-ingest
+error: unrecognized subcommand 'dashboard'
+
+Usage: easy-personal-rs <COMMAND>
+exit=2
+```
+
+(A first attempt at 11:30:54Z passed `"workspace list"` as one word by a shell mistake; it is not used here.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
