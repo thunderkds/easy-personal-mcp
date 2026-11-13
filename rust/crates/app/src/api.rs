@@ -1,7 +1,7 @@
 //! The dashboard API's routes: the read routes `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
 //! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
-//! `/api/board` and `/api/memory-graph` (T043), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
+//! `/api/board` and `/api/memory-graph` (T043), `/api/store/health` (T059, below), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
 //! and the seven store-only write routes of T048, which `writes.rs` serves.
 //! `GET /api/live` (T056) is the one stream: Server-Sent Events from the live feed (`live_feed.rs`); it reads no store
@@ -51,14 +51,17 @@ use easy_personal_core::rules::{self, RulesError, ScopedRulesError, evaluate_sco
 use easy_personal_core::scope::Scope;
 use easy_personal_core::sessions::{session_outliers_scoped, session_timeline_scoped};
 use easy_personal_core::store::{self, StoreError};
+use easy_personal_core::store_health;
 use easy_personal_core::suggestions::{self, ViewError};
 use easy_personal_core::sync::{self, SyncError};
 use easy_personal_core::workspaces;
 use rusqlite::Connection;
 use serde_json::{Value, json};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 /// Answer for a store that is busy, not a regular file or unreadable. Fixed on purpose: the core's text for these
 /// can name a SQLite error code, and a body must never carry a path, SQL or row text.
@@ -82,6 +85,8 @@ pub struct Api {
     live: Option<SharedTail>,
     /// Set when the server stops: every open stream ends at its next tick.
     stopping: Arc<AtomicBool>,
+    /// The answers of `GET /api/store/health` (shared by every clone of the `Api`).
+    health: Arc<HealthCache>,
 }
 
 impl Api {
@@ -94,6 +99,7 @@ impl Api {
             clock: Arc::new(clock),
             live: None,
             stopping: Arc::default(),
+            health: Arc::default(),
         }
     }
 
@@ -101,6 +107,16 @@ impl Api {
     pub(crate) fn with_live(mut self, live: Option<SharedTail>, stopping: Arc<AtomicBool>) -> Self {
         self.live = live;
         self.stopping = stopping;
+        self
+    }
+
+    /// The time a store check is reused (a test sets it to 0 to see a second check run).
+    #[cfg(test)]
+    pub(crate) fn with_health_ttl(mut self, ttl: Duration) -> Self {
+        self.health = Arc::new(HealthCache {
+            ttl,
+            ..HealthCache::default()
+        });
         self
     }
 
@@ -143,6 +159,10 @@ pub fn routes() -> Router<Api> {
         .route("/api/reports/{id}", get(report_one))
         .route("/api/board", get(board_view))
         .route("/api/memory-graph", get(memory_graph))
+        .route(
+            "/api/store/health",
+            get(store_health_get).head(store_health_head),
+        )
         .route("/api/first-run", get(first_run_steps))
         .route("/api/accounts", get(account_list).post(writes::account_add))
         .route("/api/accounts/{id}/confirm", post(writes::account_confirm))
@@ -467,6 +487,78 @@ async fn jobs(State(api): State<Api>) -> Response {
         Ok(body) => respond(StatusCode::OK, &body),
         Err(_) => respond(StatusCode::INTERNAL_SERVER_ERROR, &error_body(INTERNAL)),
     }
+}
+
+/// How long a store check is reused (Python's `HEALTH_CACHE_S`).
+const HEALTH_CACHE: Duration = Duration::from_secs(5);
+
+/// The last answer of `GET /api/store/health` per store path. The lock is held for the whole check, so one check runs at a
+/// time: a request that comes meanwhile waits, then gets that answer from the cache.
+struct HealthCache {
+    answers: Mutex<HashMap<PathBuf, (Instant, Value)>>,
+    ttl: Duration,
+    /// How many checks ran (a test counts them; the route reads nothing else from it).
+    #[cfg(test)]
+    runs: std::sync::atomic::AtomicUsize,
+}
+
+impl Default for HealthCache {
+    fn default() -> Self {
+        HealthCache {
+            answers: Mutex::default(),
+            ttl: HEALTH_CACHE,
+            #[cfg(test)]
+            runs: Default::default(),
+        }
+    }
+}
+
+impl HealthCache {
+    /// The answer for `path`: the cached one when it is younger than the time-to-live, else a new check
+    /// (default options: the 1.5 s budget; never `--full`).
+    fn answer(&self, path: &Path) -> Value {
+        let mut answers = self.answers.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((at, value)) = answers.get(path)
+            && at.elapsed() < self.ttl
+        {
+            return value.clone();
+        }
+        #[cfg(test)]
+        self.runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let value =
+            store_health::check(path, &store_health::Options::default(), &Arc::default()).json();
+        answers.insert(path.to_path_buf(), (Instant::now(), value.clone()));
+        value
+    }
+}
+
+/// `GET /api/store/health` (T059, FR-091): the read-only store check of Python's HUN-244, the same JSON as
+/// `store-check --json`. A store that is missing, empty or damaged is a 200 answer (the check says so); only "no data folder"
+/// is a 503. Never writes and never opens the store for writing; the answer holds no path and no row.
+async fn store_health_get(State(api): State<Api>) -> Response {
+    let outcome = tokio::task::spawn_blocking(move || {
+        let path = (api.store_path)().map_err(store_failure)?;
+        Ok::<_, Failure>(api.health.answer(&path))
+    })
+    .await;
+    match outcome {
+        Ok(Ok(body)) => (
+            StatusCode::OK,
+            [
+                (CONTENT_TYPE, "application/json"),
+                (CACHE_CONTROL, "no-store"),
+            ],
+            body.to_string(),
+        )
+            .into_response(),
+        Ok(Err((status, text))) => respond(status, &error_body(&text)),
+        Err(_) => respond(StatusCode::INTERNAL_SERVER_ERROR, &error_body(INTERNAL)),
+    }
+}
+
+/// `HEAD`: headers only, and no check runs.
+async fn store_health_head() -> Response {
+    (StatusCode::OK, [(CACHE_CONTROL, "no-store")]).into_response()
 }
 
 /// Parses the query, then runs `read` on a fresh read-only connection off the async workers.
