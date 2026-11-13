@@ -3,7 +3,7 @@
 easy-context's MCP service on 127.0.0.1. Writes `golden-context/golden.json`.
 
 Each case lists the projects the store knows, the script of the fake service and the URL. The script says how the
-fake answers (`mode`: json / sse / chunked, with `session`, `reply`, `reject_roots`, `delay_s`, `break`). Python's
+fake answers (`mode`: json / sse / chunked, with `session`, `reply`, `reject_roots`, `delay_s`, `break`, and for the leak check a `canary` put in the failure replies). Python's
 `context.ingest` runs once per case and the golden keeps what it stored in `context_index`, the tools the fake saw
 (`calls`), the root headers it saw (`roots`) and the sessions it was asked to end (`deletes`). The Rust test
 (`rust/crates/core/tests/context_parity.rs`) plays the same cases against a Rust fake that follows the same script
@@ -242,7 +242,7 @@ class Handler(BaseHTTPRequestHandler):
         message = json.loads(raw)
         breaking = script["break"]
         if breaking == "status500":
-            return self.send(500, b"boom", "text/plain")
+            return self.send(500, (script.get("canary") or "boom").encode(), "text/plain")
         if breaking == "redirect":
             self.send_response(302)
             self.send_header("Location", "http://127.0.0.1:1/elsewhere")
@@ -284,9 +284,9 @@ class Handler(BaseHTTPRequestHandler):
             time.sleep(script["delay_s"])
         reply_id = message["id"]
         if script["break"] == "rpc_error":
-            return self.message({"jsonrpc": "2.0", "id": reply_id, "error": {"code": -32000, "message": "x"}})
+            return self.message({"jsonrpc": "2.0", "id": reply_id, "error": {"code": -32000, "message": script.get("canary") or "x"}})
         if root in script["reject_roots"]:
-            result = {"content": [{"type": "text", "text": "outside the workspace"}], "isError": True}
+            result = {"content": [{"type": "text", "text": script.get("canary") or "outside the workspace"}], "isError": True}
         else:
             body = {"project_id": "x", "root": root, "indexes": script["indexes"]}
             kind = script["reply"]

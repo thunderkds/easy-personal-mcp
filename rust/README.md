@@ -451,15 +451,17 @@ easy-personal-rs mcp [--transport stdio|http] [--host 127.0.0.1] [--port 8765]
 ```
 
 `http` serves the same 12 tools and the `investigate` prompt as stdio, at `POST http://127.0.0.1:<port>/mcp` (no token, as Python's FastMCP). `--port 0` picks a free port. stderr gets
-`MCP over HTTP: http://127.0.0.1:<port>/mcp` and `Ctrl-C to stop.`; stdout stays empty; Ctrl-C stops the server with exit 0.
+`MCP over HTTP: http://127.0.0.1:<port>/mcp` and `Ctrl-C to stop.`; stdout stays empty. Ctrl-C stops the server with exit 0: open requests get 3 s, then the connections are dropped (a client stuck mid-request cannot keep it alive).
 
 | Input | Result |
 |---|---|
 | a host other than `127.0.0.1` (`0.0.0.0`, `localhost`, `::1`, a name), with `stdio` too, as Python | exit 2 and one line, before any socket is bound |
 | a bad `--port` (`abc`, 65536, -1) or `--transport` | a clap error, exit 2 |
 | the port is in use | `easy-personal-rs: cannot bind 127.0.0.1:<port>: Address already in use (os error 98)`, exit 1 |
-| `Host` is not `127.0.0.1:<port>` or `localhost:<port>` (DNS rebinding) | 421 |
-| an `Origin` that is not `http://127.0.0.1[:port]` or `http://localhost[:port]` | 403 |
+| any `Host` value that is not `127.0.0.1:<port>` or `localhost:<port>` (DNS rebinding; every duplicate value is checked) | 421 |
+| any `Origin` value that is not `http://127.0.0.1[:port]` or `http://localhost[:port]` (any port, as Python) | 403 |
+| a connection that has not sent its whole request (header and body) 10 s after it opened or after the last answer; an idle one | closed (the clock stands still while a tool exchange runs) |
+| more than 64 connections open at once | the extra one is closed at once |
 | a path other than `/mcp` | 404; `GET`, `DELETE`, `PUT` on `/mcp` are 405 (`Allow: POST`) |
 | `Content-Type` other than `application/json` / `Accept` without `application/json` | 415 / 406 |
 | a body over 1 MiB / not JSON / not a JSON-RPC message | 413 / 400 (`-32700`) / 400 (`-32600`) |
@@ -479,7 +481,7 @@ service with a `root` equal to its path and is not `root_exists: false`).
   port 0 or above 65535, or a space, control or non-ASCII character is refused before a connection. Redirects are not followed. No TLS client exists.
 - **No data, never a failure**: the service down, slow (3 s per socket operation and 6 s for the whole call, as Python's `wait_for`), a bad status, an unreadable, oversize or JSON-RPC-error reply, or a tool error on
   every root clears `context_index` and gives `{"status": "no data"}`; the run still exits 0. Up to 3 existing project folders are tried as the root header, as Python (the next one only after a tool error).
-- **No index content is kept or printed**: only `root`, `last_index_at` and `root_exists` are read. A reply over **1 MiB** is "no data" (Python has no cap; our choice).
+- **No index content is kept or printed**: only `root`, `last_index_at` and `root_exists` are read. A reply over **1 MiB** (1,048,576 bytes, pinned by a test) is "no data" (Python has no cap; our choice).
 - **The client** is a small HTTP/1.1 client over `std::net::TcpStream` (`Connection: close`, about 450 lines, rustfmt-formatted, tests apart: the URL check, the exchange, chunked and SSE reading, the MCP calls): it does `initialize`, `notifications/initialized`, `tools/call` and a best-effort `DELETE` of
   the session, reads a JSON or SSE reply, plain, `Content-Length` or chunked. It needs no crate. A reqwest or hyper client would add a large tree (the rejected option; the owner can still ask for it).
 
@@ -493,9 +495,10 @@ FastMCP fake of `tests/fakes/mcp_server.py`. `crates/core/tests/context_parity.r
 1. `--no-ingest` exists on `serve` and `app` (Python's `dashboard` has no such flag). Python's `dashboard` stops with the ingest's exit code when the ingest fails (75 on a busy lock) and prints the ingest's JSON; Rust starts anyway and prints one progress line and, on a failure, one fixed line.
 2. `mcp --transport http` is stateless and answers JSON, not SSE; `GET` and `DELETE` are 405; there is no `Mcp-Session-Id`. `--port` is a `u16` (Python: any integer, a crash above 65535). A `Host` with another port is refused (Python allows any port).
 3. A `last_index_at` that Python cannot turn into a time (a number outside years 1-9999: Python's ingest raises and rolls back) is stored as an empty time, and a root listed twice keeps the later entry (Python raises on the duplicate). A reply that Python reads and Rust does not: a body over 1 MiB, a JSON nested more than 128 levels, `NaN`.
-4. The URL rules are stricter in three ways than Python's (any `@`, any space/control/non-ASCII character, port 0 are refused); a non-ASCII root path is "no data" (the same outcome as Python, whose header encoder raises).
+4. The URL rules are stricter in three ways than Python's (any `@`, any space/control/non-ASCII character, port 0 are refused). A project folder whose path is not printable ASCII cannot be sent as the root header: Python's header encoder raises and the whole `context` ingest is "no data"; Rust skips that folder only (it still uses one of the 3 tries) and tries the next. With one such project the result is the same as Python's.
 5. The start-up ingest runs before the static folder is checked, so a bad `--static-dir` is reported after the ingest.
-6. Every existing test that starts `serve` now passes `--no-ingest` (they test a read-only server over a fixed store); `startup_ingest.rs` tests the default.
+6. The HTTP server has a 10 s request-read limit and a cap of 64 open connections (Python's FastMCP/uvicorn has no such limit); the limit is a total per request, not per read, and does not run while a tool exchange is in flight. Writes to a slow reader have no timeout.
+7. Every existing test that starts `serve` now passes `--no-ingest` (they test a read-only server over a fixed store); `startup_ingest.rs` tests the default.
 
 ## Scheduled ingest (P2c)
 

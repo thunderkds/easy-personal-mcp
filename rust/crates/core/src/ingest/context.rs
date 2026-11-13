@@ -589,6 +589,9 @@ pub fn ingest_with(
         .filter(|p| std::path::Path::new(p).is_dir())
         .take(ROOT_TRIES)
     {
+        if !header_safe(root) {
+            continue; // not sendable as a header value: this root only is skipped (Python's header encoder stops the whole run)
+        }
         match call_tool("list_indexes", Some(root), url, timeout) {
             Ok(value) => {
                 reply = Some(value);
@@ -647,6 +650,35 @@ pub fn ingest_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_reply_cap_is_one_mebibyte() {
+        assert_eq!(MAX_REPLY, 1_048_576);
+        let reply = |len: usize, sent: usize| {
+            let mut raw = format!("HTTP/1.1 200 OK\r\ncontent-length: {len}\r\n\r\n").into_bytes();
+            raw.extend(std::iter::repeat_n(b'x', sent));
+            raw
+        };
+        let at_cap = parse_reply(&reply(1_048_576, 1_048_576), false, None);
+        assert!(
+            matches!(at_cap, Ok(Some(_))),
+            "a body of exactly 1,048,576 bytes is read"
+        );
+        let over = parse_reply(&reply(1_048_577, 0), false, None);
+        assert_eq!(
+            over.err(),
+            Some(CallError::Unavailable),
+            "1,048,577 bytes is over the cap"
+        );
+        let chunked = format!(
+            "HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\n{:x}\r\n",
+            1_048_577
+        );
+        assert_eq!(
+            parse_reply(chunked.as_bytes(), false, None).err(),
+            Some(CallError::Unavailable)
+        );
+    }
 
     #[test]
     fn only_loopback_http_urls_pass() {

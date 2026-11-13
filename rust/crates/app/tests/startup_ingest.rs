@@ -15,6 +15,16 @@ use std::time::{Duration, Instant};
 const PROGRESS: &str = "ingesting before start (waits if another ingest runs)...";
 const FAILED: &str = "ingest failed; starting anyway";
 
+/// A closed port on 127.0.0.1.
+fn dead_url() -> String {
+    let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    format!("http://127.0.0.1:{port}/mcp")
+}
+
 struct Case {
     dir: PathBuf,
 }
@@ -55,6 +65,7 @@ impl Case {
             .env("EASY_PERSONAL_AGENT_ROOT", self.dir.join("agent"))
             .env("EASY_PERSONAL_LOCK_TIMEOUT", lock_timeout)
             .env("TZ", "UTC")
+            .env("EASY_PERSONAL_CONTEXT_URL", dead_url()) // never a real easy-context service
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());

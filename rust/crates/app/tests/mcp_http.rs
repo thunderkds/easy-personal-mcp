@@ -36,6 +36,7 @@ impl Home {
             .env("HOME", &self.0)
             .env("EASY_PERSONAL_HOME", &self.0)
             .env("TZ", "UTC")
+            .env("EASY_PERSONAL_CONTEXT_URL", dead_url())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -47,6 +48,32 @@ impl Drop for Home {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+/// A closed port on 127.0.0.1: no test of this file can reach a real easy-context service.
+fn dead_url() -> String {
+    let port = TcpListener::bind(("127.0.0.1", 0))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    format!("http://127.0.0.1:{port}/mcp")
+}
+
+/// `Command::output` with a limit: past it the child is killed and the test fails with `message`.
+fn output_within(mut command: Command, limit: Duration, message: &str) -> std::process::Output {
+    let mut child = command.spawn().unwrap();
+    drop(child.stdin.take());
+    let until = Instant::now() + limit;
+    while child.try_wait().unwrap().is_none() {
+        if Instant::now() >= until {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("{message}");
+        }
+        sleep(Duration::from_millis(20));
+    }
+    child.wait_with_output().unwrap()
 }
 
 struct Http {
@@ -508,10 +535,13 @@ fn another_host_is_refused_with_exit_2_before_anything_is_bound() {
     ] {
         for transport in ["http", "stdio"] {
             let began = Instant::now();
-            let out = home
-                .command(&["--transport", transport, "--host", host, "--port", &free])
-                .output()
-                .unwrap();
+            let out = output_within(
+                home.command(&["--transport", transport, "--host", host, "--port", &free]),
+                Duration::from_secs(10),
+                &format!(
+                    "{transport} --host {host:?} did not exit within 10 s: the host refusal is missing"
+                ),
+            );
             let err = String::from_utf8(out.stderr).unwrap();
             assert_eq!(
                 out.status.code(),
@@ -595,6 +625,188 @@ fn the_server_listens_on_127_0_0_1_only() {
                 .starts_with("0100007F:"),
             "only 127.0.0.1: {line}"
         );
+    }
+    server.stop();
+}
+
+// -- fix round (Stage 4): bounded stop, read timeout, connection cap, duplicate Host and Origin
+
+/// Ctrl-C with `stuck` already written to a connection: the process exits 0 within 5 s.
+fn ctrl_c_with_a_stuck_client(stuck: impl Fn(u16) -> String) {
+    let home = Home::new();
+    let server = Http::start(&home);
+    let mut client = TcpStream::connect(("127.0.0.1", server.port)).unwrap();
+    client.write_all(stuck(server.port).as_bytes()).unwrap();
+    sleep(Duration::from_millis(200));
+    let mut server = server;
+    let kill = Command::new("kill")
+        .args(["-INT", &server.child.id().to_string()])
+        .status()
+        .unwrap();
+    assert!(kill.success());
+    let until = Instant::now() + Duration::from_secs(5);
+    let status = loop {
+        if let Some(status) = server.child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() >= until {
+            let _ = server.child.kill();
+            let _ = server.child.wait();
+            panic!("Ctrl-C did not stop the server within 5 s with a client stuck mid-request");
+        }
+        sleep(Duration::from_millis(50));
+    };
+    assert_eq!(status.code(), Some(0));
+    drop(client);
+}
+
+#[test]
+fn ctrl_c_stops_the_server_with_a_half_sent_header() {
+    ctrl_c_with_a_stuck_client(|port| {
+        format!("POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Ty")
+    });
+}
+
+#[test]
+fn ctrl_c_stops_the_server_with_a_half_sent_body() {
+    ctrl_c_with_a_stuck_client(|port| {
+        format!(
+            "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: 100\r\n\r\n{{\"jsonrpc\""
+        )
+    });
+}
+
+/// Reads until the server closes the connection; the time that took, or `None` if it was still open after `limit`.
+fn closed_after(mut tcp: TcpStream, limit: Duration) -> Option<Duration> {
+    let began = Instant::now();
+    tcp.set_read_timeout(Some(Duration::from_millis(200)))
+        .unwrap();
+    let mut buf = [0u8; 256];
+    while began.elapsed() < limit {
+        match tcp.read(&mut buf) {
+            Ok(0) => return Some(began.elapsed()),
+            Ok(_) => {}
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) => {}
+            Err(_) => return Some(began.elapsed()), // a reset is a close too
+        }
+    }
+    None
+}
+
+#[test]
+fn a_stalled_connection_is_closed_within_the_read_timeout() {
+    let home = Home::new();
+    let server = Http::start(&home);
+    let port = server.port;
+    let stalls: [(&str, String); 3] = [
+        ("nothing sent", String::new()),
+        (
+            "half a header",
+            format!("POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConten"),
+        ),
+        (
+            "half a body",
+            format!(
+                "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: 100\r\n\r\n{{\"a\""
+            ),
+        ),
+    ];
+    let threads: Vec<_> = stalls
+        .iter()
+        .map(|(label, bytes)| {
+            let (label, bytes) = (*label, bytes.clone().into_bytes());
+            std::thread::spawn(move || {
+                let mut tcp = TcpStream::connect(("127.0.0.1", port)).unwrap();
+                tcp.write_all(&bytes).unwrap();
+                (label, closed_after(tcp, Duration::from_secs(20)))
+            })
+        })
+        .collect();
+    for t in threads {
+        let (label, took) = t.join().unwrap();
+        let took = took.unwrap_or_else(|| panic!("{label}: still open after 20 s"));
+        assert!(
+            took >= Duration::from_secs(8),
+            "{label}: closed after only {took:?}, a slow client must get 10 s"
+        );
+        assert!(
+            took <= Duration::from_secs(14),
+            "{label}: closed after {took:?}, the limit is 10 s"
+        );
+    }
+    server.stop();
+}
+
+#[test]
+fn sixty_idle_sockets_do_not_stop_a_real_request_and_the_cap_closes_the_extra_ones() {
+    let home = Home::new();
+    let server = Http::start(&home);
+    let idle: Vec<TcpStream> = (0..60)
+        .map(|_| TcpStream::connect(("127.0.0.1", server.port)).unwrap())
+        .collect();
+    sleep(Duration::from_millis(300));
+    let (status, body) = server.rpc(&json!({"jsonrpc": "2.0", "id": 1, "method": "ping"}));
+    assert_eq!(
+        (status, &body["result"]),
+        (200, &json!({})),
+        "a legit request beside 60 idle sockets"
+    );
+    // Up to 64 open at once: four more fill the cap (one is the request's own, already closed), the next is closed at once.
+    let more: Vec<TcpStream> = (0..4)
+        .map(|_| TcpStream::connect(("127.0.0.1", server.port)).unwrap())
+        .collect();
+    sleep(Duration::from_millis(300));
+    let extra = TcpStream::connect(("127.0.0.1", server.port)).unwrap();
+    let took = closed_after(extra, Duration::from_secs(3))
+        .expect("a connection over the cap is closed at once");
+    assert!(took < Duration::from_secs(2), "{took:?}");
+    drop((idle, more));
+    sleep(Duration::from_millis(300));
+    let (status, _) = server.rpc(&json!({"jsonrpc": "2.0", "id": 2, "method": "ping"}));
+    assert_eq!(status, 200, "the cap frees when the sockets close");
+    server.stop();
+}
+
+#[test]
+fn a_duplicate_host_or_origin_header_is_checked_in_every_value() {
+    let home = Home::new();
+    let server = Http::start(&home);
+    let good_host = format!("127.0.0.1:{}", server.port);
+    let ping = json!({"jsonrpc": "2.0", "id": 1, "method": "ping"}).to_string();
+    let base = [
+        ("Content-Type", "application/json"),
+        ("Accept", "application/json"),
+    ];
+    let code = |headers: &[(&str, &str)]| server.send("POST", "/mcp", headers, ping.as_bytes()).0;
+    for (first, second) in [
+        ("evil.example", good_host.as_str()),
+        (good_host.as_str(), "evil.example"),
+    ] {
+        let headers = with(&[("Host", first), ("Host", second)], &base);
+        assert_eq!(code(&headers), 421, "Host: {first}, Host: {second}");
+    }
+    let both_good = with(
+        &[("Host", good_host.as_str()), ("Host", good_host.as_str())],
+        &base,
+    );
+    assert_eq!(code(&both_good), 200, "two good values pass");
+    for (first, second) in [
+        ("http://evil.example", "http://localhost"),
+        ("http://localhost", "http://evil.example"),
+    ] {
+        let headers = with(
+            &[
+                ("Host", good_host.as_str()),
+                ("Origin", first),
+                ("Origin", second),
+            ],
+            &base,
+        );
+        assert_eq!(code(&headers), 403, "Origin: {first}, Origin: {second}");
     }
     server.stop();
 }

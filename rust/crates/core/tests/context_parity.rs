@@ -300,3 +300,40 @@ fn a_reply_that_never_ends_is_no_data_within_the_call_limit_and_the_socket_is_cl
         "the client left its socket open"
     );
 }
+
+/// Python's header encoder raises on a non-ASCII root and the whole ingest is "no data" (the oracle's
+/// `root_with_non_ascii_is_no_data`, one project). Rust skips that root only and tries the next one.
+#[test]
+fn a_root_that_is_not_a_header_value_is_skipped_and_the_next_root_is_tried() {
+    let work = temp_dir();
+    let store_file = work.join("store.sqlite");
+    drop(open_for_write(&store_file).unwrap());
+    let (odd, plain) = (work.join("p-0\u{e9}"), work.join("p-a"));
+    {
+        let conn = Connection::open(&store_file).unwrap();
+        for (i, dir) in [&odd, &plain].into_iter().enumerate() {
+            std::fs::create_dir_all(dir).unwrap();
+            conn.execute(
+                "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, project_path, ts_utc) \
+                 VALUES ('m', 'claude_code', 'p', 0, ?1, 0, ?2, '2026-10-01T00:00:00+00:00')",
+                rusqlite::params![i as i64 + 1, dir.to_str().unwrap()],
+            )
+            .unwrap();
+        }
+    }
+    let indexes =
+        json!([{"root": plain, "root_exists": true, "last_index_at": "2026-10-21T10:00:00+00:00"}]);
+    let fake = Fake::start(
+        json!({"mode": "json", "session": false, "reply": "structured", "reject_roots": [],
+        "delay_s": 0, "break": null, "indexes": indexes}),
+    );
+    let mut store = open_for_write(&store_file).unwrap();
+    let url = format!("http://127.0.0.1:{}/mcp", fake.port);
+    let summary = context::ingest(&mut store, Some(OsStr::new(&url))).unwrap();
+    assert_eq!((summary.status, summary.indexes), ("ok", 1));
+    assert_eq!(
+        fake.seen.lock().unwrap().roots,
+        vec![Some(plain.to_str().unwrap().to_string())]
+    );
+    std::fs::remove_dir_all(&work).unwrap();
+}

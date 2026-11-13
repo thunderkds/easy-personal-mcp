@@ -48,6 +48,7 @@ import gen_golden
 
 from fakes import jobs_fakes
 from fakes.mcp_server import fake_context
+from gen_context import Fake, srv
 from leak.canaries import PATTERNS, Canaries, forms_of
 
 CONTROL = "00000000-0000-4000-8000-0000000000aa"  # the template's sessionId: metadata the store keeps on purpose
@@ -752,6 +753,39 @@ def mcp_http(run: Run, checks: list[str], canaries: Canaries) -> None:
 # -- the run ---------------------------------------------------------------------------------------------------
 
 
+def context_failures(run: Run, canaries: Canaries, checks: list[str], url_host_port: str, repo: Path) -> None:
+    """T051: canaries in every failure path of the context source: a 500 body, a JSON-RPC error, a tool error text, and a
+    URL with a canary in the user info or the path. Nothing may echo them (stdout, stderr, the store, the data folder)."""
+    key = canaries.values["api_key"]
+    entry = {"root": str(repo), "root_exists": True, "last_index_at": "2026-02-02T03:04:05+00:00"}
+    fakes = {"status 500 body": srv([entry], **{"break": "status500", "canary": key}),
+             "json-rpc error message": srv([entry], **{"break": "rpc_error", "canary": key}),
+             "tool error text": srv([entry], reject_roots=[str(repo)], canary=key)}  # fmt: skip
+    for label, script in fakes.items():
+        fake = Fake(script)
+        fake.thread.start()
+        try:
+            run.env["EASY_PERSONAL_CONTEXT_URL"] = f"http://127.0.0.1:{fake.server_address[1]}/mcp"
+            result = run.ingest(f"ingest context failure ({label})")
+        finally:
+            fake.shutdown()
+            fake.server_close()
+            run.env.pop("EASY_PERSONAL_CONTEXT_URL", None)
+        ok = result.get("context") == {"status": "no data"}
+        checks.append(f"check context {label:<22} is no data  {'ok' if ok else 'FAILED'}")
+    for label, url in {"user info": f"http://{key}@{url_host_port.removeprefix('http://')}/mcp",
+                       "path": f"{url_host_port}/{key}", "query": f"{url_host_port}/mcp?x={key}"}.items():  # fmt: skip
+        try:
+            run.env["EASY_PERSONAL_CONTEXT_URL"] = url
+            result = run.ingest(f"ingest context url with a canary ({label})")
+        finally:
+            run.env.pop("EASY_PERSONAL_CONTEXT_URL", None)
+        ok = result.get("context") == {"status": "no data"}
+        checks.append(f"check context url {label:<10} is no data   {'ok' if ok else 'FAILED'}")
+    run.store_files("store (after the context failures)")
+    run.dump("store .dump (after the context failures)")
+
+
 def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     # T051: easy-context's service is a fake on 127.0.0.1 whose index entries carry canaries in fields the source must not keep.
     key = canaries.values["api_key"]
@@ -759,7 +793,8 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     entry = {"project_id": key, "root": str(repo), "root_exists": True, "files": 3, "slices": 9, "status": "done",
              "last_index_at": "2026-02-02T03:04:05+00:00", "summary": key, "path": f"/home/{key}", "token": key}  # fmt: skip
     other = {**entry, "root": f"/elsewhere/{key}", "summary": key}
-    with fake_context([entry, other]) as (url, calls, roots):
+    unreadable = {**entry, "root": "/work/leak-demo", "last_index_at": key}  # a known project; the time is not a time
+    with fake_context([entry, other, unreadable]) as (url, calls, roots):
         run.env["EASY_PERSONAL_CONTEXT_URL"] = url
         drive_with_service(run, canaries, checks)
         run.env.pop("EASY_PERSONAL_CONTEXT_URL")
@@ -768,10 +803,11 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
         stored = conn.execute("SELECT project_path, last_index_at_utc FROM context_index").fetchall()
     finally:
         conn.close()
-    ok = stored == [(str(repo), "2026-02-02T03:04:05+00:00")]
+    ok = sorted(stored) == sorted([(str(repo), "2026-02-02T03:04:05+00:00"), ("/work/leak-demo", None)])
     checks.append(f"check context_index holds root+time  {'ok' if ok else 'FAILED'} ({len(stored)} rows)")
     ok = bool(calls) and set(calls) == {"list_indexes"} and set(roots) == {str(repo)}
     checks.append(f"check context service saw 1 read tool {'ok' if ok else 'FAILED'} ({len(calls)} calls)")
+    context_failures(run, canaries, checks, url_host_port=url.rsplit("/", 1)[0], repo=repo)
 
 
 def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
