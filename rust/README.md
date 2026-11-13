@@ -12,9 +12,11 @@ cargo build
 ./target/debug/easy-personal-rs --version        # easy-personal-rs <Cargo version>
 ./target/debug/easy-personal-rs store-info       # or --json
 ./target/debug/easy-personal-rs ingest           # copy new Claude Code transcript metadata into the store; see "Ingest (P2a)"
-./target/debug/easy-personal-rs serve            # loopback API, Ctrl-C to stop
+./target/debug/easy-personal-rs serve            # ingest first (T051), then the loopback API, Ctrl-C to stop
+./target/debug/easy-personal-rs serve --no-ingest          # the same without the start-up ingest
 ./target/debug/easy-personal-rs serve --static-dir <DIR>   # the same, plus the dashboard's files from <DIR>
 ./target/debug/easy-personal-rs mcp              # MCP server on stdio
+./target/debug/easy-personal-rs mcp --transport http [--port N]   # the same tools over loopback HTTP, see "Start-up ingest, MCP over HTTP and the context source (T051)"
 cargo build --features window                    # adds the window (Tauri v2); see "Window" below
 ./target/debug/easy-personal-rs app --static-dir <DIR>     # the dashboard in a window, until the window closes
 ```
@@ -327,21 +329,22 @@ or a path that is not UTF-8.
 easy-personal-rs ingest [--source PATH] [--retention-days N]
 ```
 
-Does what `easy-personal ingest` does, except `context`: takes the single-writer lock, opens the store, detects
+Does what `easy-personal ingest` does: takes the single-writer lock, opens the store, detects
 agent accounts, reads every confirmed Claude account's transcripts from the stored offsets, optionally deletes events older than `N`
-days, then reads the `kit_trace`, `ui` and `verifier` sources (T033), and prints one JSON object (`indent=2`, sorted keys, a trailing newline, as Python's `json.dumps(..., indent=2, sort_keys=True)`):
+days, then reads the `kit_trace` (T033), `context` (T051), `ui` and `verifier` sources, and prints one JSON object (`indent=2`, sorted keys, a trailing newline, as Python's `json.dumps(..., indent=2, sort_keys=True)`):
 
 ```json
 {
+  "context": {
+    "indexes": 2,
+    "status": "ok"
+  },
   "files": 6,
   "kit_trace": {
     "files": 2,
     "new_events": 17
   },
   "new_events": 39,
-  "not_ingested": [
-    "context"
-  ],
   "skipped": 0,
   "ui": {
     "sessions": 3,
@@ -388,8 +391,11 @@ its own transaction, the three kit sources, with Python's rules and the same sch
   a file over 1,000,000 bytes is skipped. The table is replaced in one transaction: any failure rolls back, keeps the old rows and answers
   `{"status": "failed", "reason": <error kind>}`. Keys `status`, `projects`, `skipped` (`no data` empties the table, as Python).
 
-**Not ingested** (named in `not_ingested`, never printed with a made-up value): `context` (an HTTP client of easy-context; there is no `context` key). Not built: `live`,
-the dashboard's start-up ingest (the daily timer is in "Scheduled ingest" below). `skipped` counts entries Rust could not read (a folder named `x.jsonl`, an unreadable entry, a path
+- **`context`** (T051): easy-context's index freshness, read through its loopback MCP service; see "Start-up ingest, MCP over HTTP and the context source (T051)" below. Keys `status`
+  (`ok`, `no data`, or `failed` when the store step fails), `indexes`.
+
+**Not ingested**: nothing of Python's `ingest` list is left out (T051 ported `context`; the JSON has no `not_ingested` key any more). Not built: `live` (the dashboard's tail is the T056 feed,
+which never writes the store). `serve` and `app` run this ingest before they start (T051, below); the daily timer is in "Scheduled ingest" below. `skipped` counts entries Rust could not read (a folder named `x.jsonl`, an unreadable entry, a path
 that is not UTF-8, a trace entry that is not a regular file); the run goes on and a one-line note goes to stderr.
 
 | Exit code | Meaning |
@@ -426,7 +432,7 @@ Not covered: the Python dashboard's live tail (a continuous writer), a Python in
 
 | Python | Rust | Why |
 |---|---|---|
-| prints `kit_trace`, `context`, `ui`, `verifier` | prints `kit_trace`, `ui`, `verifier` as Python does, `not_ingested: ["context"]`, and `skipped` | `context` is not ported (T033); no invented numbers |
+| prints `kit_trace`, `context`, `ui`, `verifier` | prints the same four keys (T051 ported `context`) and `skipped` | one JSON, Python's keys |
 | a trace line nested past ~57,900 levels or with a time outside years 1-9999, a `ui` file with such a time: traceback, stuck on every later run | an abstained trace row / a skipped `ui` file | T033, same rule as T026/T028 |
 | a FIFO named `*.jsonl`, `session-*.json`: blocks for ever | skipped and counted | T033 |
 | `~user` in a report folder is expanded from the password database; a stamp with non-ASCII digits is a stamp | `~user` is left as written; not a stamp | T033 |
@@ -436,6 +442,71 @@ Not covered: the Python dashboard's live tail (a continuous writer), a Python in
 | a folder named `x.jsonl`, an entry it cannot read, an int beyond int64, a record whose `type` is a list: traceback, exit 1, stuck on every later run | skips the entry (counted in `skipped`) or abstains the record, reads on | see "Ingest parse layer" and "Ingest of folders" |
 | a malformed `EASY_PERSONAL_LOCK_TIMEOUT`: traceback | one line, exit 1, before anything is made | no traceback |
 | `--retention-days` larger than int64: Python integer | a usage error, exit 2 | clap parses an `i64` |
+
+## Start-up ingest, MCP over HTTP and the context source (T051)
+
+### `serve` and `app` ingest first
+
+`serve` and `app` (a `--features window` build) run the same ingest as the `ingest` command (no `--source`, no retention; the same lock, `EASY_PERSONAL_LOCK_TIMEOUT` or 300 s) before they bind a socket, as
+Python's `dashboard` does. They print one line on stderr, `ingesting before start (waits if another ingest runs)...`, and nothing else on success (no JSON, no path, no row value). The live feed's poll thread
+starts after the ingest. If the ingest fails (the lock stays busy for the whole wait, a store newer or older than v11, a malformed lock timeout, a store that cannot be opened), stderr gets one fixed line,
+`ingest failed; starting anyway`, and the server still starts. `--no-ingest` skips the step (also on `app`). A build without `--features window` runs no ingest for `app`, because it starts nothing.
+
+### `mcp --transport http`
+
+```bash
+easy-personal-rs mcp [--transport stdio|http] [--host 127.0.0.1] [--port 8765]
+```
+
+`http` serves the same 12 tools and the `investigate` prompt as stdio, at `POST http://127.0.0.1:<port>/mcp` (no token, as Python's FastMCP). `--port 0` picks a free port. stderr gets
+`MCP over HTTP: http://127.0.0.1:<port>/mcp` and `Ctrl-C to stop.`; stdout stays empty. Ctrl-C stops the server with exit 0: open requests get 3 s, then the connections are dropped (a client stuck mid-request cannot keep it alive).
+
+| Input | Result |
+|---|---|
+| a host other than `127.0.0.1` (`0.0.0.0`, `localhost`, `::1`, a name), with `stdio` too, as Python | exit 2 and one line, before any socket is bound |
+| a bad `--port` (`abc`, 65536, -1) or `--transport` | a clap error, exit 2 |
+| the port is in use | `easy-personal-rs: cannot bind 127.0.0.1:<port>: Address already in use (os error 98)`, exit 1 |
+| any `Host` value that is not `127.0.0.1:<port>` or `localhost:<port>` (DNS rebinding; every duplicate value is checked) | 421 |
+| any `Origin` value that is not `http://127.0.0.1[:port]` or `http://localhost[:port]` (any port, as Python) | 403 |
+| a connection that has not sent its whole request (header and body) 10 s after it opened or after the last answer; an idle one | closed (the clock stands still while a tool exchange runs) |
+| more than 64 connections open at once | the extra one is closed at once |
+| a path other than `/mcp` | 404; `GET`, `DELETE`, `PUT` on `/mcp` are 405 (`Allow: POST`) |
+| `Content-Type` other than `application/json` / `Accept` without `application/json` | 415 / 406 |
+| a body over 1 MiB / not JSON / not a JSON-RPC message | 413 / 400 (`-32700`) / 400 (`-32600`) |
+
+The transport is **stateless**: each POST is one JSON-RPC message with its own short-lived `rmcp` service (the handshake runs inside the request), so no session id is issued and a client can
+call a tool without `initialize` first. A notification gets 202 with no body. The answer is `application/json` (Python's FastMCP answers with an SSE body; the spec allows both, and the Python
+MCP client reads this server). `rmcp`'s own streamable-HTTP server was not used: its feature adds four packages the lock does not have (`rand`, `tokio-stream`, `sse-stream`, `async-trait`), so
+`Cargo.toml` and `Cargo.lock` are unchanged. Tests: `tests/mcp_http.rs` (the answers equal stdio's, the guard table above, the refusals, Ctrl-C, port in use, listening on `127.0.0.1` only).
+
+### The `context` source
+
+`context` reads easy-context's index freshness (`ingest::context`, Python `sources/context.py`) and stores a project's `last_index_at` in `context_index` (a project that has a `claude_code` event, is listed by the
+service with a `root` equal to its path and is not `root_exists: false`).
+
+- **Read-only, allow-listed**: the client sends `list_indexes` and `get_stats` only; any other tool name is refused before a connection.
+- **Loopback only**: the URL (`EASY_PERSONAL_CONTEXT_URL`, empty or unset means `http://127.0.0.1:8767/mcp`) must be `http` and host `127.0.0.1`. A name (`localhost`), `0.0.0.0`, an IPv6 literal, `https`, user info (any `@`),
+  port 0 or above 65535, or a space, control or non-ASCII character is refused before a connection. Redirects are not followed. No TLS client exists.
+- **No data, never a failure**: the service down, slow (3 s per socket operation and 6 s for the whole call, as Python's `wait_for`), a bad status, an unreadable, oversize or JSON-RPC-error reply, or a tool error on
+  every root clears `context_index` and gives `{"status": "no data"}`; the run still exits 0. Up to 3 existing project folders are tried as the root header, as Python (the next one only after a tool error).
+- **No index content is kept or printed**: only `root`, `last_index_at` and `root_exists` are read. A reply over **1 MiB** (1,048,576 bytes, pinned by a test) is "no data" (Python has no cap; our choice).
+- **The client** is a small HTTP/1.1 client over `std::net::TcpStream` (`Connection: close`, about 450 lines, rustfmt-formatted, tests apart: the URL check, the exchange, chunked and SSE reading, the MCP calls): it does `initialize`, `notifications/initialized`, `tools/call` and a best-effort `DELETE` of
+  the session, reads a JSON or SSE reply, plain, `Content-Length` or chunked. It needs no crate. A reqwest or hyper client would add a large tree (the rejected option; the owner can still ask for it).
+
+Oracle: `parity/gen_context.py` runs Python's `context.ingest` against a scripted fake service for 41 cases (normal list, empty list, a root that does not exist, the service down, slow, 11 bad replies, a rejected root and the 3-tries limit,
+SSE, chunked, a stateful session, 25 forms of `last_index_at`, 9 refused URLs) and 5 tool-name cases, and writes `parity/golden-context/golden.json`; the "normal" case must also give the same rows against the real
+FastMCP fake of `tests/fakes/mcp_server.py`. `crates/core/tests/context_parity.rs` plays the same cases against a Rust fake and compares the stored rows, the tools and root headers the service saw and the sessions it was asked to end.
+`crates/app/tests/context_ingest.rs` runs the `ingest` binary against the fake (down, refused URLs, a canary in the index).
+
+### Decided for you (T051, for the owner's review)
+
+1. `--no-ingest` exists on `serve` and `app` (Python's `dashboard` has no such flag). Python's `dashboard` stops with the ingest's exit code when the ingest fails (75 on a busy lock) and prints the ingest's JSON; Rust starts anyway and prints one progress line and, on a failure, one fixed line.
+2. `mcp --transport http` is stateless and answers JSON, not SSE; `GET` and `DELETE` are 405; there is no `Mcp-Session-Id`. `--port` is a `u16` (Python: any integer, a crash above 65535). A `Host` with another port is refused (Python allows any port).
+3. A `last_index_at` that Python cannot turn into a time (a number outside years 1-9999: Python's ingest raises and rolls back) is stored as an empty time, and a root listed twice keeps the later entry (Python raises on the duplicate). A reply that Python reads and Rust does not: a body over 1 MiB, a JSON nested more than 128 levels, `NaN`.
+4. The URL rules are stricter in three ways than Python's (any `@`, any space/control/non-ASCII character, port 0 are refused). A project folder whose path is not printable ASCII cannot be sent as the root header: Python's header encoder raises and the whole `context` ingest is "no data"; Rust skips that folder only (it still uses one of the 3 tries) and tries the next. With one such project the result is the same as Python's.
+5. The start-up ingest runs before the static folder is checked, so a bad `--static-dir` is reported after the ingest.
+6. The HTTP server has a 10 s request-read limit and a cap of 64 open connections (Python's FastMCP/uvicorn has no such limit); the limit is a total per request, not per read, and does not run while a tool exchange is in flight. Writes to a slow reader have no timeout.
+7. Every existing test that starts `serve` now passes `--no-ingest` (they test a read-only server over a fixed store); `startup_ingest.rs` tests the default.
 
 ## Scheduled ingest (P2c)
 

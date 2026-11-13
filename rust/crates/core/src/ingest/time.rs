@@ -26,6 +26,25 @@ const CORRECTION: [i32; 5] = [100_000, 10_000, 1_000, 100, 10];
 
 /// `_utc(value)` for a string value (WTF-8 bytes of the Python `str`).
 pub fn utc_text(value: &[u8]) -> Option<String> {
+    let (clock, offset) = parse(value)?;
+    // A naive time: `_utc` returns None.
+    let utc = clock - offset?;
+    // Python: `OverflowError` in `astimezone` (the ingest crashes); here an unreadable timestamp.
+    (MIN_MICROS..END_MICROS)
+        .contains(&utc)
+        .then(|| format_stored(utc))
+}
+
+/// The context source's `_epoch` for a string: `datetime.fromisoformat(value)`, a time with no zone taken as UTC,
+/// as microseconds since the Unix epoch. `None` when it fails to parse.
+pub fn epoch_micros_naive_is_utc(value: &[u8]) -> Option<i64> {
+    let (clock, offset) = parse(value)?;
+    Some(clock - offset.unwrap_or(0))
+}
+
+/// `datetime.fromisoformat` of the C path: the wall-clock microseconds since the Unix epoch (as if UTC) and the
+/// offset in microseconds (`None` for a naive time).
+fn parse(value: &[u8]) -> Option<(i64, Option<i64>)> {
     let text = sanitize(value)?;
     let d = text.as_slice();
     let sep = find_separator(d)?;
@@ -71,17 +90,11 @@ pub fn utc_text(value: &[u8]) -> Option<String> {
     {
         return None;
     }
-    // A naive time: `_utc` returns None.
-    let offset = offset?;
     let days = days_from_civil(i64::from(year), i64::from(month), i64::from(day));
     let clock = days * DAY_MICROS
         + (i64::from(hour) * 3600 + i64::from(minute) * 60 + i64::from(second)) * 1_000_000
         + i64::from(micro);
-    let utc = clock - offset;
-    // Python: `OverflowError` in `astimezone` (the ingest crashes); here an unreadable timestamp.
-    (MIN_MICROS..END_MICROS)
-        .contains(&utc)
-        .then(|| format_stored(utc))
+    Some((clock, offset))
 }
 
 /// The byte at `i`, or 0 past the end: the C code reads a NUL-terminated buffer.

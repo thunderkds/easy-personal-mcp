@@ -127,7 +127,7 @@ impl Server {
     /// `serve` with an empty environment but `HOME`, `EASY_PERSONAL_HOME`, `TZ=UTC` and `PATH` = `bin` (a folder of fakes), run in `cwd`.
     fn start(base: PathBuf, bin: &Path, home: &Path, cwd: &Path) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
-            .arg("serve")
+            .args(["serve", "--no-ingest"])
             .env_clear()
             .env("HOME", home)
             .env("EASY_PERSONAL_HOME", base.join("data"))

@@ -116,6 +116,7 @@ impl Server {
     fn start(home: Home) -> Self {
         let mut child = home
             .command("serve")
+            .arg("--no-ingest")
             .stdout(Stdio::piped())
             .spawn()
             .unwrap();

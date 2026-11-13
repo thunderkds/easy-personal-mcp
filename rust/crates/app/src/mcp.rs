@@ -12,6 +12,11 @@
 //!
 //! Everything that touches `rmcp` lives in this file, so a later major version of the SDK changes one module.
 //! stdout is the protocol channel: nothing here prints to it, and nothing is logged.
+//!
+//! `--transport http` (T051, `mcp_http.rs` for the sockets and the guard): the same handler, stateless. Each POST is one
+//! JSON-RPC message that gets its own short-lived `rmcp` service over an in-memory channel (`http_exchange`): the
+//! handshake runs inside the request, so no session, no id and no state outlive it. This needs no new crate: `rmcp`'s own
+//! streamable-HTTP server needs four packages the lock does not have (`rand`, `tokio-stream`, `sse-stream`, `async-trait`).
 //! Tool names, descriptions and schemas are copied from the Python app's `tools/list` golden
 //! (`rust/parity/golden/mcp__tools_list.json`); a test compares them. Every tool but `save_report` only reads the store.
 
@@ -38,8 +43,11 @@ use serde_json::{Value, json};
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::PathBuf;
+use std::process::ExitCode;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::mpsc;
 
 /// What Python's `core.ping()` returns.
 const PING_TEXT: &str = "easy-personal core ok";
@@ -74,6 +82,50 @@ const INVESTIGATE_PROMPT: &str = "Investigate my Claude Code usage with the easy
 const SAVE_REPORT_STEP: &str = "7. Save the report: call `save_report` once, with a summary of what you found (at most 2,000 characters), the fixes from step 5 (at most 5, each with its text and the tool and number it cites) and the same scope you used above. Do not put keys, tokens or message text in it; the tool refuses them. Then tell me the report id it returns. If `save_report` is not available, tell me to reconnect the easy-personal server in /mcp, and do not retry.\n";
 
 const BREAKDOWN_DESCRIPTION: &str = "Tokens grouped by day (OS local time), model, project (folder name) or tool for\n[since, until), with an API-equivalent cost (price-table date shown; a model missing\nfrom the table abstains). Each group has the same typed / agent / unknown `split`. `total`\nequals usage_summary; tool groups overlap. Project groups put every scratch folder (temp,\ngone, not in a git repo, or hidden) into one group `Scratch` (`scratch: true`) that lists\nthem in `folders`.";
+
+/// The `mcp` subcommand's options (Python: `--transport {stdio,http}`, `--host`, `--port`).
+#[derive(clap::Args)]
+pub struct Args {
+    /// `stdio` (default): JSON-RPC lines on stdin and stdout. `http`: streamable HTTP on `127.0.0.1` (path `/mcp`)
+    #[arg(long, value_enum, default_value_t = Wire::Stdio)]
+    transport: Wire,
+    /// The address HTTP binds; only `127.0.0.1` is accepted (any other value is refused with exit 2)
+    #[arg(long, default_value = LOOPBACK)]
+    host: String,
+    /// The port HTTP binds (`0`: a free one, printed on stderr)
+    #[arg(long, default_value_t = 8765)]
+    port: u16,
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum Wire {
+    Stdio,
+    Http,
+}
+
+const LOOPBACK: &str = "127.0.0.1";
+
+/// `validate_host`, run before anything is bound (and for `stdio` too, as Python does): exit 2 for any host but `127.0.0.1`.
+pub fn main(args: Args) -> ExitCode {
+    if args.host != LOOPBACK {
+        eprintln!(
+            "easy-personal-rs: refusing host {:?}: HTTP must bind {LOOPBACK} only",
+            args.host
+        );
+        return ExitCode::from(2);
+    }
+    let served = match args.transport {
+        Wire::Stdio => run(),
+        Wire::Http => crate::mcp_http::run(args.port),
+    };
+    match served {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("easy-personal-rs: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
 
 pub fn run() -> Result<(), String> {
     let runtime =
@@ -179,6 +231,103 @@ impl Transport<RoleServer> for StdioLines {
     async fn close(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
+}
+
+/// An in-memory transport: what the HTTP handler pushes in is what the service receives, and what the service sends
+/// comes out of the other channel.
+struct ChannelTransport {
+    incoming: mpsc::UnboundedReceiver<RxJsonRpcMessage<RoleServer>>,
+    outgoing: mpsc::UnboundedSender<TxJsonRpcMessage<RoleServer>>,
+}
+
+impl Transport<RoleServer> for ChannelTransport {
+    type Error = std::io::Error;
+
+    fn send(
+        &mut self,
+        item: TxJsonRpcMessage<RoleServer>,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send + 'static {
+        let sent = self
+            .outgoing
+            .send(item)
+            .map_err(|_| std::io::Error::other("closed"));
+        async move { sent }
+    }
+
+    async fn receive(&mut self) -> Option<RxJsonRpcMessage<RoleServer>> {
+        self.incoming.recv().await
+    }
+
+    async fn close(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+/// How long one HTTP request may wait for its answer.
+const HTTP_WAIT: Duration = Duration::from_secs(120);
+
+/// What one POSTed JSON-RPC message got.
+pub enum Exchange {
+    /// The JSON-RPC response to a request.
+    Reply(Value),
+    /// A notification or a response from the client: nothing to answer (HTTP 202).
+    Accepted,
+    /// Not a JSON-RPC request, notification or response that this server reads (HTTP 400).
+    Invalid,
+    /// The service did not answer (HTTP 500).
+    Failed,
+}
+
+/// One message of the stateless HTTP transport. A request gets its own service: unless it is `initialize`, the
+/// handshake is played first with the newest protocol, then the request is sent and its response is the answer.
+pub async fn http_exchange(message: Value) -> Exchange {
+    let Value::Object(fields) = &message else {
+        return Exchange::Invalid;
+    };
+    if !fields.contains_key("method") {
+        let answer = fields.contains_key("result") || fields.contains_key("error");
+        return if answer && fields.contains_key("id") {
+            Exchange::Accepted
+        } else {
+            Exchange::Invalid
+        };
+    }
+    let Ok(request) = serde_json::from_value::<RxJsonRpcMessage<RoleServer>>(message.clone())
+    else {
+        return Exchange::Invalid;
+    };
+    let Some(id) = fields.get("id") else {
+        return Exchange::Accepted; // a notification: the service keeps no state between requests
+    };
+    let (to_service, incoming) = mpsc::unbounded_channel();
+    let (outgoing, mut from_service) = mpsc::unbounded_channel();
+    let service = tokio::spawn(async move {
+        if let Ok(running) = Server.serve(ChannelTransport { incoming, outgoing }).await {
+            let _ = running.waiting().await;
+        }
+    });
+    let answer = async {
+        if fields.get("method") != Some(&json!("initialize")) {
+            let hello = json!({"jsonrpc": "2.0", "id": "handshake", "method": "initialize", "params": {
+                "protocolVersion": ProtocolVersion::LATEST_WITH_INITIALIZE,
+                "capabilities": {}, "clientInfo": {"name": "http", "version": "0"}}});
+            to_service.send(serde_json::from_value(hello).ok()?).ok()?;
+            from_service.recv().await?;
+            let ready = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
+            to_service.send(serde_json::from_value(ready).ok()?).ok()?;
+        }
+        to_service.send(request).ok()?;
+        while let Some(out) = from_service.recv().await {
+            let out = serde_json::to_value(out).ok()?;
+            if out.get("id") == Some(id) {
+                return Some(out);
+            }
+        }
+        None
+    };
+    let answer = tokio::time::timeout(HTTP_WAIT, answer).await.ok().flatten();
+    service.abort();
+    answer.map_or(Exchange::Failed, Exchange::Reply)
 }
 
 #[derive(Clone)]

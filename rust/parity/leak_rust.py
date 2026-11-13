@@ -47,6 +47,8 @@ sys.path.insert(0, str(REPO / "tests"))
 import gen_golden
 
 from fakes import jobs_fakes
+from fakes.mcp_server import fake_context
+from gen_context import Fake, srv
 from leak.canaries import PATTERNS, Canaries, forms_of
 
 CONTROL = "00000000-0000-4000-8000-0000000000aa"  # the template's sessionId: metadata the store keeps on purpose
@@ -686,10 +688,129 @@ def mcp(run: Run, checks: list[str], canaries: Canaries) -> None:
     )
 
 
+def mcp_http(run: Run, checks: list[str], canaries: Canaries) -> None:
+    """`mcp --transport http` (T051): every tool variant and the raw protocol lines over real HTTP, then Ctrl-C."""
+    errfile = run.logs / "mcp-http.stderr"
+    proc, errlog = run.popen(SERVER_TIMEOUT, "mcp", "--transport", "http", "--port", "0", err=errfile)
+    kids, n, rc, port = [], 0, None, 0
+    try:
+        kids = children(proc.pid)
+        deadline = time.monotonic() + 20
+        while not port and time.monotonic() < deadline:
+            found = re.search(rb"MCP over HTTP: http://127\.0\.0\.1:(\d+)/mcp\n", errfile.read_bytes())
+            port = int(found[1]) if found else 0
+            time.sleep(0.05)
+        if not port:
+            raise Fatal("mcp http: no start line within 20 s")
+
+        def post(label: str, body: str, host: str | None = None, origin: str | None = None) -> tuple[int, bytes]:
+            headers = {"Host": host or f"127.0.0.1:{port}", "Accept": "application/json, text/event-stream"}
+            if origin:
+                headers["Origin"] = origin
+            status, answer = request(port, "POST", "/mcp", headers, body.encode())
+            run.add(f"mcp http {label}", answer)
+            return status, answer
+
+        init = {"jsonrpc": "2.0", "id": 0, "method": "initialize",
+                "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "leak-rust", "version": "0"}}}  # fmt: skip
+        if post("initialize", json.dumps(init))[0] != 200:
+            raise Fatal("mcp http: initialize was refused")
+        status, answer = post("tools/list", '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+        names = {t["name"] for t in json.loads(answer.split(b"\n\n", 1)[1])["result"]["tools"]}
+        if names - set(MCP_CALLS):
+            raise Fatal(f"unregistered MCP tool(s): {sorted(names - set(MCP_CALLS))}")
+        n = 10
+        for tool, variants in MCP_CALLS.items():
+            for args in variants:
+                n += 1
+                call = {"jsonrpc": "2.0", "id": n, "method": "tools/call", "params": {"name": tool, "arguments": args}}
+                post(f"tools/call {tool} {json.dumps(args)}", json.dumps(call))
+        key = canaries.values["api_key"]
+        for args in ({"summary": key, "fixes": []}, {"summary": "x", "fixes": [{"text": key}]},
+                     {"summary": 7, "fixes": [], "workspace": key}):  # fmt: skip
+            n += 1
+            call = {"jsonrpc": "2.0", "id": n, "method": "tools/call", "params": {"name": "save_report", "arguments": args}}
+            post("tools/call save_report (canary in the text)", json.dumps(call))
+        for label, line in MCP_RAW:
+            post(label, line)
+        # the guard: a rebinding Host and a foreign Origin are refused, a canary in either header is never echoed
+        refused = [post("guard host", MCP_RAW[4][1], host=f"{key}.example:{port}")[0],
+                   post("guard origin", MCP_RAW[4][1], origin=f"http://{key}.example")[0]]  # fmt: skip
+        for method in ("GET", "DELETE"):
+            status, answer = request(port, method, "/mcp", {"Host": f"127.0.0.1:{port}"})
+            run.add(f"mcp http {method}", answer)
+            refused.append(status)
+        if refused != [421, 403, 405, 405]:
+            raise Fatal(f"mcp http: the guard answered {refused}, expected [421, 403, 405, 405]")
+    finally:
+        rc = run.stop("mcp http", proc, kids, signal.SIGINT)
+        errlog.close()
+        run.add("mcp http stdout (after stop)", proc.stdout.read() if proc.stdout else b"")
+        run.add("mcp http stderr", errfile.read_bytes())
+    checks.append(f"check mcp http stopped (SIGINT)    ok (exit {rc}, {n - 10} tool calls, no process left)")
+
+
 # -- the run ---------------------------------------------------------------------------------------------------
 
 
+def context_failures(run: Run, canaries: Canaries, checks: list[str], url_host_port: str, repo: Path) -> None:
+    """T051: canaries in every failure path of the context source: a 500 body, a JSON-RPC error, a tool error text, and a
+    URL with a canary in the user info or the path. Nothing may echo them (stdout, stderr, the store, the data folder)."""
+    key = canaries.values["api_key"]
+    entry = {"root": str(repo), "root_exists": True, "last_index_at": "2026-02-02T03:04:05+00:00"}
+    fakes = {"status 500 body": srv([entry], **{"break": "status500", "canary": key}),
+             "json-rpc error message": srv([entry], **{"break": "rpc_error", "canary": key}),
+             "tool error text": srv([entry], reject_roots=[str(repo)], canary=key)}  # fmt: skip
+    for label, script in fakes.items():
+        fake = Fake(script)
+        fake.thread.start()
+        try:
+            run.env["EASY_PERSONAL_CONTEXT_URL"] = f"http://127.0.0.1:{fake.server_address[1]}/mcp"
+            result = run.ingest(f"ingest context failure ({label})")
+        finally:
+            fake.shutdown()
+            fake.server_close()
+            run.env.pop("EASY_PERSONAL_CONTEXT_URL", None)
+        ok = result.get("context") == {"status": "no data"}
+        checks.append(f"check context {label:<22} is no data  {'ok' if ok else 'FAILED'}")
+    for label, url in {"user info": f"http://{key}@{url_host_port.removeprefix('http://')}/mcp",
+                       "path": f"{url_host_port}/{key}", "query": f"{url_host_port}/mcp?x={key}"}.items():  # fmt: skip
+        try:
+            run.env["EASY_PERSONAL_CONTEXT_URL"] = url
+            result = run.ingest(f"ingest context url with a canary ({label})")
+        finally:
+            run.env.pop("EASY_PERSONAL_CONTEXT_URL", None)
+        ok = result.get("context") == {"status": "no data"}
+        checks.append(f"check context url {label:<10} is no data   {'ok' if ok else 'FAILED'}")
+    run.store_files("store (after the context failures)")
+    run.dump("store .dump (after the context failures)")
+
+
 def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
+    # T051: easy-context's service is a fake on 127.0.0.1 whose index entries carry canaries in fields the source must not keep.
+    key = canaries.values["api_key"]
+    repo = run.root / "plant" / "repo"
+    entry = {"project_id": key, "root": str(repo), "root_exists": True, "files": 3, "slices": 9, "status": "done",
+             "last_index_at": "2026-02-02T03:04:05+00:00", "summary": key, "path": f"/home/{key}", "token": key}  # fmt: skip
+    other = {**entry, "root": f"/elsewhere/{key}", "summary": key}
+    unreadable = {**entry, "root": "/work/leak-demo", "last_index_at": key}  # a known project; the time is not a time
+    with fake_context([entry, other, unreadable]) as (url, calls, roots):
+        run.env["EASY_PERSONAL_CONTEXT_URL"] = url
+        drive_with_service(run, canaries, checks)
+        run.env.pop("EASY_PERSONAL_CONTEXT_URL")
+    conn = sqlite3.connect(run.data / "store.sqlite")
+    try:
+        stored = conn.execute("SELECT project_path, last_index_at_utc FROM context_index").fetchall()
+    finally:
+        conn.close()
+    ok = sorted(stored) == sorted([(str(repo), "2026-02-02T03:04:05+00:00"), ("/work/leak-demo", None)])
+    checks.append(f"check context_index holds root+time  {'ok' if ok else 'FAILED'} ({len(stored)} rows)")
+    ok = bool(calls) and set(calls) == {"list_indexes"} and set(roots) == {str(repo)}
+    checks.append(f"check context service saw 1 read tool {'ok' if ok else 'FAILED'} ({len(calls)} calls)")
+    context_failures(run, canaries, checks, url_host_port=url.rsplit("/", 1)[0], repo=repo)
+
+
+def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
     db = run.data / "store.sqlite"
     empty = run.logs / "empty-source"
     empty.mkdir()
@@ -723,6 +844,7 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     run.run("store-info --json", "store-info", "--json")
     serve(run, checks, canaries.values["api_key"])
     mcp(run, checks, canaries)
+    mcp_http(run, checks, canaries)
     again = run.ingest("ingest #2 (same input again)")
     checks.append(
         f"check ingest #2 adds nothing         {'ok' if again.get('new_events') == 0 else 'FAILED'} ({again.get('new_events')})"

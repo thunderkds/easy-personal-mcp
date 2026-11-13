@@ -23,6 +23,7 @@ use ingest_coexist_common::*;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::fs;
+use std::io::BufRead;
 use std::os::unix::fs::PermissionsExt;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -207,6 +208,62 @@ fn rust_and_rust_at_the_same_instant_on_the_synthetic_set() {
         rust_ingest,
         None,
     );
+}
+
+/// T051: the start-up ingest of `serve` and an `ingest` command started at one barrier take the same lock: one writes
+/// everything, the other finds nothing new, and the store ends equal to one clean run (the S01 tables). The `serve`
+/// is stopped once it printed its dashboard line (its ingest is done by then).
+#[test]
+fn a_start_up_ingest_and_an_ingest_at_the_same_instant_leave_one_clean_store() {
+    assert_cwds_are_gone();
+    let g = golden("S01_cold_committed.json");
+    let want = golden_tables(&g["runs"][0]);
+    let total = g["runs"][0]["stdout_json"]["new_events"].as_i64().unwrap();
+    for i in 0..8 {
+        let case = s01_case();
+        let dir = case.root.join(format!("barrier-startup-{i}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let step = LADDER[i % LADDER.len()];
+        let delays = if i % 2 == 0 { (0, step) } else { (step, 0) };
+        let mut serve =
+            Spec::rust(&case, &["serve"]).spawn_at(&dir, Duration::from_millis(delays.0));
+        let ingest = rust_ingest(&case).spawn_at(&dir, Duration::from_millis(delays.1));
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while std::fs::read_dir(&dir).unwrap().count() < 2 {
+            assert!(
+                Instant::now() < deadline,
+                "the two children never reached the barrier"
+            );
+            sleep(Duration::from_millis(1));
+        }
+        std::fs::write(dir.join("go"), b"").unwrap();
+        let out = ingest.wait(LIMIT);
+        let what = format!("startup||ingest #{i}");
+        assert_eq!(out.code, Some(0), "{what}: {}", out.stderr);
+        assert_eq!(out.stderr, "", "{what}: stderr of the ingest");
+        assert!(
+            [0, total].contains(&out.new_events()),
+            "{what}: new_events {}",
+            out.new_events()
+        );
+        // The server starts whatever happened: its dashboard line comes, and by then its own ingest is over.
+        let stdout = serve.child.stdout.take().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut line = String::new();
+            let _ = std::io::BufReader::new(stdout).read_line(&mut line);
+            let _ = tx.send(line);
+        });
+        let line = rx
+            .recv_timeout(LIMIT)
+            .expect("serve printed its first line");
+        assert!(
+            line.starts_with("dashboard: http://127.0.0.1:"),
+            "{what}: {line}"
+        );
+        serve.kill();
+        assert_same(&checked_dump(&case, &what), &want, &what);
+    }
 }
 
 #[test]

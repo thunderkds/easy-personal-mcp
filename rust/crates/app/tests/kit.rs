@@ -77,6 +77,7 @@ impl Server {
         let home = Home::new();
         let mut child = home
             .command("serve")
+            .arg("--no-ingest")
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()

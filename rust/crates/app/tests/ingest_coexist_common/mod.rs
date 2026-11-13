@@ -623,7 +623,7 @@ pub struct Serve {
 
 impl Serve {
     pub fn start(case: &Case) -> Serve {
-        let mut proc = Spec::rust(case, &["serve"]).spawn();
+        let mut proc = Spec::rust(case, &["serve", "--no-ingest"]).spawn();
         let lines = lines_of(proc.child.stdout.take().unwrap());
         let first = lines
             .recv_timeout(Duration::from_secs(30))
