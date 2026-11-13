@@ -218,7 +218,7 @@ SIGINT or SIGTERM stops the server and exits 0, and no WebKit process is left be
   the guard with the token (else exits 3 after 20 s), closes the window, then makes the **live check** (T057): the live feed was
   given to the server and its thread runs, and `GET /api/live?token=<token>` (the request the page's `EventSource` makes) answers
   `200 text/event-stream` with a first `snapshot` whose data has exactly `active_window_s`, `last_id`, `open_call_minutes` and
-  `sessions` (5 s limit). It then prints `self-test: live snapshot ok` and `self-test: ok` and exits 0; a failed check prints
+  `sessions` (about 5 s limit; a server that drips bytes can stretch it to about 10 s). It then prints `self-test: live snapshot ok` and `self-test: ok` and exits 0; a failed check prints
   `easy-personal-rs: self-test: live check: <reason>` (never the token) and exits 3. The same check runs without a display in
   `server.rs`'s unit tests (on `server::start` with a feed, and refused with no feed or a wrong token); the window test
   `the_self_test_reads_the_first_live_snapshot_with_the_token_in_the_query` runs when `DISPLAY` or `WAYLAND_DISPLAY` is set and
