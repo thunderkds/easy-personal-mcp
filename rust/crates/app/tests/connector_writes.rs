@@ -15,6 +15,7 @@ use std::time::Duration;
 
 const CSP: &str = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'";
 const SECRET: &str = "xoxb-PLANTED-t050-writes";
+const NO_BACKEND: &str = "no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext";
 const ACME: [&str; 2] = [
     "INSERT INTO connectors VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
     "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
@@ -98,6 +99,11 @@ impl World {
     }
 
     fn serve(&self, extra: &[(&str, &str)]) -> Server {
+        self.serve_with(extra, true)
+    }
+
+    /// `fake_keychain` false: the real Secret Service backend, which finds no session bus (a dead address).
+    fn serve_with(&self, extra: &[(&str, &str)], fake_keychain: bool) -> Server {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"));
         cmd.args(["serve", "--no-ingest"])
             .env_clear()
@@ -121,6 +127,9 @@ impl World {
             .stderr(Stdio::piped());
         for (k, v) in extra {
             cmd.env(k, v);
+        }
+        if !fake_keychain {
+            cmd.env_remove("EASY_PERSONAL_TEST_KEYCHAIN");
         }
         Server::start(cmd.spawn().unwrap())
     }
@@ -537,4 +546,41 @@ fn a_hostile_connector_name_reaches_neither_the_keychain_nor_claude() {
         std::fs::read_to_string(world.keychain()).unwrap(),
         json!({"easy-personal/slack": "{}"}).to_string()
     );
+}
+
+/// The real backend (`keyring` over `zbus`, which blocks on its own runtime) is called from inside the server's tokio
+/// runtime: it must answer the fixed text, never panic ("cannot start a runtime from within a runtime") or hang. The bus
+/// address leads nowhere, so no real keychain is reached.
+#[test]
+fn the_real_backend_inside_the_server_refuses_cleanly_with_no_session_bus() {
+    let world = World::new(&ACME);
+    let server = world.serve_with(&[], false);
+    let host = format!("127.0.0.1:{}", server.port);
+    let body = json!({"provider": "slack", "workspace": "acme", "values": {"SLACK_MCP_XOXB_TOKEN": SECRET}, "confirm": true});
+    let got = server.json("POST", "/api/connectors", &body);
+    assert_eq!(got.status, 200, "{}", got.body);
+    assert_eq!(
+        got.json()["lines"][0].as_str().unwrap_or(""),
+        NO_BACKEND,
+        "{}",
+        got.body
+    );
+    let legacy = server.raw(
+        "GET",
+        "/api/connectors/legacy",
+        &[("Host", &host), ("x-dashboard-token", &server.token)],
+        b"",
+    );
+    assert_eq!(
+        (legacy.status, legacy.json()),
+        (503, json!({"error": NO_BACKEND}))
+    );
+    let removed = server.json(
+        "DELETE",
+        "/api/connectors/slack-acme",
+        &json!({"confirm": true}),
+    );
+    assert_eq!(removed.status, 200, "{}", removed.body);
+    let logs = server.stop();
+    assert!(!logs.contains("panicked"), "{logs}");
 }

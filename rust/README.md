@@ -184,8 +184,8 @@ it. Their names, descriptions and schemas equal Python's `tools/list` golden.
 ## Window (`app`, Ubuntu only so far)
 
 The window is behind the Cargo feature `window`, **off by default**: a plain `cargo build` compiles no Tauri, GTK or WebKit crate
-and links only libc and (since T050, the keychain) `libdbus-1`, so `store-info`, `serve` and `mcp` run on a machine with no display and no desktop libraries
-(they do need `libdbus-1-3` at load time). `cargo build
+and links only libc, so `store-info`, `serve` and `mcp` run on a machine with no display and no desktop libraries (the T050 keychain
+talks D-Bus in pure Rust). `cargo build
 --features window` adds Tauri `=2.12.5` (`tauri-build =2.7.4`); building it needs the Ubuntu packages of `docs/spike-T001.md`
 (`libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`), and
 running it needs `libwebkit2gtk-4.1-0` and `libgtk-3-0t64`. A feature build links those libraries dynamically, so it needs them
@@ -879,10 +879,12 @@ sync apply and the adoption of pre-workspace connectors. Oracle: `parity/gen_con
 cannot answer are in `tests/connector_writes.rs`, `tests/launcher.rs` and the unit tests of `keychain.rs`, `claude_cli.rs`, `sync_apply.rs`.
 
 **Dependency (Step 0).** One crate, owner gate passed 2026-11-13 (`docs/T050_CRATE_OPTIONS.md`, option A), app crate only:
-`keyring = { version = "=3.6.3", default-features = false, features = ["sync-secret-service", "crypto-rust"] }`. 74 new lock entries, all
-MIT / Apache-2.0 / BSD (the record is in `tasks/TASK_REVIEW_T050.md`); 28 new packages in the default build. With these features the
-compiled path is `dbus-secret-service` over the C library `libdbus-1` (Ubuntu: `libdbus-1-3` at run time, `libdbus-1-dev` to build); the
-`zbus` crates are in the lock only. No other crate; the `claude` calls use `std::process::Command`.
+`keyring = { version = "=3.6.3", default-features = false, features = ["async-secret-service", "tokio", "crypto-rust"] }` (Supervisor,
+after the first measurement with `sync-secret-service` showed a `libdbus-1` link). 76 new lock entries against `main`, all MIT /
+Apache-2.0 / BSD (the record is in `tasks/TASK_REVIEW_T050.md`); the default build has 175 packages (104 before). D-Bus is pure-Rust
+`zbus`: `ldd` of both binaries shows only libc, libm, libgcc_s and the loader. `zbus` blocks on a private tokio runtime of its own, which
+panics on a thread inside a runtime, so every real-backend call runs on a fresh plain thread (`keychain::off_runtime`; the routes already
+run on the blocking pool, and the launcher has no runtime). No other crate; the `claude` calls use `std::process::Command`.
 
 **Keychain** (`crates/app/src/keychain.rs`, behind the `Keychain` trait). One item per connector: service `easy-personal/<name>`, user
 `connector`, secret = `{"command": [...], "env": {...}, "headers": {...}}` written byte for byte as Python's `json.dumps` writes it, so Python
@@ -938,8 +940,9 @@ must map field names to strings`, `unknown connector`, `account must be an accou
    (`cargo build --release`) ignores it. The alternative (a Cargo feature) was a dependency-rule change.
 3. **`headers` output is in key order** (`serde_json` without `preserve_order`; Python keeps the stored order). Python's own writes always store
    `headers: {}`; only an item written by hand with two or more headers shows a different order.
-4. **One failure stops the whole sync run**, as Python's `sync.apply` does (the guide's "one account failing does not stop the others" is
-   not what Python does; a *skipped* account, e.g. a missing folder, does not stop the others).
+4. **One failure stops the whole sync run**, as Python's `sync.apply` does; a *skipped* account (e.g. a missing folder) does not stop the
+   others. The guide's AC6 wording ("one account failing does not stop the others") differs; the oracle wins, and that AC6 sentence is
+   superseded (Supervisor, 2026-11-13).
 5. **The launcher-not-found text is Python's** (`cannot find easy-personal-launch; reinstall easy-personal (uv tool install) so it is on
    disk`), kept for parity although `uv` does not install the Rust build.
 6. **`GET /api/sync` asks `claude`** when it is on `PATH`, as Python does; it still detects no accounts and writes nothing.
@@ -950,9 +953,7 @@ must map field names to strings`, `unknown connector`, `account must be an accou
 9. `POST`/`DELETE` on `/api/connectors/legacy` follow Python's routing: `DELETE` is the remove route (`404 unknown connector`).
 10. The account folder in an account row is used as it is (no "outside its root" or symlink refusal): Python refuses neither. It only ever
     reaches `claude` as the value of `CLAUDE_CONFIG_DIR` (a test proves a folder named with `$(...)` and backticks runs nothing).
-11. **Both binaries now load `libdbus-1.so.3`** (and `libsystemd.so.0` through it): the approved feature `sync-secret-service` is
-    `dbus-secret-service` over the C `libdbus-1`, not the pure-Rust `zbus` path the options file described (that path is the
-    `async-secret-service` feature, a different gate). Ubuntu installs `libdbus-1-3` by default.
+11. (Superseded by the Supervisor, 2026-11-13: the feature set is now `async-secret-service` + `tokio`; no `libdbus-1` link.)
 
 Not built (cut list): the `connector ...` and `doctor` CLI commands (T060), macOS and Windows keychains, retries, a new catalog entry,
 `configured` in `GET /api/connectors` (T046 read side unchanged).

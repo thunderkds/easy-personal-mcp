@@ -1,5 +1,7 @@
 # T050: crate options for the keychain and the launcher
 
+> **Correction (2026-11-13):** A's first measurement used `sync-secret-service`, which links `libdbus-1`; the chosen feature set is `async-secret-service` + `tokio` (pure-Rust `zbus`, only libc linked).
+
 **Date**: 2026-11-13
 **For**: the owner's gate on T050 (crate choice and licences). No crate is added by this file.
 **Status**: options only. Nothing in `rust/Cargo.toml` or `rust/Cargo.lock` changed.

@@ -194,7 +194,19 @@ pub fn system() -> Box<dyn Keychain> {
 }
 
 /// The Linux Secret Service through `keyring` (Python's `SecretService` backend reads and writes the same items).
+/// `keyring`'s `async-secret-service` + `tokio` features talk D-Bus with pure-Rust `zbus`, which blocks on a private
+/// tokio runtime of its own; so every call runs through [`off_runtime`].
 pub struct SecretService;
+
+/// Runs `f` on a new plain thread, which has no tokio runtime context. A `block_on` inside `f` (the real backend's) then
+/// works wherever the caller is: an async worker of the server (where it would panic), a blocking-pool thread, or the
+/// launcher, which has no runtime. A panic in `f` is passed on to the caller.
+pub fn off_runtime<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+    std::thread::scope(|scope| match scope.spawn(f).join() {
+        Ok(value) => value,
+        Err(panic) => std::panic::resume_unwind(panic),
+    })
+}
 
 #[cfg(target_os = "linux")]
 impl SecretService {
@@ -208,30 +220,34 @@ impl Keychain for SecretService {
     /// Python asks the backend's priority, which connects to the service; here a read of an item no connector can have
     /// (its name breaks the name rule) does the same: it answers, found or not, only when the service is there.
     fn usable(&self) -> bool {
-        Self::entry("easy-personal/.probe")
-            .map(|e| matches!(e.get_password(), Ok(_) | Err(keyring::Error::NoEntry)))
-            .unwrap_or(false)
+        off_runtime(|| {
+            Self::entry("easy-personal/.probe")
+                .map(|e| matches!(e.get_password(), Ok(_) | Err(keyring::Error::NoEntry)))
+                .unwrap_or(false)
+        })
     }
 
     fn get(&self, service: &str) -> Result<Option<String>, Failed> {
-        match Self::entry(service)?.get_password() {
+        off_runtime(|| match Self::entry(service)?.get_password() {
             Ok(secret) => Ok(Some(secret)),
             Err(keyring::Error::NoEntry) => Ok(None),
             Err(_) => Err(Failed),
-        }
+        })
     }
 
     fn set(&self, service: &str, secret: &str) -> Result<(), Failed> {
-        Self::entry(service)?
-            .set_password(secret)
-            .map_err(|_| Failed)
+        off_runtime(|| {
+            Self::entry(service)?
+                .set_password(secret)
+                .map_err(|_| Failed)
+        })
     }
 
     fn delete(&self, service: &str) -> Result<(), Failed> {
-        match Self::entry(service)?.delete_credential() {
+        off_runtime(|| match Self::entry(service)?.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
             Err(_) => Err(Failed),
-        }
+        })
     }
 }
 
@@ -321,6 +337,46 @@ mod tests {
 
     fn s(v: &str) -> String {
         v.to_string()
+    }
+
+    /// The real backend blocks on its own tokio runtime (`zbus` with the `tokio` feature): called on a thread that is
+    /// inside a runtime, that `block_on` panics. `off_runtime` runs it on a plain thread with no runtime context, from an
+    /// async worker, a blocking-pool thread or a thread with no runtime (the launcher).
+    #[test]
+    fn the_real_backend_wrapper_runs_off_any_tokio_runtime() {
+        let nested = || {
+            assert!(
+                tokio::runtime::Handle::try_current().is_err(),
+                "a runtime context is visible"
+            );
+            tokio::runtime::Builder::new_current_thread()
+                .build()
+                .unwrap()
+                .block_on(async { 7 })
+        };
+        assert_eq!(off_runtime(nested), 7, "no runtime at all (the launcher)");
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .build()
+            .unwrap();
+        assert_eq!(
+            rt.block_on(async { off_runtime(nested) }),
+            7,
+            "on an async worker"
+        );
+        let blocking = rt.block_on(async {
+            tokio::task::spawn_blocking(move || off_runtime(nested))
+                .await
+                .unwrap()
+        });
+        assert_eq!(blocking, 7, "on a blocking-pool thread");
+        // control: the same call on the async worker itself panics
+        let direct = rt.block_on(async {
+            tokio::spawn(async move { std::panic::catch_unwind(nested).is_err() })
+                .await
+                .unwrap()
+        });
+        assert!(direct, "the control did not panic: the test proves nothing");
     }
 
     #[test]

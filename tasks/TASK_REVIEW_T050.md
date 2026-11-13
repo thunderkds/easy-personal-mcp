@@ -155,6 +155,49 @@ ls: cannot access 'target/debug/easy-personal-launch': No such file or directory
 (no [[bin]] section; exit 1)
 ```
 
+**Step 0 addendum** (Supervisor decision 2026-11-13: the pure-Rust backend; captured 2026-11-13T16:31Z..16:40Z on branch T050 at `7b546ea`).
+The first measurement above used `sync-secret-service`, which is `dbus-secret-service` over the C `libdbus-1` (both binaries loaded
+`libdbus-1.so.3` and `libsystemd.so.0`). The allowed change is now exactly:
+
+```
+keyring = { version = "=3.6.3", default-features = false, features = ["async-secret-service", "tokio", "crypto-rust"] }
+```
+
+```
+$ cargo build
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.75s
+$ grep -c '^name = ' Cargo.lock        # main (983f7b1): 462
+538                                    # 76 new lock entries against main (70..90), 0 removed
+$ git diff --stat 7b546ea -- rust/Cargo.lock
+ rust/Cargo.lock | 34 ++++++++++++++++++++++++++++++++++   # + async-executor 1.14.1, async-fs 2.2.0 against the first change
+$ cargo tree -p easy-personal-rs -e normal --prefix none | sort -u | wc -l
+175                                    # main: 104
+$ cargo tree -p keyring -e normal --depth 1
+keyring v3.6.3
+├── log v0.4.35
+├── secret-service v4.0.0
+└── zbus v4.4.0
+$ ldd target/debug/easy-personal-rs
+linux-vdso.so.1 (0x00007f35e3833000)
+	libgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f35e1dbb000)
+	libm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007f35e1c95000)
+	libc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007f35e1a00000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f35e3835000)
+$ ldd target/debug/easy-personal-launch
+linux-vdso.so.1 (0x0000754458c93000)
+	libgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x0000754458c46000)
+	libm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007544582da000)
+	libc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x0000754458000000)
+	/lib64/ld-linux-x86-64.so.2 (0x0000754458c95000)
+```
+
+New lock entries against main, with licence (`cargo metadata --locked`); every one has MIT or Apache-2.0 or BSD in its expression, no
+other licence: aes 0.8.4 MIT OR Apache-2.0 · async-broadcast 0.7.2 MIT OR Apache-2.0 · async-channel 2.5.0 Apache-2.0 OR MIT · async-executor 1.14.1 Apache-2.0 OR MIT · async-fs 2.2.0 Apache-2.0 OR MIT · async-io 2.6.0 Apache-2.0 OR MIT · async-lock 3.5.0 Apache-2.0 OR MIT · async-process 2.5.0 Apache-2.0 OR MIT · async-recursion 1.2.0 MIT OR Apache-2.0 · async-signal 0.2.14 Apache-2.0 OR MIT · async-task 4.7.1 Apache-2.0 OR MIT · async-trait 0.1.92 MIT OR Apache-2.0 · block-padding 0.3.3 MIT OR Apache-2.0 · blocking 1.7.0 Apache-2.0 OR MIT · cbc 0.1.2 MIT OR Apache-2.0 · cfg_aliases 0.2.2 MIT · cipher 0.4.4 MIT OR Apache-2.0 · concurrent-queue 2.5.0 Apache-2.0 OR MIT · dbus-secret-service 4.1.0 MIT OR Apache-2.0 · endi 1.1.1 MIT · enumflags2 0.7.12 MIT OR Apache-2.0 · enumflags2_derive 0.7.12 MIT OR Apache-2.0 · event-listener 5.4.2 Apache-2.0 OR MIT · event-listener-strategy 0.5.4 Apache-2.0 OR MIT · futures-lite 2.6.1 Apache-2.0 OR MIT · getrandom 0.2.17 MIT OR Apache-2.0 · hermit-abi 0.5.3 MIT OR Apache-2.0 · hkdf 0.12.4 MIT OR Apache-2.0 · hmac 0.12.1 MIT OR Apache-2.0 · inout 0.1.4 MIT OR Apache-2.0 · keyring 3.6.3 MIT OR Apache-2.0 · linux-raw-sys 0.12.1 Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT · nix 0.29.0 MIT · num 0.4.3 MIT OR Apache-2.0 · num-bigint 0.4.8 MIT OR Apache-2.0 · num-complex 0.4.6 MIT OR Apache-2.0 · num-integer 0.1.47 MIT OR Apache-2.0 · num-iter 0.1.46 MIT OR Apache-2.0 · num-rational 0.4.2 MIT OR Apache-2.0 · ordered-stream 0.2.0 MIT OR Apache-2.0 · parking 2.2.1 Apache-2.0 OR MIT · piper 0.2.5 MIT OR Apache-2.0 · polling 3.11.0 Apache-2.0 OR MIT · ppv-lite86 0.2.21 MIT OR Apache-2.0 · rand 0.8.8 MIT OR Apache-2.0 · rand_chacha 0.3.1 MIT OR Apache-2.0 · rand_core 0.6.4 MIT OR Apache-2.0 · rustix 1.1.6 Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT · secret-service 4.0.0 MIT OR Apache-2.0 · sha1 0.10.7 MIT OR Apache-2.0 · static_assertions 1.1.0 MIT OR Apache-2.0 · subtle 2.6.1 BSD-3-Clause · tempfile 3.27.0 MIT OR Apache-2.0 · uds_windows 1.2.1 MIT · windows-sys 0.52.0 MIT OR Apache-2.0 · windows-sys 0.59.0 MIT OR Apache-2.0 · windows-targets 0.52.6 MIT OR Apache-2.0 · windows_aarch64_gnullvm 0.52.6 MIT OR Apache-2.0 · windows_aarch64_msvc 0.52.6 MIT OR Apache-2.0 · windows_i686_gnu 0.52.6 MIT OR Apache-2.0 · windows_i686_gnullvm 0.52.6 MIT OR Apache-2.0 · windows_i686_msvc 0.52.6 MIT OR Apache-2.0 · windows_x86_64_gnu 0.52.6 MIT OR Apache-2.0 · windows_x86_64_gnullvm 0.52.6 MIT OR Apache-2.0 · windows_x86_64_msvc 0.52.6 MIT OR Apache-2.0 · xdg-home 1.3.0 MIT · zbus 4.4.0 MIT · zbus_macros 4.4.0 MIT · zbus_names 3.0.0 MIT · zerocopy 0.8.63 BSD-2-Clause OR Apache-2.0 OR MIT · zerocopy-derive 0.8.63 BSD-2-Clause OR Apache-2.0 OR MIT · zeroize 1.9.1 Apache-2.0 OR MIT · zeroize_derive 1.5.0 Apache-2.0 OR MIT · zvariant 4.2.0 MIT · zvariant_derive 4.2.0 MIT · zvariant_utils 2.1.0 MIT.
+
+Stop-rule check: 76 new (in 70..90), every licence permissive, no system library, no other crate or feature. **No stop condition holds.**
+`zbus` (feature `tokio`) blocks on a private runtime of its own; every real-backend call now runs on a plain thread
+(`keychain::off_runtime`, unit test `the_real_backend_wrapper_runs_off_any_tokio_runtime`).
+
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
 **DELTA**: [one sentence — what a user can now do that they could not before]

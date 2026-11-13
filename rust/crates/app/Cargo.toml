@@ -6,7 +6,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 # Off by default: `cargo build` links no Tauri, GTK or WebKit crate, so `serve`, `mcp` and `store-info` need no display
-# and no desktop library (since T050 the keychain links the system's `libdbus-1`). `--features window` adds the `app` window (needs the packages listed in spike-T001.md).
+# and no system library (the T050 keychain talks D-Bus in pure Rust: `keyring`'s `async-secret-service` over `zbus`). `--features window` adds the `app` window (needs the packages listed in spike-T001.md).
 [features]
 window = ["dep:tauri", "dep:tauri-build"]
 
@@ -30,7 +30,7 @@ rmcp.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
 futures-core = "=0.3.34"
-keyring = { version = "=3.6.3", default-features = false, features = ["sync-secret-service", "crypto-rust"] }
+keyring = { version = "=3.6.3", default-features = false, features = ["async-secret-service", "tokio", "crypto-rust"] }
 tauri = { workspace = true, optional = true }
 
 [build-dependencies]
