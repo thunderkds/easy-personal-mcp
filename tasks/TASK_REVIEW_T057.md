@@ -61,8 +61,64 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Step 0, implementing agent, branch `T057` at `c245d89`, no implementation commit):
+
+**Step 0 finding: Python has no live kit-trace feed. The stop rule applies; no code was written.**
+
+- Which file produces kit-trace data in Python: only `src/easy_personal/sources/kit_trace.py`, a
+  scheduled-ingest source (`ingest(conn)`, called from `surfaces/cli.py:168` in `easy-personal ingest`).
+  It reads `<project>/memory/event-trace/*.jsonl` and **stores** rows in `kit_trace_events`
+  (`kit_task_id` from the file name, `ts_utc`, `tool_name`, `is_error`, `abstained`; never `summary`).
+- Which route or page shows it: the stored rows feed `core/kit.py` (`kit_summary`, `GET /api/kit`,
+  the Kit page). That is history from the store, not a live feed.
+- The live tail (`core/live.py`), the stream (`surfaces/api.py` `live_stream`) and the Live tab
+  (`web/src/LiveView.jsx`) never read a trace file: 0 matches for `kit_trace` / `event-trace` below.
+  The only kit item in the live stream is the **kit stage** (FR-083: `stage`, `stage_skill` from
+  `STAGE_MAP`, worked out from `Skill` calls in transcripts). The Rust T049 engine already has it
+  (`rust/crates/core/src/live.rs:72` `stage_of`, `:821` snapshot keys) and T056 streams it.
+- App wiring is already in code since T056: `window.rs:136` starts `LiveFeed::system()`, `:140`
+  passes it to `server::start`, `running.stop()` joins it; the page opens
+  `/api/live?token=...` (`LiveView.jsx:302`), which is T056's query-token carve-out.
+
+```
+2026-11-13T08:19:29Z
+c245d89 T056 merged: board row, guides T056/T057, memory decision
+$ grep -rln kit_trace src web/src
+src/easy_personal/core/kit.py
+src/easy_personal/core/migrations/m0001_baseline.py
+src/easy_personal/core/store.py
+src/easy_personal/sources/kit_trace.py
+src/easy_personal/sources/verifier.py
+src/easy_personal/surfaces/cli.py
+$ grep -n -i "kit_trace\|event-trace" src/easy_personal/core/live.py src/easy_personal/surfaces/api.py web/src/LiveView.jsx
+(no match)
+$ grep -n "STAGE_MAP = \|\"stage\": s.stage" src/easy_personal/core/live.py
+66:STAGE_MAP = {
+387:                        "stage": s.stage,
+$ grep -n "fn stage_of\|\"stage\": s.stage" rust/crates/core/src/live.rs
+72:fn stage_of(skill: &str) -> Option<&'static str> {
+821:                    "attention": attention, "stage": s.stage, "stage_skill": s.stage_skill,
+$ grep -n "LiveFeed::system\|server::start" rust/crates/app/src/window.rs
+136:        let feed = match LiveFeed::system() {
+140:        let running = match server::start(Some(&root), Some(feed)) {
+$ grep -n "new EventSource" web/src/LiveView.jsx
+302:    const source = new EventSource(`/api/live?token=${encodeURIComponent(readToken())}`)
+```
+
+Supervisor narrowed T057 after Step 0 to AC 3 (self-test), AC 6 (regression) and AC 8 (docs). BEFORE of the self-test
+(window build under WSLg, temp `HOME`, before any code change): it passes on one `/api/version` call and never opens `/api/live`.
+
+```
+2026-11-13T08:31:39Z
+5493d24 T057: Step 0 recorded (Python has no live kit-trace feed; stop rule applies)
+$ HOME=<temp> EASY_PERSONAL_HOME=<temp> target/debug/easy-personal-rs app --self-test --static-dir crates/app/tests/fixtures/self-test
+easy-personal-rs: window open on http://127.0.0.1:34091/
+self-test: ok
+easy-personal-rs: window closed
+exit=0
+$ grep -n "api/live\|snapshot" crates/app/src/window.rs
+(no match: the self-test never opens /api/live)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

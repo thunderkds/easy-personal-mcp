@@ -132,6 +132,11 @@ impl LiveFeed {
         Arc::clone(&self.tail)
     }
 
+    /// True while the poll thread runs (the self-test's live check, T057).
+    pub(crate) fn is_running(&self) -> bool {
+        self.thread.as_ref().is_some_and(|t| !t.is_finished())
+    }
+
     /// Ends the thread and joins it. A step still running after [`STOP_WAIT`] is left behind (false), as Python's
     /// `join(timeout=10)` does.
     pub fn stop(mut self) -> bool {
@@ -384,6 +389,125 @@ fn sse(event: &str, data: &Value, id: Option<i64>) -> Vec<u8> {
     format!("event: {event}\n{id}data: {data}\n\n").into_bytes()
 }
 
+/// How long the self-test's live check waits for the first `snapshot`.
+const CHECK_LIMIT: Duration = Duration::from_secs(5);
+/// The most bytes the live check reads before it gives up.
+const CHECK_MAX_BYTES: usize = 1 << 20;
+
+/// The live check of `app --self-test` (T057): `GET /api/live?token=<token>` on `127.0.0.1:<port>`, the request the
+/// page's `EventSource` makes, then the first message must be a `snapshot` whose data has exactly the snapshot keys.
+/// Returns that data. No error text holds the token.
+pub(crate) fn read_first_snapshot(port: u16, token: &str) -> Result<Value, String> {
+    use std::io::{Read, Write};
+    let too_slow = || format!("no snapshot within {} s", CHECK_LIMIT.as_secs());
+    let mut stream = std::net::TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, port))
+        .map_err(|_| "cannot connect to the server".to_string())?;
+    stream
+        .set_read_timeout(Some(CHECK_LIMIT))
+        .map_err(|_| too_slow())?;
+    let request = format!(
+        "GET {LIVE_PATH}?token={token} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAccept: text/event-stream\r\n\r\n"
+    );
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|_| "cannot send the request".to_string())?;
+    let deadline = Instant::now() + CHECK_LIMIT;
+    let (mut raw, mut buf) = (Vec::new(), [0u8; 4096]);
+    loop {
+        if let Some(data) = first_snapshot(&raw)? {
+            return Ok(data);
+        }
+        if Instant::now() >= deadline || raw.len() > CHECK_MAX_BYTES {
+            return Err(too_slow());
+        }
+        match stream.read(&mut buf) {
+            Ok(0) => return Err("the stream ended before a snapshot".into()),
+            Ok(n) => raw.extend_from_slice(&buf[..n]),
+            Err(_) => return Err(too_slow()),
+        }
+    }
+}
+
+/// The data of the first SSE message in the response bytes read so far; `None` while it is incomplete.
+fn first_snapshot(raw: &[u8]) -> Result<Option<Value>, String> {
+    let Some(end) = find(raw, b"\r\n\r\n") else {
+        return Ok(None);
+    };
+    let head = String::from_utf8_lossy(&raw[..end]).to_ascii_lowercase();
+    let code = head.split(' ').nth(1).unwrap_or("");
+    if code != "200" {
+        return Err(format!("GET {LIVE_PATH} answered {}", plain_code(code)));
+    }
+    let has = |line: &str| head.split("\r\n").any(|l| l.trim() == line);
+    if !has("content-type: text/event-stream") {
+        return Err(format!("GET {LIVE_PATH} is not an event stream"));
+    }
+    let body = &raw[end + 4..];
+    let body = if has("transfer-encoding: chunked") {
+        dechunk(body)
+    } else {
+        body.to_vec()
+    };
+    let Some(end) = find(&body, b"\n\n") else {
+        return Ok(None);
+    };
+    let message = String::from_utf8_lossy(&body[..end]);
+    let mut lines = message.lines();
+    if lines.next() != Some("event: snapshot") {
+        return Err("the first message is not a snapshot".into());
+    }
+    let data = lines
+        .next()
+        .and_then(|l| l.strip_prefix("data: "))
+        .and_then(|d| serde_json::from_str::<Value>(d).ok())
+        .ok_or("the snapshot has no JSON data")?;
+    let keys: Vec<&str> = data
+        .as_object()
+        .map(|o| o.keys().map(String::as_str).collect())
+        .unwrap_or_default();
+    if keys
+        != [
+            "active_window_s",
+            "last_id",
+            "open_call_minutes",
+            "sessions",
+        ]
+        || !data["sessions"].is_array()
+    {
+        return Err("the snapshot does not have the snapshot keys".into());
+    }
+    Ok(Some(data))
+}
+
+/// The payload of a chunked body read so far (a cut last chunk gives its first part).
+fn dechunk(mut body: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    while let Some(eol) = find(body, b"\r\n") {
+        let size = String::from_utf8_lossy(&body[..eol]);
+        let Ok(size) = usize::from_str_radix(size.split(';').next().unwrap_or("").trim(), 16)
+        else {
+            break;
+        };
+        let start = eol + 2;
+        let stop = start.saturating_add(size).min(body.len());
+        out.extend_from_slice(&body[start.min(stop)..stop]);
+        if size == 0 || stop < start.saturating_add(size) {
+            break;
+        }
+        body = &body[(stop + 2).min(body.len())..];
+    }
+    out
+}
+
+fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// A status code as at most three digits, so an odd answer cannot put text in the error.
+fn plain_code(code: &str) -> String {
+    code.chars().filter(char::is_ascii_digit).take(3).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,6 +520,55 @@ mod tests {
 
     fn prices() -> PriceTable {
         PriceTable::shipped().unwrap()
+    }
+
+    /// T057: what the self-test's live check accepts and refuses, from the response bytes alone.
+    #[test]
+    fn the_live_check_reads_a_chunked_first_snapshot_and_refuses_everything_else() {
+        let head = "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ntransfer-encoding: chunked\r\n\r\n";
+        let message = sse("snapshot", &snapshot_data(&empty_snapshot()), None);
+        let chunk = format!(
+            "{:x}\r\n{}\r\n",
+            message.len(),
+            String::from_utf8_lossy(&message)
+        );
+        let whole = format!("{head}{chunk}");
+        let data = first_snapshot(whole.as_bytes()).unwrap().unwrap();
+        assert_eq!(data, snapshot_data(&empty_snapshot()));
+        // Cut anywhere before the message's end: not yet, never an error.
+        for cut in 0..whole.len() - 2 {
+            assert_eq!(
+                first_snapshot(&whole.as_bytes()[..cut]),
+                Ok(None),
+                "cut {cut}"
+            );
+        }
+        let refused = |raw: &str| first_snapshot(raw.as_bytes()).unwrap_err();
+        assert_eq!(
+            refused("HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n"),
+            "GET /api/live answered 404"
+        );
+        assert_eq!(
+            refused("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\r\n{}"),
+            "GET /api/live is not an event stream"
+        );
+        let plain = "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\n\r\n";
+        assert_eq!(
+            refused(&format!("{plain}event: live\nid: 1\ndata: {{}}\n\n")),
+            "the first message is not a snapshot"
+        );
+        assert_eq!(
+            refused(&format!("{plain}event: snapshot\ndata: nope\n\n")),
+            "the snapshot has no JSON data"
+        );
+        assert_eq!(
+            refused(&format!(
+                "{plain}event: snapshot\ndata: {{\"last_id\":0,\"sessions\":[],\"text\":\"x\"}}\n\n"
+            )),
+            "the snapshot does not have the snapshot keys"
+        );
+        assert_eq!(dechunk(b"ffffffffffffffffffff\r\nab"), b"");
+        assert_eq!(dechunk(b"ffffffffffffffff\r\nab"), b"ab");
     }
 
     struct Temp(PathBuf);
