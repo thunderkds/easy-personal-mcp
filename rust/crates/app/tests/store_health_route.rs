@@ -288,7 +288,9 @@ fn the_route_writes_nothing_and_names_no_folder() {
     let before = snapshot(&server.home);
     let mut texts = String::new();
     for _ in 0..2 {
-        texts += &server.get(URL).text();
+        let response = server.get(URL);
+        assert_eq!(response.status, 200);
+        texts += &response.text();
     }
     assert!(
         before == snapshot(&server.home),
