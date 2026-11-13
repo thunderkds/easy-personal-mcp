@@ -184,7 +184,8 @@ it. Their names, descriptions and schemas equal Python's `tools/list` golden.
 ## Window (`app`, Ubuntu only so far)
 
 The window is behind the Cargo feature `window`, **off by default**: a plain `cargo build` compiles no Tauri, GTK or WebKit crate
-and links only libc, so `store-info`, `serve` and `mcp` run on a machine with no display and no desktop libraries. `cargo build
+and links only libc and (since T050, the keychain) `libdbus-1`, so `store-info`, `serve` and `mcp` run on a machine with no display and no desktop libraries
+(they do need `libdbus-1-3` at load time). `cargo build
 --features window` adds Tauri `=2.12.5` (`tauri-build =2.7.4`); building it needs the Ubuntu packages of `docs/spike-T001.md`
 (`libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`), and
 running it needs `libwebkit2gtk-4.1-0` and `libgtk-3-0t64`. A feature build links those libraries dynamically, so it needs them
@@ -895,7 +896,7 @@ such switch. The cross-check with the real keychain is an ignored test the owner
 `cargo test -p easy-personal-rs --bin easy-personal-rs real_keychain -- --ignored` (it writes and deletes two `easy-personal/t050-crosscheck-*`
 items and needs `parity/.venv` with the Python app).
 
-**Launcher** `easy-personal-launch exec|headers <connector>` (second binary of the app crate, `src/launch.rs`; it links `keychain.rs` only).
+**Launcher** `easy-personal-launch exec|headers <connector>` (second binary of the app crate, `src/launch.rs`; it uses only `keychain.rs` and the core's `pyjson` text helpers: no server, no store).
 `exec` reads the item and `exec`s the provider command with the item's `env` added to its own environment: the secret is in the provider's
 environment, never its argv; stdin, stdout, stderr, signals and the exit code are the provider's own (it replaces the launcher process, as
 `os.execvpe` does). `headers` prints the item's `headers` as one JSON line. The command comes from the keychain item only. Python's fixed texts
@@ -949,6 +950,9 @@ must map field names to strings`, `unknown connector`, `account must be an accou
 9. `POST`/`DELETE` on `/api/connectors/legacy` follow Python's routing: `DELETE` is the remove route (`404 unknown connector`).
 10. The account folder in an account row is used as it is (no "outside its root" or symlink refusal): Python refuses neither. It only ever
     reaches `claude` as the value of `CLAUDE_CONFIG_DIR` (a test proves a folder named with `$(...)` and backticks runs nothing).
+11. **Both binaries now load `libdbus-1.so.3`** (and `libsystemd.so.0` through it): the approved feature `sync-secret-service` is
+    `dbus-secret-service` over the C `libdbus-1`, not the pure-Rust `zbus` path the options file described (that path is the
+    `async-secret-service` feature, a different gate). Ubuntu installs `libdbus-1-3` by default.
 
 Not built (cut list): the `connector ...` and `doctor` CLI commands (T060), macOS and Windows keychains, retries, a new catalog entry,
 `configured` in `GET /api/connectors` (T046 read side unchanged).
