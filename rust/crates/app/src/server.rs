@@ -7,11 +7,12 @@
 //! `start` is the one way a server is made: `run` (the `serve` subcommand) and the window (`window.rs`) both call it.
 
 use crate::api::{self, Api};
+use crate::live_feed::{LIVE_PATH, LiveFeed};
 use crate::static_files;
 use axum::Router;
 use axum::extract::{Request, State};
 use axum::http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, HOST, ORIGIN};
-use axum::http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -87,7 +88,11 @@ fn json(status: StatusCode, body: &'static str) -> Response {
 /// Host must be exactly one header equal to `127.0.0.1:<port>`; an Origin, if sent, must equal
 /// `http://127.0.0.1:<port>`; `/api/` needs exactly one token header equal to the token.
 /// Stricter than Python in one way: a repeated Host/token header is refused (Python keeps the last one).
-fn allowed(guard: &Guard, path: &str, headers: &HeaderMap) -> bool {
+/// One carve-out (T056, Python's `_query_token`): a `GET` of exactly `/api/live` with no token header may send the
+/// token as the one `token` query parameter instead, because a browser `EventSource` cannot set headers. The value is
+/// compared as sent (no percent-decoding: the token is URL-safe base64) and never echoed or logged.
+fn allowed(guard: &Guard, method: &Method, uri: &Uri, headers: &HeaderMap) -> bool {
+    let path = uri.path();
     let mut hosts = headers.get_all(HOST).iter();
     match (hosts.next(), hosts.next()) {
         (Some(h), None) if h.as_bytes() == guard.host.as_bytes() => {}
@@ -104,14 +109,27 @@ fn allowed(guard: &Guard, path: &str, headers: &HeaderMap) -> bool {
         let mut tokens = headers.get_all(TOKEN_HEADER).iter();
         return match (tokens.next(), tokens.next()) {
             (Some(t), None) => constant_time_eq(t.as_bytes(), guard.token.as_bytes()),
+            (None, _) if method == Method::GET && path == LIVE_PATH => query_token(uri.query())
+                .is_some_and(|t| constant_time_eq(t.as_bytes(), guard.token.as_bytes())),
             _ => false,
         };
     }
     true
 }
 
+/// The value of the one `token=` pair of the query; none, or more than one, is `None`.
+fn query_token(query: Option<&str>) -> Option<&str> {
+    let mut found = query?
+        .split('&')
+        .filter_map(|pair| pair.strip_prefix("token="));
+    match (found.next(), found.next()) {
+        (Some(token), None) => Some(token),
+        _ => None,
+    }
+}
+
 async fn guard_layer(State(guard): State<Arc<Guard>>, req: Request, next: Next) -> Response {
-    let mut response = if allowed(&guard, req.uri().path(), req.headers()) {
+    let mut response = if allowed(&guard, req.method(), req.uri(), req.headers()) {
         if req.uri().path().starts_with("/api/") {
             guard.authenticated.store(true, Ordering::Relaxed);
         }
@@ -162,6 +180,10 @@ pub struct Running {
     runtime: Runtime,
     shutdown: Option<oneshot::Sender<()>>,
     task: JoinHandle<Result<(), String>>,
+    /// Ends every open `GET /api/live` stream at its next tick (set first by `stop`).
+    stopping: Arc<AtomicBool>,
+    /// The live feed (`serve` and `app`); stopped and joined last by `stop`.
+    feed: Option<LiveFeed>,
 }
 
 /// How long `stop` waits for requests in flight before it drops them.
@@ -174,21 +196,26 @@ impl Running {
         self.runtime.handle().clone()
     }
 
-    /// Stops accepting, gives requests in flight `STOP_GRACE` to finish, then drops whatever is left.
-    #[cfg_attr(not(feature = "window"), allow(dead_code))]
+    /// Ends the open live streams, stops accepting, gives requests in flight `STOP_GRACE` to finish, drops whatever
+    /// is left, then stops and joins the live feed (at most 10 s, `LiveFeed::stop`).
     pub fn stop(mut self) {
+        self.stopping.store(true, Ordering::Relaxed);
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
         }
         let Running { runtime, task, .. } = &mut self;
         let _ = runtime.block_on(async { tokio::time::timeout(STOP_GRACE, task).await });
         self.runtime.shutdown_timeout(STOP_GRACE);
+        if let Some(feed) = self.feed.take() {
+            feed.stop();
+        }
     }
 }
 
 /// Binds `127.0.0.1` on a free port, makes the token and starts serving. `static_dir` is resolved once, before
-/// anything is bound.
-pub fn start(static_dir: Option<&Path>) -> Result<Running, String> {
+/// anything is bound. `feed` (the live feed of `serve` and `app`, already polling) is what `GET /api/live` reads;
+/// with `None` that route sends the empty snapshot, as Python does with no tail running.
+pub fn start(static_dir: Option<&Path>, feed: Option<LiveFeed>) -> Result<Running, String> {
     let static_root = static_dir.map(static_files::canonical_root).transpose()?;
     let token = new_token().map_err(|e| format!("no OS random source: {e}"))?;
     let listener = std::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
@@ -197,10 +224,12 @@ pub fn start(static_dir: Option<&Path>) -> Result<Running, String> {
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
     let runtime = Runtime::new().map_err(|e| format!("cannot start the runtime: {e}"))?;
     let authenticated = Arc::new(AtomicBool::new(false));
+    let stopping = Arc::new(AtomicBool::new(false));
+    let api = Api::system().with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping));
     let app = router_with_static(
         token.clone(),
         port,
-        Api::system(),
+        api,
         static_root,
         Arc::clone(&authenticated),
     );
@@ -224,12 +253,15 @@ pub fn start(static_dir: Option<&Path>) -> Result<Running, String> {
         runtime,
         shutdown: Some(shutdown),
         task,
+        stopping,
+        feed,
     })
 }
 
-/// The `serve` subcommand: `start`, print the two lines Python's `serve()` prints, run until Ctrl-C.
+/// The `serve` subcommand: the live feed, `start`, print the two lines Python's `serve()` prints, run until Ctrl-C,
+/// then `stop` (open streams end, the feed's thread is joined).
 pub fn run(static_dir: Option<&Path>) -> Result<(), String> {
-    let mut running = start(static_dir)?;
+    let mut running = start(static_dir, Some(LiveFeed::system()?))?;
     let mut out = io::stdout();
     write!(
         out,
@@ -239,12 +271,19 @@ pub fn run(static_dir: Option<&Path>) -> Result<(), String> {
     .and_then(|()| out.flush())
     .map_err(|e| e.to_string())?;
     let Running { runtime, task, .. } = &mut running;
-    runtime.block_on(async {
+    let served = runtime.block_on(async {
         tokio::select! {
-            served = task => served.map_err(|e| format!("server stopped: {e}"))?,
-            _ = tokio::signal::ctrl_c() => Ok(()),
+            served = task => Some(served),
+            _ = tokio::signal::ctrl_c() => None,
         }
-    })
+    });
+    match served {
+        None => {
+            running.stop();
+            Ok(())
+        }
+        Some(served) => served.map_err(|e| format!("server stopped: {e}"))?,
+    }
 }
 
 #[cfg(test)]
@@ -301,7 +340,7 @@ mod tests {
 
     #[test]
     fn start_binds_loopback_and_marks_only_a_guarded_api_request_with_the_token() {
-        let running = start(None).unwrap();
+        let running = start(None, None).unwrap();
         assert_eq!(running.token.len(), 43);
         assert!(!running.authenticated.load(Ordering::Relaxed));
         // Refused or outside `/api/`: the flag stays off.
@@ -317,7 +356,7 @@ mod tests {
 
     #[test]
     fn two_starts_get_two_ports_and_two_tokens() {
-        let (a, b) = (start(None).unwrap(), start(None).unwrap());
+        let (a, b) = (start(None, None).unwrap(), start(None, None).unwrap());
         assert_ne!(a.port, b.port);
         assert_ne!(a.token, b.token);
         a.stop();
@@ -326,7 +365,7 @@ mod tests {
 
     #[test]
     fn start_refuses_a_static_dir_that_is_not_a_folder_before_it_binds() {
-        let err = start(Some(Path::new("/this/folder/does/not/exist")))
+        let err = start(Some(Path::new("/this/folder/does/not/exist")), None)
             .err()
             .unwrap();
         assert_eq!(err, "--static-dir is not a readable directory");
@@ -334,7 +373,7 @@ mod tests {
 
     #[test]
     fn stop_returns_in_bounded_time_with_a_request_stuck_in_flight_and_frees_the_port() {
-        let running = start(None).unwrap();
+        let running = start(None, None).unwrap();
         let port = running.port;
         // A connection that sent half a request line and then waits: graceful shutdown alone would never end.
         let mut stuck = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
@@ -351,6 +390,143 @@ mod tests {
             std::net::TcpStream::connect(("127.0.0.1", port)).is_err(),
             "the listener is closed"
         );
+    }
+
+    /// T056: a stream whose client went away is dropped (its hold on the tail ends) at the next write, and `stop`
+    /// ends the streams still open and joins the feed.
+    #[test]
+    fn a_disconnected_stream_ends_and_stop_joins_the_feed() {
+        use easy_personal_core::live::Root;
+        use easy_personal_core::prices::PriceTable;
+        let dir =
+            std::env::temp_dir().join(format!("easy-personal-rs-t056-srv-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("p")).unwrap();
+        let roots = vec![Root {
+            account: None,
+            projects: dir.clone(),
+        }];
+        let feed = LiveFeed::start(
+            PriceTable::shipped().unwrap(),
+            easy_personal_core::clock::now_micros,
+            move |tail, now| tail.poll_once(&roots, now, None),
+        )
+        .unwrap();
+        let running = start(None, Some(feed)).unwrap();
+        let tail = running.feed.as_ref().unwrap().tail();
+        let baseline = Arc::strong_count(&tail);
+        let open = || {
+            let mut s = std::net::TcpStream::connect(("127.0.0.1", running.port)).unwrap();
+            let req = format!(
+                "GET /api/live?token={} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n\r\n",
+                running.token, running.port
+            );
+            s.write_all(req.as_bytes()).unwrap();
+            std::thread::sleep(Duration::from_millis(300));
+            s
+        };
+        let client = open();
+        // The connection's router copy and the stream hold the tail (axum clones the state per connection).
+        assert!(
+            Arc::strong_count(&tail) > baseline,
+            "the stream holds the tail"
+        );
+        drop(client);
+        // A write after the close: hyper sees the dead socket and drops the body.
+        std::fs::write(
+            dir.join("p/s.jsonl"),
+            "{\"type\":\"user\",\"sessionId\":\"s\",\"timestamp\":\"2026-01-20T00:00:00Z\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"b\"}]}}\n",
+        )
+        .unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while Arc::strong_count(&tail) > baseline {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the stream was not dropped"
+            );
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let _still_open = open();
+        let began = std::time::Instant::now();
+        running.stop();
+        assert!(
+            began.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            began.elapsed()
+        );
+        assert_eq!(
+            Arc::strong_count(&tail),
+            1,
+            "streams dropped, feed thread joined"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T056: the query `token` counts only for `GET /api/live` with no token header; Host and Origin still apply.
+    #[test]
+    fn the_query_token_counts_only_for_get_on_the_live_route() {
+        let guard = Guard {
+            token: "tok".into(),
+            host: "127.0.0.1:9".into(),
+            origin: "http://127.0.0.1:9".into(),
+            authenticated: Arc::default(),
+        };
+        let headers = |pairs: &[(&'static str, &'static str)]| {
+            let mut h = HeaderMap::new();
+            h.insert(HOST, HeaderValue::from_static("127.0.0.1:9"));
+            for (k, v) in pairs {
+                h.append(*k, HeaderValue::from_static(v));
+            }
+            h
+        };
+        let ok = |method: Method, uri: &str, h: &HeaderMap| {
+            let uri: axum::http::Uri = uri.parse().unwrap();
+            allowed(&guard, &method, &uri, h)
+        };
+        let plain = headers(&[]);
+        assert!(ok(Method::GET, "/api/live?token=tok", &plain));
+        assert!(ok(Method::GET, "/api/live?a=1&token=tok&b=2", &plain));
+        assert!(ok(
+            Method::GET,
+            "/api/live",
+            &headers(&[("x-dashboard-token", "tok")])
+        ));
+        for (method, uri) in [
+            (Method::GET, "/api/live"),
+            (Method::GET, "/api/live?token=bad"),
+            (Method::GET, "/api/live?token="),
+            (Method::GET, "/api/live?token"),
+            (Method::GET, "/api/live?token=tok&token=tok"),
+            (Method::GET, "/api/live?TOKEN=tok"),
+            (Method::GET, "/api/live?token=to%6B"),
+            (Method::GET, "/api/live/?token=tok"),
+            (Method::GET, "/api/live/x?token=tok"),
+            (Method::GET, "/api/version?token=tok"),
+            (Method::GET, "/api/usage/summary?token=tok"),
+            (Method::HEAD, "/api/live?token=tok"),
+            (Method::POST, "/api/live?token=tok"),
+        ] {
+            assert!(!ok(method.clone(), uri, &plain), "{method} {uri}");
+        }
+        // A token header present decides alone, as on every other route.
+        assert!(!ok(
+            Method::GET,
+            "/api/live?token=tok",
+            &headers(&[("x-dashboard-token", "bad")])
+        ));
+        assert!(!ok(
+            Method::GET,
+            "/api/live?token=tok",
+            &headers(&[("x-dashboard-token", "")])
+        ));
+        // Host and Origin still apply.
+        assert!(!ok(
+            Method::GET,
+            "/api/live?token=tok",
+            &headers(&[("origin", "http://evil.test")])
+        ));
+        let mut bad_host = HeaderMap::new();
+        bad_host.insert(HOST, HeaderValue::from_static("evil.test"));
+        assert!(!ok(Method::GET, "/api/live?token=tok", &bad_host));
     }
 
     #[test]

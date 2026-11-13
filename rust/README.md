@@ -36,10 +36,12 @@ store file itself is not changed.
 `serve` binds `127.0.0.1` only, on a free port, and prints the same two lines as the Python app: `dashboard: http://127.0.0.1:<port>/#<token>`
 and `Ctrl-C to stop.` (no browser is opened yet). The token is 32 random bytes, new per run, and only appears in that URL fragment. The routes
 so far are `GET /api/version` -> `{"version": "<Cargo version>"}` and the read routes described in the sections below (usage, warnings and plan, workspaces, connectors, kit and
-its report files, saved reports and first-run, accounts, sync, folders and scheduled jobs); every one is a `GET`. Every response carries the Python app's
+its report files, saved reports and first-run, accounts, sync, folders and scheduled jobs, and the live stream `GET /api/live`, T056); every one is a `GET`. Every response carries the Python app's
 `Content-Security-Policy`.
 The guard matches the Python app: `Host` must be `127.0.0.1:<port>`, an `Origin` if sent must be `http://127.0.0.1:<port>`, and every
-`/api/` path needs the `x-dashboard-token` header (a token in the query string is not accepted). Failures get `403 {"error": "forbidden"}`.
+`/api/` path needs the `x-dashboard-token` header. One exception (T056, as Python): `GET /api/live` with no token header may send the
+token as the `token` query parameter, because a browser `EventSource` cannot set headers; on every other route and method a query token
+counts for nothing. Failures get `403 {"error": "forbidden"}`.
 A repeated `Host` or token header is refused (Python keeps the last one).
 
 `serve --static-dir <DIR>` also serves the built dashboard's files from `<DIR>` on the same origin, behind the same guard and with the same
@@ -601,7 +603,7 @@ Decided for you (differences from Python, all on hostile or unusual input):
   `thresholds: kit_error_rate` is not read (the default 0.04 is used).
 - Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
 
-Not served yet: the other Python routes (`/api/live`, the connector writes and the sync apply (T050)). This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
+Not served yet: the other Python routes (the connector writes and the sync apply (T050); `/api/live` is served since T056). This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
 `/api/dirs` are served); T043 serves `/api/board` and `/api/memory-graph`, and T048 the store-only workspace and account writes. The release note `docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
 
 ## Board and memory graph (T043)
@@ -815,8 +817,8 @@ methods. There is no thread and no clock inside: `now` (microseconds, UTC) is an
 `_append`, `snapshot`. The parser is the existing `ingest::claude_code::parse_record`; projects go through
 `ingest::folders::resolve_project` (widened to `pub(crate)`, no change), costs through `prices.rs`.
 
-**Not ported here**: the polling thread, `GET /api/live`, SSE framing and `Last-Event-ID` (T056); the kit-trace feed and the
-app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `live_open_call_minutes` 10 are fixed).
+**Not ported here**: the polling thread, `GET /api/live`, SSE framing and `Last-Event-ID` (in `crates/app`, T056, section
+"Live feed" below); the kit-trace feed and the rest of the app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `live_open_call_minutes` 10 are fixed).
 
 **Decided for you** (where Rust differs from Python on purpose):
 
@@ -885,3 +887,76 @@ timeout (AC 8); over a WAL store: the store file, transcripts and folders byte- 
 any (`-wal` / `-shm` may appear), no lock or journal file (AC 9); canaries in
 text, thinking, tool content, tool inputs and a meta `description` absent from every event, snapshot and `Debug` line
 (AC 10).
+
+## Live feed and `GET /api/live` (T056)
+
+`crates/app/src/live_feed.rs` ports Python's live-tail thread (`core/live.py` `start` / `stop` / `_run`) and the stream
+(`surfaces/api.py` `live_stream`, `_sse`, `_snapshot_data`, `_resume_id`, `_EMPTY_SNAPSHOT`).
+
+**The thread.** `serve` and `app` (each in its own process, only while it runs) make one `LiveFeed`: one `LiveTail` (T049) behind a
+lock, and one thread `easy-personal-live-tail` that every 0.1 s calls `LiveTail::poll_store(<store path>, None, now)` with
+`clock::now_micros`. It starts before the server binds and is stopped and joined last when the server stops (Ctrl-C, SIGTERM in
+`app`, the window closed), within 10 s. `store-info`, `mcp`, `ingest` and `schedule` make no feed: no thread, no store opened, no file
+read. A step whose store is missing, not v11, busy or broken, or whose root cannot be read, is the engine's own skip (the stream then
+shows an empty snapshot and picks the data up when the store appears). A step that panics is caught and skipped; the thread goes on and
+prints one fixed line once per process (`easy-personal-rs: live tail: a poll step failed and was skipped`), never the panic's text.
+Publish-only: the tail opens the store read-only, never takes `ingest.lock`, never writes; the scheduled ingest stays the only writer.
+
+**The route.** `GET /api/live` answers `200`, `content-type: text/event-stream`, `cache-control: no-store`, `x-accel-buffering: no`
+(Python's headers) and the CSP. Messages, in Python's order:
+
+```
+event: snapshot
+data: {"active_window_s":300,"last_id":<n>,"open_call_minutes":10,"sessions":[{<_SESSION_KEYS>}...]}
+
+event: live
+id: <event id>
+data: {<_EVENT_KEYS>}
+
+: ping
+```
+
+First a `snapshot` (unless `Last-Event-ID` names an id the buffer still holds: then the events after it, then a snapshot); then
+one `live` message per new event; when the attention state changes, the events up to the new snapshot's `last_id`, then that
+snapshot; a `: ping` comment after 15 s without one. Session keys: `session_id`, `account`, `project`, `last_ts`, `tool_calls`,
+`tokens_in`, `tokens_out`, `cost_usd`, `attention`, `stage`, `stage_skill`. Event keys: `id`, `session_id`, `account`, `project`,
+`ts`, `kind`, `tool`, `is_error`, `is_sidechain`, `label`, `agent`, `tokens_in`, `tokens_out`, `cost_usd`. No cache counts, no text.
+`Last-Event-ID` resumes only as plain digits (spaces around are dropped); a number above the tail's last id, an id older than the
+buffer, a value that is not a number, or no header starts with a snapshot. A stream ends when the client goes away (at the next
+write) and when the server stops (within 0.1 s, before the server's own 1 s grace), so Ctrl-C never waits on it.
+
+**Token in the query** (only this route, only `GET`): exactly one `token=` pair, compared in constant time as sent. A token
+header, if present, decides alone. `HEAD` or `POST` with a query token, or a query token on any other route, is `403`. The token
+is never echoed in a body, header or log line; there is no access log and the route sends no redirect.
+
+**Oracle**: `parity/golden-live-stream/cases.json`, made once by `parity/gen_live_stream.py` from Python's own `live_stream`
+(one stream pass per step, the stream's sleep replaced by a wait the generator releases). 10 cases, 36 steps: an empty tail with
+and without a tail running, a new session, a tool call and its result, an error streak, a sub-agent file with its meta file, a
+good resume, a resume above the last id, a resume older than the 2,000-event buffer, and a resume that is not a number. The test
+(`live_feed.rs`, `the_stream_equals_python_live_stream_for_every_oracle_case`) replays each case through the same `LiveStream`
+the route serves: 36 / 36 steps equal. A mutant that drops the "fresh snapshot on an attention change" branch makes 3 steps red.
+HTTP tests: `crates/app/tests/live.rs` (the real binary: a line arrives within 2 s, the guard, resume, SIGINT with two streams
+open, ten streams and one client that never reads, publish-only with the scheduled ingest run beside it, a store that appears
+later). The leak suite (`parity/leak_rust.py`) reads the first message of the stream three ways (query token, header token,
+resume).
+
+### Decided for you (T056, for the owner's review)
+
+1. `cache-control: no-store` and `x-accel-buffering: no`, as Python sends; the guide said `no-cache` (Supervisor accepted).
+2. A repeated `Last-Event-ID` header is `403 {"error": "forbidden"}`, as a repeated Host or token header (Python keeps the last).
+3. Query token: no percent-decoding (the token is URL-safe base64, so `encodeURIComponent` leaves it as is); exactly one `token=`
+   pair (Python takes the first of several); a token header present decides alone, even an empty one (Python falls back to the
+   query when the header is empty).
+4. A `Last-Event-ID` above `i64::MAX` is "no id": a snapshot first, the same outcome as Python's "above the last id".
+5. A stream reads the tail with `try_lock`: while a poll step runs, the stream waits one more tick (0.1 s) instead of blocking a
+   runtime worker. A client that does not read is not polled (back-pressure), so nothing grows on its side; it holds its
+   connection until it goes away or the server stops. There is no write timeout.
+6. JSON is serde_json's: UTF-8 text where Python writes `\uXXXX`, keys in sorted order. The parsed data is equal.
+7. The oracle runs in-process over `LiveStream` (one pass per step, a frozen clock), not over a socket: a socket would add the
+   poll thread's timing and make pass boundaries random. The HTTP tests check the same route end to end without a golden.
+8. Python's tail stops for good when its store cannot be opened at start; the Rust thread keeps polling and picks a store up
+   when it appears (AC 1's edge case).
+9. A process-wide panic hook prints the fixed line for this thread only; every other thread keeps the hook it had.
+10. A poll step that runs longer than 10 s (a very large first read) makes `stop` give up waiting and leave the thread behind,
+    as Python's `join(timeout=10)`; the process then exits. A single line is at most 32 MiB (T049's bound), so a step over one
+    file is bounded, but a step over many large new files is not capped in time.

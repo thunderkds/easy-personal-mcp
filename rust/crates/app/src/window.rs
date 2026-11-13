@@ -83,6 +83,7 @@ pub use shell::run;
 #[cfg(feature = "window")]
 mod shell {
     use super::{blocked_target, navigation_allowed};
+    use crate::live_feed::LiveFeed;
     use crate::server::{self, Running};
     use crate::{display, static_files};
     use std::io::{self, Write};
@@ -132,7 +133,11 @@ mod shell {
             let hint = "serve, mcp and store-info need no display";
             return fail(&Failure(EXIT_NO_DISPLAY, format!("{e} ({hint})")));
         }
-        let running = match server::start(Some(&root)) {
+        let feed = match LiveFeed::system() {
+            Ok(feed) => feed,
+            Err(e) => return fail(&Failure(1, e)),
+        };
+        let running = match server::start(Some(&root), Some(feed)) {
             Ok(running) => running,
             Err(e) => return fail(&Failure(1, e)),
         };

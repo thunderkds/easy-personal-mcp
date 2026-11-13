@@ -28,6 +28,7 @@ import re
 import select
 import shutil
 import signal
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -93,6 +94,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/sync": ["", "?account=1", "?account=99", "?account=nope", "?account=99999999999999999999"],
     "/api/dirs": ["", "?path=%2F", "?path=%2Fproc%2Fself", "?path=%2Fdev", "?path=relative", "?path=%00", "?path=%2Ftmp%2F..%2Ftmp%2F"],
     "/api/jobs": [""],
+    "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -110,6 +112,8 @@ GUARD_CALLS = [
     ("account workspaces foreign origin", "PUT", "/api/accounts/1/workspaces", {"Origin": "http://evil.invalid"}),
     ("workspace read method", "GET", "/api/workspaces/2", {}),
     ("unknown route", "GET", "/api/nope", {}),
+    ("live no token", "GET", "/api/live", {"x-dashboard-token": None}),
+    ("live write method", "POST", "/api/live", {}),
     ("report id", "GET", "/api/reports/1", {}),
     ("report id too long", "GET", "/api/reports/1000000000000000000", {}),
     ("report write method", "DELETE", "/api/reports/1", {}),
@@ -512,6 +516,20 @@ def request(port: int, method: str, path: str, headers: dict[str, str], body: by
         conn.close()
 
 
+def live_first(port: int, path: str, headers: dict[str, str]) -> bytes:
+    """T056: `GET /api/live` up to its first complete SSE message (the `snapshot`), then close; 15 s at most."""
+    head = f"GET {path} HTTP/1.1\r\n" + "".join(f"{k}: {v}\r\n" for k, v in headers.items()) + "\r\n"
+    blob = b""
+    with socket.create_connection(("127.0.0.1", port), timeout=15) as sock:
+        sock.sendall(head.encode())
+        while b"\r\n\r\n" not in blob or b"\n\n" not in blob.split(b"\r\n\r\n", 1)[1]:
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            blob += chunk
+    return blob
+
+
 def serve(run: Run, checks: list[str], key: str) -> None:
     static = run.logs / "static"
     static.mkdir()
@@ -559,6 +577,15 @@ def serve(run: Run, checks: list[str], key: str) -> None:
             run.add(f"api GET /api/memory-graph project={project['name']}", blob)
             layered = layered or b'"kind":"easy_memory"' in blob
         checks.append(f"check a graph carries the easy-memory layer  {'ok' if layered else 'FAILED'}")
+        for label, path, change in (
+            ("query token", f"/api/live?token={token}", {"x-dashboard-token": None}),
+            ("header token", "/api/live", {}),
+            ("resume", "/api/live", {"Last-Event-ID": "1"}),
+        ):
+            blob = live_first(port, path, {k: v for k, v in {**base, **change}.items() if v is not None})
+            run.add(f"api GET /api/live ({label}, first message)", blob)
+            ok = blob.startswith(b"HTTP/1.1 200") and b"event: snapshot" in blob
+            checks.append(f"check api live sends a snapshot ({label})  {'ok' if ok else 'FAILED'}")
         for label, method, path, change in GUARD_CALLS:
             headers = {k: v for k, v in {**base, **change}.items() if v is not None}
             status, blob = request(port, method, path, headers)

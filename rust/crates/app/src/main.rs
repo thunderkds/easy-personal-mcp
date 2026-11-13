@@ -7,6 +7,7 @@ mod api;
 #[cfg(any(feature = "window", test))]
 mod display;
 mod ingest_cmd;
+mod live_feed;
 mod mcp;
 mod schedule_cmd;
 mod server;
