@@ -1,0 +1,150 @@
+{
+ "items": {
+  "easy-personal/broken": "{\"command\": \"not-a-list\"}",
+  "easy-personal/empty": "{\"command\": [], \"env\": {}, \"headers\": {}}",
+  "easy-personal/notjson": "{nope",
+  "easy-personal/plain": "{\"command\": [\"prog\"], \"env\": {\"A\": \"1\", \"B\": \"\\u00e9\\u0001\\u007f\"}, \"headers\": {}}",
+  "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {\"Authorization\": \"Bearer xoxb-PLANTED-t050-secret-\\u00e9\\u2603\", \"X-Extra\": \"line1\\nline2 \\\"q\\\" \\\\\"}}"
+ },
+ "runs": [
+  {
+   "args": [
+    "headers",
+    "slack"
+   ],
+   "code": 0,
+   "keychain": "fake",
+   "stderr": "",
+   "stdout": "{\"Authorization\": \"Bearer xoxb-PLANTED-t050-secret-\\u00e9\\u2603\", \"X-Extra\": \"line1\\nline2 \\\"q\\\" \\\\\"}\n"
+  },
+  {
+   "args": [
+    "headers",
+    "plain"
+   ],
+   "code": 0,
+   "keychain": "fake",
+   "stderr": "",
+   "stdout": "{}\n"
+  },
+  {
+   "args": [
+    "headers",
+    "empty"
+   ],
+   "code": 0,
+   "keychain": "fake",
+   "stderr": "",
+   "stdout": "{}\n"
+  },
+  {
+   "args": [
+    "headers",
+    "broken"
+   ],
+   "code": 1,
+   "keychain": "fake",
+   "stderr": "easy-personal: connector 'broken' has an unreadable keychain entry\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "headers",
+    "notjson"
+   ],
+   "code": 1,
+   "keychain": "fake",
+   "stderr": "easy-personal: connector 'notjson' has an unreadable keychain entry\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "exec",
+    "empty"
+   ],
+   "code": 1,
+   "keychain": "fake",
+   "stderr": "easy-personal: connector 'empty' has no provider command\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "exec",
+    "broken"
+   ],
+   "code": 1,
+   "keychain": "fake",
+   "stderr": "easy-personal: connector 'broken' has an unreadable keychain entry\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "exec",
+    "nope"
+   ],
+   "code": 1,
+   "keychain": "fake",
+   "stderr": "easy-personal: connector 'nope' is not configured\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "headers",
+    "nope"
+   ],
+   "code": 1,
+   "keychain": "fake",
+   "stderr": "easy-personal: connector 'nope' is not configured\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "exec",
+    "Bad/../x"
+   ],
+   "code": 1,
+   "keychain": "fake",
+   "stderr": "easy-personal: invalid connector name\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "exec"
+   ],
+   "code": 2,
+   "keychain": "fake",
+   "stderr": "usage: easy-personal-launch exec|headers <connector>\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "run",
+    "slack"
+   ],
+   "code": 2,
+   "keychain": "fake",
+   "stderr": "usage: easy-personal-launch exec|headers <connector>\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "exec",
+    "slack"
+   ],
+   "code": 1,
+   "keychain": "none",
+   "stderr": "easy-personal: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\n",
+   "stdout": ""
+  },
+  {
+   "args": [
+    "headers",
+    "slack"
+   ],
+   "code": 1,
+   "keychain": "none",
+   "stderr": "easy-personal: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\n",
+   "stdout": ""
+  }
+ ]
+}
