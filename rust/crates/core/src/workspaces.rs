@@ -226,7 +226,7 @@ pub(crate) fn refuse(status: u16, text: impl Into<String>) -> WriteFail {
 }
 
 /// An `IntegrityError` in Python: a UNIQUE, CHECK, foreign key or trigger rule said no.
-pub(crate) fn is_constraint(e: &rusqlite::Error) -> bool {
+pub fn is_constraint(e: &rusqlite::Error) -> bool {
     matches!(e, rusqlite::Error::SqliteFailure(f, _) if f.code == ErrorCode::ConstraintViolation)
 }
 

@@ -3,7 +3,10 @@
 //! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
 //! `/api/board` and `/api/memory-graph` (T043), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
-//! and the seven store-only write routes of T048, which `writes.rs` serves.
+//! and the seven store-only write routes of T048, which `writes.rs` serves. T050 adds the connector writes
+//! (`connector_writes.rs`: `POST /api/connectors`, `DELETE /api/connectors/{id}`, `POST /api/connectors/{id}/move`,
+//! `PUT /api/connectors/{id}/alias`), `GET`/`POST /api/connectors/legacy` (`legacy.rs`) and `POST /api/sync`
+//! (`sync_apply.rs`); they use the keychain and the `claude` CLI.
 //! `GET /api/live` (T056) is the one stream: Server-Sent Events from the live feed (`live_feed.rs`); it reads no store
 //! itself, and it is the one route whose token may come in the query (`server.rs`).
 //! The read routes are all `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
@@ -26,7 +29,7 @@
 //! a few fixed texts.
 
 use crate::live_feed::{LIVE_PATH, SharedTail, SseBody, resume_id};
-use crate::writes;
+use crate::{connector_writes, legacy, sync_apply, writes};
 use axum::Router;
 use axum::body::Body;
 use axum::extract::State;
@@ -35,7 +38,7 @@ use axum::http::header::{
 };
 use axum::http::{HeaderMap, HeaderName, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, patch, post, put};
+use axum::routing::{delete, get, patch, post, put};
 use easy_personal_core::accounts;
 use easy_personal_core::board;
 use easy_personal_core::clock::now_micros;
@@ -68,7 +71,7 @@ pub(crate) const INTERNAL: &str = "internal error";
 /// Sessions that carry `points` and `gaps` in `/api/usage/sessions` (Python's `TIMELINE_DETAIL_SESSIONS`: the page draws 50).
 const TIMELINE_DETAIL_SESSIONS: usize = 50;
 
-type Failure = (StatusCode, String);
+pub(crate) type Failure = (StatusCode, String);
 type StorePath = Arc<dyn Fn() -> Result<PathBuf, StoreError> + Send + Sync>;
 pub(crate) type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 
@@ -133,7 +136,28 @@ pub fn routes() -> Router<Api> {
             "/api/workspaces/{id}",
             patch(writes::workspace_edit).delete(writes::workspace_delete),
         )
-        .route("/api/connectors", get(connectors))
+        .route(
+            "/api/connectors",
+            get(connectors).post(connector_writes::connector_add),
+        )
+        .route(
+            "/api/connectors/legacy",
+            get(legacy::legacy_status)
+                .post(legacy::legacy_adopt)
+                .delete(connector_writes::connector_remove),
+        )
+        .route(
+            "/api/connectors/{id}",
+            delete(connector_writes::connector_remove),
+        )
+        .route(
+            "/api/connectors/{id}/move",
+            post(connector_writes::connector_move),
+        )
+        .route(
+            "/api/connectors/{id}/alias",
+            put(connector_writes::connector_alias),
+        )
         .route("/api/kit", get(kit_projects))
         .route("/api/kit/workspaces", get(kit_workspaces))
         .route("/api/kit/reports", get(kit_reports))
@@ -151,7 +175,7 @@ pub fn routes() -> Router<Api> {
             "/api/accounts/{id}/workspaces",
             put(writes::account_workspaces),
         )
-        .route("/api/sync", get(sync_plan))
+        .route("/api/sync", get(sync_plan).post(sync_apply::sync_apply))
         .route("/api/dirs", get(dirs))
         .route("/api/jobs", get(jobs))
 }
@@ -323,8 +347,8 @@ async fn kit_report_file(State(api): State<Api>, uri: Uri) -> Response {
     }
 }
 
-/// `GET /api/connectors` (T046): the catalog and the stored connector rows. Read-only like the workspace routes (Python's
-/// `POST` on it is a 405 here); presence is never asked (`suggestions::configured_ids`: no keychain, no `claude`).
+/// `GET /api/connectors` (T046): the catalog and the stored connector rows. Read-only; presence is never asked
+/// (`suggestions::configured_ids`: no keychain, no `claude`). Its `POST` is `connector_writes::connector_add` (T050).
 async fn connectors(State(api): State<Api>, uri: Uri) -> Response {
     serve(api, uri, |conn, _q, _now| {
         suggestions::connectors_list(conn).map_err(view_failure)
@@ -472,7 +496,7 @@ async fn jobs(State(api): State<Api>) -> Response {
 }
 
 /// Parses the query, then runs `read` on a fresh read-only connection off the async workers.
-async fn serve<F>(api: Api, uri: Uri, read: F) -> Response
+pub(crate) async fn serve<F>(api: Api, uri: Uri, read: F) -> Response
 where
     F: FnOnce(&Connection, &Query, i64) -> Result<Value, Failure> + Send + 'static,
 {
@@ -584,7 +608,7 @@ fn rules_failure(error: RulesError) -> Failure {
 /// Pairs split on `&` only; an empty pair is skipped; a key without `=` has the empty value; `+` is a space
 /// (before percent-decoding, so `%2B` stays a plus). The HTTP layer already refuses raw non-ASCII bytes in the
 /// target, so nothing here sees what Python would read as Latin-1.
-struct Query(Vec<(String, String)>);
+pub(crate) struct Query(Vec<(String, String)>);
 
 impl Query {
     fn parse(raw: &str) -> Self {

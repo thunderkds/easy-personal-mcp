@@ -107,6 +107,7 @@ pub fn remove(kc: &dyn Keychain, connector: &str) -> Result<(), LaunchError> {
     kc.delete(&service).map_err(|Failed| no_backend())
 }
 
+#[cfg_attr(not(test), allow(dead_code))] // the launcher's (`launch.rs`); the server never reads a secret out
 /// A connector's item as the launcher uses it.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Item {
@@ -115,6 +116,7 @@ pub struct Item {
     pub headers: Vec<(String, String)>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))] // the launcher's (`launch.rs`); the server never reads a secret out
 /// `load`: the item of a configured connector, or Python's fixed text (none holds a secret).
 pub fn load(kc: &dyn Keychain, connector: &str) -> Result<Item, LaunchError> {
     let service = service_name(connector)?;
@@ -133,6 +135,7 @@ pub fn load(kc: &dyn Keychain, connector: &str) -> Result<Item, LaunchError> {
 /// Python's checks on `json.loads(raw)`: an object; `command` (default `[]`) a list of strings; `env` and `headers`
 /// (default `{}`) objects of strings. Anything else is unreadable. Keys keep `serde_json`'s order (sorted): only the
 /// `headers` output shows an order, and Python's own writes always store `{}` there.
+#[cfg_attr(not(test), allow(dead_code))] // the launcher's (`launch.rs`); the server never reads a secret out
 fn parse_item(raw: &str) -> Option<Item> {
     let Value::Object(item) = serde_json::from_str::<Value>(raw).ok()? else {
         return None;
