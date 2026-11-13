@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import threading
+import time
 
 import pytest
 from starlette.testclient import TestClient
@@ -14,6 +16,13 @@ TOKEN, PORT = "tok-244", 5544
 HOST = f"127.0.0.1:{PORT}"
 AUTH = {api.TOKEN_HEADER: TOKEN}
 URL = "/api/store/health"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_cache():
+    api._health_cache.clear()
+    yield
+    api._health_cache.clear()
 
 
 @pytest.fixture
@@ -84,3 +93,62 @@ def test_the_route_does_not_migrate_a_store_one_migration_behind(client):
         assert conn.execute("PRAGMA user_version").fetchone()[0] == latest - 1
     assert not list(config.store_path().parent.glob("store.sqlite.bak-v*"))
     assert json.loads(client.get(URL, headers=AUTH).text)["user_version"] == latest - 1
+
+
+def _counting_check(monkeypatch, delay=0.0):
+    calls = []
+    real = api.store_health.check
+
+    def check(path, *args, **kwargs):
+        calls.append(1)
+        time.sleep(delay)
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(api.store_health, "check", check)
+    return calls
+
+
+def test_concurrent_requests_share_one_check_and_wait_for_it(client, monkeypatch):
+    calls = _counting_check(monkeypatch, delay=0.3)
+    results = []
+
+    def ask():
+        results.append(client.get(URL, headers=AUTH))
+
+    threads = [threading.Thread(target=ask) for _ in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(calls) == 1 and len(results) == 12
+    assert {r.status_code for r in results} == {200} and len({r.text for r in results}) == 1
+
+
+def test_an_answer_is_reused_for_five_seconds_then_checked_again(client, monkeypatch):
+    calls = _counting_check(monkeypatch)
+    assert api.HEALTH_CACHE_S == 5.0
+    client.get(URL, headers=AUTH)
+    client.get(URL, headers=AUTH)
+    assert len(calls) == 1
+    monkeypatch.setattr(api, "HEALTH_CACHE_S", 0.0)
+    client.get(URL, headers=AUTH)
+    assert len(calls) == 2
+
+
+def test_head_answers_headers_only_and_never_runs_the_check(client, monkeypatch):
+    calls = _counting_check(monkeypatch)
+    res = client.head(URL, headers=AUTH)
+    assert res.status_code == 200 and res.content == b"" and calls == []
+    assert client.head(URL).status_code == 403  # the guard still applies
+
+
+def test_a_cut_off_check_is_null_in_the_answer(client, monkeypatch):
+    monkeypatch.setattr(api.store_health, "BUDGET_S", 0.0)
+    with store.opened(config.store_path()) as conn:
+        for n in range(3000):
+            conn.execute(
+                "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, ts_utc)"
+                " VALUES ('m', 'claude_code', '/x', 1, ?, 0, '2026-01-01T00:00:00.000000Z')", (n,))
+        conn.commit()
+    body = client.get(URL, headers=AUTH).json()
+    assert body["healthy"] is None and "integrity_check" in body["incomplete"]

@@ -674,6 +674,26 @@ def dirs_list(request):
         return JSONResponse({"error": "Cannot read this folder"}, status_code=403)
 
 
+HEALTH_CACHE_S = 5.0  # a store check is reused for this long
+_HEALTH_LOCK = threading.Lock()  # one check at a time; a request that arrives meanwhile waits, then gets that answer
+_health_cache: dict = {}  # store path -> (monotonic time of the answer, the answer)
+
+
+def store_health_route(request):
+    """`GET /api/store/health` (FR-091): the read-only store check, at most one at a time, reused for 5 s.
+
+    `HEAD` answers headers only and never runs the check.
+    """
+    if request.method == "HEAD":
+        return Response(headers={"cache-control": "no-store"})
+    path = config.store_path()
+    with _HEALTH_LOCK:
+        found = _health_cache.get(path)
+        if found is None or time.monotonic() - found[0] >= HEALTH_CACHE_S:
+            found = _health_cache[path] = (time.monotonic(), store_health.check(path))
+    return JSONResponse(found[1], headers={"cache-control": "no-store"})
+
+
 def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
     routes = [
         Route(LIVE_PATH, live_stream),
@@ -710,7 +730,7 @@ def create_app(token: str, port: int, static: Path | None = None) -> Starlette:
         Route("/api/accounts/{id}/workspaces", _account_write(lambda c, i, b: accounts.use(c, i, b.get("workspaces"))), methods=["PUT"]),
         Route("/api/jobs", lambda request: JSONResponse(jobs.list_jobs())),  # sync: runs in a worker thread
         Route("/api/memory-graph", _query(_memory_graph)),
-        Route("/api/store/health", lambda request: JSONResponse(store_health.check(config.store_path()))),  # FR-091: read-only, never `store.opened` (it migrates)
+        Route("/api/store/health", store_health_route),  # FR-091: read-only, never `store.opened` (it migrates)
         Route("/api/first-run", _query(lambda c, q: {"steps": first_run.steps(c)})),
         Route("/api/sync", sync_plan),
         Route("/api/sync", sync_apply, methods=["POST"]),

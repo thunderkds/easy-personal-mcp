@@ -3,7 +3,9 @@
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
+import threading
 import time
 
 import pytest
@@ -266,8 +268,10 @@ def test_the_check_stops_at_its_budget_and_names_what_did_not_finish(path, monke
     result = store_health.check(path)
     assert result["readable"] is True
     assert "integrity_check" in result["incomplete"] and result["integrity_check"] is None
-    assert result["healthy"] is True  # unfinished is not a problem
-    assert "not finished in time" in "\n".join(store_health.lines(result))
+    assert result["healthy"] is None  # a cut-off check is never "healthy"
+    text = "\n".join(store_health.lines(result))
+    assert "not finished in time" in text and "verdict: not fully checked" in text
+    assert "verdict: healthy" not in text and "NOT healthy" not in text
 
 
 def test_a_large_store_gets_the_quick_check(path, monkeypatch):
@@ -324,3 +328,222 @@ def test_answers_within_two_seconds_on_a_store_of_the_owners_size(home):
         timings.append(round(time.monotonic() - start, 2))
     print(f"perf store-check over 1M events: {timings} s, incomplete {result['incomplete']}")
     assert result["tables"]["events"] == 1_000_000 and max(timings) < 2.0, timings
+
+
+# ---- fix round (Stage 4) ------------------------------------------------------------------------------------
+
+
+def _big(path, monkeypatch=None):
+    with store.opened(path) as conn:
+        for n in range(5, 4000):
+            add_event(conn, n, "/work/x")
+        conn.commit()
+
+
+def test_a_cut_off_check_is_unknown_in_json_and_exits_3(path, monkeypatch, capsys):
+    _big(path)
+    monkeypatch.setattr(store_health, "BUDGET_S", 0.0)
+    assert cli.main(["store-check", "--json"]) == 3
+    data = json.loads(capsys.readouterr().out)
+    assert data["healthy"] is None and "integrity_check" in data["incomplete"]
+    assert cli.main(["store-check"]) == 3
+    assert "verdict: not fully checked" in capsys.readouterr().out
+    assert store_health.exit_code({"healthy": True}) == 0 and store_health.exit_code({"healthy": False}) == 1
+
+
+def test_a_cut_off_table_count_is_named_not_hidden(path, monkeypatch):
+    _big(path)
+
+    def tables(conn):
+        conn.execute("SELECT 1")
+        raise sqlite3.OperationalError("interrupted")  # what the progress handler raises mid-count
+
+    monkeypatch.setattr(store_health, "_tables", tables)
+    result = store_health.check(path)
+    assert result["tables"] is None and "tables" in result["incomplete"] and result["healthy"] is None
+    assert "tables: not finished in time" in "\n".join(store_health.lines(result))
+
+
+def test_a_found_problem_wins_over_an_unfinished_check(path, monkeypatch):
+    _big(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute(f"PRAGMA user_version = {LATEST - 1}")
+    monkeypatch.setattr(store_health, "BUDGET_S", 0.0)
+    result = store_health.check(path)
+    assert result["incomplete"] and result["healthy"] is False
+
+
+def test_full_check_on_a_clean_store_prints_progress_and_exits_0(path, monkeypatch, capsys):
+    monkeypatch.setattr(store_health, "FULL_CHECK_MAX_BYTES", 1)  # the default run would use quick_check
+    assert cli.main(["store-check", "--full", "--json"]) == 0
+    captured = capsys.readouterr()
+    assert captured.err.startswith("full check: this can take minutes")
+    data = json.loads(captured.out)  # stdout stays clean JSON
+    assert data["integrity_check"] == {"ok": True, "problems": 0, "mode": "full"} and data["healthy"] is True
+
+
+def test_full_check_has_no_time_budget(path, monkeypatch):
+    _big(path)
+    monkeypatch.setattr(store_health, "BUDGET_S", 0.0)
+    result = store_health.check(path, full=True)
+    assert result["incomplete"] == [] and result["healthy"] is True
+    assert result["integrity_check"]["mode"] == "full"
+
+
+def test_full_check_on_a_small_corrupt_store_finds_the_problem(home, capsys):
+    target = config.store_path()
+    with store.opened(target) as conn:
+        for n in range(3000):
+            add_event(conn, n, f"/work/{CANARY}")
+        conn.commit()
+    with sqlite3.connect(target) as conn:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    pages = os.path.getsize(target) // sqlite3.connect(target).execute("PRAGMA page_size").fetchone()[0]
+    _corrupt_page(target, pages // 2)
+    assert cli.main(["store-check", "--full"]) == 1
+    out = capsys.readouterr()
+    assert "problem(s)" in out.out and "verdict: NOT healthy" in out.out and CANARY not in out.out + out.err
+
+
+def test_ctrl_c_stops_the_full_check_with_130_and_no_traceback(path, monkeypatch, capsys):
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(store_health, "check", interrupted)
+    assert cli.main(["store-check", "--full"]) == 130
+    captured = capsys.readouterr()
+    assert "Traceback" not in captured.err + captured.out and captured.out == ""
+
+
+def test_cancel_stops_every_running_read(path):
+    _big(path)
+    cancel = threading.Event()
+    cancel.set()
+    result = store_health.check(path, full=True, cancel=cancel)
+    assert "integrity_check" in result["incomplete"] and result["healthy"] is None
+
+
+def test_a_wal_without_shm_is_read_from_a_private_copy_and_creates_no_file(path, tmp_path):
+    writer = sqlite3.connect(path)  # a live writer keeps a row only in the WAL
+    writer.execute("PRAGMA journal_mode=WAL")
+    writer.execute("INSERT INTO meta (key, value) VALUES ('k', 'v')")
+    writer.commit()
+    beside = tmp_path / "copy"
+    beside.mkdir()
+    shutil.copyfile(path, beside / "store.sqlite")
+    shutil.copyfile(f"{path}-wal", beside / "store.sqlite-wal")  # no -shm: a crashed or copied store
+    names, before = sorted(p.name for p in beside.iterdir()), _fingerprint(beside / "store.sqlite")
+    result = store_health.check(beside / "store.sqlite")
+    assert result["readable"] is True and result["tables"]["meta"] == 2  # the WAL row is seen
+    assert sorted(p.name for p in beside.iterdir()) == names == ["store.sqlite", "store.sqlite-wal"]
+    assert _fingerprint(beside / "store.sqlite") == before
+    writer.close()
+
+
+def test_the_way_to_open_is_decided_once_before_the_threads_start(path, monkeypatch):
+    calls = []
+    real = store_health._target
+    monkeypatch.setattr(store_health, "_target", lambda p: (calls.append(p), real(p))[1])
+    store_health.check(path)
+    assert len(calls) == 1
+
+
+def test_a_symlinked_store_reads_the_wal_beside_its_target(path, tmp_path):
+    writer = sqlite3.connect(path)
+    writer.execute("INSERT INTO meta (key, value) VALUES ('k', 'v')")
+    writer.commit()
+    link_dir = tmp_path / "links"
+    link_dir.mkdir()
+    (link_dir / "store.sqlite").symlink_to(path)
+    result = store_health.check(link_dir / "store.sqlite")
+    assert result["wal_bytes"] > 0 and result["tables"]["meta"] == 2
+    assert sorted(p.name for p in link_dir.iterdir()) == ["store.sqlite"]
+    writer.close()
+
+
+def test_text_from_the_store_is_capped_and_cleaned(path, capsys):
+    with sqlite3.connect(path) as conn:
+        conn.execute('CREATE TABLE "evil\x1b[31mtable\nline' + "x" * 200 + '" (a)')
+        conn.execute("UPDATE events SET source = ?, ts_utc = ? WHERE byte_offset = 1",
+                     ("bad\x1b]0;title\x07src\n" + "y" * 200, "2030\x1b[2J" + "z" * 200))
+    result = store_health.check(path)
+    keys = [*result["tables"], *result["sources"]]
+    assert all(len(k) <= store_health.TEXT_LIMIT for k in keys)
+    assert all(k.isprintable() for k in keys)
+    assert all(len(s["last_ingest_utc"] or "") <= store_health.TEXT_LIMIT for s in result["sources"].values())
+    assert cli.main(["store-check"]) in (0, 1)
+    out = capsys.readouterr().out
+    assert "\x1b" not in out and "\x07" not in out and len(out.splitlines()) == 8
+
+
+def test_a_blob_time_is_unreadable_for_that_part_never_a_traceback(path, capsys):
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE events SET ts_utc = X'0102ff' WHERE byte_offset = 1")
+    result = store_health.check(path)
+    assert result["sources"] is None and "sources" in result["unreadable"] and result["healthy"] is False
+    assert result["tables"]["events"] == 5  # the other parts are unaffected
+    assert cli.main(["store-check", "--json"]) == 1
+    assert json.loads(capsys.readouterr().out)["unreadable"] == ["sources"]
+    assert cli.main(["store-check"]) == 1
+    assert "sources: unreadable" in capsys.readouterr().out
+
+
+def test_a_table_name_with_invalid_utf8_is_unreadable_never_a_traceback(path, capsys):
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE badname (a)")
+        conn.execute("PRAGMA writable_schema=ON")
+        conn.execute("UPDATE sqlite_master SET name = CAST(X'c328ff' AS TEXT) WHERE name = 'badname'")
+        conn.execute("PRAGMA writable_schema=OFF")
+    result = store_health.check(path)
+    assert result["tables"] is None and result["healthy"] is False  # SQLite itself refuses this schema
+    assert cli.main(["store-check", "--json"]) == 1
+    json.loads(capsys.readouterr().out)
+    assert cli.main(["store-check"]) == 1
+    assert "verdict: NOT healthy" in capsys.readouterr().out
+
+
+def test_a_part_that_raises_a_decode_error_is_unreadable(path, monkeypatch):
+    def tables(conn):
+        b"\xc3\x28".decode("utf-8")  # what the sqlite3 module raises for a name that is not UTF-8
+
+    monkeypatch.setattr(store_health, "_tables", tables)
+    result = store_health.check(path)
+    assert result["tables"] is None and result["unreadable"] == ["tables"] and result["healthy"] is False
+    assert "tables: unreadable" in "\n".join(store_health.lines(result))
+
+
+class _FakeConn:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def execute(self, sql):
+        return self
+
+    def fetchall(self):
+        return self.rows
+
+
+def test_the_problem_count_is_the_number_of_rows_sqlite_returned():
+    two = [("row 1 missing from index i",), ("wrong # of entries in index i",)]
+    assert store_health._verdict("integrity_check")(_FakeConn(two)) == {"ok": False, "problems": 2, "mode": "full"}
+    assert store_health._verdict("quick_check")(_FakeConn(two + two))["problems"] == 4
+    assert store_health._verdict("integrity_check")(_FakeConn([("ok",)]))["ok"] is True
+    assert store_health._foreign_keys(_FakeConn([(1,), (2,), (3,)])) == {"ok": False, "problems": 3}
+
+
+def test_a_locked_store_is_unreadable_locked_not_corruption(path, monkeypatch, capsys):
+    def locked(*args, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(sqlite3, "connect", locked)
+    result = store_health.check(path)
+    assert result["locked"] is True and result["healthy"] is None and result["integrity_check"] is None
+    assert cli.main(["store-check"]) == 3
+    out = capsys.readouterr().out
+    assert "unreadable (locked)" in out and "problem" not in out
+
+
+def test_the_wait_for_a_lock_is_the_rest_of_the_budget(path):
+    conn = store_health._open(f"{path.resolve().as_uri()}?mode=ro", time.monotonic() + 0.3, threading.Event())
+    assert 0 <= conn.execute("PRAGMA busy_timeout").fetchone()[0] <= 300
+    conn.close()

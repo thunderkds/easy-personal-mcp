@@ -90,7 +90,7 @@ CLI_CALLS: dict[str, list[list[str]]] = {
     "plan": [[], ["--workspace", "acme"], ["--account", "1"]],
     "kit": [[], ["--workspace", "acme"], ["--account", "1"], ["--account", "1", "--workspace", "acme"]],
     "kit-findings": [[], ["--json"], ["--json", "--limit", "10", "--since", "2026-01-01"]],
-    "store-check": [[], ["--json"]],  # HUN-244: read-only; counts, versions, sizes, times, backup names (planted names: test_store_check_leak.py)
+    "store-check": [[], ["--json"], ["--full"]],  # HUN-244: read-only; counts, versions, sizes, times, backup names (planted names: test_store_check_leak.py)
     "account": [
         ["list"], ["list", "--by", "provider"], ["list", "--by", "account"],
         # HUN-65: id 1 is the fake agent root's `.claude-work`; `acme` comes from "workspace" above.

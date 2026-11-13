@@ -152,6 +152,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="check keychain, claude CLI and connector entries")
     check_p = sub.add_parser("store-check", help="read-only health check of the local store (nothing is written)")
     check_p.add_argument("--json", action="store_true", help="print the full result as JSON")
+    check_p.add_argument(
+        "--full", action="store_true", help="full integrity_check with no time limit (can take minutes)"
+    )
     return parser
 
 
@@ -386,12 +389,18 @@ def main(argv: list[str] | None = None) -> int:
             legacy.doctor(conn, print)
             return 1 if sync.doctor(conn, print) or rc else 0
     if args.command == "store-check":
-        result = store_health.check(config.store_path())
+        if args.full:
+            print("full check: this can take minutes; Ctrl-C stops it", file=sys.stderr)
+        try:
+            result = store_health.check(config.store_path(), full=args.full)
+        except KeyboardInterrupt:
+            print("store-check: stopped", file=sys.stderr)
+            return 130
         if args.json:
             _print_json(result)
         else:
             print("\n".join(store_health.lines(result)))
-        return 0 if result["healthy"] else 1
+        return store_health.exit_code(result)  # 0 healthy, 1 a problem found, 3 not fully checked
     if args.command == "ingest":
         return _ingest(args)
     if args.command == "schedule":
