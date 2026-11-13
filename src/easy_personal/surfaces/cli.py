@@ -19,6 +19,7 @@ from easy_personal.core import (
     rules,
     schedule,
     store,
+    store_health,
     workspaces,
 )
 from easy_personal.sources import claude_code, context, kit_trace, ui, verifier
@@ -149,6 +150,8 @@ def build_parser() -> argparse.ArgumentParser:
     use_p.add_argument("account", help="account id or folder")
     use_p.add_argument("workspaces", nargs="*", help="workspace names; `connector sync` applies them")
     sub.add_parser("doctor", help="check keychain, claude CLI and connector entries")
+    check_p = sub.add_parser("store-check", help="read-only health check of the local store (nothing is written)")
+    check_p.add_argument("--json", action="store_true", help="print the full result as JSON")
     return parser
 
 
@@ -382,6 +385,13 @@ def main(argv: list[str] | None = None) -> int:
             rc = writer.doctor(print, stored)
             legacy.doctor(conn, print)
             return 1 if sync.doctor(conn, print) or rc else 0
+    if args.command == "store-check":
+        result = store_health.check(config.store_path())
+        if args.json:
+            _print_json(result)
+        else:
+            print("\n".join(store_health.lines(result)))
+        return 0 if result["healthy"] else 1
     if args.command == "ingest":
         return _ingest(args)
     if args.command == "schedule":

@@ -90,6 +90,7 @@ CLI_CALLS: dict[str, list[list[str]]] = {
     "plan": [[], ["--workspace", "acme"], ["--account", "1"]],
     "kit": [[], ["--workspace", "acme"], ["--account", "1"], ["--account", "1", "--workspace", "acme"]],
     "kit-findings": [[], ["--json"], ["--json", "--limit", "10", "--since", "2026-01-01"]],
+    "store-check": [[], ["--json"]],  # HUN-244: read-only; counts, versions, sizes, times, backup names (planted names: test_store_check_leak.py)
     "account": [
         ["list"], ["list", "--by", "provider"], ["list", "--by", "account"],
         # HUN-65: id 1 is the fake agent root's `.claude-work`; `acme` comes from "workspace" above.
@@ -127,6 +128,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/memory-graph": ["", "?project=%2Fnope", "?project="],  # HUN-164; each listed project is also called by collect_api
     "/api/live": ["", "?token=leak-test-token"],  # HUN-177: SSE stream, read by `read_live_stream` over a tail that has read the planted transcripts
     "/api/dirs": ["", "?path=%2F", "?path=%2Fnope", "?path=relative"],  # HUN-203: folder names only; planted trees are listed in collect_api
+    "/api/store/health": [""],  # HUN-244: read-only store check; no row content, no absolute path (planted names: test_store_check_leak.py)
     "/api/first-run": [""],  # HUN-160: four done / not-done flags and fixed hints
     "/api/connectors/legacy": [""],  # HUN-67: the failing keyring answers 503 with the guidance text
 }
