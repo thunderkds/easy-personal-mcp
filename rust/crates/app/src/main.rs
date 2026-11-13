@@ -13,6 +13,7 @@ mod mcp_http;
 mod schedule_cmd;
 mod server;
 mod static_files;
+mod store_check_cmd;
 mod window;
 mod writes;
 
@@ -30,6 +31,15 @@ enum Command {
         /// Print one JSON object instead of text
         #[arg(long)]
         json: bool,
+    },
+    /// Read-only health check of the store: file, version, integrity, row counts, sources, backups (never writes). Exit 0 healthy, 1 a problem, 3 not fully checked, 130 Ctrl-C
+    StoreCheck {
+        /// Print one JSON object instead of text
+        #[arg(long)]
+        json: bool,
+        /// Run the full integrity check with no time limit (can take minutes)
+        #[arg(long)]
+        full: bool,
     },
     /// Copy new Claude Code transcript metadata into the store (events only; takes the ingest lock; never migrates)
     Ingest {
@@ -87,6 +97,7 @@ fn main() -> ExitCode {
                 ExitCode::from(e.exit_code() as u8)
             }
         },
+        Command::StoreCheck { json, full } => store_check_cmd::run(json, full),
         Command::Ingest {
             source,
             retention_days,

@@ -1,0 +1,965 @@
+{
+  "backups": [
+    "store.sqlite.bak-v1",
+    "store.sqlite.bak-v2",
+    "store.sqlite.bak-v3",
+    "store.sqlite.bak-v4",
+    "store.sqlite.bak-v5",
+    "store.sqlite.bak-v6",
+    "store.sqlite.bak-v7",
+    "store.sqlite.bak-v8",
+    "store.sqlite.bak-v9",
+    "store.sqlite.bak-v10",
+    "store.sqlite.bak-v11",
+    "store.sqlite.bak-v12",
+    "store.sqlite.bak-v13",
+    "store.sqlite.bak-v14",
+    "store.sqlite.bak-v15",
+    "store.sqlite.bak-v16",
+    "store.sqlite.bak-v17",
+    "store.sqlite.bak-v18",
+    "store.sqlite.bak-v19",
+    "store.sqlite.bak-v20",
+    "store.sqlite.bak-v21",
+    "store.sqlite.bak-v22",
+    "store.sqlite.bak-v23",
+    "store.sqlite.bak-v24",
+    "store.sqlite.bak-v25",
+    "store.sqlite.bak-v26",
+    "store.sqlite.bak-v27",
+    "store.sqlite.bak-v28",
+    "store.sqlite.bak-v29",
+    "store.sqlite.bak-v30",
+    "store.sqlite.bak-v31",
+    "store.sqlite.bak-v32",
+    "store.sqlite.bak-v33",
+    "store.sqlite.bak-v34",
+    "store.sqlite.bak-v35",
+    "store.sqlite.bak-v36",
+    "store.sqlite.bak-v37",
+    "store.sqlite.bak-v38",
+    "store.sqlite.bak-v39",
+    "store.sqlite.bak-v40",
+    "store.sqlite.bak-v41",
+    "store.sqlite.bak-v42",
+    "store.sqlite.bak-v43",
+    "store.sqlite.bak-v44",
+    "store.sqlite.bak-v45",
+    "store.sqlite.bak-v46",
+    "store.sqlite.bak-v47",
+    "store.sqlite.bak-v48",
+    "store.sqlite.bak-v49",
+    "store.sqlite.bak-v50",
+    "store.sqlite.bak-v51",
+    "store.sqlite.bak-v52",
+    "store.sqlite.bak-v53",
+    "store.sqlite.bak-v54",
+    "store.sqlite.bak-v55",
+    "store.sqlite.bak-v56",
+    "store.sqlite.bak-v57",
+    "store.sqlite.bak-v58",
+    "store.sqlite.bak-v59",
+    "store.sqlite.bak-v60",
+    "store.sqlite.bak-v61",
+    "store.sqlite.bak-v62",
+    "store.sqlite.bak-v63",
+    "store.sqlite.bak-v64",
+    "store.sqlite.bak-v65",
+    "store.sqlite.bak-v66",
+    "store.sqlite.bak-v67",
+    "store.sqlite.bak-v68",
+    "store.sqlite.bak-v69",
+    "store.sqlite.bak-v70",
+    "store.sqlite.bak-v71",
+    "store.sqlite.bak-v72",
+    "store.sqlite.bak-v73",
+    "store.sqlite.bak-v74",
+    "store.sqlite.bak-v75",
+    "store.sqlite.bak-v76",
+    "store.sqlite.bak-v77",
+    "store.sqlite.bak-v78",
+    "store.sqlite.bak-v79",
+    "store.sqlite.bak-v80",
+    "store.sqlite.bak-v81",
+    "store.sqlite.bak-v82",
+    "store.sqlite.bak-v83",
+    "store.sqlite.bak-v84",
+    "store.sqlite.bak-v85",
+    "store.sqlite.bak-v86",
+    "store.sqlite.bak-v87",
+    "store.sqlite.bak-v88",
+    "store.sqlite.bak-v89",
+    "store.sqlite.bak-v90",
+    "store.sqlite.bak-v91",
+    "store.sqlite.bak-v92",
+    "store.sqlite.bak-v93",
+    "store.sqlite.bak-v94",
+    "store.sqlite.bak-v95",
+    "store.sqlite.bak-v96",
+    "store.sqlite.bak-v97",
+    "store.sqlite.bak-v98",
+    "store.sqlite.bak-v99",
+    "store.sqlite.bak-v100",
+    "store.sqlite.bak-v101",
+    "store.sqlite.bak-v102",
+    "store.sqlite.bak-v103",
+    "store.sqlite.bak-v104",
+    "store.sqlite.bak-v105",
+    "store.sqlite.bak-v106",
+    "store.sqlite.bak-v107",
+    "store.sqlite.bak-v108",
+    "store.sqlite.bak-v109",
+    "store.sqlite.bak-v110",
+    "store.sqlite.bak-v111",
+    "store.sqlite.bak-v112",
+    "store.sqlite.bak-v113",
+    "store.sqlite.bak-v114",
+    "store.sqlite.bak-v115",
+    "store.sqlite.bak-v116",
+    "store.sqlite.bak-v117",
+    "store.sqlite.bak-v118",
+    "store.sqlite.bak-v119",
+    "store.sqlite.bak-v120",
+    "store.sqlite.bak-v121",
+    "store.sqlite.bak-v122",
+    "store.sqlite.bak-v123",
+    "store.sqlite.bak-v124",
+    "store.sqlite.bak-v125",
+    "store.sqlite.bak-v126",
+    "store.sqlite.bak-v127",
+    "store.sqlite.bak-v128",
+    "store.sqlite.bak-v129",
+    "store.sqlite.bak-v130",
+    "store.sqlite.bak-v131",
+    "store.sqlite.bak-v132",
+    "store.sqlite.bak-v133",
+    "store.sqlite.bak-v134",
+    "store.sqlite.bak-v135",
+    "store.sqlite.bak-v136",
+    "store.sqlite.bak-v137",
+    "store.sqlite.bak-v138",
+    "store.sqlite.bak-v139",
+    "store.sqlite.bak-v140",
+    "store.sqlite.bak-v141",
+    "store.sqlite.bak-v142",
+    "store.sqlite.bak-v143",
+    "store.sqlite.bak-v144",
+    "store.sqlite.bak-v145",
+    "store.sqlite.bak-v146",
+    "store.sqlite.bak-v147",
+    "store.sqlite.bak-v148",
+    "store.sqlite.bak-v149",
+    "store.sqlite.bak-v150"
+  ],
+  "exists": true,
+  "foreign_key_check": {
+    "ok": true,
+    "problems": 0
+  },
+  "healthy": true,
+  "incomplete": [],
+  "integrity_check": {
+    "mode": "full",
+    "ok": true,
+    "problems": 0
+  },
+  "latest_migration": 11,
+  "locked": false,
+  "migration_pending": false,
+  "newer_than_code": false,
+  "readable": true,
+  "size_bytes": 806912,
+  "sources": {
+    "claude_code": {
+      "abstained": 1,
+      "last_ingest_utc": "2026-01-01T00:00:04.000000Z"
+    },
+    "context": {
+      "abstained": null,
+      "last_ingest_utc": null
+    },
+    "kit_trace": {
+      "abstained": 1,
+      "last_ingest_utc": "2026-02-01T00:00:00.000000Z"
+    },
+    "source_000": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_001": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_002": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_003": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_004": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_005": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_006": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_007": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_008": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_009": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_010": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_011": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_012": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_013": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_014": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_015": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_016": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_017": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_018": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_019": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_020": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_021": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_022": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_023": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_024": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_025": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_026": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_027": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_028": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_029": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_030": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_031": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_032": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_033": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_034": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_035": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_036": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_037": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_038": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_039": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_040": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_041": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_042": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_043": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_044": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_045": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_046": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_047": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_048": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_049": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_050": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_051": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_052": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_053": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_054": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_055": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_056": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_057": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_058": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_059": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_060": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_061": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_062": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_063": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_064": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_065": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_066": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_067": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_068": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_069": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_070": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_071": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_072": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_073": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_074": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_075": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_076": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_077": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_078": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_079": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_080": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_081": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_082": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_083": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_084": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_085": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_086": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_087": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_088": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_089": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_090": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_091": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_092": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_093": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_094": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_095": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_096": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_097": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_098": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_099": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_100": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_101": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_102": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_103": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_104": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_105": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_106": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_107": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_108": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_109": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_110": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_111": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_112": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_113": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_114": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_115": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_116": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_117": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_118": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_119": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_120": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_121": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_122": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_123": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_124": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_125": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_126": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_127": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_128": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_129": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_130": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_131": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_132": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_133": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_134": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_135": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_136": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_137": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_138": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_139": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_140": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_141": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_142": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_143": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_144": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_145": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_146": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_147": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_148": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "source_149": {
+      "abstained": 0,
+      "last_ingest_utc": "2026-01-01T00:00:00.000000Z"
+    },
+    "ui": {
+      "abstained": null,
+      "last_ingest_utc": "2026-03-01T00:00:00Z"
+    },
+    "verifier": {
+      "abstained": null,
+      "last_ingest_utc": null
+    }
+  },
+  "store_file": "store.sqlite",
+  "tables": {
+    "account_registrations": 0,
+    "account_workspaces": 0,
+    "agent_accounts": 0,
+    "connectors": 0,
+    "context_index": 0,
+    "events": 155,
+    "extra_000": 0,
+    "extra_001": 0,
+    "extra_002": 0,
+    "extra_003": 0,
+    "extra_004": 0,
+    "extra_005": 0,
+    "extra_006": 0,
+    "extra_007": 0,
+    "extra_008": 0,
+    "extra_009": 0,
+    "extra_010": 0,
+    "extra_011": 0,
+    "extra_012": 0,
+    "extra_013": 0,
+    "extra_014": 0,
+    "extra_015": 0,
+    "extra_016": 0,
+    "extra_017": 0,
+    "extra_018": 0,
+    "extra_019": 0,
+    "extra_020": 0,
+    "extra_021": 0,
+    "extra_022": 0,
+    "extra_023": 0,
+    "extra_024": 0,
+    "extra_025": 0,
+    "extra_026": 0,
+    "extra_027": 0,
+    "extra_028": 0,
+    "extra_029": 0,
+    "extra_030": 0,
+    "extra_031": 0,
+    "extra_032": 0,
+    "extra_033": 0,
+    "extra_034": 0,
+    "extra_035": 0,
+    "extra_036": 0,
+    "extra_037": 0,
+    "extra_038": 0,
+    "extra_039": 0,
+    "extra_040": 0,
+    "extra_041": 0,
+    "extra_042": 0,
+    "extra_043": 0,
+    "extra_044": 0,
+    "extra_045": 0,
+    "extra_046": 0,
+    "extra_047": 0,
+    "extra_048": 0,
+    "extra_049": 0,
+    "extra_050": 0,
+    "extra_051": 0,
+    "extra_052": 0,
+    "extra_053": 0,
+    "extra_054": 0,
+    "extra_055": 0,
+    "extra_056": 0,
+    "extra_057": 0,
+    "extra_058": 0,
+    "extra_059": 0,
+    "extra_060": 0,
+    "extra_061": 0,
+    "extra_062": 0,
+    "extra_063": 0,
+    "extra_064": 0,
+    "extra_065": 0,
+    "extra_066": 0,
+    "extra_067": 0,
+    "extra_068": 0,
+    "extra_069": 0,
+    "extra_070": 0,
+    "extra_071": 0,
+    "extra_072": 0,
+    "extra_073": 0,
+    "extra_074": 0,
+    "extra_075": 0,
+    "extra_076": 0,
+    "extra_077": 0,
+    "extra_078": 0,
+    "extra_079": 0,
+    "extra_080": 0,
+    "extra_081": 0,
+    "extra_082": 0,
+    "extra_083": 0,
+    "extra_084": 0,
+    "extra_085": 0,
+    "extra_086": 0,
+    "extra_087": 0,
+    "extra_088": 0,
+    "extra_089": 0,
+    "extra_090": 0,
+    "extra_091": 0,
+    "extra_092": 0,
+    "extra_093": 0,
+    "extra_094": 0,
+    "extra_095": 0,
+    "extra_096": 0,
+    "extra_097": 0,
+    "extra_098": 0,
+    "extra_099": 0,
+    "extra_100": 0,
+    "extra_101": 0,
+    "extra_102": 0,
+    "extra_103": 0,
+    "extra_104": 0,
+    "extra_105": 0,
+    "extra_106": 0,
+    "extra_107": 0,
+    "extra_108": 0,
+    "extra_109": 0,
+    "extra_110": 0,
+    "extra_111": 0,
+    "extra_112": 0,
+    "extra_113": 0,
+    "extra_114": 0,
+    "extra_115": 0,
+    "extra_116": 0,
+    "extra_117": 0,
+    "extra_118": 0,
+    "extra_119": 0,
+    "extra_120": 0,
+    "extra_121": 0,
+    "extra_122": 0,
+    "extra_123": 0,
+    "extra_124": 0,
+    "extra_125": 0,
+    "extra_126": 0,
+    "extra_127": 0,
+    "extra_128": 0,
+    "extra_129": 0,
+    "extra_130": 0,
+    "extra_131": 0,
+    "extra_132": 0,
+    "extra_133": 0,
+    "extra_134": 0,
+    "extra_135": 0,
+    "extra_136": 0,
+    "extra_137": 0,
+    "extra_138": 0,
+    "extra_139": 0,
+    "extra_140": 0,
+    "extra_141": 0,
+    "extra_142": 0,
+    "extra_143": 0,
+    "extra_144": 0,
+    "extra_145": 0,
+    "extra_146": 0,
+    "extra_147": 0,
+    "extra_148": 0,
+    "extra_149": 0,
+    "investigate_reports": 0,
+    "kit_trace_events": 1,
+    "meta": 1,
+    "source_files": 0,
+    "tool_signals": 0,
+    "ui_sessions": 1,
+    "verifier_scores": 0,
+    "workspace_repos": 0,
+    "workspaces": 1
+  },
+  "unreadable": [],
+  "user_version": 11,
+  "wal_bytes": 0
+}

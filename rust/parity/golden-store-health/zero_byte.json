@@ -1,0 +1,29 @@
+{
+  "backups": [],
+  "exists": true,
+  "foreign_key_check": {
+    "ok": true,
+    "problems": 0
+  },
+  "healthy": false,
+  "incomplete": [],
+  "integrity_check": {
+    "mode": "full",
+    "ok": true,
+    "problems": 0
+  },
+  "latest_migration": 11,
+  "locked": false,
+  "migration_pending": true,
+  "newer_than_code": false,
+  "readable": true,
+  "size_bytes": 0,
+  "sources": null,
+  "store_file": "store.sqlite",
+  "tables": {},
+  "unreadable": [
+    "sources"
+  ],
+  "user_version": 0,
+  "wal_bytes": 0
+}

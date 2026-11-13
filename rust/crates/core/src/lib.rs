@@ -22,6 +22,7 @@ pub mod scope;
 pub mod secret;
 pub mod sessions;
 pub mod store;
+pub mod store_health;
 pub mod suggestions;
 pub mod sync;
 pub mod workspaces;

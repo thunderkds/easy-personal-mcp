@@ -1,0 +1,427 @@
+{
+  "generator": "rust/parity/gen_store_health.py",
+  "python_sqlite": "3.47.1",
+  "latest_migration": 11,
+  "cases": [
+    {
+      "name": "clean",
+      "fixture": "clean",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "empty",
+      "fixture": "empty",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "behind",
+      "fixture": "behind",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "newer",
+      "fixture": "newer",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "corrupt_page",
+      "fixture": "corrupt_page",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "corrupt_page_full",
+      "fixture": "corrupt_page",
+      "options": {
+        "full": true
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "damaged_index",
+      "fixture": "damaged_index",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "wal_no_shm",
+      "fixture": "wal_no_shm",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite",
+        "store.sqlite-wal"
+      ]
+    },
+    {
+      "name": "locked",
+      "fixture": "locked",
+      "options": {
+        "budget_s": 0.3
+      },
+      "setup": "lock",
+      "files": [
+        "store.sqlite",
+        "store.sqlite-shm",
+        "store.sqlite-wal"
+      ]
+    },
+    {
+      "name": "hostile",
+      "fixture": "hostile",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "blob_time",
+      "fixture": "blob_time",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "int_time",
+      "fixture": "int_time",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "missing",
+      "fixture": "missing",
+      "options": {},
+      "setup": null,
+      "files": []
+    },
+    {
+      "name": "missing_with_wal",
+      "fixture": "missing_with_wal",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite-wal",
+        "store.sqlite.bak-v3"
+      ]
+    },
+    {
+      "name": "zero_byte",
+      "fixture": "zero_byte",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "not_a_database",
+      "fixture": "not_a_database",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "backups",
+      "fixture": "backups",
+      "options": {},
+      "setup": null,
+      "files": [
+        "CANARY-SECRET-244.txt",
+        "store.sqlite",
+        "store.sqlite.bak-v",
+        "store.sqlite.bak-v007",
+        "store.sqlite.bak-v10",
+        "store.sqlite.bak-v3",
+        "store.sqlite.bak-v3-wal",
+        "store.sqlite.bak-v4",
+        "store.sqlite.bak-v5-CANARY-SECRET-244",
+        "store.sqlite.bak-v7"
+      ]
+    },
+    {
+      "name": "fk_violation",
+      "fixture": "fk_violation",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "later_table",
+      "fixture": "later_table",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "many_listed",
+      "fixture": "many_listed",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite",
+        "store.sqlite.bak-v1",
+        "store.sqlite.bak-v10",
+        "store.sqlite.bak-v100",
+        "store.sqlite.bak-v101",
+        "store.sqlite.bak-v102",
+        "store.sqlite.bak-v103",
+        "store.sqlite.bak-v104",
+        "store.sqlite.bak-v105",
+        "store.sqlite.bak-v106",
+        "store.sqlite.bak-v107",
+        "store.sqlite.bak-v108",
+        "store.sqlite.bak-v109",
+        "store.sqlite.bak-v11",
+        "store.sqlite.bak-v110",
+        "store.sqlite.bak-v111",
+        "store.sqlite.bak-v112",
+        "store.sqlite.bak-v113",
+        "store.sqlite.bak-v114",
+        "store.sqlite.bak-v115",
+        "store.sqlite.bak-v116",
+        "store.sqlite.bak-v117",
+        "store.sqlite.bak-v118",
+        "store.sqlite.bak-v119",
+        "store.sqlite.bak-v12",
+        "store.sqlite.bak-v120",
+        "store.sqlite.bak-v121",
+        "store.sqlite.bak-v122",
+        "store.sqlite.bak-v123",
+        "store.sqlite.bak-v124",
+        "store.sqlite.bak-v125",
+        "store.sqlite.bak-v126",
+        "store.sqlite.bak-v127",
+        "store.sqlite.bak-v128",
+        "store.sqlite.bak-v129",
+        "store.sqlite.bak-v13",
+        "store.sqlite.bak-v130",
+        "store.sqlite.bak-v131",
+        "store.sqlite.bak-v132",
+        "store.sqlite.bak-v133",
+        "store.sqlite.bak-v134",
+        "store.sqlite.bak-v135",
+        "store.sqlite.bak-v136",
+        "store.sqlite.bak-v137",
+        "store.sqlite.bak-v138",
+        "store.sqlite.bak-v139",
+        "store.sqlite.bak-v14",
+        "store.sqlite.bak-v140",
+        "store.sqlite.bak-v141",
+        "store.sqlite.bak-v142",
+        "store.sqlite.bak-v143",
+        "store.sqlite.bak-v144",
+        "store.sqlite.bak-v145",
+        "store.sqlite.bak-v146",
+        "store.sqlite.bak-v147",
+        "store.sqlite.bak-v148",
+        "store.sqlite.bak-v149",
+        "store.sqlite.bak-v15",
+        "store.sqlite.bak-v150",
+        "store.sqlite.bak-v16",
+        "store.sqlite.bak-v17",
+        "store.sqlite.bak-v18",
+        "store.sqlite.bak-v19",
+        "store.sqlite.bak-v2",
+        "store.sqlite.bak-v20",
+        "store.sqlite.bak-v21",
+        "store.sqlite.bak-v22",
+        "store.sqlite.bak-v23",
+        "store.sqlite.bak-v24",
+        "store.sqlite.bak-v25",
+        "store.sqlite.bak-v26",
+        "store.sqlite.bak-v27",
+        "store.sqlite.bak-v28",
+        "store.sqlite.bak-v29",
+        "store.sqlite.bak-v3",
+        "store.sqlite.bak-v30",
+        "store.sqlite.bak-v31",
+        "store.sqlite.bak-v32",
+        "store.sqlite.bak-v33",
+        "store.sqlite.bak-v34",
+        "store.sqlite.bak-v35",
+        "store.sqlite.bak-v36",
+        "store.sqlite.bak-v37",
+        "store.sqlite.bak-v38",
+        "store.sqlite.bak-v39",
+        "store.sqlite.bak-v4",
+        "store.sqlite.bak-v40",
+        "store.sqlite.bak-v41",
+        "store.sqlite.bak-v42",
+        "store.sqlite.bak-v43",
+        "store.sqlite.bak-v44",
+        "store.sqlite.bak-v45",
+        "store.sqlite.bak-v46",
+        "store.sqlite.bak-v47",
+        "store.sqlite.bak-v48",
+        "store.sqlite.bak-v49",
+        "store.sqlite.bak-v5",
+        "store.sqlite.bak-v50",
+        "store.sqlite.bak-v51",
+        "store.sqlite.bak-v52",
+        "store.sqlite.bak-v53",
+        "store.sqlite.bak-v54",
+        "store.sqlite.bak-v55",
+        "store.sqlite.bak-v56",
+        "store.sqlite.bak-v57",
+        "store.sqlite.bak-v58",
+        "store.sqlite.bak-v59",
+        "store.sqlite.bak-v6",
+        "store.sqlite.bak-v60",
+        "store.sqlite.bak-v61",
+        "store.sqlite.bak-v62",
+        "store.sqlite.bak-v63",
+        "store.sqlite.bak-v64",
+        "store.sqlite.bak-v65",
+        "store.sqlite.bak-v66",
+        "store.sqlite.bak-v67",
+        "store.sqlite.bak-v68",
+        "store.sqlite.bak-v69",
+        "store.sqlite.bak-v7",
+        "store.sqlite.bak-v70",
+        "store.sqlite.bak-v71",
+        "store.sqlite.bak-v72",
+        "store.sqlite.bak-v73",
+        "store.sqlite.bak-v74",
+        "store.sqlite.bak-v75",
+        "store.sqlite.bak-v76",
+        "store.sqlite.bak-v77",
+        "store.sqlite.bak-v78",
+        "store.sqlite.bak-v79",
+        "store.sqlite.bak-v8",
+        "store.sqlite.bak-v80",
+        "store.sqlite.bak-v81",
+        "store.sqlite.bak-v82",
+        "store.sqlite.bak-v83",
+        "store.sqlite.bak-v84",
+        "store.sqlite.bak-v85",
+        "store.sqlite.bak-v86",
+        "store.sqlite.bak-v87",
+        "store.sqlite.bak-v88",
+        "store.sqlite.bak-v89",
+        "store.sqlite.bak-v9",
+        "store.sqlite.bak-v90",
+        "store.sqlite.bak-v91",
+        "store.sqlite.bak-v92",
+        "store.sqlite.bak-v93",
+        "store.sqlite.bak-v94",
+        "store.sqlite.bak-v95",
+        "store.sqlite.bak-v96",
+        "store.sqlite.bak-v97",
+        "store.sqlite.bak-v98",
+        "store.sqlite.bak-v99"
+      ]
+    },
+    {
+      "name": "bad_table_name",
+      "fixture": "bad_table_name",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite",
+        "store.sqlite-wal"
+      ]
+    },
+    {
+      "name": "no_optional_tables",
+      "fixture": "no_optional_tables",
+      "options": {},
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "budget_zero",
+      "fixture": "big",
+      "options": {
+        "budget_s": 0.0
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "budget_zero_and_behind",
+      "fixture": "behind",
+      "options": {
+        "budget_s": 0.0
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "quick_check",
+      "fixture": "clean",
+      "options": {
+        "full_check_max_bytes": 1
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "full_no_budget",
+      "fixture": "big",
+      "options": {
+        "full": true,
+        "budget_s": 0.0
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    },
+    {
+      "name": "full_on_a_clean_store",
+      "fixture": "clean",
+      "options": {
+        "full": true
+      },
+      "setup": null,
+      "files": [
+        "store.sqlite"
+      ]
+    }
+  ]
+}

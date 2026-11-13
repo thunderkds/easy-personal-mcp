@@ -1,0 +1,60 @@
+{
+  "backups": [],
+  "exists": true,
+  "foreign_key_check": {
+    "ok": true,
+    "problems": 0
+  },
+  "healthy": true,
+  "incomplete": [],
+  "integrity_check": {
+    "mode": "full",
+    "ok": true,
+    "problems": 0
+  },
+  "latest_migration": 11,
+  "locked": false,
+  "migration_pending": false,
+  "newer_than_code": false,
+  "readable": true,
+  "size_bytes": 155648,
+  "sources": {
+    "claude_code": {
+      "abstained": 1,
+      "last_ingest_utc": "2026-01-01T00:00:04.000000Z"
+    },
+    "context": {
+      "abstained": null,
+      "last_ingest_utc": null
+    },
+    "kit_trace": {
+      "abstained": null,
+      "last_ingest_utc": null
+    },
+    "ui": {
+      "abstained": null,
+      "last_ingest_utc": null
+    },
+    "verifier": {
+      "abstained": null,
+      "last_ingest_utc": null
+    }
+  },
+  "store_file": "store.sqlite",
+  "tables": {
+    "account_registrations": 0,
+    "account_workspaces": 0,
+    "agent_accounts": 0,
+    "connectors": 0,
+    "events": 5,
+    "investigate_reports": 0,
+    "meta": 1,
+    "source_files": 0,
+    "tool_signals": 0,
+    "workspace_repos": 0,
+    "workspaces": 1
+  },
+  "unreadable": [],
+  "user_version": 11,
+  "wal_bytes": 0
+}

@@ -1,0 +1,40 @@
+{
+  "backups": [],
+  "exists": true,
+  "foreign_key_check": null,
+  "healthy": null,
+  "incomplete": [
+    "integrity_check",
+    "foreign_key_check",
+    "sources"
+  ],
+  "integrity_check": null,
+  "latest_migration": 11,
+  "locked": false,
+  "migration_pending": false,
+  "newer_than_code": false,
+  "readable": true,
+  "size_bytes": 532480,
+  "sources": null,
+  "store_file": "store.sqlite",
+  "tables": {
+    "account_registrations": 0,
+    "account_workspaces": 0,
+    "agent_accounts": 0,
+    "connectors": 0,
+    "context_index": 0,
+    "events": 1500,
+    "investigate_reports": 0,
+    "kit_trace_events": 0,
+    "meta": 1,
+    "source_files": 0,
+    "tool_signals": 0,
+    "ui_sessions": 0,
+    "verifier_scores": 0,
+    "workspace_repos": 0,
+    "workspaces": 1
+  },
+  "unreadable": [],
+  "user_version": 11,
+  "wal_bytes": 0
+}

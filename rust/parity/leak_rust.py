@@ -96,6 +96,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/sync": ["", "?account=1", "?account=99", "?account=nope", "?account=99999999999999999999"],
     "/api/dirs": ["", "?path=%2F", "?path=%2Fproc%2Fself", "?path=%2Fdev", "?path=relative", "?path=%00", "?path=%2Ftmp%2F..%2Ftmp%2F"],
     "/api/jobs": [""],
+    "/api/store/health": [""],  # T059: also over a store planted with canaries, in `store_check`
     "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
@@ -126,6 +127,9 @@ GUARD_CALLS = [
     ("account workspaces without a body", "PUT", "/api/accounts/1/workspaces", {}),
     ("dirs write method", "POST", "/api/dirs", {}),
     ("jobs write method", "DELETE", "/api/jobs", {}),
+    ("store health write method", "POST", "/api/store/health", {}),
+    ("store health no token", "GET", "/api/store/health", {"x-dashboard-token": None}),
+    ("store health head", "HEAD", "/api/store/health", {}),
     ("board write method", "POST", "/api/board", {}),
     ("memory graph no token", "GET", "/api/memory-graph", {"x-dashboard-token": None}),
     ("dirs no token", "GET", "/api/dirs", {"x-dashboard-token": None}),
@@ -786,6 +790,179 @@ def context_failures(run: Run, canaries: Canaries, checks: list[str], url_host_p
     run.dump("store .dump (after the context failures)")
 
 
+def exercise_store_check(run: Run, checks: list[str], label: str, home: Path, want: set[int], route: bool = True) -> None:
+    """`store-check` (default, `--json`, `--full`, `--full --json`) and `GET /api/store/health` over the data folder `home`: every
+    output becomes a surface. The route is asked twice (the second answer comes from the cache), then without the token, with
+    POST and with HEAD. Nothing may appear beside the store, and no `easy-personal-check-*` folder may stay in the temp folder."""
+    tmp, saved = Path(run.env["TMPDIR"]), run.env.get("EASY_PERSONAL_HOME")
+    listing = sorted(p.name for p in home.iterdir()) if home.is_dir() else None
+    run.env["EASY_PERSONAL_HOME"] = str(home)
+    try:
+        codes = {}
+        for args in ([], ["--json"], ["--full"], ["--full", "--json"]):
+            done = subprocess.run(run.argv(CHILD_TIMEOUT, "store-check", *args), env=run.env, cwd=run.nowhere,
+                                  capture_output=True, stdin=subprocess.DEVNULL, timeout=CHILD_TIMEOUT + 15, check=False)  # fmt: skip
+            name = f"store-check {' '.join(args)} ({label})"
+            run.add(f"{name} stdout", done.stdout)
+            run.add(f"{name} stderr", done.stderr)
+            codes[" ".join(args)] = done.returncode
+        ok = set(codes.values()) <= want
+        checks.append(f"check store-check {label}, 4 forms, exit {sorted(want)}  {'ok' if ok else 'FAILED'} ({codes})")
+        status = None
+        if route:
+            proc, errlog = run.popen(SERVER_TIMEOUT, "serve", "--no-ingest", err=run.logs / f"store-check-{label}.stderr")
+            kids = []
+            try:
+                first = Lines(proc.stdout.fileno()).read(20) or b""
+                match = re.fullmatch(rb"dashboard: http://127\.0\.0\.1:(\d+)/#([A-Za-z0-9_-]{43})\n", first)
+                if not match:
+                    raise Fatal("store-check serve: no `dashboard:` line within 20 s")
+                port, token = int(match[1]), match[2].decode()
+                kids = children(proc.pid)
+                base = {"Host": f"127.0.0.1:{port}", "x-dashboard-token": token}
+                for again in ("", " cached"):
+                    status, blob = request(port, "GET", "/api/store/health", base)
+                    run.add(f"store health route{again} ({label})", blob)
+                for name, method, change in (("no token", "GET", {"x-dashboard-token": None}), ("post", "POST", {}), ("head", "HEAD", {})):
+                    headers = {k: v for k, v in {**base, **change}.items() if v is not None}
+                    run.add(f"store health route {name} ({label})", request(port, method, "/api/store/health", headers)[1])
+            finally:
+                run.stop(f"store-check serve ({label})", proc, kids, signal.SIGINT)
+                errlog.close()
+                run.add(f"store-check serve stderr ({label})", (run.logs / f"store-check-{label}.stderr").read_bytes())
+            checks.append(f"check store health route {label}  {'ok' if status == 200 else 'FAILED'} (status {status})")
+    finally:
+        run.env["EASY_PERSONAL_HOME"] = saved
+    left = sorted(p.name for p in tmp.iterdir() if p.name.startswith("easy-personal-check-"))
+    checks.append(f"check no private copy left after {label}  {'ok' if not left else 'FAILED'} ({len(left)} folders)")
+    if listing is not None:
+        after = sorted(p.name for p in home.iterdir())
+        checks.append(f"check store-check made no file beside the store ({label})  {'ok' if after == listing else 'FAILED'} ({len(after)} files)")
+
+
+def store_check(run: Run, checks: list[str], canaries: Canaries) -> None:
+    """T059: `exercise_store_check` over copies of the data folder that hold canaries: in a table's rows (the table has a
+    hostile name: a table name is shown by design, so a canary in a name would always be a hit), a source path, `meta` and file
+    names beside the store; healthy, then with a corrupted page; a WAL with no SHM (the private-copy branch); a source name and
+    a time that are text longer than the 64 characters shown (the canary is past the cut), or a BLOB; and the error answers: no
+    store, not a database, a locked store, a symlinked store, no data folder."""
+    values, key = canaries.values, canaries.values["api_key"]
+    home = run.logs / "check-home"
+    tmp = run.logs / "tmp"
+    home.mkdir()
+    tmp.mkdir()
+    for name in ("store.sqlite", "store.sqlite-wal"):
+        if (run.data / name).exists():
+            shutil.copyfile(run.data / name, home / name)
+    conn = sqlite3.connect(home / "store.sqlite")
+    try:
+        conn.execute('CREATE TABLE "evil\x1b[31m\ntable" (a, b)')
+        conn.execute('INSERT INTO "evil\x1b[31m\ntable" VALUES (?, ?)', (key, values["message_text"]))
+        conn.execute("UPDATE events SET source_path = source_path || ?", (values["file_path"],))
+        conn.execute("INSERT INTO source_files VALUES ('m', 'claude_code', ?, 1, 0)", (values["file_path"],))
+        conn.execute("INSERT INTO meta VALUES ('planted', ?)", (key,))
+        conn.commit()
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        conn.close()
+    pristine = run.logs / "check-pristine.sqlite"  # the planted store before the corrupted state; the variants start from it
+    shutil.copyfile(home / "store.sqlite", pristine)
+    planted = [f"{values['agent_name'].replace(' ', '_')}.txt", "store.sqlite.bak-v2", f"store.sqlite.bak-v3-{key}"]
+    for name in planted:
+        (home / name).write_bytes(b"x")
+
+    def variant(name: str, sql: list[tuple[str, tuple]]) -> Path:
+        """A copy of the planted folder with `sql` run over its store."""
+        folder = run.logs / f"check-{name}"
+        folder.mkdir()
+        shutil.copyfile(pristine, folder / "store.sqlite")
+        c = sqlite3.connect(folder / "store.sqlite")
+        try:
+            for statement, params in sql:
+                c.execute(statement, params)
+            c.commit()
+            c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        finally:
+            c.close()
+        return folder
+
+    saved = {name: run.env.get(name) for name in ("EASY_PERSONAL_HOME", "TMPDIR", "HOME")}
+    refuse("check-home", home)
+    run.env["TMPDIR"] = str(tmp)  # the checks' private copies go here, so a leftover is seen and no other run is counted
+    try:
+        exercise_store_check(run, checks, "healthy", home, {0})
+        # a source name and a time past the 64 characters shown, and the same two as BLOBs (a canary must not show in either)
+        first = "(SELECT min(rowid) FROM events)"
+        exercise_store_check(run, checks, "text past the cut", variant("cut", [(
+            f"UPDATE events SET source = ?, ts_utc = ? WHERE rowid = {first}", ("S" * 64 + key, "T" * 64 + key))]), {0})
+        exercise_store_check(run, checks, "blob source", variant("blobsource", [(
+            f"UPDATE events SET source = CAST(? AS BLOB) WHERE rowid = {first}", (key,))]), {1})
+        exercise_store_check(run, checks, "blob time", variant("blobtime", [(
+            f"UPDATE events SET ts_utc = CAST(? AS BLOB) WHERE rowid = {first}", (key,))]), {1})
+        # a WAL with no SHM: the store and its `-wal` are read from a private copy
+        folder = run.logs / "check-walnoshm"
+        folder.mkdir()
+        shutil.copyfile(run.data / "store.sqlite", folder / "live.sqlite")
+        writer = sqlite3.connect(folder / "live.sqlite")
+        try:
+            writer.execute("PRAGMA journal_mode=WAL")
+            writer.execute("PRAGMA wal_autocheckpoint=0")
+            writer.execute("INSERT OR REPLACE INTO meta VALUES ('planted-wal', ?)", (key,))
+            writer.commit()
+            shutil.copyfile(folder / "live.sqlite", folder / "store.sqlite")
+            shutil.copyfile(folder / "live.sqlite-wal", folder / "store.sqlite-wal")
+        finally:
+            writer.close()
+        for stale in folder.glob("live.sqlite*"):
+            stale.unlink()
+        wal = (folder / "store.sqlite-wal").stat().st_size
+        checks.append(f"check wal-no-shm folder has a -wal and no -shm  {'ok' if wal > 0 and not (folder / 'store.sqlite-shm').exists() else 'FAILED'} ({wal} bytes)")
+        exercise_store_check(run, checks, "wal without shm", folder, {0})
+        # the error answers
+        (run.logs / "check-empty").mkdir()
+        exercise_store_check(run, checks, "no store", run.logs / "check-empty", {1})
+        notdb = run.logs / "check-notdb"
+        notdb.mkdir()
+        (notdb / "store.sqlite").write_bytes((key + " " + values["message_text"] + "\n").encode() * 300)
+        exercise_store_check(run, checks, "not a database", notdb, {1})
+        linked = run.logs / "check-linked"
+        linked.mkdir()
+        (linked / "store.sqlite").symlink_to(pristine)
+        exercise_store_check(run, checks, "symlinked store", linked, {0})
+        locked = run.logs / "check-locked"
+        locked.mkdir()
+        shutil.copyfile(pristine, locked / "store.sqlite")
+        (locked / "store.sqlite-wal").write_bytes(b"")
+        (locked / "store.sqlite-shm").write_bytes(b"")
+        holder = sqlite3.connect(locked / "store.sqlite", isolation_level=None)  # exclusive WAL mode: every reader is "locked"
+        try:
+            holder.execute("PRAGMA locking_mode=EXCLUSIVE")
+            holder.execute("SELECT count(*) FROM meta").fetchone()
+            exercise_store_check(run, checks, "locked", locked, {3})
+        finally:
+            holder.close()
+        page = int(sqlite3.connect(home / "store.sqlite").execute("PRAGMA page_size").fetchone()[0])
+        with open(home / "store.sqlite", "r+b") as handle:  # one page of the planted store overwritten
+            handle.seek(page * max(3, (home / "store.sqlite").stat().st_size // page // 2))
+            handle.write(b"\xff" * page)
+        exercise_store_check(run, checks, "corrupted", home, {1})
+        for name in ("EASY_PERSONAL_HOME", "HOME"):  # no data folder at all
+            run.env.pop(name, None)
+        done = subprocess.run(run.argv(CHILD_TIMEOUT, "store-check", "--json"), env=run.env, cwd=run.nowhere,
+                              capture_output=True, stdin=subprocess.DEVNULL, timeout=CHILD_TIMEOUT + 15, check=False)  # fmt: skip
+        run.add("store-check no data folder stdout", done.stdout)
+        run.add("store-check no data folder stderr", done.stderr)
+        checks.append(f"check store-check with no data folder, exit 1  {'ok' if done.returncode == 1 else 'FAILED'} ({done.returncode})")
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                run.env.pop(name, None)
+            else:
+                run.env[name] = value
+    left = sorted(p.name for p in tmp.iterdir() if p.name.startswith("easy-personal-check-"))
+    checks.append(f"check no easy-personal-check-* folder left in the temp folder  {'ok' if not left else 'FAILED'} ({len(left)} folders)")
+
+
 def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     # T051: easy-context's service is a fake on 127.0.0.1 whose index entries carry canaries in fields the source must not keep.
     key = canaries.values["api_key"]
@@ -843,6 +1020,7 @@ def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
     run.run("store-info", "store-info")
     run.run("store-info --json", "store-info", "--json")
     serve(run, checks, canaries.values["api_key"])
+    store_check(run, checks, canaries)
     mcp(run, checks, canaries)
     mcp_http(run, checks, canaries)
     again = run.ingest("ingest #2 (same input again)")

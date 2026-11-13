@@ -1,0 +1,8 @@
+file: store.sqlite 155648 bytes (wal 16512 bytes), not a readable database
+schema: unknown
+integrity_check: not checked
+foreign_key_check: not checked
+tables: not checked
+sources: not checked
+backups: none
+verdict: NOT healthy

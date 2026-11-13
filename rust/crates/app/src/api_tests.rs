@@ -696,3 +696,156 @@ async fn the_workspace_routes_are_guarded_and_map_store_failures_to_fixed_texts(
         );
     }
 }
+
+// ---- GET /api/store/health (T059): the cache, the single flight and HEAD, where a check can be counted ---------------------
+
+fn health_runs(api: &Api) -> usize {
+    api.health.runs.load(Ordering::SeqCst)
+}
+
+/// A store whose path the test can change between requests.
+fn health_app(path: PathBuf) -> (Router, Api, Arc<std::sync::Mutex<PathBuf>>) {
+    let current = Arc::new(std::sync::Mutex::new(path));
+    let seen = current.clone();
+    let api = Api::new(move || Ok(seen.lock().unwrap().clone()), || FROZEN_NOW);
+    (router(TOKEN.into(), PORT, api.clone()), api, current)
+}
+
+async fn method(app: &Router, method: &str, path: &str) -> (StatusCode, usize) {
+    let request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("host", format!("127.0.0.1:{PORT}"))
+        .header("x-dashboard-token", TOKEN)
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    (
+        status,
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .len(),
+    )
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn concurrent_health_requests_share_one_check_and_wait_for_it() {
+    let store = TempStore::new("store-v11.sqlite");
+    let (app, api, _) = health_app(store.path());
+    let tasks: Vec<_> = (0..12)
+        .map(|_| {
+            let app = app.clone();
+            tokio::spawn(async move { get(&app, "/api/store/health", true).await })
+        })
+        .collect();
+    let mut answers = Vec::new();
+    for task in tasks {
+        answers.push(task.await.unwrap());
+    }
+    assert_eq!(health_runs(&api), 1, "twelve requests, one check");
+    assert!(
+        answers
+            .iter()
+            .all(|a| a.0 == StatusCode::OK && a.1 == answers[0].1)
+    );
+    assert_eq!(answers[0].1["healthy"], true);
+}
+
+#[tokio::test]
+async fn a_health_answer_is_reused_for_five_seconds_then_checked_again() {
+    let store = TempStore::new("store-v11.sqlite");
+    let (app, api, _) = health_app(store.path());
+    assert_eq!(HEALTH_CACHE, Duration::from_secs(5));
+    get(&app, "/api/store/health", true).await;
+    get(&app, "/api/store/health", true).await;
+    assert_eq!(health_runs(&api), 1);
+    // a store whose time-to-live is over is checked again
+    let api = Api::new(
+        {
+            let p = store.path();
+            move || Ok(p.clone())
+        },
+        || FROZEN_NOW,
+    )
+    .with_health_ttl(Duration::ZERO);
+    let app = router(TOKEN.into(), PORT, api.clone());
+    get(&app, "/api/store/health", true).await;
+    get(&app, "/api/store/health", true).await;
+    assert_eq!(health_runs(&api), 2);
+}
+
+#[tokio::test]
+async fn the_health_cache_is_kept_per_store() {
+    let (one, two) = (
+        TempStore::new("store-v11.sqlite"),
+        TempStore::new("store-rich/store-v11.sqlite"),
+    );
+    let (app, api, current) = health_app(one.path());
+    let (_, first) = get(&app, "/api/store/health", true).await;
+    *current.lock().unwrap() = two.path();
+    let (_, second) = get(&app, "/api/store/health", true).await;
+    assert_eq!(health_runs(&api), 2, "another store is another check");
+    assert_ne!(first["tables"], second["tables"]);
+    *current.lock().unwrap() = one.path();
+    assert_eq!(get(&app, "/api/store/health", true).await.1, first);
+    assert_eq!(
+        health_runs(&api),
+        2,
+        "the first store's answer is still cached"
+    );
+}
+
+#[tokio::test]
+async fn head_runs_no_check_and_the_guard_still_applies() {
+    let store = TempStore::new("store-v11.sqlite");
+    let (app, api, _) = health_app(store.path());
+    assert_eq!(
+        method(&app, "HEAD", "/api/store/health").await,
+        (StatusCode::OK, 0)
+    );
+    assert_eq!(health_runs(&api), 0);
+    for verb in ["POST", "PUT", "PATCH", "DELETE"] {
+        assert_eq!(
+            method(&app, verb, "/api/store/health").await.0,
+            StatusCode::METHOD_NOT_ALLOWED,
+            "{verb}"
+        );
+    }
+    assert_eq!(health_runs(&api), 0);
+}
+
+#[tokio::test]
+async fn a_missing_data_folder_is_the_503_every_route_gives() {
+    let app = router(
+        TOKEN.into(),
+        PORT,
+        Api::new(|| Err(StoreError::NoHome), || FROZEN_NOW),
+    );
+    let (status, body) = get(&app, "/api/store/health", true).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        body,
+        json!({"error": "cannot find the data folder: set EASY_PERSONAL_HOME or HOME"})
+    );
+}
+
+#[tokio::test]
+async fn the_route_never_runs_the_full_check_and_keeps_the_default_budget() {
+    // `--full` is for the command line only: it has no time limit, and a request must not be able to start it
+    let store = TempStore::new("store-v11.sqlite");
+    let (app, api, _) = health_app(store.path());
+    get(&app, "/api/store/health", true).await;
+    let used = api.health.used.lock().unwrap().clone();
+    assert_eq!(used.len(), 1);
+    assert!(!used[0].full, "the route ran the full check");
+    assert_eq!(used[0].budget, easy_personal_core::store_health::BUDGET);
+    assert_eq!(
+        used[0].full_check_max_bytes,
+        easy_personal_core::store_health::FULL_CHECK_MAX_BYTES
+    );
+}

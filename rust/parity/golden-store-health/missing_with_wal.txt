@@ -1,0 +1,8 @@
+file: store.sqlite does not exist (wal 10 bytes)
+schema: unknown
+integrity_check: not checked
+foreign_key_check: not checked
+tables: not checked
+sources: not checked
+backups: store.sqlite.bak-v3
+verdict: NOT healthy

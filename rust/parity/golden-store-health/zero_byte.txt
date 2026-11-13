@@ -1,0 +1,8 @@
+file: store.sqlite 0 bytes (wal 0 bytes)
+schema: user_version 0, code has 11, migration pending: yes
+integrity_check: ok
+foreign_key_check: ok
+tables: none
+sources: unreadable
+backups: none
+verdict: NOT healthy
