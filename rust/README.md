@@ -11,6 +11,7 @@ cd rust
 cargo build
 ./target/debug/easy-personal-rs --version        # easy-personal-rs <Cargo version>
 ./target/debug/easy-personal-rs store-info       # or --json
+./target/debug/easy-personal-rs store-check      # read-only health check of the store; --json, --full; see "Store check (T059)"
 ./target/debug/easy-personal-rs ingest           # copy new Claude Code transcript metadata into the store; see "Ingest (P2a)"
 ./target/debug/easy-personal-rs serve            # ingest first (T051), then the loopback API, Ctrl-C to stop
 ./target/debug/easy-personal-rs serve --no-ingest          # the same without the start-up ingest
@@ -682,7 +683,7 @@ Decided for you (differences from Python, all on hostile or unusual input):
   `thresholds: kit_error_rate` is not read (the default 0.04 is used).
 - Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
 
-Not served yet: the other Python routes (the connector writes and the sync apply (T050); `/api/live` is served since T056). This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
+Not served yet: the other Python routes (the connector writes and the sync apply (T050); `/api/live` is served since T056, `/api/store/health` since T059). This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
 `/api/dirs` are served); T043 serves `/api/board` and `/api/memory-graph`, and T048 the store-only workspace and account writes. The release note `docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
 
 ## Board and memory graph (T043)
@@ -1061,3 +1062,63 @@ server is stopping (removing that check turns the test red), and `: ping` follow
     panic inside a warm replay (caught by the feed's thread) used to leave it set, and every later event stayed out of the
     buffer. Test: `live::tests::a_panic_inside_the_warm_replay_does_not_silence_the_tail` (a `#[cfg(test)]` flag makes the
     replay panic); the 15 `live_parity` tests are unchanged and green.
+
+## Store check (T059)
+
+`store-check [--json] [--full]` and `GET /api/store/health` answer what Python's `store-check` (HUN-244, FR-091) answers, from one function
+(`core/store_health.rs`, `check`). Read only: no migration, no `VACUUM`, no backup, no row written, and no file made beside the store.
+The answer holds counts, versions, sizes, times and file names only: never a row, an absolute path or the text of an error.
+
+```bash
+./target/debug/easy-personal-rs store-check            # eight lines: file, schema, integrity_check, foreign_key_check, tables, sources, backups, verdict
+./target/debug/easy-personal-rs store-check --json     # one JSON object, Python's `json.dumps(indent=2, sort_keys=True)` byte for byte
+./target/debug/easy-personal-rs store-check --full     # the full integrity_check with no time limit (can take minutes)
+```
+
+The JSON fields are Python's: `store_file`, `exists`, `readable`, `locked`, `size_bytes`, `wal_bytes`, `user_version`, `latest_migration`,
+`migration_pending`, `newer_than_code`, `integrity_check` and `foreign_key_check` (`{ok, problems[, mode]}`), `tables` (name to row count, read from the
+schema), `sources` (newest record time and abstained count per source, or `null` for "no data"), `backups` (the `<store>.bak-v<N>` names, lowest version first),
+`incomplete`, `unreadable` and `healthy`. `healthy` is `true`, `false` (a problem was found; it always wins) or `null` (no problem found, but a part
+did not finish: "not fully checked").
+
+| Result | Exit code |
+|---|---|
+| healthy | 0 |
+| a problem was found, no store, or a file that is not a database | 1 |
+| not fully checked: the 1.5 s budget ran out, or the store is locked | 3 |
+| Ctrl-C (`stopped` on stderr, no partial answer) | 130 |
+
+- **Speed.** The four reads (`integrity_check`, `foreign_key_check`, table counts, sources) run in parallel threads, each on its own read-only connection,
+  and stop at one deadline of 1.5 s. A store over 32 MB gets `quick_check` (`mode: "quick"`) in a default run. `--full` has no deadline and always runs
+  the full `integrity_check`; it prints `full check: this can take minutes; Ctrl-C stops it` on stderr first, so `--json` stdout stays pure JSON. The route never does this.
+- **Open mode, decided once.** No `-wal`: `immutable=1` (no lock, no side file). `-wal` and `-shm`: `mode=ro`. `-wal` and no `-shm`: SQLite would create the `-shm`,
+  so the store and its `-wal` are copied to a private temp folder (mode 0700, removed after the check) and read there. A symlinked store reads the `-wal` beside its target.
+- **Route.** `GET /api/store/health` is behind the same guard as every `/api/*` route (a missing or wrong token, a wrong Host or a foreign Origin is `403`; the
+  token is not read from the query). `POST`, `PUT`, `PATCH` and `DELETE` are `405`. `HEAD` answers headers only and runs no check. One check runs at a time (a request that
+  comes meanwhile waits and gets its answer) and an answer is reused for 5 s per store path. A missing, empty or damaged store is a `200` answer that says so;
+  only "no data folder" is a `503`. The body equals `store-check --json`.
+- **Oracle.** `parity/gen_store_health.py` runs Python's `store_health.check` over 26 cases (clean, empty, one migration behind, newer than the code, a corrupt page with
+  and without `--full`, a damaged index, a WAL without SHM, a locked store, hostile table and source names, a BLOB and an integer time, a missing store, a missing
+  store with a `-wal`, a zero-byte file, not a database, backups, a foreign-key violation, a later table, a table name that is not UTF-8, no optional table, the budget
+  forced to 0 with and without a pending migration, `quick_check` forced, `--full` with a 0 budget). The golden is `parity/golden-store-health/` (fixture stores, `<case>.json`, `<case>.txt`).
+  The Rust JSON and lines equal it for every case (`crates/core/tests/store_health_parity.rs`), and the real command's stdout equals it byte for byte for every plain case
+  (`crates/app/tests/store_check.rs`). The `locked` case repeats its setup in the test: a writer in exclusive WAL mode over a store that has a stale `-wal` and `-shm`.
+
+### Decided for you (T059, for the owner's review)
+
+1. **One `unsafe` block.** The deadline and Ctrl-C stop a running SQL statement through SQLite's progress handler, as Python does (every 1000 VM steps). rusqlite's wrapper for it
+   sits behind its `hooks` feature, which the workspace does not enable, and enabling it would change `Cargo.toml`. So `store_health.rs` calls `rusqlite::ffi::sqlite3_progress_handler`
+   itself (two `unsafe` calls in `Reader`, each with a safety note; the callback is removed before the connection closes). Nothing else in the workspace is `unsafe`. If the owner prefers the feature, the
+   change is one line in `Cargo.toml` and the two calls become safe code.
+2. **`isprintable` is approximated.** Python's `str.isprintable()` uses its Unicode table; Rust has no such function. For ASCII it is exact. Beyond ASCII a character is replaced by `?` when it is a
+   control, separator (`is_whitespace`), format or private-use character or a noncharacter. A code point that is unassigned counts as printable here and as not printable in Python. The oracle's
+   hostile names (ANSI escape, newline, zero-width space, no-break space, a long name, an accent and a symbol) are equal.
+3. **`\d` in a backup name.** Python's `\d` also matches non-ASCII digits (`bak-v٣`); Rust lists only ASCII digits. A numeric tie (`bak-v7` and `bak-v007`) sorts by name, as Python does.
+4. **A store that is a symlink to a missing target, or a path that cannot be resolved**: the path is used as it is. Python's `resolve()` would do the same.
+5. **Ctrl-C in a default run** (no `--full`) also ends with exit 130 and `store-check: stopped`, like Python (its `KeyboardInterrupt` is caught the same way).
+6. **JSON key order in the route.** The route sends serde_json's sorted keys; Python's route sends keys in insertion order. The parsed objects are equal. The CLI's `--json` is byte for byte Python's.
+7. **Per-source queries.** A table that is missing in an old schema is "no data" (as Python). A time that is text but not UTF-8 in `context_index`, `ui_sessions` or `verifier_scores` is "no data" too (Python catches
+   the decode error of that query the same way); in `events` it makes `sources` unreadable.
+8. **The leak gate and the "table name" canary.** A table name is printed (it comes from the schema, not from content), so a canary in a table *name* would always be a hit. The gate plants the canaries in the
+   *rows* of a table whose name is hostile (an escape sequence and a newline), plus a source path, `meta`, and the names of files beside the store, and requires 0 hits.
+9. **Not built (cut list):** repair, `VACUUM`, `REINDEX`, backup, a page, an MCP tool, a history of checks, a locked-store test that does not need two stale files (a plain lock cannot be made: a store with no `-wal` is read with `immutable=1`, which ignores locks).
