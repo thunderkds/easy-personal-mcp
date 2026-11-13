@@ -146,6 +146,7 @@ impl Serve {
             tcp,
             buf: Vec::new(),
             head: String::new(),
+            received: 0,
         };
         let deadline = Instant::now() + Duration::from_secs(5);
         while !stream.buf.windows(4).any(|w| w == b"\r\n\r\n") {
@@ -208,6 +209,8 @@ struct Stream {
     tcp: TcpStream,
     buf: Vec<u8>,
     head: String,
+    /// Body bytes read so far.
+    received: usize,
 }
 
 /// One SSE message: `event`, `id`, `data` (parsed), or a comment line.
@@ -226,6 +229,7 @@ impl Stream {
             Ok(0) => false,
             Ok(n) => {
                 self.buf.extend_from_slice(&chunk[..n]);
+                self.received += n;
                 true
             }
             Err(_) => true, // timeout
@@ -533,4 +537,66 @@ fn a_store_that_is_missing_gives_an_empty_snapshot_and_the_tail_picks_it_up_late
     serve.append(&call_line("s1", "b1"));
     stream.until(Duration::from_secs(3), |m| !lives(m).is_empty());
     assert!(!Path::new(&serve.home.join("ingest.lock")).exists());
+}
+
+/// Linux `setsockopt(SOL_SOCKET, SO_RCVBUF)` through the C library `std` already links (no new crate).
+#[cfg(target_os = "linux")]
+fn shrink_receive_buffer(tcp: &TcpStream, bytes: i32) {
+    use std::os::fd::AsRawFd;
+    unsafe extern "C" {
+        fn setsockopt(fd: i32, level: i32, name: i32, value: *const i32, len: u32) -> i32;
+    }
+    const SOL_SOCKET: i32 = 1;
+    const SO_RCVBUF: i32 = 8;
+    // SAFETY: a valid open socket fd, a pointer to a live i32 and its size.
+    let rc = unsafe { setsockopt(tcp.as_raw_fd(), SOL_SOCKET, SO_RCVBUF, &bytes, 4) };
+    assert_eq!(rc, 0);
+}
+
+/// Fix round item 5: a client with a 4 KiB receive buffer asks and never reads, while more than the kernel's largest
+/// send buffer (4 MiB here) is offered to every stream. It receives almost nothing (back-pressure: the server stops
+/// polling its stream), a second stream still gets every later event, and SIGINT still exits 0 in time.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_client_that_never_reads_with_a_full_pipe_holds_up_no_one() {
+    let mut serve = Serve::start();
+    let mut stuck = TcpStream::connect(("127.0.0.1", serve.port)).unwrap();
+    shrink_receive_buffer(&stuck, 4096);
+    let ask = format!(
+        "GET /api/live?token={} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n\r\n",
+        serve.token, serve.port
+    );
+    stuck.write_all(ask.as_bytes()).unwrap();
+    let mut other = serve.live(&[]);
+    other.until(Duration::from_secs(5), |m| !m.is_empty());
+    std::thread::sleep(Duration::from_millis(300));
+    // A 200-byte session id (the parser's limit) and a 250-byte folder name: about 750 bytes per event.
+    let sid = "s".repeat(200);
+    let cwd = format!("\"cwd\":\"/tmp/{}\"", "d".repeat(250));
+    let before = other.received;
+    for round in 0..4 {
+        let text: String = (0..2000)
+            .map(|i| call_line(&sid, &format!("r{round}b{i}")).replace("\"cwd\":\"/tmp\"", &cwd))
+            .collect();
+        serve.append(&text);
+        let last = (round + 1) * 2000;
+        other.until(Duration::from_secs(5), |m| lives(m).contains(&last));
+    }
+    let offered = other.received - before;
+    assert!(offered > 5 << 20, "{offered} bytes offered to every stream");
+    serve.append(&call_line("s1", "late"));
+    other.until(Duration::from_secs(2), |m| lives(m).contains(&8001));
+    stuck.set_nonblocking(true).unwrap();
+    let (mut got, mut chunk) = (0, [0u8; 65536]);
+    while let Ok(n) = stuck.read(&mut chunk) {
+        if n == 0 {
+            break;
+        }
+        got += n;
+    }
+    assert!(got < 64 * 1024, "the stuck client holds {got} bytes");
+    let (status, took, err) = serve.sigint();
+    assert_eq!(status.code(), Some(0), "{err}");
+    assert!(took < Duration::from_secs(10), "{took:?}");
+    eprintln!("stuck client: {got} bytes received of {offered} offered; SIGINT exit in {took:?}");
 }

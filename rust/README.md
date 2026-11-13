@@ -900,7 +900,10 @@ lock, and one thread `easy-personal-live-tail` that every 0.1 s calls `LiveTail:
 read. A step whose store is missing, not v11, busy or broken, or whose root cannot be read, is the engine's own skip (the stream then
 shows an empty snapshot and picks the data up when the store appears). A step that panics is caught and skipped; the thread goes on and
 prints one fixed line once per process (`easy-personal-rs: live tail: a poll step failed and was skipped`), never the panic's text.
-Publish-only: the tail opens the store read-only, never takes `ingest.lock`, never writes; the scheduled ingest stays the only writer.
+Publish-only: the tail opens the store read-only, never takes `ingest.lock` and never writes the store file (`store.sqlite`
+keeps its bytes and mtime); the scheduled ingest stays the only writer. It is not "no file at all": the store is WAL, and when no
+other connection has it open, SQLite creates empty `store.sqlite-wal` / `store.sqlite-shm` files next to it for the read-only
+open and may leave them (T049 README item 1; confirmed at Stage 4).
 
 **The route.** `GET /api/live` answers `200`, `content-type: text/event-stream`, `cache-control: no-store`, `x-accel-buffering: no`
 (Python's headers) and the CSP. Messages, in Python's order:
@@ -937,12 +940,16 @@ good resume, a resume above the last id, a resume older than the 2,000-event buf
 the route serves: 36 / 36 steps equal. A mutant that drops the "fresh snapshot on an attention change" branch makes 3 steps red.
 HTTP tests: `crates/app/tests/live.rs` (the real binary: a line arrives within 2 s, the guard, resume, SIGINT with two streams
 open, ten streams and one client that never reads, publish-only with the scheduled ingest run beside it, a store that appears
-later). The leak suite (`parity/leak_rust.py`) reads the first message of the stream three ways (query token, header token,
-resume).
+later, and a client with a 4 KiB receive buffer that never reads while more than 5 MiB is offered: it holds about 33 KB, the
+other stream gets every event, SIGINT exits 0 in about 1 s). Unit tests of the body: a stream ends at the next tick once the
+server is stopping (removing that check turns the test red), and `: ping` follows a quiet interval (the interval is a field,
+15 s by default, 250 ms in the test). The leak suite (`parity/leak_rust.py`) reads the first message of the stream three ways
+(query token, header token, resume).
 
 ### Decided for you (T056, for the owner's review)
 
-1. `cache-control: no-store` and `x-accel-buffering: no`, as Python sends; the guide said `no-cache` (Supervisor accepted).
+1. `cache-control: no-store` and `x-accel-buffering: no`, as Python sends. This supersedes the guide's `no-cache` (AC 2), which the
+   Supervisor accepted and is correcting in the guide.
 2. A repeated `Last-Event-ID` header is `403 {"error": "forbidden"}`, as a repeated Host or token header (Python keeps the last).
 3. Query token: no percent-decoding (the token is URL-safe base64, so `encodeURIComponent` leaves it as is); exactly one `token=`
    pair (Python takes the first of several); a token header present decides alone, even an empty one (Python falls back to the
@@ -960,3 +967,11 @@ resume).
 10. A poll step that runs longer than 10 s (a very large first read) makes `stop` give up waiting and leave the thread behind,
     as Python's `join(timeout=10)`; the process then exits. A single line is at most 32 MiB (T049's bound), so a step over one
     file is bounded, but a step over many large new files is not capped in time.
+11. `project` is cut to 255 bytes (on a UTF-8 character boundary) in what the stream sends, in snapshot sessions and in `live`
+    events (`live_feed.rs`, `PROJECT_MAX_BYTES`). Python does not cap it. It is the one free-text field of the stream with no
+    bound from the parser (a session id is at most 200 bytes, a label 64): a transcript with a 1 MB `cwd` made a ~100 MB
+    snapshot before the cap. The engine and its golden are unchanged; the oracle cases have short projects.
+12. Fix round, core `live.rs` (the one change there, one line plus a test hook): `poll_once` clears the replay flag first. A
+    panic inside a warm replay (caught by the feed's thread) used to leave it set, and every later event stayed out of the
+    buffer. Test: `live::tests::a_panic_inside_the_warm_replay_does_not_silence_the_tail` (a `#[cfg(test)]` flag makes the
+    replay panic); the 15 `live_parity` tests are unchanged and green.

@@ -850,6 +850,8 @@ impl LiveTail {
     /// One scan and read pass over every root (Python's `poll_once`), then the time-based states move. With a store
     /// whose cursors or labels cannot be read, the scan is skipped (as `poll_store` does for a store it cannot open).
     pub fn poll_once(&mut self, roots: &[Root], now: i64, store: Option<&Connection>) {
+        // A replay runs only inside a step: a panic inside one (caught by the caller) must not keep the tail silent.
+        self.replaying = false;
         // Each query runs once: a BUSY on a second read cannot turn into an empty map.
         let (known, labels) = match store {
             Some(c) => match (file_offsets(c), account_labels(c)) {
@@ -948,6 +950,10 @@ impl LiveTail {
             reader.seek(SeekFrom::Start(start))?;
             let mut offset = start;
             self.replaying = true;
+            #[cfg(test)]
+            if tests::PANIC_IN_REPLAY.get() {
+                panic!("injected panic inside the warm replay");
+            }
             let mut done = false;
             while !done {
                 let (mut rows, mut batch) = (0, Vec::new());
@@ -1299,4 +1305,83 @@ fn count_usage(prices: &PriceTable, session: &mut Session, u: &Usage) -> Option<
     };
     session.messages.set_value(&u.message_id, (largest, cost));
     Some((delta, delta_cost))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::Cell;
+    use std::os::unix::fs::MetadataExt;
+
+    thread_local! {
+        /// T056 fix round: makes `warm` panic right after it set `replaying` (the caller catches it).
+        pub(super) static PANIC_IN_REPLAY: Cell<bool> = const { Cell::new(false) };
+    }
+
+    fn line(block: &str) -> String {
+        format!(
+            "{{\"type\":\"user\",\"sessionId\":\"s\",\"timestamp\":\"2026-01-20T00:00:00Z\",\"message\":{{\"content\":[{{\"type\":\"tool_result\",\"tool_use_id\":\"{block}\"}}]}}}}\n"
+        )
+    }
+
+    /// A panic inside the warm replay (caught by the feed's thread) must not leave the tail replaying, which would
+    /// keep every later event out of the buffer.
+    #[test]
+    fn a_panic_inside_the_warm_replay_does_not_silence_the_tail() {
+        let dir = std::env::temp_dir().join(format!(
+            "easy-personal-rs-t056-replay-{}",
+            std::process::id()
+        ));
+        let file = dir.join("acct/projects/p/s.jsonl");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, line("b1") + &line("b2")).unwrap();
+        let store = dir.join("store.sqlite");
+        let conn = Connection::open(&store).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+             INSERT INTO meta VALUES ('machine_id', 'machine-1');
+             CREATE TABLE source_files (machine_id TEXT, source TEXT, path TEXT, inode INTEGER, byte_offset INTEGER,
+                                        PRIMARY KEY (machine_id, source, path));
+             CREATE TABLE agent_accounts (id INTEGER PRIMARY KEY, provider TEXT, status TEXT, folder TEXT,
+                                          config_dir_env TEXT, label TEXT);",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO agent_accounts VALUES (1, 'claude', 'confirmed', ?, '/e', 'Work')",
+            [dir.join("acct").to_str().unwrap()],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO source_files VALUES ('machine-1', 'claude_code', ?, ?, ?)",
+            rusqlite::params![
+                file.to_str().unwrap(),
+                std::fs::metadata(&file).unwrap().ino() as i64,
+                line("b1").len() as i64
+            ],
+        )
+        .unwrap();
+        drop(conn);
+        let now = crate::clock::now_micros();
+        let mut tail = LiveTail::new(PriceTable::shipped().unwrap());
+        PANIC_IN_REPLAY.set(true);
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            tail.poll_store(&store, None, now)
+        }));
+        PANIC_IN_REPLAY.set(false);
+        assert!(
+            caught.is_err(),
+            "the injected panic happened inside the replay"
+        );
+        tail.poll_store(&store, None, now + SECOND);
+        let ids: Vec<i64> = tail
+            .events_since(0)
+            .iter()
+            .filter_map(|e| e["id"].as_i64())
+            .collect();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            !ids.is_empty(),
+            "the line after the cursor is published after the caught panic"
+        );
+    }
 }

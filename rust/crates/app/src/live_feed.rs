@@ -1,7 +1,8 @@
 //! The live feed of `serve` and `app` (T056, FR-043..FR-049): one [`LiveTail`] (T049's engine) behind a lock, and one
 //! thread that calls a poll step on it every [`POLL`] with the clock of `clock.rs`. It is a port of `start`, `stop`
 //! and `_run` in `src/easy_personal/core/live.py`, publish-only (the owner's Path 1): the step is
-//! `LiveTail::poll_store`, which opens the store read-only for that step, never takes `ingest.lock` and never writes.
+//! `LiveTail::poll_store`, which opens the store read-only for that step, never takes `ingest.lock` and never writes
+//! the store file (SQLite may create empty `-wal` / `-shm` files next to a WAL store for the read-only open).
 //!
 //! Only the two serving commands make a feed (`server::start` is given one); `store-info`, `mcp` and `ingest` start no
 //! thread and open no store or file here. A step that fails (no store, a store that is not v11, an unreadable root)
@@ -260,6 +261,8 @@ pub(crate) struct SseBody {
     clock: Clock,
     sleep: Pin<Box<Sleep>>,
     last_ping: Instant,
+    /// [`PING`]; a test sets a shorter one.
+    ping: Duration,
     first: bool,
 }
 
@@ -277,6 +280,7 @@ impl SseBody {
             clock,
             sleep: Box::pin(tokio::time::sleep(POLL)),
             last_ping: Instant::now(),
+            ping: PING,
             first: true,
         }
     }
@@ -291,7 +295,7 @@ impl SseBody {
                 Err(TryLockError::WouldBlock) => Vec::new(),
             },
         };
-        if self.last_ping.elapsed() >= PING {
+        if self.last_ping.elapsed() >= self.ping {
             self.last_ping = Instant::now();
             out.extend_from_slice(b": ping\n\n");
         }
@@ -333,13 +337,27 @@ fn empty_snapshot() -> Value {
     })
 }
 
+/// The most bytes of `project` the stream sends (Python does not cap; a transcript's `cwd` is free text).
+const PROJECT_MAX_BYTES: usize = 255;
+
+/// `project` cut to [`PROJECT_MAX_BYTES`] on a UTF-8 character boundary.
+fn cap_project(project: &str) -> &str {
+    let mut end = project.len().min(PROJECT_MAX_BYTES);
+    while !project.is_char_boundary(end) {
+        end -= 1;
+    }
+    &project[..end]
+}
+
 fn pick(value: &Value, keys: &[&str]) -> Value {
     let mut out = Map::new();
     for key in keys {
-        out.insert(
-            (*key).into(),
-            value.get(*key).cloned().unwrap_or(Value::Null),
-        );
+        let field = match value.get(*key) {
+            Some(Value::String(p)) if *key == "project" => Value::String(cap_project(p).into()),
+            Some(v) => v.clone(),
+            None => Value::Null,
+        };
+        out.insert((*key).into(), field);
     }
     Value::Object(out)
 }
@@ -455,6 +473,111 @@ mod tests {
                 (event, id, data)
             })
             .collect()
+    }
+
+    /// Fix round item 2: a 1 MB `cwd` must not make a 1 MB `project` in what the stream sends.
+    #[test]
+    fn a_huge_project_is_cut_to_255_bytes_in_snapshots_and_events() {
+        let tmp = Temp::new("huge-cwd");
+        let (mut tail, roots) = primed(&tmp);
+        let mut stream = LiveStream::new(None, true);
+        stream.step(Some(&tail), NOW);
+        let cwd = format!("/{}", "\u{e9}".repeat(500_000)); // 1 MB of two-byte characters
+        let line = format!(
+            "{{\"type\":\"assistant\",\"sessionId\":\"s1\",\"timestamp\":\"2026-01-20T00:00:05Z\",\"cwd\":\"{cwd}\",\"message\":{{\"id\":\"m1\",\"model\":\"x\",\"content\":[{{\"type\":\"tool_use\",\"id\":\"b1\",\"name\":\"Read\",\"input\":{{}}}}]}}}}\n"
+        );
+        append(&tmp, &line);
+        tail.poll_once(&roots, NOW, None);
+        let live = stream.step(Some(&tail), NOW);
+        let mut fresh = LiveStream::new(None, true);
+        let snapshot = fresh.step(Some(&tail), NOW);
+        for bytes in [&live, &snapshot] {
+            assert!(bytes.len() < 2048, "{} bytes", bytes.len());
+            for (_, _, data) in messages(bytes) {
+                let projects: Vec<&Value> = match data.get("sessions") {
+                    Some(sessions) => sessions
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|s| &s["project"])
+                        .collect(),
+                    None => vec![&data["project"]],
+                };
+                for project in projects {
+                    let p = project.as_str().unwrap();
+                    assert!(p.len() <= 255 && p.len() >= 253, "{}", p.len());
+                    assert!(p.chars().all(|c| c == '\u{e9}'), "never half a character");
+                }
+            }
+        }
+        assert_eq!(cap_project("abc"), "abc");
+        assert_eq!(cap_project(&"x".repeat(300)).len(), 255);
+        assert_eq!(
+            cap_project(&format!("{}\u{e9}", "x".repeat(254))),
+            "x".repeat(254),
+            "never half a character"
+        );
+    }
+
+    // ---- SseBody: stop and ping (fix round items 3, 4) ---------------------------------------------------------
+
+    fn body(stopping: &Arc<AtomicBool>) -> SseBody {
+        SseBody::new(None, None, Arc::clone(stopping), Arc::new(|| NOW))
+    }
+
+    /// The next item of `body`, or `None` when it gave nothing within `limit` (still pending).
+    async fn next(body: &mut SseBody, limit: Duration) -> Option<Option<Vec<u8>>> {
+        let item = std::future::poll_fn(|cx| Pin::new(&mut *body).poll_next(cx));
+        tokio::time::timeout(limit, item)
+            .await
+            .ok()
+            .map(|i| i.map(|r| r.unwrap().to_vec()))
+    }
+
+    #[test]
+    fn a_stream_ends_within_one_tick_once_the_server_is_stopping() {
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let stopping = Arc::new(AtomicBool::new(false));
+            let mut stream = body(&stopping);
+            let first = next(&mut stream, Duration::from_secs(1)).await;
+            assert!(matches!(first, Some(Some(ref b)) if b.starts_with(b"event: snapshot")));
+            assert_eq!(
+                next(&mut stream, Duration::from_millis(300)).await,
+                None,
+                "nothing new: pending"
+            );
+            stopping.store(true, Ordering::Relaxed);
+            let began = Instant::now();
+            assert_eq!(
+                next(&mut stream, Duration::from_millis(500)).await,
+                Some(None),
+                "ended"
+            );
+            assert!(
+                began.elapsed() < Duration::from_millis(400),
+                "{:?}",
+                began.elapsed()
+            );
+            // A stream opened while stopping ends before it sends anything.
+            assert_eq!(
+                next(&mut body(&stopping), Duration::from_millis(500)).await,
+                Some(None)
+            );
+        });
+    }
+
+    #[test]
+    fn a_ping_comment_follows_a_quiet_interval() {
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let stopping = Arc::new(AtomicBool::new(false));
+            let mut stream = body(&stopping);
+            stream.ping = Duration::from_millis(250);
+            next(&mut stream, Duration::from_secs(1)).await.unwrap();
+            let ping = next(&mut stream, Duration::from_secs(2)).await;
+            assert_eq!(ping, Some(Some(b": ping\n\n".to_vec())));
+            let again = next(&mut stream, Duration::from_secs(2)).await;
+            assert_eq!(again, Some(Some(b": ping\n\n".to_vec())), "every interval");
+        });
     }
 
     // ---- the oracle (AC 7) ---------------------------------------------------------------------------------------
