@@ -77,8 +77,8 @@ fn run_with(case: &Case, args: &[&str], tweak: impl FnOnce(&mut Command)) -> Out
 fn expected(files: i64, new_events: i64, skipped: i64, pruned: Option<i64>) -> String {
     let pruned = pruned.map_or(String::new(), |n| format!("  \"pruned\": {n},\n"));
     format!(
-        "{{\n  \"files\": {files},\n  \"kit_trace\": {{\n    \"files\": 0,\n    \"new_events\": 0\n  }},\n  \
-         \"new_events\": {new_events},\n  \"not_ingested\": [\n    \"context\"\n  ],\n{pruned}  \"skipped\": {skipped},\n  \
+        "{{\n  \"context\": {{\n    \"status\": \"no data\"\n  }},\n  \"files\": {files},\n  \"kit_trace\": {{\n    \"files\": 0,\n    \"new_events\": 0\n  }},\n  \
+         \"new_events\": {new_events},\n{pruned}  \"skipped\": {skipped},\n  \
          \"ui\": {{\n    \"sessions\": 0,\n    \"skipped\": 0,\n    \"status\": \"no data\"\n  }},\n  \
          \"verifier\": {{\n    \"projects\": 0,\n    \"skipped\": 0,\n    \"status\": \"no data\"\n  }}\n}}\n"
     )

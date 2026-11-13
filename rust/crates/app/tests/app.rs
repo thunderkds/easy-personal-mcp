@@ -278,7 +278,7 @@ mod with_the_window_feature {
 
         // serve: start, one authenticated request, stop with SIGINT.
         let mut serve = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
-            .arg("serve")
+            .args(["serve", "--no-ingest"])
             .env_remove("DISPLAY")
             .env_remove("WAYLAND_DISPLAY")
             .env_remove("XDG_RUNTIME_DIR")

@@ -37,7 +37,7 @@ impl Server {
         std::fs::create_dir_all(&home).unwrap();
         std::fs::copy(parity("store-v11.sqlite"), home.join("store.sqlite")).unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
-            .arg("serve")
+            .args(["serve", "--no-ingest"])
             .env_clear()
             .env("HOME", &home)
             .env("EASY_PERSONAL_HOME", &home)

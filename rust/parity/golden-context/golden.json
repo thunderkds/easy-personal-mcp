@@ -1,0 +1,2940 @@
+{
+ "cases": [
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "normal",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    },
+    {
+     "dir": false,
+     "path": "{ROOT}/c"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "empty_list",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 0,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "root_does_not_exist",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/live"
+    },
+    {
+     "dir": false,
+     "path": "{ROOT}/gone"
+    }
+   ],
+   "result": {
+    "indexes": 1,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/live"
+   ],
+   "rows": [
+    [
+     "{ROOT}/live",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/live",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/gone",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/live2",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "no_project_folder_exists",
+   "projects": [
+    {
+     "dir": false,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": false,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "no_projects",
+   "projects": [],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "name": "service_down",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "rows": [],
+   "seed_rows": [
+    [
+     "{ROOT}/a",
+     "2026-01-01T00:00:00+00:00"
+    ]
+   ],
+   "server": null,
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{DEAD}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "slow_service",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [],
+   "seed_rows": [
+    [
+     "{ROOT}/a",
+     "2026-01-01T00:00:00+00:00"
+    ]
+   ],
+   "server": {
+    "break": null,
+    "delay_s": 3,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": 0.3,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "replaces_old_rows",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 1,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/b",
+     "2026-02-02T00:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [
+    [
+     "{ROOT}/a",
+     "2026-01-01T00:00:00+00:00"
+    ],
+    [
+     "{ROOT}/zz",
+     "x"
+    ]
+   ],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-02-02T00:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "time_forms",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/t01"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t02"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t03"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t04"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t05"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t06"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t07"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t08"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t09"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t10"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t11"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t12"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t13"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t14"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t15"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t16"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t17"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t18"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t19"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t20"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t21"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t22"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t23"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t24"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/t25"
+    }
+   ],
+   "result": {
+    "indexes": 25,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/t01"
+   ],
+   "rows": [
+    [
+     "{ROOT}/t01",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t02",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t03",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t04",
+     "2026-10-21T10:00:00.123456+00:00"
+    ],
+    [
+     "{ROOT}/t05",
+     "2026-10-21T00:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t06",
+     "2025-10-09T08:53:20+00:00"
+    ],
+    [
+     "{ROOT}/t07",
+     "2025-10-09T08:53:20.500000+00:00"
+    ],
+    [
+     "{ROOT}/t08",
+     null
+    ],
+    [
+     "{ROOT}/t09",
+     null
+    ],
+    [
+     "{ROOT}/t10",
+     null
+    ],
+    [
+     "{ROOT}/t11",
+     null
+    ],
+    [
+     "{ROOT}/t12",
+     "9000-01-01T00:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t13",
+     "0001-01-01T00:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t14",
+     "2026-10-21T10:00:00.123456+00:00"
+    ],
+    [
+     "{ROOT}/t15",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t16",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t17",
+     "2025-10-09T08:53:20.123456+00:00"
+    ],
+    [
+     "{ROOT}/t18",
+     "1969-12-31T23:59:59+00:00"
+    ],
+    [
+     "{ROOT}/t19",
+     null
+    ],
+    [
+     "{ROOT}/t20",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t21",
+     "2026-10-21T10:00:00.999999+00:00"
+    ],
+    [
+     "{ROOT}/t22",
+     "1970-01-01T00:00:00+00:00"
+    ],
+    [
+     "{ROOT}/t23",
+     "2026-10-21T15:30:00+00:00"
+    ],
+    [
+     "{ROOT}/t24",
+     null
+    ],
+    [
+     "{ROOT}/t25",
+     null
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t01",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t02",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T12:00:00+02:00",
+      "project_id": "id",
+      "root": "{ROOT}/t03",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.123456Z",
+      "project_id": "id",
+      "root": "{ROOT}/t04",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21",
+      "project_id": "id",
+      "root": "{ROOT}/t05",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": 1760000000,
+      "project_id": "id",
+      "root": "{ROOT}/t06",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": 1760000000.5,
+      "project_id": "id",
+      "root": "{ROOT}/t07",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": true,
+      "project_id": "id",
+      "root": "{ROOT}/t08",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": null,
+      "project_id": "id",
+      "root": "{ROOT}/t09",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "garbage",
+      "project_id": "id",
+      "root": "{ROOT}/t10",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "",
+      "project_id": "id",
+      "root": "{ROOT}/t11",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "9000-01-01T00:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t12",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "0001-01-01T00:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t13",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.1234567+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t14",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21 10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t15",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "20261021T100000Z",
+      "project_id": "id",
+      "root": "{ROOT}/t16",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": 1760000000.1234565,
+      "project_id": "id",
+      "root": "{ROOT}/t17",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": -1,
+      "project_id": "id",
+      "root": "{ROOT}/t18",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": {
+       "a": 1
+      },
+      "project_id": "id",
+      "root": "{ROOT}/t19",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-W43-3T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t20",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.999999+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/t21",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": 0,
+      "project_id": "id",
+      "root": "{ROOT}/t22",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00-05:30",
+      "project_id": "id",
+      "root": "{ROOT}/t23",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": false,
+      "project_id": "id",
+      "root": "{ROOT}/t24",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": [
+       1
+      ],
+      "project_id": "id",
+      "root": "{ROOT}/t25",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "bad_status_500",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [
+    [
+     "{ROOT}/a",
+     "old"
+    ]
+   ],
+   "server": {
+    "break": "status500",
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "bad_redirect_302",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": "redirect",
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "bad_garbage_json",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": "garbage",
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "bad_text_plain",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": "text",
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "bad_empty_body",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": "empty",
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "bad_jsonrpc_error",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": "rpc_error",
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "bad_no_content",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "no_content",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "bad_text_not_json",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "text_garbage",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "bad_indexes_not_a_list",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": 5,
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "bad_reply_is_a_list",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "list",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "bad_items_are_not_dicts",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 1,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     1,
+     "x",
+     null,
+     [
+      {
+       "files": 3,
+       "last_index_at": "2026-10-21T10:00:00+00:00",
+       "project_id": "id",
+       "root": "{ROOT}/a",
+       "root_exists": true,
+       "slices": 9,
+       "status": "done"
+      }
+     ],
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes",
+    "list_indexes",
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "tool_error_for_every_root",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/c"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/d"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a",
+    "{ROOT}/b",
+    "{ROOT}/c"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [
+     "{ROOT}/a",
+     "{ROOT}/b",
+     "{ROOT}/c",
+     "{ROOT}/d"
+    ],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes",
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "next_root_after_a_rejected_one",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/c"
+    }
+   ],
+   "result": {
+    "indexes": 1,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a",
+    "{ROOT}/b"
+   ],
+   "rows": [
+    [
+     "{ROOT}/c",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [
+     "{ROOT}/a"
+    ],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes",
+    "list_indexes",
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "fourth_root_is_never_tried",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/c"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/d"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [
+    "{ROOT}/a",
+    "{ROOT}/b",
+    "{ROOT}/c"
+   ],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/d",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [
+     "{ROOT}/a",
+     "{ROOT}/b",
+     "{ROOT}/c"
+    ],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "root_with_non_ascii_is_no_data",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/é"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/é",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "reply_in_text_block",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "text",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "reply_wrapped_in_result",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "wrapped",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "sse",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "sse",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "chunked_json",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "chunked",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "chunked_sse",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "sse+chunked",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 1,
+   "name": "stateful_session",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": true
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 1,
+   "name": "stateful_session_sse",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "sse",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": true
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "deletes": 0,
+   "name": "url_without_path",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "indexes": 2,
+    "status": "ok"
+   },
+   "roots": [
+    "{ROOT}/a"
+   ],
+   "rows": [
+    [
+     "{ROOT}/a",
+     "2026-10-21T10:00:00+00:00"
+    ],
+    [
+     "{ROOT}/b",
+     "2026-10-21T10:00:00+00:00"
+    ]
+   ],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1:{PORT}"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_localhost",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://localhost:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_userinfo",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1@evil.example/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_userinfo_2",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://evil.example@127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_https",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "https://127.0.0.1:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_any_address",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://0.0.0.0:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_ipv6",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://[::1]:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_lookalike",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.1.evil.example/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_other_loopback",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "http://127.0.0.2:{PORT}/mcp"
+  },
+  {
+   "calls": [],
+   "deletes": 0,
+   "name": "refused_file",
+   "projects": [
+    {
+     "dir": true,
+     "path": "{ROOT}/a"
+    },
+    {
+     "dir": true,
+     "path": "{ROOT}/b"
+    }
+   ],
+   "result": {
+    "status": "no data"
+   },
+   "roots": [],
+   "rows": [],
+   "seed_rows": [
+    [
+     "{ROOT}/a",
+     "old"
+    ]
+   ],
+   "server": {
+    "break": null,
+    "delay_s": 0,
+    "indexes": [
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00.000+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/a",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/b",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/other",
+      "root_exists": true,
+      "slices": 9,
+      "status": "done"
+     },
+     {
+      "files": 3,
+      "last_index_at": "2026-10-21T10:00:00+00:00",
+      "project_id": "id",
+      "root": "{ROOT}/c",
+      "root_exists": false,
+      "slices": 9,
+      "status": "done"
+     }
+    ],
+    "mode": "json",
+    "reject_roots": [],
+    "reply": "structured",
+    "session": false
+   },
+   "timeout_s": null,
+   "url": "file:///x"
+  }
+ ],
+ "generator": "rust/parity/gen_context.py",
+ "tool_cases": [
+  {
+   "calls": [],
+   "name": "refused_tool_index_path",
+   "outcome": "Refused",
+   "roots": [],
+   "tool": "index_path"
+  },
+  {
+   "calls": [],
+   "name": "refused_tool_search",
+   "outcome": "Refused",
+   "roots": [],
+   "tool": "search_semantic"
+  },
+  {
+   "calls": [],
+   "name": "refused_tool_empty",
+   "outcome": "Refused",
+   "roots": [],
+   "tool": ""
+  },
+  {
+   "calls": [
+    "list_indexes"
+   ],
+   "name": "allowed_tool_list_indexes",
+   "outcome": "ok",
+   "roots": [
+    "/x"
+   ],
+   "tool": "list_indexes"
+  },
+  {
+   "calls": [
+    "get_stats"
+   ],
+   "name": "allowed_tool_get_stats",
+   "outcome": "ok",
+   "roots": [
+    "/x"
+   ],
+   "tool": "get_stats"
+  }
+ ]
+}

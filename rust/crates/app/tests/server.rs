@@ -63,7 +63,7 @@ impl Server {
         setup(&home);
         let mut command = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"));
         command
-            .arg("serve")
+            .args(["serve", "--no-ingest"])
             .args(args)
             .env("HOME", &home)
             .env("EASY_PERSONAL_HOME", &home)
@@ -1459,7 +1459,7 @@ fn serve_refused(
 ) -> (std::process::ExitStatus, String, String) {
     let mut command = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"));
     command
-        .arg("serve")
+        .args(["serve", "--no-ingest"])
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

@@ -153,7 +153,7 @@ impl Response {
 impl Server {
     fn start(home: &Home) -> Server {
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
-            .arg("serve")
+            .args(["serve", "--no-ingest"])
             .env_clear()
             .env("PATH", "/usr/bin:/bin")
             .env("HOME", home.dir.join("nowhere"))

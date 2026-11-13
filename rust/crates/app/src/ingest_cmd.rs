@@ -3,14 +3,14 @@
 //! prune, then print), same JSON formatting, same exit codes. The core does the work (`ingest::folders`,
 //! `writer`, `ingest_lock`); this module reads the environment and the process, and prints.
 //!
-//! After the events (P2b, T033) it runs `kit_trace`, `ui` and `verifier` in Python's order, each in its own
-//! transaction, and prints their counts under Python's keys. The result names what it did not ingest (`not_ingested`:
-//! `context`) instead of printing that source with an invented value. No message here carries a path, SQL or a row value (NFR-002).
+//! After the events (P2b, T033) it runs `kit_trace`, `context` (T051), `ui` and `verifier` in Python's order, each in its
+//! own transaction, and prints their counts under Python's keys. `context` reads easy-context's loopback MCP service
+//! and never fails the run: a service that is down is `{"status": "no data"}`. No message here carries a path, SQL or a row value (NFR-002).
 
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::ingest::config::{ui_reports_dir, verifier_reports_dir};
 use easy_personal_core::ingest::folders::{Options, SKIPPED_NOTE, ingest_accounts};
-use easy_personal_core::ingest::{kit_trace, ui, verifier};
+use easy_personal_core::ingest::{context, kit_trace, ui, verifier};
 use easy_personal_core::ingest_lock::{DEFAULT_TIMEOUT, LockError, ingest_lock};
 use easy_personal_core::store::store_path_from;
 use easy_personal_core::writer::{WriteError, open_for_write};
@@ -21,9 +21,6 @@ use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
-
-/// The source Python's `ingest` runs last that this command does not (T033: `kit_trace`, `ui` and `verifier` are ported).
-const NOT_INGESTED: [&str; 1] = ["context"];
 
 /// The longest lock wait we hand to `Instant` arithmetic (about 31 years); `inf` and `nan` wait this long.
 const MAX_WAIT_SECS: u64 = 1_000_000_000;
@@ -74,7 +71,34 @@ pub fn run(source: Option<PathBuf>, retention_days: Option<i64>) -> ExitCode {
     }
 }
 
+/// The ingest `serve` and `app` run before they start (Python's `dashboard`: `_ingest` with no `--source` and no
+/// retention). One progress line on stderr; a failure (busy lock after the wait, a refused store, a bad lock timeout)
+/// is one fixed line and the caller starts anyway. The result is not printed: no path and no row value (NFR-002).
+pub fn startup() {
+    eprintln!("{STARTUP_PROGRESS}");
+    if run_ingest(None, None).is_err() {
+        eprintln!("{STARTUP_FAILED}");
+    }
+}
+
+pub const STARTUP_PROGRESS: &str = "ingesting before start (waits if another ingest runs)...";
+pub const STARTUP_FAILED: &str = "ingest failed; starting anyway";
+
 fn ingest(source: Option<PathBuf>, retention_days: Option<i64>) -> Result<(), Failure> {
+    let result = run_ingest(source, retention_days)?;
+    let skipped = result.get("skipped").and_then(Value::as_u64).unwrap_or(0);
+    // Python prints after its `with` block: the lock is free before a slow stdout reader (`| less`) gets the result.
+    print_json(&result)?;
+    if skipped > 0 {
+        eprintln!("easy-personal-rs: {SKIPPED_NOTE}");
+    }
+    Ok(())
+}
+
+fn run_ingest(
+    source: Option<PathBuf>,
+    retention_days: Option<i64>,
+) -> Result<BTreeMap<&'static str, Value>, Failure> {
     // cli.py:160 comes first: a malformed timeout stops the run before the data folder is made.
     let timeout = lock_timeout(std::env::var_os("EASY_PERSONAL_LOCK_TIMEOUT").as_deref())?;
     let home = std::env::var_os("HOME");
@@ -100,7 +124,7 @@ fn ingest(source: Option<PathBuf>, retention_days: Option<i64>) -> Result<(), Fa
     // The Python process's cwd; when it cannot be read, "." resolves against the (missing) cwd as the OS would.
     let cwd_base = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
-    let result = ingest_locked(&Config {
+    ingest_locked(&Config {
         timeout,
         store_file,
         data_dir,
@@ -110,15 +134,9 @@ fn ingest(source: Option<PathBuf>, retention_days: Option<i64>) -> Result<(), Fa
         retention_days,
         ui_env: std::env::var_os("EASY_PERSONAL_UI_REPORTS"),
         verifier_env: std::env::var_os("EASY_PERSONAL_VERIFIER_REPORTS"),
+        context_env: std::env::var_os(context::URL_ENV),
         home,
-    })?;
-    let skipped = result.get("skipped").and_then(Value::as_u64).unwrap_or(0);
-    // Python prints after its `with` block: the lock is free before a slow stdout reader (`| less`) gets the result.
-    print_json(&result)?;
-    if skipped > 0 {
-        eprintln!("easy-personal-rs: {SKIPPED_NOTE}");
-    }
-    Ok(())
+    })
 }
 
 /// The environment, already resolved: what the locked part of the run needs.
@@ -133,6 +151,8 @@ struct Config {
     /// `EASY_PERSONAL_UI_REPORTS`, `EASY_PERSONAL_VERIFIER_REPORTS` and `HOME`, as the process has them.
     ui_env: Option<OsString>,
     verifier_env: Option<OsString>,
+    /// `EASY_PERSONAL_CONTEXT_URL`.
+    context_env: Option<OsString>,
     home: Option<OsString>,
 }
 
@@ -152,6 +172,12 @@ fn ingest_locked(cfg: &Config) -> Result<BTreeMap<&'static str, Value>, Failure>
     )?;
     // cli.py `_ingest`: after the events, `kit_trace`, then `ui`, then `verifier`; none of the last two fails the run.
     let kit = kit_trace::ingest(&mut store)?;
+    // `context` never fails the run (FR-012): a service problem is `no data`, a store failure is a failed status.
+    let context = match context::ingest(&mut store, cfg.context_env.as_deref()) {
+        Ok(s) if s.status == "ok" => json!({"status": s.status, "indexes": s.indexes}),
+        Ok(s) => json!({"status": s.status}),
+        Err(e) => json!({"status": "failed", "reason": ui_failure(&e)}),
+    };
     let config_file = cfg.data_dir.join("config.yaml");
     let home = cfg.home.as_deref();
     let ui_folder = ui_reports_dir(&config_file, cfg.ui_env.clone(), home);
@@ -174,7 +200,7 @@ fn ingest_locked(cfg: &Config) -> Result<BTreeMap<&'static str, Value>, Failure>
     );
     result.insert("ui", ui);
     result.insert("verifier", verifier);
-    result.insert("not_ingested", json!(NOT_INGESTED));
+    result.insert("context", context);
     if let Some(days) = cfg.retention_days {
         result.insert("pruned", json!(store.prune(Some(days), now_micros())?));
     }
@@ -314,6 +340,7 @@ mod tests {
             retention_days: None,
             ui_env: None,
             verifier_env: None,
+            context_env: None,
             home: None,
         };
         let result = ingest_locked(&cfg).ok().expect("ingest ran");
@@ -328,10 +355,10 @@ mod tests {
         assert_eq!(
             keys,
             [
+                "context",
                 "files",
                 "kit_trace",
                 "new_events",
-                "not_ingested",
                 "skipped",
                 "ui",
                 "verifier"

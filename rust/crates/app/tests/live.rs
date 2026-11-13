@@ -87,7 +87,7 @@ impl Serve {
         .unwrap();
         drop(conn);
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
-            .arg("serve")
+            .args(["serve", "--no-ingest"])
             .env("HOME", &home)
             .env("EASY_PERSONAL_HOME", &home)
             .env("EASY_PERSONAL_AGENT_ROOT", &home)

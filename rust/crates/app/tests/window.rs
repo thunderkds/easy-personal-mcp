@@ -60,6 +60,7 @@ impl App {
     fn start(home: &TempDir, page: &Path, args: &[&str]) -> App {
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
             .arg("app")
+            .arg("--no-ingest")
             .args(args)
             .arg("--static-dir")
             .arg(page)

@@ -103,7 +103,7 @@ fn writes_and_an_ingest_share_the_wal_store_without_a_lock_error() {
     std::fs::create_dir_all(&case.home).unwrap();
     drop(open_for_write(&case.store_path()).unwrap());
 
-    let mut serve = Spec::rust(&case, &["serve"]).spawn();
+    let mut serve = Spec::rust(&case, &["serve", "--no-ingest"]).spawn();
     let mut lines = BufReader::new(serve.child.stdout.take().unwrap());
     let mut first = String::new();
     lines.read_line(&mut first).unwrap();

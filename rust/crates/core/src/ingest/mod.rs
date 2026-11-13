@@ -11,11 +11,14 @@
 //! P2b (T033) adds the three kit sources over real folders: [`kit_trace`], [`ui`], [`verifier`] (and [`config`], the
 //! report-folder settings they share).
 //!
+//! P3 (T051) adds [`context`]: easy-context's index freshness, read through its loopback MCP service (a hand-written HTTP client).
+//!
 //! The helper modules are public so the differential corpora (`parity/ingest/golden/corpus-*.json`) can test them.
 
 pub mod accounts;
 pub mod claude_code;
 pub mod config;
+pub mod context;
 pub mod folders;
 pub mod json;
 pub mod kit_trace;
