@@ -10,6 +10,12 @@
 
 ### Todo
 - [ ] **T050** — P3 S11: keychain, launcher, connector writes, sync apply, legacy (`claude` subprocesses) | Backend-Developer | C3 | Risk: High | P3 | wave 5; OWNER GATE: crate choice and licences; Depends on T046, T048; plan `BRAINSTORMING_LOG_RUSTP3.md`; guide written when the wave starts
+- [ ] **T058** — Retire Python 1: Rust CLI commands Python has and Rust has not (`ping`, `usage`, `outliers`, `kit-findings`, `workspace`, `account`, `dashboard`) | Backend-Developer | C2 | Risk: Medium | P2 | plan `rust/docs/PYTHON_RETIREMENT_PLAN.md` (2026-11-13); no owner gate; guide written when the task starts
+- [ ] **T059** — Retire Python 2: Rust `store-check` (with `--full`) and `GET /api/store/health`, port of HUN-244 | Backend-Developer | C2 | Risk: Medium | P2 | plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; no owner gate; guide written when the task starts
+- [ ] **T060** — Retire Python 3: Rust `connector` commands and `doctor` over T050's code | Backend-Developer | C3 | Risk: High | P3 | Depends on T050; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; guide written when the task starts
+- [ ] **T061** — Retire Python 4: parity run of every Python command and route against Rust on a store copy, differences listed | QA-Automation | C2 | Risk: Medium | P3 | Depends on T050, T058, T059, T060; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
+- [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
+- [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
 ### In Progress
 - [x] **T057** — Rust live feed 2: `app --self-test` opens `/api/live` and reads the first snapshot | Backend-Developer | C3 | Risk: High | P1 | merged to `main` 2026-11-13 (`0ab9ae2`) on the owner's go-ahead; Step 0 found Python has no separate kit-trace feed (the kit stage is already in the snapshot), so AC 2, 4, 5 were dropped; Stage 4 code and security review clean; 713 passed, 0 failed; owner's end-to-end check of the Live tab in the window (AC 7) still open
