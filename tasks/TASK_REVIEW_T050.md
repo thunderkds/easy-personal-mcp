@@ -61,8 +61,99 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured by backend-developer, 2026-11-13T14:39Z..14:43Z, branch T050 at `983f7b1`, before any code file):
+
+*Step 0, dependency record (guide "Dependency rule").*
+
+Before the change (`cargo 1.99.1`, 2026-11-13T14:39:55Z):
+
+```
+$ cargo tree -p easy-personal-rs -e normal --depth 1
+easy-personal-rs v0.2.0 (.../T050/rust/crates/app)
+├── axum v0.8.9
+├── clap v4.6.7
+├── easy-personal-core v0.2.0 (.../T050/rust/crates/core)
+├── futures-core v0.3.34
+├── getrandom v0.4.3
+├── rmcp v3.9.0
+├── rusqlite v0.41.1
+├── serde_json v1.0.154
+└── tokio v1.54.1
+$ grep -c '^name = ' Cargo.lock
+462
+$ cargo tree -p easy-personal-rs -e normal --prefix none | sort -u | wc -l     # packages in the default build
+104
+```
+
+The change (the one allowed line, `rust/crates/app/Cargo.toml`). `cargo info keyring@3.6.3` lists both feature names
+(`sync-secret-service = [dep:dbus-secret-service]`, `crypto-rust = [dbus-secret-service?/crypto-rust, secret-service?/crypto-rust]`):
+
+```
+keyring = { version = "=3.6.3", default-features = false, features = ["sync-secret-service", "crypto-rust"] }
+```
+
+After the change (2026-11-13T14:41:54Z):
+
+```
+$ cargo build -p easy-personal-rs
+   Compiling libdbus-sys v0.2.7
+   Compiling dbus v0.9.12
+   Compiling dbus-secret-service v4.1.0
+   Compiling keyring v3.6.3
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.47s
+$ grep -c '^name = ' Cargo.lock
+536                      # 74 new lock entries (60..90 is fine), 0 removed
+$ cargo tree ... | sort -u | wc -l
+132                      # 28 new packages in the default build
+$ git diff --stat rust/Cargo.lock
+ rust/Cargo.lock | 803 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 795 insertions(+), 8 deletions(-)
+```
+
+New lock entries with licence (`cargo metadata --locked`), all in the allowed set (each `OR` has MIT or Apache-2.0):
+aes 0.8.4 MIT OR Apache-2.0 · async-broadcast 0.7.2 MIT OR Apache-2.0 · async-channel 2.5.0 Apache-2.0 OR MIT · async-io 2.6.0 Apache-2.0 OR MIT ·
+async-lock 3.5.0 Apache-2.0 OR MIT · async-process 2.5.0 Apache-2.0 OR MIT · async-recursion 1.2.0 MIT OR Apache-2.0 · async-signal 0.2.14 Apache-2.0 OR MIT ·
+async-task 4.7.1 Apache-2.0 OR MIT · async-trait 0.1.92 MIT OR Apache-2.0 · block-padding 0.3.3 MIT OR Apache-2.0 · blocking 1.7.0 Apache-2.0 OR MIT ·
+cbc 0.1.2 MIT OR Apache-2.0 · cfg_aliases 0.2.2 MIT · cipher 0.4.4 MIT OR Apache-2.0 · concurrent-queue 2.5.0 Apache-2.0 OR MIT ·
+dbus-secret-service 4.1.0 MIT OR Apache-2.0 · endi 1.1.1 MIT · enumflags2 0.7.12 MIT OR Apache-2.0 · enumflags2_derive 0.7.12 MIT OR Apache-2.0 ·
+event-listener 5.4.2 Apache-2.0 OR MIT · event-listener-strategy 0.5.4 Apache-2.0 OR MIT · futures-lite 2.6.1 Apache-2.0 OR MIT ·
+getrandom 0.2.17 MIT OR Apache-2.0 · hermit-abi 0.5.3 MIT OR Apache-2.0 · hkdf 0.12.4 MIT OR Apache-2.0 · hmac 0.12.1 MIT OR Apache-2.0 ·
+inout 0.1.4 MIT OR Apache-2.0 · keyring 3.6.3 MIT OR Apache-2.0 · linux-raw-sys 0.12.1 Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT ·
+nix 0.29.0 MIT · num 0.4.3, num-bigint 0.4.8, num-complex 0.4.6, num-integer 0.1.47, num-iter 0.1.46, num-rational 0.4.2 MIT OR Apache-2.0 ·
+ordered-stream 0.2.0 MIT OR Apache-2.0 · parking 2.2.1 Apache-2.0 OR MIT · piper 0.2.5 MIT OR Apache-2.0 · polling 3.11.0 Apache-2.0 OR MIT ·
+ppv-lite86 0.2.21 MIT OR Apache-2.0 · rand 0.8.8, rand_chacha 0.3.1, rand_core 0.6.4 MIT OR Apache-2.0 ·
+rustix 1.1.6 Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT · secret-service 4.0.0 MIT OR Apache-2.0 · sha1 0.10.7 MIT OR Apache-2.0 ·
+static_assertions 1.1.0 MIT OR Apache-2.0 · subtle 2.6.1 BSD-3-Clause · tempfile 3.27.0 MIT OR Apache-2.0 · uds_windows 1.2.1 MIT ·
+windows-sys 0.52.0 / 0.59.0, windows-targets 0.52.6, windows_{aarch64_gnullvm,aarch64_msvc,i686_gnu,i686_gnullvm,i686_msvc,x86_64_gnu,x86_64_gnullvm,x86_64_msvc} 0.52.6 MIT OR Apache-2.0 ·
+xdg-home 1.3.0 MIT · zbus 4.4.0, zbus_macros 4.4.0, zbus_names 3.0.0 MIT · zerocopy 0.8.63, zerocopy-derive 0.8.63 BSD-2-Clause OR Apache-2.0 OR MIT ·
+zeroize 1.9.1, zeroize_derive 1.5.0 Apache-2.0 OR MIT · zvariant 4.2.0, zvariant_derive 4.2.0, zvariant_utils 2.1.0 MIT.
+
+New in the default build (28): aes, block-buffer, block-padding, cbc, cipher, cpufeatures, crypto-common, dbus 0.9.12, dbus-secret-service, digest,
+fastrand, generic-array, hkdf, hmac, inout, keyring, libdbus-sys 0.2.7, log, num (+5 num-*), sha2, subtle, zeroize, zeroize_derive. `dbus` and
+`libdbus-sys` (Apache-2.0/MIT) were already in the lock (Tauri tree). The `zbus`/`secret-service` lines are lock-only (optional deps of
+`keyring`, not compiled by these features).
+
+Stop-rule check: 74 new (in 60..90); every licence allowed; the system library the build needs (`libdbus-1-dev`, pkg-config `dbus-1` 1.16.2)
+is installed; no other crate needed. **No stop condition holds.** Note: the options file named `zbus` as the main part; with
+`sync-secret-service` the compiled path is `dbus-secret-service` over the C `libdbus-1` (system library, already installed).
+
+*Connector write routes today* (temp copy of `parity/store-rich/store-v11.sqlite`, `env -i` with temp `HOME`, `EASY_PERSONAL_HOME`,
+`EASY_PERSONAL_AGENT_ROOT`, `PATH=/usr/bin:/bin`, `serve --no-ingest`, guarded requests with the token):
+
+```
+date: 2026-11-13T14:42:56Z  binary: .../T050/rust/target/debug/easy-personal-rs  commit: 983f7b1
+POST /api/connectors                             -> 405
+POST /api/connectors/slack-acme/alias            -> 404
+POST /api/connectors/slack-acme/move             -> 404
+DELETE /api/connectors/slack-acme                -> 404
+POST /api/connectors/legacy                      -> 404
+POST /api/sync                                   -> 405
+GET /api/connectors                              -> 200  {"connectors":[{"category":"Email","claude_ai_connector":true,...
+$ date -u; ls target/debug/easy-personal-launch; grep -n '\[\[bin\]\]' crates/app/Cargo.toml
+2026-11-13T14:43:00Z
+ls: cannot access 'target/debug/easy-personal-launch': No such file or directory
+(no [[bin]] section; exit 1)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
