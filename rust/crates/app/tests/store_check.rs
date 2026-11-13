@@ -420,7 +420,11 @@ fn a_store_of_a_million_events_answers_in_budget_or_says_unknown() {
             assert_eq!(json["healthy"], Value::Null);
             assert!(!json["incomplete"].as_array().unwrap().is_empty());
         }
-        assert_eq!(events, Some(1_000_000));
+        assert_eq!(
+            events,
+            Some(1_000_005),
+            "the clean fixture holds 5 events of its own"
+        );
     }
     assert!(timings.iter().all(|t| *t < 2.5), "{timings:?}");
 }
