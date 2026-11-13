@@ -196,6 +196,16 @@ impl Running {
         self.runtime.handle().clone()
     }
 
+    /// The live check of `app --self-test` (T057): the live feed was given to `start` and its thread runs, and
+    /// `GET /api/live?token=<token>` gives a first `snapshot` with the snapshot keys (`live_feed::read_first_snapshot`).
+    #[cfg_attr(not(feature = "window"), allow(dead_code))]
+    pub fn live_self_check(&self) -> Result<(), String> {
+        if !self.feed.as_ref().is_some_and(LiveFeed::is_running) {
+            return Err("the live feed is not running".into());
+        }
+        crate::live_feed::read_first_snapshot(self.port, &self.token).map(|_| ())
+    }
+
     /// Ends the open live streams, stops accepting, gives requests in flight `STOP_GRACE` to finish, drops whatever
     /// is left, then stops and joins the live feed (at most 10 s, `LiveFeed::stop`).
     pub fn stop(mut self) {
@@ -351,6 +361,51 @@ mod tests {
         let token = running.token.clone();
         assert_eq!(status(&running, "/api/version", Some(&token)), 200);
         assert!(running.authenticated.load(Ordering::Relaxed));
+        running.stop();
+    }
+
+    /// A feed whose step does nothing (no store, no file read).
+    fn idle_feed() -> LiveFeed {
+        LiveFeed::start(
+            easy_personal_core::prices::PriceTable::shipped().unwrap(),
+            easy_personal_core::clock::now_micros,
+            |_, _| {},
+        )
+        .unwrap()
+    }
+
+    /// T057 AC 3, without a display: the self-test's live check passes on the server `serve` and `app` start.
+    #[test]
+    fn the_live_self_check_reads_the_first_snapshot_with_the_token_in_the_query() {
+        let running = start(None, Some(idle_feed())).unwrap();
+        assert_eq!(running.live_self_check(), Ok(()));
+        let data = crate::live_feed::read_first_snapshot(running.port, &running.token).unwrap();
+        assert_eq!(data["sessions"], serde_json::json!([]));
+        assert_eq!(data["last_id"], 0);
+        running.stop();
+    }
+
+    /// T057 AC 3: the check fails when `start` got no feed (as if `window.rs` stopped passing it), although the
+    /// route still answers Python's empty snapshot then.
+    #[test]
+    fn the_live_self_check_fails_without_a_feed() {
+        let running = start(None, None).unwrap();
+        assert!(crate::live_feed::read_first_snapshot(running.port, &running.token).is_ok());
+        assert_eq!(
+            running.live_self_check(),
+            Err("the live feed is not running".into())
+        );
+        running.stop();
+    }
+
+    /// T057 AC 3: a wrong token (403) fails the check, and the error never holds the token.
+    #[test]
+    fn the_live_self_check_fails_on_a_refused_token() {
+        let running = start(None, Some(idle_feed())).unwrap();
+        let wrong = "x".repeat(43);
+        let err = crate::live_feed::read_first_snapshot(running.port, &wrong).unwrap_err();
+        assert_eq!(err, "GET /api/live answered 403");
+        assert!(!err.contains(&running.token) && !err.contains(&wrong));
         running.stop();
     }
 

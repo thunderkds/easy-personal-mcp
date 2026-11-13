@@ -7,7 +7,8 @@
 //! Order of `app` (feature build): the folder is validated (as `serve` does), the display preflight (`display.rs`,
 //! at most 4 s, no Tauri code yet), the server, the window. Exit codes: 0 the window closed, a SIGINT/SIGTERM or the
 //! self-test passed; 1 any other failure; 2 a command-line error (clap); 3 the self-test saw no authenticated request
-//! within 20 s; 4 a build without the `window` feature; 5 no display (or a toolkit that cannot start).
+//! within 20 s or its live check failed; 4 a build without the `window` feature; 5 no display (or a toolkit that
+//! cannot start).
 //!
 //! The window has no IPC power (T016, answer 4): `tauri.conf.json` turns off the global API, names no plugin, and
 //! `build.rs` points the capability pattern at a folder with no files, so every Tauri command is refused for the page.
@@ -15,8 +16,11 @@
 //! inside the server's origin and may open no other window (`navigation_allowed`), because the dashboard's sidebar has
 //! plain external links.
 //!
-//! `--self-test` (hidden) is for verification without eyes: the process prints `self-test: ok` and exits 0 as soon as
-//! the page made one `/api/` request that passed the guard with the token, or exits 3 after 20 s.
+//! `--self-test` (hidden) is for verification without eyes: once the page made one `/api/` request that passed the
+//! guard with the token (else exit 3 after 20 s), the window closes and the live check runs (T057): the live feed was
+//! given to the server and runs, and `GET /api/live?token=<token>` (the page's `EventSource` request) gives a first
+//! `snapshot` with the snapshot keys. Then it prints `self-test: live snapshot ok` and `self-test: ok` and exits 0,
+//! else exits 3.
 //!
 //! Not done here: macOS and Windows. They need no display preflight (a window server is always there; `display.rs` is
 //! Unix-only) and use other webviews (WKWebView, WebView2), the signal watch uses Unix signals, and the stub icon is
@@ -142,7 +146,17 @@ mod shell {
             Err(e) => return fail(&Failure(1, e)),
         };
         let signalled = Arc::new(AtomicBool::new(false));
-        let outcome = open(&running, self_test, &signalled);
+        let outcome = match open(&running, self_test, &signalled) {
+            // The page passed the guard (the self-test ended the loop): now the live check, before the server stops.
+            Ok(0)
+                if self_test
+                    && running.authenticated.load(Ordering::Relaxed)
+                    && !signalled.load(Ordering::Relaxed) =>
+            {
+                live_check(&running)
+            }
+            other => other,
+        };
         running.stop();
         match outcome {
             Ok(code) => {
@@ -153,6 +167,19 @@ mod shell {
             }
             Err(failure) => fail(&failure),
         }
+    }
+
+    /// `--self-test`, second half (T057): `GET /api/live?token=<token>` must give a first `snapshot` from a running
+    /// feed. Prints `self-test: live snapshot ok` and `self-test: ok`, else fails with exit 3.
+    fn live_check(running: &Running) -> Result<i32, Failure> {
+        running.live_self_check().map_err(|e| {
+            Failure(
+                EXIT_SELF_TEST_TIMEOUT as u8,
+                format!("self-test: live check: {e}"),
+            )
+        })?;
+        let _ = writeln!(io::stdout(), "self-test: live snapshot ok\nself-test: ok");
+        Ok(0)
     }
 
     fn fail(failure: &Failure) -> ExitCode {
@@ -264,13 +291,13 @@ mod shell {
         });
     }
 
-    /// `--self-test`: exit 0 with `self-test: ok` once the guard saw an authenticated `/api/` request, else exit 3.
+    /// `--self-test`: end the event loop with 0 once the guard saw an authenticated `/api/` request (`run` then makes
+    /// the live check and prints the result), else exit 3.
     fn watch_self_test(authenticated: Arc<AtomicBool>, handle: AppHandle) {
         thread::spawn(move || {
             let deadline = Instant::now() + SELF_TEST_LIMIT;
             loop {
                 if authenticated.load(Ordering::Relaxed) {
-                    let _ = writeln!(io::stdout(), "self-test: ok");
                     handle.exit(0);
                     return;
                 }

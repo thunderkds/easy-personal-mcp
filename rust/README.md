@@ -199,7 +199,7 @@ SIGINT or SIGTERM stops the server and exits 0, and no WebKit process is left be
 | the window closed, SIGINT/SIGTERM, or the self-test passed | 0 |
 | `<DIR>` is not a readable directory, or the window could not be made | 1 |
 | command-line error (for example no `--static-dir`) | 2 |
-| `--self-test` saw no authenticated request within 20 s | 3 |
+| `--self-test` saw no authenticated request within 20 s, or its live check failed | 3 |
 | a build without the `window` feature | 4 |
 | no display, or the toolkit did not start within 10 s | 5 |
 
@@ -214,8 +214,16 @@ SIGINT or SIGTERM stops the server and exits 0, and no WebKit process is left be
 - **Navigation lock**: the webview may move only inside `http://127.0.0.1:<port>`. Every other URL (another port, `localhost`,
   `https`, `file:`, `data:`, `javascript:`, ...) and every new-window request is refused and logged by host only. A click on a link
   to another origin is also cancelled before WebKit connects to that host.
-- **`--self-test`** (hidden from `--help`, for checks without eyes): prints `self-test: ok` and exits 0 once the page made one
-  `/api/` request that passed the guard with the token, else exits 3 after 20 s. The fixture page is
+- **`--self-test`** (hidden from `--help`, for checks without eyes): waits until the page made one `/api/` request that passed
+  the guard with the token (else exits 3 after 20 s), closes the window, then makes the **live check** (T057): the live feed was
+  given to the server and its thread runs, and `GET /api/live?token=<token>` (the request the page's `EventSource` makes) answers
+  `200 text/event-stream` with a first `snapshot` whose data has exactly `active_window_s`, `last_id`, `open_call_minutes` and
+  `sessions` (5 s limit). It then prints `self-test: live snapshot ok` and `self-test: ok` and exits 0; a failed check prints
+  `easy-personal-rs: self-test: live check: <reason>` (never the token) and exits 3. The same check runs without a display in
+  `server.rs`'s unit tests (on `server::start` with a feed, and refused with no feed or a wrong token); the window test
+  `the_self_test_reads_the_first_live_snapshot_with_the_token_in_the_query` runs when `DISPLAY` or `WAYLAND_DISPLAY` is set and
+  prints `skipped: no display` otherwise. The check proves the server, the feed and the query-token route; it does not prove the
+  webview's own `EventSource` (the fixture page makes one `fetch` only). The fixture page is
   `crates/app/tests/fixtures/self-test`: `cargo run --features window -- app --self-test --static-dir crates/app/tests/fixtures/self-test`.
   The real-window tests are ignored by default; run them with a display:
   `cargo test --features window --test window -- --ignored --test-threads=1`.
@@ -818,7 +826,7 @@ methods. There is no thread and no clock inside: `now` (microseconds, UTC) is an
 `ingest::folders::resolve_project` (widened to `pub(crate)`, no change), costs through `prices.rs`.
 
 **Not ported here**: the polling thread, `GET /api/live`, SSE framing and `Last-Event-ID` (in `crates/app`, T056, section
-"Live feed" below); the kit-trace feed and the rest of the app wiring (T057); the `config.yaml` thresholds (`live_failing_streak` 3 and `live_open_call_minutes` 10 are fixed).
+"Live feed" below); the `config.yaml` thresholds (`live_failing_streak` 3 and `live_open_call_minutes` 10 are fixed).
 
 **Decided for you** (where Rust differs from Python on purpose):
 
@@ -931,6 +939,13 @@ write) and when the server stops (within 0.1 s, before the server's own 1 s grac
 **Token in the query** (only this route, only `GET`): exactly one `token=` pair, compared in constant time as sent. A token
 header, if present, decides alone. `HEAD` or `POST` with a query token, or a query token on any other route, is `403`. The token
 is never echoed in a body, header or log line; there is no access log and the route sends no redirect.
+
+**Kit items and the window (T057).** Python has no live kit-trace feed: its kernel traces (`memory/event-trace/*.jsonl`) are
+read only by the scheduled ingest (`sources/kit_trace.py`) into the store, and shown from there on the Kit page, never on the Live
+tab. The only kit item in the live stream is the kit stage (FR-083: `stage`, `stage_skill` on each snapshot session, from `Skill`
+calls in transcripts), and this stream already sends it (T049 engine, T056 route). So nothing else is fed here. `app` starts the
+same `LiveFeed` as `serve` and gives it to the same server (`window.rs`); the page opens `/api/live?token=<token>`. The
+`app --self-test` live check (section "Window") proves that path.
 
 **Oracle**: `parity/golden-live-stream/cases.json`, made once by `parity/gen_live_stream.py` from Python's own `live_stream`
 (one stream pass per step, the stream's sleep replaced by a wait the generator releases). 10 cases, 36 steps: an empty tail with

@@ -165,6 +165,36 @@ fn descendants(pid: u32) -> Vec<u32> {
     found
 }
 
+/// True when `DISPLAY` or `WAYLAND_DISPLAY` is set and not empty.
+fn has_display() -> bool {
+    ["DISPLAY", "WAYLAND_DISPLAY"]
+        .iter()
+        .any(|v| std::env::var_os(v).is_some_and(|s| !s.is_empty()))
+}
+
+/// T057 AC 3: the self-test opens `GET /api/live?token=<token>` (as the page's `EventSource` does) and reads the first
+/// `snapshot` before it passes. Not ignored: with no display it prints "skipped: no display" and checks nothing; the
+/// same live check runs without a display against `server::start` (`server.rs` tests).
+#[test]
+fn the_self_test_reads_the_first_live_snapshot_with_the_token_in_the_query() {
+    if !has_display() {
+        println!("skipped: no display");
+        return;
+    }
+    let home = TempDir::new();
+    let page = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/self-test");
+    let mut app = App::start(&home, &page, &["--self-test"]);
+    let code = app.wait(Duration::from_secs(30));
+    let log = app.log();
+    assert_eq!(code, 0, "{log:?}");
+    assert_eq!(
+        app.stdout(),
+        ["self-test: live snapshot ok", "self-test: ok"]
+    );
+    assert_eq!(log.len(), 2, "{log:?}");
+    assert_eq!(log[1], "easy-personal-rs: window closed");
+}
+
 #[test]
 #[ignore = "needs a display (WSLg or X11) and the Tauri system packages"]
 fn the_page_makes_an_authenticated_request_and_the_self_test_passes() {
@@ -174,7 +204,10 @@ fn the_page_makes_an_authenticated_request_and_the_self_test_passes() {
     let mut app = App::start(&home, &page, &["--self-test"]);
     let code = app.wait(Duration::from_secs(30));
     assert_eq!(code, 0);
-    assert_eq!(app.stdout(), ["self-test: ok"]);
+    assert_eq!(
+        app.stdout(),
+        ["self-test: live snapshot ok", "self-test: ok"]
+    );
     let log = app.log();
     assert_eq!(log.len(), 2, "{log:?}");
     assert!(log[0].starts_with("easy-personal-rs: window open on http://127.0.0.1:"));
@@ -243,7 +276,10 @@ fn external_links_and_new_windows_do_nothing() {
     let mut app = App::start(&home, &page, &["--self-test"]);
     // The last request only happens if this same document is still shown after every attempt to leave it.
     assert_eq!(app.wait(Duration::from_secs(30)), 0);
-    assert_eq!(app.stdout(), ["self-test: ok"]);
+    assert_eq!(
+        app.stdout(),
+        ["self-test: live snapshot ok", "self-test: ok"]
+    );
     let log = app.log();
     assert!(
         log.iter()
