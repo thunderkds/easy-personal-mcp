@@ -175,7 +175,7 @@ fn headers_prints_one_json_line_as_python() {
         b"",
     );
     assert_eq!(out.status.code(), Some(0));
-    // Python: json.dumps({"Authorization": "xoxb-PLANTED-t050-é-secret"}) + "\n"
+    // Python: json.dumps({"Authorization": SECRET}) + "\n" (the e-acute as \\u00e9)
     assert_eq!(
         text(&out.stdout),
         "{\"Authorization\": \"xoxb-PLANTED-t050-\\u00e9-secret\"}\n"

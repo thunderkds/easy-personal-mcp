@@ -109,6 +109,7 @@ impl Server {
         setup(&home);
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
             .args(["serve", "--no-ingest"])
+            .env("PATH", "/usr/bin:/bin") // T050: `GET /api/sync` runs `claude mcp get` when `claude` is on PATH
             .env("HOME", &home)
             .env("EASY_PERSONAL_HOME", &home)
             .env("XDG_CONFIG_HOME", home.join("xdg"))

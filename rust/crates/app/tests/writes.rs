@@ -23,7 +23,6 @@ use std::time::Duration;
 
 /// Same string as `CSP` in `src/easy_personal/surfaces/api.py`.
 const CSP: &str = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'";
-const NEEDS_CLAUDE: &str = "this change must update an agent account's Claude Code entries, which needs the claude CLI; this build cannot run it yet, so nothing was changed";
 const CONNECTORS: [&str; 2] = [
     "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
     "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
@@ -611,7 +610,7 @@ fn a_write_without_the_guard_is_403_and_changes_nothing_on_every_route() {
 }
 
 #[test]
-fn a_plan_that_needs_the_claude_cli_is_refused_with_409_and_writes_nothing_until_t050() {
+fn a_confirmed_plan_with_no_claude_on_path_commits_and_shows_the_commands_to_run() {
     let home = Home::rich(&[CONNECTORS[0], CONNECTORS[1], REGISTERED]);
     let server = Server::start(&home);
     let bytes = home.bytes();
@@ -624,28 +623,39 @@ fn a_plan_that_needs_the_claude_cli_is_refused_with_409_and_writes_nothing_until
         "{}",
         plan.body
     );
-    // confirmed: refused, nothing changed
-    for (method, path, body) in [
-        (
-            "PATCH",
-            "/api/workspaces/2",
-            json!({"name": "firm", "confirm": true}),
-        ),
-        ("DELETE", "/api/workspaces/2", json!({"confirm": true})),
-    ] {
-        let got = server.json(method, path, &body);
-        assert_eq!(
-            (got.status, got.error()),
-            (409, NEEDS_CLAUDE.to_string()),
-            "{method} {path}"
-        );
-        for secret in ["slack-acme", "acme-slack", "Claude work"] {
-            assert!(!got.body.contains(secret), "{}", got.body);
-        }
-        assert_eq!(home.bytes(), bytes, "{method} {path}");
-    }
+    assert_eq!(home.bytes(), bytes, "a plan changes nothing");
+    // confirmed (T050: no more 409): committed, and Python's apply lists the `claude` commands to run by hand
+    let got = server.json(
+        "PATCH",
+        "/api/workspaces/2",
+        &json!({"name": "firm", "confirm": true}),
+    );
+    assert_eq!(
+        (got.status, got.json()["status"].clone()),
+        (200, json!(0)),
+        "{}",
+        got.body
+    );
+    let lines: Vec<String> = serde_json::from_value(got.json()["lines"].clone()).unwrap();
+    assert!(lines.contains(&"the `claude` CLI is not on PATH; nothing was written. Run these once it is installed:".to_string()), "{lines:?}");
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.ends_with("claude mcp remove acme-slack --scope user")),
+        "{lines:?}"
+    );
+    let conn = Connection::open(home.store()).unwrap();
+    let registered: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM account_registrations WHERE alias = 'acme-slack'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(registered, 1, "nothing ran, so nothing is recorded");
+    drop(conn);
     let list = server.send("GET", "/api/workspaces", None, b"");
-    assert!(list.body.contains("\"acme\""), "{}", list.body);
+    assert!(list.body.contains("\"firm\""), "{}", list.body);
     // a plan with nothing for `claude` to do is applied (the connectors of an unpicked workspace)
     drop(server);
     let home = Home::rich(&[

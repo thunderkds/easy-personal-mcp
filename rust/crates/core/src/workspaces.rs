@@ -16,7 +16,7 @@ use serde_json::{Map, Value, json};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::store::{self, StoreError};
-use crate::sync::{self, SyncError};
+use crate::sync::{self, Claude, SyncError};
 use crate::writer::{self, WriteError};
 use rusqlite::{ErrorCode, Transaction, TransactionBehavior, params, params_from_iter};
 use std::path::Path;
@@ -162,8 +162,8 @@ fn name_of(key: &str) -> String {
 // `add`, `edit_in_txn`, `delete_to_orphan` and the plan-first `patch` / `delete` of `workspaces.py` and
 // `connectors/sync.py` (`rename_workspace`, `delete_workspace`, `_change`), store only. Every refusal is a
 // [`WriteFail::Refused`] with Python's status and text; nothing is stored on error (an uncommitted transaction rolls
-// back when it is dropped). What Python does with the `claude` CLI (`sync.apply`) is not done here: a confirmed change
-// whose plan holds an `add` or `remove` step is [`WriteFail::NeedsClaude`] and rolls back (T050 will run it).
+// back when it is dropped). A confirmed change is committed and then applied through the `claude` CLI (`sync::apply`,
+// T050), with the same `Claude` the plan asked.
 
 const ORPHAN: &str = "orphan";
 const TEXT_FIELDS: [(&str, usize); 4] = [
@@ -180,8 +180,6 @@ const NAME_RULE: &str = "name must match [a-z0-9][a-z0-9-]{0,39}";
 pub enum WriteFail {
     /// Python's `WorkspaceError` / `AccountError` / `ConnectorError`: its status and fixed text (none names the input).
     Refused { status: u16, text: String },
-    /// The change would need the `claude` CLI (an account registration to add or remove): refused until T050.
-    NeedsClaude,
     /// The store could not be read or written.
     Store(StoreError),
     /// The write handle could not be opened (a stale or newer schema, busy, not a store).
@@ -563,12 +561,12 @@ fn delete_to_orphan(conn: &Connection, id: i64) -> Done<Vec<String>> {
 
 /// `_change`: one owner action. `mutate` changes the desired state inside the transaction and returns the connector
 /// ids it touched and the lines that describe it; the plan for the accounts that hold or pick those connectors is
-/// added. Without `yes` the plan is the answer and everything is rolled back. With `yes` the change is committed, but
-/// only if no step needs the `claude` CLI (see [`WriteFail::NeedsClaude`]); then Python's `apply` has nothing to run
-/// and says so.
+/// added. Without `yes` the plan is the answer and everything is rolled back. With `yes` the change is committed and
+/// then applied (`sync::apply`); a failure while applying keeps the committed state (`connector sync` finishes it).
 fn change(
     conn: &Connection,
     yes: bool,
+    claude: &dyn Claude,
     mutate: impl FnOnce(&Connection) -> Done<(BTreeSet<String>, Vec<String>)>,
 ) -> Done<Outcome> {
     let tx = begin(conn)?;
@@ -589,7 +587,7 @@ fn change(
         let mut steps = Vec::new();
         for id in ids {
             steps.extend(
-                sync::plan(&tx, id)?
+                sync::plan(&tx, id, &BTreeSet::new(), claude)?
                     .into_iter()
                     .filter(|s| cids.contains(s.connector_id()) || s.is_skipped()),
             );
@@ -606,25 +604,33 @@ fn change(
             pending: true,
         }); // the transaction is dropped: rolled back
     }
-    if steps.iter().any(sync::Step::needs_claude) {
-        return Err(WriteFail::NeedsClaude);
-    }
     tx.commit()?;
-    lines.push("nothing to change.".into());
-    if steps.iter().any(sync::Step::is_skipped) {
+    let status = match sync::apply(conn, &steps, claude, &mut lines).map_err(WriteFail::Store)? {
+        Ok(status) => status,
+        Err(launch_error) => {
+            lines.push(launch_error);
+            1
+        }
+    };
+    if status == 0 && steps.iter().any(sync::Step::is_skipped) {
         lines.push(
             "an account could not be changed now; the store change is kept, `connector sync` finishes it.".into(),
         );
     }
     Ok(Outcome {
-        status: 0,
+        status,
         lines,
         pending: false,
     })
 }
 
-/// `_alias_ok`: the launcher-name rule, then (outside orphan) one alias per connector.
-fn alias_ok(conn: &Connection, alias: String, connector_id: &str) -> Done<String> {
+/// `_alias_ok`: the launcher-name rule, then (outside orphan, `check_clash`) one alias per connector.
+fn alias_ok(
+    conn: &Connection,
+    alias: String,
+    connector_id: &str,
+    check_clash: bool,
+) -> Done<String> {
     let bytes = alias.as_bytes();
     let name = (1..=64).contains(&bytes.len())
         && matches!(bytes[0], b'a'..=b'z' | b'0'..=b'9')
@@ -647,7 +653,7 @@ fn alias_ok(conn: &Connection, alias: String, connector_id: &str) -> Done<String
             |r| r.get(0),
         )
         .optional()?;
-    match other {
+    match other.filter(|_| check_clash) {
         Some(other) => Err(refuse(
             400,
             format!("alias '{alias}' is in use by connector {other}; nothing was changed"),
@@ -665,6 +671,7 @@ pub fn patch(
     mut changes: Vec<(String, Value)>,
     repos: Option<Repos>,
     yes: bool,
+    claude: &dyn Claude,
 ) -> Done<Outcome> {
     let current = get(conn, id)?;
     changes.retain(|(k, v)| !(k == "name" && *v == current["name"]));
@@ -681,7 +688,7 @@ pub fn patch(
             pending: false,
         });
     }
-    change(conn, yes, |conn| {
+    change(conn, yes, claude, |conn| {
         let name = edit_in_txn(conn, id, &changes, repos)?["name"]
             .as_str()
             .unwrap_or_default()
@@ -700,7 +707,7 @@ pub fn patch(
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         for (cid, old, provider) in rows {
-            let new = alias_ok(conn, format!("{name}-{provider}"), &cid)?;
+            let new = alias_ok(conn, format!("{name}-{provider}"), &cid, true)?;
             if new != old {
                 conn.execute(
                     "UPDATE connectors SET alias = ?1 WHERE id = ?2",
@@ -714,8 +721,8 @@ pub fn patch(
 }
 
 /// `DELETE /api/workspaces/{id}`: the plan first; with `yes` the workspace goes and its connectors move to orphan.
-pub fn delete(conn: &Connection, id: i64, yes: bool) -> Done<Outcome> {
-    change(conn, yes, |conn| {
+pub fn delete(conn: &Connection, id: i64, yes: bool, claude: &dyn Claude) -> Done<Outcome> {
+    change(conn, yes, claude, |conn| {
         let workspace = get(conn, id)?;
         let picks: i64 = conn.query_row(
             "SELECT COUNT(*) FROM account_workspaces WHERE workspace_id = ?1",
@@ -738,6 +745,124 @@ pub fn delete(conn: &Connection, id: i64, yes: bool) -> Done<Outcome> {
             format!("  account picks removed: {picks}; repo rows deleted: {repos}"),
         ];
         Ok((moved.into_iter().collect(), lines))
+    })
+}
+
+/// `by_name`: one workspace by its name, or 404 `unknown workspace`.
+pub fn by_name(conn: &Connection, name: &str) -> Done<Value> {
+    let id: Option<i64> = conn
+        .query_row("SELECT id FROM workspaces WHERE name = ?1", [name], |r| {
+            r.get(0)
+        })
+        .optional()?;
+    match id {
+        Some(id) => get(conn, id),
+        None => Err(refuse(404, "unknown workspace")),
+    }
+}
+
+/// `_stored`: `(alias, alias_custom, provider, workspace_id)` of a stored connector, or the 400 `no such connector`.
+fn stored(conn: &Connection, connector_id: &str) -> Done<(String, bool, String, i64)> {
+    conn.query_row(
+        "SELECT alias, alias_custom, provider, workspace_id FROM connectors WHERE id = ?1",
+        [connector_id],
+        |r| Ok((r.get(0)?, r.get::<_, i64>(1)? != 0, r.get(2)?, r.get(3)?)),
+    )
+    .optional()?
+    .ok_or_else(|| refuse(400, "no such connector; see `easy-personal connector list`"))
+}
+
+/// `move_connector` (`POST /api/connectors/{id}/move`): to another workspace, orphan included. A default alias follows
+/// the new workspace's name, a custom one stays; a workspace that has the provider already refuses it (orphan may hold
+/// several). Plan first; `yes` commits and applies it.
+pub fn move_connector(
+    conn: &Connection,
+    connector_id: &str,
+    workspace: &str,
+    yes: bool,
+    claude: &dyn Claude,
+) -> Done<Outcome> {
+    change(conn, yes, claude, |conn| {
+        let (alias, custom, provider, current) = stored(conn, connector_id)?;
+        let target = by_name(conn, workspace)?;
+        let (target_id, target_name) = (
+            target["id"].as_i64().unwrap_or_default(),
+            target["name"].as_str().unwrap_or_default(),
+        );
+        let orphan = target["is_orphan"] == true;
+        if target_id == current {
+            return Err(refuse(400, "the connector is already in this workspace"));
+        }
+        if !orphan {
+            let held: Option<(String, String)> = conn
+                .query_row(
+                    "SELECT id, alias FROM connectors WHERE workspace_id = ?1 AND provider = ?2",
+                    params![target_id, provider],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            if let Some((held_id, held_alias)) = held {
+                return Err(refuse(
+                    400,
+                    format!(
+                        "workspace '{target_name}' already has a {provider} connector ({held_id}, alias {held_alias}); \
+                         nothing was changed"
+                    ),
+                ));
+            }
+        }
+        let new = if custom || orphan {
+            alias.clone()
+        } else {
+            format!("{target_name}-{provider}")
+        };
+        let new = alias_ok(conn, new, connector_id, !orphan)?;
+        conn.execute(
+            "UPDATE connectors SET workspace_id = ?1, alias = ?2 WHERE id = ?3",
+            params![target_id, new, connector_id],
+        )?;
+        let line = format!(
+            "will change (connector {connector_id}): move to workspace '{target_name}', alias {alias} -> {new}"
+        );
+        Ok((BTreeSet::from([connector_id.to_string()]), vec![line]))
+    })
+}
+
+/// `set_alias` (`PUT /api/connectors/{id}/alias`): a custom alias, or (`None`) back to `<workspace>-<provider>`.
+pub fn set_alias(
+    conn: &Connection,
+    connector_id: &str,
+    alias: Option<&str>,
+    yes: bool,
+    claude: &dyn Claude,
+) -> Done<Outcome> {
+    change(conn, yes, claude, |conn| {
+        let (old, _, provider, workspace_id) = stored(conn, connector_id)?;
+        let workspace = get(conn, workspace_id)?;
+        let orphan = workspace["is_orphan"] == true;
+        let (new, custom) = match alias {
+            None if orphan => {
+                return Err(refuse(
+                    400,
+                    "a connector in orphan has no default alias; move it to a workspace first",
+                ));
+            }
+            None => (
+                format!(
+                    "{}-{provider}",
+                    workspace["name"].as_str().unwrap_or_default()
+                ),
+                0,
+            ),
+            Some(alias) => (alias.to_string(), 1),
+        };
+        let new = alias_ok(conn, new, connector_id, !orphan)?;
+        conn.execute(
+            "UPDATE connectors SET alias = ?1, alias_custom = ?2 WHERE id = ?3",
+            params![new, custom, connector_id],
+        )?;
+        let line = format!("will change (connector {connector_id}): alias {old} -> {new}");
+        Ok((BTreeSet::from([connector_id.to_string()]), vec![line]))
     })
 }
 

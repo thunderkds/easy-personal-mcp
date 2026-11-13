@@ -422,12 +422,14 @@ async fn account_list(State(api): State<Api>, uri: Uri) -> Response {
     .await
 }
 
-/// `GET /api/sync?account=<id>` (T041): the sync plan, no `claude` process and no keychain (see `core/src/sync.rs`).
-/// Python's `POST /api/sync` (apply) is a 405 here.
+/// `GET /api/sync?account=<id>` (T041): the sync plan. Since T050 it asks `claude mcp get` per entry when `claude` is
+/// on `PATH`, as Python does (no keychain; the store is still only read: no account detection here).
+/// `POST /api/sync` (apply) is `sync_apply.rs`.
 async fn sync_plan(State(api): State<Api>, uri: Uri) -> Response {
     serve(api, uri, |conn, q, _now| {
         let account = sync::account_arg(q.get("account")).map_err(sync_failure)?;
-        sync::plan_json(conn, account).map_err(sync_failure)
+        sync::plan_json_with(conn, account, &crate::claude_cli::SystemClaude::new())
+            .map_err(sync_failure)
     })
     .await
 }
@@ -554,7 +556,7 @@ fn report_failure(error: ReportError) -> Failure {
 }
 
 /// 400 for an `account` that is not an id, 404 for one no account has: Python's texts, which name none of the input.
-fn sync_failure(error: SyncError) -> Failure {
+pub(crate) fn sync_failure(error: SyncError) -> Failure {
     match error {
         SyncError::Invalid(text) => (StatusCode::BAD_REQUEST, text),
         SyncError::NotFound(text) => (StatusCode::NOT_FOUND, text),

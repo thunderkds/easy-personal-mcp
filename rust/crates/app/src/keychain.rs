@@ -12,6 +12,8 @@
 //!
 //! No error text holds a secret, and none is built from the backend's own error (which can name an item).
 
+use easy_personal_core::pyjson::py_list;
+pub use easy_personal_core::pyjson::py_object;
 use serde_json::{Map, Value};
 
 pub const SERVICE_PREFIX: &str = "easy-personal/";
@@ -166,49 +168,12 @@ pub fn item_json(
     env: &[(String, String)],
     headers: &[(String, String)],
 ) -> String {
-    let list: Vec<String> = command.iter().map(|c| py_str(c)).collect();
     format!(
-        "{{\"command\": [{}], \"env\": {}, \"headers\": {}}}",
-        list.join(", "),
+        "{{\"command\": {}, \"env\": {}, \"headers\": {}}}",
+        py_list(command),
         py_object(env),
         py_object(headers)
     )
-}
-
-/// `json.dumps(dict)` of string pairs, in the given order.
-pub fn py_object(pairs: &[(String, String)]) -> String {
-    let parts: Vec<String> = pairs
-        .iter()
-        .map(|(k, v)| format!("{}: {}", py_str(k), py_str(v)))
-        .collect();
-    format!("{{{}}}", parts.join(", "))
-}
-
-/// `json.dumps(str)` with `ensure_ascii=True`: `"` and `\` escaped, `\n \r \t \b \f` short, every other character
-/// outside `' '..='~'` as `\uXXXX` (a surrogate pair above U+FFFF).
-pub fn py_str(text: &str) -> String {
-    let mut out = String::with_capacity(text.len() + 2);
-    out.push('"');
-    for c in text.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\u{8}' => out.push_str("\\b"),
-            '\u{c}' => out.push_str("\\f"),
-            ' '..='~' => out.push(c),
-            _ => {
-                let mut units = [0u16; 2];
-                for unit in c.encode_utf16(&mut units) {
-                    out.push_str(&format!("\\u{unit:04x}"));
-                }
-            }
-        }
-    }
-    out.push('"');
-    out
 }
 
 // ---- backends ----

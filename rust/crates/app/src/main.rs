@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 mod api;
+mod claude_cli;
 #[cfg(any(feature = "window", test))]
 mod display;
 mod ingest_cmd;
