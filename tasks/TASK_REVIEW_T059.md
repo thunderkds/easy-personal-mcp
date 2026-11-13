@@ -61,8 +61,38 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured on branch T059 at main cd5d2ef, before any implementation commit; temp store = copy of `rust/parity/store-v11.sqlite`, binary from `cargo build`; the token is hidden):
+
+```
+2026-11-13T11:30:02Z
+$ easy-personal-rs store-check   (EASY_PERSONAL_HOME=<temp folder holding a copy of parity/store-v11.sqlite>)
+error: unrecognized subcommand 'store-check'
+
+  tip: a similar subcommand exists: 'store-info'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+exit=2
+$ easy-personal-rs store-check --json
+error: unrecognized subcommand 'store-check'
+
+  tip: a similar subcommand exists: 'store-info'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+exit=2
+$ easy-personal-rs serve --no-ingest ; GET /api/store/health with the token
+dashboard: http://127.0.0.1:45077/#<token>
+Ctrl-C to stop.
+HTTP/1.1 404 Not Found
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+content-length: 0
+date: Fri, 13 Nov 2026 11:30:04 GMT
+
+2026-11-13T11:30:04Z
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
