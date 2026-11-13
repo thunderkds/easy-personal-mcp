@@ -28,7 +28,7 @@ use easy_personal_core::workspaces::{self, Outcome, WriteFail, py_strip};
 use rusqlite::Connection;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
-use std::io::{BufRead, Write};
+use std::io::{BufRead, Read, Write};
 use std::process::ExitCode;
 
 /// What the owner asked for is not done: the exit code, and the one stderr line (none when the command printed its own).
@@ -483,13 +483,14 @@ fn workspace_edit(args: EditArgs) -> Run {
     if let Some(new) = rename {
         changes.push(("name".into(), Value::String(new)));
     }
+    let repos_change = !add_repo.is_empty() || !remove_repo.is_empty();
     let (add_repo, remove_repo) = (strings(&add_repo), strings(&remove_repo));
     let edited = change(yes, |conn, apply| {
         let current = by_name(conn, &name)?;
         let id = current["id"].as_i64().unwrap_or_default();
         let mut changes = changes.clone();
         let mut repos = None;
-        if add_repo != Value::Array(Vec::new()) || remove_repo != Value::Array(Vec::new()) {
+        if repos_change {
             let drop: HashSet<String> = remove_repo
                 .as_array()
                 .into_iter()
@@ -560,7 +561,8 @@ fn change(
 fn ask() -> Result<bool, Stop> {
     put("Apply these changes? [y/N] ")?;
     let mut line = String::new();
-    match std::io::stdin().lock().read_line(&mut line) {
+    // one line, at most 4 KiB of it: a longer answer is not a yes
+    match std::io::stdin().lock().take(4096).read_line(&mut line) {
         Ok(read) if read > 0 => Ok(matches!(
             py_strip(&line).to_lowercase().as_str(),
             "y" | "yes"

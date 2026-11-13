@@ -1,6 +1,6 @@
 # easy-personal-rs
 
-Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has five subcommands (`store-info`, `ingest`, `serve`, `mcp`, `app`; `app` opens a window only in a build with `--features window`); the Python app
+Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has these subcommands: `store-info`, `ingest`, `schedule`, `serve` (also `dashboard`), `mcp`, `app` (opens a window only in a build with `--features window`) and, since T058, `ping`, `usage`, `outliers`, `kit-findings`, `workspace` and `account` (see "CLI commands (T058)"); the Python app
 stays the working one.
 
 ## Build and run
@@ -15,6 +15,9 @@ cargo build
 ./target/debug/easy-personal-rs serve            # ingest first (T051), then the loopback API, Ctrl-C to stop
 ./target/debug/easy-personal-rs serve --no-ingest          # the same without the start-up ingest
 ./target/debug/easy-personal-rs serve --static-dir <DIR>   # the same, plus the dashboard's files from <DIR>
+./target/debug/easy-personal-rs dashboard        # the same as `serve` (Python's name for it)
+./target/debug/easy-personal-rs usage [--by day|model|project|tool] [--since D] [--until D] [--workspace W] [--account A]   # T058: JSON as Python's CLI
+./target/debug/easy-personal-rs workspace list   # also add (or create), edit, delete [--yes]; and `account list|confirm|ignore|add|use`
 ./target/debug/easy-personal-rs mcp              # MCP server on stdio
 ./target/debug/easy-personal-rs mcp --transport http [--port N]   # the same tools over loopback HTTP, see "Start-up ingest, MCP over HTTP and the context source (T051)"
 cargo build --features window                    # adds the window (Tauri v2); see "Window" below
@@ -872,6 +875,78 @@ Stale reference (report only): `docs/release/rust-v0.2.0.md` "not in this releas
 6. **`writes_coexist`** retries the designed `503` (`the store is busy (another process is writing); try again in a moment`) up to 6 times per request and counts the retries; any other status, a lock-error text, an exhausted bound or a failed ingest stops it, printing the ingest child's exit status, stdout and stderr. 10 of 10 runs passed on a quiet host and 10 of 10 under twelve `yes > /dev/null` loops (0 retries needed in either).
 7. **Temp folders** made by `accounts_parity.rs`, the `ingest/config.rs` unit test, and the T055 tests are removed on drop (also when an assertion fails).
 8. **A third semantic is left, on purpose.** `ingest/accounts.rs` (`detect`) and `ingest/verifier.rs` still use `fs::canonicalize` where Python uses `.resolve()`. It is accepted because `detect` checks `is_dir()` first (the path exists, so it is no loop or dangling link, where `canonicalize` and the one resolver agree) and `verifier.rs` only compares folders that exist and refuses when either cannot be resolved. The owner can overrule: pointing both at `metrics::resolve_path` is a few lines.
+
+## CLI commands (T058)
+
+The commands of Python's `easy-personal` that `easy-personal-rs` lacked, with Python's arguments and the text it prints (stdout and exit
+code; `src/easy_personal/surfaces/cli.py` is the model). They call the code the API routes and MCP tools already run; `cli_cmds.rs` only reads the
+arguments, prints, asks the question and maps a refusal to an exit code.
+
+| Command | Prints | Runs |
+|---|---|---|
+| `ping` | `easy-personal core ok` | no store |
+| `usage [--since D] [--until D] [--by day\|model\|project\|tool] [--workspace W] [--account A]` | JSON (`json.dumps(indent=2, sort_keys=True)`) | `usage_summary_scoped`, or `usage_breakdown_scoped` with `--by` |
+| `outliers [--since D] [--until D] [--workspace W] [--account A]` | JSON | `session_outliers_scoped` |
+| `kit-findings [--json] [--limit N] [--since D]` | the findings and their habits as text, or JSON | `kit_findings_local` |
+| `workspace list` | JSON `{"workspaces": [...]}` | `workspaces::list_all` |
+| `workspace add NAME [--color C] [--icon I] [--description T] [--email E] [--repo P ...]` (`create` is the same) | the workspace, JSON | `workspaces::add` |
+| `workspace edit NAME [--color\|--icon\|--description\|--email V (empty clears)] [--rename NEW] [--add-repo P ...] [--remove-repo P ...] [--yes]` | the workspace, JSON | `workspaces::patch` |
+| `workspace delete NAME [--yes]` | the plan, then `nothing to change.` | `workspaces::delete` |
+| `account list [--by account\|provider]` | JSON | detection over the agent root, then `accounts::grouped` |
+| `account confirm ACCOUNT --label L`, `ignore ACCOUNT`, `add PATH`, `use ACCOUNT [WORKSPACE ...]` | the account, JSON | `accounts::confirm`, `ignore`, `add`, `use_workspaces` |
+| `dashboard` | the two `serve` lines | `serve`: ingest first, then the loopback server until Ctrl-C; `--no-ingest` and `--static-dir` as `serve` |
+
+`D` is an ISO date or datetime (no zone: local time, `TZ` read as the API does). An account is its id, its label (a filter) or its folder (a
+write). The writes are the store-only writes of the T048 routes (same checks, same texts, same busy wait of 5 s); every one opens the store for
+the call only and closes it. The account commands run Python's detection first (new `.claude*` / `.codex*` folders are inserted as `detected`)
+and look only in `EASY_PERSONAL_AGENT_ROOT`, else `HOME`; `account add PATH` takes a folder anywhere, as Python's.
+
+`workspace edit` with a new name for a workspace that holds connectors, and `workspace delete`, print the plan (`will change (...)`, the alias
+lines, `keychain: untouched`), ask `Apply these changes? [y/N] ` on stdout and read one line from stdin (`y` or `yes`, any case, spaces
+around, is yes; anything else, an empty line or end of input is no: `aborted; nothing was changed.`, exit 1). `--yes` skips the question. A
+stdin that is not a terminal does not wait: an empty one is end of input.
+
+Exit codes: 0 done; 1 aborted at the question, or a store that cannot be read or written (missing, busy, unreadable); 2 refused (the core's
+text, Python's: `unknown workspace`, `name must match ...`, `the orphan workspace cannot be deleted`, ...), a store newer than this build, or a
+usage error. Errors go to stderr as `easy-personal-rs: <text>`; Python's is `easy-personal: <text>`.
+
+**Oracle.** `parity/gen_cli.py` runs Python's own `main()` over copies of `parity/store-rich` and over an empty store (269 cases, 512 step runs,
+`TZ` = UTC, Pacific/Kiritimati and Pacific/Pago_Pago for the cases that read a date, a clock or a time) and writes `parity/golden-cli/cases.json`
+(`gen_cli.py --check` regenerates and compares; run it with `CLAUDE_CONFIG_DIR` unset). `tests/cli_parity.rs` builds each case's work folder,
+runs the real binary and requires the same exit code, the same stdout and the same stderr (Python's `easy-personal: ` prefix read as ours). The
+one clock value in an answer, `as_of` of `kit-findings --json`, is `<NOW>` on both sides. `tests/cli_cmds.rs` holds what Python cannot be
+asked: the refusals below, `dashboard`, and account detection. `parity/leak_rust.py` runs every command with a planted key.
+
+### Decided for you (T058, for the owner's review)
+
+1. **A missing store, or one newer than this build, is refused, and nothing is created or migrated.** Python's `store.opened` creates the store
+   and migrates an older one. Here a missing store is `no store yet: nothing has been ingested into the data folder` (exit 1, no file made), a
+   newer one is the API's text (exit 2), a busy or unreadable one is the API's fixed text. `ingest` (or Python) makes the store.
+2. **A confirmed change that needs the `claude` CLI is refused, exit 2, with the T048 text** (`this change must update an agent account's Claude
+   Code entries, which needs the claude CLI; ...`); the plan is printed first and nothing is changed. Python commits the store and runs
+   `claude` (or prints the commands to run by hand). Until T050 this applies to `workspace edit --rename` and `workspace delete` of a workspace
+   whose connectors an account picks or has registered.
+3. **The question is asked with no store handle open.** Python holds its write transaction while it waits for the answer (any other writer, an
+   ingest, waits for it). Here the plan is worked out, printed, and the question asked with nothing locked; after a yes the plan is worked out
+   once more and **refused if it is not the one that was shown** (`the plan changed while the question was open; nothing was changed`, exit 2).
+   A few microseconds remain between that check and the commit.
+4. **`workspace create`** is `workspace add` (the guide's word; Python has `add` only). Both work.
+5. **`dashboard` is `serve`**: it does not open a browser (Python does), it takes `--static-dir`, and `--no-ingest` stays. Its ingest policy is
+   T051's (one progress line; on a failure one fixed line and it starts anyway); Python's `dashboard` stops with the ingest's exit code.
+6. **`--workspace ""` and `--account ""` are an unknown workspace / account**, as Python's CLI (the API reads an empty value as no filter).
+7. **Which input is echoed.** An error text is the core's fixed text, which names none of the input (NFR-002). Two things name what the owner typed on
+   the command line, as Python does: a bad `--since` / `--until` (`Invalid isoformat string: '<value>'`), and clap's own usage errors
+   (`invalid value 'x' for '--limit <LIMIT>'`, an unknown subcommand). Both go to the owner's own terminal. The leak check does not type the canary there.
+8. **Arguments.** `--limit` is read like Python's `int()` (a sign, spaces, `1_0`); digits of other scripts are refused, and a number past 64 bits is
+   valid (the core caps a limit at 10). clap does not take Python's abbreviations of an option (`--desc`). A usage error prints clap's text on stderr
+   (Python's is argparse's); stdout is empty and the exit code is 2 in both. A date that Python accepts at `argparse` and then crashes on (a
+   local day on the first or last day of its range) is the core's answer here, exit 2 or 0, not a traceback.
+9. **`account list` needs a store at schema v11**, because it runs detection through the write handle (Python migrates first). With nothing new to
+   detect it changes no row.
+10. **`account use` ends with Python's stderr note** (`run \`easy-personal connector sync\` ...`). The Rust binary has no `connector` command
+    until T050 and T060; the note names Python's.
+11. **Not here**: `connector`, `doctor`, `exec`, `headers` (T050, T060), `store-check` (T059). Python's CLI also has `warnings`, `plan` and `kit`
+    commands (the same data as the MCP tools and the `/api` routes of the same names); they were not in this task's list and are not built.
 
 ## Test
 

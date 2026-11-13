@@ -753,6 +753,90 @@ def mcp_http(run: Run, checks: list[str], canaries: Canaries) -> None:
 # -- the run ---------------------------------------------------------------------------------------------------
 
 
+# T058: the CLI commands. (expected exit code, argv tail). `{key}` is the planted API key typed where a refused command could echo
+# its input, `{projects}` the planted transcript root, `{account}` the id of the planted `.claude-work` account (read from
+# `account list`). The order matters: `acme` is created before `usage --workspace acme` and `account use` read it.
+# A bad `--since` / `--limit` / unknown subcommand is not asked with the key: Python's argparse and clap name the value the
+# owner typed, on stderr, in the owner's own terminal ("decided for you" in TASK_REVIEW_T058.md).
+CLI_CALLS: list[tuple[int, list[str]]] = [
+    (0, ["ping"]),
+    (0, ["workspace", "list"]),
+    (0, ["account", "list"]),  # first: it gives `{account}`
+    (0, ["account", "confirm", "{account}", "--label", "Claude work"]),  # an account filter needs a confirmed account
+    (0, ["workspace", "add", "acme", "--color", "#336699", "--repo", "{projects}", "--repo", "/work/leak-demo"]),
+    (0, ["workspace", "add", "scratch"]),
+    (0, ["workspace", "edit", "acme", "--description", "company work", "--add-repo", "/work/other"]),
+    (0, ["workspace", "edit", "scratch", "--rename", "scratch2"]),
+    (1, ["workspace", "delete", "scratch2"]),  # no --yes and no stdin: it asks, the answer is no
+    (0, ["workspace", "delete", "scratch2", "--yes"]),
+    (0, ["workspace", "create", "scratch3"]),
+    (0, ["workspace", "delete", "scratch3", "--yes"]),
+    (0, ["workspace", "list"]),
+    (0, ["usage"]), (0, ["usage", "--workspace", "acme"]), (0, ["usage", "--workspace", "acme", "--by", "project"]),
+    (0, ["usage", "--account", "{account}"]), (0, ["usage", "--account", "{account}", "--by", "day"]),
+    (0, ["usage", "--account", "{account}", "--workspace", "acme"]), (0, ["usage", "--since", "2026-01-01"]),
+    (0, ["usage", "--until", "2027-01-01"]), (0, ["usage", "--by", "day"]), (0, ["usage", "--by", "model"]),
+    (0, ["usage", "--by", "project"]), (0, ["usage", "--by", "tool"]),
+    (0, ["outliers"]), (0, ["outliers", "--since", "2026-01-01"]), (0, ["outliers", "--workspace", "acme"]),
+    (0, ["outliers", "--account", "{account}"]),
+    (0, ["kit-findings"]), (0, ["kit-findings", "--json"]),
+    (0, ["kit-findings", "--json", "--limit", "10", "--since", "2026-01-01"]),
+    (0, ["account", "list", "--by", "provider"]), (0, ["account", "list", "--by", "account"]),
+    (0, ["account", "use", "{account}", "acme"]), (0, ["account", "use", "{account}"]), (0, ["account", "use", "{account}", "acme"]),
+    (0, ["account", "add", "{agent_root}/.claude-work"]),
+    (0, ["dashboard", "--help"]),
+    # refused: the key is the value no message may echo
+    (2, ["workspace", "add", "{key}"]), (2, ["workspace", "add", "x", "--color", "{key}"]),
+    (2, ["workspace", "add", "x", "--icon", "{key}{key}{key}{key}{key}{key}{key}{key}{key}{key}"]),
+    (2, ["workspace", "add", "x", "--description", "{key}" * 40]),
+    (2, ["workspace", "add", "x", "--email", "{key}" * 40]), (2, ["workspace", "add", "x", "--repo", "{key}"]),
+    (2, ["workspace", "add", "x", "--repo", "/ok", "--repo", "{key}"]),
+    (2, ["workspace", "edit", "{key}", "--description", "x"]), (2, ["workspace", "edit", "acme", "--rename", "{key}"]),
+    (2, ["workspace", "edit", "acme", "--color", "{key}"]), (2, ["workspace", "edit", "acme", "--add-repo", "{key}"]),
+    (2, ["workspace", "edit", "acme", "--remove-repo", "{key}"]), (2, ["workspace", "delete", "{key}", "--yes"]),
+    (2, ["workspace", "delete", "orphan", "--yes"]), (2, ["workspace", "edit", "orphan", "--description", "x"]),
+    (2, ["account", "confirm", "{key}", "--label", "x"]), (2, ["account", "confirm", "{account}", "--label", "{key}" * 10]),
+    (2, ["account", "confirm", "{account}", "--label", ""]), (2, ["account", "ignore", "{key}"]),
+    (2, ["account", "add", "{key}"]), (2, ["account", "add", "/{key}"]), (2, ["account", "add", "{agent_root}/{key}"]),
+    (2, ["account", "use", "{key}", "acme"]), (2, ["account", "use", "{account}", "{key}"]),
+    (2, ["usage", "--workspace", "{key}"]), (2, ["usage", "--account", "{key}"]), (2, ["usage", "--by", "{key}"]),
+    (2, ["usage", "--since", "garbage"]), (2, ["usage", "--workspace", ""]), (2, ["outliers", "--workspace", "{key}"]),
+    (2, ["outliers", "--account", "{key}"]), (2, ["kit-findings", "--limit", "0"]), (2, ["kit-findings", "--since", "garbage"]),
+]
+# Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
+CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "help"}
+
+
+def cli(run: Run, checks: list[str], canaries: Canaries) -> None:
+    """Every CLI command T058 added, over real argv with a planted key, one process each: stdout and stderr are scanned."""
+    key, agent_root = canaries.values["api_key"], str(run.env["EASY_PERSONAL_AGENT_ROOT"])
+    helped = subprocess.run(run.argv(30, "--help"), env=run.env, cwd=run.nowhere, capture_output=True, stdin=subprocess.DEVNULL, check=False)
+    run.add("cli --help stdout", helped.stdout)
+    listed = re.findall(r"^  ([a-z][a-z-]*)\s", helped.stdout.decode().split("Commands:")[-1].split("Options:")[0], re.M)
+    asked = {argv[0] for _, argv in CLI_CALLS}
+    missing = sorted(set(listed) - asked - CLI_ELSEWHERE)
+    checks.append(f"check cli commands all registered   {'ok' if listed and not missing else 'FAILED'} ({len(listed)} commands" + (f"; unregistered {missing})" if missing else ")"))
+    account = ""
+    for number, (want, argv) in enumerate(CLI_CALLS, start=1):
+        argv = [a.replace("{key}", key).replace("{projects}", str(run.env["EASY_PERSONAL_CLAUDE_PROJECTS"])).replace("{agent_root}", agent_root)
+                .replace("{account}", account) for a in argv]  # fmt: skip
+        done = subprocess.run(run.argv(CHILD_TIMEOUT, *argv), env=run.env, cwd=run.nowhere, capture_output=True, stdin=subprocess.DEVNULL,
+                              timeout=CHILD_TIMEOUT + 15, check=False)  # fmt: skip
+        label = f"cli #{number} {argv[0]} {' '.join(a for a in argv[1:2])}".replace(key, "<key>")
+        run.add(f"{label} stdout", done.stdout)
+        run.add(f"{label} stderr", done.stderr)
+        if done.returncode != want:
+            raise Fatal(f"{label}: exit {done.returncode}, expected {want}")
+        if argv[:2] == ["account", "list"] and not account:
+            rows = json.loads(done.stdout)["accounts"]
+            work = [r for r in rows if r["provider"] == "claude" and r["config_dir_env"] and r["folder"].endswith(".claude-work")]
+            if not work:
+                raise Fatal("cli: the planted .claude-work account was not listed")
+            account = str(work[0]["id"])
+    checks.append(f"check cli exit codes as expected    ok ({len(CLI_CALLS)} calls, one process each)")
+    checks.append(f"check cli account was found         {'ok' if account else 'FAILED'}")
+
+
 def context_failures(run: Run, canaries: Canaries, checks: list[str], url_host_port: str, repo: Path) -> None:
     """T051: canaries in every failure path of the context source: a 500 body, a JSON-RPC error, a tool error text, and a
     URL with a canary in the user info or the path. Nothing may echo them (stdout, stderr, the store, the data folder)."""
@@ -850,6 +934,7 @@ def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
         f"check ingest #2 adds nothing         {'ok' if again.get('new_events') == 0 else 'FAILED'} ({again.get('new_events')})"
     )
     run.ingest("ingest #3 --retention-days 3650", "--retention-days", "3650")
+    cli(run, checks, canaries)
     run.store_files("store (final)")
     dump = run.dump("store .dump (final)")
     conn = sqlite3.connect(db)
