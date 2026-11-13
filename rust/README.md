@@ -1,6 +1,6 @@
 # easy-personal-rs
 
-Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has these subcommands: `store-info`, `ingest`, `schedule`, `serve` (also `dashboard`), `mcp`, `app` (opens a window only in a build with `--features window`) and, since T058, `ping`, `usage`, `outliers`, `kit-findings`, `workspace` and `account` (see "CLI commands (T058)"); the Python app
+Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has these subcommands: `store-info`, `ingest`, `schedule`, `serve` (also `dashboard`), `mcp`, `app` (opens a window only in a build with `--features window`) and, since T058, `ping`, `usage`, `outliers`, `warnings`, `plan`, `kit`, `kit-findings`, `workspace` and `account` (see "CLI commands (T058)"); the Python app
 stays the working one.
 
 ## Build and run
@@ -887,6 +887,9 @@ arguments, prints, asks the question and maps a refusal to an exit code.
 | `ping` | `easy-personal core ok` | no store |
 | `usage [--since D] [--until D] [--by day\|model\|project\|tool] [--workspace W] [--account A]` | JSON (`json.dumps(indent=2, sort_keys=True)`) | `usage_summary_scoped`, or `usage_breakdown_scoped` with `--by` |
 | `outliers [--since D] [--until D] [--workspace W] [--account A]` | JSON | `session_outliers_scoped` |
+| `warnings [--workspace W] [--account A]` | JSON (`as_of_utc`, `hits`, `abstained`) | `evaluate_scoped` with the shipped rules |
+| `plan [--workspace W] [--account A]` | JSON `{"groups": [...]}` | `improvement_plan_scoped` |
+| `kit [--workspace W] [--account A]` | JSON `{"projects": [...]}`, gone projects included | `kit_summary` (the MCP `kit_summary`) |
 | `kit-findings [--json] [--limit N] [--since D]` | the findings and their habits as text, or JSON | `kit_findings_local` |
 | `workspace list` | JSON `{"workspaces": [...]}` | `workspaces::list_all` |
 | `workspace add NAME [--color C] [--icon I] [--description T] [--email E] [--repo P ...]` (`create` is the same) | the workspace, JSON | `workspaces::add` |
@@ -910,11 +913,11 @@ Exit codes: 0 done; 1 aborted at the question, or a store that cannot be read or
 text, Python's: `unknown workspace`, `name must match ...`, `the orphan workspace cannot be deleted`, ...), a store newer than this build, or a
 usage error. Errors go to stderr as `easy-personal-rs: <text>`; Python's is `easy-personal: <text>`.
 
-**Oracle.** `parity/gen_cli.py` runs Python's own `main()` over copies of `parity/store-rich` and over an empty store (269 cases, 512 step runs,
+**Oracle.** `parity/gen_cli.py` runs Python's own `main()` over copies of `parity/store-rich` and over an empty store (342 cases, 597 step runs,
 `TZ` = UTC, Pacific/Kiritimati and Pacific/Pago_Pago for the cases that read a date, a clock or a time) and writes `parity/golden-cli/cases.json`
 (`gen_cli.py --check` regenerates and compares; run it with `CLAUDE_CONFIG_DIR` unset). `tests/cli_parity.rs` builds each case's work folder,
 runs the real binary and requires the same exit code, the same stdout and the same stderr (Python's `easy-personal: ` prefix read as ours). The
-one clock value in an answer, `as_of` of `kit-findings --json`, is `<NOW>` on both sides. `tests/cli_cmds.rs` holds what Python cannot be
+clock's values in an answer, `as_of` of `kit-findings --json` and `as_of_utc` of `warnings`, are `<NOW>` on both sides. Because the binary's clock is the machine's, the cases of `warnings`, `plan` and `kit` read a store whose events are months old: every rule abstains and the plan is empty (the rules and the plan are proven at a frozen clock by the scoped goldens of `rules_parity`, `plan` and `kit`). `tests/cli_cmds.rs` holds what Python cannot be
 asked: the refusals below, `dashboard`, and account detection. `parity/leak_rust.py` runs every command with a planted key.
 
 ### Decided for you (T058, for the owner's review)
@@ -945,8 +948,8 @@ asked: the refusals below, `dashboard`, and account detection. `parity/leak_rust
    detect it changes no row.
 10. **`account use` ends with Python's stderr note** (`run \`easy-personal connector sync\` ...`). The Rust binary has no `connector` command
     until T050 and T060; the note names Python's.
-11. **Not here**: `connector`, `doctor`, `exec`, `headers` (T050, T060), `store-check` (T059). Python's CLI also has `warnings`, `plan` and `kit`
-    commands (the same data as the MCP tools and the `/api` routes of the same names); they were not in this task's list and are not built.
+11. **`warnings`, `plan`, `kit`** (added after the first T058 report; the guide's list did not name them): `kit` lists projects whose folder is gone, as Python's CLI does (the dashboard route hides them). The owner's `config.yaml` threshold override is not read by this build (`rules.rs`, `kitperf.rs` say so), so the shipped thresholds apply and Python's exit 2 for a bad one does not exist here.
+12. **Not here**: `connector`, `doctor`, `exec` and `headers` (the launcher; T050, T060), `store-check` (T059). Every other subcommand of Python's parser, with the same flags, is here (`schedule install|remove` already were). Rust has three more: `store-info`, `serve` and `app`.
 
 ## Test
 

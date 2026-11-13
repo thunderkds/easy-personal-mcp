@@ -779,6 +779,11 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (0, ["usage", "--by", "project"]), (0, ["usage", "--by", "tool"]),
     (0, ["outliers"]), (0, ["outliers", "--since", "2026-01-01"]), (0, ["outliers", "--workspace", "acme"]),
     (0, ["outliers", "--account", "{account}"]),
+    (0, ["warnings"]), (0, ["warnings", "--workspace", "acme"]), (0, ["warnings", "--account", "{account}"]),
+    (0, ["warnings", "--account", "{account}", "--workspace", "acme"]),
+    (0, ["plan"]), (0, ["plan", "--workspace", "acme"]), (0, ["plan", "--account", "{account}"]),
+    (0, ["kit"]), (0, ["kit", "--workspace", "acme"]), (0, ["kit", "--account", "{account}"]),
+    (0, ["kit", "--account", "{account}", "--workspace", "acme"]),
     (0, ["kit-findings"]), (0, ["kit-findings", "--json"]),
     (0, ["kit-findings", "--json", "--limit", "10", "--since", "2026-01-01"]),
     (0, ["account", "list", "--by", "provider"]), (0, ["account", "list", "--by", "account"]),
@@ -801,7 +806,9 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (2, ["account", "use", "{key}", "acme"]), (2, ["account", "use", "{account}", "{key}"]),
     (2, ["usage", "--workspace", "{key}"]), (2, ["usage", "--account", "{key}"]), (2, ["usage", "--by", "{key}"]),
     (2, ["usage", "--since", "garbage"]), (2, ["usage", "--workspace", ""]), (2, ["outliers", "--workspace", "{key}"]),
-    (2, ["outliers", "--account", "{key}"]), (2, ["kit-findings", "--limit", "0"]), (2, ["kit-findings", "--since", "garbage"]),
+    (2, ["outliers", "--account", "{key}"]), (2, ["warnings", "--workspace", "{key}"]), (2, ["warnings", "--account", "{key}"]),
+    (2, ["plan", "--workspace", "{key}"]), (2, ["plan", "--account", "{key}"]), (2, ["kit", "--workspace", "{key}"]),
+    (2, ["kit", "--account", "{key}"]), (2, ["kit", "--workspace", ""]), (2, ["kit-findings", "--limit", "0"]), (2, ["kit-findings", "--since", "garbage"]),
 ]
 # Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
 CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "help"}

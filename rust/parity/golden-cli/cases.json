@@ -4228,6 +4228,2462 @@
    ]
   },
   {
+   "name": "rich_warnings",
+   "results": {
+    "Pacific/Kiritimati": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ],
+    "Pacific/Pago_Pago": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ],
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC",
+    "Pacific/Kiritimati",
+    "Pacific/Pago_Pago"
+   ]
+  },
+  {
+   "name": "empty_warnings",
+   "results": {
+    "Pacific/Kiritimati": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ],
+    "Pacific/Pago_Pago": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ],
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no stored history\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "empty",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC",
+    "Pacific/Kiritimati",
+    "Pacific/Pago_Pago"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_workspace_acme",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_workspace_personal",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "personal"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_workspace_orphan",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "orphan"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_account_2",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account",
+      "2"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_account_claudework",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account",
+      "Claude work"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_account_claudedefault",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account",
+      "claude DEFAULT"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_account_1",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account",
+      "1"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_workspace_acme_account_2",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "acme",
+      "--account",
+      "2"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_workspace_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_account_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_scope_workspace_empty_account_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "",
+      "--account",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_unknown_workspace_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_unknown_account_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_unknown_account_9",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account",
+      "9"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_unknown_workspace_nope_account_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "nope",
+      "--account",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_unknown_workspace_acme",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace",
+      "ACME"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_bad_workspace",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal warnings [-h] [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal warnings: error: argument --workspace: expected one argument\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--workspace"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_bad_account",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal warnings [-h] [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal warnings: error: argument --account: expected one argument\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--account"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_bad_since_20260101",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: --since 2026-01-01\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--since",
+      "2026-01-01"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_bad_json",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: --json\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "--json"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_bad_extra",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: extra\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "warnings",
+      "extra"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan",
+   "results": {
+    "Pacific/Kiritimati": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ],
+    "Pacific/Pago_Pago": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ],
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC",
+    "Pacific/Kiritimati",
+    "Pacific/Pago_Pago"
+   ]
+  },
+  {
+   "name": "empty_plan",
+   "results": {
+    "Pacific/Kiritimati": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ],
+    "Pacific/Pago_Pago": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ],
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "empty",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC",
+    "Pacific/Kiritimati",
+    "Pacific/Pago_Pago"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_workspace_acme",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_workspace_personal",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "personal"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_workspace_orphan",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "orphan"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_account_2",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account",
+      "2"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_account_claudework",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account",
+      "Claude work"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_account_claudedefault",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account",
+      "claude DEFAULT"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_account_1",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account",
+      "1"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_workspace_acme_account_2",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "acme",
+      "--account",
+      "2"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_workspace_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_account_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_scope_workspace_empty_account_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "",
+      "--account",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_unknown_workspace_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_unknown_account_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_unknown_account_9",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account",
+      "9"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_unknown_workspace_nope_account_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "nope",
+      "--account",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_unknown_workspace_acme",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace",
+      "ACME"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_bad_workspace",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal plan [-h] [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal plan: error: argument --workspace: expected one argument\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--workspace"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_bad_account",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal plan [-h] [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal plan: error: argument --account: expected one argument\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--account"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_bad_since_20260101",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: --since 2026-01-01\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--since",
+      "2026-01-01"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_bad_json",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: --json\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "--json"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_bad_extra",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: extra\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "plan",
+      "extra"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit",
+   "results": {
+    "Pacific/Kiritimati": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-a\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-c\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 0,\n          \"error_rate\": 0.1,\n          \"first_utc\": \"2026-01-13T13:00:00.000000Z\",\n          \"kit_tasks\": 1,\n          \"last_utc\": \"2026-01-17T13:29:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 30,\n          \"tool_errors\": 3\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"beta\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ],
+    "Pacific/Pago_Pago": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-a\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-c\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 0,\n          \"error_rate\": 0.1,\n          \"first_utc\": \"2026-01-13T13:00:00.000000Z\",\n          \"kit_tasks\": 1,\n          \"last_utc\": \"2026-01-17T13:29:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 30,\n          \"tool_errors\": 3\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"beta\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ],
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-a\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-c\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 0,\n          \"error_rate\": 0.1,\n          \"first_utc\": \"2026-01-13T13:00:00.000000Z\",\n          \"kit_tasks\": 1,\n          \"last_utc\": \"2026-01-17T13:29:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 30,\n          \"tool_errors\": 3\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"beta\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC",
+    "Pacific/Kiritimati",
+    "Pacific/Pago_Pago"
+   ]
+  },
+  {
+   "name": "empty_kit",
+   "results": {
+    "Pacific/Kiritimati": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ],
+    "Pacific/Pago_Pago": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ],
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "empty",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC",
+    "Pacific/Kiritimati",
+    "Pacific/Pago_Pago"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_workspace_acme",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-a\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_workspace_personal",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 0,\n          \"error_rate\": 0.1,\n          \"first_utc\": \"2026-01-13T13:00:00.000000Z\",\n          \"kit_tasks\": 1,\n          \"last_utc\": \"2026-01-17T13:29:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 30,\n          \"tool_errors\": 3\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"beta\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "personal"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_workspace_orphan",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "orphan"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_account_2",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 0,\n          \"error_rate\": 0.1,\n          \"first_utc\": \"2026-01-13T13:00:00.000000Z\",\n          \"kit_tasks\": 1,\n          \"last_utc\": \"2026-01-17T13:29:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 30,\n          \"tool_errors\": 3\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"beta\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account",
+      "2"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_account_claudework",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 0,\n          \"error_rate\": 0.1,\n          \"first_utc\": \"2026-01-13T13:00:00.000000Z\",\n          \"kit_tasks\": 1,\n          \"last_utc\": \"2026-01-17T13:29:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 30,\n          \"tool_errors\": 3\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"beta\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account",
+      "Claude work"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_account_claudedefault",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-a\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-c\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account",
+      "claude DEFAULT"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_account_1",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-a\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-c\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account",
+      "1"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_workspace_acme_account_2",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"abstained\": 1,\n          \"error_rate\": 0.4706,\n          \"first_utc\": \"2026-01-08T09:00:00.000000Z\",\n          \"kit_tasks\": 2,\n          \"last_utc\": \"2026-01-17T10:11:00.000000Z\",\n          \"status\": \"ok\",\n          \"tool_calls\": 34,\n          \"tool_errors\": 16\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "acme",
+      "--account",
+      "2"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_workspace_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_account_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_scope_workspace_empty_account_empty",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "",
+      "--account",
+      ""
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_unknown_workspace_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_unknown_account_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_unknown_account_9",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown account; valid labels: Claude default, Claude work\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account",
+      "9"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_unknown_workspace_nope_account_nope",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "nope",
+      "--account",
+      "nope"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_unknown_workspace_acme",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "easy-personal: unknown workspace\n",
+      "stderr_compare": "prefix",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "ACME"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_bad_workspace",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal kit [-h] [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal kit: error: argument --workspace: expected one argument\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_bad_account",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal kit [-h] [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal kit: error: argument --account: expected one argument\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--account"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_bad_since_20260101",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: --since 2026-01-01\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--since",
+      "2026-01-01"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_bad_json",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: --json\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--json"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_bad_extra",
+   "results": {
+    "UTC": [
+     {
+      "code": 2,
+      "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: extra\n",
+      "stderr_compare": "none",
+      "stdout": ""
+     }
+    ]
+   },
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "extra"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_projects_on_disk",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [\n    {\n      \"missing_on_disk\": false,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-a\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-b\"\n    },\n    {\n      \"missing_on_disk\": true,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"gone-c\"\n    },\n    {\n      \"missing_on_disk\": false,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"alpha\"\n    },\n    {\n      \"missing_on_disk\": false,\n      \"parts\": {\n        \"context\": {\n          \"status\": \"not in use\"\n        },\n        \"git\": {\n          \"status\": \"no data\"\n        },\n        \"kernel\": {\n          \"status\": \"no data\"\n        },\n        \"verifier\": {\n          \"status\": \"no data\"\n        }\n      },\n      \"project\": \"beta\"\n    }\n  ],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [
+    "UPDATE events SET project_path = replace(project_path, '/work/rich', '@W@')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "kit"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [
+     "gone-a",
+     "kit/alpha",
+     "kit/beta"
+    ],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_kit_projects_on_disk_workspace",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"projects\": [],\n  \"ui\": {\n    \"status\": \"no data\"\n  }\n}\n"
+     }
+    ]
+   },
+   "setup": [
+    "UPDATE events SET project_path = replace(project_path, '/work/rich', '@W@')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "kit",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [
+     "gone-a",
+     "kit/alpha",
+     "kit/beta"
+    ],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_warnings_projects_on_disk",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"abstained\": [\n    {\n      \"reason\": \"no prompt tokens in the window\",\n      \"rule_id\": \"cache_hit_low\",\n      \"title\": \"Low cache reuse\"\n    },\n    {\n      \"reason\": \"fewer than two projects with tokens in the window\",\n      \"rule_id\": \"project_dominates\",\n      \"title\": \"One project uses most of your tokens\"\n    },\n    {\n      \"reason\": \"no records in the window\",\n      \"rule_id\": \"records_unreadable\",\n      \"title\": \"Some Claude Code records are unreadable\"\n    },\n    {\n      \"reason\": \"no sessions in the window\",\n      \"rule_id\": \"session_huge_no_compact\",\n      \"title\": \"Sessions grow too large\"\n    },\n    {\n      \"reason\": \"no tokens in the previous window\",\n      \"rule_id\": \"tokens_jump\",\n      \"title\": \"Token use jumped\"\n    },\n    {\n      \"reason\": \"no kernel-trace tool calls in the window\",\n      \"rule_id\": \"tool_errors_high\",\n      \"title\": \"Many tool calls fail\"\n    }\n  ],\n  \"as_of_utc\": \"<NOW>\",\n  \"hits\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [
+    "UPDATE events SET project_path = replace(project_path, '/work/rich', '@W@')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "warnings"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [
+     "gone-a",
+     "kit/alpha",
+     "kit/beta"
+    ],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
+   "name": "rich_plan_projects_on_disk",
+   "results": {
+    "UTC": [
+     {
+      "code": 0,
+      "stderr": "",
+      "stderr_compare": "exact",
+      "stdout": "{\n  \"groups\": []\n}\n"
+     }
+    ]
+   },
+   "setup": [
+    "UPDATE events SET project_path = replace(project_path, '/work/rich', '@W@')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "plan"
+     ],
+     "stdin": ""
+    }
+   ],
+   "store": "rich",
+   "tree": {
+    "dirs": [
+     "gone-a",
+     "kit/alpha",
+     "kit/beta"
+    ],
+    "files": {}
+   },
+   "zones": [
+    "UTC"
+   ]
+  },
+  {
    "name": "rich_workspace_list",
    "results": {
     "Pacific/Kiritimati": [

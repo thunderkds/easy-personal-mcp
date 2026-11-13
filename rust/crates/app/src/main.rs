@@ -62,6 +62,12 @@ enum Command {
     Usage(cli_cmds::UsageArgs),
     /// Long or tool-heavy sessions (same JSON as the MCP `session_outliers`)
     Outliers(cli_cmds::OutliersArgs),
+    /// Declared usage rules that fired (same JSON as the MCP `warnings`)
+    Warnings(cli_cmds::ScopeArgs),
+    /// Improvement plan by priority (same JSON as the MCP `improvement_plan`)
+    Plan(cli_cmds::ScopeArgs),
+    /// What the Easy Kit did per project (same JSON as the MCP `kit_summary`)
+    Kit(cli_cmds::ScopeArgs),
     /// Kit servers linked to cheaper or better sessions (same as the MCP `kit_findings`)
     KitFindings(cli_cmds::KitFindingsArgs),
     /// List, create, edit or delete workspaces (store only: a change that needs the `claude` CLI is refused until T050)
@@ -141,6 +147,9 @@ fn main() -> ExitCode {
         Command::Ping => cli_cmds::ping(),
         Command::Usage(args) => cli_cmds::usage(args),
         Command::Outliers(args) => cli_cmds::outliers(args),
+        Command::Warnings(args) => cli_cmds::warnings(args),
+        Command::Plan(args) => cli_cmds::plan(args),
+        Command::Kit(args) => cli_cmds::kit(args),
         Command::KitFindings(args) => cli_cmds::kit_findings(args),
         Command::Workspace { action } => cli_cmds::workspace(action),
         Command::Account { action } => cli_cmds::account(action),

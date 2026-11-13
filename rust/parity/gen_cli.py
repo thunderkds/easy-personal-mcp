@@ -8,7 +8,7 @@
 Each case is a work folder (`agent-root` with the folders the case needs, a store copy, `nowhere` as `HOME`) and a list of
 steps. A step is one `easy-personal <args>` call with the text sent on stdin (`input()` reads it, and EOF when it is empty).
 For every step and every zone of the case the file records the exit code, stdout and stderr, with the work folder written
-as `<WORK>` and the `as_of` of `kit-findings --json` (the one value that is the clock's) written as `<NOW>`. The Rust test
+as `<WORK>` and the `as_of` of `kit-findings --json` and the `as_of_utc` of `warnings` (the values that are the clock's) written as `<NOW>`. The Rust test
 (`crates/app/tests/cli_parity.rs`) builds the same work folder (the same `setup` SQL and `tree`), runs the real binary with the
 same arguments and stdin under the same `TZ`, and requires the same exit code and stdout, and the same stderr where the
 record says so (`stderr_compare`: `exact`, `prefix` = Python's `easy-personal: ` line with `easy-personal-rs: ` in its place,
@@ -118,6 +118,25 @@ def cases():
         one(f"rich_kit_findings_json_since_{re.sub(r'[^0-9]+', '', since)}", "kit-findings", "--json", "--since", since, zones=ZONES)
     for bad in (["--limit", "0"], ["--limit", "-1"], ["--limit", "abc"], ["--limit", ""], ["--limit", "1.5"], ["--since", "banana"], ["--workspace", "acme"]):
         one("rich_kit_findings_bad_" + "_".join(re.sub(r"\W+", "x", w) for w in bad), "kit-findings", *bad)
+    # ---- warnings, plan, kit: the clock is the machine's (`as_of_utc` is `<NOW>`); the rich store's events are far in the past, so
+    # every rule abstains and the plan is empty. The rules, the plan and the kit rows are proven at a frozen clock by the scoped goldens.
+    for command in ("warnings", "plan", "kit"):
+        both(command, command)
+        for who in (["--workspace", "acme"], ["--workspace", "personal"], ["--workspace", "orphan"], ["--account", "2"], ["--account", "Claude work"],
+                    ["--account", "claude DEFAULT"], ["--account", "1"], ["--workspace", "acme", "--account", "2"], ["--workspace", ""], ["--account", ""],
+                    ["--workspace", "", "--account", ""]):
+            label = "_".join(re.sub(r"\W+", "", w.lower()) or "empty" for w in who)
+            one(f"rich_{command}_scope_{label}", command, *who)
+        for who in (["--workspace", "nope"], ["--account", "nope"], ["--account", "9"], ["--workspace", "nope", "--account", "nope"], ["--workspace", "ACME"]):
+            one(f"rich_{command}_unknown_" + "_".join(re.sub(r"\W+", "", w.lower()) for w in who), command, *who)
+        for bad in (["--workspace"], ["--account"], ["--since", "2026-01-01"], ["--json"], ["extra"]):
+            one(f"rich_{command}_bad_" + "_".join(re.sub(r"\W+", "", w.lower()) for w in bad), command, *bad)
+    on_disk = dict(setup=["UPDATE events SET project_path = replace(project_path, '/work/rich', '@W@')"],
+                   tree={"dirs": ["gone-a", "kit/alpha", "kit/beta"], "files": {}})
+    one("rich_kit_projects_on_disk", "kit", **on_disk)
+    one("rich_kit_projects_on_disk_workspace", "kit", "--workspace", "acme", **on_disk)
+    one("rich_warnings_projects_on_disk", "warnings", **on_disk)
+    one("rich_plan_projects_on_disk", "plan", **on_disk)
     # ---- workspace list / add / edit / delete
     both("workspace_list", "workspace", "list")
     one("rich_workspace_list_extra_arg", "workspace", "list", "x")
@@ -261,7 +280,7 @@ def run_step(cli, argv: list[str], stdin: str, work: str) -> dict:
                 raise Crash(f"{argv}: {type(exc).__name__}") from exc
     finally:
         sys.stdin = old_stdin
-    clean = lambda text: re.sub(r'("as_of": )"[^"]*"', r'\1"<NOW>"', text.replace(work, "<WORK>"))  # noqa: E731
+    clean = lambda text: re.sub(r'("as_of(?:_utc)?": )"[^"]*"', r'\1"<NOW>"', text.replace(work, "<WORK>"))  # noqa: E731
     stderr = clean(err.getvalue())
     mode = "exact" if not stderr else "prefix" if stderr.startswith("easy-personal: ") else "none" if stderr.startswith("usage: ") else "exact"
     return {"code": code, "stdout": clean(out.getvalue()), "stderr": stderr, "stderr_compare": mode}

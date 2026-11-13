@@ -47,19 +47,22 @@ impl Drop for Work {
     }
 }
 
-/// `"as_of": "<time>"` -> `"as_of": "<NOW>"` (the one value of an answer that is the clock's).
+/// `"as_of": "<time>"` and `"as_of_utc": "<time>"` -> `<NOW>` (the values of an answer that are the clock's).
 fn now_token(text: &str) -> String {
-    let mut out = String::new();
-    let mut rest = text;
-    while let Some(at) = rest.find("\"as_of\": \"") {
-        let value_start = at + "\"as_of\": \"".len();
-        out.push_str(&rest[..value_start]);
-        let tail = &rest[value_start..];
-        let end = tail.find('"').unwrap_or(tail.len());
-        out.push_str("<NOW>");
-        rest = &tail[end..];
+    let mut out = text.to_string();
+    for key in ["\"as_of\": \"", "\"as_of_utc\": \""] {
+        let (mut done, mut rest) = (String::new(), out.as_str());
+        while let Some(at) = rest.find(key) {
+            let value_start = at + key.len();
+            done.push_str(&rest[..value_start]);
+            let tail = &rest[value_start..];
+            let end = tail.find('"').unwrap_or(tail.len());
+            done.push_str("<NOW>");
+            rest = &tail[end..];
+        }
+        done.push_str(rest);
+        out = done;
     }
-    out.push_str(rest);
     out
 }
 
@@ -256,7 +259,15 @@ fn the_record_is_whole() {
         }
     }
     // every command of the guide is in the record, each with an answer and with a refusal
-    for command in ["ping", "usage", "outliers", "kit-findings"] {
+    for command in [
+        "ping",
+        "usage",
+        "outliers",
+        "kit-findings",
+        "warnings",
+        "plan",
+        "kit",
+    ] {
         assert!(
             cases.iter().any(|c| c["steps"][0]["args"][0] == command),
             "{command}"

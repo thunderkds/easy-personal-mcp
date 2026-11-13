@@ -19,8 +19,11 @@ use crate::{api, mcp, writes};
 use clap::{Args, Subcommand};
 use easy_personal_core::accounts;
 use easy_personal_core::clock::now_micros;
+use easy_personal_core::kit::kit_summary;
 use easy_personal_core::kitperf::kit_findings_local;
 use easy_personal_core::metrics::{MetricsError, usage_breakdown_scoped, usage_summary_scoped};
+use easy_personal_core::plan::improvement_plan_scoped;
+use easy_personal_core::rules::{RulesError, ScopedRulesError, evaluate_scoped, shipped_rules};
 use easy_personal_core::scope::Scope;
 use easy_personal_core::sessions::session_outliers_scoped;
 use easy_personal_core::store::{self, StoreError};
@@ -102,6 +105,16 @@ fn metrics_stop(error: MetricsError) -> Stop {
         MetricsError::Invalid(text) => Stop::refused(text),
         MetricsError::Store(error) => store_stop(error),
         MetricsError::Prices(_) => Stop::failed(1, api::INTERNAL),
+    }
+}
+
+/// An unknown workspace or account is a refusal (exit 2, the core's fixed text); a rule file that does not parse or a stored
+/// time that cannot be read is an internal error, as in the routes.
+fn rules_stop(error: ScopedRulesError) -> Stop {
+    match error {
+        ScopedRulesError::UnknownScope(text) => Stop::refused(text),
+        ScopedRulesError::Rules(RulesError::Store(error)) => store_stop(error),
+        ScopedRulesError::Rules(_) => Stop::failed(1, api::INTERNAL),
     }
 }
 
@@ -208,6 +221,17 @@ pub struct OutliersArgs {
     #[arg(long)]
     workspace: Option<String>,
     /// Only events of this agent account (id or label)
+    #[arg(long)]
+    account: Option<String>,
+}
+
+/// `warnings`, `plan` and `kit`: only the scope.
+#[derive(Args)]
+pub struct ScopeArgs {
+    /// Only this workspace's repo paths
+    #[arg(long)]
+    workspace: Option<String>,
+    /// Only this agent account (id or label)
     #[arg(long)]
     account: Option<String>,
 }
@@ -351,6 +375,35 @@ pub fn outliers(args: OutliersArgs) -> ExitCode {
             session_outliers_scoped(&conn, args.since.as_deref(), args.until.as_deref(), scope)
                 .map_err(metrics_stop)?;
         put_json(&body)
+    })())
+}
+
+/// `warnings`: the declared rules that fired, as the MCP tool answers (the clock is the machine's).
+pub fn warnings(args: ScopeArgs) -> ExitCode {
+    finish((|| {
+        let conn = open_read()?;
+        let rules = shipped_rules().map_err(|_| Stop::failed(1, api::INTERNAL))?;
+        let scope = scope(&args.workspace, &args.account);
+        put_json(&evaluate_scoped(&conn, now_micros(), &rules, scope).map_err(rules_stop)?)
+    })())
+}
+
+/// `plan`: the improvement plan by priority (the MCP `improvement_plan`).
+pub fn plan(args: ScopeArgs) -> ExitCode {
+    finish((|| {
+        let conn = open_read()?;
+        let rules = shipped_rules().map_err(|_| Stop::failed(1, api::INTERNAL))?;
+        let scope = scope(&args.workspace, &args.account);
+        put_json(&improvement_plan_scoped(&conn, now_micros(), &rules, scope).map_err(rules_stop)?)
+    })())
+}
+
+/// `kit`: what the Easy Kit did per project (the MCP `kit_summary`: gone projects are listed, as in Python's CLI).
+pub fn kit(args: ScopeArgs) -> ExitCode {
+    finish((|| {
+        let conn = open_read()?;
+        let scope = scope(&args.workspace, &args.account);
+        put_json(&kit_summary(&conn, now_micros(), scope, false).map_err(metrics_stop)?)
     })())
 }
 
