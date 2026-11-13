@@ -113,7 +113,7 @@ fn exec_puts_the_secret_in_the_providers_env_never_its_argv_and_forwards_io_and_
     let provider = dir.script(
         "provider",
         "tr '\\0' ' ' < /proc/$$/cmdline; echo\n\
-         [ \"$SLACK_TOKEN\" = \"$EXPECT\" ] && echo env-ok\n\
+         [ -n \"$SLACK_TOKEN\" ] && [ \"$SLACK_TOKEN\" = \"$EXPECT\" ] && echo env-ok\n\
          echo \"keep=$KEEP_ME\"\n\
          cat\n\
          echo to-stderr >&2\n\

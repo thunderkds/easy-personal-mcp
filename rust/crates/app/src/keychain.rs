@@ -331,6 +331,8 @@ mod tests {
         for bad in [
             "",
             "Slack",
+            "sLack",
+            "slacK",
             "-a",
             "_a",
             "a/b",
