@@ -2,11 +2,11 @@
 
 Made by `rust/parity/run_parity.py`; checked by `rust/parity/test_parity_report.py`. Nothing in this file is written by hand.
 
-Counts: equal 25 + equal except JSON key order 29, differs README 27, differs new 6, not run 0.
+Counts: equal 25 + equal except JSON key order 29, differs README 26, differs new 7, not run 0.
 
 `equal except JSON key order`: the parsed bodies are equal and the key order of at least one body differs (Python sends insertion order, Rust sorted; rule N6).
 
-86 surfaces were read from the Python app (argparse tree, route table, MCP tools and prompt); 1 protocol row is added. 180 probes ran, each on the Python app and then on the Rust app over the same world at the same path. Leak scan: 180 captured outputs and this report scanned with the repo canaries (`rust/parity/leak_rust.py` scanner, `Canaries.find`): 0 hits.
+86 surfaces were read from the Python app (argparse tree, route table, MCP tools and prompt); 1 protocol row is added. 181 probes ran, each on the Python app and then on the Rust app over the same world at the same path. Leak scan: 181 captured outputs and this report scanned with the repo canaries (`rust/parity/leak_rust.py` scanner, `Canaries.find`): 0 hits.
 
 ## How it ran
 
@@ -96,7 +96,7 @@ Counts: equal 25 + equal except JSON key order 29, differs README 27, differs ne
 | `route: GET /api/usage/sessions` | 1 | equal except JSON key order | key order of 4 bodies differs (N6) |
 | `route: GET /api/usage/summary` | 1 | equal except JSON key order | key order of 5 bodies differs (N6) |
 | `route: GET /api/warnings` | 1 | equal except JSON key order | key order of 3 bodies differs (N6); no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
-| `route: GET /api/workspaces` | 2 | differs: README Static item 1 | 1 of 2 probes differ: `guard`; key order of 1 body differs (N6) |
+| `route: GET /api/workspaces` | 3 | differs: new | 2 of 3 probes differ: `guard`, `guard-with-page`; key order of 1 body differs (N6); with the page served (a real deployment): Python's static mount answers where its routes would say 405 |
 | `route: GET /api/workspaces/unassigned` | 1 | equal |  |
 | `route: PATCH /api/workspaces/{id}` | 3 | equal except JSON key order | key order of 3 bodies differs (N6) |
 | `route: POST /api/accounts` | 1 | equal |  |
@@ -235,6 +235,25 @@ Run: `GET /api/live ; GET /api/live`
 
 Proposed task: C0, Risk Low: add `; charset=utf-8` to the Rust header (or add the difference to the T056 list).
 
+### Finding: `route: GET /api/workspaces`
+
+Cause: With the page served (Python's built bundle, as on a real machine; Rust's `serve --static-dir`), a `GET` of a route that has only write methods is `404 Not Found` in Python and `405` in Rust: Python's static mount at `/` matches the path before the route's own method check can answer 405. README T048 item 9 says Rust's is `405`; it does not say Python's differs. (Without a page the two agree on 405; the plain-text `Not Found` / `Method Not Allowed` bodies against Rust's empty ones are `Static` item 1.)
+
+Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'route: GET /api/workspaces / guard-with-page'` (probe `guard-with-page`; world: store=rich-disk).
+Run: `GET /api/workspaces/1 ; GET /api/nope ; POST /api/usage/summary {} ; DELETE /api/usage/summary ; GET /api/workspaces`
+
+- at `steps[0]/body` (zone UTC):
+  - Python: `"Not Found"`
+  - Rust: `""`
+- at `steps[0]/status` (zone UTC):
+  - Python: `404`
+  - Rust: `405`
+- at `steps[0]/type` (zone UTC):
+  - Python: `"text/plain; charset=utf-8"`
+  - Rust: `null`
+
+Proposed task: C0, Risk Low: add the 404-versus-405 line to the T048 "Decided for you" list, or make Rust answer 404 there when the page is served.
+
 ## Differences the README already names
 
 | README item | What it says (start) | Rows |
@@ -243,7 +262,7 @@ Proposed task: C0, Risk Low: add `; charset=utf-8` to the Rust header (or add th
 | ConnTool item 1 | `connector_status` -> `{"connectors": [{id, configured}]}`, **`configured` always `false`** for the reason given for `GET /api/connectors` above;... | `mcp tool: connector_status` |
 | Ingest item 1 | / prints `kit_trace`, `context`, `ui`, `verifier` / prints the same four keys (T051 ported `context`) and `skipped` / one JSON, Python's keys /... | `cli: ingest` |
 | Schedule item 1 | **The command line is the Rust binary**: `ExecStart=<absolute path of the running binary, shell-quoted> ingest [--retention-days N]`. Install from the... | `cli: schedule install` |
-| Static item 1 | `serve --static-dir <DIR>` also serves the built dashboard's files from `<DIR>` on the same origin, behind the same guard and with the same CSP on eve... | `route: GET / (static files of the page)`, `route: GET /api/workspaces` |
+| Static item 1 | `serve --static-dir <DIR>` also serves the built dashboard's files from `<DIR>` on the same origin, behind the same guard and with the same CSP on eve... | `route: GET / (static files of the page)` |
 | T040 item 1 | Decided for you (T040; Rust differs from Python): a report whose snapshot Python cannot read is a fixed `500` here (Python: a traceback), and in the l... | `route: GET /api/first-run` |
 | T047 item 1 | A wrong argument type gets a short fixed text; Python's pydantic text echoes the offending value (`input_value=...`), which for a summary would put th... | `mcp tool: save_report`, `mcp tool: usage_breakdown`, `mcp tool: usage_summary` |
 | T047 item 6 | `server_version` is this build's Cargo version (Python's is its package version).... | `mcp tool: save_report` |
@@ -289,5 +308,6 @@ Proposed task: C0, Risk Low: add `; charset=utf-8` to the Rust header (or add th
 - Rule T060 item 3 drops every `claude mcp get` call, argv included: a wrong `get` argument would not show.
 - Mask N4's `c` + 8 hex digits is applied to all text, not only to ids.
 - A SIGTERM to the runner skips its `finally` blocks and leaves the world folder in the temp folder.
+- Python's `dashboard` command (probe `cli: dashboard`) cannot be told a static folder, so it serves the packaged bundle if the machine has one; the probe asks one API route, which the bundle does not change.
 - The static fixture holds no dotfile and no symlink (the README's `Static` paragraph names both).
 - Rules N3 and the clock caveat: the rows for warnings, plan, kit, outliers and kit-findings carry it in their Note.
