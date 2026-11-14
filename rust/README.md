@@ -1093,6 +1093,10 @@ could echo it, a canary on `claude`'s stderr and in an account path: 0 hits.
    `Warning: Password input may be echoed.` line is. Ctrl-C at a secret prompt restores echo, prints Python's `input ended at the
    prompt; nothing was written` and exits 2, as Python. Ctrl-C at a plain-field prompt or at the question ends the process (exit 130,
    nothing written); Python prints `input ended ...` (exit 2) or `aborted ...` (exit 1).
+   Since T066, as Python: with no controlling terminal (`/dev/tty` cannot be opened) but a terminal as stdin, echo is turned
+   off on stdin (the prompt and the line end on stderr, no fallback warning) and restored after the line or a Ctrl-C.
+   **Differs from Python (T066):** when echo cannot be turned off (`tcsetattr` fails), Rust refuses with `cannot turn off echo
+   on the terminal; nothing was read or written` (exit 2) and reads nothing; Python falls back and reads the secret with echo on.
 2. **Never shown: `claude`'s stderr** (as T050 #1). Python prints it as a line after a failed `claude mcp add-json` or `remove`.
 3. **The question is asked with no store handle open** (as T058 #3) for `remove`, `sync`, `move`, `alias` and `adopt-legacy`: the plan is
    worked out again after a yes and refused if it changed. So the `claude mcp get` reads run up to three times (the oracle compares the

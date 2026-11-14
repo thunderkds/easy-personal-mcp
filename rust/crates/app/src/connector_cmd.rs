@@ -213,7 +213,7 @@ fn entry(provider: &str) -> Result<catalog::Entry, WriteFail> {
 fn ask_value(field: &catalog::Field) -> Result<String, WriteFail> {
     let prompt = format!("{}: ", field.label);
     let value = if field.secret {
-        hidden::read(&prompt)
+        hidden::read(&prompt).map_err(refused)?
     } else {
         put(&prompt).ok().and_then(|()| read_line(MAX_VALUE))
     };
@@ -341,8 +341,9 @@ mod hidden {
 
     const FALLBACK_WARNING: &str = "Warning: Password input may be echoed.";
 
-    /// The value, or `None` when input ended (Python's `EOFError`; Ctrl-C at the terminal ends the process with exit 2).
-    pub fn read(prompt: &str) -> Option<String> {
+    /// The value, or `Ok(None)` when input ended (Python's `EOFError`; Ctrl-C at the terminal ends the process with
+    /// exit 2), or the fixed refusal when echo could not be turned off on a terminal (nothing was read).
+    pub fn read(prompt: &str) -> Result<Option<String>, &'static str> {
         #[cfg(target_os = "linux")]
         if let Some(answer) = tty::read(prompt) {
             return answer;
@@ -351,18 +352,23 @@ mod hidden {
         let mut err = std::io::stderr().lock();
         let _ = write!(err, "{FALLBACK_WARNING}\n{prompt}");
         let _ = err.flush();
-        let line = read_line(MAX_VALUE)?;
+        let Some(line) = read_line(MAX_VALUE) else {
+            return Ok(None);
+        };
         let _ = writeln!(err);
-        Some(line)
+        Ok(Some(line))
     }
 
-    /// The controlling terminal, as `unix_getpass` uses it: open `/dev/tty`, turn `ECHO` off (`TCSAFLUSH`), write the
-    /// prompt there, read one line there, restore the settings, write a line end. No terminal (or one whose settings
-    /// cannot be read) is `None`: the caller falls back to stdin. Linux only: the `termios` layout below is glibc's on
-    /// Linux (four `u32` flag words first, `c_lflag` the fourth; 60 bytes in all).
+    /// A terminal, as `unix_getpass` uses it: the controlling terminal (`/dev/tty`: the prompt and the line there), else
+    /// stdin when it is a terminal (T066: the prompt on stderr, the line from stdin). Echo is turned off (`TCSAFLUSH`)
+    /// before the prompt and restored after the line, then a line end is written. No terminal (or one whose settings
+    /// cannot be read) is `None`: the caller falls back to stdin with the warning. A terminal whose echo cannot be turned
+    /// off is refused with [`NO_ECHO`] and nothing is read (Python falls back and reads with echo on). Linux only: the
+    /// `termios` layout below is glibc's on Linux (four `u32` flag words first, `c_lflag` the fourth; 60 bytes in all).
     #[cfg(target_os = "linux")]
-    mod tty {
+    pub(super) mod tty {
         use super::MAX_VALUE;
+        use crate::cli_cmds::read_line;
         use std::fs::OpenOptions;
         use std::io::{BufRead, BufReader, Read, Write};
         use std::os::fd::AsRawFd;
@@ -370,8 +376,15 @@ mod hidden {
         use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
         #[repr(C)]
-        #[derive(Clone, Copy)]
-        struct Termios([u32; 16]);
+        #[derive(Clone, Copy, Default)]
+        pub(crate) struct Termios([u32; 16]);
+
+        #[cfg(test)]
+        impl Termios {
+            pub(crate) fn lflag(&self) -> u32 {
+                self.0[LFLAG]
+            }
+        }
 
         const O_NOCTTY: i32 = 0o400;
         const TCSAFLUSH: i32 = 2;
@@ -379,6 +392,12 @@ mod hidden {
         const LFLAG: usize = 3;
         const SIGINT: i32 = 2;
         const ENDED: &[u8] = b"easy-personal-rs: input ended at the prompt; nothing was written\n";
+        /// Echo could not be turned off: the secret is not read.
+        pub(crate) const NO_ECHO: &str =
+            "cannot turn off echo on the terminal; nothing was read or written";
+
+        /// `tcsetattr`'s shape (a test passes one that fails).
+        pub(crate) type SetAttr = unsafe extern "C" fn(i32, i32, *const Termios) -> i32;
 
         unsafe extern "C" {
             fn tcgetattr(fd: i32, termios: *mut Termios) -> i32;
@@ -407,14 +426,60 @@ mod hidden {
             }
         }
 
-        pub fn read(prompt: &str) -> Option<Option<String>> {
-            let tty = OpenOptions::new()
+        pub fn read(prompt: &str) -> Option<Result<Option<String>, &'static str>> {
+            if let Ok(tty) = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .custom_flags(O_NOCTTY)
                 .open("/dev/tty")
-                .ok()?;
-            let fd = tty.as_raw_fd();
+            {
+                let mut out = &tty;
+                return quiet(tty.as_raw_fd(), tcsetattr, || {
+                    let _ = out.write_all(prompt.as_bytes());
+                    let _ = out.flush();
+                    let mut bytes = Vec::new();
+                    let read = BufReader::new((&tty).take(MAX_VALUE)).read_until(b'\n', &mut bytes);
+                    match read {
+                        Ok(n) if n > 0 => String::from_utf8(bytes).ok().map(|mut line| {
+                            // a text wrapper on the terminal: universal newlines
+                            if line.ends_with('\n') {
+                                line.pop();
+                                if line.ends_with('\r') {
+                                    line.pop();
+                                }
+                            }
+                            line
+                        }),
+                        _ => None,
+                    }
+                })
+                .map(|got| got.inspect(|line| line_end(line, &mut out)));
+            }
+            // no controlling terminal: "see if stdin can be controlled" (the prompt on stderr, the line from stdin)
+            let mut err = std::io::stderr();
+            quiet(0, tcsetattr, || {
+                let _ = err.write_all(prompt.as_bytes());
+                let _ = err.flush();
+                read_line(MAX_VALUE)
+            })
+            .map(|got| got.inspect(|line| line_end(line, &mut err)))
+        }
+
+        /// The line end Python writes after a value (not after end of input).
+        fn line_end(line: &Option<String>, out: &mut impl Write) {
+            if line.is_some() {
+                let _ = out.write_all(b"\n");
+                let _ = out.flush();
+            }
+        }
+
+        /// Echo off on `fd`, `read`, echo restored. `None`: `fd` is not a terminal (its settings cannot be read).
+        /// `Some(Err(NO_ECHO))`: `set` could not turn echo off; `read` is not called.
+        pub(crate) fn quiet<T>(
+            fd: i32,
+            set: SetAttr,
+            read: impl FnOnce() -> T,
+        ) -> Option<Result<T, &'static str>> {
             let mut old = Termios([0; 16]);
             // SAFETY: `old` is larger than glibc's `struct termios` (60 bytes) and lives for the call
             if unsafe { tcgetattr(fd, &mut old) } != 0 {
@@ -424,37 +489,99 @@ mod hidden {
                 slot.store(word, Ordering::Relaxed);
             }
             FD.store(fd, Ordering::Relaxed);
-            let mut quiet = old;
-            quiet.0[LFLAG] &= !ECHO;
+            let mut silent = old;
+            silent.0[LFLAG] &= !ECHO;
             // SAFETY: the handler only calls async-signal-safe functions; the previous one is put back below
             let previous = unsafe { signal(SIGINT, on_interrupt as extern "C" fn(i32) as usize) };
-            // SAFETY: `quiet` is a copy of what tcgetattr filled, with one flag cleared
-            unsafe { tcsetattr(fd, TCSAFLUSH, &quiet) };
-            let mut out = &tty;
-            let _ = out.write_all(prompt.as_bytes());
-            let _ = out.flush();
-            let mut bytes = Vec::new();
-            let read = BufReader::new((&tty).take(MAX_VALUE)).read_until(b'\n', &mut bytes);
+            // SAFETY: `silent` is a copy of what tcgetattr filled, with one flag cleared
+            if unsafe { set(fd, TCSAFLUSH, &silent) } != 0 {
+                // SAFETY: as above; nothing was changed on the terminal
+                unsafe { signal(SIGINT, previous) };
+                return Some(Err(NO_ECHO));
+            }
+            let got = read();
             // SAFETY: as above; `old` is what tcgetattr filled
             unsafe {
-                tcsetattr(fd, TCSAFLUSH, &old);
+                set(fd, TCSAFLUSH, &old);
                 signal(SIGINT, previous);
             }
-            Some(match read {
-                Ok(n) if n > 0 => String::from_utf8(bytes).ok().map(|mut line| {
-                    // the line end Python writes after a value (not after end of input)
-                    let _ = out.write_all(b"\n");
-                    let _ = out.flush();
-                    if line.ends_with('\n') {
-                        line.pop();
-                        if line.ends_with('\r') {
-                            line.pop();
-                        }
-                    }
-                    line
-                }),
-                _ => None,
-            })
+            Some(Ok(got))
         }
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::hidden::tty::{NO_ECHO, SetAttr, Termios, quiet};
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+
+    unsafe extern "C" {
+        fn posix_openpt(flags: i32) -> i32;
+        fn grantpt(fd: i32) -> i32;
+        fn unlockpt(fd: i32) -> i32;
+        fn ptsname_r(fd: i32, buf: *mut std::ffi::c_char, len: usize) -> i32;
+        fn open(path: *const std::ffi::c_char, flags: i32, ...) -> i32;
+        fn tcgetattr(fd: i32, termios: *mut Termios) -> i32;
+        fn tcsetattr(fd: i32, action: i32, termios: *const Termios) -> i32;
+    }
+
+    /// A `tcsetattr` that always fails (as on a terminal that refuses the change).
+    unsafe extern "C" fn refuse(_: i32, _: i32, _: *const Termios) -> i32 {
+        -1
+    }
+
+    /// A pseudo-terminal pair (master, slave), neither this process's controlling terminal.
+    fn pty() -> (OwnedFd, OwnedFd) {
+        const O_RDWR_NOCTTY: i32 = 2 | 0o400;
+        // SAFETY: plain C calls on descriptors this function owns; `name` outlives `ptsname_r` and `open`
+        unsafe {
+            let master = posix_openpt(O_RDWR_NOCTTY);
+            assert!(master >= 0);
+            assert_eq!(grantpt(master), 0);
+            assert_eq!(unlockpt(master), 0);
+            let mut name = [0 as std::ffi::c_char; 128];
+            assert_eq!(ptsname_r(master, name.as_mut_ptr(), name.len()), 0);
+            let slave = open(name.as_ptr(), O_RDWR_NOCTTY);
+            assert!(slave >= 0);
+            (OwnedFd::from_raw_fd(master), OwnedFd::from_raw_fd(slave))
+        }
+    }
+
+    fn lflag(fd: &OwnedFd) -> u32 {
+        let mut t = Termios::default();
+        // SAFETY: `t` is larger than glibc's `struct termios` and lives for the call
+        assert_eq!(unsafe { tcgetattr(fd.as_raw_fd(), &mut t) }, 0);
+        t.lflag()
+    }
+
+    /// T066 AC2: a `tcsetattr` that fails is refused with the fixed text; nothing is read (so nothing typed can be
+    /// shown) and the terminal is left as it was.
+    #[test]
+    fn a_failing_tcsetattr_is_refused_and_nothing_is_read() {
+        let (_master, slave) = pty();
+        let before = lflag(&slave);
+        let mut called = false;
+        let got = quiet(slave.as_raw_fd(), refuse as SetAttr, || called = true);
+        assert_eq!(got, Some(Err(NO_ECHO)));
+        assert!(!called, "the line is never read");
+        assert_eq!(lflag(&slave), before);
+    }
+
+    /// The real `tcsetattr`: echo is off while the line is read and back on after.
+    #[test]
+    fn echo_is_off_during_the_read_and_restored_after() {
+        let (_master, slave) = pty();
+        let echo = 0o10;
+        assert_ne!(lflag(&slave) & echo, 0);
+        let during = quiet(slave.as_raw_fd(), tcsetattr as SetAttr, || lflag(&slave));
+        assert_eq!(during.map(|r| r.map(|l| l & echo)), Some(Ok(0)));
+        assert_ne!(lflag(&slave) & echo, 0);
+    }
+
+    /// Not a terminal: `None` (the caller takes Python's fallback with its warning).
+    #[test]
+    fn a_pipe_is_not_a_terminal() {
+        let file = std::fs::File::open("/dev/null").unwrap();
+        assert_eq!(quiet(file.as_raw_fd(), tcsetattr as SetAttr, || ()), None);
     }
 }
