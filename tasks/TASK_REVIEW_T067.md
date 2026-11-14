@@ -1,4 +1,4 @@
-# TASK_REVIEW — T067: [Short Title]
+# TASK_REVIEW — T067: Close the 7 T061 parity findings and stop the runner leaking on SIGTERM
 
 > Sibling of `tasks/TASK_GUIDE_T067.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | pass | `rust/parity/test_parity_report.py` (36 tests; `./parity/.venv/bin/python parity/test_parity_report.py` -> `passed: 0 failing`): one rule test with mutations per decided finding (`test_version_rule_...`, `test_ctrl_c_rule_...`, `test_prompt_rule_...`, `test_protocol_rule_...`, `test_write_only_route_rule_...`, `test_the_usage_error_texts_are_explained_by_item_14_and_only_when_exact`), `test_each_t067_item_is_in_the_readme_marked_decided_for_you_and_has_a_rule`, `test_the_report_has_no_new_difference_and_no_surface_left_unrun`, five signal tests (`test_sigterm_during_a_running_server_...`, `test_sighup_...`, `test_sigterm_while_a_serve_starts_kills_it`, `test_sigterm_before_any_server_exists_...`, `test_sigterm_in_the_full_run_path_...`). Rust: `crates/app/tests/live.rs` `a_new_transcript_line_arrives_as_a_live_event_within_2_s` asserts `["text/event-stream; charset=utf-8"]` (red before the fix: `left: ["text/event-stream"]`), `crates/app/src/live_feed.rs` `the_live_check_reads_a_chunked_first_snapshot_and_refuses_everything_else` reads the charset form. With the `stop_on_signals()` call replaced by `pass`, the four process signal tests go red (exit -15 / -1 not 143 / 129; child alive; `['parity-world-9x4owgql']` left) ||
+| Verification command run | pass | `run_parity.py --check` -> `the report equals a fresh run`, exit 0 (2026-11-14T16:01:30Z to 16:04:35Z, started in the foreground, the harness moved it to the background after 180 s) and again as a shell `&` job: `bg job exit 0`, `the report equals a fresh run` (16:04:43Z to 16:07:19Z). Report line 5: `Counts: equal 26 + equal except JSON key order 29, differs README 32, differs new 0, not run 0.` (before: `equal 25 + 29, differs README 26, differs new 7, not run 0`). `cargo test --workspace --no-fail-fast`: exit 0, 884 passed, 0 failed, 29 ignored (sum of the `test result` lines). `cargo fmt --check`: exit 0. `cargo clippy --workspace --all-targets -- -D warnings`: Finished, no warning ||
+| Negative cases hold | pass | each rule test has the mutation rows (one other byte changed -> `("new", [])`): other `--version` text, other exit code, stderr added; access-log plus a traceback line; Rust stdout not empty; Rust exit 1; Python exit -9; another prompt message; wrong code; extra stderr line; one more capability; message with spaces; `403` for `405`; `Gone` for `Not Found`; `'bananas'`, `projects`, exit 1, stdout `x` for the usage texts ||
+| verify | pass | AFTER, same command as BEFORE with the T067 runner: SIGTERM `runner exit code: 143`, `started children still alive: 0`, `new world folders left in /tmp: []`; SIGHUP `runner exit code: 129`, `started children still alive: 0`, `new world folders left in /tmp: []` (2026-11-14T16:14:19Z..16:14:23Z) - pass ||
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | pass | reviewed: `rust/parity/run_parity.py`, `rust/parity/test_parity_report.py`, `rust/docs/PARITY_T061.md` (regenerated), `rust/README.md` (6 new items, 1 changed sentence), `crates/app/src/api.rs` (one header string), `crates/app/src/live_feed.rs` (self-test check accepts the charset), `crates/app/tests/live.rs`. Not touched: `src/**`, `rust/parity/gen_*.py`, connector/doctor/keychain code (T066) ||
+| Full smoke suite still green (no regression) | pass | `cargo test --workspace --no-fail-fast`: 884 passed, 0 failed, 29 ignored; `test_parity_report.py`: `passed: 0 failing`; `run_parity.py --check`: equal ||
+| **Companion score (easy-verifier)** | N/A | not run in this QA pass; Stage 4 `code-review` and the easy-verifier `score` stay with the Supervisor ||
+| **UI: Visual regression (diff or verdict pasted)** | N/A | no UI ||
+| **UI: Design-system compliance (tokens/colors/typography verified)** | N/A | no UI ||
+| **UI: Responsiveness at target viewports** | N/A | no UI ||
 
 ---
 
@@ -86,9 +86,26 @@ new world folders left in /tmp: ['/tmp/parity-world-zdp95vhx']
 ```
 SIGHUP (2026-11-14T15:48:41Z): `runner exit code: -1`, `started children still alive: 1` (pid 66101), `new world folders left in /tmp: ['/tmp/parity-world-b7y5ciwu']`. (The driver killed those PIDs and removed the folders afterwards; only PIDs it saw were killed.)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured 2026-11-14T16:14Z with the T067 runner (same driver, same probe, same signal):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+1. `rust/docs/PARITY_T061.md` line 5 (made by `run_parity.py`, equal to a fresh run by `--check`):
+```
+Counts: equal 26 + equal except JSON key order 29, differs README 32, differs new 0, not run 0.
+```
+2. `route: GET /api/live` is `equal` (2 probes); `crates/app/tests/live.rs` asserts `content-type: text/event-stream; charset=utf-8`.
+3. Signals:
+```
+$ python3 sigprobe.py <T067>/rust TERM 'cli: mcp / http-handshake-and-ping' mcp     # 2026-11-14T16:14:19Z
+runner exit code: 143
+after TERM: started children still alive: 0
+new world folders left in /tmp: []
+$ ... HUP ...
+runner exit code: 129
+after HUP: started children still alive: 0
+new world folders left in /tmp: []
+```
+(the child seen before each signal was the Python `mcp --transport http` server.)
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T067.jsonl`, never the
-implementing agent alone]
+**DELTA**: the parity run now ends with no open difference (every one of the seven T061 findings is aligned or named by a README item the runner checks), and a SIGTERM or SIGHUP to the runner no longer leaves a server or a world folder behind.
+
+**WITNESS**: qa-expert (this session, 2026-11-14T15:47Z to 16:14Z); the event trace `memory/event-trace/T067.jsonl` is written by the hook and was not read here. The same agent wrote the runner rules, the tests and ran them: the Supervisor's Stage 4 review is the independent check.
