@@ -451,7 +451,8 @@ def leaves(p, path=()):
             yield from leaves(sub, path + (name,))
 keys += ["cli: " + " ".join(p) for p in leaves(parser)]
 keys += ["cli: " + a.option_strings[0] for a in parser._actions if a.option_strings and a.dest not in ("help",)]
-app = api.create_app("token", 1, static=Path(tempfile.mkdtemp()))
+with tempfile.TemporaryDirectory() as static:
+    app = api.create_app("token", 1, static=Path(static))
 for route in app.routes:
     methods = getattr(route, "methods", None)
     if methods is None:
@@ -576,9 +577,9 @@ def readme_ok(ref: str, number: int, words: tuple[str, ...]) -> bool:
 
 # ---------------------------------------------------------------------------------------------------------------- the report table
 
-CLASS = re.compile(r"^(equal|differs: new|not run: .+|differs: README [A-Za-z0-9]+ item \d+(?:, [A-Za-z0-9]+ item \d+)*)$")
+CLASS = re.compile(r"^(equal|equal except JSON key order|differs: new|not run: .+|differs: README [A-Za-z0-9]+ item \d+(?:, [A-Za-z0-9]+ item \d+)*)$")
 ROW = re.compile(r"^\| `([^`]+)` \| (\d+) \| (.+?) \| (.*) \|$")
-COUNTS = re.compile(r"^Counts: equal (\d+), differs README (\d+), differs new (\d+), not run (\d+)\.$", re.M)
+COUNTS = re.compile(r"^Counts: equal (\d+) \+ equal except JSON key order (\d+), differs README (\d+), differs new (\d+), not run (\d+)\.$", re.M)
 
 
 def parse_report(text: str) -> list[dict]:
@@ -647,6 +648,8 @@ def outcome_step(out: dict, root) -> dict:
 
 
 def scrubbed_state(state: dict, root) -> dict:
+    for row in state["store_changed"].get("investigate_reports", []):
+        row[1] = "<NOW>"  # the bare `saved_utc` column: the second the report was saved in (N3)
     meta = state["store_changed"].get("meta")
     if meta:
         state["store_changed"]["meta"] = [["machine_id", "<ID>"] if row and row[0] == "machine_id" else row for row in meta]
@@ -706,6 +709,9 @@ def exec_http(p, app, base, canaries_dir) -> dict:
         shutil.rmtree(root, ignore_errors=True)
 
 
+SDK_LOG = re.compile(r"(?m)^Processing request of type \w+\n")
+
+
 def mcp_view(answer, root, pick=None):
     """An MCP answer, scrubbed; a tool's text content is parsed when it is JSON (whitespace is the SDK's business, not behaviour)."""
     answer = scrub_value(answer, root)
@@ -735,6 +741,8 @@ def exec_mcp(p, app, base, canaries_dir) -> dict:
         for method, params, pick in p["calls"]:
             answers.append({"method": method, "params": params, "answer": mcp_view(session.call(method, params), root, pick)})
         code, err = session.close()
+        if not p.get("raw_stderr"):  # N7: Python's SDK logs one line per request on stderr, Rust nothing; reported once, by `stderr-log`
+            err = SDK_LOG.sub("", err)
         return {"UTC": {"steps": answers, "state": scrubbed_state(run.state(), root), "exit": code, "stderr": scrub_text(err, root)}}
     finally:
         with contextlib.suppress(Exception):
@@ -793,7 +801,7 @@ def define_cli_probes():
     for pid, argv in {"plain": [], "by-model": ["--by", "model"], "by-tool": ["--by", "tool"], "window": ["--since", "2026-01-13T00:00:00Z", "--until", "2026-01-20T00:00:00Z"],
                       "scope-acme": ["--workspace", "acme"], "scope-account": ["--account", "Claude work"], "unknown-workspace": ["--workspace", "nope"],
                       "bad-by": ["--by", "week"], "bad-date": ["--since", "banana"]}.items():
-        cli("cli: usage", pid, ["usage", *argv], note="`--by week`: Rust's text is the core's one line, not clap's (item 8 names clap's)" if pid == "bad-by" else "")
+        cli("cli: usage", pid, ["usage", *argv])
     cli("cli: usage", "by-day-three-zones", ["usage", "--by", "day", "--since", "2026-01-13T08:30:00", "--until", "2026-01-15T23:00:00"], tzs=ZONES)
     cli("cli: usage", "by-project-disk", ["usage", "--by", "project"], RICH_DISK)
     cli("cli: usage", "no-store", ["usage"], NO_STORE)
@@ -922,9 +930,7 @@ def r_usage_error(py, rs):
     for a, b in zip(py["steps"], rs["steps"]):
         if (a.get("code") == b.get("code") == 2 and a["stdout"] == b["stdout"] == "" and a["stderr"].startswith("usage:")
                 and re.match(r"(?s)error: .*(?:For more information, try '--help'\.\n|Usage: )", b["stderr"] + "")
-                and "invalid iso_datetime" not in a["stderr"]) or (
-                a.get("code") == b.get("code") == 2 and a["stdout"] == b["stdout"] == "" and a["stderr"].startswith("usage:")
-                and "invalid choice" in a["stderr"] and re.fullmatch(r"easy-personal: [^\n]+\n", b["stderr"])):
+                and "invalid iso_datetime" not in a["stderr"]):
             a["stderr"] = b["stderr"] = "<usage error>"
     return py, rs
 
@@ -932,17 +938,6 @@ def r_usage_error(py, rs):
 @rule("T060#12", "T060", 12, ("usage errors", "clap's text"))
 def r_usage_error_connector(py, rs):
     return r_usage_error(py, rs)
-
-
-@rule("T058#7", "T058", 7, ("invalid isoformat string", "clap's own usage errors"))
-def r_bad_date(py, rs):
-    """A bad `--since`: argparse's `invalid iso_datetime value` in Python, the core's `Invalid isoformat string` in Rust; both exit 2."""
-    py, rs = copy.deepcopy(py), copy.deepcopy(rs)
-    for a, b in zip(py["steps"], rs["steps"]):
-        if (a.get("code") == b.get("code") == 2 and a["stdout"] == b["stdout"] == "" and a["stderr"].startswith("usage:")
-                and "invalid iso_datetime value: '" in a["stderr"] and b["stderr"].startswith("easy-personal: Invalid isoformat string: '")):
-            a["stderr"] = b["stderr"] = "<bad date>"
-    return py, rs
 
 
 @rule("T060#1", "T060", 1, ("getpasswarning", "not printed"))
@@ -1441,6 +1436,8 @@ def define_mcp_probes():
     mcp("mcp protocol: initialize", "protocol-ping", [("ping", None, None)])
     mcp("mcp protocol: initialize", "unknown-method", [("nope/method", None, None)])
     mcp("mcp protocol: initialize", "resources-list", [("resources/list", None, None)])
+    mcp("mcp protocol: initialize", "stderr-log", [("ping", {})])
+    PROBES[-1]["raw_stderr"] = True
     mcp("mcp tool: ping", "call", [("ping", {})])
     mcp("mcp tool: usage_summary", "calls", [("usage_summary", {}), ("usage_summary", window), ("usage_summary", {"since": "banana"}), ("usage_summary", {"since": 5})])
     mcp("mcp tool: usage_breakdown", "calls", [("usage_breakdown", {"by": b}) for b in ("day", "model", "project", "tool")] +
@@ -1472,7 +1469,7 @@ def define_mcp_probes():
 EXPECT = {
     ("cli: ingest", "canary-tree"): ["Ingest#1"], ("cli: ingest", "twice-then-usage"): ["Ingest#1"], ("cli: ingest", "no-store"): ["Ingest#1"],
     ("cli: ingest", "retention-zero"): ["T058#8"],
-    ("cli: usage", "bad-by"): ["T058#8"], ("cli: usage", "bad-date"): ["T058#7"], ("cli: usage", "no-store"): ["T058#1"],
+    ("cli: usage", "no-store"): ["T058#1"],
     ("cli: warnings", "bad-flag"): ["T058#8"], ("cli: plan", "bad-flag"): ["T058#8"], ("cli: kit", "bad-flag"): ["T058#8"],
     ("cli: kit-findings", "bad-limit"): ["T058#8"], ("cli: workspace list", "no-store"): ["T058#1"],
     ("cli: account list", "acct_bad_list_xby_colour"): ["T058#8"],
@@ -1506,20 +1503,44 @@ def apply_expectations():
 # ---------------------------------------------------------------------------------------------------------------- running a probe
 
 
+def blind_failure(res) -> str | None:
+    """Why a run is a failed run, not a result: an app that did not answer, did not stop, or answered with the runner's own error. An error
+    the app is meant to give (a 4xx of a refused request, a JSON-RPC error object, exit 2) is a result."""
+    for app in ("py", "rs"):
+        for zone_name, z in res[app].items():
+            for i, step in enumerate(z["steps"]):
+                if not isinstance(step, dict):
+                    continue
+                where = f"{app} {zone_name} step {i}"
+                if isinstance(step.get("status"), str) and step["status"].startswith("error"):
+                    return f"{where}: no HTTP answer ({step['status']})"
+                if step.get("code") in ("timeout", "did not stop"):
+                    return f"{where}: {step['code']}"
+                answer = step.get("answer")
+                if isinstance(answer, dict) and isinstance(answer.get("error"), str):
+                    return f"{where}: {answer['error']}"
+                if "api_status" in step and step["api_status"] != 200:
+                    return f"{where}: the server did not answer its route (status {step['api_status']})"
+                if step.get("step") in ("initialize", "initialized", "ping-tool") and isinstance(step.get("status"), int) and step["status"] >= 400:
+                    return f"{where}: {step['step']} answered {step['status']}"
+    return None
+
+
 def run_probe(p, base: Path, canaries_dir: Path) -> dict:
     """Both apps on the same world path, one after the other; `py` and `rs` are the outcomes per zone."""
     out = {"key": p["key"], "id": p["id"], "kind": p["kind"]}
     for app in ("py", "rs"):
         used = {**p, "spec": p["rs_spec"]} if app == "rs" and p.get("rs_spec") else p
         out[app] = EXECUTORS[p["kind"]](used, app, base, canaries_dir)
-    blind = re.search(r'"status": "error|"code": "timeout"|"code": "did not stop"', json.dumps(out))
+    blind = blind_failure(out)
     if blind and not p.get("allow_error"):
-        raise Refused(f"{p['key']} / {p['id']}: an app did not answer ({blind.group(0)}): a probe that fails on both sides would look equal")
+        raise Refused(f"{p['key']} / {p['id']}: {blind}: a probe that fails on both sides would look equal")
     return out
 
 
 def equal_zone(p, py, rs) -> bool:
-    return compare(py["steps"], rs["steps"]) and compare(py["state"], rs["state"]) and py.get("exit") == rs.get("exit")
+    return (compare(py["steps"], rs["steps"]) and compare(py["state"], rs["state"]) and py.get("exit") == rs.get("exit")
+            and py.get("stderr") == rs.get("stderr"))
 
 
 def setup_canaries(base: Path) -> Path:
@@ -1575,6 +1596,12 @@ NOT_RUN: dict[str, str] = {}
 EXTRA_KEYS = ["mcp protocol: initialize"]
 # Findings: key -> (cause in one line, proposed task). A `differs: new` row with no entry here fails the run (a finding needs its proposed task).
 FINDINGS: dict[str, tuple[str, str]] = {
+    "cli: usage": (
+        "Two usage errors give another text and exit 2 in both, with an empty stdout. `--by week`: Python's argparse says `invalid choice: 'week' (choose from day, model, project, tool)` "
+        "after its usage text; Rust says the core's one line `easy-personal: by must be one of day, model, project, tool` (T058 item 8 names *clap's* text, and this is not clap's). "
+        "`--since banana`: Python's argparse says `argument --since: invalid iso_datetime value: 'banana'`; Rust says `easy-personal: Invalid isoformat string: 'banana'` "
+        "(T058 item 7 says only that Rust echoes the bad value, \"as Python does\", not that the text differs). The `acct_bad_list_xby_colour`-style errors that clap itself prints are item 8 and stay `differs: README`.",
+        "C0, Risk Low: document both texts in T058's \"Decided for you\" list, or print Python's."),
     "cli: --version": (
         "Python prints the bare package version (`0.4.0`); Rust prints clap's `easy-personal-rs 0.2.0` (its Cargo version). The README's build section shows the Rust text but "
         "lists it in no \"Decided for you\" list. The numbers differ because the two packages are versioned apart.",
@@ -1587,7 +1614,8 @@ FINDINGS: dict[str, tuple[str, str]] = {
         "Two differences no README item names. (1) `initialize` capabilities: Python also sends `experimental: {}`, `resources: {subscribe, listChanged: false}` and `listChanged: false` "
         "under `tools` and `prompts`; Rust sends `prompts: {}` and `tools: {}` only (the README names the `prompts` one, in the `investigate` paragraph; the server name and version are named by "
         "\"McpInit\" and are not part of this finding). (2) An unknown JSON-RPC method: Python answers `-32602` `Invalid request parameters`, Rust `-32601` with the method name "
-        "(`-32601` is the JSON-RPC code for it).",
+        "(`-32601` is the JSON-RPC code for it). (3) stderr of `mcp` over stdio (probe `stderr-log`, not stripped): Python's SDK writes `Processing request of type <X>` for every request, Rust writes nothing. "
+        "Every other MCP probe drops those Python lines (rule N7) so this is reported once.",
         "C1, Risk Low: align the capabilities (a client that checks `resources` sees none) or list both differences in the T047 \"Decided for you\" list; keep `-32601` on purpose and say so."),
     "cli: mcp": (
         "`mcp --transport http` stopped with Ctrl-C: Python's process ends by the SIGINT signal (exit -2, shell 130) after uvicorn's shutdown, and uvicorn prints one access-log line per request "
@@ -1601,6 +1629,12 @@ FINDINGS: dict[str, tuple[str, str]] = {
 ORDER_RULES = {"T059#6": ("T059", 6, ("json key order in the route", "sorted keys"))}
 EXPLAIN_WORDS[("T059", 6)] = ORDER_RULES["T059#6"][2]
 EXPECT[("route: GET /api/store/health", "get-and-head")] = ["T059#6"]
+
+
+CLOCK_NOTE = "no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens"
+CLOCK_KEYS = {"cli: warnings", "cli: plan", "cli: kit", "cli: outliers", "cli: kit-findings", "route: GET /api/warnings", "route: GET /api/plan",
+              "route: GET /api/kit", "route: GET /api/usage/outliers", "mcp tool: warnings", "mcp tool: improvement_plan", "mcp tool: kit_summary",
+              "mcp tool: session_outliers", "mcp tool: kit_findings"}
 
 
 def rule_ref(rid: str) -> str:
@@ -1708,21 +1742,23 @@ def build_rows(results, inv):
             raise Refused(f"no probe for {key!r}: write one (or list it in NOT_RUN with the reason)")
         kinds = [i["kind"] for i in items]
         used = sorted(dict.fromkeys(rule_ref(rid) for i in items for rid in i["used"]))
+        orders = sum(i["orders"] for i in items)
         if "new" in kinds:
             result = "differs: new"
         elif "readme" in kinds:
             result = "differs: README " + ", ".join(used)
         else:
-            result = "equal"
+            result = "equal except JSON key order" if orders else "equal"
         notes = []
         differing = [f"{i['probe']['id']}" for i in items if i["kind"] != "equal"]
         if differing and len(items) > 1:
             notes.append(f"{len(differing)} of {len(items)} probes differ: " + ", ".join(f"`{d}`" for d in differing[:4]) + (" ..." if len(differing) > 4 else ""))
-        orders = sum(i["orders"] for i in items)
         if orders:
             notes.append(f"key order of {orders} {'body' if orders == 1 else 'bodies'} differs (N6)")
         extra = [i["probe"]["note"] for i in items if i["probe"]["note"]]
         notes += list(dict.fromkeys(extra))
+        if key in CLOCK_KEYS:
+            notes.append(CLOCK_NOTE)
         rows.append({"key": key, "probes": len(items), "result": result, "note": "; ".join(notes).replace("|", "/"), "items": items})
     return rows
 
@@ -1756,10 +1792,12 @@ def finding_text(row) -> str:
 
 def render(rows, inv, rust_only, scanned) -> str:
     n = lambda pred: sum(1 for r in rows if pred(r["result"]))  # noqa: E731
-    counts = (n(lambda x: x == "equal"), n(lambda x: x.startswith("differs: README")), n(lambda x: x == "differs: new"), n(lambda x: x.startswith("not run")))
+    counts = (n(lambda x: x == "equal"), n(lambda x: x == "equal except JSON key order"), n(lambda x: x.startswith("differs: README")),
+              n(lambda x: x == "differs: new"), n(lambda x: x.startswith("not run")))
     out = ["# T061: parity of Python and Rust, surface by surface", "",
            "Made by `rust/parity/run_parity.py`; checked by `rust/parity/test_parity_report.py`. Nothing in this file is written by hand.", "",
-           f"Counts: equal {counts[0]}, differs README {counts[1]}, differs new {counts[2]}, not run {counts[3]}.", "",
+           f"Counts: equal {counts[0]} + equal except JSON key order {counts[1]}, differs README {counts[2]}, differs new {counts[3]}, not run {counts[4]}.", "",
+           "`equal except JSON key order`: the parsed bodies are equal and the key order of at least one body differs (Python sends insertion order, Rust sorted; rule N6).", "",
            f"{len(inv)} surfaces were read from the Python app (argparse tree, route table, MCP tools and prompt); {len(EXTRA_KEYS)} protocol row is added. "
            f"{sum(r['probes'] for r in rows)} probes ran, each on the Python app and then on the Rust app over the same world at the same path. "
            f"Leak scan: {scanned} captured outputs and this report scanned with the repo canaries (`rust/parity/leak_rust.py` scanner, `Canaries.find`): 0 hits.", "",
@@ -1769,6 +1807,8 @@ def render(rows, inv, rust_only, scanned) -> str:
            "the same world at the same path, and runs `target/debug/easy-personal-rs`. The two never run together on one store.",
            "- The routes are asked over a real socket: Python's `serve` runs after `LiveTail().start()` (what `dashboard` does after its ingest), with the page's folder pointed at the world's; "
            "Rust's is `serve --no-ingest [--static-dir]`. `dashboard` itself is probed separately, with its ingest.",
+           "- JSON key order: Python sends insertion order, Rust sorted. The headline counts `equal except JSON key order` apart from `equal`. The rule is the project's "
+           "(`rust/parity/README.md`, \"Key order: which rule wins (T007)\", and `rust/README.md` T059 item 6); see N6. MCP result key order is not tracked.",
            "- Both children get an environment built from scratch: no `CLAUDE_CONFIG_DIR`, no display, a dead D-Bus address, `HOME`, `EASY_PERSONAL_HOME`, `EASY_PERSONAL_AGENT_ROOT` "
            "and the other folders inside the world, `TZ` (UTC; `Pacific/Kiritimati` and `Pacific/Pago_Pago` too for the rows that print a time). No owner folder, real keychain item or real `claude` is touched.",
            "- Compared: CLI = exit code, stdout, stderr; route = status, content type, parsed JSON body (or the text); MCP = the `tools/list` entry and each call's result; and after every probe "
@@ -1796,19 +1836,35 @@ def render(rows, inv, rust_only, scanned) -> str:
     out += ["", "## Rules that make two outputs comparable", "",
             "- **N1** The world's folder, each app's launcher and binary and the Python interpreter are written as `<WORK>`, `<LAUNCHER>`, `<RUST_BIN>`, `<PYTHON>`. Both apps run at the same world path.",
             "- **N2** A line that starts `easy-personal-rs: ` is read as `easy-personal: ` (README, T058 \"Exit codes\").",
-            "- **N3** The clock's own values (`as_of`, `as_of_utc`, `now_as_of_utc`, `saved_utc`) are `<NOW>`. Rust has no clock hook: both apps read the machine's clock, and the rich store's events are months old, so every rule abstains (as in `gen_cli.py`).",
+            "- **N3** The clock's own values (`as_of`, `as_of_utc`, `now_as_of_utc`, `saved_utc`, as a JSON key or inside a JSON text) and the bare `saved_utc` column of `investigate_reports` "
+            "(the second the report was saved in: the two apps run a moment apart) are `<NOW>`. Rust has no clock hook: both apps read the machine's clock, and the rich store's events are months old, "
+            "so every rule abstains (as in `gen_cli.py`).",
             "- **N4** Ids the app makes at random: a new connector id (`c` and 8 hex digits) and `meta.machine_id`. Session and message ids of the store are never rewritten.",
             "- **N5** The keychain is compared as its items; a world with no backend is `none` for both.",
-            "- **N6** A route body is compared as parsed JSON (key order ignored, list order kept), as the project's own rule says (`rust/parity/README.md`, \"Key order: which rule wins (T007)\"). "
-            "Python sends keys in insertion order, Rust sorted. The number of bodies whose order differs is in the Note column; the rows whose README item says it (T059 item 6) cite it. "
-            "MCP results are parsed the same way (the text content is parsed when it is JSON).", "",
+            "- **N6** A route body is compared as parsed JSON (key order ignored, list order kept). Python sends keys in insertion order, Rust sorted. The rule is the project's own: "
+            "`rust/parity/README.md`, \"Key order: which rule wins (T007)\" (the Rust tests compare parsed JSON), and `rust/README.md` T059 item 6 for `/api/store/health`, which cites it. "
+            "A row whose bodies are equal except for key order is counted apart in the headline (`equal except JSON key order`) and its Note gives the number of bodies; "
+            "T059 item 6 is the only README item that names it, so that row is `differs: README`. MCP result key order is not tracked: tool results are compared as parsed JSON "
+            "(the text content is parsed when it is JSON).",
+            "- **N7** Python's MCP SDK writes `Processing request of type <X>` on stderr for every request; Rust writes nothing. Those lines are dropped from every MCP probe's stderr, "
+            "except in `mcp protocol: initialize / stderr-log`, which compares stderr as it is and carries the finding.", "",
             "## Rust-only surfaces (not in the Python inventory, not compared)", ""]
     out += [f"- `{k}`" for k in rust_only]
     out += ["", "## What this run does not reach", "",
             "- The real keychain, the real `claude`, `systemctl`/`crontab` and the real browser: fakes only. `schedule install` is run with `--dry-run` and with no systemd (the cron path); the install itself is not.",
             "- Python's live tail writes events to the store (README T049 item 1: Rust's never does); the world holds no transcript, so the tail has nothing to read and `GET /api/live` is compared on its first (empty) snapshot.",
             "- The clock: see N3. Rules that fire, and the improvement plan over a store with recent events, are proven by the frozen-clock goldens, not here.",
-            "- Performance, fuzzing, a second store, macOS and Windows (cut list of the guide).", ""]
+            "- Performance, fuzzing, a second store, macOS and Windows (cut list of the guide).", "",
+            "## Known limits", "",
+            "- The negative control (Rust on a store with one more workspace) proves the CLI stdout comparison only, not the state, keychain, `claude`-call, HTTP or MCP comparisons.",
+            "- Rule T058 item 1 (`r_missing_store`) checks Rust's exact refusal and, for Python, only that its step 0 exited 0 and that store rows were written.",
+            "- Rule T047 item 1 (`r_argument_error`) is applied to a missing argument as well as a wrong type; the item names only \"a wrong argument type\" (`save_report` without `summary`, `usage_breakdown` without `by`).",
+            "- Rule T047 item 6 sets column 2 (`server_version`) of every `investigate_reports` row to `<VERSION>` without checking it.",
+            "- Rule T060 item 3 drops every `claude mcp get` call, argv included: a wrong `get` argument would not show.",
+            "- Mask N4's `c` + 8 hex digits is applied to all text, not only to ids.",
+            "- A SIGTERM to the runner skips its `finally` blocks and leaves the world folder in the temp folder.",
+            "- The static fixture holds no dotfile and no symlink (the README's `Static` paragraph names both).",
+            "- Rules N3 and the clock caveat: the rows for warnings, plan, kit, outliers and kit-findings carry it in their Note.", ""]
     return "\n".join(out)
 
 
