@@ -268,3 +268,17 @@
 **Lessons**: (1) a parity runner that is only run from its own worktree can depend on the machine: it depended on the inherited SIGINT disposition (background job) and on the gitignored built dashboard bundle; run `--check` from the main checkout, foreground and background, before merging. (2) The first merge went ahead before that check; the second round fixed it. (3) The reviewer's P1: a difference no README item describes must be a finding, not filed under a nearby item; route key order is the one explicit exception (headline count "equal except JSON key order").
 **Open**: the 7 findings (proposed: one C0/C1 task that documents or aligns them, before T063); T062 (cutover, owner gate: go-ahead and the macOS/Windows question), T063 (remove Python, owner gate after the T062 week); HUN-245 (owner picks run / copy / queue); T050's AC9 (Python/Rust keyring interop) and the launcher 200 ms limit against the real Secret Service are unverified; D-Bus timeout under the write lock still open (owner's call; recommendation: skip). `main` pushed to `github/main` on 2026-11-14 (`b8ba88b`, 88 commits, after a scan of the added lines for secrets: only a planted fake test key).
 **Files**: `rust/parity/{run_parity.py,test_parity_report.py}`, `rust/docs/PARITY_T061.md`, `rust/crates/app/src/keychain.rs`, `rust/crates/app/tests/ingest_coexist.rs`, `tasks/TASK_GUIDE_T061.md`, `tasks/TASK_REVIEW_T061.md`, `tasks/MINIMAL_LOG.md`
+
+## 2026-11-14 — Watch service and tray icon: grilled, path pending
+
+Owner request: a background service that watches and collects state, with a tray icon and desktop alerts.
+Locked in Stage 0.5 grilling (owner, 2026-11-14), full detail in `BRAINSTORMING_LOG_WATCH.md`:
+- D1 Host = easy-personal-rs + Tauri v2 (tray + notifications). Work goes on `rust/PROJECT_KANBAN.md`.
+- D2 Desktop alerts: waiting for you, plan limit high, failing / hung, machine pressure (disk/RAM/battery). This lifts FR-050's "no notifications" and the Out-of-Scope cut on attention notifications; PRD must be amended at Stage 2.
+- D3 Live, short-window state: agent state, task state, token watch (usage + 5h/7d plan limits), machine status (CPU, RAM, disk, load, battery, Claude processes), ~60 s samples.
+- D4 Long-term history: only tokens used and agent effectiveness (owner: "for the long live, I just care about the tokens used, and the effectively of the agent using").
+- D5 Effectiveness = tokens per good result + tokens per task done.
+- D6 Task attribution = branch + session link (sidechain events credited via the parent session's branch); `main` = unattributed line.
+- D7 Tray menu and dashboard view design: the owner provides it; ask at the start of the UI task.
+Open: path choice (A compute-on-read recommended; B ledger tables; C split daemon + tray); task Done time (git merge vs board); minimal-track `fix-*` branches; autostart (XDG `.desktop` vs systemd user service).
+Resume next session at: owner selects path → Stage 2.

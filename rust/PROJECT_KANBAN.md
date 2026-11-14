@@ -115,3 +115,4 @@
 | 1 Set up | ✅ Done (T001 spike, toolchain and Ubuntu packages) |
 | 2 Plan | ✅ Done for P2 (`BRAINSTORMING_LOG_RUSTP2.md` locked 2026-11-11); P3 not planned yet |
 | 3 Execute | 🔄 In Progress (P0, P1, P1b, P2 Done; P3 planned 2026-11-11, `BRAINSTORMING_LOG_RUSTP3.md`, T040-T051 in Todo) |
+| 0.5 Watch + tray (new feature) | 🔄 Brainstorm done 2026-11-14 (`BRAINSTORMING_LOG_WATCH.md`, decisions D1–D7); waiting on the owner's path choice (A recommended), then Stage 2: amend PRD (FR-050, Out of Scope) + 3 open questions |
