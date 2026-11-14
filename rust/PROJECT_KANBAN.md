@@ -9,11 +9,11 @@
 ## Board
 
 ### Todo
-- [ ] **T070** — UI redesign 3: per-screen polish vs the artboards (Usage, Warnings, Kit, Workspaces, Agents; problem red) | Frontend-Developer | C2 | Risk: Low | P2 | Depends on T068; plan G3/G4; guide `tasks/TASK_GUIDE_T070.md` (2026-11-14)
 - [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
 ### In Progress
+- [ ] **T070** — UI redesign 3: per-screen polish vs the artboards (Usage, Warnings, Kit, Workspaces, Agents; problem red) | Frontend-Developer | C2 | Risk: Low | P2 | Depends on T068; plan G3/G4; guide `tasks/TASK_GUIDE_T070.md` (2026-11-14); started 2026-11-14 after T068 merged: own worktree `easy-personal-mcp-wt/T070`, branch `T070`
 - [ ] **T071** — UI redesign 4: icon assets (app icon from the brand mark; tray PNGs 4 states × 16/24/32 × dark/light, one generator script) | Common-Infrastructure | C1 | Risk: Low | P2 | plan G5/G6; guide `tasks/TASK_GUIDE_T071.md` (2026-11-14); started 2026-11-14: own worktree `easy-personal-mcp-wt/T071`, branch `T071`, parallel with the other UI tasks
 
 ### Ready for Review
