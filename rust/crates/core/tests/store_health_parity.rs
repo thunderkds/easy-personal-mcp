@@ -80,7 +80,12 @@ fn listing(dir: &Path) -> Vec<String> {
 }
 
 fn copy_dir(from: &Path, to: &Path) {
-    for entry in fs::read_dir(from).unwrap() {
+    // an empty fixture folder (`missing`) is not kept by git, so a fresh checkout has no such folder: it reads as empty
+    let Ok(entries) = fs::read_dir(from) else {
+        assert!(!from.exists(), "{from:?} cannot be read");
+        return;
+    };
+    for entry in entries {
         let entry = entry.unwrap();
         fs::copy(entry.path(), to.join(entry.file_name())).unwrap();
     }
