@@ -333,7 +333,10 @@ fn add_to_workspace(conn: &Connection, add: Add, kc: &dyn Keychain) -> Done<Outc
             return outcome(1, lines, false);
         }
         Err(e) => {
-            let _ = keychain::remove(kc, &connector_id);
+            // roll back; a failed rollback is reported as in the branch above
+            if let Err(e) = keychain::remove(kc, &connector_id) {
+                return launch_failed(lines, e);
+            }
             return Err(e.into());
         }
     }
@@ -553,7 +556,69 @@ pub(crate) async fn connector_alias(State(api): State<Api>, req: Request) -> Res
 
 #[cfg(test)]
 mod tests {
-    use super::path_segment;
+    use super::*;
+    use crate::keychain::{Failed, NO_BACKEND};
+
+    /// A keychain that stores but cannot delete.
+    struct NoDelete;
+
+    impl Keychain for NoDelete {
+        fn usable(&self) -> bool {
+            true
+        }
+        fn get(&self, _: &str) -> Result<Option<String>, Failed> {
+            Ok(None)
+        }
+        fn set(&self, _: &str, _: &str) -> Result<(), Failed> {
+            Ok(())
+        }
+        fn delete(&self, _: &str) -> Result<(), Failed> {
+            Err(Failed)
+        }
+    }
+
+    /// The INSERT fails with an error that is not a constraint, and the keychain rollback fails too: reported with the
+    /// keychain's fixed text, as the constraint branch does (never silent).
+    #[test]
+    fn a_failed_rollback_after_a_store_error_is_reported() {
+        let dir =
+            std::env::temp_dir().join(format!("easy-personal-rs-t050-rb-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = dir.join("store.sqlite");
+        std::fs::copy(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../parity/store-rich/store-v11.sqlite"
+            ),
+            &store,
+        )
+        .unwrap();
+        let conn = Connection::open(&store).unwrap();
+        // `no such table` at INSERT time: an SQLITE_ERROR, not a constraint
+        conn.execute_batch(
+            "CREATE TRIGGER t050_broken BEFORE INSERT ON connectors BEGIN INSERT INTO t050_missing VALUES (1); END",
+        )
+        .unwrap();
+        let add = Add {
+            entry: catalog::parse_bytes("slack", catalog::file("slack").unwrap()).unwrap(),
+            values: [(
+                "SLACK_MCP_XOXB_TOKEN".to_string(),
+                Value::from("xoxb-PLANTED-rb"),
+            )]
+            .into_iter()
+            .collect(),
+            workspace: "acme".into(),
+            alias: None,
+            yes: true,
+        };
+        let got = add_to_workspace(&conn, add, &NoDelete);
+        let _ = std::fs::remove_dir_all(&dir);
+        let got = got.expect("a failed rollback is an answer, not a store error");
+        assert_eq!(got.status, 1);
+        assert_eq!(got.lines.last().map(String::as_str), Some(NO_BACKEND));
+        assert!(!format!("{got:?}").contains("xoxb-PLANTED-rb"));
+    }
 
     #[test]
     fn a_path_segment_is_percent_decoded_like_starlette() {
