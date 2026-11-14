@@ -88,22 +88,7 @@ pub(crate) fn path_segment(path: &str, prefix: &str, suffix: &str) -> String {
         .strip_prefix(prefix)
         .and_then(|rest| rest.strip_suffix(suffix))
         .unwrap_or("");
-    let bytes = raw.as_bytes();
-    let hex = |b: Option<&u8>| b.and_then(|b| (*b as char).to_digit(16));
-    let (mut out, mut i) = (Vec::with_capacity(bytes.len()), 0);
-    while i < bytes.len() {
-        match (bytes[i], hex(bytes.get(i + 1)), hex(bytes.get(i + 2))) {
-            (b'%', Some(high), Some(low)) => {
-                out.push((high * 16 + low) as u8);
-                i += 3;
-            }
-            (byte, _, _) => {
-                out.push(byte);
-                i += 1;
-            }
-        }
-    }
-    String::from_utf8_lossy(&out).into_owned()
+    crate::api::unquote(raw, false)
 }
 
 fn yes(body: &Map<String, Value>) -> bool {
@@ -618,6 +603,13 @@ mod tests {
         assert_eq!(got.status, 1);
         assert_eq!(got.lines.last().map(String::as_str), Some(NO_BACKEND));
         assert!(!format!("{got:?}").contains("xoxb-PLANTED-rb"));
+    }
+
+    #[test]
+    fn one_unquote_keeps_each_callers_plus() {
+        // a query value: `+` is a space; a path segment: `+` stays
+        assert_eq!(crate::api::unquote("a+b%2B%zz", true), "a b+%zz");
+        assert_eq!(crate::api::unquote("a+b%2B%zz", false), "a+b+%zz");
     }
 
     #[test]

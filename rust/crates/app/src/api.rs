@@ -642,12 +642,19 @@ impl Query {
 }
 
 fn decode(text: &str) -> String {
+    unquote(text, true)
+}
+
+/// Percent-decoding with a UTF-8 `unquote` (an escape that is not UTF-8 becomes U+FFFD; `%` not followed by two hex
+/// digits stays as typed). `plus_is_space`: a query value's `+` is a space; a path segment keeps it
+/// (`connector_writes::path_segment`).
+pub(crate) fn unquote(text: &str, plus_is_space: bool) -> String {
     let bytes = text.as_bytes();
     let hex = |b: Option<&u8>| b.and_then(|b| (*b as char).to_digit(16));
     let (mut out, mut i) = (Vec::with_capacity(bytes.len()), 0);
     while i < bytes.len() {
         match bytes[i] {
-            b'+' => out.push(b' '),
+            b'+' if plus_is_space => out.push(b' '),
             b'%' => match (hex(bytes.get(i + 1)), hex(bytes.get(i + 2))) {
                 (Some(high), Some(low)) => {
                     out.push((high * 16 + low) as u8);
