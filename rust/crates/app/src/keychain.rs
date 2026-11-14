@@ -298,8 +298,34 @@ impl FileKeychain {
         }
     }
 
+    /// Owner-only (0600) whatever the umask is, and written to a temporary file in the same folder that is then renamed over
+    /// the keychain file: a second writer or a crash never leaves a half-written file, and a file left world-readable by an
+    /// older build is replaced by a new one. The temporary file is removed when any step fails.
     fn write(&self, map: &Map<String, Value>) -> Result<(), Failed> {
-        std::fs::write(&self.0, Value::Object(map.clone()).to_string()).map_err(|_| Failed)
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let mut name = self.0.as_os_str().to_owned();
+        name.push(format!(
+            ".tmp{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        let tmp = std::path::PathBuf::from(name);
+        let done = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&tmp)
+            .and_then(|mut file| {
+                file.write_all(Value::Object(map.clone()).to_string().as_bytes())?;
+                file.sync_all()
+            })
+            .and_then(|()| std::fs::rename(&tmp, &self.0));
+        if done.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        done.map_err(|_| Failed)
     }
 }
 
@@ -457,6 +483,44 @@ mod tests {
             py_object(&[(s("B"), s("1")), (s("A"), s("2"))]),
             r#"{"B": "1", "A": "2"}"#,
             "pairs keep their order"
+        );
+    }
+
+    /// The debug-only fake keychain holds real-looking secrets in a file: it is created owner-only (0600) whatever the umask
+    /// is, rewritten by a rename (never truncated in place), and leaves no temporary file next to it.
+    #[test]
+    fn the_file_fake_is_owner_only_and_written_by_rename() {
+        use std::os::unix::fs::PermissionsExt;
+        let file = temp("mode");
+        let dir = file.parent().unwrap().to_path_buf();
+        let kc = FileKeychain(file.clone());
+        for round in 0..3 {
+            store(
+                &kc,
+                &format!("slack{round}"),
+                &[s("prog")],
+                &[(s("K"), s("canary-secret"))],
+                &[],
+            )
+            .unwrap();
+            let mode = std::fs::metadata(&file).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "round {round}: mode {mode:o}");
+        }
+        // a stale world-readable file left by an older build is replaced by an owner-only one on the next write
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+        store(&kc, "slack9", &[s("prog")], &[(s("K"), s("v"))], &[]).unwrap();
+        assert_eq!(
+            std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        let names: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["keychain.json".to_string()],
+            "no temporary file is left"
         );
     }
 
