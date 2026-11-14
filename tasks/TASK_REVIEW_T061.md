@@ -41,12 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/parity/test_parity_report.py` (11 tests: AC1 inventory read from Python and a row for every surface, a new surface fails it; AC4 each README item exists and holds its stated words, a rule explains only what it describes, a missing store only when Python made one; AC5 each `differs: new` has Reproduce / Python / Rust / Proposed task; AC6 report and scanner; N1-N3 do not hide a difference). Red first: before `docs/PARITY_T061.md` existed, 5 of 9 tests failed with `docs/PARITY_T061.md does not exist: run parity/run_parity.py first`. Green: `passed: 0 failing` (11 `ok` lines, pasted below). Runner: `rust/parity/run_parity.py` (also a negative control: Rust on a store with one more workspace must be a difference, or the run stops). |
+| Verification command run | ☑ pass | Run from `rust/` of the worktree (the worktree has no venv: the parity venv of the main checkout, `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/rust/parity/.venv/bin/python`, was used): `cargo build` -> `Finished dev profile ... in 0.13s`; `env -u CLAUDE_CONFIG_DIR <venv python> parity/run_parity.py` -> `87 rows, 179 probes -> .../rust/docs/PARITY_T061.md` and `Counts: equal 54, differs README 28, differs new 5, not run 0.`; `<venv python> parity/test_parity_report.py` -> 11 `ok`, `passed: 0 failing`; `cargo test --workspace --no-fail-fast` -> exit 0, 882 passed, 0 failed, 29 ignored (sum of the 70 `test result:` lines; run before the last edit of `run_parity.py`, which changed only `check=False` arguments). |
+| Negative cases hold | ☑ pass | The runner's control probe (Rust on a world with one more workspace) is seen as `new`; unit tests: an exit-code difference, an extra stdout, or a missing-store text with no store made by Python is `new` even when the rule is declared; a changed number stays a difference after N1-N3. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | `cargo test --workspace --no-fail-fast`: exit 0, 882 passed, 0 failed, 29 ignored. No file of `src`, `tests`, `web`, `rust/crates`, `rust/Cargo.toml`, `rust/Cargo.lock` changed: `git status --short -- src tests web rust/crates rust/Cargo.toml rust/Cargo.lock` printed nothing. |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
@@ -61,8 +61,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-14T05:08:46Z, branch `T061` at `8d1792a`, before any implementation commit):
+
+```
+$ date -u +%FT%TZ && ls rust/parity/run_parity.py rust/docs/PARITY_T061.md rust/parity/test_parity_report.py; echo "exit=$?"
+2026-11-14T05:08:46Z
+ls: cannot access 'rust/parity/run_parity.py': No such file or directory
+ls: cannot access 'rust/docs/PARITY_T061.md': No such file or directory
+ls: cannot access 'rust/parity/test_parity_report.py': No such file or directory
+exit=2
+```
+
+Size of the job, read from Python (argparse tree, Starlette route table, FastMCP tool and prompt managers; `create_app(..., static=<a folder>)` so the static mount is listed; HEAD not counted):
+
+```
+cli leaf subcommands: 32        (plus the top-level --version option)
+routes (method,path): 40        (39 API method+path pairs and the "/" static mount)
+mcp tools: 12 prompts: 1
+```
+
+That is 85 surfaces (86 with `--version`) to run on both apps.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
