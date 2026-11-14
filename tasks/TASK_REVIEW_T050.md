@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/tests/connector_writes.rs` (10 tests, incl. fix-round `a_claude_that_cannot_run_removes_no_stored_connector`, `..._no_pre_workspace_item`, `two_writes_at_once_run_one_after_the_other`), `rust/crates/app/tests/launcher.rs` (6), `rust/crates/app/tests/connector_parity.rs` (2; 40 cases, 102 requests, 175 `claude` calls, 14 launcher runs against Python-made goldens), unit tests in `keychain.rs`, `claude_cli.rs`, `connector_writes.rs`, `api.rs`; leak `rust/parity/leak_rust.py`. AC9 (Python-keyring interop) is one `#[ignore]` test, NOT run: unverified |
+| Verification command run | ☑ pass | 2026-11-14, Supervisor, on `1b142db`: `cargo test --workspace --offline --no-fail-fast`: 75 suites ok, 793 passed, 0 failed; `cargo clippy --workspace --offline --all-targets -- -D warnings` exit 0; `cargo fmt --check` exit 0; `env -u CLAUDE_CONFIG_DIR parity/.venv/bin/python parity/leak_rust.py`: `leak check: 0 hits over 42 canaries, 385 surfaces, 1395520 bytes`; `git diff --stat 93aca76..HEAD -- rust/parity/golden-connectors`: empty |
+| Negative cases hold | ☑ pass | `connector_writes.rs`: locked keychain refuses with the fixed text and writes nothing; hostile connector name reaches neither keychain nor `claude`; hostile account folder is only an env value; 413 over 1 MiB and wrong methods 405; every new route guarded; store refusal rolls the keychain item back; a `claude` that cannot run changes no row and no keychain item. `launcher.rs`: refusals are Python's fixed texts, exit 1, never show a secret; no session bus refuses cleanly |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...T050` (28 files, ~10.9k lines; `lane_check`: C3 FITS). Two independent read-only reviewers (security; correctness and tests) read all of `keychain.rs`, `launch.rs`, `claude_cli.rs`, `connector_writes.rs`, `sync_apply.rs`, `legacy.rs`, `writes.rs`, `api.rs`, core `sync.rs`/`workspaces.rs`/`pyjson.rs`, the tests and the oracle generator; golden `cases.json` spot-checked only. Findings before the fix round: P0 0, P1 0, P2 4, P3 8; fix round `5cf3d57..1b142db` closed P2 `entry_exists`, P2 concurrency test, P3 rollback report, P3 duplicate helper. Open and deferred, see the Stage 4 summary: 0600/atomic write of the debug fake keychain (owner call), D-Bus call timeout under the write lock (owner call), delete-before-row order, `kill()` of grandchildren, `claude` call inside a write transaction, `#[path]` double compile, `Cargo.lock` still lists unused `dbus-secret-service`/`dbus`/`libdbus-sys` |
+| Full smoke suite still green (no regression) | ☑ pass | the 793-test workspace run above (no failures; the `ingest_coexist` timing flake did not occur in this run) |
+| **Companion score (easy-verifier)** | ☑ pass (advisory) | `score` scope=`changes` ref=`main` task=T050, change_kind confirmed `feature`: `overall` 41 (4 of 13 dimensions rated: blast-radius 46, requirement-fidelity 33, security 30, test-strategy 55); `change_risk` abstained (`all_metrics_abstained`). Low signal: the `security` 30 comes from lockfile/manifest redaction hits, not from the diff. report: /home/hungnguyenhuu/.claude-hung2/projects/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp-rust/e64d19ef-48c3-4f22-9423-6b479756ddac/tool-results/mcp-easy-verifier-score-1794625164961.txt |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | pure backend task, no UI component |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | pure backend task |
+| **UI: Responsiveness at target viewports** | ☑ N/A | pure backend task |
 
 ---
 
@@ -198,9 +198,22 @@ Stop-rule check: 76 new (in 70..90), every licence permissive, no system library
 `zbus` (feature `tokio`) blocks on a private runtime of its own; every real-backend call now runs on a plain thread
 (`keychain::off_runtime`, unit test `the_real_backend_wrapper_runs_off_any_tokio_runtime`).
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-11-14, `cargo test -p easy-personal-rs --offline --test connector_writes --test launcher --test connector_parity` on `1b142db` (the routes that answered 405/404 before are now served and guarded):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+test every_connector_case_equals_what_python_answered_wrote_and_ran ... ok
+test the_launcher_reads_pythons_items_and_answers_as_launch_main ... ok
+test result: ok. 2 passed; 0 failed
+test every_new_route_is_guarded_and_a_refused_request_changes_nothing ... ok
+test a_body_over_one_mib_is_413_and_the_wrong_methods_are_405 ... ok
+test two_writes_at_once_run_one_after_the_other ... ok
+test a_claude_that_cannot_run_removes_no_stored_connector ... ok
+test result: ok. 10 passed; 0 failed
+test exec_puts_the_secret_in_the_providers_env_never_its_argv_and_forwards_io_and_exit_code ... ok
+test exec_adds_less_than_200_ms ... ok (fake keychain only)
+test result: ok. 6 passed; 0 failed
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: the Rust app can now add, remove, move and alias connectors (secrets in the system keychain), run `connector sync` and legacy adopt through the `claude` CLI, and the `easy-personal-launch` binary starts a provider with its secret in the environment; 40 oracle cases equal what Python answered, wrote and ran.
+
+**WITNESS**: Supervisor session, 2026-11-14: re-ran the workspace tests, clippy, fmt and the leak check on `1b142db` itself, and checked the fix round (4 commits, clean tree, goldens and `writes.rs` unchanged). Not witnessed: the real Secret Service (every test uses the file fake or a missing bus), so keychain interop with Python (AC9) and the launcher's 200 ms limit against the real keychain are unverified. `memory/event-trace/T050.jsonl` was not available.
