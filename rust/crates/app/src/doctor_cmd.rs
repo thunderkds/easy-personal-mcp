@@ -193,7 +193,8 @@ fn doctor() -> Run {
         }
     }
 
-    // legacy.doctor: one note, never a failure (no keychain: the line above already says so)
+    // legacy.doctor: one note (no keychain: the line above already says so). A `claude` that could not run is the one
+    // `FAIL claude` line (printed here if no check above ran it), so it fails the run (exit 1), unlike Python's note
     match legacy::detect(&conn, &*kc, &claude) {
         Ok(detected) if detected.claude_not_run => {
             out.not_run()?;

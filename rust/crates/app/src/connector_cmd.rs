@@ -578,6 +578,18 @@ mod tests {
         assert_ne!(lflag(&slave) & echo, 0);
     }
 
+    /// T066 AC2: the refusal `ask_value` makes of `NO_ECHO` (`hidden::read(..).map_err(refused)`) ends the command with
+    /// exit 2 and the fixed text on stderr, as every refused request does.
+    #[test]
+    fn the_no_echo_refusal_exits_2_with_its_fixed_text() {
+        let stop = crate::cli_cmds::write_stop(super::refused(NO_ECHO));
+        assert_eq!(stop.parts(), (2, Some(NO_ECHO)));
+        assert_eq!(
+            NO_ECHO,
+            "cannot turn off echo on the terminal; nothing was read or written"
+        );
+    }
+
     /// Not a terminal: `None` (the caller takes Python's fallback with its warning).
     #[test]
     fn a_pipe_is_not_a_terminal() {

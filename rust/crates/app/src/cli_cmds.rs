@@ -41,6 +41,12 @@ pub(crate) struct Stop {
 }
 
 impl Stop {
+    /// The exit code and the stderr line (tests).
+    #[cfg(test)]
+    pub(crate) fn parts(&self) -> (u8, Option<&str>) {
+        (self.code, self.line.as_deref())
+    }
+
     /// A refused request (Python's exit 2).
     pub(crate) fn refused(text: impl Into<String>) -> Stop {
         Stop {
@@ -118,7 +124,7 @@ fn rules_stop(error: ScopedRulesError) -> Stop {
     }
 }
 
-fn write_stop(failure: WriteFail) -> Stop {
+pub(crate) fn write_stop(failure: WriteFail) -> Stop {
     let code = match &failure {
         WriteFail::Refused { .. } => 2,
         WriteFail::Store(error) => error.exit_code(),

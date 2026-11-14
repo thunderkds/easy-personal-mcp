@@ -288,8 +288,9 @@ mod tests {
             "group",
             "sleep 30 & echo $! > \"$(dirname \"$0\")/grandchild\"; echo $$ > \"$(dirname \"$0\")/pid\"; wait",
         );
+        // 2 s: the fake writes both files long before the timeout, even on a loaded machine
         let got = fake
-            .claude(Duration::from_millis(500))
+            .claude(Duration::from_secs(2))
             .run(&["mcp", "get", "a"], None);
         assert_eq!((got.code, got.not_run), (127, true));
         for file in ["pid", "grandchild"] {
