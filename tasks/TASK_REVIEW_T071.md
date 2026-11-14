@@ -1,6 +1,6 @@
-# TASK_REVIEW — T[NNN]: [Short Title]
+# TASK_REVIEW — T071: Icon assets
 
-> Sibling of `tasks/TASK_GUIDE_T[NNN].md`. Everything here is **filled by the reviewer at Stage
+> Sibling of `tasks/TASK_GUIDE_T071.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
 > every turn and never fills these two sections.
 >
@@ -61,8 +61,20 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured before any implementation commit, base `042997b`):
+
+```
+2026-11-14T16:13:23Z
+$ ls -R rust/crates/app/icons
+rust/crates/app/icons:
+icon.png
+$ file rust/crates/app/icons/icon.png
+rust/crates/app/icons/icon.png: PNG image data, 32 x 32, 8-bit/color RGBA, non-interlaced
+$ python3 scripts/gen_icons.py
+python3: can't open file '/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T071/scripts/gen_icons.py': [Errno 2] No such file or directory
+exit=2
+$ git status --short rust/crates/app/icons
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
