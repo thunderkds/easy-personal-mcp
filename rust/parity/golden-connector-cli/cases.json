@@ -1,0 +1,7537 @@
+{
+ "cases": [
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "list_no_connectors",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Email\n  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: OAuth client keys file (gcp-oauth.keys.json)\n  sendgrid SendGrid | claude.ai connector: no\n    fields: API key (SG....)\nMessaging\n  slack Slack | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Bot token (xoxb-...)\n  teams Teams | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Tenant ID\n  discord Discord | claude.ai connector: no\n    fields: Bot token\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "list"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "list_configured",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Email\n  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: OAuth client keys file (gcp-oauth.keys.json)\n  sendgrid SendGrid | claude.ai connector: no\n    fields: API key (SG....)\nMessaging\n  slack Slack | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Bot token (xoxb-...)\n  teams Teams | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Tenant ID\n  discord Discord | claude.ai connector: no\n    fields: Bot token\nconfigured (id alias provider workspace)\n  gmail-acme acme-gmail gmail acme\n  slack-acme acme-slack slack acme\n  slack slack slack orphan\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "list"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "list_extra_arg",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: x\n",
+     "stderr_compare": "none",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "list",
+      "x"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "no_action",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "usage: easy-personal connector [-h]\n                               {list,add,remove,sync,move,alias,adopt-legacy} ...\neasy-personal connector: error: the following arguments are required: action\n",
+     "stderr_compare": "none",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_yes",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nconnector c00000001 (acme-slack) added to workspace 'acme'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Email\n  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: OAuth client keys file (gcp-oauth.keys.json)\n  sendgrid SendGrid | claude.ai connector: no\n    fields: API key (SG....)\nMessaging\n  slack Slack | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Bot token (xoxb-...)\n  teams Teams | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Tenant ID\n  discord Discord | claude.ai connector: no\n    fields: Bot token\nconfigured (id alias provider workspace)\n  c00000001 acme-slack slack acme\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\n"
+    },
+    {
+     "args": [
+      "connector",
+      "list"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_ask_yes",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nApply these changes? [y/N] connector c00000001 (acme-slack) added to workspace 'acme'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_ask_no",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nApply these changes? [y/N] aborted; nothing was written.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\nn\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_ask_eof",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nApply these changes? [y/N] \naborted; nothing was written.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_secret_eof",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): easy-personal: input ended at the prompt; nothing was written\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_secret_empty",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "Bot token (xoxb-...) is empty; nothing was written.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"  xoxb-PLANTED-t060-secret-\\u00e9\\u2603 \"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_secret_kept_as_typed",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nconnector c00000001 (acme-slack) added to workspace 'acme'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "  xoxb-PLANTED-t060-secret-é☃ \r\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_secret_no_newline",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nconnector c00000001 (acme-slack) added to workspace 'acme'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "personal-teams",
+      0,
+      "teams",
+      3
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"@softeria/ms-365-mcp-server@0.170.2\", \"--org-mode\"], \"env\": {\"MS365_MCP_TENANT_ID\": \"tenant-\\u00e9 1\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_plain_field",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Tenant ID: will change (Teams):\n  keychain: service easy-personal/c00000001, fields MS365_MCP_TENANT_ID=***\n  store: connector c00000001, alias personal-teams, workspace personal\n  Claude Code: no change now; `easy-personal connector sync` registers it\nApply these changes? [y/N] connector c00000001 (personal-teams) added to workspace 'personal'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "teams",
+      "--workspace",
+      "personal"
+     ],
+     "stdin": "  tenant-é 1  \nyes\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_plain_field_eof",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: input ended at the prompt; nothing was written\n",
+     "stderr_compare": "exact",
+     "stdout": "OAuth client keys file (gcp-oauth.keys.json): "
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "gmail",
+      "--workspace",
+      "personal"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_plain_field_blank",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "OAuth client keys file (gcp-oauth.keys.json): OAuth client keys file (gcp-oauth.keys.json) is empty; nothing was written.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "gmail",
+      "--workspace",
+      "personal",
+      "--yes"
+     ],
+     "stdin": "   \n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "team-chat",
+      1,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_custom_alias",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias team-chat, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nconnector c00000001 (team-chat) added to workspace 'acme'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--alias",
+      "team-chat",
+      "--yes"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_twice",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nconnector c00000001 (acme-slack) added to workspace 'acme'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    },
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "workspace 'acme' already has a slack connector; refusing to add another.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\n"
+    },
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "other\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "add_alias_in_use",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "Warning: Password input may be echoed.\nBot token (xoxb-...): \n",
+     "stderr_compare": "exact",
+     "stdout": "will change (Slack):\n  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***\n  store: connector c00000001, alias acme-slack, workspace acme\n  Claude Code: no change now; `easy-personal connector sync` registers it\nconnector c00000001 (acme-slack) added to workspace 'acme'.\nrun `easy-personal connector sync` to register it in the accounts that picked this workspace.\n"
+    },
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "alias 'acme-slack' is in use by another connector; choose another with --alias.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\n"
+    },
+    {
+     "args": [
+      "connector",
+      "add",
+      "gmail",
+      "--workspace",
+      "personal",
+      "--alias",
+      "acme-slack",
+      "--yes"
+     ],
+     "stdin": "/k\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "launcher": true,
+   "name": "add_no_backend",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "easy-personal: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--yes"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_unknown_provider",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown provider 'nope'; available: discord, gmail, sendgrid, slack, teams\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "nope",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_upper_provider",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown provider 'Slack'; available: discord, gmail, sendgrid, slack, teams\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "Slack",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_unknown_workspace",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown workspace\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "nope"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_orphan",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: connectors are added to a workspace, never to orphan\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "orphan"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_bad_alias",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: alias must match [a-z0-9][a-z0-9_-]{0,63}\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--alias",
+      "Bad Alias"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_long_alias",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: alias must match [a-z0-9][a-z0-9_-]{0,63}\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--alias",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_empty_alias",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: alias must match [a-z0-9][a-z0-9_-]{0,63}\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack",
+      "--workspace",
+      "acme",
+      "--alias",
+      ""
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_no_workspace",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "usage: easy-personal connector add [-h] --workspace WORKSPACE [--alias ALIAS]\n                                   [--yes]\n                                   provider\neasy-personal connector add: error: the following arguments are required: --workspace\n",
+     "stderr_compare": "none",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "slack"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "add_bad_no_provider",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "usage: easy-personal connector add [-h] --workspace WORKSPACE [--alias ALIAS]\n                                   [--yes]\n                                   provider\neasy-personal connector add: error: the following arguments are required: provider\n",
+     "stderr_compare": "none",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "add",
+      "--workspace",
+      "acme"
+     ],
+     "stdin": "xoxb-PLANTED-t060-secret-é☃\ny\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {},
+   "launcher": true,
+   "name": "remove_stored_ask_yes",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\nApply these changes? [y/N] connector slack-acme removed.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Email\n  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: OAuth client keys file (gcp-oauth.keys.json)\n  sendgrid SendGrid | claude.ai connector: no\n    fields: API key (SG....)\nMessaging\n  slack Slack | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Bot token (xoxb-...)\n  teams Teams | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Tenant ID\n  discord Discord | claude.ai connector: no\n    fields: Bot token\nconfigured (id alias provider workspace)\n  gmail-acme acme-gmail gmail acme\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme"
+     ],
+     "stdin": "y\n"
+    },
+    {
+     "args": [
+      "connector",
+      "list"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_stored_ask_no",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\nApply these changes? [y/N] aborted; nothing was removed.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme"
+     ],
+     "stdin": "n\n"
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_stored_ask_eof",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\nApply these changes? [y/N] \naborted; nothing was removed.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [],
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {},
+   "launcher": true,
+   "name": "remove_stored_registered",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\ndone: Claude work: remove acme-slack (exec slack-acme)\nrestart Claude Code in the changed accounts to use the change.\nconnector slack-acme removed.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "remove acme-slack",
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_stored_claude_fails",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\nfailed: Claude work: remove acme-slack (exec slack-acme) (`claude` exit 1); stopped here.\nrun `easy-personal connector sync` again to finish.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_stored_no_claude",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\nthe `claude` CLI is not on PATH; nothing was written. Run these once it is installed:\n  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp remove acme-slack --scope user\nthe connector stays until every account has dropped it; run this again afterwards.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_stored_account_folder_missing",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  Claude work: skipped (folder missing)\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\nan account that holds it can not be changed now; nothing was removed.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "launcher": true,
+   "name": "remove_stored_no_backend",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "easy-personal: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\n",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme, alias acme-slack):\n  keychain: delete service easy-personal/slack-acme\n  store: delete connector slack-acme\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack-acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {},
+   "launcher": true,
+   "name": "remove_pre_workspace_ours",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change: delete keychain service easy-personal/slack; run `claude mcp remove slack --scope user`\nApply these changes? [y/N] aborted; nothing was removed.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change: delete keychain service easy-personal/slack; run `claude mcp remove slack --scope user`\nconnector 'slack' removed.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack"
+     ],
+     "stdin": "n\n"
+    },
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "/usr/bin/some-server",
+      "--serve"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: /usr/bin/some-server\nArgs: --serve\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_pre_workspace_foreign",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "the default Claude account has a 'slack' entry that easy-personal did not create; nothing was removed.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "remove slack",
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_pre_workspace_claude_fails",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change: delete keychain service easy-personal/slack; run `claude mcp remove slack --scope user`\n`claude mcp remove` failed (exit 1); keychain left as it was.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_pre_workspace_no_claude",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "the `claude` CLI is not on PATH; nothing was removed. Run `claude mcp remove slack --scope user` once it is installed.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "remove_absent",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change: delete keychain service easy-personal/discord; no Claude Code entry to remove\nApply these changes? [y/N] connector 'discord' removed.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "discord"
+     ],
+     "stdin": "y\n"
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "launcher": true,
+   "name": "remove_pre_workspace_no_backend",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "easy-personal: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\n",
+     "stderr_compare": "exact",
+     "stdout": "will change: delete keychain service easy-personal/slack; no Claude Code entry to remove\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "slack",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_bad_not_catalog",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown connector; nothing was removed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "github",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_bad_slash",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown connector; nothing was removed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "a/b",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_bad_dots",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown connector; nothing was removed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "..",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_bad_upper",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown connector; nothing was removed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "Slack",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_bad_long",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown connector; nothing was removed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "remove_bad_empty",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown connector; nothing was removed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove",
+      "",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "remove_no_name",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "usage: easy-personal connector remove [-h] [--yes] name\neasy-personal connector remove: error: the following arguments are required: name\n",
+     "stderr_compare": "none",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "remove"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-discord",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-sendgrid",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "old-one",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      1,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      1,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      1,
+      "acme-sendgrid",
+      "sendgrid-acme"
+     ],
+     [
+      1,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      1,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    },
+    "<unset>": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid-acme\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_every_step_kind",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\nApply these changes? [y/N] \naborted; nothing was written.\n"
+    },
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\nApply these changes? [y/N] aborted; nothing was written.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\ndone: Claude default: add acme-discord -> exec discord-acme\ndone: Claude default: add acme-gmail -> exec gmail-acme\ndone: Claude default: add acme-sendgrid -> exec sendgrid-acme\ndone: Claude default: add acme-slack -> exec slack-acme\ndone: Claude default: add acme-teams -> exec teams-acme\ndone: Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\ndone: Claude work: remove old-one (exec slack-personal)\ndone: Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\ndone: Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\ndone: Claude work: add acme-teams -> exec teams-acme (re-add)\ndone: Claude work: record acme-discord -> exec discord-acme (already in Claude Code)\nrestart Claude Code in the changed accounts to use the change.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\nnothing to change.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync"
+     ],
+     "stdin": "n\n"
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-discord",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-sendgrid",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "old-one",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      1,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      1,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      1,
+      "acme-sendgrid",
+      "sendgrid-acme"
+     ],
+     [
+      1,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      1,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    },
+    "<unset>": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid-acme\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_ask_yes",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\nApply these changes? [y/N] done: Claude default: add acme-discord -> exec discord-acme\ndone: Claude default: add acme-gmail -> exec gmail-acme\ndone: Claude default: add acme-sendgrid -> exec sendgrid-acme\ndone: Claude default: add acme-slack -> exec slack-acme\ndone: Claude default: add acme-teams -> exec teams-acme\ndone: Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\ndone: Claude work: remove old-one (exec slack-personal)\ndone: Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\ndone: Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\ndone: Claude work: add acme-teams -> exec teams-acme (re-add)\ndone: Claude work: record acme-discord -> exec discord-acme (already in Claude Code)\nrestart Claude Code in the changed accounts to use the change.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync"
+     ],
+     "stdin": "Y\n"
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-discord",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-sendgrid",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      1,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      1,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      1,
+      "acme-sendgrid",
+      "sendgrid-acme"
+     ],
+     [
+      1,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      1,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "old-one",
+      "slack-personal"
+     ],
+     [
+      2,
+      "old-two",
+      "gmail-personal"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "old-one": "Command: <LAUNCHER>\nArgs: exec slack-personal\n"
+    },
+    "<unset>": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid-acme\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_account_filters",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\ndone: Claude default: add acme-discord -> exec discord-acme\ndone: Claude default: add acme-gmail -> exec gmail-acme\ndone: Claude default: add acme-sendgrid -> exec sendgrid-acme\ndone: Claude default: add acme-slack -> exec slack-acme\ndone: Claude default: add acme-teams -> exec teams-acme\nrestart Claude Code in the changed accounts to use the change.\n"
+    },
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\nApply these changes? [y/N] \naborted; nothing was written.\n"
+    },
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\nApply these changes? [y/N] aborted; nothing was written.\n"
+    },
+    {
+     "code": 2,
+     "stderr": "easy-personal: no such account\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    },
+    {
+     "code": 2,
+     "stderr": "easy-personal: no such account\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    },
+    {
+     "code": 2,
+     "stderr": "easy-personal: no such account\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--account",
+      "1",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--account",
+      "@W@/agent-root/.claude-work"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--account",
+      " 2 "
+     ],
+     "stdin": "n\n"
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--account",
+      "99",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--account",
+      "abc",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--account",
+      "",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-discord",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-sendgrid",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      1,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      1,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      1,
+      "acme-sendgrid",
+      "sendgrid-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "old-one",
+      "slack-personal"
+     ],
+     [
+      2,
+      "old-two",
+      "gmail-personal"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "old-one": "Command: <LAUNCHER>\nArgs: exec slack-personal\n"
+    },
+    "<unset>": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "add-json acme-slack",
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_failing_claude",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\ndone: Claude default: add acme-discord -> exec discord-acme\ndone: Claude default: add acme-gmail -> exec gmail-acme\ndone: Claude default: add acme-sendgrid -> exec sendgrid-acme\nfailed: Claude default: add acme-slack -> exec slack-acme (`claude` exit 1); stopped here.\nrun `easy-personal connector sync` again to finish.\n"
+    },
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\nfailed: Claude default: add acme-slack -> exec slack-acme (`claude` exit 1); stopped here.\nrun `easy-personal connector sync` again to finish.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_no_claude",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove old-one (exec slack-personal)\nClaude work: remove old-two (exec gmail-personal)\nClaude work: add acme-discord -> exec discord-acme\nClaude work: add acme-sendgrid -> exec sendgrid-acme\nthe `claude` CLI is not on PATH; nothing was written. Run these once it is installed:\n  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-discord '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}' --scope user\n  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-gmail '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}' --scope user\n  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-sendgrid '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}' --scope user\n  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-slack '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}' --scope user\n  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-teams '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}' --scope user\n  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp remove old-one --scope user\n  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp remove old-two --scope user\n  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp add-json acme-discord '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}' --scope user\n  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp add-json acme-sendgrid '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}' --scope user\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "old-one",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      2,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    },
+    "<unset>": {}
+   },
+   "dirs": [
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_skipped_account",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: skipped (folder missing)\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\ndone: Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\ndone: Claude work: remove old-one (exec slack-personal)\ndone: Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\ndone: Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\ndone: Claude work: add acme-teams -> exec teams-acme (re-add)\ndone: Claude work: record acme-discord -> exec discord-acme (already in Claude Code)\nrestart Claude Code in the changed accounts to use the change.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_nothing",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "nothing to change.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "nothing to change.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "sync"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "old-one": "Command: <LAUNCHER>\nArgs: exec slack-personal\n"
+    },
+    "<unset>": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": false,
+   "name": "sync_no_launcher",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "easy-personal: cannot find easy-personal-launch; reinstall easy-personal (uv tool install) so it is on disk\n",
+     "stderr_compare": "exact",
+     "stdout": "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClaude default: add acme-teams -> exec teams-acme\nClaude work: remove acme-teams (exec teams-acme) (does not point at the launcher)\nClaude work: remove old-one (exec slack-personal)\nClaude work: forget old-two (exec gmail-personal) (already gone from Claude Code)\nClaude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)\nClaude work: add acme-teams -> exec teams-acme (re-add)\nClaude work: record acme-discord -> exec discord-acme (already in Claude Code)\nClaude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": []
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "sync_ignored_account",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Claude work: remove acme-slack (exec slack-acme)\ndone: Claude work: remove acme-slack (exec slack-acme)\nrestart Claude Code in the changed accounts to use the change.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "UPDATE agent_accounts SET status = 'ignored' WHERE id = 2"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "sync",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [],
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "personal-slack",
+      0,
+      "slack",
+      3
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_ask_yes",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): move to workspace 'personal', alias acme-slack -> personal-slack\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: untouched\nApply these changes? [y/N] done: Claude work: remove acme-slack (exec slack-acme)\nrestart Claude Code in the changed accounts to use the change.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Email\n  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: OAuth client keys file (gcp-oauth.keys.json)\n  sendgrid SendGrid | claude.ai connector: no\n    fields: API key (SG....)\nMessaging\n  slack Slack | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Bot token (xoxb-...)\n  teams Teams | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Tenant ID\n  discord Discord | claude.ai connector: no\n    fields: Bot token\nconfigured (id alias provider workspace)\n  gmail-acme acme-gmail gmail acme\n  slack-acme personal-slack slack personal\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "personal"
+     ],
+     "stdin": "y\n"
+    },
+    {
+     "args": [
+      "connector",
+      "list"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_ask_no",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): move to workspace 'personal', alias acme-slack -> personal-slack\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: untouched\nApply these changes? [y/N] aborted; nothing was changed.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "personal"
+     ],
+     "stdin": "n\n"
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [],
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "acme-slack",
+      0,
+      "slack",
+      1
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_to_orphan_yes",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): move to workspace 'orphan', alias acme-slack -> acme-slack\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: untouched\ndone: Claude work: remove acme-slack (exec slack-acme)\nrestart Claude Code in the changed accounts to use the change.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "orphan",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "personal-slack",
+      0,
+      "slack",
+      3
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "remove acme-slack",
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_claude_fails",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): move to workspace 'personal', alias acme-slack -> personal-slack\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: untouched\nfailed: Claude work: remove acme-slack (exec slack-acme) (`claude` exit 1); stopped here.\nrun `easy-personal connector sync` again to finish.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "personal",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "personal-slack",
+      0,
+      "slack",
+      3
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_no_claude",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): move to workspace 'personal', alias acme-slack -> personal-slack\n  Claude work: remove acme-slack (exec slack-acme)\n  keychain: untouched\nthe `claude` CLI is not on PATH; nothing was written. Run these once it is installed:\n  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp remove acme-slack --scope user\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "personal",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_bad_same",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: the connector is already in this workspace\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_bad_unknown_workspace",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: unknown workspace\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "nope",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_bad_unknown_id",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: no such connector; see `easy-personal connector list`\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "nope",
+      "personal",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_bad_held",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: workspace 'personal' already has a slack connector (slack-personal, alias personal-slack); nothing was changed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "personal",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "move_bad_no_workspace",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "usage: easy-personal connector move [-h] [--yes] id workspace\neasy-personal connector move: error: the following arguments are required: workspace\n",
+     "stderr_compare": "none",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "move",
+      "slack-acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "team-chat"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "team-chat",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "team-chat"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "team-chat",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_custom_then_default",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): alias acme-slack -> team-chat\n  Claude work: remove acme-slack (exec slack-acme)\n  Claude work: add team-chat -> exec slack-acme\n  keychain: untouched\ndone: Claude work: remove acme-slack (exec slack-acme)\ndone: Claude work: add team-chat -> exec slack-acme\nrestart Claude Code in the changed accounts to use the change.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): alias team-chat -> acme-slack\n  Claude work: remove team-chat (exec slack-acme)\n  Claude work: add acme-slack -> exec slack-acme\n  keychain: untouched\nApply these changes? [y/N] done: Claude work: remove team-chat (exec slack-acme)\ndone: Claude work: add acme-slack -> exec slack-acme\nrestart Claude Code in the changed accounts to use the change.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Email\n  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: OAuth client keys file (gcp-oauth.keys.json)\n  sendgrid SendGrid | claude.ai connector: no\n    fields: API key (SG....)\nMessaging\n  slack Slack | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Bot token (xoxb-...)\n  teams Teams | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Tenant ID\n  discord Discord | claude.ai connector: no\n    fields: Bot token\nconfigured (id alias provider workspace)\n  gmail-acme acme-gmail gmail acme\n  slack-acme acme-slack slack acme\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "team-chat",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "--default"
+     ],
+     "stdin": "y\n"
+    },
+    {
+     "args": [
+      "connector",
+      "list"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "team-chat"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_ask_no",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-acme): alias acme-slack -> team-chat\n  Claude work: remove acme-slack (exec slack-acme)\n  Claude work: add team-chat -> exec slack-acme\n  keychain: untouched\nApply these changes? [y/N] \naborted; nothing was changed.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "team-chat"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_both",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: give either a new alias or --default\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "x",
+      "--default",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_neither",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: give either a new alias or --default\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_in_use",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: alias 'acme-gmail' is in use by connector gmail-acme; nothing was changed\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "acme-gmail",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_bad",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: alias for connector slack-acme is too long or has invalid characters; it must match [a-z0-9][a-z0-9_-]{0,63}\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "Bad!",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_long",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: alias for connector slack-acme is too long or has invalid characters; it must match [a-z0-9][a-z0-9_-]{0,63}\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-acme",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_unknown_id",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: no such connector; see `easy-personal connector list`\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "nope",
+      "x",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_orphan_default",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "easy-personal: a connector in orphan has no default alias; move it to a workspace first\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-orphan",
+      "--default",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ],
+     [
+      "slack-orphan",
+      "acme-gmail",
+      1,
+      "slack",
+      1
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "alias_bad_orphan_clash_ok",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "will change (connector slack-orphan): alias slack -> acme-gmail\n  keychain: untouched\nnothing to change.\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "alias",
+      "slack-orphan",
+      "acme-gmail",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "connectors": [
+     [
+      "discord",
+      "discord",
+      0,
+      "discord",
+      1
+     ],
+     [
+      "gmail",
+      "gmail",
+      0,
+      "gmail",
+      1
+     ],
+     [
+      "slack",
+      "slack",
+      0,
+      "slack",
+      1
+     ],
+     [
+      "teams",
+      "teams",
+      0,
+      "teams",
+      1
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {
+     "gmail": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ],
+     "teams": [
+      "@LAUNCHER@",
+      "exec teams"
+     ]
+    },
+    "@W@/agent-root/.claude-work": {
+     "sendgrid": [
+      "@LAUNCHER@",
+      "exec sendgrid"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid\n"
+    },
+    "<unset>": {
+     "gmail": "Command: /usr/bin/some-server\nArgs: --serve\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"D\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"D\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "legacy_adopt",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "pre-workspace connectors found:\n  discord: keychain yes, Claude Code default account no\n  gmail: keychain yes, Claude Code default account no\n  slack: keychain yes, Claude Code default account yes\n  teams: keychain no, Claude Code default account yes (no keychain item: it fails at launch until you add it again)\nwill change:\n  store: adopt discord (id discord, alias discord) into orphan\n  store: adopt gmail (id gmail, alias gmail) into orphan\n  Claude Code (default account): gmail is not an easy-personal entry; left as it is\n  store: adopt slack (id slack, alias slack) into orphan\n  Claude Code (default account): remove slack\n  store: adopt teams (id teams, alias teams) into orphan\n  Claude Code (default account): remove teams\n  keychain: untouched\nApply these changes? [y/N] aborted; nothing was changed.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "pre-workspace connectors found:\n  discord: keychain yes, Claude Code default account no\n  gmail: keychain yes, Claude Code default account no\n  slack: keychain yes, Claude Code default account yes\n  teams: keychain no, Claude Code default account yes (no keychain item: it fails at launch until you add it again)\nwill change:\n  store: adopt discord (id discord, alias discord) into orphan\n  store: adopt gmail (id gmail, alias gmail) into orphan\n  Claude Code (default account): gmail is not an easy-personal entry; left as it is\n  store: adopt slack (id slack, alias slack) into orphan\n  Claude Code (default account): remove slack\n  store: adopt teams (id teams, alias teams) into orphan\n  Claude Code (default account): remove teams\n  keychain: untouched\ndone: discord adopted into orphan.\ndone: gmail adopted into orphan.\ndone: slack adopted into orphan.\ndone: removed slack from Claude Code (default account).\ndone: teams adopted into orphan.\ndone: removed teams from Claude Code (default account).\nassign them to a workspace with `easy-personal connector move <id> <workspace>` when you are ready.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "nothing to adopt: no pre-workspace connector found.\n"
+    },
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "Email\n  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: OAuth client keys file (gcp-oauth.keys.json)\n  sendgrid SendGrid | claude.ai connector: no\n    fields: API key (SG....)\nMessaging\n  slack Slack | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Bot token (xoxb-...)\n  teams Teams | claude.ai connector: yes (https://claude.ai/settings/connectors)\n    fields: Tenant ID\n  discord Discord | claude.ai connector: no\n    fields: Bot token\nconfigured (id alias provider workspace)\n  discord discord discord orphan\n  gmail gmail gmail orphan\n  slack slack slack orphan\n  teams teams teams orphan\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "adopt-legacy"
+     ],
+     "stdin": "n\n"
+    },
+    {
+     "args": [
+      "connector",
+      "adopt-legacy",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "adopt-legacy",
+      "--yes"
+     ],
+     "stdin": ""
+    },
+    {
+     "args": [
+      "connector",
+      "list"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "connectors": [
+     [
+      "discord",
+      "discord",
+      0,
+      "discord",
+      1
+     ],
+     [
+      "gmail",
+      "gmail",
+      0,
+      "gmail",
+      1
+     ],
+     [
+      "slack",
+      "slack",
+      0,
+      "slack",
+      1
+     ],
+     [
+      "teams",
+      "teams",
+      0,
+      "teams",
+      1
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {
+     "gmail": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ],
+     "teams": [
+      "@LAUNCHER@",
+      "exec teams"
+     ]
+    },
+    "@W@/agent-root/.claude-work": {
+     "sendgrid": [
+      "@LAUNCHER@",
+      "exec sendgrid"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid\n"
+    },
+    "<unset>": {
+     "gmail": "Command: /usr/bin/some-server\nArgs: --serve\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"D\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"D\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t060-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "legacy_ask_yes",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "pre-workspace connectors found:\n  discord: keychain yes, Claude Code default account no\n  gmail: keychain yes, Claude Code default account no\n  slack: keychain yes, Claude Code default account yes\n  teams: keychain no, Claude Code default account yes (no keychain item: it fails at launch until you add it again)\nwill change:\n  store: adopt discord (id discord, alias discord) into orphan\n  store: adopt gmail (id gmail, alias gmail) into orphan\n  Claude Code (default account): gmail is not an easy-personal entry; left as it is\n  store: adopt slack (id slack, alias slack) into orphan\n  Claude Code (default account): remove slack\n  store: adopt teams (id teams, alias teams) into orphan\n  Claude Code (default account): remove teams\n  keychain: untouched\nApply these changes? [y/N] done: discord adopted into orphan.\ndone: gmail adopted into orphan.\ndone: slack adopted into orphan.\ndone: removed slack from Claude Code (default account).\ndone: teams adopted into orphan.\ndone: removed teams from Claude Code (default account).\nassign them to a workspace with `easy-personal connector move <id> <workspace>` when you are ready.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "adopt-legacy"
+     ],
+     "stdin": "yes\n"
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "connectors": [
+     [
+      "slack",
+      "slack",
+      0,
+      "slack",
+      1
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "remove slack",
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "legacy_claude_fails",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "pre-workspace connectors found:\n  slack: keychain yes, Claude Code default account yes\nwill change:\n  store: adopt slack (id slack, alias slack) into orphan\n  Claude Code (default account): remove slack\n  keychain: untouched\ndone: slack adopted into orphan.\npending: `claude` could not remove slack (exit 1); the row stays in orphan. Run: CLAUDE_CONFIG_DIR unset: claude mcp remove slack --scope user\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "adopt-legacy",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "launcher": true,
+   "name": "legacy_no_backend",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "easy-personal: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\n",
+     "stderr_compare": "exact",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "adopt-legacy",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "legacy_nothing",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "nothing to adopt: no pre-workspace connector found.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "adopt-legacy",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "slack",
+      "slack",
+      0,
+      "slack",
+      1
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "legacy_no_claude",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "pre-workspace connectors found:\n  slack: keychain yes, Claude Code default account no\nwill change:\n  store: adopt slack (id slack, alias slack) into orphan\n  keychain: untouched\ndone: slack adopted into orphan.\nassign them to a workspace with `easy-personal connector move <id> <workspace>` when you are ready.\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "connector",
+      "adopt-legacy",
+      "--yes"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "doctor_clean",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nok claude: on PATH\nok launcher: <LAUNCHER>\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "doctor_no_claude",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nFAIL claude: not on PATH\nok launcher: <LAUNCHER>\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "launcher": true,
+   "name": "doctor_no_backend",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "FAIL keychain: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\nok claude: on PATH\nok launcher: <LAUNCHER>\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": false,
+   "name": "doctor_no_launcher",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nok claude: on PATH\nFAIL launcher: cannot find easy-personal-launch; reinstall easy-personal (uv tool install) so it is on disk\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "discord": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ],
+     "teams": [
+      "@LAUNCHER@",
+      "exec teams"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "discord": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n",
+     "teams": "Command: <LAUNCHER>\nArgs: exec teams\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "doctor_pre_workspace",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nok claude: on PATH\nok launcher: <LAUNCHER>\nFAIL discord: entry does not point at easy-personal-launch\nFAIL gmail: keychain item present but no Claude Code entry; run connector add\nok slack: entry points at the launcher\nok teams: entry points at the launcher\nFAIL teams: Claude Code entry present but no keychain item\nnote legacy connectors not adopted: discord, gmail, slack, teams; run `easy-personal connector adopt-legacy`\n"
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "/usr/bin/some-server",
+      "--serve"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: /usr/bin/some-server\nArgs: --serve\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "doctor_adopted_skipped",
+   "results": [
+    {
+     "code": 0,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nok claude: on PATH\nok launcher: <LAUNCHER>\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors VALUES ('slack', 'slack', 0, 'slack', 1)"
+   ],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-gmail": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-gmail": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    },
+    "<unset>": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "doctor_registrations",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nok claude: on PATH\nok launcher: <LAUNCHER>\nFAIL gmail-acme: no keychain item; remove and add the connector again\nFAIL Claude default acme-slack: drift: missing from Claude Code; `connector sync` re-adds it\nFAIL Claude work acme-gmail: drift: does not point at easy-personal-launch exec gmail-acme; `connector sync` replaces it\nok Claude work acme-slack: points at the launcher (exec slack-acme)\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO account_registrations VALUES (1, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "doctor_registrations_no_claude",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nFAIL claude: not on PATH\nok launcher: <LAUNCHER>\nFAIL gmail-acme: no keychain item; remove and add the connector again\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/gmail-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/gmail-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "launcher": true,
+   "name": "doctor_account_folder_missing",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "ok keychain: <BACKEND>\nok claude: on PATH\nok launcher: <LAUNCHER>\nFAIL Claude work acme-slack: account folder missing\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "launcher": true,
+   "name": "doctor_stored_no_backend",
+   "results": [
+    {
+     "code": 1,
+     "stderr": "",
+     "stderr_compare": "exact",
+     "stdout": "FAIL keychain: no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext\nok claude: on PATH\nok launcher: <LAUNCHER>\nok Claude work acme-slack: points at the launcher (exec slack-acme)\n"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "steps": [
+    {
+     "args": [
+      "doctor"
+     ],
+     "stdin": ""
+    }
+   ]
+  },
+  {
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "launcher": true,
+   "name": "doctor_extra_arg",
+   "results": [
+    {
+     "code": 2,
+     "stderr": "usage: easy-personal [-h] [--version]\n                     {ping,mcp,ingest,schedule,usage,outliers,workspace,warnings,kit,plan,kit-findings,dashboard,exec,headers,connector,account,doctor,store-check} ...\neasy-personal: error: unrecognized arguments: x\n",
+     "stderr_compare": "none",
+     "stdout": ""
+    }
+   ],
+   "setup": [],
+   "steps": [
+    {
+     "args": [
+      "doctor",
+      "x"
+     ],
+     "stdin": ""
+    }
+   ]
+  }
+ ],
+ "fake_claude": "rust/parity/golden-connectors/fake-claude.sh",
+ "generator": "rust/parity/gen_connector_cli.py",
+ "source_store": "rust/parity/store-rich/store-v11.sqlite"
+}

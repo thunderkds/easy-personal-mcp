@@ -1,0 +1,371 @@
+//! T060: what the Python oracle cannot be asked about `connector ...` (AC2, AC4 and the T050 rule on a `claude` that
+//! cannot run). The world is the oracle's (`connector_world`): a temp store copy, the debug-build fake keychain file and
+//! the fake `claude` that logs its argv. No real keychain, `claude` or account folder is touched.
+//!
+//! - A secret typed at a terminal is not echoed (a pseudo-terminal from util-linux `script`), and reaches the keychain only.
+//! - Ctrl-C at the secret prompt ends with Python's `input ended` text, exit 2, nothing written.
+//! - With no terminal and no stdin, every command that asks answers at once (no hang).
+//! - The secret is never in a `claude` argument, stdout, stderr or the store, through add and sync.
+//! - A `claude` that cannot run (it does not start) is never "no entry": nothing is removed or forgotten.
+//! - A connector name the rules refuse reaches neither the keychain nor `claude`.
+
+mod connector_world;
+
+use connector_world::*;
+use serde_json::{Value, json};
+use std::io::{Read, Write};
+use std::os::unix::process::CommandExt;
+use std::process::{Child, Command, Output, Stdio};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+const SECRET: &str = "xoxb-T060-TYPED-6d1f0c";
+
+unsafe extern "C" {
+    fn setsid() -> i32;
+}
+
+fn world(setup: &[&str], keychain: Value, claude: Value) -> (World, Value) {
+    let case = json!({
+        "name": "t060", "setup": setup, "dirs": ["agent-root/.claude", "agent-root/.claude-work/projects"],
+        "keychain": keychain, "claude": claude, "fail": null,
+    });
+    (World::build(&case), case)
+}
+
+/// The binary with the world's environment and no controlling terminal.
+fn command(w: &World, case: &Value, args: &[&str]) -> Command {
+    let mut cmd = Command::new(SERVE);
+    w.env(&mut cmd, case, "UTC");
+    cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
+    // SAFETY: `setsid` is async-signal-safe; it only detaches the child from this terminal
+    unsafe {
+        cmd.pre_exec(|| {
+            setsid();
+            Ok(())
+        });
+    }
+    cmd
+}
+
+/// Waits at most `secs` for the child; a hang fails the test (the child is killed first).
+fn finish(mut child: Child, secs: u64) -> Output {
+    let deadline = Instant::now() + Duration::from_secs(secs);
+    while child.try_wait().unwrap().is_none() {
+        if Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("the command did not end within {secs} s");
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    child.wait_with_output().unwrap()
+}
+
+fn run(w: &World, case: &Value, args: &[&str], stdin: &str) -> Output {
+    let mut child = command(w, case, args)
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    let _ = input.write_all(stdin.as_bytes());
+    drop(input);
+    finish(child, 30)
+}
+
+fn text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+fn store_text(w: &World) -> String {
+    format!("{:?}", dump(&w.store))
+}
+
+/// util-linux `script` gives the command a pseudo-terminal as its controlling terminal; what the command (and the
+/// terminal's echo) writes there comes out on `script`'s stdout. The secret is typed only once the prompt is shown,
+/// as a person would (input that arrives earlier is flushed by `TCSAFLUSH`, as in Python).
+fn at_a_terminal(w: &World, case: &Value, args: &str, typed: &[u8]) -> (Option<i32>, String) {
+    // `exec`: the command itself is the shell's process, so the terminal's SIGINT reaches only it
+    let line = format!("exec {SERVE} {args}");
+    let mut cmd = Command::new("/usr/bin/script");
+    w.env(&mut cmd, case, "UTC");
+    let mut child = cmd
+        .env("SHELL", "/bin/sh")
+        .args(["-q", "-e", "-c", &line, "/dev/null"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let mut stdout = child.stdout.take().unwrap();
+    let reader = {
+        let seen = Arc::clone(&seen);
+        std::thread::spawn(move || {
+            let mut chunk = [0u8; 4096];
+            while let Ok(n) = stdout.read(&mut chunk) {
+                if n == 0 {
+                    break;
+                }
+                seen.lock().unwrap().extend_from_slice(&chunk[..n]);
+            }
+        })
+    };
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !text(&seen.lock().unwrap()).contains("Bot token (xoxb-...): ") {
+        assert!(
+            Instant::now() < deadline,
+            "no prompt: {:?}",
+            text(&seen.lock().unwrap())
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    std::thread::sleep(Duration::from_millis(200)); // the echo is off before the prompt is written; a margin all the same
+    let mut input = child.stdin.take().unwrap();
+    input.write_all(typed).unwrap();
+    input.flush().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("no end: {:?}", text(&seen.lock().unwrap()));
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    drop(input);
+    reader.join().unwrap();
+    let out = text(&seen.lock().unwrap());
+    (status.code(), out)
+}
+
+#[test]
+fn a_secret_typed_at_a_terminal_is_not_echoed_and_goes_to_the_keychain_only() {
+    let (w, case) = world(&[], json!({}), json!({}));
+    let (code, screen) = at_a_terminal(
+        &w,
+        &case,
+        "connector add slack --workspace acme --yes",
+        format!("{SECRET}\n").as_bytes(),
+    );
+    assert_eq!(code, Some(0), "{screen}");
+    assert!(!screen.contains(SECRET), "echoed: {screen:?}");
+    assert!(
+        !screen.contains("Warning: Password input may be echoed."),
+        "the terminal path has no fallback warning: {screen:?}"
+    );
+    assert!(screen.contains("added to workspace 'acme'"), "{screen:?}");
+    let kept = w.keychain_after().to_string();
+    assert!(
+        kept.contains(SECRET),
+        "the value typed is the keychain's: {kept}"
+    );
+    assert!(!store_text(&w).contains(SECRET));
+}
+
+#[test]
+fn ctrl_c_at_the_secret_prompt_ends_with_pythons_text_and_writes_nothing() {
+    let (w, case) = world(&[], json!({}), json!({}));
+    let before = store_text(&w);
+    // the terminal's interrupt character (^C) sends SIGINT to the command
+    let (code, screen) = at_a_terminal(
+        &w,
+        &case,
+        "connector add slack --workspace acme --yes",
+        b"\x03",
+    );
+    assert_eq!(code, Some(2), "{screen:?}");
+    assert!(
+        screen.contains("easy-personal-rs: input ended at the prompt; nothing was written"),
+        "{screen:?}"
+    );
+    assert_eq!(w.keychain_after(), json!({}));
+    assert_eq!(store_text(&w), before);
+}
+
+#[test]
+fn with_no_terminal_and_no_stdin_every_question_is_answered_at_once() {
+    let acme = [
+        "INSERT INTO connectors VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+        "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+        "INSERT INTO account_workspaces VALUES (1, 2)", // the default account picks `acme`: sync has a step to ask about
+    ];
+    let (w, case) = world(
+        &acme,
+        json!({"easy-personal/slack-acme": "{}"}),
+        json!({"@W@/agent-root/.claude-work": {"acme-slack": ["@LAUNCHER@", "exec slack-acme"]}}),
+    );
+    let before = store_text(&w);
+    for (args, code) in [
+        (
+            &["connector", "add", "slack", "--workspace", "personal"][..],
+            2,
+        ),
+        (
+            &["connector", "add", "teams", "--workspace", "personal"][..],
+            2,
+        ),
+        (&["connector", "remove", "slack-acme"][..], 1),
+        (&["connector", "sync"][..], 1),
+        (&["connector", "move", "slack-acme", "personal"][..], 1),
+        (&["connector", "alias", "slack-acme", "x"][..], 1),
+        (&["connector", "remove", "discord"][..], 1),
+    ] {
+        let started = Instant::now();
+        let child = command(&w, &case, args)
+            .stdin(Stdio::null())
+            .spawn()
+            .unwrap();
+        let out = finish(child, 20);
+        assert_eq!(
+            out.status.code(),
+            Some(code),
+            "{args:?}: {}",
+            text(&out.stderr)
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "{args:?}: {:?}",
+            started.elapsed()
+        );
+    }
+    assert_eq!(store_text(&w), before, "nothing was written");
+    assert_eq!(
+        w.keychain_after(),
+        json!({"easy-personal/slack-acme": "{}"})
+    );
+}
+
+#[test]
+fn the_secret_is_never_in_a_claude_argument_stdout_stderr_or_the_store() {
+    let (w, case) = world(&[], json!({}), json!({}));
+    let added = run(
+        &w,
+        &case,
+        &["connector", "add", "slack", "--workspace", "acme"],
+        &format!("{SECRET}\ny\n"),
+    );
+    assert_eq!(added.status.code(), Some(0), "{}", text(&added.stderr));
+    let synced = run(&w, &case, &["connector", "sync", "--yes"], "");
+    assert_eq!(synced.status.code(), Some(0), "{}", text(&synced.stderr));
+    let log = std::fs::read_to_string(&w.log).unwrap();
+    assert!(
+        log.contains("add-json"),
+        "sync registered the connector: {log}"
+    );
+    for (label, blob) in [
+        ("add stdout", text(&added.stdout)),
+        ("add stderr", text(&added.stderr)),
+        ("sync stdout", text(&synced.stdout)),
+        ("sync stderr", text(&synced.stderr)),
+        ("claude argv", log),
+        ("store", store_text(&w)),
+    ] {
+        assert!(!blob.contains(SECRET), "{label}: {blob}");
+    }
+    assert!(text(&added.stdout).contains("SLACK_MCP_XOXB_TOKEN=***"));
+    assert!(w.keychain_after().to_string().contains(SECRET));
+}
+
+/// T050 rule: a `claude` that cannot run (here it never starts: its interpreter does not exist) is not "no entry".
+#[test]
+fn a_claude_that_cannot_run_removes_and_forgets_nothing() {
+    let acme = [
+        "INSERT INTO connectors VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+        "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+        // registered, no longer wanted: with a `claude` that ran and found nothing, sync would `forget` it
+        "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+        "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    ];
+    let items = json!({"easy-personal/slack": "{}", "easy-personal/slack-acme": "{}"});
+    let (w, case) = world(&acme, items.clone(), json!({}));
+    std::fs::write(
+        w.dir.join("bin/claude"),
+        "#!/nonexistent/t060-interpreter\n",
+    )
+    .unwrap();
+    let before = store_text(&w);
+    let pre = run(&w, &case, &["connector", "remove", "slack", "--yes"], "");
+    assert_eq!(pre.status.code(), Some(1));
+    assert_eq!(
+        text(&pre.stdout),
+        "the `claude` CLI could not run (it did not start or timed out); nothing was removed.\n"
+    );
+    let stored = run(
+        &w,
+        &case,
+        &["connector", "remove", "slack-acme", "--yes"],
+        "",
+    );
+    assert_eq!(stored.status.code(), Some(1), "{}", text(&stored.stdout));
+    assert!(
+        text(&stored.stdout).contains("Claude work: skipped (`claude` could not run)"),
+        "{}",
+        text(&stored.stdout)
+    );
+    let synced = run(&w, &case, &["connector", "sync", "--yes"], "");
+    assert!(
+        text(&synced.stdout).contains("Claude work: skipped (`claude` could not run)"),
+        "{}",
+        text(&synced.stdout)
+    );
+    assert!(!text(&synced.stdout).contains("forget"));
+    assert_eq!(store_text(&w), before, "no row removed or forgotten");
+    assert_eq!(w.keychain_after(), items, "no keychain item removed");
+}
+
+#[test]
+fn a_name_the_rules_refuse_reaches_neither_the_keychain_nor_claude() {
+    let items = json!({"easy-personal/slack": "{}"});
+    let (w, case) = world(
+        &[],
+        items.clone(),
+        json!({"<unset>": {"slack": ["@LAUNCHER@", "exec slack"]}}),
+    );
+    for name in [
+        "a/b",
+        "..",
+        "Slack",
+        &"a".repeat(65),
+        "",
+        "../slack",
+        "slack\0x",
+    ] {
+        if name.contains('\0') {
+            continue; // an argument cannot hold a NUL
+        }
+        let out = run(&w, &case, &["connector", "remove", name, "--yes"], "");
+        assert_eq!(out.status.code(), Some(2), "{name:?}");
+        assert_eq!(
+            text(&out.stderr),
+            "easy-personal-rs: unknown connector; nothing was removed\n"
+        );
+        let out = run(
+            &w,
+            &case,
+            &["connector", "move", name, "personal", "--yes"],
+            "",
+        );
+        assert_eq!(out.status.code(), Some(2), "{name:?}");
+    }
+    assert!(
+        std::fs::read_to_string(&w.log)
+            .unwrap_or_default()
+            .is_empty(),
+        "no claude call"
+    );
+    assert_eq!(w.keychain_after(), items);
+}
+
+/// `account use` ends with a hint naming `connector sync`: that command is here now.
+#[test]
+fn the_sync_command_the_account_hint_names_exists() {
+    let (w, case) = world(&[], json!({}), json!({}));
+    let used = run(&w, &case, &["account", "use", "2", "acme"], "");
+    assert_eq!(used.status.code(), Some(0), "{}", text(&used.stderr));
+    assert!(text(&used.stderr).contains("`easy-personal connector sync`"));
+    let help = run(&w, &case, &["connector", "sync", "--help"], "");
+    assert_eq!(help.status.code(), Some(0));
+    assert!(text(&help.stdout).contains("--account"));
+}

@@ -384,7 +384,7 @@ fn get(conn: &Connection, id: i64, agent_root: &Path) -> Done<Value> {
 }
 
 /// `_find`: the account id for an id (plain digits) or a folder path; 404 `no such account`.
-fn find(conn: &Connection, reference: &str) -> Done<i64> {
+pub fn find(conn: &Connection, reference: &str) -> Done<i64> {
     let reference = py_strip(reference);
     let found: Option<i64> =
         if !reference.is_empty() && reference.bytes().all(|b| b.is_ascii_digit()) {

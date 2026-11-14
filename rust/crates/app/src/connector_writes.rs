@@ -128,12 +128,10 @@ async fn connector_route<P: Send + 'static>(
 
 // ---- add ----
 
-struct Add {
-    entry: catalog::Entry,
-    values: Map<String, Value>,
-    workspace: String,
-    alias: Option<String>,
-    yes: bool,
+pub(crate) struct Add {
+    pub(crate) entry: catalog::Entry,
+    pub(crate) workspace: String,
+    pub(crate) alias: Option<String>,
 }
 
 /// `POST /api/connectors` with `{"provider", "workspace", "values": {ENV: value}, "alias"?, "confirm"?}`.
@@ -178,15 +176,27 @@ pub(crate) async fn connector_add(State(api): State<Api>, req: Request) -> Respo
                 Some(Value::String(alias)) => Some(alias.clone()),
                 Some(_) => return Err(fail(StatusCode::BAD_REQUEST, "alias must be a string")),
             };
-            Ok(Add {
-                entry,
+            Ok((
+                Add {
+                    entry,
+                    workspace,
+                    alias,
+                },
                 values,
-                workspace,
-                alias,
-                yes: yes(body),
-            })
+                yes(body),
+            ))
         },
-        |conn, add, kc, _| add_to_workspace(conn, add, kc).map_err(as_400),
+        |conn, (add, values, yes), kc, _| {
+            // a field the body does not name is empty
+            let mut value = |field: &catalog::Field| {
+                Ok(values
+                    .get(&field.env)
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string())
+            };
+            add_to_workspace(conn, add, kc, &mut value, &mut |_| yes).map_err(as_400)
+        },
     )
     .await
 }
@@ -204,13 +214,21 @@ fn new_id() -> Done<String> {
 
 /// `writer.add_to_workspace`: secrets in keychain `easy-personal/<new id>`, one row in the store. No `claude` call:
 /// `connector sync` registers it in the accounts that picked the workspace (FR-029, FR-033).
-fn add_to_workspace(conn: &Connection, add: Add, kc: &dyn Keychain) -> Done<Outcome> {
+///
+/// `value` gives each catalog field's value in the catalog's order, after every check that needs no value (Python's
+/// `prompt`: the route reads its body, the CLI asks; an error stops here, nothing written). `confirm` gets the plan
+/// lines and answers whether to apply them (the route's `confirm`, the CLI's question); no is the pending answer.
+pub(crate) fn add_to_workspace(
+    conn: &Connection,
+    add: Add,
+    kc: &dyn Keychain,
+    value: &mut dyn FnMut(&catalog::Field) -> Done<String>,
+    confirm: &mut dyn FnMut(&[String]) -> bool,
+) -> Done<Outcome> {
     let Add {
         entry,
-        values,
         workspace,
         alias,
-        yes,
     } = add;
     let ws = workspaces::by_name(conn, &workspace)?;
     let (ws_id, ws_name) = (
@@ -270,7 +288,7 @@ fn add_to_workspace(conn: &Connection, add: Add, kc: &dyn Keychain) -> Done<Outc
     }
     let mut env = Vec::new();
     for field in &entry.fields {
-        let value = values.get(&field.env).and_then(Value::as_str).unwrap_or("");
+        let value = value(field)?;
         if value.is_empty() {
             return outcome(
                 2,
@@ -278,7 +296,7 @@ fn add_to_workspace(conn: &Connection, add: Add, kc: &dyn Keychain) -> Done<Outc
                 false,
             );
         }
-        env.push((field.env.clone(), value.to_string()));
+        env.push((field.env.clone(), value));
     }
     let masked: Vec<String> = entry
         .fields
@@ -294,7 +312,7 @@ fn add_to_workspace(conn: &Connection, add: Add, kc: &dyn Keychain) -> Done<Outc
         format!("  store: connector {connector_id}, alias {alias}, workspace {ws_name}"),
         "  Claude Code: no change now; `easy-personal connector sync` registers it".into(),
     ];
-    if !yes {
+    if !confirm(&lines) {
         return outcome(1, lines, true);
     }
     if let Err(e) = keychain::store(kc, &connector_id, &entry.command, &env, &[]) {
@@ -361,7 +379,7 @@ pub(crate) async fn connector_remove(State(api): State<Api>, req: Request) -> Re
 
 /// `sync.remove_connector`: unregister from every account, then delete the keychain item and the row, only once no
 /// account holds a registration.
-fn remove_connector(
+pub(crate) fn remove_connector(
     conn: &Connection,
     connector_id: &str,
     alias: &str,
@@ -426,7 +444,7 @@ fn remove_connector(
 
 /// `writer.remove`: a pre-workspace connector (a catalog id with no row): its entry in the default account, if it is
 /// ours (it points at the launcher), and its keychain item.
-fn remove_pre_workspace(
+pub(crate) fn remove_pre_workspace(
     name: &str,
     yes: bool,
     kc: &dyn Keychain,
@@ -587,17 +605,16 @@ mod tests {
         .unwrap();
         let add = Add {
             entry: catalog::parse_bytes("slack", catalog::file("slack").unwrap()).unwrap(),
-            values: [(
-                "SLACK_MCP_XOXB_TOKEN".to_string(),
-                Value::from("xoxb-PLANTED-rb"),
-            )]
-            .into_iter()
-            .collect(),
             workspace: "acme".into(),
             alias: None,
-            yes: true,
         };
-        let got = add_to_workspace(&conn, add, &NoDelete);
+        let got = add_to_workspace(
+            &conn,
+            add,
+            &NoDelete,
+            &mut |_| Ok("xoxb-PLANTED-rb".into()),
+            &mut |_| true,
+        );
         let _ = std::fs::remove_dir_all(&dir);
         let got = got.expect("a failed rollback is an answer, not a store error");
         assert_eq!(got.status, 1);

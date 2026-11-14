@@ -6,9 +6,11 @@ use std::process::ExitCode;
 mod api;
 mod claude_cli;
 mod cli_cmds;
+mod connector_cmd;
 mod connector_writes;
 #[cfg(any(feature = "window", test))]
 mod display;
+mod doctor_cmd;
 mod ingest_cmd;
 mod keychain;
 mod legacy;
@@ -95,6 +97,13 @@ enum Command {
         #[command(subcommand)]
         action: cli_cmds::AccountAction,
     },
+    /// Add, remove, move, rename and sync provider connectors (secrets in the keychain; Claude Code entries through `claude`)
+    Connector {
+        #[command(subcommand)]
+        action: connector_cmd::ConnectorAction,
+    },
+    /// Check the keychain, the `claude` CLI, the launcher and each connector entry (reads only; exit 1 on a FAIL line)
+    Doctor,
     /// Serve the MCP tools over stdio (JSON-RPC on stdout, nothing else) or over loopback HTTP (`--transport http`)
     Mcp(mcp::Args),
     /// Open the dashboard in a window (needs a build with `--features window` and a display)
@@ -169,5 +178,7 @@ fn main() -> ExitCode {
         Command::KitFindings(args) => cli_cmds::kit_findings(args),
         Command::Workspace { action } => cli_cmds::workspace(action),
         Command::Account { action } => cli_cmds::account(action),
+        Command::Connector { action } => connector_cmd::run(action),
+        Command::Doctor => doctor_cmd::run(),
     }
 }
