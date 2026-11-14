@@ -44,7 +44,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/StatusChips.test.jsx` (24 new tests; AC 1-3 incl. one-stream test against `<App/>`) |
 | Verification command run | ☑ pass | Supervisor re-run 2026-11-14: `Test Files  25 passed (25)`, `Tests  810 passed (810)`; `npm run build` `✓ built in 243ms` — pass |
 | Negative cases hold | ☑ pass | 0 sessions → grey `0 active`, no waiting chip; no limits → `5h no data`; health fail → `ingest no data`; stale limits = no data — pass |
-| verify | ☐ pass / ☐ fail / ☐ N/A | not run yet: Stage 5 `/verify` before merge |
+| verify | ☑ pass | Supervisor 2026-11-14: `npm run build` of this branch served by `easy-personal-rs serve --no-ingest` (main build, web-only change) on a copy of `rust/parity/store-v11.sqlite`, headless Chrome over CDP; usage-1440.png: chips `0 active`, `ingest 303d ago`, `5h no data` from the real routes (store/health 200, first-run 200, accounts 200, live snapshot loaded); scrollWidth 1440; server stopped by PID. Rust CLI/MCP steps not run: no Rust change in this branch — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | diff + direct callers only, see Stage 4 section |
 | Full smoke suite still green (no regression) | ☑ pass | full web suite above — pass |
 | **Companion score (easy-verifier)** | ☑ N/A | advisory run: overall 69, change_risk 0 (needs_input not answered: change_kind, test_pairs); no report path written |
