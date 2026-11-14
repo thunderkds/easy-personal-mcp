@@ -61,8 +61,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-14T15:47Z..15:49Z, before any T067 implementation commit (the runner code in the T067 worktree is byte-identical to `main` at `7f901f8`, checked with `cmp`; the SIGTERM runs used the main checkout's runner and binary).
+
+1. Committed report, `rust/docs/PARITY_T061.md` line 5:
+```
+Counts: equal 25 + equal except JSON key order 29, differs README 26, differs new 7, not run 0.
+```
+2. `/api/live` charset, `run_parity.py --only 'route: GET /api/live / first-event'` (2026-11-14T15:47:13Z):
+```
+NEW    route: GET /api/live / first-event [UTC]
+  step 0 /type
+     py: "text/event-stream; charset=utf-8"
+     rs: "text/event-stream"
+```
+3. SIGTERM to the runner while a server child is up (scratch driver `sigprobe.py`: start `run_parity.py --only 'cli: mcp / http-handshake-and-ping'`, send the signal when the runner has a child, wait 1.5 s, look for what is left):
+```
+$ python3 sigprobe.py <main>/rust TERM 'cli: mcp / http-handshake-and-ping' mcp     # 2026-11-14T15:48:35Z
+descendants of the runner before the signal:
+  66066 .../rust/parity/.venv/bin/python -c import sys; from easy_personal. ...
+runner exit code: -15
+after TERM: started children still alive: 1
+  66066 .../rust/parity/.venv/bin/python -c import sys; from easy_personal. ...
+new world folders left in /tmp: ['/tmp/parity-world-zdp95vhx']
+```
+SIGHUP (2026-11-14T15:48:41Z): `runner exit code: -1`, `started children still alive: 1` (pid 66101), `new world folders left in /tmp: ['/tmp/parity-world-b7y5ciwu']`. (The driver killed those PIDs and removed the folders afterwards; only PIDs it saw were killed.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
