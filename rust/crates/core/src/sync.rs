@@ -42,12 +42,18 @@ impl From<rusqlite::Error> for SyncError {
 type Result<T> = std::result::Result<T, SyncError>;
 
 /// What a `claude` call answered: its exit code (Python's 127 when it could not run or ran past its timeout) and what
-/// it printed on stdout (capped by the runner). Its stderr is not kept.
+/// it printed on stdout (capped by the runner). Its stderr is not kept. `not_run` is the runner's own signal that the
+/// call did not start or was killed at its timeout (an exit code of 127 alone does not say so).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ran {
     pub code: i32,
     pub stdout: String,
+    pub not_run: bool,
 }
+
+/// `claude mcp get` could not run: the answer is unknown, never "no entry" (Python takes it as no entry).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NotRun;
 
 /// The `claude` CLI as `writer.py` runs it.
 pub trait Claude {
@@ -71,6 +77,7 @@ impl Claude for NoClaude {
         Ran {
             code: 127,
             stdout: String::new(),
+            not_run: true,
         }
     }
     fn launcher(&self) -> std::result::Result<String, String> {
@@ -89,10 +96,18 @@ pub fn add_json(connector_id: &str, launcher: &str) -> String {
     )
 }
 
-/// `_entry_exists`: `claude mcp get <name>`'s answer when it exits 0.
-pub fn entry_exists(claude: &dyn Claude, name: &str, config_dir_env: Option<&str>) -> Option<Ran> {
+/// `_entry_exists`: `claude mcp get <name>`'s answer when it exits 0, `None` when it exits non-zero, [`NotRun`] when
+/// it could not run.
+pub fn entry_exists(
+    claude: &dyn Claude,
+    name: &str,
+    config_dir_env: Option<&str>,
+) -> std::result::Result<Option<Ran>, NotRun> {
     let got = claude.run(&["mcp", "get", name], config_dir_env);
-    (got.code == 0).then_some(got)
+    if got.not_run {
+        return Err(NotRun);
+    }
+    Ok((got.code == 0).then_some(got))
 }
 
 /// `entry_target`: `(command, args)` from the first `Command:` and `Args:` lines (for our own checks, never shown).
@@ -377,60 +392,67 @@ pub fn plan(
         if has_claude {
             entry_exists(claude, alias, cde)
         } else {
-            None
+            Ok(None)
         }
     };
-    // removals before additions, so a re-used alias is free when it is added
-    let (mut first, mut then) = (Vec::new(), Vec::new());
-    for (alias, connector) in &registered {
-        if desired.get(alias) == Some(connector) {
-            if !has_claude {
-                continue;
-            }
-            match get(alias) {
-                None => then.push(step(
-                    Action::Add,
-                    alias,
-                    connector,
-                    "missing from Claude Code: re-add",
-                )),
-                Some(got) if !points_at_launcher(&got, connector) => {
-                    first.push(step(
-                        Action::Remove,
+    let steps = (|| -> std::result::Result<Vec<Step>, NotRun> {
+        // removals before additions, so a re-used alias is free when it is added
+        let (mut first, mut then) = (Vec::new(), Vec::new());
+        for (alias, connector) in &registered {
+            if desired.get(alias) == Some(connector) {
+                if !has_claude {
+                    continue;
+                }
+                match get(alias)? {
+                    None => then.push(step(
+                        Action::Add,
                         alias,
                         connector,
-                        "does not point at the launcher",
-                    ));
-                    then.push(step(Action::Add, alias, connector, "re-add"));
+                        "missing from Claude Code: re-add",
+                    )),
+                    Some(got) if !points_at_launcher(&got, connector) => {
+                        first.push(step(
+                            Action::Remove,
+                            alias,
+                            connector,
+                            "does not point at the launcher",
+                        ));
+                        then.push(step(Action::Add, alias, connector, "re-add"));
+                    }
+                    Some(_) => {}
                 }
-                Some(_) => {}
+            } else if has_claude && get(alias)?.is_none() {
+                first.push(step(Action::Forget, alias, connector, ""));
+            } else {
+                first.push(step(Action::Remove, alias, connector, ""));
             }
-        } else if has_claude && get(alias).is_none() {
-            first.push(step(Action::Forget, alias, connector, ""));
-        } else {
-            first.push(step(Action::Remove, alias, connector, ""));
         }
-    }
-    for (alias, connector) in &desired {
-        if registered.get(alias) == Some(connector) {
-            continue;
-        }
-        // a registered alias is ours: it was removed above
-        let got = if registered.contains_key(alias) {
-            None
-        } else {
-            get(alias)
-        };
-        then.push(match got {
-            None => step(Action::Add, alias, connector, ""),
-            Some(got) if points_at_launcher(&got, connector) => {
-                step(Action::Record, alias, connector, "")
+        for (alias, connector) in &desired {
+            if registered.get(alias) == Some(connector) {
+                continue;
             }
-            Some(_) => step(Action::Refused, alias, connector, ""),
-        });
-    }
-    first.extend(then);
-    Ok(first)
+            // a registered alias is ours: it was removed above
+            let got = if registered.contains_key(alias) {
+                None
+            } else {
+                get(alias)?
+            };
+            then.push(match got {
+                None => step(Action::Add, alias, connector, ""),
+                Some(got) if points_at_launcher(&got, connector) => {
+                    step(Action::Record, alias, connector, "")
+                }
+                Some(_) => step(Action::Refused, alias, connector, ""),
+            });
+        }
+        first.extend(then);
+        Ok(first)
+    })();
+    // `claude` could not run: this account is not changed now (Python would take every entry as absent)
+    Ok(
+        steps
+            .unwrap_or_else(|NotRun| vec![step(Action::Skipped, "", "", "`claude` could not run")]),
+    )
 }
 
 /// `_snippet`: the `claude` command an owner runs by hand when `claude` is not on `PATH`.
@@ -535,6 +557,7 @@ mod tests {
         let got = |out: &str| Ran {
             code: 0,
             stdout: out.into(),
+            not_run: false,
         };
         let ours = "slack:\n  Scope: User config\n  Type: stdio\n  Command: /x/easy-personal-launch\n  Args: exec slack\n";
         assert!(points_at_launcher(&got(ours), "slack"));

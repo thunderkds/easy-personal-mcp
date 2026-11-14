@@ -454,7 +454,12 @@ fn remove_pre_workspace(
         );
         return outcome(0, vec![line], false);
     }
-    let got = sync::entry_exists(claude, name, None);
+    let Ok(got) = sync::entry_exists(claude, name, None) else {
+        // not "no entry": the default account's entry may still point at the launcher
+        let line =
+            "the `claude` CLI could not run (it did not start or timed out); nothing was removed.";
+        return outcome(1, vec![line.into()], false);
+    };
     if got
         .as_ref()
         .is_some_and(|got| !sync::points_at_launcher(got, name))

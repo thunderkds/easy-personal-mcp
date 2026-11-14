@@ -52,7 +52,8 @@ fn detect(
     let check = |name: &'static str| -> Result<Option<Legacy>, LaunchError> {
         let in_keychain = keychain::has_item(kc, name)?;
         let got = if has_claude {
-            sync::entry_exists(claude, name, None)
+            // could not run: taken as no entry, as Python does (the status only reads)
+            sync::entry_exists(claude, name, None).unwrap_or(None)
         } else {
             None
         };

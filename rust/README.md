@@ -954,6 +954,11 @@ must map field names to strings`, `unknown connector`, `account must be an accou
 10. The account folder in an account row is used as it is (no "outside its root" or symlink refusal): Python refuses neither. It only ever
     reaches `claude` as the value of `CLAUDE_CONFIG_DIR` (a test proves a folder named with `$(...)` and backticks runs nothing).
 11. (Superseded by the Supervisor, 2026-11-13: the feature set is now `async-secret-service` + `tokio`; no `libdbus-1` link.)
+12. **A `claude` that could not run is not "no entry".** When `claude mcp get` does not start or is killed at its 60 s timeout, Python
+    takes the entry as absent (its plan then `forget`s the registration, and its pre-workspace remove deletes the keychain item). Rust
+    changes nothing for that account: the plan step is ``skipped (`claude` could not run)``, and the pre-workspace remove answers status 1,
+    ``the `claude` CLI could not run (it did not start or timed out); nothing was removed.`` A `claude` that ran and exited non-zero
+    (127 included) is still "no entry", as in Python.
 
 Not built (cut list): the `connector ...` and `doctor` CLI commands (T060), macOS and Windows keychains, retries, a new catalog entry,
 `configured` in `GET /api/connectors` (T046 read side unchanged).

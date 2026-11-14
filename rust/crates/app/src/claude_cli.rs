@@ -66,6 +66,7 @@ impl Claude for SystemClaude {
         let not_run = Ran {
             code: NOT_RUN,
             stdout: String::new(),
+            not_run: true,
         };
         let Some(exe) = self.which("claude") else {
             return not_run;
@@ -128,6 +129,7 @@ fn finish(mut child: Child, timeout: Duration) -> Ran {
         return Ran {
             code: NOT_RUN,
             stdout: String::new(),
+            not_run: true,
         };
     };
     // Python's `returncode`: the exit code, or minus the signal that ended it
@@ -139,6 +141,7 @@ fn finish(mut child: Child, timeout: Duration) -> Ran {
     Ran {
         code,
         stdout: String::from_utf8_lossy(&stdout).into_owned(),
+        not_run: false,
     }
 }
 
@@ -249,7 +252,8 @@ mod tests {
             got,
             Ran {
                 code: 127,
-                stdout: String::new()
+                stdout: String::new(),
+                not_run: true
             }
         );
         assert!(
@@ -262,6 +266,23 @@ mod tests {
             !Path::new(&format!("/proc/{}", pid.trim())).exists(),
             "the process is gone"
         );
+    }
+
+    #[test]
+    fn could_not_run_is_the_runners_own_signal_never_the_exit_code() {
+        // a `claude` that exits 127 itself did run
+        let fake = Fake::new("exit127", "exit 127");
+        let got = fake.claude(TIMEOUT).run(&["mcp", "get", "a"], None);
+        assert_eq!((got.code, got.not_run), (127, false));
+        // a spawn that fails (missing interpreter) and a timeout did not
+        std::fs::write(fake.dir.join("bin/claude"), "#!/nonexistent/t050\n").unwrap();
+        let got = fake.claude(TIMEOUT).run(&["mcp", "get", "a"], None);
+        assert_eq!((got.code, got.not_run), (127, true));
+        let slow = Fake::new("slow2", "exec sleep 30");
+        let got = slow
+            .claude(Duration::from_millis(200))
+            .run(&["mcp", "get", "a"], None);
+        assert_eq!((got.code, got.not_run), (127, true));
     }
 
     #[test]

@@ -463,6 +463,82 @@ fn two_adds_at_once_store_one_connector_and_one_item() {
     assert_eq!(rows, 1);
 }
 
+/// A `claude` on `PATH` that cannot start (its interpreter is missing: the spawn itself fails, as a timeout would end it).
+fn claude_that_cannot_run(world: &World) {
+    use std::os::unix::fs::PermissionsExt;
+    let exe = world.dir.join("bin/claude");
+    std::fs::write(&exe, "#!/nonexistent/t050-no-interpreter\n").unwrap();
+    std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+const CLAUDE_NOT_RUN: &str =
+    "the `claude` CLI could not run (it did not start or timed out); nothing was removed.";
+
+/// "Could not run" is not "no entry": removing a stored connector keeps its row, its registration and its keychain item
+/// (else the plan would `forget` the registration and delete the item while the Claude entry stays).
+#[test]
+fn a_claude_that_cannot_run_removes_no_stored_connector() {
+    let world = World::new(&ACME);
+    let items = json!({"easy-personal/slack-acme": "{}"}).to_string();
+    std::fs::write(world.keychain(), &items).unwrap();
+    claude_that_cannot_run(&world);
+    let store = world.store_bytes();
+    let server = world.serve(&[]);
+    let got = server.json(
+        "DELETE",
+        "/api/connectors/slack-acme",
+        &json!({"confirm": true}),
+    );
+    assert_eq!(got.status, 200, "{}", got.body);
+    let body = got.json();
+    assert_eq!(body["status"], 1, "{body}");
+    assert!(
+        body["lines"]
+            .to_string()
+            .contains("skipped (`claude` could not run)"),
+        "{body}"
+    );
+    server.stop();
+    assert_eq!(std::fs::read_to_string(world.keychain()).unwrap(), items);
+    assert_eq!(world.store_bytes(), store, "the store was written");
+    // and the sync plan does not `forget` it either
+    let server = world.serve(&[]);
+    let got = server.json("POST", "/api/sync", &json!({"account": 2, "confirm": true}));
+    assert!(
+        got.json()["lines"]
+            .to_string()
+            .contains("skipped (`claude` could not run)"),
+        "{}",
+        got.body
+    );
+    server.stop();
+    assert_eq!(world.store_bytes(), store, "the store was written");
+    assert_eq!(std::fs::read_to_string(world.keychain()).unwrap(), items);
+}
+
+/// The pre-workspace remove: when `claude mcp get` could not run, the keychain item stays (the default account's entry
+/// may still point at the launcher).
+#[test]
+fn a_claude_that_cannot_run_removes_no_pre_workspace_item() {
+    let world = World::new(&[]);
+    let items = json!({"easy-personal/slack": "{}"}).to_string();
+    std::fs::write(world.keychain(), &items).unwrap();
+    claude_that_cannot_run(&world);
+    let store = world.store_bytes();
+    let server = world.serve(&[]);
+    let got = server.json("DELETE", "/api/connectors/slack", &json!({"confirm": true}));
+    assert_eq!(
+        (got.status, got.json()),
+        (
+            200,
+            json!({"status": 1, "lines": [CLAUDE_NOT_RUN], "pending": false})
+        )
+    );
+    server.stop();
+    assert_eq!(std::fs::read_to_string(world.keychain()).unwrap(), items);
+    assert_eq!(world.store_bytes(), store);
+}
+
 /// The account folder comes from the store row, never from the request, and reaches `claude` only as the value of
 /// `CLAUDE_CONFIG_DIR` (no shell: the text is never run). Python passes it the same way and refuses nothing.
 #[test]
