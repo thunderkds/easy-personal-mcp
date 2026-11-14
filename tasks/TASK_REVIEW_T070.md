@@ -61,8 +61,24 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-14T17:18Z, branch `T070` at main `ea872f7`, before any implementation commit):
+
+Command `cd web && npm test 2>&1 | tail -5 && npm run build 2>&1 | tail -3`, then `npm test | grep -E "Test Files|Tests "`:
+
+```
+../src/easy_personal/dashboard/static/assets/index-DdvNImUp.js   345.52 kB │ gzip: 103.67 kB
+✓ built in 197ms
+ Test Files  25 passed (25)
+      Tests  828 passed (828)
+```
+
+BEFORE screenshots, 1440 px, built page served by a fixture server (canned JSON from `web/src/test/fixtures.js`; the
+`store-v11.sqlite` store has no usage data, so Usage there reads 0 everywhere):
+`tasks/evidence-T070/before-usage-1440.png`, `before-warnings-1440.png`, `before-kit-1440.png`,
+`before-workspaces-1440.png`, `before-agents-1440.png`.
+What is absent before: no "Not measured is not the same as passed." note on Warnings; Agents `.claude-old` (missing) card shows
+"last active never / Tokens: 0 today / Plan limits: add the status-line snippet"; `--color-red: #ef7b7b`; First run CSS has raw
+`12.5px` / `13.5px`; Kit "easy-ui checks (overall)" is a plain list; Workspaces connector banner stacks Adopt under the text.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
