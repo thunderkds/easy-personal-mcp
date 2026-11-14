@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { readToken } from './api.js'
 import Cost from './Cost.jsx'
 import { ago, compact, fmt } from './format.js'
@@ -41,7 +41,10 @@ function fromSnapshot(s, old) {
 const STATE_ORDER = ['failing', 'waiting', 'needs_attention'] // the first one of a session names its border
 
 /** A session's states, failing first. Unknown state names are left out. */
-const statesOf = (s) => STATE_ORDER.flatMap((state) => s.attention.filter((a) => a.state === state))
+export const statesOf = (s) => STATE_ORDER.flatMap((state) => s.attention.filter((a) => a.state === state))
+
+/** A session with no state that wrote nothing for the active window is idle; a session with a state is never idle. */
+export const isIdle = (s, now, windowS) => statesOf(s).length === 0 && now - Date.parse(s.last_ts) > windowS * 1000
 
 /** The words of one state. `tool: null` means the server could not name one (mixed or unknown tools). */
 function pillText(a) {
@@ -226,7 +229,7 @@ function Bar({ label, text, ratio }) {
 const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, tokensPct, costPct, callsPct }) {
   const button = useRef(null)
   const states = statesOf(s)
-  const idle = states.length === 0 && now - Date.parse(s.last_ts) > windowS * 1000 // a session with a state is never idle
+  const idle = isIdle(s, now, windowS)
   const tokens = s.tokens_in + s.tokens_out
   const unknown = s.unpriced && s.cost === 0
   const regionId = `live-feed-${s.session_id}`
@@ -297,7 +300,9 @@ const STATUS = {
 function useLive(attempt) {
   const [state, dispatch] = useReducer(reduce, EMPTY)
   const [link, setLink] = useState('connecting')
+  const [loaded, setLoaded] = useState(false) // true once a snapshot has arrived: before that the counts are unknown, not 0
   useEffect(() => {
+    if (typeof EventSource === 'undefined') return // no stream in this browser: the page keeps the "connecting" state
     setLink('connecting')
     const source = new EventSource(`/api/live?token=${encodeURIComponent(readToken())}`)
     let queue = []
@@ -325,6 +330,7 @@ function useLive(attempt) {
       if (!data) return
       flush()
       dispatch({ type: 'snapshot', data })
+      setLoaded(true)
     })
     source.addEventListener('live', (event) => {
       const data = parse(event)
@@ -337,13 +343,36 @@ function useLive(attempt) {
       source.close()
     }
   }, [attempt])
-  return [state, link]
+  return [state, link, loaded]
 }
 
-/** `// work` › Live: active Claude Code sessions as rows with three bars; one open session shows its tool feed under its row. Metadata only. */
+/** The page's one stream, when App holds it: `{ state, link, loaded, reconnect }`. Null outside a LiveProvider. */
+export const LiveContext = createContext(null)
+
+/** Opens the one EventSource on /api/live for the whole page, so the top bar chips and the Live view read the same stream (T068). */
+export function LiveProvider({ children }) {
+  const [attempt, setAttempt] = useState(0)
+  const [state, link, loaded] = useLive(attempt)
+  const reconnect = useCallback(() => setAttempt((n) => n + 1), [])
+  const value = useMemo(() => ({ state, link, loaded, reconnect }), [state, link, loaded, reconnect])
+  return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>
+}
+
+/** `// work` › Live: active Claude Code sessions as rows with three bars; one open session shows its tool feed under its row. Metadata only.
+ * Inside a LiveProvider it shows the page's stream; alone it opens its own. */
 export default function LiveView() {
+  const shared = useContext(LiveContext)
+  return shared ? <Live {...shared} /> : <OwnStream />
+}
+
+function OwnStream() {
   const [attempt, setAttempt] = useState(0)
   const [state, link] = useLive(attempt)
+  const reconnect = useCallback(() => setAttempt((n) => n + 1), [])
+  return <Live state={state} link={link} reconnect={reconnect} />
+}
+
+function Live({ state, link, reconnect }) {
   const [now, setNow] = useState(Date.now())
   const [openId, setOpenId] = useState(null) // not kept across a reload
   useEffect(() => {
@@ -373,7 +402,7 @@ export default function LiveView() {
       <div className="live-status">
         <p role="status">{STATUS[link]}</p>
         {link === 'closed' && (
-          <button type="button" onClick={() => setAttempt((n) => n + 1)}>
+          <button type="button" onClick={reconnect}>
             Reconnect
           </button>
         )}

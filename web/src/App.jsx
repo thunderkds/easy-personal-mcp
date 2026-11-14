@@ -5,11 +5,12 @@ import BoardView from './BoardView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
 import KitView from './KitView.jsx'
-import LiveView from './LiveView.jsx'
+import LiveView, { LiveProvider } from './LiveView.jsx'
 import Loading from './Loading.jsx'
 import MemoryView from './MemoryView.jsx'
 import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
+import StatusChips from './StatusChips.jsx'
 import { ToastProvider } from './Toast.jsx'
 import UsageView from './UsageView.jsx'
 import WarningsPlanView from './WarningsPlanView.jsx'
@@ -93,11 +94,13 @@ function validScope(scope, options) {
   }
 }
 
-/** The page: one toast host above everything (`useNotify()` in any view), then the shell. */
+/** The page: one toast host above everything (`useNotify()` in any view), the one live stream (top bar chips and Live view), then the shell. */
 export default function App() {
   return (
     <ToastProvider>
-      <Shell />
+      <LiveProvider>
+        <Shell />
+      </LiveProvider>
     </ToastProvider>
   )
 }
@@ -115,6 +118,7 @@ function Shell() {
   const [options, setOptions] = useState(undefined)
   const [closed, setClosed] = useState({}) // group id -> collapsed
   const [firstRun, setFirstRun] = useState(undefined) // checklist steps; null when the request failed
+  const [health, setHealth] = useState(undefined) // GET /api/store/health for the ingest chip; null when the request failed
 
   useEffect(() => {
     let current = true
@@ -139,6 +143,18 @@ function Shell() {
     }
   }, [active])
 
+  // The store check (cheap form) is read on start and again on every view change, like the checklist.
+  useEffect(() => {
+    let current = true
+    getJson('/api/store/health').then(
+      (data) => current && setHealth(data),
+      () => current && setHealth(null),
+    )
+    return () => {
+      current = false
+    }
+  }, [active])
+
   // After Agents changes an account: read the options again. A failed reload keeps the old ones.
   const reloadOptions = useCallback(() => {
     loadOptions().then(setOptions, () => {})
@@ -151,6 +167,7 @@ function Shell() {
   }
   const { label, View, scoped } = TABS.find((t) => t.id === active)
   const left = stepsLeft(firstRun)
+  const scopeText = scoped && options ? `scope: ${scopeNames(scope, options).join(' · ')}` : null
   return (
     <div className="shell">
       <aside id="sidebar" className="sidebar" data-open={menuOpen}>
@@ -216,7 +233,12 @@ function Shell() {
             </svg>
           </button>
           <p className="topbar-title">{label}</p>
-          {scoped && options && <p className="topbar-scope">scope: {scopeNames(scope, options).join(' · ')}</p>}
+          {scopeText && (
+            <p className="topbar-scope" title={scopeText}>
+              {scopeText}
+            </p>
+          )}
+          <StatusChips steps={firstRun} health={health} accounts={options === undefined ? undefined : options?.accounts ?? null} onOpenLive={() => setActive('live')} />
         </header>
         <div className="body">
           <div id="view">
