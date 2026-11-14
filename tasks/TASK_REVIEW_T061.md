@@ -85,11 +85,13 @@ That is 85 surfaces (86 with `--version`) to run on both apps.
 **AFTER**: 2026-11-14, `env -u CLAUDE_CONFIG_DIR rust/parity/.venv/bin/python parity/run_parity.py` from `rust/` on `d905887`; the head of the generated `rust/docs/PARITY_T061.md`:
 
 ```
-Counts: equal 25 + equal except JSON key order 29, differs README 27, differs new 6, not run 0.
-87 rows (86 surfaces read from Python, 1 protocol row), 180 probes, each run on Python and then on Rust over the same world.
-New differences: cli --version; cli mcp (http, Ctrl-C exit); cli usage (--by, --since error texts); mcp prompt investigate (unknown prompt code); mcp protocol initialize (capabilities, unknown method code, stderr log); route GET /api/live (charset)
+Counts: equal 25 + equal except JSON key order 29, differs README 26, differs new 7, not run 0.
+87 rows (86 surfaces read from Python, 1 protocol row), 181 probes, each run on Python and then on Rust over the same world.
+New differences: cli --version; cli mcp (http, Ctrl-C exit); cli usage (--by, --since error texts); mcp prompt investigate (unknown prompt code); mcp protocol initialize (capabilities, unknown method code, stderr log); route GET /api/live (charset); route GET /api/workspaces (404 against 405 when the page is mounted)
 ```
 
-**DELTA**: one command now lists every Python CLI subcommand, route and MCP tool, runs it on Python and on Rust over the same store copy, and says which differences are already documented in the README and which are new (6 findings, all Low risk), so T063 can decide to remove Python on evidence.
+**DELTA**: one command now lists every Python CLI subcommand, route and MCP tool, runs it on Python and on Rust over the same store copy, and says which differences are already documented in the README and which are new (7 findings, all Low risk), so T063 can decide to remove Python on evidence.
 
 **WITNESS**: Supervisor session, 2026-11-14: re-ran the runner in both launch styles and diffed the report, re-ran the 21 tests, and checked three findings by hand against Python and Rust directly. `memory/event-trace/T061.jsonl` was not available.
+
+**Stage 5 addendum (Supervisor, 2026-11-14), after merge `cc3df7d` and fix round 4 `3c255d3` (merge in `main`)**: running `run_parity.py --check` from the main checkout, which has the built dashboard bundle (`src/easy_personal/dashboard/static`, gitignored), failed (`route: GET /api/workspaces` was `differs: new` with no FINDINGS entry): the runner depended on the bundle. Fixed in `3c255d3` (Python always gets an explicit static folder; a new probe `guard-with-page` covers the real deployment; 3 tests, red first with a throwaway bundle). After the merge, from `main` with the real bundle: `--check` printed `the report equals a fresh run`; a fresh `--out` report is identical in a foreground run and in a background job; `parity/test_parity_report.py` 24 `ok`, `passed: 0 failing`. Lesson: run the runner's `--check` from the main checkout before merging, not only from the task worktree.
