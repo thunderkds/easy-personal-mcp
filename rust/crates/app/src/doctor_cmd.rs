@@ -9,21 +9,56 @@
 //! connector without its keychain item, and (with `claude` on `PATH`) each account registration.
 //!
 //! Where Rust differs (`rust/README.md`): the keychain line names this build's backend (`SecretService`; Python prints its
-//! backend's class name); a `claude mcp get` that could not run (it did not start or timed out) is its own `FAIL` line,
-//! never "no entry"; a keychain that answers but refuses a read is a `FAIL` line with the keychain text (Python crashes).
+//! backend's class name); a `claude mcp get` that could not run (it did not start or timed out) is never "no entry": the
+//! first one is one `FAIL claude` line, `claude` is not run again, and the entries it would have checked are skipped
+//! (T066; T060 printed one line per entry); the legacy note then says it was not checked; a keychain that answers but
+//! refuses a read is a `FAIL` line with the keychain text (Python crashes).
 
 use crate::claude_cli::SystemClaude;
 use crate::cli_cmds::{Run, Stop, finish, open_read, put, store_stop};
 use crate::{keychain, legacy};
 use easy_personal_core::catalog;
 use easy_personal_core::store::StoreError;
-use easy_personal_core::sync::{self, Claude, LAUNCHER, NotRun};
+use easy_personal_core::sync::{self, Claude, LAUNCHER, NotRun, Ran};
 use rusqlite::Connection;
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-const NOT_RUN: &str = "`claude mcp get` could not run (it did not start or timed out); not checked";
+const NOT_RUN: &str = "`claude` could not run (it did not start or timed out); entries not checked";
+const NOT_CHECKED: &str =
+    "note legacy connectors not checked: `claude` could not run (it did not start or timed out)\n";
+
+/// `claude` for one doctor run: once a call could not run, every later call answers "could not run" at once (no 60 s
+/// wait per entry, one `FAIL` line for all of them).
+struct Once<C> {
+    claude: C,
+    dead: AtomicBool,
+}
+
+impl<C: Claude> Claude for Once<C> {
+    fn on_path(&self) -> bool {
+        self.claude.on_path()
+    }
+    fn run(&self, args: &[&str], config_dir_env: Option<&str>) -> Ran {
+        if self.dead.load(Ordering::Relaxed) {
+            return Ran {
+                code: 127,
+                stdout: String::new(),
+                not_run: true,
+            };
+        }
+        let got = self.claude.run(args, config_dir_env);
+        if got.not_run {
+            self.dead.store(true, Ordering::Relaxed);
+        }
+        got
+    }
+    fn launcher(&self) -> Result<String, String> {
+        self.claude.launcher()
+    }
+}
 
 pub fn run() -> ExitCode {
     finish(doctor())
@@ -32,6 +67,8 @@ pub fn run() -> ExitCode {
 /// Prints one line per check and counts the failures (`report` of Python's three doctors).
 struct Lines {
     bad: u32,
+    /// the `FAIL claude` line for a `claude` that could not run is printed
+    not_run_said: bool,
 }
 
 impl Lines {
@@ -41,6 +78,14 @@ impl Lines {
             "{} {what}: {detail}\n",
             if ok { "ok" } else { "FAIL" }
         ))
+    }
+
+    /// One `FAIL` line for every entry a `claude` that could not run left unchecked.
+    fn not_run(&mut self) -> Run {
+        if std::mem::replace(&mut self.not_run_said, true) {
+            return Ok(());
+        }
+        self.report(false, "claude", NOT_RUN)
     }
 }
 
@@ -59,8 +104,15 @@ fn read<T>(
 
 fn doctor() -> Run {
     let conn = open_read()?;
-    let (kc, claude) = (keychain::system(), SystemClaude::new());
-    let mut out = Lines { bad: 0 };
+    let kc = keychain::system();
+    let claude = Once {
+        claude: SystemClaude::new(),
+        dead: AtomicBool::new(false),
+    };
+    let mut out = Lines {
+        bad: 0,
+        not_run_said: false,
+    };
     let stored: BTreeSet<String> = read(&conn, "SELECT id FROM connectors", |r| r.get(0))?
         .into_iter()
         .collect();
@@ -105,7 +157,7 @@ fn doctor() -> Run {
             match sync::entry_exists(&claude, name, None) {
                 Ok(got) => got,
                 Err(NotRun) => {
-                    out.report(false, name, NOT_RUN)?;
+                    out.not_run()?;
                     continue;
                 }
             }
@@ -142,14 +194,19 @@ fn doctor() -> Run {
     }
 
     // legacy.doctor: one note, never a failure (no keychain: the line above already says so)
-    if let Ok(found) = legacy::detect(&conn, &*kc, &claude)
-        && !found.is_empty()
-    {
-        let ids: Vec<&str> = found.iter().map(|i| i.id).collect();
-        put(&format!(
-            "note legacy connectors not adopted: {}; run `easy-personal connector adopt-legacy`\n",
-            ids.join(", ")
-        ))?;
+    match legacy::detect(&conn, &*kc, &claude) {
+        Ok(detected) if detected.claude_not_run => {
+            out.not_run()?;
+            put(NOT_CHECKED)?;
+        }
+        Ok(detected) if !detected.found.is_empty() => {
+            let ids: Vec<&str> = detected.found.iter().map(|i| i.id).collect();
+            put(&format!(
+                "note legacy connectors not adopted: {}; run `easy-personal connector adopt-legacy`\n",
+                ids.join(", ")
+            ))?;
+        }
+        _ => {}
     }
 
     // sync.doctor: each stored connector has its item; each registration is present and points at the launcher
@@ -191,7 +248,7 @@ fn registrations(conn: &Connection, claude: &dyn Claude, out: &mut Lines) -> Run
             continue;
         }
         match sync::entry_exists(claude, &alias, config_dir_env.as_deref()) {
-            Err(NotRun) => out.report(false, &name, NOT_RUN)?,
+            Err(NotRun) => out.not_run()?,
             Ok(None) => out.report(
                 false,
                 &name,

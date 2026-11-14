@@ -1107,13 +1107,15 @@ could echo it, a canary on `claude`'s stderr and in an account path: 0 hits.
 5. **`doctor`'s keychain line names this build's backend**: `ok keychain: SecretService` (`FileKeychain` in a debug test run). Python
    prints its backend's class name (`Keyring`, or another keyring backend's).
 6. **A `claude` that could not run** (it did not start, or ran past 60 s) is never "no entry" (T050 #12). `doctor` prints
-   ``FAIL <name>: `claude mcp get` could not run (it did not start or timed out); not checked``, where Python reports a missing entry or
-   says nothing. `remove`, `sync`, `move` and `alias` skip that account (`skipped (`claude` could not run)`): nothing is removed or
-   forgotten.
-7. **Not changed: legacy detection still reads "could not run" as "no entry"** (`legacy.rs`, Python's behaviour, as T050 left it). It
-   reaches `connector adopt-legacy` and `doctor`'s `note` line: with a `claude` that cannot run, adoption stores the row in orphan but
-   does not remove the default account's entry (that entry still points at the launcher and still works), and the note can miss a
-   connector that has only an entry. Nothing is deleted. Left for the owner to decide.
+   one line for it, ``FAIL claude: `claude` could not run (it did not start or timed out); entries not checked``, runs `claude`
+   no more and skips the entries it would have checked (T066; T060 printed one `FAIL` line per catalog id and registration),
+   where Python reports a missing entry or says nothing. `remove`, `sync`, `move` and `alias` skip that account (`skipped
+   (`claude` could not run)`): nothing is removed or forgotten.
+7. **Legacy detection: "could not run" is not "no entry"** (T066; replaces T060's "not changed"). `connector adopt-legacy` (and
+   `POST /api/connectors/legacy`) answers ``the `claude` CLI could not run (it did not start or timed out); nothing was
+   adopted.`` (exit 1) and changes nothing; Python adopts the keychain items it found and leaves the default account's entry.
+   `doctor`'s note is ``note legacy connectors not checked: `claude` could not run (it did not start or timed out)``. The
+   read-only `GET /api/connectors/legacy` keeps Python's answer (an id it could not check is absent).
 8. **A keychain that answers but refuses a read** is a `FAIL <name>: no usable OS keychain ...` line in `doctor` (Python crashes).
 9. **`workspace edit --rename` and `workspace delete` now exit with the apply's status** (T058's shared `change`, widened here): a failed
    `claude` step exits 1 and `edit` prints no JSON, as Python. T058 printed the JSON and exited 0.
