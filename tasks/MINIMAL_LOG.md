@@ -3,6 +3,30 @@
 > One Decision record per minimal-track task (`docs/claude-md/tracks.md`), **newest first**: insert each
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
+## T065 — Debug-only fake keychain: owner-only file, written by rename · minimal
+**Asked:** "let start all parallel" (after the owner call on T050's open item, with the recommendation "yes: about five lines, removes the plaintext-0644 risk")
+**Decisions:**
+- Track: minimal — C1, Risk Low (the fake exists only in debug builds and tests, `cfg(any(debug_assertions, test))`; no release code, no user data), one file, no Gate-2 word
+- Assumed: "start all parallel" accepts my recommendation for this item (yes) and my recommendation to skip the D-Bus timeout (it changes behaviour) — if the owner meant otherwise, the D-Bus item stays open and this change is one revert
+- The file is created with mode 0600 in a temporary file next to it and renamed over the keychain file, so a stale 0644 file from an older build is replaced, and a second writer or a crash never leaves a half-written file — the reason: T050 Stage 4 P2 (plaintext, default mode, truncated in place)
+**Checked:**
+- New test `keychain::tests::the_file_fake_is_owner_only_and_written_by_rename` — failed before (`round 0: mode 664`), passes after
+- Suite: `cargo test --workspace --offline --no-fail-fast` — 84 suites ok, 884 passed, 0 failed; clippy x2 and fmt clean
+- Real run: `env -u CLAUDE_CONFIG_DIR parity/.venv/bin/python parity/leak_rust.py` — printed `leak check: 0 hits over 42 canaries, 778 surfaces, 1759800 bytes`
+**Files:** `rust/crates/app/src/keychain.rs`
+**Not done:** the D-Bus call timeout under the write lock (behaviour change, owner's call); push (the owner)
+
+## T064 — The lock-bypass race control retries on SQLite's own busy refusal · minimal
+**Asked:** "let start all parallel" (after "the `ingest_coexist` race test needs a deadline-based rewrite", failed in 3 of the last 5 full runs)
+**Decisions:**
+- Track: minimal — C1, Risk Low, one test file, no Gate-2 word
+- Found by reproducing it: under CPU load one of the two bypassed ingests ends with SQLite's own busy line (`the store is busy (another process is writing)...`, exit 1) and the test asserted exit 0 for both. That is the contention the control provokes, so that attempt is inconclusive and the loop goes on; any other non-zero exit or stderr still fails — the test keeps its meaning
+**Checked:**
+- Reproduction before the change: 8 busy loops, 3 runs — 1 failed with `bypass attempt 0: stderr "" / "easy-personal-rs: the store is busy ..."`. After: 6 runs under the same load, 0 failed (attempts 1 and 3 show the retry used)
+- Suite: `cargo test -p easy-personal-rs --test ingest_coexist` — `14 passed; 0 failed; 10 ignored`; clippy and fmt clean
+**Files:** `rust/crates/app/tests/ingest_coexist.rs`
+**Not done:** push (the owner)
+
 ## DRAFT-mtime-500 — a file with an out-of-range mtime made the report routes answer 500 · minimal
 **Asked:** "fix the mtime bug then merge HUN-242"
 **Decisions:**
