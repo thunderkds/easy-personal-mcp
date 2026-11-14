@@ -13,6 +13,7 @@
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
 ### In Progress
+- [ ] **T066** — Retire Python follow-ups: connector stdin `\r`, echo-off fallback, legacy/doctor "claude cannot run", keychain delete order, kill process group (T050/T060 Stage 4 leftovers) | Backend-Developer | C3 | Risk: High | P2 | guide `tasks/TASK_GUIDE_T066.md` (2026-11-14); started 2026-11-14 on the owner's "continue your work as parallel [admin]": own worktree `easy-personal-mcp-wt/T066`, branch `T066`
 
 ### Ready for Review
 
