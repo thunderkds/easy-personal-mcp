@@ -9,11 +9,11 @@
 ## Board
 
 ### Todo
-- [ ] **T061** — Retire Python 4: parity run of every Python command and route against Rust on a store copy, differences listed | QA-Automation | C2 | Risk: Medium | P3 | Depends on T050, T058, T059, T060; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
 - [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
 ### In Progress
+- [ ] **T061** — Retire Python 4: parity run of every Python command and route against Rust on a store copy, differences listed | QA-Automation | C2 | Risk: Medium | P3 | Depends on T050, T058, T059, T060; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; guide `tasks/TASK_GUIDE_T061.md` (2026-11-14); started 2026-11-14: own worktree `easy-personal-mcp-wt/T061`, parallel with two minimal-track fixes
 
 ### Ready for Review
 
