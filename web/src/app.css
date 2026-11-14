@@ -157,7 +157,9 @@ h3 { font-size: var(--fs-card-title); font-weight: 600; color: var(--color-headi
 div.notice { flex-wrap: wrap; align-items: center; }
 .notice svg { flex: none; margin-top: 2px; color: var(--color-muted); }
 .notice p { margin: 0; }
-main section.notice { flex-direction: column; }
+main section.notice { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 14px; }
+.notice-text { flex: 1 1 22rem; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.mono { font-family: var(--font-mono); color: var(--color-text); }
 
 /* Controls */
 .scope select, .board-filter select, .actions select, .field input, .field select, .field textarea, .repo-row input {
@@ -215,10 +217,23 @@ main button.sort { min-height: 0; padding: 0; border: 0; }
 .color-row input:not([type='color']) { flex: 1; min-width: 0; }
 .color-row input[type='color'] { flex: none; width: 2.5rem; padding: 2px; cursor: pointer; }
 pre.plan { margin: 0; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--color-input); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-note); }
-.swatch { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.5rem; height: 1.5rem; border: 1px solid var(--color-control); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-small); }
+.swatch { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.75rem; height: 1.75rem; border: 1px solid var(--color-control); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 600; color: var(--color-muted); }
+.swatch[style] { color: var(--color-input); } /* a workspace color sits behind the letter */
 .entry-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: var(--space-4); }
-ul.aliases { padding-left: var(--space-4); list-style: disc; overflow-wrap: anywhere; }
+ul.aliases { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; list-style: none; overflow-wrap: anywhere; }
+ul.aliases > li { padding: 3px 9px; border: 1px solid var(--color-control); border-radius: 4px; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--color-nav); }
+.ws-meta { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-secondary); }
+
+/* Workspaces: the orphan card is dashed, its connectors sit in raised boxes, the plan is the one lit block, Delete is a problem action */
+main.workspaces section[data-orphan='true'] { border-style: dashed; border-color: var(--color-control); }
+main.workspaces ul.entries { display: flex; flex-direction: column; gap: var(--space-3); }
+main.workspaces ul.entries > li { display: flex; flex-direction: column; gap: 10px; padding: var(--space-3); border: 0; border-radius: var(--radius-sm); background: var(--color-raised); }
+main.workspaces section[aria-label='Changes'] { border-color: var(--color-accent-line); box-shadow: var(--glow-box); }
+main.workspaces section[aria-label='Changes'] > p { font-weight: 600; color: var(--color-heading); }
+main.workspaces section[aria-label='Changes'] .actions > button:first-child:not(:disabled) { border-color: transparent; background: var(--color-accent); color: var(--color-input); box-shadow: var(--glow-box); font-weight: 500; }
+main button.danger { color: var(--color-red); }
+main button.danger:disabled { color: var(--color-faint); }
 .who { font-size: var(--fs-control); color: var(--color-heading); }
 
 /* Tables */
