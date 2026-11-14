@@ -336,7 +336,11 @@ class Server:
         self.proc = subprocess.Popen(cmd, env=run.env, cwd=run.root / "nowhere", stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, start_new_session=True)
         self.reader = LineReader(self.proc.stdout)
-        line = self.reader.line(30)
+        try:
+            line = self.reader.line(30)
+        except BaseException:  # SIGTERM / SIGHUP / Ctrl-C while the server starts: the caller never gets `self`, so it cannot close it
+            self.close()
+            raise
         found = re.match(r"dashboard: http://127\.0\.0\.1:(\d+)/#(\S+)", line or "")
         if not found:
             self.close()
@@ -1161,6 +1165,110 @@ def r_mcp_http_form(py, rs):
     return py, rs
 
 
+# ---- T067: the findings of the first T061 run, each decided by the Supervisor for the owner and written in the README. A rule stands for its item only:
+# it matches the exact shape the item describes on both sides, so any other byte that differs keeps the row `differs: new`.
+
+VERSION_PY = re.compile(r"\d+\.\d+\.\d+\n")
+VERSION_RS = re.compile(r"easy-personal-rs \d+\.\d+\.\d+\n")
+
+
+@rule("T058#13", "T058", 13, ("--version", "easy-personal-rs <version>", "bare package version"))
+def r_version_text(py, rs):
+    """`--version`: Python prints the bare package version, Rust `easy-personal-rs <version>`; exit code and stderr stay compared."""
+    py, rs = copy.deepcopy(py), copy.deepcopy(rs)
+    for a, b in zip(py["steps"], rs["steps"]):
+        if VERSION_PY.fullmatch(a.get("stdout", "")) and VERSION_RS.fullmatch(b.get("stdout", "")):
+            a["stdout"] = b["stdout"] = "<version>\n"
+    return py, rs
+
+
+@rule("T058#14", "T058", 14, ("one-line text", "invalid choice", "invalid iso_datetime"))
+def r_usage_text(py, rs):
+    """`usage --by week` and `--since banana`: exit 2 and an empty stdout in both; Python's argparse text, Rust's one core line (the bad value is the same in both)."""
+    py, rs = copy.deepcopy(py), copy.deepcopy(rs)
+    by = re.compile(r"(?s)usage: .*\neasy-personal usage: error: argument --by: invalid choice: '([^']*)' \(choose from day, model, project, tool\)\n")
+    date = re.compile(r"(?s)usage: .*\neasy-personal usage: error: argument --(since|until): invalid iso_datetime value: '([^'\n]*)'\n")
+    for a, b in zip(py["steps"], rs["steps"]):
+        if not (a.get("code") == b.get("code") == 2 and a.get("stdout") == b.get("stdout") == ""):
+            continue
+        if by.fullmatch(a["stderr"]) and b["stderr"] == "easy-personal: by must be one of day, model, project, tool\n":
+            a["stderr"] = b["stderr"] = "<by text>"
+            continue
+        found = date.fullmatch(a["stderr"])
+        if found and b["stderr"] == f"easy-personal: Invalid isoformat string: '{found.group(2)}'\n":
+            a["stderr"] = b["stderr"] = "<date text>"
+    return py, rs
+
+
+@rule("T051#8", "T051", 8, ("ctrl-c", "exit 0", "access-log"))
+def r_mcp_http_ctrl_c(py, rs):
+    """`mcp --transport http` stopped by SIGINT: Python ends by the signal (code -2) after uvicorn prints its access log, Rust exits 0 with an empty stdout."""
+    py, rs = copy.deepcopy(py), copy.deepcopy(rs)
+    access = re.compile(r'(?:INFO:     127\.0\.0\.1:<PORT> - "(?:POST|GET|DELETE) /mcp HTTP/1\.1" \d{3} [A-Za-z ]+\n)+')
+    for a, b in zip(py["steps"], rs["steps"]):
+        if a.get("step") == b.get("step") == "exit" and a.get("code") == -2 and b.get("code") == 0 and access.fullmatch(a.get("stdout", "")) and b.get("stdout") == "":
+            a["code"] = b["code"] = "<stopped by Ctrl-C>"
+            a["stdout"] = b["stdout"] = "<access log or nothing>"
+    return py, rs
+
+
+PROMPT_TRACEBACK = re.compile(r"Error getting prompt (\S+)\nTraceback \(most recent call last\):\n(?:  .*\n)+ValueError: Unknown prompt: \1\n")
+
+
+@rule("T047#7", "T047", 7, ("unknown prompt", "-32602", "error code is `0`", "traceback"))
+def r_unknown_prompt_code(py, rs):
+    """An unknown prompt: Python's JSON-RPC error code is 0, Rust's -32602; the message (`Unknown prompt: ...`) must be equal."""
+    py, rs = copy.deepcopy(py), copy.deepcopy(rs)
+    for a, b in zip(py["steps"], rs["steps"]):
+        ea, eb = (a.get("answer") or {}).get("error"), (b.get("answer") or {}).get("error")
+        if (a.get("method") == b.get("method") == "prompts/get" and isinstance(ea, dict) and isinstance(eb, dict) and ea.get("code") == 0
+                and eb.get("code") == -32602 and isinstance(ea.get("message"), str) and ea.get("message") == eb.get("message")
+                and ea["message"].startswith("Unknown prompt: ")):
+            ea["code"] = eb["code"] = "<invalid params>"
+            if rs.get("stderr") == "" and PROMPT_TRACEBACK.fullmatch(py.get("stderr", "")):  # Python logs the error with a traceback; Rust logs nothing
+                py["stderr"] = ""
+    return py, rs
+
+
+PY_CAPABILITIES = {"experimental": {}, "prompts": {"listChanged": False}, "resources": {"subscribe": False, "listChanged": False}, "tools": {"listChanged": False}}
+RS_CAPABILITIES = {"prompts": {}, "tools": {}}
+METHOD_NAME = re.compile(r"[A-Za-z0-9_./-]+")
+VALIDATION_DUMP = re.compile(r"Failed to validate request: \d+ validation errors for ClientRequest\n(?:\w+\.\w+\n  .*\n    For further information visit \S+\n)+")
+SDK_LOG_ONLY = re.compile(r"(?:Processing request of type \w+\n)+")
+
+
+@rule("T047#8", "T047", 8, ("capabilities", "-32601", "method not found", "failed to validate request", "processing request of type"))
+def r_protocol_details(py, rs):
+    """The protocol under the tools: (a) `initialize` capabilities, (b) an unknown method's JSON-RPC error, (c) Python's per-request stderr line."""
+    py, rs = copy.deepcopy(py), copy.deepcopy(rs)
+    for a, b in zip(py["steps"], rs["steps"]):
+        ra, rb = (a.get("answer") or {}).get("result"), (b.get("answer") or {}).get("result")
+        if a.get("method") == b.get("method") == "initialize" and isinstance(ra, dict) and isinstance(rb, dict):
+            if ra.get("capabilities") == PY_CAPABILITIES and rb.get("capabilities") == RS_CAPABILITIES:
+                ra["capabilities"] = rb["capabilities"] = "<capabilities>"
+        ea, eb = (a.get("answer") or {}).get("error"), (b.get("answer") or {}).get("error")
+        if isinstance(ea, dict) and isinstance(eb, dict) and ea == {"code": -32602, "message": "Invalid request parameters", "data": ""}:
+            if set(eb) == {"code", "message"} and eb["code"] == -32601 and isinstance(eb["message"], str) and METHOD_NAME.fullmatch(eb["message"]):
+                a["answer"]["error"] = b["answer"]["error"] = "<method not found>"
+                if rs.get("stderr") == "" and VALIDATION_DUMP.fullmatch(py.get("stderr", "")):  # Python logs its pydantic dump of the request; Rust logs nothing
+                    py["stderr"] = ""
+    if rs.get("stderr") == "" and SDK_LOG_ONLY.fullmatch(py.get("stderr", "")):
+        py["stderr"] = ""
+    return py, rs
+
+
+@rule("T048#15", "T048", 15, ("write methods", "405", "404 not found"))
+def r_write_only_route_with_page(py, rs):
+    """A GET of a route that has only write methods, with the page served: Python's static mount answers 404 `Not Found` (plain text), Rust 405 with no body."""
+    py, rs = copy.deepcopy(py), copy.deepcopy(rs)
+    for a, b in zip(py["steps"], rs["steps"]):
+        if (a.get("status") == 404 and b.get("status") == 405 and a.get("body") == "Not Found" and a.get("type") == "text/plain; charset=utf-8"
+                and b.get("body") == "" and b.get("type") is None):
+            for x in (a, b):
+                x["status"], x["body"], x["type"] = "<404 or 405>", "<fixed>", None
+    return py, rs
+
+
 def classify_zone(p, py, rs):
     """`('equal', [])`, `('readme', [rule ids used])` or `('new', [])` for one zone of one probe."""
     if equal_zone(p, py, rs):
@@ -1490,13 +1598,15 @@ EXPECT = {
     ("cli: schedule install", "dry-run"): ["Schedule#1"], ("cli: schedule install", "dry-run-retention"): ["Schedule#1"],
     ("cli: schedule install", "no-systemd"): ["Schedule#1"], ("cli: dashboard", "start-and-stop"): ["T051#1"],
     ("route: GET /api/first-run", "list"): ["T040#1"], ("route: GET /api/workspaces", "guard"): ["Static#1"],
-    ("route: GET / (static files of the page)", "files"): ["Static#1"], ("route: GET /api/workspaces", "guard-with-page"): ["Static#1"],
-    ("mcp protocol: initialize", "handshake"): ["McpInit#1"],
+    ("route: GET / (static files of the page)", "files"): ["Static#1"], ("route: GET /api/workspaces", "guard-with-page"): ["T048#15", "Static#1"],
+    ("mcp protocol: initialize", "handshake"): ["McpInit#1", "T047#8"], ("mcp protocol: initialize", "unknown-method"): ["T047#8"],
+    ("mcp protocol: initialize", "stderr-log"): ["T047#8"], ("mcp prompt: investigate", "prompts"): ["T047#7"],
+    ("cli: --version", "version"): ["T058#13"], ("cli: usage", "bad-by"): ["T058#14"], ("cli: usage", "bad-date"): ["T058#14"],
     ("mcp tool: usage_summary", "calls"): ["T047#1"], ("mcp tool: usage_breakdown", "calls"): ["T047#1"],
     ("mcp tool: save_report", "valid-and-store"): ["T047#6"], ("mcp tool: save_report", "refusals"): ["T047#1"],
     ("mcp tool: connector_status", "keychain-and-claude"): ["ConnTool#1"],
     ("route: GET /api/connectors", "configured"): ["ConnRoute#1"],
-    ("cli: mcp", "bad-host"): ["McpHttp#1"], ("cli: mcp", "http-handshake-and-ping"): ["T051#2"], ("cli: exec", "in-the-main-binary"): ["T058#12"], ("cli: headers", "in-the-main-binary"): ["T058#12"],
+    ("cli: mcp", "bad-host"): ["McpHttp#1"], ("cli: mcp", "http-handshake-and-ping"): ["T051#2", "T051#8"], ("cli: exec", "in-the-main-binary"): ["T058#12"], ("cli: headers", "in-the-main-binary"): ["T058#12"],
 }
 
 
@@ -1604,42 +1714,7 @@ NOT_RUN: dict[str, str] = {}
 # Rows that are not a surface of the Python inventory but are compared too (the protocol under the MCP tools).
 EXTRA_KEYS = ["mcp protocol: initialize"]
 # Findings: key -> (cause in one line, proposed task). A `differs: new` row with no entry here fails the run (a finding needs its proposed task).
-FINDINGS: dict[str, tuple[str, str]] = {
-    "route: GET /api/workspaces": (
-        "With the page served (Python's built bundle, as on a real machine; Rust's `serve --static-dir`), a `GET` of a route that has only write methods is `404 Not Found` in Python and `405` in Rust: "
-        "Python's static mount at `/` matches the path before the route's own method check can answer 405. README T048 item 9 says Rust's is `405`; it does not say Python's differs. "
-        "(Without a page the two agree on 405; the plain-text `Not Found` / `Method Not Allowed` bodies against Rust's empty ones are `Static` item 1.)",
-        "C0, Risk Low: add the 404-versus-405 line to the T048 \"Decided for you\" list, or make Rust answer 404 there when the page is served."),
-    "cli: usage": (
-        "Two usage errors give another text and exit 2 in both, with an empty stdout. `--by week`: Python's argparse says `invalid choice: 'week' (choose from day, model, project, tool)` "
-        "after its usage text; Rust says the core's one line `easy-personal: by must be one of day, model, project, tool` (T058 item 8 names *clap's* text, and this is not clap's). "
-        "`--since banana`: Python's argparse says `argument --since: invalid iso_datetime value: 'banana'`; Rust says `easy-personal: Invalid isoformat string: 'banana'` "
-        "(T058 item 7 says only that Rust echoes the bad value, \"as Python does\", not that the text differs). The `acct_bad_list_xby_colour`-style errors that clap itself prints are item 8 and stay `differs: README`.",
-        "C0, Risk Low: document both texts in T058's \"Decided for you\" list, or print Python's."),
-    "cli: --version": (
-        "Python prints the bare package version (`0.4.0`); Rust prints clap's `easy-personal-rs 0.2.0` (its Cargo version). The README's build section shows the Rust text but "
-        "lists it in no \"Decided for you\" list. The numbers differ because the two packages are versioned apart.",
-        "C0, Risk Low: decide whether `--version` should print `easy-personal-rs <version>` on purpose (then add a line to a README list) or Python's bare form."),
-    "route: GET /api/live": (
-        "The content type is `text/event-stream; charset=utf-8` in Python and `text/event-stream` in Rust. The README (T056 \"The route\") states Rust's value but not that Python's differs. "
-        "A browser `EventSource` reads both.",
-        "C0, Risk Low: add `; charset=utf-8` to the Rust header (or add the difference to the T056 list)."),
-    "mcp protocol: initialize": (
-        "Two differences no README item names. (1) `initialize` capabilities: Python also sends `experimental: {}`, `resources: {subscribe, listChanged: false}` and `listChanged: false` "
-        "under `tools` and `prompts`; Rust sends `prompts: {}` and `tools: {}` only (the README names the `prompts` one, in the `investigate` paragraph; the server name and version are named by "
-        "\"McpInit\" and are not part of this finding). (2) An unknown JSON-RPC method: Python answers `-32602` `Invalid request parameters`, Rust `-32601` with the method name "
-        "(`-32601` is the JSON-RPC code for it). (3) stderr of `mcp` over stdio (probe `stderr-log`, not stripped): Python's SDK writes `Processing request of type <X>` for every request, Rust writes nothing. "
-        "Every other MCP probe drops those Python lines (rule N7) so this is reported once.",
-        "C1, Risk Low: align the capabilities (a client that checks `resources` sees none) or list both differences in the T047 \"Decided for you\" list; keep `-32601` on purpose and say so."),
-    "cli: mcp": (
-        "`mcp --transport http` stopped with Ctrl-C: Python's process ends by the SIGINT signal (exit -2, shell 130) after uvicorn's shutdown, and uvicorn prints one access-log line per request "
-        "on stdout; Rust exits 0 with an empty stdout. The README (\"`mcp --transport http`\") states Rust's side (\"stdout stays empty\", \"Ctrl-C stops the server with exit 0\") and does not say Python differs. "
-        "(The SSE body and the session id are named by T051 item 2 and are not part of this finding.)",
-        "C0, Risk Low: add one line to the T051 \"Decided for you\" list (Rust's exit 0 is the better one); nothing to change in the code."),
-    "mcp prompt: investigate": (
-        "`prompts/get` of an unknown prompt: Python's error code is `0`, Rust's `-32602`; the message `Unknown prompt: nope` is equal. The README says only \"a JSON-RPC error\".",
-        "C0, Risk Low: add the code to the T047 \"Decided for you\" list (Rust's `-32602` is the correct one)."),
-}
+FINDINGS: dict[str, tuple[str, str]] = {}  # T067 closed the first run's seven: aligned in Rust, or named by a README item that a rule above stands for
 ORDER_RULES = {"T059#6": ("T059", 6, ("json key order in the route", "sorted keys"))}
 EXPLAIN_WORDS[("T059", 6)] = ORDER_RULES["T059#6"][2]
 EXPECT[("route: GET /api/store/health", "get-and-head")] = ["T059#6"]
@@ -1876,7 +1951,9 @@ def render(rows, inv, rust_only, scanned) -> str:
             "- Rule T047 item 6 sets column 2 (`server_version`) of every `investigate_reports` row to `<VERSION>` without checking it.",
             "- Rule T060 item 3 drops every `claude mcp get` call, argv included: a wrong `get` argument would not show.",
             "- Mask N4's `c` + 8 hex digits is applied to all text, not only to ids.",
-            "- A SIGTERM to the runner skips its `finally` blocks and leaves the world folder in the temp folder.",
+            "- Rule T058 item 13 matches `<digits>.<digits>.<digits>` against `easy-personal-rs <digits>.<digits>.<digits>`; it does not check that the number is the package's version.",
+            "- Rules T047 item 7 and item 8 match Python's stderr dump by its first line and its shape (a traceback, a list of pydantic errors), not line by line.",
+            "- A signal that arrives in the few instructions between a child's start and the runner's note of it can leave that child alive (SIGTERM and SIGHUP are handled like Ctrl-C).",
             "- Python's `dashboard` command (probe `cli: dashboard`) cannot be told a static folder, so it serves the packaged bundle if the machine has one; the probe asks one API route, which the bundle does not change.",
             "- The static fixture holds no dotfile and no symlink (the README's `Static` paragraph names both).",
             "- Rules N3 and the clock caveat: the rows for warnings, plan, kit, outliers and kit-findings carry it in their Note.", ""]
@@ -1893,6 +1970,26 @@ def check_leaks(text: str, captured: list[str]) -> int:
     return len(captured)
 
 
+class Terminated(KeyboardInterrupt):
+    """SIGTERM or SIGHUP, raised in the main thread: every `finally` runs as it does for Ctrl-C (T067)."""
+
+    def __init__(self, signum):
+        super().__init__(signum)
+        self.signum = signum
+
+
+def _terminate(signum, _frame):
+    for name in ("SIGTERM", "SIGHUP"):  # a second signal must not cut the cleanup short
+        signal.signal(getattr(signal, name), signal.SIG_IGN)
+    raise Terminated(signum)
+
+
+def stop_on_signals():
+    """SIGTERM and SIGHUP end the run the way Ctrl-C does: servers killed, world folder removed. A handler, unlike SIG_IGN (a `nohup` job), is reset by `exec`."""
+    signal.signal(signal.SIGTERM, _terminate)
+    signal.signal(signal.SIGHUP, _terminate)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--only", action="append", help="run the probes whose `key / id` holds this text and print what differs (no report)")
@@ -1903,8 +2000,7 @@ def main(argv=None) -> int:
     # A job started in the background of a non-interactive shell has SIGINT ignored, and `exec` keeps that: the children would not end by the
     # signal (Python's `mcp --transport http` shows exit -2 on Ctrl-C). A handler, unlike SIG_IGN, is reset to the default by `exec`.
     signal.signal(signal.SIGINT, signal.default_int_handler)
-    if signal.getsignal(signal.SIGTERM) == signal.SIG_IGN:
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    stop_on_signals()
     if args.list:
         print("\n".join(inventory()))
         return 0
@@ -1937,4 +2033,8 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Terminated as stop:  # the `finally` blocks have run: nothing of this run is left
+        print(f"run_parity: stopped by {signal.Signals(stop.signum).name}; its servers were killed and its world folder removed", file=sys.stderr)
+        sys.exit(128 + stop.signum)
