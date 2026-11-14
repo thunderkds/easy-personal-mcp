@@ -45,9 +45,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Verification command run | ☑ pass | (backend-developer, 2026-11-14, `--offline`) `cargo test --workspace --no-fail-fast`: TZ unset `84 suites, 882 passed, 0 failed`; `TZ=Pacific/Kiritimati` `84 suites, 882 passed, 0 failed`; `TZ=Pacific/Pago_Pago` `84 suites, 882 passed, 0 failed` (no `ingest_coexist` flake). `env -u CLAUDE_CONFIG_DIR parity/.venv/bin/python parity/leak_rust.py`: `leak check: 0 hits over 42 canaries, 778 surfaces, 1755689 bytes` (`check cli add stored the typed secret in the keychain  ok`, `check cli claude failed, its stderr not shown ok`, `check cli account path only in CLAUDE_CONFIG_DIR ok`, `check cli remove deleted the keychain items ok`, `check cli connector/doctor exit codes as expected ok (29 calls, one process each)`). `cargo clippy --workspace --all-targets -- -D warnings`: exit 0; `--features window`: `Finished`, exit 0. `cargo fmt --check`: exit 0. `git diff --stat main...HEAD -- rust/Cargo.toml rust/Cargo.lock`: empty; `git status --short -- src tests web`: empty |
 | Negative cases hold | ☑ pass | Oracle refusals equal Python's (unknown provider/workspace/connector/account, orphan, bad/long/empty alias, `--default` with an alias, held provider, no backend, no launcher, failing `claude`, skipped account, end of input, `aborted`). Rust-only: a `claude` that cannot run is never "no entry" (`connector remove slack` exit 1 `the \`claude\` CLI could not run ...; nothing was removed.`, sync/remove `skipped (\`claude\` could not run)`, store and keychain unchanged; `doctor` `FAIL ... could not run ...; not checked`); names `a/b`, `..`, `Slack`, 65 chars, empty: exit 2, no `claude` call, keychain unchanged; a locked keychain is a `doctor` FAIL line; a missing store is refused, nothing created |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...T060` (20 files, ~10.6k lines; `lane_check`: C3 FITS; the T059 test fix `e6f1daf` is in the branch base). Two independent read-only reviewers (correctness and tests; security) read `connector_cmd.rs`, `doctor_cmd.rs`, the `cli_cmds.rs`, `connector_writes.rs`, `legacy.rs`, `keychain.rs`, core `sync.rs`/`accounts.rs`/`workspaces.rs` changes, the tests and the oracle generator; `golden-connector-cli/cases.json` only summarised. Findings: P0 0, P1 0, P2 2, P3 7; security-review: no findings. Open, not fixed: P2 stdin `\r\n` in a secret differs from real Python (README item 10 corrected to say so; the oracle reads stdin with universal newlines and hides it); P2 no echo-off when `/dev/tty` cannot be opened but stdin is a terminal (Python keeps echo off); P3 ignored `tcsetattr` result, no test of echo restore, `legacy.rs` still reads "could not run" as "no entry" (disclosed item 7, non-destructive), `doctor` FAIL noise per unconfigured id with an unusable `claude`, test hard-codes `/usr/bin/script`, a dead default `Keychain::name()` |
+| Full smoke suite still green (no regression) | ☑ pass | Supervisor, 2026-11-14, on `157040b`: `cargo test --workspace --offline --no-fail-fast`: exit 0, 84 suites ok, 882 passed, 0 failed, 29 ignored (the `ingest_coexist` flake did not occur) |
+| **Companion score (easy-verifier)** | ☑ pass (advisory) | `score` scope=`changes` ref=`main` task=T060, change_kind confirmed `feature`: `overall` 41 (4 of 13 dimensions rated: blast-radius 46, requirement-fidelity 33, security 30, test-strategy 55); `change_risk` abstained (`all_metrics_abstained`). Low signal: `security` 30 comes from lockfile and manifest redaction hits, not from the diff. report: /home/hungnguyenhuu/.claude-hung2/projects/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp-rust/e64d19ef-48c3-4f22-9423-6b479756ddac/tool-results/mcp-easy-verifier-score-1794629674479.txt |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | pure backend task (CLI commands), no UI component |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | pure backend task |
 | **UI: Responsiveness at target viewports** | ☑ N/A | pure backend task |
@@ -100,9 +100,31 @@ ls: cannot access '<tmp>/claude.log': No such file or directory     # no `claude
 ls: cannot access '<tmp>/kc.json': No such file or directory        # no keychain item was written
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+# captured 2026-11-14T04:23:50Z on 157040b, temp copy of rust/parity/store-rich, temp HOME and agent root, PATH=/usr/bin:/bin (no claude), bogus session bus, file-fake keychain (first 3 lines of each)
+$ easy-personal-rs connector list
+Email
+  gmail Gmail | claude.ai connector: yes (https://claude.ai/settings/connectors)
+    fields: OAuth client keys file (gcp-oauth.keys.json)
+exit=0
+$ easy-personal-rs connector add slack --workspace acme
+Warning: Password input may be echoed.
+Bot token (xoxb-...): easy-personal-rs: input ended at the prompt; nothing was written
+exit=2
+$ easy-personal-rs connector sync --yes
+Claude default: skipped (folder missing)
+Claude work: skipped (folder missing)
+nothing to change.
+exit=0
+$ easy-personal-rs doctor
+ok keychain: FileKeychain
+FAIL claude: not on PATH
+ok launcher: /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T060/rust/target/debug/easy-personal-launch
+exit=1
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: the Rust binary now runs `connector list|add|remove|sync|move|alias|adopt-legacy` and `doctor` with Python's stdout, stderr and exit codes (95 oracle cases, 116 steps, 295 `claude` calls), so the CLI no longer needs Python for connectors.
+
+**WITNESS**: Supervisor session, 2026-11-14: re-ran the AFTER commands (04:23Z), the workspace tests (882 passed, 0 failed), clippy x2 (default and `--features window`), fmt and the leak check (`leak check: 0 hits over 42 canaries, 778 surfaces`) on `157040b`, and checked that `Cargo.toml`, `Cargo.lock`, `src`, `tests` and `web` have no diff. Not witnessed: the real Secret Service, a real `claude`, a real terminal prompt (one test uses util-linux `script` as a pseudo-terminal). `memory/event-trace/T060.jsonl` was not available.

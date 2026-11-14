@@ -1113,8 +1113,10 @@ could echo it, a canary on `claude`'s stderr and in an account path: 0 hits.
 8. **A keychain that answers but refuses a read** is a `FAIL <name>: no usable OS keychain ...` line in `doctor` (Python crashes).
 9. **`workspace edit --rename` and `workspace delete` now exit with the apply's status** (T058's shared `change`, widened here): a failed
    `claude` step exits 1 and `edit` prints no JSON, as Python. T058 printed the JSON and exited 0.
-10. **Input lines**: `\r\n` ends a line as `\n` (Python's universal newlines); a lone `\r` does not (it does in Python). One line holds at
-    most 64 KiB of a value (4 KiB of an answer); bytes that are not UTF-8 are end of input (Python crashes).
+10. **Input lines**: `\r\n` ends a line as `\n`; a lone `\r` does not (in Python's `input()` and in universal-newline reading it does). One line holds at
+    most 64 KiB of a value (4 KiB of an answer); bytes that are not UTF-8 are end of input (Python crashes). **A secret read from piped stdin
+    differs from real Python**: Python's `getpass` fallback keeps the `\r` (`printf 'tok\r\n' |` stores `tok\r`, and a bare `\r\n` line is not empty);
+    Rust stores `tok` and calls a bare `\r\n` line empty. The oracle reads its stdin with universal newlines, so its cases do not show this.
 11. **Which input is echoed**: `connector add <provider>` with an unknown provider names it (`unknown provider 'x'; available: ...`), as
     Python's does, on the owner's own terminal; the leak check does not type the canary there. Every other refusal is a fixed text.
 12. **Usage errors** print clap's text on stderr (Python's is argparse's); stdout is empty and the exit code is 2 in both.
