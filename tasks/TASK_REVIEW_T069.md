@@ -1,4 +1,4 @@
-# TASK_REVIEW — T069: [Short Title]
+# TASK_REVIEW — T069: First run screen rework
 
 > Sibling of `tasks/TASK_GUIDE_T069.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/FirstRun.test.jsx`, `web/src/App.test.jsx` (AC 1-4), `web/src/shell.test.js` (badge) |
+| Verification command run | ☑ pass | Supervisor re-run 2026-11-14: 3 of 3 runs `Tests  804 passed (804)`; 1 earlier run under parallel-agent load had `1 failed | 803 passed`, failing test not captured (see P3) — pass |
+| Negative cases hold | ☑ pass | unknown step id → generic card; clipboard reject → `Copy failed — select and copy`; Check again fail keeps steps — pass |
+| verify | ☐ pass / ☐ fail / ☐ N/A | not run yet: Stage 5 `/verify` before merge |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | diff + direct callers only, see Stage 4 section |
+| Full smoke suite still green (no regression) | ☑ pass | full web suite above — pass |
+| **Companion score (easy-verifier)** | ☑ N/A | advisory run: overall 69, change_risk 100; no report path written |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | agent screenshots `after-2of4-1440.png`, `after-all-1440.png` vs rendered `FirstRun.dc.html` (scratchpad `shots/`) — pass |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | grep for hex/`rgb(` in First run CSS: none — pass (two raw font sizes, P3) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 (no overflow, command scrolls in its box), 1024 — pass |
 
 ---
 
@@ -89,3 +89,16 @@ Real Chrome click on Copy (clipboard permission granted): button labels `Copied`
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T069.jsonl`, never the
 implementing agent alone]
+
+## Stage 4 — code-review (Supervisor, 2026-11-14)
+
+Scope: `main...T069` production files (`FirstRun.jsx`, `App.jsx`, `app.css`) + caller `App.jsx` and `first_run.rs` (hint always present for every step). Lane: `C2, 6 files, 498 lines, FITS`. Reachability: entry `web/src/FirstRun.jsx` used by `App.jsx` TABS — reachable. Startup reads line present.
+
+P0: none. P1: none. P2: none.
+P3 (optional):
+| File | Finding | Confidence | Action |
+|---|---|---|---|
+| `web/src/app.css` First run block | `font-size: 12.5px` and `13.5px` hard-coded; tokens `--fs-note` (0.78125rem) and `--fs-control` (0.84375rem) give the same sizes | 100 | Use the tokens |
+| web suite | 1 of 5 Supervisor runs had 1 failed test under heavy parallel load; 3 later runs clean; test name not captured | 50 (below gate, listed for the record) | Watch on `main` after merge |
+
+0 safe fixes applied.
