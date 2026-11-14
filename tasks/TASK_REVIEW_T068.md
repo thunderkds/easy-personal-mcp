@@ -63,9 +63,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 **BEFORE**: captured 2026-11-14T16:15:21Z on branch `T068` at main `042997b`, before any implementation commit. Command: `npm run build` in `web/`, then `scratchpad/shot.sh full 1440 300 before-1440.png` (a throwaway fixture server that serves the built page and canned `/api/*` JSON plus an SSE `/api/live` snapshot with 2 sessions, 1 waiting; then `google-chrome --headless=new --window-size=1440,300 --screenshot=...`). Output: `47706 bytes written to file .../before-1440.png`. Screenshot: `tasks/evidence-T068/before-1440.png`. Observed: the top bar holds the menu button (hidden at 1440), title `Usage` and the right-aligned text `scope: All workspaces · All accounts`, and nothing else (no chips), although the fixture has 2 live sessions, 1 waiting, a 4-minute-old ingest and 5h limit 42 %.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same fixture server and page, rebuilt from branch `T068` (`npm run build`, `check_static: ok`), captured through Chrome DevTools (`tasks/evidence-T068/cdp_shot.mjs`, wait until the chips and the Usage cards have drawn). 1440 px: one row, chips right-aligned after the scope text, each 28 px tall, 6 px radius, `IBM Plex Mono` 12 px, gap 6 px, padding `0px 10px`: `2 active` (mint dot, glow), `1 waiting` (amber, triangle), `ingest 4m ago` (muted), `5h 42%` + 36 px bar. Screenshots: `tasks/evidence-T068/after-1440.png`, `after-1024.png` (one row, scope text cut with an ellipsis), `after-375.png` (chips wrap under the title and scope, `scrollWidth` 375 = `innerWidth`, no horizontal scroll), `variants.png` (top to bottom: 72 % amber, 91 % red, `5h no data`, `0 active` grey with no waiting chip, `ingest 4m ago · no timer` amber with triangle). `npm test`: `Test Files  25 passed (25)`, `Tests  810 passed (810)`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: every view's top bar now shows live-session, waiting, last-ingest and 5-hour-limit status at a glance, and the Live and Waiting chips open the Live view.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T068.jsonl`, never the
 implementing agent alone]
