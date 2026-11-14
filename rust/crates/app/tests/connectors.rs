@@ -85,6 +85,15 @@ impl Home {
             .env("HOME", &self.dir)
             .env("EASY_PERSONAL_HOME", &self.dir)
             .env("PATH", &self.bin)
+            // T050: the connector routes reach a keychain; never the real one
+            .env(
+                "EASY_PERSONAL_TEST_KEYCHAIN",
+                self.dir.join("keychain.json"),
+            )
+            .env(
+                "DBUS_SESSION_BUS_ADDRESS",
+                "unix:path=/nonexistent/t050-no-bus",
+            )
             .env("TZ", "UTC")
             .stderr(Stdio::null());
         command
@@ -345,22 +354,27 @@ fn stored_connector_rows_show_only_id_alias_provider_and_workspace_in_name_order
 fn writes_are_405_with_the_csp_and_head_is_answered_like_get() {
     let s = Server::with_store("store-rich/store-v11.sqlite");
     let before = std::fs::read(s.home.store()).unwrap();
-    for method in ["POST", "PATCH", "PUT", "DELETE"] {
+    for method in ["PATCH", "PUT", "DELETE"] {
         let r = s.send(method, "/api/connectors", &[]);
         assert_eq!(r.status, 405, "{method}");
         r.assert_csp();
         assert!(r.body.is_empty(), "{method}: {:?}", r.body);
     }
+    // T050 serves `POST` (the add): with no content type it is a 415 before anything is read
+    assert_eq!(s.send("POST", "/api/connectors", &[]).status, 415);
     let head = s.send("HEAD", "/api/connectors", &[]);
     assert_eq!(head.status, 200);
     assert!(head.body.is_empty());
     head.assert_csp();
-    // Python's other connector routes are not served by this build
-    for path in ["/api/connectors/legacy", "/api/connectors/slack"] {
-        for method in ["GET", "DELETE", "PUT"] {
-            let r = s.send(method, path, &[]);
-            assert_eq!(r.status, 404, "{method} {path}");
-        }
+    // T050 serves Python's other connector routes; a write with no content type is a 415, other methods a 405
+    for (method, path, status) in [
+        ("DELETE", "/api/connectors/legacy", 415),
+        ("PUT", "/api/connectors/legacy", 405),
+        ("GET", "/api/connectors/slack", 405),
+        ("DELETE", "/api/connectors/slack", 415),
+        ("PUT", "/api/connectors/slack", 405),
+    ] {
+        assert_eq!(s.send(method, path, &[]).status, status, "{method} {path}");
     }
     assert_eq!(
         std::fs::read(s.home.store()).unwrap(),

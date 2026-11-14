@@ -1,0 +1,5752 @@
+{
+ "cases": [
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (Slack):",
+       "  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***",
+       "  store: connector c00000001, alias acme-slack, workspace acme",
+       "  Claude Code: no change now; `easy-personal connector sync` registers it"
+      ],
+      "pending": true,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "add_preview",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d7d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (Slack):",
+       "  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***",
+       "  store: connector c00000001, alias acme-slack, workspace acme",
+       "  Claude Code: no change now; `easy-personal connector sync` registers it",
+       "connector c00000001 (acme-slack) added to workspace 'acme'.",
+       "run `easy-personal connector sync` to register it in the accounts that picked this workspace."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "connectors": [
+       {
+        "category": "Email",
+        "claude_ai_connector": true,
+        "claude_ai_link": "https://claude.ai/settings/connectors",
+        "configured": false,
+        "fields": [
+         {
+          "env": "GMAIL_OAUTH_PATH",
+          "label": "OAuth client keys file (gcp-oauth.keys.json)",
+          "secret": false
+         }
+        ],
+        "id": "gmail",
+        "provider": "Gmail"
+       },
+       {
+        "category": "Email",
+        "claude_ai_connector": false,
+        "claude_ai_link": null,
+        "configured": false,
+        "fields": [
+         {
+          "env": "SENDGRID_API_KEY",
+          "label": "API key (SG....)",
+          "secret": true
+         }
+        ],
+        "id": "sendgrid",
+        "provider": "SendGrid"
+       },
+       {
+        "category": "Messaging",
+        "claude_ai_connector": true,
+        "claude_ai_link": "https://claude.ai/settings/connectors",
+        "configured": false,
+        "fields": [
+         {
+          "env": "SLACK_MCP_XOXB_TOKEN",
+          "label": "Bot token (xoxb-...)",
+          "secret": true
+         }
+        ],
+        "id": "slack",
+        "provider": "Slack"
+       },
+       {
+        "category": "Messaging",
+        "claude_ai_connector": true,
+        "claude_ai_link": "https://claude.ai/settings/connectors",
+        "configured": false,
+        "fields": [
+         {
+          "env": "MS365_MCP_TENANT_ID",
+          "label": "Tenant ID",
+          "secret": false
+         }
+        ],
+        "id": "teams",
+        "provider": "Teams"
+       },
+       {
+        "category": "Messaging",
+        "claude_ai_connector": false,
+        "claude_ai_link": null,
+        "configured": false,
+        "fields": [
+         {
+          "env": "DISCORD_TOKEN",
+          "label": "Bot token",
+          "secret": true
+         }
+        ],
+        "id": "discord",
+        "provider": "Discord"
+       }
+      ],
+      "workspace_connectors": [
+       {
+        "alias": "acme-slack",
+        "id": "c00000001",
+        "provider": "slack",
+        "workspace": "acme"
+       }
+      ]
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "add_confirm",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "",
+     "method": "GET",
+     "path": "/api/connectors",
+     "type": null
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (Slack):",
+       "  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***",
+       "  store: connector c00000001, alias team-chat, workspace acme",
+       "  Claude Code: no change now; `easy-personal connector sync` registers it",
+       "connector c00000001 (team-chat) added to workspace 'acme'.",
+       "run `easy-personal connector sync` to register it in the accounts that picked this workspace."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "team-chat",
+      1,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "add_custom_alias",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022616c696173223a20227465616d2d63686174222c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (Gmail):",
+       "  keychain: service easy-personal/c00000001, fields GMAIL_OAUTH_PATH=***",
+       "  store: connector c00000001, alias personal-gmail, workspace personal",
+       "  Claude Code: no change now; `easy-personal connector sync` registers it",
+       "connector c00000001 (personal-gmail) added to workspace 'personal'.",
+       "run `easy-personal connector sync` to register it in the accounts that picked this workspace."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "personal-gmail",
+      0,
+      "gmail",
+      3
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"@gongrzhe/server-gmail-autoauth-mcp@1.1.11\"], \"env\": {\"GMAIL_OAUTH_PATH\": \"/k/\\u00e9 keys.json\"}, \"headers\": {}}"
+   },
+   "name": "add_env_plain_field",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022676d61696c222c2022776f726b7370616365223a2022706572736f6e616c222c202276616c756573223a207b22474d41494c5f4f415554485f50415448223a20222f6b2fc3a9206b6579732e6a736f6e227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext"
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext"
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "name": "add_no_backend",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d7d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (Slack):",
+       "  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***",
+       "  store: connector c00000001, alias acme-slack, workspace acme",
+       "  Claude Code: no change now; `easy-personal connector sync` registers it",
+       "connector c00000001 (acme-slack) added to workspace 'acme'.",
+       "run `easy-personal connector sync` to register it in the accounts that picked this workspace."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "workspace 'acme' already has a slack connector; refusing to add another."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "add_double_submit",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a20226f746865722d76616c7565227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (Slack):",
+       "  keychain: service easy-personal/c00000001, fields SLACK_MCP_XOXB_TOKEN=***",
+       "  store: connector c00000001, alias acme-slack, workspace acme",
+       "  Claude Code: no change now; `easy-personal connector sync` registers it",
+       "connector c00000001 (acme-slack) added to workspace 'acme'.",
+       "run `easy-personal connector sync` to register it in the accounts that picked this workspace."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "alias 'acme-slack' is in use by another connector; choose another with --alias."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "c00000001",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ]
+    ]
+   },
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {
+    "easy-personal/c00000001": "{\"command\": [\"npx\", \"-y\", \"slack-mcp-server@1.3.0\", \"--transport\", \"stdio\"], \"env\": {\"SLACK_MCP_XOXB_TOKEN\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "add_alias_in_use",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022676d61696c222c2022776f726b7370616365223a2022706572736f6e616c222c2022616c696173223a202261636d652d736c61636b222c202276616c756573223a207b22474d41494c5f4f415554485f50415448223a20222f6b227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "Bot token (xoxb-...) is empty; nothing was written."
+      ],
+      "pending": false,
+      "status": 2
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "Bot token (xoxb-...) is empty; nothing was written."
+      ],
+      "pending": false,
+      "status": 2
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "add_empty_value",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b7d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "error": "unknown provider; see GET /api/connectors"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "unknown provider; see GET /api/connectors"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "unknown provider; see GET /api/connectors"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "workspace is required (a workspace name)"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "workspace is required (a workspace name)"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "workspace is required (a workspace name)"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "alias must be a string"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "values must map field names to strings"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "values must map field names to strings"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "unknown workspace"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "connectors are added to a workspace, never to orphan"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "alias must match [a-z0-9][a-z0-9_-]{0,63}"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "alias must match [a-z0-9][a-z0-9_-]{0,63}"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "body must be an object with boolean confirm"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "body must be JSON"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "body must be an object with boolean confirm"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "content-type must be application/json"
+     },
+     "status": 415
+    },
+    {
+     "json": {
+      "error": "content-type must be application/json"
+     },
+     "status": 415
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "add_refusals",
+   "requests": [
+    {
+     "body_hex": "7b2270726f7669646572223a20226e6f7065222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b7d7d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a20352c2022776f726b7370616365223a202261636d65227d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22776f726b7370616365223a202261636d65227d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b227d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a2022227d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a20337d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c2022616c696173223a20337d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a202278227d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b2241223a20317d7d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a20226e6f70652d504c414e544544222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a20226f727068616e222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022616c696173223a202242616420416c696173222c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022616c696173223a20226161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161222c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a2022796573227d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "6e6f74206a736f6e",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "5b315d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": "text/plain"
+    },
+    {
+     "body_hex": "7b2270726f7669646572223a2022736c61636b222c2022776f726b7370616365223a202261636d65222c202276616c756573223a207b22534c41434b5f4d43505f584f58425f544f4b454e223a2022786f78622d504c414e5445442d743035302d7365637265742dc3a9e29883227d2c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors",
+     "type": null
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme, alias acme-slack):",
+       "  keychain: delete service easy-personal/slack-acme",
+       "  store: delete connector slack-acme"
+      ],
+      "pending": true,
+      "status": 1
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme, alias acme-slack):",
+       "  keychain: delete service easy-personal/slack-acme",
+       "  store: delete connector slack-acme",
+       "connector slack-acme removed."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {},
+   "name": "remove_stored_never_registered",
+   "requests": [
+    {
+     "body_hex": "7b7d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack-acme",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack-acme",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme, alias acme-slack):",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  keychain: delete service easy-personal/slack-acme",
+       "  store: delete connector slack-acme",
+       "done: Claude work: remove acme-slack (exec slack-acme)",
+       "restart Claude Code in the changed accounts to use the change.",
+       "connector slack-acme removed."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "steps": [
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "add",
+        "alias": "acme-gmail",
+        "connector_id": "gmail-acme",
+        "line": "Claude work: add acme-gmail -> exec gmail-acme"
+       }
+      ]
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [],
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {},
+   "name": "remove_stored_registered",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack-acme",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "",
+     "method": "GET",
+     "path": "/api/sync",
+     "type": null
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme, alias acme-slack):",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  keychain: delete service easy-personal/slack-acme",
+       "  store: delete connector slack-acme",
+       "failed: Claude work: remove acme-slack (exec slack-acme) (`claude` exit 1); stopped here.",
+       "run `easy-personal connector sync` again to finish."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "remove acme-slack",
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "remove_stored_claude_fails",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack-acme",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme, alias acme-slack):",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  keychain: delete service easy-personal/slack-acme",
+       "  store: delete connector slack-acme",
+       "the `claude` CLI is not on PATH; nothing was written. Run these once it is installed:",
+       "  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp remove acme-slack --scope user",
+       "the connector stays until every account has dropped it; run this again afterwards."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "remove_stored_no_claude",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack-acme",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme, alias acme-slack):",
+       "  Claude work: skipped (folder missing)",
+       "  keychain: delete service easy-personal/slack-acme",
+       "  store: delete connector slack-acme",
+       "an account that holds it can not be changed now; nothing was removed."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack-acme": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "remove_stored_account_folder_missing",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack-acme",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change: delete keychain service easy-personal/slack; run `claude mcp remove slack --scope user`"
+      ],
+      "pending": true,
+      "status": 1
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "will change: delete keychain service easy-personal/slack; run `claude mcp remove slack --scope user`",
+       "connector 'slack' removed."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {},
+   "name": "remove_pre_workspace_ours",
+   "requests": [
+    {
+     "body_hex": "7b7d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "the default Claude account has a 'slack' entry that easy-personal did not create; nothing was removed."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "/usr/bin/some-server",
+      "--serve"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: /usr/bin/some-server\nArgs: --serve\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "remove_pre_workspace_foreign",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change: delete keychain service easy-personal/slack; run `claude mcp remove slack --scope user`",
+       "`claude mcp remove` failed (exit 1); keychain left as it was."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "remove slack",
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "remove_pre_workspace_claude_fails",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change: delete keychain service easy-personal/discord; no Claude Code entry to remove",
+       "connector 'discord' removed."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "remove_absent",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/discord",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "the `claude` CLI is not on PATH; nothing was removed. Run `claude mcp remove discord --scope user` once it is installed."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "remove_absent_no_claude",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/discord",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change: delete keychain service easy-personal/slack; no Claude Code entry to remove",
+       "no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext"
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "name": "remove_pre_workspace_no_backend",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "error": "unknown connector"
+     },
+     "status": 404
+    },
+    {
+     "json": {
+      "error": "unknown connector"
+     },
+     "status": 404
+    },
+    {
+     "json": {
+      "error": "unknown connector"
+     },
+     "status": 404
+    },
+    {
+     "json": {
+      "error": "body must be JSON"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "content-type must be application/json"
+     },
+     "status": 415
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "remove_unknown",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/github",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/Bad%20Name",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "6e6f7065",
+     "method": "DELETE",
+     "path": "/api/connectors/slack",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b7d",
+     "method": "DELETE",
+     "path": "/api/connectors/slack",
+     "type": "text/plain"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme): move to workspace 'personal', alias acme-slack -> personal-slack",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  keychain: untouched"
+      ],
+      "pending": true,
+      "status": 1
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme): move to workspace 'personal', alias acme-slack -> personal-slack",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  keychain: untouched",
+       "done: Claude work: remove acme-slack (exec slack-acme)",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [],
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "personal-slack",
+      0,
+      "slack",
+      3
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "move_to_workspace",
+   "requests": [
+    {
+     "body_hex": "7b22776f726b7370616365223a2022706572736f6e616c227d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22776f726b7370616365223a2022706572736f6e616c222c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme): move to workspace 'orphan', alias acme-slack -> acme-slack",
+       "  keychain: untouched",
+       "nothing to change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "acme-slack",
+      0,
+      "slack",
+      1
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "move_to_orphan_keeps_alias",
+   "requests": [
+    {
+     "body_hex": "7b22776f726b7370616365223a20226f727068616e222c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "error": "the connector is already in this workspace"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "unknown workspace"
+     },
+     "status": 404
+    },
+    {
+     "json": {
+      "error": "no such connector; see `easy-personal connector list`"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "workspace is required (a workspace name)"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "workspace is required (a workspace name)"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "body must be an object with boolean confirm"
+     },
+     "status": 400
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "move_refusals",
+   "requests": [
+    {
+     "body_hex": "7b22776f726b7370616365223a202261636d65227d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22776f726b7370616365223a20226e6f7065222c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22776f726b7370616365223a2022706572736f6e616c227d",
+     "method": "POST",
+     "path": "/api/connectors/nope/move",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b7d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22776f726b7370616365223a20357d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22776f726b7370616365223a2022706572736f6e616c222c2022636f6e6669726d223a2022796573227d",
+     "method": "POST",
+     "path": "/api/connectors/slack-acme/move",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme): alias acme-slack -> team-chat",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  Claude work: add team-chat -> exec slack-acme",
+       "  keychain: untouched",
+       "done: Claude work: remove acme-slack (exec slack-acme)",
+       "done: Claude work: add team-chat -> exec slack-acme",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-acme): alias team-chat -> acme-slack",
+       "  Claude work: remove team-chat (exec slack-acme)",
+       "  Claude work: add acme-slack -> exec slack-acme",
+       "  keychain: untouched",
+       "done: Claude work: remove team-chat (exec slack-acme)",
+       "done: Claude work: add acme-slack -> exec slack-acme",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "team-chat"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "team-chat",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "team-chat"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "team-chat",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {},
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "alias_custom_then_default",
+   "requests": [
+    {
+     "body_hex": "7b22616c696173223a20227465616d2d63686174222c2022636f6e6669726d223a20747275657d",
+     "method": "PUT",
+     "path": "/api/connectors/slack-acme/alias",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22616c696173223a206e756c6c2c2022636f6e6669726d223a20747275657d",
+     "method": "PUT",
+     "path": "/api/connectors/slack-acme/alias",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "error": "alias 'acme-gmail' is in use by connector gmail-acme; nothing was changed"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "alias for connector slack-acme is too long or has invalid characters; it must match [a-z0-9][a-z0-9_-]{0,63}"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "alias must be a string, or null for the default"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "no such connector; see `easy-personal connector list`"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "a connector in orphan has no default alias; move it to a workspace first"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "lines": [
+       "will change (connector slack-orphan): alias slack -> acme-gmail",
+       "  keychain: untouched",
+       "nothing to change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "acme-slack",
+      0,
+      "slack",
+      2
+     ],
+     [
+      "slack-orphan",
+      "acme-gmail",
+      1,
+      "slack",
+      1
+     ]
+    ]
+   },
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "alias_refusals",
+   "requests": [
+    {
+     "body_hex": "7b22616c696173223a202261636d652d676d61696c222c2022636f6e6669726d223a20747275657d",
+     "method": "PUT",
+     "path": "/api/connectors/slack-acme/alias",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22616c696173223a202242616421222c2022636f6e6669726d223a20747275657d",
+     "method": "PUT",
+     "path": "/api/connectors/slack-acme/alias",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22616c696173223a20357d",
+     "method": "PUT",
+     "path": "/api/connectors/slack-acme/alias",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22616c696173223a202278227d",
+     "method": "PUT",
+     "path": "/api/connectors/nope/alias",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "PUT",
+     "path": "/api/connectors/slack-orphan/alias",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22616c696173223a202261636d652d676d61696c222c2022636f6e6669726d223a20747275657d",
+     "method": "PUT",
+     "path": "/api/connectors/slack-orphan/alias",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO connectors VALUES ('slack-orphan', 'slack', 0, 'slack', 1)"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "will change (workspace 2, now 'firm'):",
+       "  connector gmail-acme: alias acme-gmail -> firm-gmail",
+       "  connector slack-acme: alias acme-slack -> firm-slack",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  Claude work: add firm-gmail -> exec gmail-acme",
+       "  Claude work: add firm-slack -> exec slack-acme",
+       "  keychain: untouched",
+       "done: Claude work: remove acme-slack (exec slack-acme)",
+       "done: Claude work: add firm-gmail -> exec gmail-acme",
+       "done: Claude work: add firm-slack -> exec slack-acme",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0,
+      "workspace": {
+       "color": "#3366cc",
+       "description": "invented workspace one",
+       "email": null,
+       "icon": null,
+       "id": 2,
+       "is_orphan": false,
+       "name": "firm",
+       "repos": [
+        "/work/rich/gone-a",
+        "/work/rich/kit/alpha"
+       ]
+      }
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "firm-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "firm-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "firm-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "firm-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      2,
+      "firm-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "firm-slack",
+      "slack-acme"
+     ]
+    ],
+    "connectors": [
+     [
+      "gmail-acme",
+      "firm-gmail",
+      0,
+      "gmail",
+      2
+     ],
+     [
+      "slack-acme",
+      "firm-slack",
+      0,
+      "slack",
+      2
+     ]
+    ],
+    "workspaces": [
+     [
+      1,
+      "orphan",
+      null,
+      null,
+      null,
+      null,
+      1
+     ],
+     [
+      2,
+      "firm",
+      "#3366cc",
+      null,
+      "invented workspace one",
+      null,
+      0
+     ],
+     [
+      3,
+      "personal",
+      null,
+      null,
+      null,
+      "invented@example.invalid",
+      0
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "firm-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "firm-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "workspace_rename_applies",
+   "requests": [
+    {
+     "body_hex": "7b226e616d65223a20226669726d222c2022636f6e6669726d223a20747275657d",
+     "method": "PATCH",
+     "path": "/api/workspaces/2",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "deleted": 2,
+      "lines": [
+       "will change (delete workspace 'acme'):",
+       "  connectors to orphan: gmail-acme, slack-acme",
+       "  account picks removed: 1; repo rows deleted: 2",
+       "  Claude work: remove acme-slack (exec slack-acme)",
+       "  keychain: untouched",
+       "done: Claude work: remove acme-slack (exec slack-acme)",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [],
+    "account_workspaces": [],
+    "connectors": [
+     [
+      "gmail-acme",
+      "acme-gmail",
+      0,
+      "gmail",
+      1
+     ],
+     [
+      "slack-acme",
+      "acme-slack",
+      0,
+      "slack",
+      1
+     ]
+    ],
+    "workspace_repos": [
+     [
+      3,
+      "/work/rich/gone-b"
+     ],
+     [
+      3,
+      "/work/rich/kit/beta"
+     ]
+    ],
+    "workspaces": [
+     [
+      1,
+      "orphan",
+      null,
+      null,
+      null,
+      null,
+      1
+     ],
+     [
+      3,
+      "personal",
+      null,
+      null,
+      null,
+      "invented@example.invalid",
+      0
+     ]
+    ]
+   },
+   "claude": {
+    "@W@/agent-root/.claude-work": {
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {}
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "workspace_delete_applies",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/workspaces/2",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "steps": [
+       {
+        "account": "Claude default",
+        "account_id": 1,
+        "action": "add",
+        "alias": "acme-discord",
+        "connector_id": "discord-acme",
+        "line": "Claude default: add acme-discord -> exec discord-acme"
+       },
+       {
+        "account": "Claude default",
+        "account_id": 1,
+        "action": "add",
+        "alias": "acme-gmail",
+        "connector_id": "gmail-acme",
+        "line": "Claude default: add acme-gmail -> exec gmail-acme"
+       },
+       {
+        "account": "Claude default",
+        "account_id": 1,
+        "action": "add",
+        "alias": "acme-sendgrid",
+        "connector_id": "sendgrid-acme",
+        "line": "Claude default: add acme-sendgrid -> exec sendgrid-acme"
+       },
+       {
+        "account": "Claude default",
+        "account_id": 1,
+        "action": "add",
+        "alias": "acme-slack",
+        "connector_id": "slack-acme",
+        "line": "Claude default: add acme-slack -> exec slack-acme"
+       },
+       {
+        "account": "Claude default",
+        "account_id": 1,
+        "action": "add",
+        "alias": "acme-teams",
+        "connector_id": "teams-acme",
+        "line": "Claude default: add acme-teams -> exec teams-acme"
+       },
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "remove",
+        "alias": "acme-teams",
+        "connector_id": "teams-acme",
+        "line": "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)"
+       },
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "remove",
+        "alias": "old-one",
+        "connector_id": "slack-personal",
+        "line": "Claude work: remove old-one (exec slack-personal)"
+       },
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "forget",
+        "alias": "old-two",
+        "connector_id": "gmail-personal",
+        "line": "Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)"
+       },
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "add",
+        "alias": "acme-gmail",
+        "connector_id": "gmail-acme",
+        "line": "Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)"
+       },
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "add",
+        "alias": "acme-teams",
+        "connector_id": "teams-acme",
+        "line": "Claude work: add acme-teams -> exec teams-acme (re-add)"
+       },
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "record",
+        "alias": "acme-discord",
+        "connector_id": "discord-acme",
+        "line": "Claude work: record acme-discord -> exec discord-acme (already in Claude Code)"
+       },
+       {
+        "account": "Claude work",
+        "account_id": 2,
+        "action": "refused",
+        "alias": "acme-sendgrid",
+        "connector_id": "sendgrid-acme",
+        "line": "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten"
+       }
+      ]
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "Claude default: add acme-discord -> exec discord-acme",
+       "Claude default: add acme-gmail -> exec gmail-acme",
+       "Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "Claude default: add acme-slack -> exec slack-acme",
+       "Claude default: add acme-teams -> exec teams-acme",
+       "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "Claude work: remove old-one (exec slack-personal)",
+       "Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten"
+      ],
+      "pending": true,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "Claude default: add acme-discord -> exec discord-acme",
+       "Claude default: add acme-gmail -> exec gmail-acme",
+       "Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "Claude default: add acme-slack -> exec slack-acme",
+       "Claude default: add acme-teams -> exec teams-acme",
+       "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "Claude work: remove old-one (exec slack-personal)",
+       "Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten",
+       "done: Claude default: add acme-discord -> exec discord-acme",
+       "done: Claude default: add acme-gmail -> exec gmail-acme",
+       "done: Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "done: Claude default: add acme-slack -> exec slack-acme",
+       "done: Claude default: add acme-teams -> exec teams-acme",
+       "done: Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "done: Claude work: remove old-one (exec slack-personal)",
+       "done: Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "done: Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "done: Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "done: Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten",
+       "nothing to change"
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-discord",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-sendgrid",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "old-one",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      1,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      1,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      1,
+      "acme-sendgrid",
+      "sendgrid-acme"
+     ],
+     [
+      1,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      1,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    },
+    "<unset>": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid-acme\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "sync_every_step_kind",
+   "requests": [
+    {
+     "body_hex": "",
+     "method": "GET",
+     "path": "/api/sync",
+     "type": null
+    },
+    {
+     "body_hex": "7b7d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "Claude default: add acme-discord -> exec discord-acme",
+       "Claude default: add acme-gmail -> exec gmail-acme",
+       "Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "Claude default: add acme-slack -> exec slack-acme",
+       "Claude default: add acme-teams -> exec teams-acme",
+       "done: Claude default: add acme-discord -> exec discord-acme",
+       "done: Claude default: add acme-gmail -> exec gmail-acme",
+       "done: Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "done: Claude default: add acme-slack -> exec slack-acme",
+       "done: Claude default: add acme-teams -> exec teams-acme",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "Claude work: remove old-one (exec slack-personal)",
+       "Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten"
+      ],
+      "pending": true,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-discord",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-sendgrid",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      1,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      1,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      1,
+      "acme-sendgrid",
+      "sendgrid-acme"
+     ],
+     [
+      1,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      1,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "old-one",
+      "slack-personal"
+     ],
+     [
+      2,
+      "old-two",
+      "gmail-personal"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "old-one": "Command: <LAUNCHER>\nArgs: exec slack-personal\n"
+    },
+    "<unset>": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid-acme\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "sync_one_account",
+   "requests": [
+    {
+     "body_hex": "7b226163636f756e74223a20312c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b226163636f756e74223a202232227d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "Claude default: add acme-discord -> exec discord-acme",
+       "Claude default: add acme-gmail -> exec gmail-acme",
+       "Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "Claude default: add acme-slack -> exec slack-acme",
+       "Claude default: add acme-teams -> exec teams-acme",
+       "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "Claude work: remove old-one (exec slack-personal)",
+       "Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten",
+       "done: Claude default: add acme-discord -> exec discord-acme",
+       "done: Claude default: add acme-gmail -> exec gmail-acme",
+       "done: Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "failed: Claude default: add acme-slack -> exec slack-acme (`claude` exit 1); stopped here.",
+       "run `easy-personal connector sync` again to finish."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "Claude default: add acme-slack -> exec slack-acme",
+       "Claude default: add acme-teams -> exec teams-acme",
+       "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "Claude work: remove old-one (exec slack-personal)",
+       "Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten",
+       "failed: Claude default: add acme-slack -> exec slack-acme (`claude` exit 1); stopped here.",
+       "run `easy-personal connector sync` again to finish."
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-discord",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-sendgrid",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-slack",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      1,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      1,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      1,
+      "acme-sendgrid",
+      "sendgrid-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ],
+     [
+      2,
+      "old-one",
+      "slack-personal"
+     ],
+     [
+      2,
+      "old-two",
+      "gmail-personal"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "old-one": "Command: <LAUNCHER>\nArgs: exec slack-personal\n"
+    },
+    "<unset>": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid-acme\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "add-json acme-slack",
+   "keychain": {},
+   "keychain_after": {},
+   "name": "sync_failing_claude",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "Claude default: add acme-discord -> exec discord-acme",
+       "Claude default: add acme-gmail -> exec gmail-acme",
+       "Claude default: add acme-sendgrid -> exec sendgrid-acme",
+       "Claude default: add acme-slack -> exec slack-acme",
+       "Claude default: add acme-teams -> exec teams-acme",
+       "Claude work: remove old-one (exec slack-personal)",
+       "Claude work: remove old-two (exec gmail-personal)",
+       "Claude work: add acme-discord -> exec discord-acme",
+       "Claude work: add acme-sendgrid -> exec sendgrid-acme",
+       "the `claude` CLI is not on PATH; nothing was written. Run these once it is installed:",
+       "  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-discord '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}' --scope user",
+       "  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-gmail '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}' --scope user",
+       "  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-sendgrid '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}' --scope user",
+       "  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-slack '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"slack-acme\"]}' --scope user",
+       "  env -u CLAUDE_CONFIG_DIR claude mcp add-json acme-teams '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}' --scope user",
+       "  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp remove old-one --scope user",
+       "  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp remove old-two --scope user",
+       "  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp add-json acme-discord '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"discord-acme\"]}' --scope user",
+       "  CLAUDE_CONFIG_DIR=<WORK>/agent-root/.claude-work claude mcp add-json acme-sendgrid '{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"sendgrid-acme\"]}' --scope user"
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "sync_no_claude",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "Claude default: skipped (folder missing)",
+       "Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "Claude work: remove old-one (exec slack-personal)",
+       "Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "Claude work: refused acme-sendgrid -> exec sendgrid-acme: an MCP server with this name exists that easy-personal did not add; nothing is overwritten",
+       "done: Claude work: remove acme-teams (exec teams-acme) (does not point at the launcher)",
+       "done: Claude work: remove old-one (exec slack-personal)",
+       "done: Claude work: forget old-two (exec gmail-personal) (already gone from Claude Code)",
+       "done: Claude work: add acme-gmail -> exec gmail-acme (missing from Claude Code: re-add)",
+       "done: Claude work: add acme-teams -> exec teams-acme (re-add)",
+       "done: Claude work: record acme-discord -> exec discord-acme (already in Claude Code)",
+       "restart Claude Code in the changed accounts to use the change."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-discord"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-gmail"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-sendgrid"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-slack"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "acme-teams"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-one"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "old-two"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "acme-teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "old-one",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-gmail",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"gmail-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    },
+    {
+     "argv": [
+      "mcp",
+      "add-json",
+      "acme-teams",
+      "{\"type\": \"stdio\", \"command\": \"<LAUNCHER>\", \"args\": [\"exec\", \"teams-acme\"]}",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<WORK>/agent-root/.claude-work"
+    }
+   ],
+   "changed": {
+    "account_registrations": [
+     [
+      2,
+      "acme-discord",
+      "discord-acme"
+     ],
+     [
+      2,
+      "acme-gmail",
+      "gmail-acme"
+     ],
+     [
+      2,
+      "acme-slack",
+      "slack-acme"
+     ],
+     [
+      2,
+      "acme-teams",
+      "teams-acme"
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {},
+    "@W@/agent-root/.claude-work": {
+     "acme-discord": [
+      "@LAUNCHER@",
+      "exec discord-acme"
+     ],
+     "acme-sendgrid": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "acme-slack": [
+      "@LAUNCHER@",
+      "exec slack-acme"
+     ],
+     "acme-teams": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "old-one": [
+      "@LAUNCHER@",
+      "exec slack-personal"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "acme-discord": "Command: <LAUNCHER>\nArgs: exec discord-acme\n",
+     "acme-gmail": "Command: <LAUNCHER>\nArgs: exec gmail-acme\n",
+     "acme-sendgrid": "Command: /usr/bin/some-server\nArgs: --serve\n",
+     "acme-slack": "Command: <LAUNCHER>\nArgs: exec slack-acme\n",
+     "acme-teams": "Command: <LAUNCHER>\nArgs: exec teams-acme\n"
+    },
+    "<unset>": {}
+   },
+   "dirs": [
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "sync_skipped_account",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('slack-acme', 'acme-slack', 0, 'slack', 2)",
+    "INSERT INTO connectors (id, alias, alias_custom, provider, workspace_id) VALUES ('gmail-acme', 'acme-gmail', 0, 'gmail', 2)",
+    "INSERT INTO account_workspaces VALUES (1, 2)",
+    "INSERT INTO connectors VALUES ('discord-acme', 'acme-discord', 0, 'discord', 2)",
+    "INSERT INTO connectors VALUES ('teams-acme', 'acme-teams', 0, 'teams', 2)",
+    "INSERT INTO connectors VALUES ('sendgrid-acme', 'acme-sendgrid', 0, 'sendgrid', 2)",
+    "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'slack-acme')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-gmail', 'gmail-acme')",
+    "INSERT INTO connectors VALUES ('slack-personal', 'personal-slack', 0, 'slack', 3)",
+    "INSERT INTO connectors VALUES ('gmail-personal', 'personal-gmail', 0, 'gmail', 3)",
+    "INSERT INTO account_registrations VALUES (2, 'old-one', 'slack-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'old-two', 'gmail-personal')",
+    "INSERT INTO account_registrations VALUES (2, 'acme-teams', 'teams-acme')"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "error": "account must be an account id"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "account must be an account id"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "account must be an account id"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "no such account"
+     },
+     "status": 404
+    },
+    {
+     "json": {
+      "error": "no such account"
+     },
+     "status": 404
+    },
+    {
+     "json": {
+      "error": "body must be an object with boolean confirm"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "body must be JSON"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "content-type must be application/json"
+     },
+     "status": 415
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "sync_refusals",
+   "requests": [
+    {
+     "body_hex": "7b226163636f756e74223a202278227d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b226163636f756e74223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b226163636f756e74223a20312e357d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b226163636f756e74223a203939392c2022636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b226163636f756e74223a202d357d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a2022796573227d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b7d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": null
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "nothing to change"
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "sync_nothing",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/sync",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "legacy": [
+       {
+        "claude": false,
+        "foreign": false,
+        "id": "discord",
+        "keychain": true
+       },
+       {
+        "claude": false,
+        "foreign": true,
+        "id": "gmail",
+        "keychain": true
+       },
+       {
+        "claude": true,
+        "foreign": false,
+        "id": "slack",
+        "keychain": true
+       },
+       {
+        "claude": true,
+        "foreign": false,
+        "id": "teams",
+        "keychain": false
+       }
+      ]
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "pre-workspace connectors found:",
+       "  discord: keychain yes, Claude Code default account no",
+       "  gmail: keychain yes, Claude Code default account no",
+       "  slack: keychain yes, Claude Code default account yes",
+       "  teams: keychain no, Claude Code default account yes (no keychain item: it fails at launch until you add it again)",
+       "will change:",
+       "  store: adopt discord (id discord, alias discord) into orphan",
+       "  store: adopt gmail (id gmail, alias gmail) into orphan",
+       "  Claude Code (default account): gmail is not an easy-personal entry; left as it is",
+       "  store: adopt slack (id slack, alias slack) into orphan",
+       "  Claude Code (default account): remove slack",
+       "  store: adopt teams (id teams, alias teams) into orphan",
+       "  Claude Code (default account): remove teams",
+       "  keychain: untouched"
+      ],
+      "pending": true,
+      "status": 1
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "pre-workspace connectors found:",
+       "  discord: keychain yes, Claude Code default account no",
+       "  gmail: keychain yes, Claude Code default account no",
+       "  slack: keychain yes, Claude Code default account yes",
+       "  teams: keychain no, Claude Code default account yes (no keychain item: it fails at launch until you add it again)",
+       "will change:",
+       "  store: adopt discord (id discord, alias discord) into orphan",
+       "  store: adopt gmail (id gmail, alias gmail) into orphan",
+       "  Claude Code (default account): gmail is not an easy-personal entry; left as it is",
+       "  store: adopt slack (id slack, alias slack) into orphan",
+       "  Claude Code (default account): remove slack",
+       "  store: adopt teams (id teams, alias teams) into orphan",
+       "  Claude Code (default account): remove teams",
+       "  keychain: untouched",
+       "done: discord adopted into orphan.",
+       "done: gmail adopted into orphan.",
+       "done: slack adopted into orphan.",
+       "done: removed slack from Claude Code (default account).",
+       "done: teams adopted into orphan.",
+       "done: removed teams from Claude Code (default account).",
+       "assign them to a workspace with `easy-personal connector move <id> <workspace>` when you are ready."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "legacy": []
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "nothing to adopt: no pre-workspace connector found."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "teams",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "connectors": [
+     [
+      "discord",
+      "discord",
+      0,
+      "discord",
+      1
+     ],
+     [
+      "gmail",
+      "gmail",
+      0,
+      "gmail",
+      1
+     ],
+     [
+      "slack",
+      "slack",
+      0,
+      "slack",
+      1
+     ],
+     [
+      "teams",
+      "teams",
+      0,
+      "teams",
+      1
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {
+     "gmail": [
+      "/usr/bin/some-server",
+      "--serve"
+     ],
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ],
+     "teams": [
+      "@LAUNCHER@",
+      "exec teams"
+     ]
+    },
+    "@W@/agent-root/.claude-work": {
+     "sendgrid": [
+      "@LAUNCHER@",
+      "exec sendgrid"
+     ]
+    }
+   },
+   "claude_after": {
+    "<WORK>/agent-root/.claude-work": {
+     "sendgrid": "Command: <LAUNCHER>\nArgs: exec sendgrid\n"
+    },
+    "<unset>": {
+     "gmail": "Command: /usr/bin/some-server\nArgs: --serve\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"D\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/discord": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"D\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}",
+    "easy-personal/gmail": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}",
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {\"T\": \"xoxb-PLANTED-t050-secret-\\u00e9\\u2603\"}, \"headers\": {}}"
+   },
+   "name": "legacy_adopt",
+   "requests": [
+    {
+     "body_hex": "",
+     "method": "GET",
+     "path": "/api/connectors/legacy",
+     "type": null
+    },
+    {
+     "body_hex": "7b7d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "",
+     "method": "GET",
+     "path": "/api/connectors/legacy",
+     "type": null
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "lines": [
+       "pre-workspace connectors found:",
+       "  slack: keychain yes, Claude Code default account yes",
+       "will change:",
+       "  store: adopt slack (id slack, alias slack) into orphan",
+       "  Claude Code (default account): remove slack",
+       "  keychain: untouched",
+       "done: slack adopted into orphan.",
+       "pending: `claude` could not remove slack (exit 1); the row stays in orphan. Run: CLAUDE_CONFIG_DIR unset: claude mcp remove slack --scope user"
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "discord"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "gmail"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "sendgrid"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "slack"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "get",
+      "teams"
+     ],
+     "ccd": "<unset>"
+    },
+    {
+     "argv": [
+      "mcp",
+      "remove",
+      "slack",
+      "--scope",
+      "user"
+     ],
+     "ccd": "<unset>"
+    }
+   ],
+   "changed": {
+    "connectors": [
+     [
+      "slack",
+      "slack",
+      0,
+      "slack",
+      1
+     ]
+    ]
+   },
+   "claude": {
+    "<unset>": {
+     "slack": [
+      "@LAUNCHER@",
+      "exec slack"
+     ]
+    }
+   },
+   "claude_after": {
+    "<unset>": {
+     "slack": "Command: <LAUNCHER>\nArgs: exec slack\n"
+    }
+   },
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": "remove slack",
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "name": "legacy_claude_fails",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "error": "no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext"
+     },
+     "status": 503
+    },
+    {
+     "json": {
+      "lines": [
+       "no usable OS keychain (Secret Service); unlock or install one, e.g. gnome-keyring. Secrets are never stored in plaintext"
+      ],
+      "pending": false,
+      "status": 1
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": {},
+   "claude_after": {},
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": "none",
+   "keychain_after": "none",
+   "name": "legacy_no_backend",
+   "requests": [
+    {
+     "body_hex": "",
+     "method": "GET",
+     "path": "/api/connectors/legacy",
+     "type": null
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "legacy": []
+     },
+     "status": 200
+    },
+    {
+     "json": {
+      "lines": [
+       "nothing to adopt: no pre-workspace connector found."
+      ],
+      "pending": false,
+      "status": 0
+     },
+     "status": 200
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "keychain_after": {
+    "easy-personal/slack": "{\"command\": [\"npx\", \"-y\", \"x@1\"], \"env\": {}, \"headers\": {}}"
+   },
+   "name": "legacy_nothing",
+   "requests": [
+    {
+     "body_hex": "",
+     "method": "GET",
+     "path": "/api/connectors/legacy",
+     "type": null
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    }
+   ],
+   "setup": [
+    "INSERT INTO connectors VALUES ('slack', 'slack', 0, 'slack', 1)"
+   ],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  },
+  {
+   "answers": [
+    {
+     "json": {
+      "error": "body must be an object with boolean confirm"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "body must be JSON"
+     },
+     "status": 400
+    },
+    {
+     "json": {
+      "error": "content-type must be application/json"
+     },
+     "status": 415
+    },
+    {
+     "json": {
+      "error": "unknown connector"
+     },
+     "status": 404
+    }
+   ],
+   "calls": [],
+   "changed": {},
+   "claude": null,
+   "claude_after": null,
+   "dirs": [
+    "agent-root/.claude",
+    "agent-root/.claude-work/projects"
+   ],
+   "fail": null,
+   "keychain": {},
+   "keychain_after": {},
+   "name": "legacy_refusals",
+   "requests": [
+    {
+     "body_hex": "7b22636f6e6669726d223a2022796573227d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "78",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    },
+    {
+     "body_hex": "7b7d",
+     "method": "POST",
+     "path": "/api/connectors/legacy",
+     "type": null
+    },
+    {
+     "body_hex": "7b22636f6e6669726d223a20747275657d",
+     "method": "DELETE",
+     "path": "/api/connectors/legacy",
+     "type": "application/json"
+    }
+   ],
+   "setup": [],
+   "tables": [
+    "account_registrations",
+    "account_workspaces",
+    "agent_accounts",
+    "connectors",
+    "context_index",
+    "events",
+    "investigate_reports",
+    "kit_trace_events",
+    "meta",
+    "source_files",
+    "tool_signals",
+    "ui_sessions",
+    "verifier_scores",
+    "workspace_repos",
+    "workspaces"
+   ]
+  }
+ ],
+ "fake_claude": "rust/parity/golden-connectors/fake-claude.sh",
+ "fake_launcher": "<LAUNCHER>",
+ "generator": "rust/parity/gen_connectors.py",
+ "source_store": "rust/parity/store-rich/store-v11.sqlite"
+}

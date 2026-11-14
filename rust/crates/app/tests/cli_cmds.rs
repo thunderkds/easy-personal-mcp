@@ -15,8 +15,6 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 const NO_STORE: &str = "no store yet: nothing has been ingested into the data folder";
-const NEEDS_CLAUDE: &str = "this change must update an agent account's Claude Code entries, which needs the claude CLI; \
-                            this build cannot run it yet, so nothing was changed";
 
 struct Home {
     dir: PathBuf,
@@ -295,8 +293,11 @@ fn state(home: &Home) -> Vec<String> {
     )
 }
 
+/// Since T050 the change runs the plan through the `claude` runner, as Python does: `PATH` is pinned to `/usr/bin:/bin`, so no
+/// `claude` is found. The plan is shown first, the store change is made (exit 0), and the commands to run later are printed
+/// (the T048 "needs the claude CLI" refusal is gone).
 #[test]
-fn a_change_that_needs_claude_is_refused_with_the_t048_text_and_changes_nothing() {
+fn a_change_with_no_claude_on_path_makes_the_store_change_and_prints_the_commands_as_python_does() {
     for (args, stdin) in [
         (
             vec!["workspace", "edit", "acme", "--rename", "company", "--yes"],
@@ -313,19 +314,19 @@ fn a_change_that_needs_claude_is_refused_with_the_t048_text_and_changes_nothing(
         home.sql(WITH_REGISTRATIONS);
         let before = state(&home);
         let done = home.run_with(&args, stdin);
-        assert_eq!(done.status.code(), Some(2), "{args:?}: {}", err(&done));
-        assert_eq!(
-            err(&done),
-            format!("easy-personal-rs: {NEEDS_CLAUDE}\n"),
-            "{args:?}"
-        );
+        assert_eq!(done.status.code(), Some(0), "{args:?}: {}", err(&done));
+        assert_eq!(err(&done), "", "{args:?}: nothing on stderr");
         assert!(
             out(&done).starts_with("will change ("),
             "the plan is shown first: {}",
             out(&done)
         );
-        assert!(!out(&done).contains("nothing to change"), "{}", out(&done));
-        assert_eq!(state(&home), before, "{args:?} changed the store");
+        assert!(
+            out(&done).contains("is not on PATH; nothing was written"),
+            "{args:?}: {}",
+            out(&done)
+        );
+        assert_ne!(state(&home), before, "{args:?} must change the store");
     }
 }
 

@@ -10,13 +10,15 @@
 //! needs schema v11, waits 5 s for a busy writer) and closed before the answer. One in-process lock lets one write run at
 //! a time, as Python's `_WRITE_LOCK` does for the connector routes; there is no `ingest.lock` (Python takes none).
 //!
-//! A change that would need the `claude` CLI (an account registration to add or remove) is refused with a fixed 409 and
-//! changes nothing, until T050. No answer names the caller's input: a body or store problem is a fixed text.
+//! A confirmed rename or delete whose plan changes an account's Claude Code entries runs `claude` (`claude_cli.rs`,
+//! T050) after the commit, as Python's `sync.apply` does. No answer names the caller's input: a body or store problem
+//! is a fixed text.
 
 // The error of the body readers is the finished answer (a `Response`), which an early `return` would send as it is.
 #![allow(clippy::result_large_err)]
 
 use crate::api::{Api, INTERNAL, agent_root, error_body, report_id, respond};
+use crate::claude_cli::SystemClaude;
 use axum::body::to_bytes;
 use axum::extract::{Request, State};
 use axum::http::header::CONTENT_TYPE;
@@ -34,15 +36,13 @@ use std::sync::Mutex;
 
 /// Python has no cap on a body; this build refuses one over 1 MiB (a dashboard form is a few hundred bytes).
 const MAX_BODY: usize = 1 << 20;
-/// `_WRITE_LOCK`, widened to every write route here.
-static WRITE_LOCK: Mutex<()> = Mutex::new(());
+/// `_WRITE_LOCK`, widened to every write route here and the connector routes (T050).
+pub(crate) static WRITE_LOCK: Mutex<()> = Mutex::new(());
 
-const NEEDS_CLAUDE: &str = "this change must update an agent account's Claude Code entries, which needs the claude CLI; \
-                            this build cannot run it yet, so nothing was changed";
 const BUSY: &str = "the store is busy (another process is writing); try again in a moment";
 const NOT_WRITABLE: &str = "the store cannot be written right now; try again in a moment";
 
-fn fail(status: StatusCode, text: &str) -> Response {
+pub(crate) fn fail(status: StatusCode, text: &str) -> Response {
     respond(status, &error_body(text))
 }
 
@@ -57,7 +57,7 @@ fn is_json_type(headers: &HeaderMap) -> bool {
 }
 
 /// The path and the body bytes, or the answer: 415 for another content type, 413 for a body over the cap.
-async fn raw_body(req: Request) -> Result<(String, Vec<u8>), Response> {
+pub(crate) async fn raw_body(req: Request) -> Result<(String, Vec<u8>), Response> {
     let (parts, body) = req.into_parts();
     if !is_json_type(&parts.headers) {
         return Err(fail(
@@ -79,7 +79,7 @@ async fn raw_body(req: Request) -> Result<(String, Vec<u8>), Response> {
 /// `json.loads` of the bytes. A UTF-8 byte order mark is skipped, as Python's detection does. Where Python's parser
 /// accepts text this one does not (`NaN`, `Infinity`, a number past a double, a lone surrogate escape, nesting past
 /// 128, UTF-16 or UTF-32), the answer is the 400 for bad JSON.
-fn parse(raw: &[u8]) -> Option<Value> {
+pub(crate) fn parse(raw: &[u8]) -> Option<Value> {
     serde_json::from_slice(raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(raw)).ok()
 }
 
@@ -104,7 +104,7 @@ async fn object_body(
 }
 
 /// An account route's body (`_json_body`): JSON, an object whose `confirm`, when present, is a boolean.
-async fn account_body(req: Request) -> Result<(String, Map<String, Value>), Response> {
+pub(crate) async fn account_body(req: Request) -> Result<(String, Map<String, Value>), Response> {
     let (path, raw) = raw_body(req).await?;
     match parse(&raw) {
         None => Err(fail(StatusCode::BAD_REQUEST, "body must be JSON")),
@@ -188,7 +188,7 @@ fn account_id(path: &str) -> Option<String> {
 }
 
 /// What a refusal looks like on the wire: Python's status and text, or a fixed one.
-fn refusal(failure: WriteFail) -> Response {
+pub(crate) fn refusal(failure: WriteFail) -> Response {
     let (status, text) = refusal_parts(failure);
     fail(status, &text)
 }
@@ -200,7 +200,6 @@ pub(crate) fn refusal_parts(failure: WriteFail) -> (StatusCode, String) {
             StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_REQUEST),
             text,
         ),
-        WriteFail::NeedsClaude => (StatusCode::CONFLICT, NEEDS_CLAUDE.to_string()),
         WriteFail::Store(error) => {
             let text = match &error {
                 StoreError::NoStore | StoreError::Newer { .. } | StoreError::NoHome => {
@@ -226,7 +225,7 @@ pub(crate) fn refusal_parts(failure: WriteFail) -> (StatusCode, String) {
 /// the store nor the lock (resolving a path, reading a body's keys): it runs first, so a slow one never holds the write
 /// lock or the write handle. `work` runs under the lock and gets what `prepare` made. `detect` is the agent root whose
 /// folders are detected first (the account routes: Python's `accounts.detect`).
-async fn run<P, F>(
+pub(crate) async fn run<P, F>(
     api: Api,
     detect: Option<PathBuf>,
     status: StatusCode,
@@ -254,7 +253,7 @@ where
     }
 }
 
-fn answer(outcome: &Outcome) -> Value {
+pub(crate) fn answer(outcome: &Outcome) -> Value {
     json!({ "status": outcome.status, "lines": outcome.lines, "pending": outcome.pending })
 }
 
@@ -307,7 +306,7 @@ pub(crate) async fn workspace_edit(State(api): State<Api>, req: Request) -> Resp
             (changes, repos)
         },
         move |conn, (changes, repos)| {
-            let outcome = workspaces::patch(conn, id, changes, repos, yes)?;
+            let outcome = workspaces::patch(conn, id, changes, repos, yes, &SystemClaude::new())?;
             let mut body = answer(&outcome);
             body["workspace"] = workspaces::get(conn, id)?;
             Ok(body)
@@ -336,7 +335,7 @@ pub(crate) async fn workspace_delete(State(api): State<Api>, req: Request) -> Re
         StatusCode::OK,
         || (),
         move |conn, ()| {
-            let outcome = workspaces::delete(conn, id, yes)?;
+            let outcome = workspaces::delete(conn, id, yes, &SystemClaude::new())?;
             let mut body = answer(&outcome);
             body["deleted"] = if outcome.status == 0 {
                 json!(id)

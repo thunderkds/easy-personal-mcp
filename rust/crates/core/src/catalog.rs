@@ -289,7 +289,7 @@ fn valid_pinned(package: &str) -> bool {
 }
 
 /// Python's `str.splitlines()`: breaks at `\n \r \r\n \v \f \x1c \x1d \x1e \x85    `, no empty last line.
-fn splitlines(text: &str) -> Vec<&str> {
+pub(crate) fn splitlines(text: &str) -> Vec<&str> {
     let mut lines = Vec::new();
     let (mut start, mut chars) = (0, text.char_indices().peekable());
     while let Some((i, c)) = chars.next() {

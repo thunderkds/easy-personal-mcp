@@ -4,10 +4,14 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 mod api;
+mod claude_cli;
 mod cli_cmds;
+mod connector_writes;
 #[cfg(any(feature = "window", test))]
 mod display;
 mod ingest_cmd;
+mod keychain;
+mod legacy;
 mod live_feed;
 mod mcp;
 mod mcp_http;
@@ -15,6 +19,7 @@ mod schedule_cmd;
 mod server;
 mod static_files;
 mod store_check_cmd;
+mod sync_apply;
 mod window;
 mod writes;
 

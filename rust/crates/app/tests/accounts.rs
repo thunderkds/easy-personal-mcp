@@ -109,6 +109,7 @@ impl Server {
         setup(&home);
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
             .args(["serve", "--no-ingest"])
+            .env("PATH", "/usr/bin:/bin") // T050: `GET /api/sync` runs `claude mcp get` when `claude` is on PATH
             .env("HOME", &home)
             .env("EASY_PERSONAL_HOME", &home)
             .env("XDG_CONFIG_HOME", home.join("xdg"))
@@ -524,7 +525,7 @@ fn a_new_agent_folder_shows_after_ingest_not_at_page_load() {
     assert!(!s.home.join("store.sqlite-wal").exists());
 }
 
-/// T048 serves `POST /api/accounts` and the three sub-paths (`writes.rs`); the apply of `/api/sync` is still not served.
+/// T048 serves `POST /api/accounts` and the three sub-paths (`writes.rs`), T050 the apply `POST /api/sync`.
 /// Without a content type a served write is a 415 and opens nothing.
 #[test]
 fn other_methods_are_405_and_the_account_writes_answer_415_without_a_content_type() {
@@ -533,7 +534,7 @@ fn other_methods_are_405_and_the_account_writes_answer_415_without_a_content_typ
     for route in ["/api/accounts", "/api/sync"] {
         for method in ["POST", "PATCH", "PUT", "DELETE"] {
             let r = s.send(method, route, &[]);
-            if (route, method) == ("/api/accounts", "POST") {
+            if method == "POST" {
                 r.assert_json(415);
                 continue;
             }

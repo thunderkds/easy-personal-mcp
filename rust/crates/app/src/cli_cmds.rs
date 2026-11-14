@@ -8,13 +8,13 @@
 //! `json.dumps(indent=2, sort_keys=True)`), asks the confirmation question, and maps a refusal to an exit code.
 //!
 //! What differs from Python, by design (all listed in `rust/README.md`): a store that is missing or newer than this build
-//! is refused with the API's fixed text and nothing is created or migrated (Python creates and migrates); a change that would
-//! run the `claude` CLI is refused with the T048 text, exit 2 (Python would run it); the confirmation question is asked with no
+//! is refused with the API's fixed text and nothing is created or migrated (Python creates and migrates); the confirmation question is asked with no
 //! write lock held, and the plan is worked out a second time when the answer is yes; a changed plan is refused.
 //! Every write opens the store only for the call (`workspaces::write_session`), takes the same busy wait as the routes, and
 //! the account commands detect new agent folders only under `EASY_PERSONAL_AGENT_ROOT`, else `HOME`. No message names a
 //! path or a row; an error text is the core's own fixed text (Python's), which names none of the caller's input (NFR-002).
 
+use crate::claude_cli::SystemClaude;
 use crate::{api, mcp, writes};
 use clap::{Args, Subcommand};
 use easy_personal_core::accounts;
@@ -120,7 +120,7 @@ fn rules_stop(error: ScopedRulesError) -> Stop {
 
 fn write_stop(failure: WriteFail) -> Stop {
     let code = match &failure {
-        WriteFail::Refused { .. } | WriteFail::NeedsClaude => 2,
+        WriteFail::Refused { .. } => 2,
         WriteFail::Store(error) => error.exit_code(),
         WriteFail::Write(error) => error.exit_code(),
     };
@@ -562,7 +562,7 @@ fn workspace_edit(args: EditArgs) -> Run {
             repos = Some(workspaces::prepare_repos(Some(&all)));
             changes.push(("repos".into(), all));
         }
-        let outcome = workspaces::patch(conn, id, changes, repos, apply)?;
+        let outcome = workspaces::patch(conn, id, changes, repos, apply, &SystemClaude::new())?;
         Ok((outcome, workspaces::get(conn, id)?))
     })?;
     put_json(&edited)
@@ -573,7 +573,10 @@ fn workspace_delete(args: DeleteArgs) -> Run {
         let id = by_name(conn, &args.name)?["id"]
             .as_i64()
             .unwrap_or_default();
-        Ok((workspaces::delete(conn, id, apply)?, Value::Null))
+        Ok((
+            workspaces::delete(conn, id, apply, &SystemClaude::new())?,
+            Value::Null,
+        ))
     })
     .map(drop)
 }

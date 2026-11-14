@@ -6,9 +6,19 @@ rust-version.workspace = true
 publish.workspace = true
 
 # Off by default: `cargo build` links no Tauri, GTK or WebKit crate, so `serve`, `mcp` and `store-info` need no display
-# and no system library. `--features window` adds the `app` window (needs the packages listed in spike-T001.md).
+# and no system library (the T050 keychain talks D-Bus in pure Rust: `keyring`'s `async-secret-service` over `zbus`). `--features window` adds the `app` window (needs the packages listed in spike-T001.md).
 [features]
 window = ["dep:tauri", "dep:tauri-build"]
+
+# The default binary `easy-personal-rs` is `src/main.rs`. The connector launcher (T050) is a second, small one: Claude Code
+# runs `easy-personal-launch exec <connector>`; it uses only `src/keychain.rs` (and the core's `pyjson` text helpers).
+[[bin]]
+name = "easy-personal-rs"
+path = "src/main.rs"
+
+[[bin]]
+name = "easy-personal-launch"
+path = "src/launch.rs"
 
 [dependencies]
 easy-personal-core = { path = "../core" }
@@ -20,6 +30,7 @@ rmcp.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
 futures-core = "=0.3.34"
+keyring = { version = "=3.6.3", default-features = false, features = ["async-secret-service", "tokio", "crypto-rust"] }
 tauri = { workspace = true, optional = true }
 
 [build-dependencies]
