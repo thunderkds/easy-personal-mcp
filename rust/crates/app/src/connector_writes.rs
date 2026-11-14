@@ -652,4 +652,119 @@ mod tests {
             "\u{fffd}%zz+"
         );
     }
+
+    /// A keychain in memory; `delete` fails when `refuse_delete` is set.
+    struct Mem {
+        items: std::sync::Mutex<std::collections::BTreeMap<String, String>>,
+        refuse_delete: bool,
+    }
+
+    impl Keychain for Mem {
+        fn usable(&self) -> bool {
+            true
+        }
+        fn get(&self, service: &str) -> Result<Option<String>, Failed> {
+            Ok(self.items.lock().unwrap().get(service).cloned())
+        }
+        fn set(&self, service: &str, secret: &str) -> Result<(), Failed> {
+            self.items
+                .lock()
+                .unwrap()
+                .insert(service.into(), secret.into());
+            Ok(())
+        }
+        fn delete(&self, service: &str) -> Result<(), Failed> {
+            if self.refuse_delete {
+                return Err(Failed);
+            }
+            self.items.lock().unwrap().remove(service);
+            Ok(())
+        }
+    }
+
+    /// A temp copy of `store-rich` with one stored connector (no registration) and its keychain item.
+    fn one_connector(tag: &str, refuse_delete: bool) -> (std::path::PathBuf, Connection, Mem) {
+        let dir = std::env::temp_dir().join(format!(
+            "easy-personal-rs-t066-{tag}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = dir.join("store.sqlite");
+        std::fs::copy(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../parity/store-rich/store-v11.sqlite"
+            ),
+            &store,
+        )
+        .unwrap();
+        let conn = Connection::open(&store).unwrap();
+        conn.execute(
+            "INSERT INTO connectors VALUES ('c00000066', 'acme-slack', 0, 'slack', 2)",
+            [],
+        )
+        .unwrap();
+        let kc = Mem {
+            items: Default::default(),
+            refuse_delete,
+        };
+        kc.set("easy-personal/c00000066", "{}").unwrap();
+        (dir, conn, kc)
+    }
+
+    fn row_count(conn: &Connection) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM connectors WHERE id = 'c00000066'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    /// T066 AC6: the store refuses the row delete. Python deletes the keychain item first, so it leaves a row whose
+    /// secret is gone; here the row is deleted first (not committed until the item is gone), so both stay.
+    #[test]
+    fn a_store_refusal_at_the_row_delete_keeps_the_keychain_item() {
+        let (dir, conn, kc) = one_connector("row", false);
+        conn.execute_batch(
+            "CREATE TRIGGER t066_refuse BEFORE DELETE ON connectors BEGIN SELECT RAISE(ABORT, 't066'); END",
+        )
+        .unwrap();
+        let got = remove_connector(&conn, "c00000066", "acme-slack", true, &kc, &sync::NoClaude);
+        let (rows, item) = (row_count(&conn), kc.get("easy-personal/c00000066").unwrap());
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(got.is_err(), "a store error: {got:?}");
+        assert_eq!(rows, 1, "the row stays");
+        assert_eq!(item.as_deref(), Some("{}"), "no secret without its row");
+    }
+
+    /// T066 AC6: the keychain refuses the delete: the row delete is rolled back, so no row points at a missing secret.
+    #[test]
+    fn a_keychain_refusal_keeps_the_row() {
+        let (dir, conn, kc) = one_connector("kc", true);
+        let got = remove_connector(&conn, "c00000066", "acme-slack", true, &kc, &sync::NoClaude);
+        let rows = row_count(&conn);
+        let autocommit = conn.is_autocommit();
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+        let got = got.expect("a keychain refusal is an answer");
+        assert_eq!(got.status, 1);
+        assert_eq!(got.lines.last().map(String::as_str), Some(NO_BACKEND));
+        assert_eq!(rows, 1, "the row stays");
+        assert!(autocommit, "no transaction is left open");
+    }
+
+    /// Both succeed: neither the row nor the item is left.
+    #[test]
+    fn a_remove_deletes_the_row_and_the_item() {
+        let (dir, conn, kc) = one_connector("ok", false);
+        let got = remove_connector(&conn, "c00000066", "acme-slack", true, &kc, &sync::NoClaude);
+        let (rows, item) = (row_count(&conn), kc.get("easy-personal/c00000066").unwrap());
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(got.unwrap().status, 0);
+        assert_eq!((rows, item), (0, None));
+    }
 }

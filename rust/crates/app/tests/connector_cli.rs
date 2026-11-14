@@ -14,7 +14,9 @@ mod connector_world;
 use connector_world::*;
 use serde_json::{Value, json};
 use std::io::{Read, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -80,13 +82,34 @@ fn store_text(w: &World) -> String {
     format!("{:?}", dump(&w.store))
 }
 
+/// util-linux `script`, found on this test's `PATH` as a shell finds it; `None` (the caller skips with a printed reason)
+/// when there is none (T066: no test hard-codes its folder).
+fn script_on_path() -> Option<PathBuf> {
+    let found = std::env::split_paths(&std::env::var_os("PATH")?)
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .map(|dir| dir.join("script"))
+        .find(|path| {
+            std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        });
+    if found.is_none() {
+        println!("skipped: util-linux `script` is not on PATH (it gives the command a pseudo-terminal)");
+    }
+    found
+}
+
 /// util-linux `script` gives the command a pseudo-terminal as its controlling terminal; what the command (and the
 /// terminal's echo) writes there comes out on `script`'s stdout. The secret is typed only once the prompt is shown,
 /// as a person would (input that arrives earlier is flushed by `TCSAFLUSH`, as in Python).
-fn at_a_terminal(w: &World, case: &Value, args: &str, typed: &[u8]) -> (Option<i32>, String) {
+fn at_a_terminal(
+    script: &Path,
+    w: &World,
+    case: &Value,
+    args: &str,
+    typed: &[u8],
+) -> (Option<i32>, String) {
     // `exec`: the command itself is the shell's process, so the terminal's SIGINT reaches only it
     let line = format!("exec {SERVE} {args}");
-    let mut cmd = Command::new("/usr/bin/script");
+    let mut cmd = Command::new(script);
     w.env(&mut cmd, case, "UTC");
     let mut child = cmd
         .env("SHELL", "/bin/sh")
@@ -142,8 +165,12 @@ fn at_a_terminal(w: &World, case: &Value, args: &str, typed: &[u8]) -> (Option<i
 
 #[test]
 fn a_secret_typed_at_a_terminal_is_not_echoed_and_goes_to_the_keychain_only() {
+    let Some(script) = script_on_path() else {
+        return;
+    };
     let (w, case) = world(&[], json!({}), json!({}));
     let (code, screen) = at_a_terminal(
+        &script,
         &w,
         &case,
         "connector add slack --workspace acme --yes",
@@ -166,10 +193,14 @@ fn a_secret_typed_at_a_terminal_is_not_echoed_and_goes_to_the_keychain_only() {
 
 #[test]
 fn ctrl_c_at_the_secret_prompt_ends_with_pythons_text_and_writes_nothing() {
+    let Some(script) = script_on_path() else {
+        return;
+    };
     let (w, case) = world(&[], json!({}), json!({}));
     let before = store_text(&w);
     // the terminal's interrupt character (^C) sends SIGINT to the command
     let (code, screen) = at_a_terminal(
+        &script,
         &w,
         &case,
         "connector add slack --workspace acme --yes",
@@ -368,4 +399,231 @@ fn the_sync_command_the_account_hint_names_exists() {
     let help = run(&w, &case, &["connector", "sync", "--help"], "");
     assert_eq!(help.status.code(), Some(0));
     assert!(text(&help.stdout).contains("--account"));
+}
+
+// ---- T066 ----
+
+/// The secret value the keychain item of the one connector `add` made holds (the debug fake keychain file).
+fn stored_secret(w: &World) -> String {
+    let items = w.keychain_after();
+    let (_, raw) = items
+        .as_object()
+        .unwrap()
+        .iter()
+        .find(|(k, _)| k.starts_with("easy-personal/c"))
+        .unwrap_or_else(|| panic!("no item: {items}"));
+    let item: Value = serde_json::from_str(raw.as_str().unwrap()).unwrap();
+    item["env"]["SLACK_MCP_XOXB_TOKEN"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+/// T066 AC1: Python's `getpass` fallback reads piped stdin as the real text-mode stdin does on Linux (`newline="\n"`)
+/// and strips only the final `\n`: `printf 'abc\r\n' | python3 -c 'import getpass; print(repr(getpass.getpass()))'`
+/// prints `'abc\r'`.
+#[test]
+fn a_piped_secret_keeps_a_trailing_cr_as_python_getpass_does() {
+    for (typed, kept) in [
+        ("abc\r\n", "abc\r"),
+        ("abc\n", "abc"),
+        ("abc", "abc"),
+        ("\r\n", "\r"),
+        ("a\rb\n", "a\rb"),
+    ] {
+        let (w, case) = world(&[], json!({}), json!({}));
+        let out = run(
+            &w,
+            &case,
+            &["connector", "add", "slack", "--workspace", "acme", "--yes"],
+            typed,
+        );
+        assert_eq!(out.status.code(), Some(0), "{typed:?}: {}", text(&out.stderr));
+        assert_eq!(stored_secret(&w), kept, "{typed:?}");
+    }
+}
+
+/// A pseudo-terminal pair made with the C library (no crate): the master end for the test, the slave end to hand to the
+/// command as its stdin. Neither becomes this process's controlling terminal (`O_NOCTTY`).
+mod pty {
+    use std::ffi::CStr;
+    use std::fs::{File, OpenOptions};
+    use std::os::fd::{AsRawFd, FromRawFd};
+    use std::os::unix::fs::OpenOptionsExt;
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct Termios([u32; 16]);
+
+    const O_RDWR: i32 = 2;
+    const O_NOCTTY: i32 = 0o400;
+    const ECHO: u32 = 0o10;
+
+    unsafe extern "C" {
+        fn posix_openpt(flags: i32) -> i32;
+        fn grantpt(fd: i32) -> i32;
+        fn unlockpt(fd: i32) -> i32;
+        fn ptsname_r(fd: i32, buf: *mut std::ffi::c_char, len: usize) -> i32;
+        fn tcgetattr(fd: i32, termios: *mut Termios) -> i32;
+    }
+
+    pub fn open() -> (File, File) {
+        // SAFETY: plain C calls on a descriptor this function owns; `name` outlives `ptsname_r`
+        unsafe {
+            let master = posix_openpt(O_RDWR | O_NOCTTY);
+            assert!(master >= 0, "posix_openpt");
+            assert_eq!(grantpt(master), 0);
+            assert_eq!(unlockpt(master), 0);
+            let mut name = [0 as std::ffi::c_char; 128];
+            assert_eq!(ptsname_r(master, name.as_mut_ptr(), name.len()), 0);
+            let path = CStr::from_ptr(name.as_ptr()).to_str().unwrap().to_string();
+            let slave = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .custom_flags(O_NOCTTY)
+                .open(path)
+                .unwrap();
+            (File::from_raw_fd(master), slave)
+        }
+    }
+
+    /// Whether the terminal echoes what is typed (`ECHO` in `c_lflag`).
+    pub fn echo(slave: &File) -> bool {
+        let mut t = Termios([0; 16]);
+        // SAFETY: `t` is larger than glibc's `struct termios` and lives for the call
+        assert_eq!(unsafe { tcgetattr(slave.as_raw_fd(), &mut t) }, 0);
+        t.0[3] & ECHO != 0
+    }
+}
+
+unsafe extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
+
+/// `connector add` with no controlling terminal (`setsid`: `/dev/tty` cannot be opened) and a pseudo-terminal as stdin.
+/// Returns the child, the master end, the slave end and the master's output so far (a reader thread).
+fn with_a_terminal_stdin(
+    w: &World,
+    case: &Value,
+) -> (Child, std::fs::File, std::fs::File, Arc<Mutex<Vec<u8>>>) {
+    let (master, slave) = pty::open();
+    assert!(pty::echo(&slave), "a new terminal echoes");
+    let child = command(
+        w,
+        case,
+        &["connector", "add", "slack", "--workspace", "acme", "--yes"],
+    )
+    .stdin(Stdio::from(slave.try_clone().unwrap()))
+    .spawn()
+    .unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    {
+        let seen = Arc::clone(&seen);
+        let mut reader = master.try_clone().unwrap();
+        std::thread::spawn(move || {
+            let mut chunk = [0u8; 4096];
+            // ends with EIO once no slave end is open
+            while let Ok(n) = reader.read(&mut chunk) {
+                if n == 0 {
+                    break;
+                }
+                seen.lock().unwrap().extend_from_slice(&chunk[..n]);
+            }
+        });
+    }
+    // the command turns echo off on its stdin before it reads; the line is typed only after that, as a person would
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while pty::echo(&slave) {
+        if Instant::now() > deadline {
+            let mut child = child;
+            let _ = child.kill();
+            let out = child.wait_with_output().unwrap();
+            panic!(
+                "echo was never turned off on the terminal stdin; stderr: {:?}",
+                text(&out.stderr)
+            );
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    (child, master, slave, seen)
+}
+
+/// T066 AC2: `/dev/tty` cannot be opened but stdin is a terminal: as Python's `unix_getpass`, echo is off on stdin while
+/// the line is read (the prompt on stderr, no fallback warning), and back on after it.
+#[test]
+fn with_no_dev_tty_a_terminal_stdin_has_echo_off_during_the_read_and_back_after() {
+    let (w, case) = world(&[], json!({}), json!({}));
+    let (child, mut master, slave, seen) = with_a_terminal_stdin(&w, &case);
+    master.write_all(format!("{SECRET}\n").as_bytes()).unwrap();
+    let out = finish(child, 20);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert!(pty::echo(&slave), "echo is back on after the read");
+    let stderr = text(&out.stderr);
+    assert_eq!(
+        stderr, "Bot token (xoxb-...): \n",
+        "the prompt and Python's line end, no fallback warning"
+    );
+    assert_eq!(stored_secret(&w), SECRET);
+    drop(slave);
+    std::thread::sleep(Duration::from_millis(100));
+    let screen = text(&seen.lock().unwrap());
+    assert!(!screen.contains(SECRET), "echoed: {screen:?}");
+    assert!(!text(&out.stdout).contains(SECRET));
+}
+
+/// T066 AC2: a signal at that prompt restores echo on stdin (Python's `input ended` text, exit 2, nothing written).
+#[test]
+fn ctrl_c_with_a_terminal_stdin_restores_echo_and_writes_nothing() {
+    let (w, case) = world(&[], json!({}), json!({}));
+    let before = store_text(&w);
+    let (child, _master, slave, _seen) = with_a_terminal_stdin(&w, &case);
+    // SAFETY: a signal to the child this test started
+    assert_eq!(unsafe { kill(child.id() as i32, 2) }, 0);
+    let out = finish(child, 20);
+    assert_eq!(out.status.code(), Some(2), "{}", text(&out.stderr));
+    assert!(pty::echo(&slave), "echo is back on after the signal");
+    assert!(
+        text(&out.stderr).ends_with("easy-personal-rs: input ended at the prompt; nothing was written\n"),
+        "{}",
+        text(&out.stderr)
+    );
+    assert_eq!(w.keychain_after(), json!({}));
+    assert_eq!(store_text(&w), before);
+}
+
+const CANNOT_RUN: &str = "#!/nonexistent/t066-interpreter\n";
+
+/// T066 AC3: `adopt-legacy` with a `claude` that cannot run (it does not start) says so and adopts nothing; with a
+/// `claude` that ran and answered "no entry" (exit 1, or 127 from the program itself) the old lines stay.
+#[test]
+fn adopt_legacy_says_when_claude_could_not_run_and_adopts_nothing() {
+    let items = json!({"easy-personal/slack": "{}"});
+    let (w, case) = world(&[], items.clone(), json!({}));
+    std::fs::write(w.dir.join("bin/claude"), CANNOT_RUN).unwrap();
+    let before = store_text(&w);
+    let out = run(&w, &case, &["connector", "adopt-legacy", "--yes"], "");
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out.stdout));
+    assert_eq!(
+        text(&out.stdout),
+        "the `claude` CLI could not run (it did not start or timed out); nothing was adopted.\n"
+    );
+    assert_eq!(store_text(&w), before, "no row adopted");
+    assert_eq!(w.keychain_after(), items);
+
+    for no_entry in [None, Some("#!/bin/sh\nexit 127\n")] {
+        let (w, case) = world(&[], items.clone(), json!({}));
+        if let Some(script) = no_entry {
+            std::fs::write(w.dir.join("bin/claude"), script).unwrap();
+        }
+        let out = run(&w, &case, &["connector", "adopt-legacy", "--yes"], "");
+        assert_eq!(out.status.code(), Some(0), "{}", text(&out.stdout));
+        let stdout = text(&out.stdout);
+        assert!(
+            stdout.starts_with(
+                "pre-workspace connectors found:\n  slack: keychain yes, Claude Code default account no\n"
+            ),
+            "{stdout}"
+        );
+        assert!(stdout.contains("done: slack adopted into orphan.\n"), "{stdout}");
+    }
 }

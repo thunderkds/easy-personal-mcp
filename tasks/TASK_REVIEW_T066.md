@@ -61,8 +61,56 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured by backend-developer on branch T066 after the new tests were written and before any implementation change; each new AC test fails on the code of `main`, `/usr/bin/script` is hard-coded on `main`):
+
+```
+date: 2026-11-14T15:53:22Z  commit: ba4d307 (tests only, no implementation change)
+$ grep -rn /usr/bin/script crates  # on main (git show main:...)
+89:    let mut cmd = Command::new("/usr/bin/script");
+$ cargo test -p easy-personal-rs --test connector_cli
+test a_piped_secret_keeps_a_trailing_cr_as_python_getpass_does ... FAILED
+test adopt_legacy_says_when_claude_could_not_run_and_adopts_nothing ... FAILED
+test the_sync_command_the_account_hint_names_exists ... ok
+test the_secret_is_never_in_a_claude_argument_stdout_stderr_or_the_store ... ok
+test a_claude_that_cannot_run_removes_and_forgets_nothing ... ok
+test with_no_terminal_and_no_stdin_every_question_is_answered_at_once ... ok
+test a_secret_typed_at_a_terminal_is_not_echoed_and_goes_to_the_keychain_only ... ok
+test a_name_the_rules_refuse_reaches_neither_the_keychain_nor_claude ... ok
+test ctrl_c_at_the_secret_prompt_ends_with_pythons_text_and_writes_nothing ... ok
+test ctrl_c_with_a_terminal_stdin_restores_echo_and_writes_nothing ... FAILED
+test with_no_dev_tty_a_terminal_stdin_has_echo_off_during_the_read_and_back_after ... FAILED
+thread 'a_piped_secret_keeps_a_trailing_cr_as_python_getpass_does' (91776) panicked at crates/app/tests/connector_cli.rs:442:9:
+  left: "abc"
+ right: "abc\r"
+thread 'adopt_legacy_says_when_claude_could_not_run_and_adopts_nothing' (91778) panicked at crates/app/tests/connector_cli.rs:605:5:
+  left: Some(0)
+ right: Some(1)
+thread 'ctrl_c_with_a_terminal_stdin_restores_echo_and_writes_nothing' (91780) panicked at crates/app/tests/connector_cli.rs:541:13:
+echo was never turned off on the terminal stdin; stderr: "Warning: Password input may be echoed.\nBot token (xoxb-...): "
+thread 'with_no_dev_tty_a_terminal_stdin_has_echo_off_during_the_read_and_back_after' (91836) panicked at crates/app/tests/connector_cli.rs:541:13:
+echo was never turned off on the terminal stdin; stderr: "Warning: Password input may be echoed.\nBot token (xoxb-...): "
+test result: FAILED. 7 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.05s
+$ cargo test -p easy-personal-rs --test doctor_cli
+test a_missing_store_is_refused_and_nothing_is_created ... ok
+test a_claude_that_cannot_run_is_one_fail_line_never_no_entry ... FAILED
+test a_keychain_that_refuses_a_read_is_a_fail_line ... ok
+test a_claude_that_answers_no_entry_keeps_the_old_lines ... ok
+test doctor_reads_only ... ok
+thread 'a_claude_that_cannot_run_is_one_fail_line_never_no_entry' (91989) panicked at crates/app/tests/doctor_cli.rs:78:5:
+  left: ["FAIL discord: `claude mcp get` could not run (it did not start or timed out); not checked", "FAIL gmail: `claude mcp get` could not run (it did not start or timed out); not checked", "FAIL sendgrid: `claude mcp get` could not run (it did not start or timed out); not checked", "FAIL slack: `claude mcp get` could not run (it did not start or timed out); not checked", "FAIL teams: `claude mcp get` could not run (it did not start or timed out); not checked", "FAIL Claude work acme-slack: `claude mcp get` could not run (it did not start or timed out); not checked"]
+ right: ["FAIL claude: `claude` could not run (it did not start or timed out); entries not checked"]
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+$ cargo test -p easy-personal-rs --bin easy-personal-rs -- connector_writes::tests claude_cli::tests
+test connector_writes::tests::a_store_refusal_at_the_row_delete_keeps_the_keychain_item ... FAILED
+test claude_cli::tests::a_timeout_kills_claudes_whole_process_group ... FAILED
+thread 'connector_writes::tests::a_store_refusal_at_the_row_delete_keeps_the_keychain_item' (92206) panicked at crates/app/src/connector_writes.rs:740:9:
+assertion `left == right` failed: no secret without its row
+  left: None
+ right: Some("{}")
+thread 'claude_cli::tests::a_timeout_kills_claudes_whole_process_group' (92177) panicked at crates/app/src/claude_cli.rs:298:13:
+grandchild 92199 still runs
+test result: FAILED. 11 passed; 2 failed; 0 ignored; 0 measured; 116 filtered out; finished in 5.51s
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

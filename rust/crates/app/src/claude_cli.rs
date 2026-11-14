@@ -268,6 +268,37 @@ mod tests {
         );
     }
 
+    /// T066 AC6: a timed-out `claude` that started a process of its own leaves no live process: the whole process group
+    /// is killed, not only the direct child.
+    #[test]
+    fn a_timeout_kills_claudes_whole_process_group() {
+        let fake = Fake::new(
+            "group",
+            "sleep 30 & echo $! > \"$(dirname \"$0\")/grandchild\"; echo $$ > \"$(dirname \"$0\")/pid\"; wait",
+        );
+        let got = fake
+            .claude(Duration::from_millis(500))
+            .run(&["mcp", "get", "a"], None);
+        assert_eq!((got.code, got.not_run), (127, true));
+        for file in ["pid", "grandchild"] {
+            let pid = std::fs::read_to_string(fake.dir.join("bin").join(file)).unwrap();
+            let stat = format!("/proc/{}/stat", pid.trim());
+            // gone, or a zombie its new parent has not reaped yet: either way it runs no more
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let live = loop {
+                let live = std::fs::read_to_string(&stat)
+                    .ok()
+                    .and_then(|s| s.rsplit(')').next().map(|r| r.trim_start().chars().next() != Some('Z')))
+                    .unwrap_or(false);
+                if !live || Instant::now() > deadline {
+                    break live;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            };
+            assert!(!live, "{file} {} still runs", pid.trim());
+        }
+    }
+
     #[test]
     fn could_not_run_is_the_runners_own_signal_never_the_exit_code() {
         // a `claude` that exits 127 itself did run
