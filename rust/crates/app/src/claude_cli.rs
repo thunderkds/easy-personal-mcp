@@ -300,7 +300,11 @@ mod tests {
             let live = loop {
                 let live = std::fs::read_to_string(&stat)
                     .ok()
-                    .and_then(|s| s.rsplit(')').next().map(|r| r.trim_start().chars().next() != Some('Z')))
+                    .and_then(|s| {
+                        s.rsplit(')')
+                            .next()
+                            .map(|r| !r.trim_start().starts_with('Z'))
+                    })
                     .unwrap_or(false);
                 if !live || Instant::now() > deadline {
                     break live;

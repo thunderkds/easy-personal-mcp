@@ -89,10 +89,13 @@ fn script_on_path() -> Option<PathBuf> {
         .filter(|dir| !dir.as_os_str().is_empty())
         .map(|dir| dir.join("script"))
         .find(|path| {
-            std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+            std::fs::metadata(path)
+                .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
         });
     if found.is_none() {
-        println!("skipped: util-linux `script` is not on PATH (it gives the command a pseudo-terminal)");
+        println!(
+            "skipped: util-linux `script` is not on PATH (it gives the command a pseudo-terminal)"
+        );
     }
     found
 }
@@ -438,7 +441,12 @@ fn a_piped_secret_keeps_a_trailing_cr_as_python_getpass_does() {
             &["connector", "add", "slack", "--workspace", "acme", "--yes"],
             typed,
         );
-        assert_eq!(out.status.code(), Some(0), "{typed:?}: {}", text(&out.stderr));
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "{typed:?}: {}",
+            text(&out.stderr)
+        );
         assert_eq!(stored_secret(&w), kept, "{typed:?}");
     }
 }
@@ -583,7 +591,8 @@ fn ctrl_c_with_a_terminal_stdin_restores_echo_and_writes_nothing() {
     assert_eq!(out.status.code(), Some(2), "{}", text(&out.stderr));
     assert!(pty::echo(&slave), "echo is back on after the signal");
     assert!(
-        text(&out.stderr).ends_with("easy-personal-rs: input ended at the prompt; nothing was written\n"),
+        text(&out.stderr)
+            .ends_with("easy-personal-rs: input ended at the prompt; nothing was written\n"),
         "{}",
         text(&out.stderr)
     );
@@ -624,6 +633,9 @@ fn adopt_legacy_says_when_claude_could_not_run_and_adopts_nothing() {
             ),
             "{stdout}"
         );
-        assert!(stdout.contains("done: slack adopted into orphan.\n"), "{stdout}");
+        assert!(
+            stdout.contains("done: slack adopted into orphan.\n"),
+            "{stdout}"
+        );
     }
 }

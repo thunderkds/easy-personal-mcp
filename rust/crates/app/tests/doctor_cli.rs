@@ -77,7 +77,9 @@ fn a_claude_that_cannot_run_is_one_fail_line_never_no_entry() {
     let fails: Vec<&str> = stdout.lines().filter(|l| l.starts_with("FAIL")).collect();
     assert_eq!(
         fails,
-        ["FAIL claude: `claude` could not run (it did not start or timed out); entries not checked"],
+        [
+            "FAIL claude: `claude` could not run (it did not start or timed out); entries not checked"
+        ],
         "{stdout}"
     );
     assert!(
@@ -98,7 +100,9 @@ fn a_claude_that_answers_no_entry_keeps_the_old_lines() {
     assert_eq!(out.status.code(), Some(1));
     let stdout = text(&out.stdout);
     assert!(
-        stdout.contains("FAIL slack: keychain item present but no Claude Code entry; run connector add\n"),
+        stdout.contains(
+            "FAIL slack: keychain item present but no Claude Code entry; run connector add\n"
+        ),
         "{stdout}"
     );
     assert!(
