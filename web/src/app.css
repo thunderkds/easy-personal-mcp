@@ -234,7 +234,8 @@ main.workspaces section[aria-label='Changes'] > p { font-weight: 600; color: var
 main.workspaces section[aria-label='Changes'] .actions > button:first-child:not(:disabled) { border-color: transparent; background: var(--color-accent); color: var(--color-input); box-shadow: var(--glow-box); font-weight: 500; }
 main button.danger { color: var(--color-red); }
 main button.danger:disabled { color: var(--color-faint); }
-.who { font-size: var(--fs-control); color: var(--color-heading); }
+.who { display: flex; align-items: center; gap: 6px; }
+.who svg { flex: none; color: var(--color-muted); }
 
 /* Tables */
 .table-wrap { overflow-x: auto; }
@@ -437,9 +438,14 @@ main.first-run button.solid:hover { background: var(--color-link-hover); }
 main.first-run button.tall { min-height: 36px; padding: 0 var(--space-4); }
 .first-run-notice { font-size: var(--fs-cell); }
 ul.agent-cards > li { padding: var(--space-4); border-top: 1px solid var(--color-border); }
-.status-line p { margin: var(--space-1) 0; }
+.status-line { display: flex; flex-direction: column; gap: 6px; padding: var(--space-3) 14px; border-radius: var(--radius-sm); background: var(--color-raised); }
+.status-line p { margin: 0; font-size: var(--fs-note); color: var(--color-secondary); }
+.status-line > p:not(.who):not(.muted) { font-family: var(--font-mono); }
 .limit p { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--fs-small); color: var(--color-secondary); }
-.status-line .limit .progress { margin: 5px 0 var(--space-2); }
+.status-line .limit .progress { margin: 5px 0 0; height: 5px; }
+ul.agent-cards fieldset.group { padding: var(--space-3) 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+ul.agent-cards fieldset.group > legend { padding: 0 6px; font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); text-transform: lowercase; }
+ul.agent-cards > li[data-status='detected'] { border-color: var(--color-accent-line); box-shadow: var(--glow-box); }
 
 /* Kit */
 .project-card .spark { height: 3rem; margin-top: var(--space-2); }
