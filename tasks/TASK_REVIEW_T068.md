@@ -1,6 +1,6 @@
-# TASK_REVIEW — T[NNN]: [Short Title]
+# TASK_REVIEW — T068: [Short Title]
 
-> Sibling of `tasks/TASK_GUIDE_T[NNN].md`. Everything here is **filled by the reviewer at Stage
+> Sibling of `tasks/TASK_GUIDE_T068.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
 > every turn and never fills these two sections.
 >
@@ -61,8 +61,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-14T16:15:21Z on branch `T068` at main `042997b`, before any implementation commit. Command: `npm run build` in `web/`, then `scratchpad/shot.sh full 1440 300 before-1440.png` (a throwaway fixture server that serves the built page and canned `/api/*` JSON plus an SSE `/api/live` snapshot with 2 sessions, 1 waiting; then `google-chrome --headless=new --window-size=1440,300 --screenshot=...`). Output: `47706 bytes written to file .../before-1440.png`. Screenshot: `tasks/evidence-T068/before-1440.png`. Observed: the top bar holds the menu button (hidden at 1440), title `Usage` and the right-aligned text `scope: All workspaces · All accounts`, and nothing else (no chips), although the fixture has 2 live sessions, 1 waiting, a 4-minute-old ingest and 5h limit 42 %.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
