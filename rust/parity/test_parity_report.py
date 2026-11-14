@@ -408,7 +408,7 @@ def test_each_t067_item_is_in_the_readme_marked_decided_for_you_and_has_a_rule()
         ref, number = rp.RULES[rid].ref
         body = rp.readme_item(ref, number)
         assert body, f"README `{ref}` item {number} is not there"
-        assert "decided for you (T067)" in body.lower().replace("⚠ ", ""), f"{ref} item {number} is not marked decided for you"
+        assert "⚠ decided for you (t067)" in body.lower(), f"{ref} item {number} is not marked decided for you"
         assert rp.readme_ok(ref, number, rp.EXPLAIN_WORDS[(ref, number)]), f"{ref} item {number} lacks the words the rule states"
     assert rp.FINDINGS == {}, "the seven findings are closed: none is left in FINDINGS"
 
