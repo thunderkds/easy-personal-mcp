@@ -76,9 +76,35 @@ exit=2
 $ git status --short rust/crates/app/icons
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same generator command, post-change):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+2026-11-14T16:40:20Z
+$ python3 scripts/gen_icons.py && git status --short rust/crates/app/icons
+gen_icons: wrote 28 PNGs under rust/crates/app/icons
+(empty = clean)
+$ python3 scripts/gen_icons.py --check; echo $?
+0
+$ pytest tests/test_icons.py -q
+.............................                                            [100%]
+29 passed in 0.41s
+$ ls -R rust/crates/app/icons | head -12; file icon.png
+128x128.png
+128x128@2x.png
+32x32.png
+README.md
+icon.png
+src
+tray
+rust/crates/app/icons/icon.png:                PNG image data, 512 x 512, 8-bit/color RGBA, non-interlaced
+rust/crates/app/icons/32x32.png:               PNG image data, 32 x 32, 8-bit/color RGBA, non-interlaced
+rust/crates/app/icons/128x128@2x.png:          PNG image data, 256 x 256, 8-bit/color RGBA, non-interlaced
+rust/crates/app/icons/tray/dark/active-16.png: PNG image data, 16 x 16, 8-bit/color RGBA, non-interlaced
+```
+
+Contact sheet of all 24 tray PNGs on dark `#1C1F1E` and light `#E8EBE9` panels (left: dark; right: light; rows idle, active, attention, problem; columns 16, 24, 32 px, scaled 4x) plus the app icon at 512 (shown 256), 128 and 32 px: `reports/T071-contact-sheet.png` in the T071 worktree (gitignored). Compared by LLM vision with `TrayIcons.dc.html`: same mark shape, dot place and colours; idle has no dot.
+
+**DELTA**: The app now has the brand-mark icon in four sizes (the window embeds `icon.png`) and 24 state-dot tray icons for dark and light panels, all rebuilt by one command from two SVG files.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T071.jsonl`, never the
 implementing agent alone]
