@@ -23,8 +23,8 @@
 //! else exits 3.
 //!
 //! Not done here: macOS and Windows. They need no display preflight (a window server is always there; `display.rs` is
-//! Unix-only) and use other webviews (WKWebView, WebView2), the signal watch uses Unix signals, and the stub icon is
-//! one 32x32 square. A second launch does not focus the first (RS-005's last clause).
+//! Unix-only) and use other webviews (WKWebView, WebView2), the signal watch uses Unix signals, and the icon is a PNG
+//! (no `.icns` or `.ico` yet). A second launch does not focus the first (RS-005's last clause).
 
 #[cfg(not(feature = "window"))]
 use std::path::Path;
