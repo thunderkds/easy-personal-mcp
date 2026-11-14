@@ -1,6 +1,6 @@
-# TASK_REVIEW — T[NNN]: [Short Title]
+# TASK_REVIEW — T069: [Short Title]
 
-> Sibling of `tasks/TASK_GUIDE_T[NNN].md`. Everything here is **filled by the reviewer at Stage
+> Sibling of `tasks/TASK_GUIDE_T069.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
 > every turn and never fills these two sections.
 >
@@ -61,12 +61,31 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-14T16:14:08Z on branch `T069` at `042997b`, before any implementation commit): headless Chrome 157 (CDP, 1440x960) on a production build of the unchanged `web/`, served by a scratch mock API (2 of 4 steps done: first ingest and accounts confirmed). Screenshot: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/before-1440.png`. Text of the First run `<main>` as printed by the capture command:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+First run / First ingest / Done / Copies the usage metadata of your Claude Code sessions into the store. /
+Ingest timer installed / Not done / Keeps the store current, because Claude Code deletes old transcripts. / easy-personal schedule install /
+Agent accounts confirmed / Done / Only confirmed accounts are read. /
+First workspace / Not done / Groups your repos and connectors. / Open Workspaces
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Observed: a 2-column grid of plain cards, no intro line, no `N of M steps done`, no progress bar, no step numbers, no highlighted next step, command shown with no `$ ` and no Copy or Check again button, nav badge reads `2 left`.
+
+**AFTER** (2026-11-14, same capture method and same mock fixture, after the T069 commit): screenshots `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-2of4-1440.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-all-1440.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-2of4-375.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-2of4-1024.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-copied.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-copy-fail.png`; prototype render for comparison `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/proto-1440.png`. Text of the First run `<main>`, 2 of 4 done:
+
+```
+First run / Four steps to fill the dashboard with your own sessions. Everything stays on this machine. /
+2 of 4 steps done / 2 left /
+01 First ingest done / Copies the usage metadata ... /
+02 Ingest timer installed next step / Keeps the store current ... / $ easy-personal schedule install / Copy / Ran it in your terminal? / Check again /
+03 Agent accounts confirmed done / Only confirmed accounts are read. /
+04 First workspace not done / Groups your repos and connectors. / Open Workspaces
+```
+
+Real Chrome click on Copy (clipboard permission granted): button labels `Copied`, `Check again`, `Open Workspaces`; `navigator.clipboard.readText()` returned `easy-personal schedule install`. With no clipboard permission: the card shows `Copy failed — select and copy` and the command text is selected.
+
+**DELTA**: The First run page shows how far setup is (progress, numbered cards, the next step highlighted), lets the user copy a step's command and re-check the server state without leaving the page, and shows a completion banner with a button to Usage.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T069.jsonl`, never the
 implementing agent alone]

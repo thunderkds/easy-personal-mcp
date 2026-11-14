@@ -13,6 +13,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+// The N of M count is two spans (N is in accent mono): match the outer span by its whole text.
+const count = (text) => (_, el) => el.tagName === 'SPAN' && el.textContent === text
 const nav = () => screen.getByRole('navigation', { name: 'Views' })
 
 it('opens on Usage and switches in-page between the views without changing the URL fragment', async () => {
@@ -113,12 +115,12 @@ describe('rail groups and First run (HUN-160)', () => {
   it('shows the "N left" badge on First run', async () => {
     vi.stubGlobal('fetch', fakeFetch({ firstRun: { steps: firstRun.steps.map((s, i) => ({ ...s, done: i === 0 })) } }))
     render(<App />)
-    expect(await within(nav()).findByText('3 left')).toBeInTheDocument()
+    expect(await within(nav()).findByText('3')).toBeInTheDocument()
   })
 
   it('shows 4 left on a fresh home', async () => {
     render(<App />)
-    expect(await within(nav()).findByText('4 left')).toBeInTheDocument()
+    expect(await within(nav()).findByText('4')).toBeInTheDocument()
   })
 
   it('hides the badge when all four are done', async () => {
@@ -127,7 +129,7 @@ describe('rail groups and First run (HUN-160)', () => {
     render(<App />)
     await waitFor(() => expect(f.calls.some((c) => c.url === '/api/first-run')).toBe(true))
     await screen.findByRole('heading', { name: 'Totals' })
-    expect(within(nav()).queryByText(/left$/)).not.toBeInTheDocument()
+    expect(within(nav()).queryByTitle(/left$/)).not.toBeInTheDocument()
     expect(within(nav()).getByRole('button', { name: 'First run' })).toBeInTheDocument()
   })
 
@@ -136,7 +138,7 @@ describe('rail groups and First run (HUN-160)', () => {
     vi.stubGlobal('fetch', async (url, init) => (String(url) === '/api/first-run' ? { ok: false, status: 500, json: async () => ({}) } : f(url, init)))
     render(<App />)
     await screen.findByRole('heading', { name: 'Totals' })
-    expect(within(nav()).queryByText(/left$/)).not.toBeInTheDocument()
+    expect(within(nav()).queryByTitle(/left$/)).not.toBeInTheDocument()
   })
 
   it('opens the checklist, whose buttons switch to the Agents and Workspaces views', async () => {
@@ -156,17 +158,70 @@ describe('rail groups and First run (HUN-160)', () => {
     const f = fakeFetch()
     vi.stubGlobal('fetch', f)
     render(<App />)
-    await within(nav()).findByText('4 left')
+    await within(nav()).findByText('4')
     const before = f.calls.filter((c) => c.url === '/api/first-run').length
     fireEvent.click(within(nav()).getByRole('button', { name: /^First run/ }))
     await waitFor(() => expect(f.calls.filter((c) => c.url === '/api/first-run').length).toBeGreaterThan(before))
+  })
+
+  it('shows a mono badge with the number of steps left, 2 with two open', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ firstRun: { steps: firstRun.steps.map((s, i) => ({ ...s, done: i < 2 })) } }))
+    render(<App />)
+    expect(await within(nav()).findByText('2')).toHaveClass('badge')
+  })
+
+  it('Check again reads /api/first-run again and draws the new state', async () => {
+    const f = fakeFetch()
+    let reads = 0
+    vi.stubGlobal('fetch', async (url, init) => {
+      if (String(url) !== '/api/first-run') return f(url, init)
+      reads += 1
+      f.calls.push({ url: String(url), init: init ?? {} })
+      const upto = reads > 2 ? 2 : 1 // the 3rd read (Check again) finds the timer installed
+      return { ok: true, status: 200, json: async () => ({ steps: firstRun.steps.map((s, i) => ({ ...s, done: i < upto })) }) }
+    })
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: /^First run/ }))
+    await screen.findByText(count('1 of 4 steps done'))
+    const before = f.calls.filter((c) => c.url === '/api/first-run').length
+    fireEvent.click(await screen.findByRole('button', { name: 'Check again' }))
+    expect(await screen.findByText(count('2 of 4 steps done'))).toBeInTheDocument()
+    expect(f.calls.filter((c) => c.url === '/api/first-run').length).toBe(before + 1)
+    expect(within(nav()).getByText('2')).toHaveClass('badge')
+    expect(screen.getByRole('listitem', { name: 'Ingest timer installed' })).toHaveAttribute('data-state', 'done')
+  })
+
+  it('Check again keeps the old steps and shows an error line when the read fails', async () => {
+    const f = fakeFetch()
+    let reads = 0
+    vi.stubGlobal('fetch', async (url, init) => {
+      if (String(url) !== '/api/first-run') return f(url, init)
+      reads += 1
+      if (reads > 2) return { ok: false, status: 500, json: async () => ({}) }
+      return { ok: true, status: 200, json: async () => firstRun }
+    })
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: /^First run/ }))
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Check again' }))[0])
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not check again')
+    expect(screen.getByText(count('0 of 4 steps done'))).toBeInTheDocument()
+  })
+
+  it('with all four done: the banner shows, Go to Usage opens Usage, and the badge is gone', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ firstRun: allDone }))
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: /^First run/ }))
+    expect(await screen.findByText('Setup is complete. Your usage appears after the next ingest.')).toBeInTheDocument()
+    expect(within(nav()).queryByTitle(/left$/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Usage' }))
+    expect(within(nav()).getByRole('button', { name: 'Usage' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('only ever reads /api/first-run with GET', async () => {
     const f = fakeFetch()
     vi.stubGlobal('fetch', f)
     render(<App />)
-    await within(nav()).findByText('4 left')
+    await within(nav()).findByText('4')
     expect(f.calls.filter((c) => c.url === '/api/first-run').every((c) => !c.init.method)).toBe(true)
   })
 })
