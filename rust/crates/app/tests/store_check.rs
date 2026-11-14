@@ -36,9 +36,15 @@ impl Home {
     /// A home that holds a copy of the oracle's fixture folder.
     fn with(fixture: &str) -> Home {
         let home = Home::new();
-        for entry in fs::read_dir(golden().join(fixture)).unwrap() {
-            let entry = entry.unwrap();
-            fs::copy(entry.path(), home.0.join(entry.file_name())).unwrap();
+        // an empty fixture folder (`missing`) is not kept by git, so a fresh checkout has no such folder: it reads as empty
+        let folder = golden().join(fixture);
+        if let Ok(entries) = fs::read_dir(&folder) {
+            for entry in entries {
+                let entry = entry.unwrap();
+                fs::copy(entry.path(), home.0.join(entry.file_name())).unwrap();
+            }
+        } else {
+            assert!(!folder.exists(), "{folder:?} cannot be read");
         }
         home
     }
@@ -134,7 +140,8 @@ fn json_and_text_equal_python_byte_for_byte_for_every_plain_case() {
         );
         // read only: the folder is what the fixture was (no side file, no migration backup)
         let mut fixture_files: Vec<String> = fs::read_dir(golden().join(&fixture))
-            .unwrap()
+            .into_iter()
+            .flatten()
             .map(|e| e.unwrap().file_name().into_string().unwrap())
             .collect();
         fixture_files.sort();
