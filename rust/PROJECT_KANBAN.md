@@ -9,6 +9,10 @@
 ## Board
 
 ### Todo
+- [ ] **T068** — UI redesign 1: top bar status chips (live, waiting, last ingest, 5h limit), one shared `/api/live` stream | Frontend-Developer | C2 | Risk: Low | P2 | plan `rust/docs/UI_REDESIGN_PLAN.md` (G1); guide `tasks/TASK_GUIDE_T068.md` (2026-11-14); design `docs/design/graphite-mint/`
+- [ ] **T069** — UI redesign 2: First run rework (progress, step cards, Copy, Check again, completion, nav badge) | Frontend-Developer | C2 | Risk: Low | P2 | plan G2; guide `tasks/TASK_GUIDE_T069.md` (2026-11-14)
+- [ ] **T070** — UI redesign 3: per-screen polish vs the artboards (Usage, Warnings, Kit, Workspaces, Agents; problem red) | Frontend-Developer | C2 | Risk: Low | P2 | Depends on T068; plan G3/G4; guide `tasks/TASK_GUIDE_T070.md` (2026-11-14)
+- [ ] **T071** — UI redesign 4: icon assets (app icon from the brand mark; tray PNGs 4 states × 16/24/32 × dark/light, one generator script) | Common-Infrastructure | C1 | Risk: Low | P2 | plan G5/G6; guide `tasks/TASK_GUIDE_T071.md` (2026-11-14)
 - [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
@@ -117,4 +121,4 @@
 | 1 Set up | ✅ Done (T001 spike, toolchain and Ubuntu packages) |
 | 2 Plan | ✅ Done for P2 (`BRAINSTORMING_LOG_RUSTP2.md` locked 2026-11-11); P3 not planned yet |
 | 3 Execute | 🔄 In Progress (P0, P1, P1b, P2 Done; P3 planned 2026-11-11, `BRAINSTORMING_LOG_RUSTP3.md`, T040-T051 in Todo) |
-| 0.5 Watch + tray (new feature) | 🔄 Brainstorm done 2026-11-14 (`BRAINSTORMING_LOG_WATCH.md`, decisions D1–D7); waiting on the owner's path choice (A recommended), then Stage 2: amend PRD (FR-050, Out of Scope) + 3 open questions |
+| 0.5 Watch + tray (new feature) | ✅ Path A chosen 2026-11-14 (owner: "yes, just following the guide"); open questions 1-3 take the recommended answers; tray design = `docs/design/graphite-mint/Tray*.dc.html`, native menu on Linux. Next: Stage 2 (amend PRD FR-050 + Out of Scope, `to-issues`), tray shell after T071 |

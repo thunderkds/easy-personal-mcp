@@ -122,4 +122,8 @@ Must not touch:
 
 ## User Selection
 
-_Pending — owner will choose in the next session (2026-11-14). Resume: ask path A/B/C, then Stage 2 open questions 1–3 one at a time._
+**Option A — Compute-on-read**, chosen 2026-11-14 (owner: "yes, just following the guide", answering the plan in
+`rust/docs/UI_REDESIGN_PLAN.md`). The three open questions take the recommended answers: (1) task Done time = git
+merge commit; (2) `fix-*` minimal-track branches = unattributed, MINIMAL_LOG mapping on the cut list; (3) autostart =
+XDG `.desktop` entry. D7 answered: tray and dashboard design = `docs/design/graphite-mint/` (Linux: native tray menu
+with the popover's rows, because AppIndicator gives no click events).

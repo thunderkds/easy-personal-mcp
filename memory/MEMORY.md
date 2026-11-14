@@ -53,7 +53,7 @@
 - [Catalog servers pinned; Slack = slack-mcp-server@1.3.0](decisions.md#2026-10-22--catalog-servers-are-pinned-slack--slack-mcp-server130) — parse refuses unpinned npx/uvx/pipx-run; old Slack package deprecated.
 - [HUN-46 servers: Gmail, SendGrid, Teams, Discord](decisions.md#2026-10-22--hun-46-catalog-servers-gmail-sendgrid-teams-discord) — pinned community servers; `claude_ai_link` required with yes.
 - [Workspaces; agent account picks workspace](decisions.md#2026-10-26--workspaces-group-connectors-the-agent-account-picks-its-workspace) — workspace = email/repos/connectors, no agent settings; Codex listed only (DDR-0001 stands); not yet planned.
-- [Watch service + tray: Rust/Tauri, effectiveness compute-on-read](decisions.md#2026-11-14--watch-service-and-tray-icon-grilled-path-pending) — D1–D7 locked, path A recommended, owner picks next session; `BRAINSTORMING_LOG_WATCH.md`.
+- [Watch + tray: path A chosen; window UI redesign T068-T071](decisions.md#2026-11-14--window-ui-redesign-planned-graphite-mint-prototype-watch-path-a-chosen) — Graphite Mint is a delta (chips, First run, polish, icons); design in `docs/design/graphite-mint/`; Linux tray = native menu; Watch Stage 2 next.
 ### Learnings
 - [Parallel agents in worktrees (T033-T038)](learnings.md#2026-11-11--parallel-agents-in-worktrees-t033-t038) — worktree starts at an older HEAD (commit guides first, ff-merge, apply by patch); venv missing in worktrees; workspaces_parity fails under a hidden path; post-write hook adds root KANBAN rows.
 - [Rust P3 wave 1 learnings](learnings.md#2026-11-11--rust-p3-wave-1-t040-t042-t046-merging-and-reviewing-parallel-route-tasks) — leak registry + tool lists conflict every merge; cherry-pick -n; ~90-call agent limit; one reviewer per wave

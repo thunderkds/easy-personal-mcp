@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Easy Personal — tray popover</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#121413}button:focus-visible{outline:2px solid #3CF5A8;outline-offset:2px}</style>
+</helmet>
+<div style="width: 360px; height: 580px; box-sizing: border-box; background: #121413; border: 1px solid #2C3230; border-radius: 10px; color: #DCE0DD; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px; display: flex; flex-direction: column; overflow: hidden">
+
+<header style="padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #232826">
+<svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="3.5" fill="none" stroke="#DCE0DD" stroke-width="1.4"></rect><circle cx="8" cy="6.3" r="2.1" fill="none" stroke="#DCE0DD" stroke-width="1.3"></circle><path d="M4.3 12.2c.8-1.9 2.1-2.8 3.7-2.8s2.9.9 3.7 2.8" fill="none" stroke="#DCE0DD" stroke-width="1.3" stroke-linecap="round"></path><circle cx="13" cy="13" r="3.2" fill="{{v.dot}}" stroke="#121413" stroke-width="1.5" opacity="{{v.dotOpacity}}"></circle></svg>
+<span style="font-weight: 600; font-size: 14px; color: #EAEDEA">Easy Personal</span>
+<span style="margin-left: auto; font: 400 12px 'IBM Plex Mono', monospace; color: {{v.wordColor}}">{{v.word}}</span>
+</header>
+
+<ul style="margin: 0; padding: 6px 0; list-style: none; display: flex; flex-direction: column">
+<li style="display: flex; align-items: center; gap: 10px; padding: 10px 16px">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: {{v.liveDot}}; box-shadow: {{v.liveGlow}}"></span>
+<span style="flex: 1; color: {{v.liveColor}}">{{v.liveText}}</span>
+<span style="font: 400 11.5px 'IBM Plex Mono', monospace; color: #8C9590">live</span>
+</li>
+<sc-if value="{{v.hasWaiting}}" hint-placeholder-val="{{true}}">
+<li style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: rgba(227, 182, 107, 0.08)">
+<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink: 0"><path d="M8 2.5l6 11H2z" fill="none" stroke="#E3B66B" stroke-width="1.5" stroke-linejoin="round"></path><path d="M8 7v3M8 12v.1" stroke="#E3B66B" stroke-width="1.5" stroke-linecap="round"></path></svg>
+<span style="flex: 1; color: #EAEDEA">1 waiting for you <span style="font-family: 'IBM Plex Mono', monospace; color: #ABB3AE">· easy-memory</span></span>
+<button type="button" onClick="{{openDash}}" style="background: none; border: 0; padding: 0; font: 500 12.5px 'IBM Plex Sans', sans-serif; color: #7EDDB0; cursor: pointer">Open</button>
+</li>
+</sc-if>
+<li style="display: flex; align-items: center; gap: 10px; padding: 10px 16px">
+<sc-if value="{{ingestFailed}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink: 0"><circle cx="8" cy="8" r="6" fill="none" stroke="#E8968F" stroke-width="1.5"></circle><path d="M8 5v3.5M8 11v.1" stroke="#E8968F" stroke-width="1.5" stroke-linecap="round"></path></svg></sc-if>
+<sc-if value="{{ingestOk}}" hint-placeholder-val="{{true}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3A413E"></span></sc-if>
+<span style="flex: 1; color: {{ingestColor}}">{{ingestText}}</span>
+<span style="font: 400 11.5px 'IBM Plex Mono', monospace; color: #8C9590">ingest</span>
+</li>
+<li style="display: flex; flex-direction: column; gap: 6px; padding: 10px 16px">
+<div style="display: flex; justify-content: space-between"><span style="color: #DCE0DD">5h limit · {{v.limitPct}}%</span><span style="font: 400 11.5px 'IBM Plex Mono', monospace; color: #8C9590">{{v.limitReset}}</span></div>
+<div role="progressbar" aria-label="5 hour limit" aria-valuenow="{{v.limitPct}}" aria-valuemin="0" aria-valuemax="100" style="height: 5px; border-radius: 3px; background: #232826"><div style="width: {{v.limitPct}}%; height: 5px; border-radius: 3px; background: {{v.limitColor}}; box-shadow: {{v.limitGlow}}"></div></div>
+</li>
+</ul>
+
+<div style="padding: 10px 16px 14px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #232826">
+<button type="button" onClick="{{openDash}}" style="height: 38px; background: {{neon}}; color: #0E100F; border: 0; border-radius: 6px; box-shadow: {{neonGlow}}; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Open dashboard</button>
+<button type="button" onClick="{{runIngest}}" disabled="{{running}}" style="height: 36px; background: transparent; color: {{runColor}}; border: 1px solid #2C3230; border-radius: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">{{runLabel}}</button>
+<label style="display: flex; align-items: center; justify-content: space-between; height: 36px; font-size: 13px; color: #DCE0DD; cursor: pointer">Pause alerts for 1 hour
+<input type="checkbox" checked="{{paused}}" onChange="{{togglePause}}" style="accent-color: {{neon}}; width: 16px; height: 16px">
+</label>
+</div>
+
+<sc-if value="{{hasNote}}" hint-placeholder-val="{{false}}">
+<p role="status" style="margin: 0 16px 10px; padding: 8px 10px; background: #181B1A; border-radius: 6px; font-size: 12.5px; color: #ABB3AE">{{note}}</p>
+</sc-if>
+
+<footer style="margin-top: auto; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #232826">
+<span style="font: 400 11.5px 'IBM Plex Mono', monospace; color: #6E7772">127.0.0.1 · local only</span>
+<button type="button" onClick="{{quit}}" style="background: none; border: 0; padding: 0; font: 400 12.5px 'IBM Plex Sans', sans-serif; color: #8C9590; cursor: pointer">Quit</button>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"state":{"editor":"enum","options":["idle","active","attention","problem"],"default":"attention"},"neon":{"editor":"color","default":"#3CF5A8"},"glow":{"editor":"boolean","default":true},"$preview":{"width":360,"height":580}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { running: false, ran: false, paused: false, note: '' };
+}
+componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._n); }
+say(note) {
+this.setState({ note: note });
+clearTimeout(this._n);
+this._n = setTimeout(() => this.setState({ note: '' }), 2600);
+}
+renderVals() {
+const s = this.state;
+const neon = this.props.neon ?? '#3CF5A8';
+const glow = this.props.glow ?? true;
+const dotGlow = glow ? '0 0 8px ' + neon : 'none';
+const neonGlow = glow ? '0 0 0 1px ' + neon + '40, 0 0 18px ' + neon + '40' : 'none';
+const which = this.props.state ?? 'attention';
+const V = {
+idle: { word: 'idle', wordColor: '#ABB3AE', dot: '#3A413E', dotOpacity: 0, liveText: 'No sessions running', liveColor: '#8C9590', liveDot: '#3A413E', liveGlow: 'none', hasWaiting: false, limitPct: 12, limitReset: 'resets in 4h 05m', limitColor: neon, limitGlow: dotGlow, failed: false },
+active: { word: 'active', wordColor: neon, dot: neon, dotOpacity: 1, liveText: '2 sessions active', liveColor: '#EAEDEA', liveDot: neon, liveGlow: dotGlow, hasWaiting: false, limitPct: 42, limitReset: 'resets in 2h 10m', limitColor: neon, limitGlow: dotGlow, failed: false },
+attention: { word: 'attention', wordColor: '#E3B66B', dot: '#E3B66B', dotOpacity: 1, liveText: '2 sessions active', liveColor: '#EAEDEA', liveDot: neon, liveGlow: dotGlow, hasWaiting: true, limitPct: 78, limitReset: 'resets in 2h 10m', limitColor: '#E3B66B', limitGlow: 'none', failed: false },
+problem: { word: 'problem', wordColor: '#E8968F', dot: '#E8968F', dotOpacity: 1, liveText: '1 session active', liveColor: '#EAEDEA', liveDot: neon, liveGlow: dotGlow, hasWaiting: false, limitPct: 42, limitReset: 'resets in 2h 10m', limitColor: neon, limitGlow: dotGlow, failed: true }
+}[which] || {};
+const failed = V.failed && !s.ran;
+return {
+v: V, neon: neon, neonGlow: neonGlow,
+ingestFailed: failed, ingestOk: !failed,
+ingestText: s.running ? 'Ingesting…' : (s.ran ? 'Last ingest just now' : (failed ? 'Last ingest failed · 18m ago' : 'Last ingest 4m ago')),
+ingestColor: failed ? '#E8968F' : '#DCE0DD',
+running: s.running, runLabel: s.running ? 'Ingesting…' : 'Run ingest now', runColor: s.running ? '#6E7772' : '#DCE0DD',
+runIngest: () => {
+if (s.running) return;
+this.setState({ running: true });
+clearTimeout(this._t);
+this._t = setTimeout(() => { this.setState({ running: false, ran: true }); this.say('Ingest finished. The dashboard is current.'); }, 1500);
+},
+paused: s.paused,
+togglePause: () => { const p = !s.paused; this.setState({ paused: p }); this.say(p ? 'Alerts paused until one hour from now. The dot still updates.' : 'Alerts back on.'); },
+openDash: () => this.say('Opens the dashboard window on the Live view.'),
+quit: () => this.say('Quit stops the dashboard and removes the tray icon.'),
+hasNote: s.note !== '', note: s.note
+};
+}
+}
+</script>
+</body>
+</html>

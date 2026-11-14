@@ -282,3 +282,12 @@ Locked in Stage 0.5 grilling (owner, 2026-11-14), full detail in `BRAINSTORMING_
 - D7 Tray menu and dashboard view design: the owner provides it; ask at the start of the UI task.
 Open: path choice (A compute-on-read recommended; B ledger tables; C split daemon + tray); task Done time (git merge vs board); minimal-track `fix-*` branches; autostart (XDG `.desktop` vs systemd user service).
 Resume next session at: owner selects path → Stage 2.
+
+## 2026-11-14 — Window UI redesign planned (Graphite Mint prototype); Watch path A chosen
+
+Owner gave the prototype canvas (`https://claude.ai/artifact/GGoKuwVrYPQAVGcT6e7Ptq`, pages Prototype and Desktop app) and accepted the plan ("yes, just following the guide").
+- The Graphite Mint restyle (HUN-126) already matches tokens, fonts, sidebar and rail; the redesign is a delta: T068 top bar chips, T069 First run, T070 per-screen polish (after T068), T071 icon assets. Plan `rust/docs/UI_REDESIGN_PLAN.md`; artboards copied to `docs/design/graphite-mint/` (agents cannot open claude.ai links).
+- Watch feature: path A (compute-on-read, no migration). Open questions take the recommended answers: Done time = git merge commit; `fix-*` branches unattributed; autostart = XDG `.desktop`. D7 answered by the canvas.
+- Linux tray: Tauri v2 AppIndicator gives no click events, so the popover becomes a native menu with the same rows; dot colours and tooltip as designed.
+- Cut: Live/Board/Scheduled/Memory redesign, light theme, macOS/Windows tray.
+Next: Watch Stage 2 (PRD FR-050 + Out of Scope, slices), then the tray shell after T071.

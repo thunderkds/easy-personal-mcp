@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Easy Personal — Kit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121413}
+a{color:#7EDDB0;text-decoration:none}a:hover{color:#B2EDCF}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #121413; color: #DCE0DD; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; padding: 20px 16px; border-right: 1px solid #1F2321; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px">
+<svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" rx="5" stroke="{{accent}}" stroke-width="1.5"></rect><circle cx="13" cy="10" r="3.2" stroke="{{accent}}" stroke-width="1.4"></circle><path d="M7 19.5c1.2-3 3.4-4.4 6-4.4s4.8 1.4 6 4.4" stroke="{{accent}}" stroke-width="1.4" stroke-linecap="round"></path></svg>
+<span style="font-weight: 600; font-size: 16px; color: #EAEDEA">Easy Personal</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 0 8px">
+<label style="display: flex; flex-direction: column; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8C9590">workspace
+<select style="height: 36px; padding: 0 10px; background: #0E100F; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 400 13.5px 'IBM Plex Sans', sans-serif"><option>All workspaces</option></select>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8C9590">account
+<select style="height: 36px; padding: 0 10px; background: #0E100F; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 400 13.5px 'IBM Plex Sans', sans-serif"><option>All accounts</option></select>
+</label>
+</div>
+<nav aria-label="Views" style="display: flex; flex-direction: column; gap: 2px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Live</a>
+<a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Board</a>
+<a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Scheduled</a>
+<a href="#" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Memory</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Usage</a>
+<a href="Warnings.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Warnings &amp; plan</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<a href="Kit.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: {{accentSoft}}; color: {{accent}}; text-shadow: {{neonText}}; box-shadow: inset 0 0 0 1px {{accentLine}}; font-weight: 500"><span style="width: 7px; height: 7px; border-radius: 2px; background: {{accent}}; box-shadow: {{dotGlow}}"></span>Kit</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<a href="Workspaces.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Workspaces</a>
+<a href="Agents.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>Agents</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<a href="FirstRun.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7"><span style="width: 7px; height: 7px; border-radius: 2px; background: #3A413E"></span>First run</a>
+</div>
+</nav>
+<div style="margin-top: auto; padding: 12px 8px 0; border-top: 1px solid #1F2321; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8C9590">// family</span>
+<a href="https://personal-agentic-claude.vercel.app/" style="color: #ABB3AE">Easy Kit</a>
+<a href="https://easy-memory.vercel.app/" style="color: #ABB3AE">Easy Memory</a>
+<a href="https://easy-verifier.vercel.app/" style="color: #ABB3AE">Easy Verifier</a>
+</div>
+</aside>
+
+<div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+<header style="height: 56px; box-sizing: border-box; padding: 0 28px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #232826">
+<button type="button" aria-label="Menu" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid #2C3230; border-radius: 6px; color: #ABB3AE; cursor: pointer"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></button>
+<p style="margin: 0; font-weight: 600; font-size: 15px; color: #EAEDEA">Kit</p>
+<p style="margin: 0 0 0 auto; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8C9590">scope: All workspaces · All accounts</p>
+<div role="status" aria-label="Status" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
+<a href="Prototype.dc.html" title="Live sessions" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #262B29; border-radius: 6px; font: 400 12px 'IBM Plex Mono', monospace; color: #DCE0DD"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{accent}}; box-shadow: {{dotGlow}}"></span>2 active</a>
+<a href="Prototype.dc.html" title="Sessions waiting for you" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid rgba(227, 182, 107, 0.35); border-radius: 6px; font: 400 12px 'IBM Plex Mono', monospace; color: #E3B66B"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5l6 11H2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path><path d="M8 7v3M8 12v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>1 waiting</a>
+<span title="Last ingest" style="display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border: 1px solid #262B29; border-radius: 6px; font: 400 12px 'IBM Plex Mono', monospace; color: #8C9590">ingest 4m ago</span>
+<span title="5-hour plan limit" style="display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border: 1px solid #262B29; border-radius: 6px; font: 400 12px 'IBM Plex Mono', monospace; color: #ABB3AE">5h 42%<span aria-hidden="true" style="display: inline-block; width: 36px; height: 4px; border-radius: 2px; background: #232826"><span style="display: block; width: 42%; height: 4px; border-radius: 2px; background: {{accent}}"></span></span></span>
+</div>
+</header>
+
+<main style="padding: 28px; max-width: 1040px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: #EAEDEA">Easy Kit</h1>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 600; color: #EAEDEA">Kit by project <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 13px; color: #8C9590">3</span></h2>
+<div style="border: 1px solid #262B29; border-radius: 8px; overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'IBM Plex Mono', monospace">
+<thead><tr>
+<th style="text-align: left; padding: 10px 16px; font: 500 11.5px 'IBM Plex Mono', monospace; color: #8C9590; background: #0E100F; border-bottom: 1px solid #262B29"><button type="button" style="background: none; border: 0; padding: 0; font: inherit; color: #DCE0DD; cursor: pointer">project ↑</button></th>
+<th style="text-align: right; padding: 10px 16px; font: 500 11.5px 'IBM Plex Mono', monospace; color: #8C9590; background: #0E100F; border-bottom: 1px solid #262B29">kernel</th>
+<th style="text-align: right; padding: 10px 16px; font: 500 11.5px 'IBM Plex Mono', monospace; color: #8C9590; background: #0E100F; border-bottom: 1px solid #262B29">verifier</th>
+<th style="text-align: right; padding: 10px 16px; font: 500 11.5px 'IBM Plex Mono', monospace; color: #8C9590; background: #0E100F; border-bottom: 1px solid #262B29">context</th>
+<th style="text-align: right; padding: 10px 16px; font: 500 11.5px 'IBM Plex Mono', monospace; color: #8C9590; background: #0E100F; border-bottom: 1px solid #262B29">git</th>
+</tr></thead>
+<tbody>
+<tr><td style="padding: 12px 16px; border-bottom: 1px solid #1F2321; color: #EAEDEA">easy-memory</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321">31 traces</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321">62 / 100</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321; color: #E3B66B">stale · 14 behind</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321">52 commits</td></tr>
+<tr><td style="padding: 12px 16px; border-bottom: 1px solid #1F2321; color: #EAEDEA">easy-personal-mcp</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321">58 traces</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321">47 / 100</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321">fresh</td><td style="padding: 12px 16px; text-align: right; border-bottom: 1px solid #1F2321">118 commits</td></tr>
+<tr><td style="padding: 12px 16px; color: #EAEDEA">easy-verifier</td><td style="padding: 12px 16px; text-align: right; color: #6E7772">no data</td><td style="padding: 12px 16px; text-align: right">71 / 100</td><td style="padding: 12px 16px; text-align: right; color: #6E7772">no data</td><td style="padding: 12px 16px; text-align: right">40 commits</td></tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 12.5px; color: #8C9590">"no data" means the kit part left nothing to read for that project. It is not zero.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 600; color: #EAEDEA">easy-ui checks <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 13px; color: #8C9590">overall</span></h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); border: 1px solid #262B29; border-radius: 8px; overflow: hidden">
+<div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #262B29"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 500; color: {{accent}}; text-shadow: {{neonText}}">18</span><span style="font-size: 12.5px; color: #8C9590">checks passed</span></div>
+<div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #262B29"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 500; color: #E3B66B">2</span><span style="font-size: 12.5px; color: #8C9590">checks failed</span></div>
+<div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 6px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 500; color: #EAEDEA">10-28</span><span style="font-size: 12.5px; color: #8C9590">last report</span></div>
+</div>
+<div style="height: 6px; border-radius: 3px; background: #232826; overflow: hidden; display: flex" role="img" aria-label="18 of 20 checks passed"><div style="width: 90%; height: 6px; background: {{accent}}; box-shadow: {{dotGlow}}"></div><div style="width: 10%; height: 6px; background: #E3B66B"></div></div>
+</section>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3CF5A8","options":["#3CF5A8","#7EDDB0","#4FE3F0","#B89CFF"]},"glow":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const accent = this.props.accent ?? '#3CF5A8';
+const glow = this.props.glow ?? true;
+return {
+accent: accent,
+accentSoft: accent + '14',
+accentLine: accent + '59',
+neonText: glow ? '0 0 12px ' + accent + '59' : 'none',
+dotGlow: glow ? '0 0 8px ' + accent : 'none'
+};
+}
+}
+</script>
+</body>
+</html>

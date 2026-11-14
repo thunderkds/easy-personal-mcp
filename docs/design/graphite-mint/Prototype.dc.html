@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Easy Personal — clickable prototype</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121413}
+a{color:#7EDDB0;text-decoration:none}a:hover{color:#B2EDCF}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #3CF5A8;outline-offset:2px}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; background: #121413; color: #DCE0DD; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<aside style="flex: 1 1 232px; max-width: 100%; box-sizing: border-box; padding: 20px 16px; border-right: 1px solid #1F2321; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px">
+<svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" rx="5" stroke="{{accent}}" stroke-width="1.5"></rect><circle cx="13" cy="10" r="3.2" stroke="{{accent}}" stroke-width="1.4"></circle><path d="M7 19.5c1.2-3 3.4-4.4 6-4.4s4.8 1.4 6 4.4" stroke="{{accent}}" stroke-width="1.4" stroke-linecap="round"></path></svg>
+<span style="font-weight: 600; font-size: 16px; color: #EAEDEA">Easy Personal</span>
+</div>
+<nav aria-label="Views" style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{nav}}" as="it" hint-placeholder-count="10">
+<sc-if value="{{it.internal}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{it.go}}" aria-current="{{it.current}}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: {{it.bg}}; color: {{it.color}}; text-shadow: {{it.shadow}}; box-shadow: {{it.ring}}; font: {{it.weight}} 14px 'IBM Plex Sans', sans-serif; text-align: left; cursor: pointer"><span style="width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; background: {{it.dot}}; box-shadow: {{it.dotGlow}}"></span>{{it.label}}<span style="margin-left: auto; font: 400 11.5px 'IBM Plex Mono', monospace; color: #8C9590; text-shadow: none">{{it.badge}}</span></button>
+</sc-if>
+<sc-if value="{{it.external}}" hint-placeholder-val="{{false}}">
+<a href="{{it.href}}" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: #B5BCB7; font-size: 14px"><span style="width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; background: #3A413E"></span>{{it.label}}</a>
+</sc-if>
+</sc-for>
+</nav>
+<div style="margin-top: auto; padding: 12px 8px 0; border-top: 1px solid #1F2321; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8C9590">// family</span>
+<a href="https://personal-agentic-claude.vercel.app/" style="color: #ABB3AE">Easy Kit</a>
+<a href="https://easy-memory.vercel.app/" style="color: #ABB3AE">Easy Memory</a>
+<a href="https://easy-verifier.vercel.app/" style="color: #ABB3AE">Easy Verifier</a>
+</div>
+</aside>
+
+<div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+<header style="height: 56px; box-sizing: border-box; padding: 0 28px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #232826">
+<p style="margin: 0; font-weight: 600; font-size: 15px; color: #EAEDEA">{{viewTitle}}</p>
+<div role="status" aria-label="Status" style="margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
+<button type="button" onClick="{{goLive}}" title="Live sessions" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; background: transparent; border: 1px solid #262B29; border-radius: 6px; font: 400 12px 'IBM Plex Mono', monospace; color: {{liveColor}}; cursor: pointer"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{liveDot}}; box-shadow: {{liveGlow}}"></span>{{liveText}}</button>
+<button type="button" onClick="{{ingestClick}}" title="Last ingest" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; background: transparent; border: 1px solid {{ingestBorder}}; border-radius: 6px; font: 400 12px 'IBM Plex Mono', monospace; color: {{ingestColor}}; cursor: pointer"><sc-if value="{{ingestWarn}}" hint-placeholder-val="{{true}}"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5l6 11H2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path><path d="M8 7v3M8 12v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg></sc-if>{{ingestText}}</button>
+<span title="5-hour plan limit" style="display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border: 1px solid #262B29; border-radius: 6px; font: 400 12px 'IBM Plex Mono', monospace; color: {{limitColor}}">{{limitText}}<sc-if value="{{hasLimit}}" hint-placeholder-val="{{false}}"><span aria-hidden="true" style="display: inline-block; width: 36px; height: 4px; border-radius: 2px; background: #232826"><span style="display: block; width: 42%; height: 4px; border-radius: 2px; background: {{accent}}"></span></span></sc-if></span>
+</div>
+<button type="button" onClick="{{restart}}" style="height: 32px; padding: 0 12px; background: transparent; color: #ABB3AE; border: 1px solid #2C3230; border-radius: 6px; font: 500 12.5px 'IBM Plex Sans', sans-serif; cursor: pointer">Restart prototype</button>
+</header>
+
+<main style="padding: 28px; max-width: 980px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px">
+
+<sc-if value="{{isFirstRun}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: #EAEDEA">First run</h1>
+<p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #8C9590">Four steps to fill the dashboard with your own sessions. Everything stays on this machine.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 12.5px; color: #ABB3AE"><span><span style="font-family: 'IBM Plex Mono', monospace; color: {{accent}}; text-shadow: {{neonText}}">{{doneCount}}</span> of 4 steps done</span><span style="color: #8C9590">{{leftText}}</span></div>
+<div role="progressbar" aria-label="Setup progress" aria-valuenow="{{doneCount}}" aria-valuemin="0" aria-valuemax="4" style="height: 6px; border-radius: 3px; background: #232826"><div style="width: {{pct}}%; height: 6px; border-radius: 3px; background: {{accent}}; box-shadow: {{dotGlow}}"></div></div>
+</div>
+<sc-if value="{{allDone}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid {{accentLine}}; box-shadow: {{neonGlow}}; border-radius: 6px">
+<p style="margin: 0; flex: 1 1 280px; color: #EAEDEA; font-weight: 500">Setup is complete. Your usage appears after the next ingest.</p>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; height: 36px; padding: 0 16px; background: {{accent}}; color: #0E100F; border-radius: 6px; box-shadow: {{neonGlow}}; font: 500 13px 'IBM Plex Sans', sans-serif">Go to Usage</a>
+</div>
+</sc-if>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="4">
+<li aria-label="{{st.title}}" style="padding: 16px 18px; border: 1px solid {{st.border}}; box-shadow: {{st.glow}}; border-radius: 6px; display: flex; gap: 16px; align-items: flex-start">
+<span style="font: 400 12px 'IBM Plex Mono', monospace; color: {{st.noColor}}; text-shadow: {{st.noShadow}}; padding-top: 2px">{{st.no}}</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600; color: {{st.titleColor}}">{{st.title}}</h2>
+<sc-if value="{{st.done}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 4px; font: 400 12px 'IBM Plex Mono', monospace; color: #7EDDB0"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-4.9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>done</span></sc-if>
+<sc-if value="{{st.open}}" hint-placeholder-val="{{true}}"><span style="font: 400 12px 'IBM Plex Mono', monospace; color: {{st.stateColor}}">{{st.stateText}}</span></sc-if>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: #8C9590">{{st.why}}</p>
+<sc-if value="{{st.showCommand}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 10px 10px 16px; background: #0E100F; border: 1px solid #2C3230; border-radius: 6px; font: 400 13.5px 'IBM Plex Mono', monospace; overflow-x: auto">
+<code><span style="color: {{accent}}">$ </span>easy-personal schedule install</code>
+<button type="button" onClick="{{copy}}" style="height: 32px; padding: 0 14px; background: {{st.btn.bg}}; color: {{st.btn.color}}; border: 1px solid {{st.btn.border}}; box-shadow: {{st.btn.glow}}; border-radius: 6px; font: 500 12.5px 'IBM Plex Sans', sans-serif; cursor: pointer">{{copyLabel}}</button>
+</div>
+<sc-if value="{{copied}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 13px; color: #ABB3AE"><span>Ran it in your terminal?</span><button type="button" onClick="{{markTimer}}" style="height: 32px; padding: 0 14px; background: transparent; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 500 12.5px 'IBM Plex Sans', sans-serif; cursor: pointer">Check again</button></div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{st.showAgents}}" hint-placeholder-val="{{false}}">
+<div><button type="button" onClick="{{goAgents}}" style="height: 36px; padding: 0 16px; background: {{st.btn.bg}}; color: {{st.btn.color}}; border: 1px solid {{st.btn.border}}; box-shadow: {{st.btn.glow}}; border-radius: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Open Agents</button></div>
+</sc-if>
+<sc-if value="{{st.showWorkspaces}}" hint-placeholder-val="{{false}}">
+<div><button type="button" onClick="{{goWorkspaces}}" style="height: 36px; padding: 0 16px; background: {{st.btn.bg}}; color: {{st.btn.color}}; border: 1px solid {{st.btn.border}}; box-shadow: {{st.btn.glow}}; border-radius: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Open Workspaces</button></div>
+</sc-if>
+</div>
+</li>
+</sc-for>
+</ol>
+</div>
+</sc-if>
+
+<sc-if value="{{isWorkspaces}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: #EAEDEA">Workspaces</h1>
+<p style="margin: 0; max-width: 680px; font-size: 13.5px; line-height: 1.55; color: #8C9590">A workspace groups repos and connectors. Secrets go to your OS keychain and are never shown again. Every change is shown before it is written.</p>
+</div>
+
+<sc-if value="{{showWsList}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<sc-if value="{{noWorkspaces}}" hint-placeholder-val="{{true}}"><p style="margin: 0; font-size: 13.5px; color: #8C9590">No workspaces yet. Add one to group repos and connectors.</p></sc-if>
+<div><button type="button" onClick="{{openForm}}" style="height: 40px; padding: 0 18px; background: {{addBtn.bg}}; color: {{addBtn.color}}; border: 1px solid {{addBtn.border}}; box-shadow: {{addBtn.glow}}; border-radius: 6px; font: 500 14px 'IBM Plex Sans', sans-serif; cursor: pointer">+ Add workspace</button></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px">
+<sc-for list="{{wsCards}}" as="w" hint-placeholder-count="0">
+<section aria-label="{{w.name}}" style="padding: 18px 20px; border: 1px solid #262B29; border-radius: 6px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 6px; background: {{w.color}}; color: #0E100F; display: flex; align-items: center; justify-content: center; font: 600 13px 'IBM Plex Mono', monospace">{{w.initial}}</span><h2 style="margin: 0; font-size: 15px; font-weight: 600; color: #EAEDEA">{{w.name}}</h2></div>
+<p style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #ABB3AE">{{w.repoText}}</p>
+<p style="margin: 0; font-size: 12.5px; color: #8C9590">No connectors.</p>
+<p style="margin: 0; font-size: 12.5px; color: #8C9590">Used by: {{w.usedBy}}</p>
+</section>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showForm}}" hint-placeholder-val="{{false}}">
+<form onSubmit="{{review}}" aria-label="Workspace form" style="display: flex; flex-direction: column; gap: 16px; padding: 20px; border: 1px solid #262B29; border-radius: 6px; max-width: 560px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 600; color: #EAEDEA">New workspace</h2>
+<label for="ws-name" style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #DCE0DD">Name <span style="font-size: 12px; color: #8C9590">Required. For example: work</span>
+<input id="ws-name" value="{{wsName}}" onChange="{{setWsName}}" autocomplete="off" style="height: 38px; padding: 0 10px; background: #0E100F; color: #DCE0DD; border: 1px solid {{nameBorder}}; border-radius: 6px; font: 400 13.5px 'IBM Plex Sans', sans-serif">
+</label>
+<sc-if value="{{nameError}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin: -8px 0 0; font-size: 12.5px; color: #E8968F">Name is required</p></sc-if>
+<fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="padding: 0 0 6px; font-size: 13px; color: #DCE0DD">Color</legend>
+<div style="display: flex; gap: 10px">
+<sc-for list="{{swatches}}" as="sw" hint-placeholder-count="4">
+<button type="button" onClick="{{sw.pick}}" aria-label="{{sw.label}}" aria-pressed="{{sw.pressed}}" style="width: 32px; height: 32px; border-radius: 6px; background: {{sw.color}}; border: 2px solid {{sw.ring}}; cursor: pointer"></button>
+</sc-for>
+</div>
+</fieldset>
+<label for="ws-repo" style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #DCE0DD">Repo <span style="font-size: 12px; color: #8C9590">Optional. An absolute path on this machine.</span>
+<input id="ws-repo" value="{{wsRepo}}" onChange="{{setWsRepo}}" placeholder="/absolute/path/to/repo" autocomplete="off" style="height: 38px; padding: 0 10px; background: #0E100F; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 400 13px 'IBM Plex Mono', monospace">
+</label>
+<sc-if value="{{notReviewing}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; gap: 10px">
+<button type="submit" style="height: 38px; padding: 0 16px; background: {{accent}}; color: #0E100F; border: 0; border-radius: 6px; box-shadow: {{neonGlow}}; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Review changes</button>
+<button type="button" onClick="{{closeForm}}" style="height: 38px; padding: 0 16px; background: transparent; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Back</button>
+</div>
+</sc-if>
+<sc-if value="{{reviewing}}" hint-placeholder-val="{{false}}">
+<section role="group" aria-label="Changes" style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border: 1px solid {{accentLine}}; border-radius: 6px; box-shadow: {{neonGlow}}">
+<p style="margin: 0; font-weight: 600; color: #EAEDEA">This will change:</p>
+<ul style="margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #ABB3AE">
+<li>create workspace <span style="color: #DCE0DD">{{wsNameTrim}}</span></li>
+<sc-if value="{{hasRepo}}" hint-placeholder-val="{{false}}"><li>add repo <span style="color: #DCE0DD">{{wsRepoTrim}}</span></li></sc-if>
+</ul>
+<div style="display: flex; gap: 10px">
+<button type="button" onClick="{{confirmWs}}" style="height: 36px; padding: 0 16px; background: {{accent}}; color: #0E100F; border: 0; border-radius: 6px; box-shadow: {{neonGlow}}; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Confirm</button>
+<button type="button" onClick="{{cancelReview}}" style="height: 36px; padding: 0 16px; background: transparent; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Cancel</button>
+</div>
+</section>
+</sc-if>
+</form>
+</sc-if>
+<div><button type="button" onClick="{{goFirstRun}}" style="background: none; border: 0; padding: 0; color: #7EDDB0; font: 400 13px 'IBM Plex Sans', sans-serif; cursor: pointer">← Back to First run</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{isAgents}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: #EAEDEA">Agents</h1>
+<p style="margin: 0; max-width: 680px; font-size: 13.5px; line-height: 1.55; color: #8C9590">Agent accounts found on this machine. Every change to Claude Code is shown before it is written.</p>
+</div>
+<ul style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px">
+<sc-for list="{{accounts}}" as="ac" hint-placeholder-count="2">
+<li aria-label="{{ac.name}}" style="padding: 18px 20px; border: 1px solid {{ac.border}}; box-shadow: {{ac.glow}}; border-radius: 6px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<strong style="font-size: 15px; font-weight: 600; color: #EAEDEA">{{ac.name}}</strong>
+<span style="font: 400 12px 'IBM Plex Mono', monospace; color: {{ac.statusColor}}">{{ac.statusText}}</span>
+<span style="margin-left: auto; font: 400 12px 'IBM Plex Mono', monospace; color: #8C9590">{{ac.provider}}</span>
+</div>
+<p style="margin: 0; font: 400 12.5px 'IBM Plex Mono', monospace; color: #8C9590">{{ac.folder}}</p>
+<sc-if value="{{ac.editing}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #DCE0DD">Name
+<input value="{{ac.draft}}" onChange="{{ac.setDraft}}" autocomplete="off" style="height: 38px; padding: 0 10px; background: #0E100F; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 400 13.5px 'IBM Plex Sans', sans-serif">
+<span style="font-size: 12px; color: #8C9590">Shown on the account card, for example Claude company.</span>
+</label>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{ac.confirm}}" style="height: 36px; padding: 0 16px; background: {{accent}}; color: #0E100F; border: 0; border-radius: 6px; box-shadow: {{neonGlow}}; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">{{ac.confirmLabel}}</button>
+<button type="button" onClick="{{ac.secondary}}" style="height: 36px; padding: 0 16px; background: transparent; color: #ABB3AE; border: 1px solid #2C3230; border-radius: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">{{ac.secondaryLabel}}</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ac.confirmed}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="padding: 12px 14px; background: #181B1A; border-radius: 6px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #ABB3AE">
+<p style="margin: 0; font-family: 'IBM Plex Mono', monospace">{{ac.line1}}</p>
+<p style="margin: 0; font-family: 'IBM Plex Mono', monospace">{{ac.line2}}</p>
+</div>
+<p role="status" style="margin: 0; font-size: 12.5px; color: #8C9590">Usage from this account appears after the next ingest. Run <code style="font-family: 'IBM Plex Mono', monospace; color: #DCE0DD">easy-personal ingest</code>.</p>
+<div style="display: flex; gap: 8px"><button type="button" onClick="{{ac.rename}}" style="height: 32px; padding: 0 12px; background: transparent; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 500 12.5px 'IBM Plex Sans', sans-serif; cursor: pointer">Rename</button></div>
+</div>
+</sc-if>
+<sc-if value="{{ac.ignored}}" hint-placeholder-val="{{false}}">
+<div><button type="button" onClick="{{ac.use}}" style="height: 32px; padding: 0 12px; background: transparent; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 500 12.5px 'IBM Plex Sans', sans-serif; cursor: pointer">Use this account</button></div>
+</sc-if>
+</li>
+</sc-for>
+</ul>
+<div><button type="button" onClick="{{goFirstRun}}" style="background: none; border: 0; padding: 0; color: #7EDDB0; font: 400 13px 'IBM Plex Sans', sans-serif; cursor: pointer">← Back to First run</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{isTodo}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #EAEDEA">{{todoName}}</h1>
+<p style="margin: 0; font-size: 13.5px; color: #8C9590">This screen is not in the prototype yet.</p>
+<div><button type="button" onClick="{{goFirstRun}}" style="height: 36px; padding: 0 16px; background: transparent; color: #DCE0DD; border: 1px solid #2C3230; border-radius: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; cursor: pointer">Back to First run</button></div>
+</div>
+</sc-if>
+</main>
+</div>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="position: fixed; right: 24px; bottom: 24px; max-width: 360px; padding: 12px 16px; background: #181B1A; border: 1px solid {{accentLine}}; border-radius: 6px; box-shadow: {{neonGlow}}; font-size: 13px; color: #EAEDEA">{{toast}}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3CF5A8","options":["#3CF5A8","#7EDDB0","#4FE3F0","#B89CFF"]},"glow":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = this.initial();
+}
+initial() {
+return {
+view: 'firstrun', copied: false, timerDone: false,
+company: 'detected', companyEditing: true, companyName: 'Claude company', companyDraft: 'Claude company',
+codex: 'detected', codexEditing: true, codexName: '', codexDraft: '',
+workspaces: [], formOpen: false, reviewing: false, wsName: '', wsRepo: '', wsColor: 0, nameError: false,
+toast: ''
+};
+}
+notify(msg) {
+this.setState({ toast: msg });
+clearTimeout(this._t);
+this._t = setTimeout(() => this.setState({ toast: '' }), 2800);
+}
+componentWillUnmount() { clearTimeout(this._t); }
+renderVals() {
+const s = this.state;
+const accent = this.props.accent ?? '#3CF5A8';
+const glow = this.props.glow ?? true;
+const neonText = glow ? '0 0 12px ' + accent + '59' : 'none';
+const neonGlow = glow ? '0 0 0 1px ' + accent + '40, 0 0 18px ' + accent + '40' : 'none';
+const dotGlow = glow ? '0 0 8px ' + accent : 'none';
+const accentLine = accent + '59';
+const primary = { bg: accent, color: '#0E100F', border: 'transparent', glow: neonGlow };
+const secondary = { bg: 'transparent', color: '#DCE0DD', border: '#2C3230', glow: 'none' };
+const go = (view) => () => this.setState({ view: view, formOpen: false, reviewing: false, nameError: false });
+
+const done = [true, s.timerDone, s.company === 'confirmed', s.workspaces.length > 0];
+const next = done.indexOf(false);
+const doneCount = done.filter(Boolean).length;
+const left = 4 - doneCount;
+const defs = [
+{ title: 'First ingest', why: 'Copies the usage metadata of your Claude Code sessions into the store.', kind: 'none' },
+{ title: 'Ingest timer installed', why: 'Keeps the store current, because Claude Code deletes old transcripts.', kind: 'command' },
+{ title: 'Agent accounts confirmed', why: 'Only confirmed accounts are read.', kind: 'agents' },
+{ title: 'First workspace', why: 'Groups your repos and connectors.', kind: 'workspaces' }
+];
+const steps = defs.map((d, i) => {
+const isDone = done[i];
+const isNext = i === next;
+return {
+no: '0' + (i + 1), title: d.title, why: d.why, done: isDone, open: !isDone,
+stateText: isNext ? 'next step' : 'not done', stateColor: isNext ? '#ABB3AE' : '#8C9590',
+border: isNext ? accentLine : '#262B29', glow: isNext ? neonGlow : 'none',
+noColor: isDone ? '#6E7772' : (isNext ? accent : '#8C9590'), noShadow: isNext ? neonText : 'none',
+titleColor: isDone ? '#ABB3AE' : '#EAEDEA',
+showCommand: !isDone && d.kind === 'command', showAgents: !isDone && d.kind === 'agents', showWorkspaces: !isDone && d.kind === 'workspaces',
+btn: isNext ? primary : secondary
+};
+});
+
+const navDefs = [
+['Live', 'todo:Live'], ['Board', 'todo:Board'], ['Scheduled', 'todo:Scheduled'], ['Memory', 'todo:Memory'],
+['Usage', null, 'Main.dc.html'], ['Warnings & plan', null, 'Warnings.dc.html'], ['Kit', null, 'Kit.dc.html'],
+['Workspaces', 'workspaces'], ['Agents', 'agents'], ['First run', 'firstrun']
+];
+const nav = navDefs.map((n) => {
+const current = n[1] !== null && s.view === n[1];
+return {
+label: n[0], internal: n[1] !== null, external: n[1] === null, href: n[2] || '#', go: n[1] ? go(n[1]) : null,
+current: current ? 'page' : 'false',
+bg: current ? accent + '14' : 'transparent', color: current ? accent : '#B5BCB7',
+shadow: current ? neonText : 'none', ring: current ? 'inset 0 0 0 1px ' + accentLine : 'none',
+weight: current ? 500 : 400, dot: current ? accent : '#3A413E', dotGlow: current ? dotGlow : 'none',
+badge: n[1] === 'firstrun' && left > 0 ? String(left) : ''
+};
+});
+
+const swatchColors = [['#7AA7E8', 'Blue'], ['#B39AE8', 'Violet'], ['#E3A66B', 'Orange'], ['#86CFA0', 'Green']];
+const swatches = swatchColors.map((c, i) => ({
+color: c[0], label: c[1], pressed: s.wsColor === i ? 'true' : 'false', ring: s.wsColor === i ? '#EAEDEA' : 'transparent',
+pick: () => this.setState({ wsColor: i })
+}));
+const usedBy = s.company === 'confirmed' ? s.companyName : 'no agent account';
+const wsCards = s.workspaces.map((w) => ({
+name: w.name, color: w.color, initial: w.name.charAt(0).toUpperCase(),
+repoText: w.repo ? '1 repo · ' + w.repo : '0 repos', usedBy: usedBy
+}));
+
+const mkAccount = (key, provider, folder, fallback, line1, line2) => {
+const status = s[key];
+const editing = status === 'detected' || (status === 'confirmed' && s[key + 'Editing']);
+const named = s[key + 'Name'] || fallback;
+const isNextCard = status === 'detected' && key === 'company';
+return {
+name: named, provider: provider, folder: folder,
+statusText: status === 'confirmed' ? 'confirmed ✓' : status,
+statusColor: status === 'confirmed' ? '#7EDDB0' : (status === 'ignored' ? '#6E7772' : '#ABB3AE'),
+border: isNextCard ? accentLine : '#262B29', glow: isNextCard ? neonGlow : 'none',
+editing: editing, confirmed: status === 'confirmed' && !editing, ignored: status === 'ignored',
+draft: s[key + 'Draft'],
+setDraft: (e) => this.setState({ [key + 'Draft']: e.target.value }),
+confirmLabel: status === 'confirmed' ? 'Save name' : 'Confirm & name',
+secondaryLabel: status === 'confirmed' ? 'Cancel' : 'Ignore',
+line1: line1, line2: line2,
+confirm: () => {
+const name = (s[key + 'Draft'] || '').trim();
+if (!name) { this.notify('Enter a name first.'); return; }
+const wasConfirmed = status === 'confirmed';
+this.setState({ [key]: 'confirmed', [key + 'Name']: name, [key + 'Editing']: false });
+this.notify(wasConfirmed ? 'Name saved.' : name + ' confirmed.');
+},
+secondary: () => {
+if (status === 'confirmed') { this.setState({ [key + 'Editing']: false, [key + 'Draft']: s[key + 'Name'] }); return; }
+this.setState({ [key]: 'ignored' });
+this.notify('Ignored. Its usage is not read.');
+},
+rename: () => this.setState({ [key + 'Editing']: true }),
+use: () => this.setState({ [key]: 'detected' })
+};
+};
+const accounts = [
+mkAccount('company', 'claude', '~/.claude', 'Claude company', 'you@company.com · max 20x', 'claude-sonnet-4-5 · last active 12m ago'),
+mkAccount('codex', 'codex', '~/.codex', '.codex', 'listed only', 'Codex usage is listed, not measured')
+];
+
+const titles = { firstrun: 'First run', workspaces: 'Workspaces', agents: 'Agents' };
+const isTodo = s.view.indexOf('todo:') === 0;
+return {
+accent: accent, accentLine: accentLine, neonText: neonText, neonGlow: neonGlow, dotGlow: dotGlow,
+nav: nav,
+viewTitle: isTodo ? s.view.slice(5) : titles[s.view],
+isFirstRun: s.view === 'firstrun', isWorkspaces: s.view === 'workspaces', isAgents: s.view === 'agents',
+isTodo: isTodo, todoName: isTodo ? s.view.slice(5) : '',
+restart: () => { clearTimeout(this._t); this.setState(this.initial()); },
+goFirstRun: go('firstrun'), goAgents: go('agents'), goWorkspaces: go('workspaces'),
+steps: steps, doneCount: doneCount, pct: doneCount * 25, allDone: left === 0,
+leftText: left === 0 ? 'all done' : left + ' left',
+copied: s.copied, copyLabel: s.copied ? 'Copied' : 'Copy',
+copy: () => {
+try { navigator.clipboard.writeText('easy-personal schedule install').catch(() => {}); } catch (e) {}
+this.setState({ copied: true });
+this.notify('Copied: easy-personal schedule install');
+},
+markTimer: () => { this.setState({ timerDone: true }); this.notify('Ingest timer found. Step 2 done.'); },
+showWsList: !s.formOpen, showForm: s.formOpen, noWorkspaces: s.workspaces.length === 0,
+addBtn: s.workspaces.length === 0 ? primary : secondary,
+wsCards: wsCards, swatches: swatches,
+openForm: () => this.setState({ formOpen: true, reviewing: false, nameError: false, wsName: '', wsRepo: '', wsColor: 0 }),
+closeForm: () => this.setState({ formOpen: false, reviewing: false, nameError: false }),
+wsName: s.wsName, wsRepo: s.wsRepo,
+setWsName: (e) => this.setState({ wsName: e.target.value, nameError: false, reviewing: false }),
+setWsRepo: (e) => this.setState({ wsRepo: e.target.value, reviewing: false }),
+nameError: s.nameError, nameBorder: s.nameError ? '#E8968F' : '#2C3230',
+review: (e) => {
+if (e && e.preventDefault) e.preventDefault();
+if (!s.wsName.trim()) { this.setState({ nameError: true }); return; }
+this.setState({ reviewing: true });
+},
+reviewing: s.reviewing, notReviewing: !s.reviewing,
+wsNameTrim: s.wsName.trim(), wsRepoTrim: s.wsRepo.trim(), hasRepo: s.wsRepo.trim() !== '',
+confirmWs: () => {
+const w = { name: s.wsName.trim(), repo: s.wsRepo.trim(), color: swatchColors[s.wsColor][0] };
+this.setState({ workspaces: s.workspaces.concat([w]), formOpen: false, reviewing: false, wsName: '', wsRepo: '' });
+this.notify('Workspace ' + w.name + ' created.');
+},
+cancelReview: () => this.setState({ reviewing: false }),
+accounts: accounts,
+liveText: s.company === 'confirmed' ? '2 active' : '0 active',
+liveColor: s.company === 'confirmed' ? '#DCE0DD' : '#8C9590',
+liveDot: s.company === 'confirmed' ? accent : '#3A413E',
+liveGlow: s.company === 'confirmed' ? dotGlow : 'none',
+goLive: go('todo:Live'),
+ingestWarn: !s.timerDone,
+ingestText: s.timerDone ? 'ingest 4m ago' : 'ingest 4m ago · no timer',
+ingestColor: s.timerDone ? '#8C9590' : '#E3B66B',
+ingestBorder: s.timerDone ? '#262B29' : 'rgba(227, 182, 107, 0.35)',
+ingestClick: go('firstrun'),
+hasLimit: s.company === 'confirmed',
+limitText: s.company === 'confirmed' ? '5h 42%' : '5h no data',
+limitColor: s.company === 'confirmed' ? '#ABB3AE' : '#6E7772',
+hasToast: s.toast !== '', toast: s.toast
+};
+}
+}
+</script>
+</body>
+</html>
