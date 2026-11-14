@@ -1,6 +1,6 @@
 //! T050 AC5 / AC6 / AC11 over the real `serve` binary: what the Python oracle (`connector_parity.rs`) cannot show.
 //! The guard and the body cap on every new route, a locked keychain, the keychain rollback when the store refuses the row,
-//! two adds at once, a hostile account folder (it reaches `claude` only as `CLAUDE_CONFIG_DIR`), and `claude`'s stderr
+//! two writes at once, a hostile account folder (it reaches `claude` only as `CLAUDE_CONFIG_DIR`), and `claude`'s stderr
 //! (never shown). The environment is built from nothing: the fake keychain file, the oracle's fake `claude`, temp folders,
 //! a session bus address that leads nowhere.
 
@@ -433,34 +433,57 @@ fn when_the_store_refuses_the_row_the_keychain_item_is_rolled_back() {
     );
 }
 
+/// Two writes at once run one after the other (the write lock). A slow `claude mcp add-json` (1 s) makes the race
+/// certain without the lock: both requests would plan `add acme-slack` before either added it, and the second
+/// `add-json` would fail. With the lock the second request plans after the first is done and has nothing to change.
 #[test]
-fn two_adds_at_once_store_one_connector_and_one_item() {
-    let world = World::new(&[]);
+fn two_writes_at_once_run_one_after_the_other() {
+    use std::os::unix::fs::PermissionsExt;
+    let world = World::new(&ACME);
+    std::fs::rename(
+        world.dir.join("bin/claude"),
+        world.dir.join("bin/fake-claude"),
+    )
+    .unwrap();
+    let wrapper = world.dir.join("bin/claude");
+    std::fs::write(
+        &wrapper,
+        "#!/bin/sh\n[ \"$2\" = add-json ] && sleep 1\nexec \"$(dirname \"$0\")/fake-claude\" \"$@\"\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
     let server = std::sync::Arc::new(world.serve(&[]));
     let handles: Vec<_> = (0..2)
-        .map(|n| {
+        .map(|_| {
             let server = std::sync::Arc::clone(&server);
             std::thread::spawn(move || {
-                let body = json!({"provider": "slack", "workspace": "acme", "values": {"SLACK_MCP_XOXB_TOKEN": format!("{SECRET}-{n}")}, "confirm": true});
-                server.json("POST", "/api/connectors", &body).json()["status"].as_i64().unwrap()
+                let body = json!({"account": 2, "confirm": true});
+                server.json("POST", "/api/sync", &body).json()["status"]
+                    .as_i64()
+                    .unwrap()
             })
         })
         .collect();
-    let mut statuses: Vec<i64> = handles.into_iter().map(|h| h.join().unwrap()).collect();
-    statuses.sort();
+    let statuses: Vec<i64> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+    // the subcommand and name of each recorded call, in order
+    let calls: Vec<String> = world
+        .log()
+        .split("--\n")
+        .filter(|call| !call.is_empty())
+        .map(|call| call.lines().skip(2).take(2).collect::<Vec<_>>().join(" "))
+        .collect();
     assert_eq!(
-        statuses,
-        [0, 1],
-        "one added, one refused (one per provider)"
+        (statuses, calls),
+        (
+            vec![0, 0],
+            vec![
+                "get acme-slack".to_string(),
+                "add-json acme-slack".into(),
+                "get acme-slack".into()
+            ]
+        ),
+        "the second sync must plan only after the first one has added the entry"
     );
-    let items: Value =
-        serde_json::from_str(&std::fs::read_to_string(world.keychain()).unwrap()).unwrap();
-    assert_eq!(items.as_object().unwrap().len(), 1);
-    let rows: i64 = world
-        .conn()
-        .query_row("SELECT COUNT(*) FROM connectors", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(rows, 1);
 }
 
 /// A `claude` on `PATH` that cannot start (its interpreter is missing: the spawn itself fails, as a timeout would end it).
