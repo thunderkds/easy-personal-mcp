@@ -1,6 +1,6 @@
-# TASK_REVIEW — T[NNN]: [Short Title]
+# TASK_REVIEW — T068: [Short Title]
 
-> Sibling of `tasks/TASK_GUIDE_T[NNN].md`. Everything here is **filled by the reviewer at Stage
+> Sibling of `tasks/TASK_GUIDE_T068.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
 > every turn and never fills these two sections.
 >
