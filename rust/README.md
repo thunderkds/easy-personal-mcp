@@ -1232,7 +1232,7 @@ keeps its bytes and mtime); the scheduled ingest stays the only writer. It is no
 other connection has it open, SQLite creates empty `store.sqlite-wal` / `store.sqlite-shm` files next to it for the read-only
 open and may leave them (T049 README item 1; confirmed at Stage 4).
 
-**The route.** `GET /api/live` answers `200`, `content-type: text/event-stream`, `cache-control: no-store`, `x-accel-buffering: no`
+**The route.** `GET /api/live` answers `200`, `content-type: text/event-stream; charset=utf-8`, `cache-control: no-store`, `x-accel-buffering: no`
 (Python's headers) and the CSP. Messages, in Python's order:
 
 ```

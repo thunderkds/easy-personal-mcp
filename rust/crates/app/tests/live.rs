@@ -330,7 +330,10 @@ fn lives(msgs: &[Msg]) -> Vec<i64> {
 fn a_new_transcript_line_arrives_as_a_live_event_within_2_s() {
     let serve = Serve::start();
     let mut stream = serve.live(&[]);
-    assert_eq!(stream.header("content-type"), ["text/event-stream"]);
+    assert_eq!(
+        stream.header("content-type"),
+        ["text/event-stream; charset=utf-8"]
+    );
     assert_eq!(stream.header("cache-control"), ["no-store"]);
     assert_eq!(stream.header("x-accel-buffering"), ["no"]);
     assert_eq!(stream.header("content-security-policy").len(), 1);

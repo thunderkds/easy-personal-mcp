@@ -219,7 +219,7 @@ async fn live(State(api): State<Api>, headers: HeaderMap) -> Response {
     let body = SseBody::new(resume, api.live, api.stopping, api.clock);
     (
         [
-            (CONTENT_TYPE, "text/event-stream"),
+            (CONTENT_TYPE, "text/event-stream; charset=utf-8"),
             (CACHE_CONTROL, "no-store"),
             (HeaderName::from_static("x-accel-buffering"), "no"),
         ],

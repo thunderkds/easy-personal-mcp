@@ -439,7 +439,11 @@ fn first_snapshot(raw: &[u8]) -> Result<Option<Value>, String> {
         return Err(format!("GET {LIVE_PATH} answered {}", plain_code(code)));
     }
     let has = |line: &str| head.split("\r\n").any(|l| l.trim() == line);
-    if !has("content-type: text/event-stream") {
+    let is_stream = has("content-type: text/event-stream")
+        || head
+            .split("\r\n")
+            .any(|l| l.trim().starts_with("content-type: text/event-stream;"));
+    if !is_stream {
         return Err(format!("GET {LIVE_PATH} is not an event stream"));
     }
     let body = &raw[end + 4..];
@@ -535,6 +539,15 @@ mod tests {
         let whole = format!("{head}{chunk}");
         let data = first_snapshot(whole.as_bytes()).unwrap().unwrap();
         assert_eq!(data, snapshot_data(&empty_snapshot()));
+        // T067: the route sends `text/event-stream; charset=utf-8` (as Python does); the check reads it too.
+        let with_charset = whole.replace(
+            "content-type: text/event-stream",
+            "content-type: text/event-stream; charset=utf-8",
+        );
+        assert_eq!(
+            first_snapshot(with_charset.as_bytes()).unwrap().unwrap(),
+            data
+        );
         // Cut anywhere before the message's end: not yet, never an error.
         for cut in 0..whole.len() - 2 {
             assert_eq!(
