@@ -327,7 +327,7 @@ function Ui({ ui }) {
         <p>no data</p>
       ) : (
         <>
-          <div className="kpi-strip">
+          <div className="kpi-strip ui-strip">
             {Object.entries(counts).map(([k, v]) => (
               <div className="kpi" key={k}>
                 <span className={`kpi-value ${UI_TONES[k] && v > 0 ? UI_TONES[k] : ''}`.trim()}>{fmt(v)}</span>

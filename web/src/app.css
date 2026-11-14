@@ -280,6 +280,7 @@ main .kpi { display: flex; flex-direction: column; gap: var(--space-2); padding:
 .progress-fill { height: 100%; background: var(--color-accent); }
 .kpi-value.tone-accent { color: var(--color-accent); text-shadow: var(--glow-text); }
 .kpi-value.tone-amber { color: var(--color-amber); }
+.ui-strip { grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); }
 .ui-bar { display: flex; height: 6px; overflow: hidden; border-radius: var(--radius-bar); background: var(--color-track); }
 .ui-bar > div { height: 6px; }
 .ui-bar > .tone-accent { background: var(--color-accent); box-shadow: var(--glow-dot); }
