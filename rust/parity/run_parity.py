@@ -1829,6 +1829,11 @@ def main(argv=None) -> int:
     ap.add_argument("--check", action="store_true", help="run and compare with the committed report instead of writing it")
     ap.add_argument("--out", type=Path, default=REPORT)
     args = ap.parse_args(argv)
+    # A job started in the background of a non-interactive shell has SIGINT ignored, and `exec` keeps that: the children would not end by the
+    # signal (Python's `mcp --transport http` shows exit -2 on Ctrl-C). A handler, unlike SIG_IGN, is reset to the default by `exec`.
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    if signal.getsignal(signal.SIGTERM) == signal.SIG_IGN:
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
     if args.list:
         print("\n".join(inventory()))
         return 0

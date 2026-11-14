@@ -140,6 +140,21 @@ def test_a_missing_store_is_explained_only_when_python_made_the_store():
     assert rp.classify_zone(probe, made, zone(1, "", "easy-personal: some other refusal\n")) == ("new", [])
 
 
+def test_the_runner_does_not_depend_on_an_inherited_ignored_sigint():
+    """A job started in the background of a non-interactive shell has SIGINT ignored; `exec` keeps that, so a server child would not die by
+    SIGINT. The runner must give its children a default SIGINT: Python's `mcp --transport http` ends by the signal (exit -2), and the
+    probe shows it as `step 4 /code`."""
+    import os
+    import signal
+    import subprocess
+
+    env = {"PATH": "/usr/bin:/bin", "HOME": os.environ.get("HOME", "/"), "PYTHONDONTWRITEBYTECODE": "1"}
+    done = subprocess.run([sys.executable, str(PARITY / "run_parity.py"), "--only", "cli: mcp / http-handshake-and-ping"], capture_output=True,
+                          text=True, env=env, cwd=str(PARITY.parent), check=False, timeout=300,
+                          preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN))
+    assert "step 4 /code" in done.stdout, f"the exit code of the HTTP MCP server is not in the output:\n{done.stdout[-600:]}\n{done.stderr[-300:]}"
+
+
 def main() -> int:
     failed = 0
     for name, fn in sorted((n, f) for n, f in globals().items() if n.startswith("test_") and callable(f)):

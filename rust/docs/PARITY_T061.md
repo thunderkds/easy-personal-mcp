@@ -131,6 +131,9 @@ Cause: `mcp --transport http` stopped with Ctrl-C: Python's process ends by the 
 Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'cli: mcp / http-handshake-and-ping'` (probe `http-handshake-and-ping`; world: store=rich).
 Run: probe `http-handshake-and-ping`
 
+- at `steps[4]/code` (zone UTC):
+  - Python: `-2`
+  - Rust: `0`
 - at `steps[4]/stdout` (zone UTC):
   - Python: `"INFO:     127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 202 Accepted\nINFO:     127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:<PORT> - \"PO...`
   - Rust: `""`
