@@ -1,4 +1,4 @@
-# TASK_REVIEW — T069: [Short Title]
+# TASK_REVIEW — T069: First run screen rework
 
 > Sibling of `tasks/TASK_GUIDE_T069.md`. Everything here is **filled by the reviewer at Stage
 > 4/5** — it is deliberately NOT in the guide, because the implementing agent re-reads the guide on
@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/FirstRun.test.jsx`, `web/src/App.test.jsx` (AC 1-4), `web/src/shell.test.js` (badge) |
+| Verification command run | ☑ pass | Supervisor re-run 2026-11-14: 3 of 3 runs `Tests  804 passed (804)`; 1 earlier run under parallel-agent load had `1 failed | 803 passed`, failing test not captured (see P3) — pass |
+| Negative cases hold | ☑ pass | unknown step id → generic card; clipboard reject → `Copy failed — select and copy`; Check again fail keeps steps — pass |
+| verify | ☑ pass | Supervisor 2026-11-14: `npm run build` of this branch served by `easy-personal-rs serve --no-ingest` (main build, web-only change) on a copy of `rust/parity/store-v11.sqlite`, headless Chrome over CDP; firstrun-1440.png: `2 of 4 steps done`, step 03 `next step` with Open Agents, badge `2`, from the real `/api/first-run`; server stopped by PID. Rust CLI/MCP steps not run: no Rust change in this branch — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | diff + direct callers only, see Stage 4 section |
+| Full smoke suite still green (no regression) | ☑ pass | full web suite above — pass |
+| **Companion score (easy-verifier)** | ☑ N/A | advisory run: overall 69, change_risk 100; no report path written |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | agent screenshots `after-2of4-1440.png`, `after-all-1440.png` vs rendered `FirstRun.dc.html` (scratchpad `shots/`) — pass |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | grep for hex/`rgb(` in First run CSS: none — pass (two raw font sizes, P3) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 (no overflow, command scrolls in its box), 1024 — pass |
 
 ---
 
@@ -61,12 +61,44 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-14T16:14:08Z on branch `T069` at `042997b`, before any implementation commit): headless Chrome 157 (CDP, 1440x960) on a production build of the unchanged `web/`, served by a scratch mock API (2 of 4 steps done: first ingest and accounts confirmed). Screenshot: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/before-1440.png`. Text of the First run `<main>` as printed by the capture command:
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+First run / First ingest / Done / Copies the usage metadata of your Claude Code sessions into the store. /
+Ingest timer installed / Not done / Keeps the store current, because Claude Code deletes old transcripts. / easy-personal schedule install /
+Agent accounts confirmed / Done / Only confirmed accounts are read. /
+First workspace / Not done / Groups your repos and connectors. / Open Workspaces
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Observed: a 2-column grid of plain cards, no intro line, no `N of M steps done`, no progress bar, no step numbers, no highlighted next step, command shown with no `$ ` and no Copy or Check again button, nav badge reads `2 left`.
+
+**AFTER** (2026-11-14, same capture method and same mock fixture, after the T069 commit): screenshots `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-2of4-1440.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-all-1440.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-2of4-375.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-2of4-1024.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-copied.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/after-copy-fail.png`; prototype render for comparison `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7b734979-db79-4b51-b7ae-4d18c6c59237/scratchpad/shots/proto-1440.png`. Text of the First run `<main>`, 2 of 4 done:
+
+```
+First run / Four steps to fill the dashboard with your own sessions. Everything stays on this machine. /
+2 of 4 steps done / 2 left /
+01 First ingest done / Copies the usage metadata ... /
+02 Ingest timer installed next step / Keeps the store current ... / $ easy-personal schedule install / Copy / Ran it in your terminal? / Check again /
+03 Agent accounts confirmed done / Only confirmed accounts are read. /
+04 First workspace not done / Groups your repos and connectors. / Open Workspaces
+```
+
+Real Chrome click on Copy (clipboard permission granted): button labels `Copied`, `Check again`, `Open Workspaces`; `navigator.clipboard.readText()` returned `easy-personal schedule install`. With no clipboard permission: the card shows `Copy failed — select and copy` and the command text is selected.
+
+**DELTA**: The First run page shows how far setup is (progress, numbered cards, the next step highlighted), lets the user copy a step's command and re-check the server state without leaving the page, and shows a completion banner with a button to Usage.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T069.jsonl`, never the
 implementing agent alone]
+
+## Stage 4 — code-review (Supervisor, 2026-11-14)
+
+Scope: `main...T069` production files (`FirstRun.jsx`, `App.jsx`, `app.css`) + caller `App.jsx` and `first_run.rs` (hint always present for every step). Lane: `C2, 6 files, 498 lines, FITS`. Reachability: entry `web/src/FirstRun.jsx` used by `App.jsx` TABS — reachable. Startup reads line present.
+
+P0: none. P1: none. P2: none.
+P3 (optional):
+| File | Finding | Confidence | Action |
+|---|---|---|---|
+| `web/src/app.css` First run block | `font-size: 12.5px` and `13.5px` hard-coded; tokens `--fs-note` (0.78125rem) and `--fs-control` (0.84375rem) give the same sizes | 100 | Use the tokens |
+| web suite | 1 of 5 Supervisor runs had 1 failed test under heavy parallel load; 3 later runs clean; test name not captured | 50 (below gate, listed for the record) | Watch on `main` after merge |
+
+0 safe fixes applied.

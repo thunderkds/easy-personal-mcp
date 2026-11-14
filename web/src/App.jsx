@@ -155,6 +155,9 @@ function Shell() {
     }
   }, [active])
 
+  // First run > Check again: read the checklist once more. A failed read rejects, so the page keeps the old steps.
+  const checkFirstRun = useCallback(() => getJson('/api/first-run').then((data) => setFirstRun(data.steps)), [])
+
   // After Agents changes an account: read the options again. A failed reload keeps the old ones.
   const reloadOptions = useCallback(() => {
     loadOptions().then(setOptions, () => {})
@@ -209,7 +212,11 @@ function Shell() {
                     >
                       <span className="dot" aria-hidden="true" />
                       {t.label}
-                      {t.id === 'first-run' && left > 0 && <span className="badge">{left} left</span>}
+                      {t.id === 'first-run' && left > 0 && (
+                        <span className="badge" title={`${left} left`}>
+                          {left}
+                        </span>
+                      )}
                     </button>
                   ))}
               </div>
@@ -253,6 +260,8 @@ function Shell() {
                 steps={firstRun}
                 onOpenAgents={() => setActive('agents')}
                 onOpenWorkspaces={() => setActive('workspaces')}
+                onOpenUsage={() => setActive('usage')}
+                onCheckAgain={checkFirstRun}
                 onAccountsChanged={reloadOptions}
                 period={period}
                 onPeriodChange={setPeriod}

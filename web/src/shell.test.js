@@ -27,9 +27,10 @@ describe('rail groups and badge (HUN-160)', () => {
     expect(css).toMatch(/\.nav-group\[hidden\]\s*\{\s*display:\s*none;?\s*\}/)
   })
 
-  it('styles the "N left" badge with tokens only', () => {
+  it('styles the First run badge as plain mono text with tokens only', () => {
     const badge = rule('.badge')
-    expect(badge).toContain('var(--color-accent')
+    expect(badge).toContain('var(--font-mono)')
+    expect(badge).toContain('var(--color-muted)')
     expect(badge).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(/)
   })
 
