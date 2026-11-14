@@ -61,8 +61,44 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured by backend-developer, 2026-11-14T03:37Z, branch T060 at `e6f1daf`, before any implementation file;
+`env -i` with a temp `HOME`, `EASY_PERSONAL_HOME` (a copy of `parity/store-rich/store-v11.sqlite`), `EASY_PERSONAL_AGENT_ROOT`,
+the debug fake keychain `EASY_PERSONAL_TEST_KEYCHAIN=<tmp>/kc.json`, the oracle's fake `claude` first on `PATH`, a bogus
+`DBUS_SESSION_BUS_ADDRESS`; stdin `/dev/null`):
+
+```
+date: 2026-11-14T03:37:34Z  commit: e6f1daf  binary: target/debug/easy-personal-rs
+$ easy-personal-rs connector list
+error: unrecognized subcommand 'connector'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+(exit 2)
+$ easy-personal-rs connector add slack --workspace acme
+error: unrecognized subcommand 'connector'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+(exit 2)
+$ easy-personal-rs connector sync --yes
+error: unrecognized subcommand 'connector'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+(exit 2)
+$ easy-personal-rs doctor
+error: unrecognized subcommand 'doctor'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+(exit 2)
+ls: cannot access '<tmp>/claude.log': No such file or directory     # no `claude` call was made
+ls: cannot access '<tmp>/kc.json': No such file or directory        # no keychain item was written
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
