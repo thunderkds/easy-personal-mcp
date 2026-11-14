@@ -44,7 +44,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/FirstRun.test.jsx`, `web/src/App.test.jsx` (AC 1-4), `web/src/shell.test.js` (badge) |
 | Verification command run | ☑ pass | Supervisor re-run 2026-11-14: 3 of 3 runs `Tests  804 passed (804)`; 1 earlier run under parallel-agent load had `1 failed | 803 passed`, failing test not captured (see P3) — pass |
 | Negative cases hold | ☑ pass | unknown step id → generic card; clipboard reject → `Copy failed — select and copy`; Check again fail keeps steps — pass |
-| verify | ☐ pass / ☐ fail / ☐ N/A | not run yet: Stage 5 `/verify` before merge |
+| verify | ☑ pass | Supervisor 2026-11-14: `npm run build` of this branch served by `easy-personal-rs serve --no-ingest` (main build, web-only change) on a copy of `rust/parity/store-v11.sqlite`, headless Chrome over CDP; firstrun-1440.png: `2 of 4 steps done`, step 03 `next step` with Open Agents, badge `2`, from the real `/api/first-run`; server stopped by PID. Rust CLI/MCP steps not run: no Rust change in this branch — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | diff + direct callers only, see Stage 4 section |
 | Full smoke suite still green (no regression) | ☑ pass | full web suite above — pass |
 | **Companion score (easy-verifier)** | ☑ N/A | advisory run: overall 69, change_risk 100; no report path written |
