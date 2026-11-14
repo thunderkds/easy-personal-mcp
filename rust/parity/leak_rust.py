@@ -895,6 +895,103 @@ def connectors(run: Run, checks: list[str], canaries: Canaries) -> None:
     run.dump("store .dump (after the connector writes)")
 
 
+# -- T060: the `connector ...` and `doctor` commands -----------------------------------------------------------
+
+# (expected exit code, argv tail, stdin). `{key}` is the planted API key, typed as a secret at the prompt (stdin: the run has
+# no terminal) and as a value no message may echo; `{cid}` the id the first add made; `{acct}` the planted account folder
+# whose name holds the path marker. Not asked with the key: `connector add <provider>`, whose refusal names the provider the
+# owner typed, as Python's does (the owner's own terminal; "decided for you" in rust/README.md).
+CONNECTOR_CLI_CALLS: list[tuple[int, list[str], str]] = [
+    (0, ["workspace", "add", "leak-cli"], ""),
+    (0, ["connector", "add", "slack", "--workspace", "leak-cli", "--yes"], "{key}\n"),
+    (0, ["connector", "add", "teams", "--workspace", "leak-cli"], "{key}\ny\n"),  # a plain field: input(), then the question
+    (1, ["connector", "add", "sendgrid", "--workspace", "leak-cli"], "{key}\nn\n"),  # asked, answered no
+    (2, ["connector", "add", "discord", "--workspace", "leak-cli", "--yes"], ""),  # end of input at the secret prompt
+    (1, ["connector", "add", "slack", "--workspace", "leak-cli", "--yes"], "{key}\n"),  # the workspace has a slack already
+    (2, ["connector", "add", "gmail", "--workspace", "{key}", "--yes"], "{key}\n"),
+    (2, ["connector", "add", "gmail", "--workspace", "leak-cli", "--alias", "{key}", "--yes"], "{key}\n"),
+    (0, ["connector", "list"], ""),
+    (0, ["account", "add", "{acct}"], ""),
+    (0, ["account", "confirm", "{acct}", "--label", "Leak cli"], ""),
+    (0, ["account", "use", "{acct}", "leak-cli"], ""),
+    (1, ["connector", "sync"], ""),  # asked, end of input: aborted
+    (1, ["connector", "sync", "--yes"], ""),  # `claude` fails with the key on its stderr
+    (1, ["connector", "sync", "--account", "{acct}", "--yes"], ""),
+    (2, ["connector", "sync", "--account", "{key}", "--yes"], ""),
+    (1, ["doctor"], ""),
+    (2, ["connector", "alias", "{cid}", "{key}", "--yes"], ""),
+    (2, ["connector", "move", "{cid}", "{key}", "--yes"], ""),
+    (2, ["connector", "move", "{key}", "orphan", "--yes"], ""),
+    (2, ["connector", "remove", "{key}", "--yes"], ""),
+    (0, ["connector", "alias", "{cid}", "leak-chat", "--yes"], ""),
+    (0, ["connector", "move", "{cid}", "orphan", "--yes"], ""),
+    (1, ["connector", "adopt-legacy"], "n\n"),
+    (0, ["connector", "adopt-legacy", "--yes"], ""),
+    (0, ["connector", "remove", "{cid}", "--yes"], ""),
+    (0, ["connector", "remove", "sendgrid", "--yes"], ""),  # adopted above: a stored connector now
+    (0, ["connector", "list"], ""),
+    (1, ["doctor"], ""),
+]
+
+
+def connector_cli(run: Run, checks: list[str], canaries: Canaries) -> None:
+    """Every `connector` action and `doctor` as one process each, with no terminal (`setsid`): the key typed as a secret on
+    stdin and given where a refusal could echo it; canaries in keychain secrets (the debug-build fake keychain file), in
+    `claude`'s stderr (the oracle's fake, a failing `add-json`) and in an account folder's path. Scanned: each stdout and
+    stderr, the fake `claude`'s argv log, the store and `.dump`. The keychain file is the keychain and is not a surface."""
+    key = canaries.values["api_key"]
+    header = canaries.values[next(n for n in sorted(canaries.values) if n != "api_key")]
+    marker = f"cliacct-{hashlib.sha256(key.encode()).hexdigest()[:12]}"
+    agents = run.root / "cli-agents"
+    hostile = agents / f".claude-{marker}"
+    for folder in (agents / ".claude" / "projects", hostile / "projects"):
+        folder.mkdir(parents=True)
+    cbin, log, state, keychain = run.root / "cli-bin", run.logs / "cli-claude-argv.log", run.logs / "cli-claude-state", run.root / "cli-keychain.json"
+    cbin.mkdir()
+    shutil.copy(FAKE_CLAUDE, cbin / "claude")
+    (cbin / "claude").chmod(0o755)
+    item = lambda command, env, headers: json.dumps({"command": command, "env": env, "headers": headers})  # noqa: E731
+    # a pre-workspace item (`connectors()` above already adopted `discord` into this store)
+    keychain.write_text(json.dumps({"easy-personal/sendgrid": item(["npx", "-y", "x@1"], {"SENDGRID_API_KEY": key}, {"Authorization": header})}))
+    saved = dict(run.env)
+    run.env.update({"PATH": f"{cbin}:/usr/bin:/bin", "EASY_PERSONAL_AGENT_ROOT": str(agents), "EASY_PERSONAL_TEST_KEYCHAIN": str(keychain),
+                    "FAKE_CLAUDE_LOG": str(log), "FAKE_CLAUDE_STATE": str(state), "FAKE_CLAUDE_STDERR": key,
+                    "FAKE_CLAUDE_FAIL": "add-json leak-cli-slack", "CLAUDE_CONFIG_DIR": f"/runner/{marker}"})  # fmt: skip
+    cid, outputs = "", []
+    try:
+        for number, (want, argv, stdin) in enumerate(CONNECTOR_CLI_CALLS, start=1):
+            fill = lambda text: text.replace("{key}", key).replace("{cid}", cid).replace("{acct}", str(hostile))  # noqa: E731
+            argv = [fill(a) for a in argv]
+            done = subprocess.run(run.argv(CHILD_TIMEOUT, *argv), env=run.env, cwd=run.nowhere, input=fill(stdin).encode(),
+                                  capture_output=True, timeout=CHILD_TIMEOUT + 15, check=False, start_new_session=True)  # fmt: skip
+            label = f"connector cli #{number} {' '.join(argv[:2])}".replace(key, "<key>")
+            run.add(f"{label} stdout", done.stdout)
+            run.add(f"{label} stderr", done.stderr)
+            outputs.append(done.stdout + done.stderr)
+            if done.returncode != want:
+                raise Fatal(f"{label}: exit {done.returncode}, expected {want}")
+            if number == 2:
+                cid = next(iter(re.findall(r"\bconnector (c[0-9a-f]{8}) ", done.stdout.decode())), "")
+                kept = json.loads(keychain.read_text()).get(f"easy-personal/{cid}", "")
+                ok = bool(cid) and key in kept  # positive control: the typed secret is in the keychain item
+                checks.append(f"check cli add stored the typed secret in the keychain  {'ok' if ok else 'FAILED'}")
+    finally:
+        run.env.clear()
+        run.env.update(saved)
+    argv_log = log.read_text() if log.exists() else ""
+    run.add("connector cli fake claude argv log", argv_log)
+    ok = "add-json" in argv_log and not any(b"boom" in o for o in outputs)
+    checks.append(f"check cli claude failed, its stderr not shown          {'ok' if ok else 'FAILED'}")
+    argv_lines = [ln for ln in argv_log.splitlines() if not ln.startswith("CCD=")]
+    ok = f"CCD={hostile}" in argv_log and not any(marker in ln for ln in argv_lines)
+    checks.append(f"check cli account path only in CLAUDE_CONFIG_DIR      {'ok' if ok else 'FAILED'}")
+    ok = f"easy-personal/{cid}" not in json.loads(keychain.read_text()) and "easy-personal/sendgrid" not in json.loads(keychain.read_text())
+    checks.append(f"check cli remove deleted the keychain items            {'ok' if ok else 'FAILED'}")
+    checks.append(f"check cli connector/doctor exit codes as expected      ok ({len(CONNECTOR_CLI_CALLS)} calls, one process each)")
+    run.store_files("store (after the connector cli)")
+    run.dump("store .dump (after the connector cli)")
+
+
 # -- the run ---------------------------------------------------------------------------------------------------
 
 
@@ -956,7 +1053,7 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (2, ["kit", "--account", "{key}"]), (2, ["kit", "--workspace", ""]), (2, ["kit-findings", "--limit", "0"]), (2, ["kit-findings", "--since", "garbage"]),
 ]
 # Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
-CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "help"}
+CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "help", "connector", "doctor"}  # T060: `connector_cli`
 
 
 def cli(run: Run, checks: list[str], canaries: Canaries) -> None:
@@ -1218,6 +1315,7 @@ def drive(run: Run, canaries: Canaries, checks: list[str]) -> None:
     checks.append(f"check context service saw 1 read tool {'ok' if ok else 'FAILED'} ({len(calls)} calls)")
     context_failures(run, canaries, checks, url_host_port=url.rsplit("/", 1)[0], repo=repo)
     connectors(run, checks, canaries)
+    connector_cli(run, checks, canaries)
 
 
 def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:

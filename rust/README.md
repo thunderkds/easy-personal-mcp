@@ -1,6 +1,6 @@
 # easy-personal-rs
 
-Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has these subcommands: `store-info`, `ingest`, `schedule`, `serve` (also `dashboard`), `mcp`, `app` (opens a window only in a build with `--features window`) and, since T058, `ping`, `usage`, `outliers`, `warnings`, `plan`, `kit`, `kit-findings`, `workspace` and `account` (see "CLI commands (T058)"); the Python app
+Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has these subcommands: `store-info`, `ingest`, `schedule`, `serve` (also `dashboard`), `mcp`, `app` (opens a window only in a build with `--features window`) and, since T058, `ping`, `usage`, `outliers`, `warnings`, `plan`, `kit`, `kit-findings`, `workspace` and `account` (see "CLI commands (T058)") and, since T060, `connector` and `doctor` (see "Connector and doctor commands (T060)"); the Python app
 stays the working one.
 
 ## Build and run
@@ -19,6 +19,8 @@ cargo build
 ./target/debug/easy-personal-rs dashboard        # the same as `serve` (Python's name for it)
 ./target/debug/easy-personal-rs usage [--by day|model|project|tool] [--since D] [--until D] [--workspace W] [--account A]   # T058: JSON as Python's CLI
 ./target/debug/easy-personal-rs workspace list   # also add (or create), edit, delete [--yes]; and `account list|confirm|ignore|add|use`
+./target/debug/easy-personal-rs connector list   # T060: also add, remove, sync, move, alias, adopt-legacy [--yes]
+./target/debug/easy-personal-rs doctor           # T060: keychain, `claude`, launcher and connector entries; reads only
 ./target/debug/easy-personal-rs mcp              # MCP server on stdio
 ./target/debug/easy-personal-rs mcp --transport http [--port N]   # the same tools over loopback HTTP, see "Start-up ingest, MCP over HTTP and the context source (T051)"
 cargo build --features window                    # adds the window (Tauri v2); see "Window" below
@@ -688,7 +690,7 @@ Decided for you (differences from Python, all on hostile or unusual input):
   `thresholds: kit_error_rate` is not read (the default 0.04 is used).
 - Python defect found: the comment in `folders.py` says a NUL byte makes `is_dir()` False; in fact `Path.resolve()` raises `ValueError` first. The route still answers 400 (with CPython's text).
 
-Not served yet: nothing of Python's routes. The connector writes and the sync apply are served since T050, `/api/live` since T056 and `GET /api/store/health` since T059. This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
+Not served yet: nothing of Python's routes, and (since T060) nothing of Python's CLI. The connector writes and the sync apply are served since T050, `/api/live` since T056, `GET /api/store/health` since T059, and the `connector` and `doctor` commands since T060. This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
 `/api/dirs` are served); T043 serves `/api/board` and `/api/memory-graph`, and T048 the store-only workspace and account writes. The release note `docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
 
 ## Board and memory graph (T043)
@@ -942,10 +944,10 @@ asked: the refusals below, `dashboard`, and account detection. `parity/leak_rust
    local day on the first or last day of its range) is the core's answer here, exit 2 or 0, not a traceback.
 9. **`account list` needs a store at schema v11**, because it runs detection through the write handle (Python migrates first). With nothing new to
    detect it changes no row.
-10. **`account use` ends with Python's stderr note** (`run \`easy-personal connector sync\` ...`). The Rust binary has no `connector` command
-    until T060; the note names Python's.
+10. **`account use` ends with Python's stderr note** (`run \`easy-personal connector sync\` ...`). Since T060 the command it names is here
+    too, as `easy-personal-rs connector sync`; the note keeps Python's text (as every other line that names `easy-personal`).
 11. **`warnings`, `plan`, `kit`** (added after the first T058 report; the guide's list did not name them): `kit` lists projects whose folder is gone, as Python's CLI does (the dashboard route hides them). The owner's `config.yaml` threshold override is not read by this build (`rules.rs`, `kitperf.rs` say so), so the shipped thresholds apply and Python's exit 2 for a bad one does not exist here.
-12. **Not here**: `connector` and `doctor` (T060). `exec` and `headers` are the separate `easy-personal-launch` program (T050). `store-check` is here since T059. Every other subcommand of Python's parser, with the same flags, is here (`schedule install|remove` already were). Rust has three more: `store-info`, `serve` and `app`.
+12. **Not here**: nothing since T060 (`connector` and `doctor`). `exec` and `headers` are the separate `easy-personal-launch` program (T050). `store-check` is here since T059. Every other subcommand of Python's parser, with the same flags, is here (`schedule install|remove` already were). Rust has three more: `store-info`, `serve` and `app`.
 
 ## Connector writes, keychain and launcher (T050)
 
@@ -1036,8 +1038,86 @@ must map field names to strings`, `unknown connector`, `account must be an accou
     ``the `claude` CLI could not run (it did not start or timed out); nothing was removed.`` A `claude` that ran and exited non-zero
     (127 included) is still "no entry", as in Python.
 
-Not built (cut list): the `connector ...` and `doctor` CLI commands (T060), macOS and Windows keychains, retries, a new catalog entry,
-`configured` in `GET /api/connectors` (T046 read side unchanged).
+Not built (cut list): macOS and Windows keychains, retries, a new catalog entry, `configured` in `GET /api/connectors` (T046 read side
+unchanged). The `connector ...` and `doctor` CLI commands are T060's (next section).
+
+## Connector and doctor commands (T060)
+
+Python's `easy-personal connector ...` and `easy-personal doctor` (`surfaces/cli.py`: `_connector`, `_connector_list`, `_sync`, `doctor`),
+with Python's arguments, texts and exit codes. `crates/app/src/connector_cmd.rs` and `doctor_cmd.rs` read the arguments, ask and print;
+everything else is T050's code (`connector_writes.rs`, `legacy.rs`, `keychain.rs`, `claude_cli.rs`, the core's `sync` and `workspaces`)
+and T058's command frame (`cli_cmds.rs`: the store sessions, the question, the exit codes). No new store, keychain or subprocess logic.
+
+| Command | What |
+|---|---|
+| `connector list` | the catalog by category (claude.ai connectors first), each with its fields; then `configured (id alias provider workspace)` |
+| `connector add PROVIDER --workspace W [--alias A] [--yes]` | asks each field, shows the plan (`ENV=***`), asks, then the keychain item `easy-personal/c<8 hex>` and one row; no `claude` call |
+| `connector remove NAME [--yes]` | a stored connector: unregister it from every account through `claude`, then delete item and row; a catalog id with no row: its own entry in the default account and its item; anything else `unknown connector; nothing was removed` (exit 2) before any keychain or `claude` call |
+| `connector sync [--account ID\|FOLDER] [--yes]` | detects the agent folders, prints each account's plan, asks, applies it step by step through `claude` |
+| `connector move ID WORKSPACE [--yes]`, `connector alias ID (ALIAS \| --default) [--yes]` | the plan, the question, then the store change and its `claude` steps |
+| `connector adopt-legacy [--yes]` | pre-workspace connectors into orphan; our own entry leaves the default account |
+| `doctor` | `ok`/`FAIL` lines for the keychain, `claude` on `PATH`, the launcher, each pre-workspace connector, a `note` for legacy ones, each stored connector's item and each account registration; exit 1 on any `FAIL` |
+
+**Secrets** take Python's one route: the prompt. A secret field (`Bot token`, `API key`) is read as `getpass` reads it: from the
+controlling terminal (`/dev/tty`) with echo off, the prompt written there. With no terminal it is Python's fallback: `Warning: Password
+input may be echoed.` and the prompt on stderr, the line from stdin. A plain field (`Tenant ID`, the Gmail keys file) is `input()`: the
+prompt on stdout, the line from stdin, stripped. No flag and no environment variable carries a value. The value is in the keychain item
+only: never in a line (the plan shows `ENV=***`), an error, the store or a `claude` argument (`claude` gets the launcher command and the
+connector id). An empty value is `<label> is empty; nothing was written.` (exit 2); end of input at a prompt is `input ended at the
+prompt; nothing was written` (exit 2). Nothing is written before the yes.
+
+**Questions** (`Apply these changes? [y/N] `) read one line of stdin: `y` or `yes` (any case, spaces around) is yes; anything else, an
+empty line or end of input is no (`aborted; nothing was written.` / `removed.` / `changed.`, Python's line for that command, exit 1).
+`--yes` skips the question. A stdin that is not a terminal never waits.
+
+Exit codes: 0 done; 1 aborted, a step that failed (`claude` exit, a skipped account), or Python's `LaunchError` (no usable keychain, no
+launcher: its text on stderr); 2 refused (Python's text: `unknown workspace`, `no such account`, `give either a new alias or --default`,
+...) or a usage error. Errors go to stderr as `easy-personal-rs: <text>`.
+
+**Oracle.** `parity/gen_connector_cli.py` runs Python's own `main()` with no controlling terminal (it forks and calls `setsid`) over the
+T050 world: a temp copy of `store-rich`, the in-memory keychain of Python's tests, the fake `claude` of `golden-connectors/fake-claude.sh`
+(per-account state, one failing call), `CLAUDE_CONFIG_DIR=/runner/dir` that the default account must drop, a pinned launcher path (or
+none). It writes `parity/golden-connector-cli/cases.json` (95 cases, 116 steps, 295 `claude` calls; `--check` regenerates and compares).
+`tests/connector_cli_parity.rs` builds the same world for the real binary (the debug-build fake keychain, the same fake `claude`, no
+terminal) and requires per step the same exit code, stdout and stderr, and per case the same keychain items, the same `claude` writes
+in the same order, the same fake state and the same rows. `tests/connector_cli.rs` and `tests/doctor_cli.rs` hold what Python cannot be
+asked: the terminal (a pseudo-terminal from util-linux `script`: the secret is not echoed; Ctrl-C), no hang without a terminal, the
+secret in no argument or output through add and sync, a `claude` that cannot run, names the rules refuse, doctor reads only.
+`parity/leak_rust.py` (`connector_cli`) runs every action and `doctor` with the planted key typed as a secret and given where a refusal
+could echo it, a canary on `claude`'s stderr and in an account path: 0 hits.
+
+### Decided for you (T060, for the owner's review)
+
+1. **The terminal.** Echo is turned off through the C library's `tcgetattr` / `tcsetattr` (no new crate; Linux's `termios` layout, so
+   Linux only: elsewhere the stdin fallback is used). Python's own `GetPassWarning` line (it names `getpass.py`) is not printed; its
+   `Warning: Password input may be echoed.` line is. Ctrl-C at a secret prompt restores echo, prints Python's `input ended at the
+   prompt; nothing was written` and exits 2, as Python. Ctrl-C at a plain-field prompt or at the question ends the process (exit 130,
+   nothing written); Python prints `input ended ...` (exit 2) or `aborted ...` (exit 1).
+2. **Never shown: `claude`'s stderr** (as T050 #1). Python prints it as a line after a failed `claude mcp add-json` or `remove`.
+3. **The question is asked with no store handle open** (as T058 #3) for `remove`, `sync`, `move`, `alias` and `adopt-legacy`: the plan is
+   worked out again after a yes and refused if it changed. So the `claude mcp get` reads run up to three times (the oracle compares the
+   writes). `add` asks inside its one store session with no transaction open, as Python does: the new id and the typed values belong to
+   that run, so its plan cannot be worked out again.
+4. **A missing store is refused** for every `connector` action and `doctor` (`no store yet: ...`, exit 1, nothing created; as T058 #1).
+   Python creates the store and migrates it.
+5. **`doctor`'s keychain line names this build's backend**: `ok keychain: SecretService` (`FileKeychain` in a debug test run). Python
+   prints its backend's class name (`Keyring`, or another keyring backend's).
+6. **A `claude` that could not run** (it did not start, or ran past 60 s) is never "no entry" (T050 #12). `doctor` prints
+   ``FAIL <name>: `claude mcp get` could not run (it did not start or timed out); not checked``, where Python reports a missing entry or
+   says nothing. `remove`, `sync`, `move` and `alias` skip that account (`skipped (`claude` could not run)`): nothing is removed or
+   forgotten.
+7. **Not changed: legacy detection still reads "could not run" as "no entry"** (`legacy.rs`, Python's behaviour, as T050 left it). It
+   reaches `connector adopt-legacy` and `doctor`'s `note` line: with a `claude` that cannot run, adoption stores the row in orphan but
+   does not remove the default account's entry (that entry still points at the launcher and still works), and the note can miss a
+   connector that has only an entry. Nothing is deleted. Left for the owner to decide.
+8. **A keychain that answers but refuses a read** is a `FAIL <name>: no usable OS keychain ...` line in `doctor` (Python crashes).
+9. **`workspace edit --rename` and `workspace delete` now exit with the apply's status** (T058's shared `change`, widened here): a failed
+   `claude` step exits 1 and `edit` prints no JSON, as Python. T058 printed the JSON and exited 0.
+10. **Input lines**: `\r\n` ends a line as `\n` (Python's universal newlines); a lone `\r` does not (it does in Python). One line holds at
+    most 64 KiB of a value (4 KiB of an answer); bytes that are not UTF-8 are end of input (Python crashes).
+11. **Which input is echoed**: `connector add <provider>` with an unknown provider names it (`unknown provider 'x'; available: ...`), as
+    Python's does, on the owner's own terminal; the leak check does not type the canary there. Every other refusal is a fixed text.
+12. **Usage errors** print clap's text on stderr (Python's is argparse's); stdout is empty and the exit code is 2 in both.
 
 ## Test
 

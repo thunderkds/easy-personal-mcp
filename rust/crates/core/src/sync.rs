@@ -111,7 +111,7 @@ pub fn entry_exists(
 }
 
 /// `entry_target`: `(command, args)` from the first `Command:` and `Args:` lines (for our own checks, never shown).
-fn entry_target(stdout: &str) -> (String, String) {
+pub fn entry_target(stdout: &str) -> (String, String) {
     let (mut command, mut args) = (None, None);
     for line in crate::catalog::splitlines(stdout) {
         let Some((key, value)) = py_strip(line).split_once(':') else {
@@ -306,7 +306,7 @@ fn exists(conn: &Connection, id: i64) -> Result<Option<i64>> {
 }
 
 /// `Path(folder).name`.
-fn folder_name(folder: &str) -> String {
+pub fn folder_name(folder: &str) -> String {
     let path = Path::new(folder);
     match path.file_name() {
         Some(name) => name.to_string_lossy().into_owned(),

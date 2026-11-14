@@ -42,14 +42,14 @@ pub(crate) struct Stop {
 
 impl Stop {
     /// A refused request (Python's exit 2).
-    fn refused(text: impl Into<String>) -> Stop {
+    pub(crate) fn refused(text: impl Into<String>) -> Stop {
         Stop {
             code: 2,
             line: Some(text.into()),
         }
     }
 
-    fn failed(code: i32, text: impl Into<String>) -> Stop {
+    pub(crate) fn failed(code: i32, text: impl Into<String>) -> Stop {
         Stop {
             code: u8::try_from(code).unwrap_or(1),
             line: Some(text.into()),
@@ -57,14 +57,14 @@ impl Stop {
     }
 
     /// The command printed its own answer; only the exit code is left.
-    fn silent(code: u8) -> Stop {
+    pub(crate) fn silent(code: u8) -> Stop {
         Stop { code, line: None }
     }
 }
 
-type Run = Result<(), Stop>;
+pub(crate) type Run = Result<(), Stop>;
 
-fn finish(run: Run) -> ExitCode {
+pub(crate) fn finish(run: Run) -> ExitCode {
     match run {
         Ok(()) => ExitCode::SUCCESS,
         Err(Stop { code, line }) => {
@@ -77,14 +77,14 @@ fn finish(run: Run) -> ExitCode {
 }
 
 /// Writes to stdout at once (the question comes before the answer is read). A closed stdout ends the command.
-fn put(text: &str) -> Run {
+pub(crate) fn put(text: &str) -> Run {
     let mut out = std::io::stdout().lock();
     out.write_all(text.as_bytes())
         .and_then(|()| out.flush())
         .map_err(|_| Stop::failed(1, "cannot write the result to stdout"))
 }
 
-fn put_lines(lines: &[String]) -> Run {
+pub(crate) fn put_lines(lines: &[String]) -> Run {
     lines.iter().try_for_each(|line| put(&format!("{line}\n")))
 }
 
@@ -95,7 +95,7 @@ fn put_json(value: &Value) -> Run {
 // ---- the store ----
 
 /// What the API says for a store problem (`api::store_failure`); exit 2 for a newer store, 1 for the rest.
-fn store_stop(error: StoreError) -> Stop {
+pub(crate) fn store_stop(error: StoreError) -> Stop {
     let code = error.exit_code();
     Stop::failed(code, api::store_failure(error).1)
 }
@@ -128,14 +128,14 @@ fn write_stop(failure: WriteFail) -> Stop {
 }
 
 /// The store, read-only, for one command. A store that is missing, not a file or newer is refused; nothing is created.
-fn open_read() -> Result<Connection, Stop> {
+pub(crate) fn open_read() -> Result<Connection, Stop> {
     let path = store::store_path().map_err(store_stop)?;
     store::open_checked(&path).map_err(store_stop)
 }
 
 /// The store for writing, for one command (`workspaces::write_session`: never creates a store, needs schema v11, waits 5 s
 /// for a busy writer). `detect` runs Python's `accounts.detect` first, over the agent root only.
-fn write<T>(
+pub(crate) fn write<T>(
     detect: bool,
     work: impl FnOnce(&Connection) -> Result<T, WriteFail>,
 ) -> Result<T, Stop> {
@@ -538,7 +538,7 @@ fn workspace_edit(args: EditArgs) -> Run {
     }
     let repos_change = !add_repo.is_empty() || !remove_repo.is_empty();
     let (add_repo, remove_repo) = (strings(&add_repo), strings(&remove_repo));
-    let edited = change(yes, |conn, apply| {
+    let edited = change(yes, ABORTED, false, |conn, apply| {
         let current = by_name(conn, &name)?;
         let id = current["id"].as_i64().unwrap_or_default();
         let mut changes = changes.clone();
@@ -569,7 +569,7 @@ fn workspace_edit(args: EditArgs) -> Run {
 }
 
 fn workspace_delete(args: DeleteArgs) -> Run {
-    change(args.yes, |conn, apply| {
+    change(args.yes, ABORTED, false, |conn, apply| {
         let id = by_name(conn, &args.name)?["id"]
             .as_i64()
             .unwrap_or_default();
@@ -581,26 +581,35 @@ fn workspace_delete(args: DeleteArgs) -> Run {
     .map(drop)
 }
 
-/// Python's `_change` for the two plan-first writes. The plan is worked out first (`call(conn, false)`: nothing is
-/// stored). A write that needs no plan is already done and answers at once. Otherwise the plan is printed, the owner
-/// is asked (unless `--yes`), and only a yes applies it. The question is asked with no store handle open; the apply
+/// Python's `_change` abort line.
+pub(crate) const ABORTED: &str = "aborted; nothing was changed.";
+
+/// Python's `_change` for the plan-first writes (T058's two workspace writes; T060's `connector remove`, `sync`, `move`,
+/// `alias` and `adopt-legacy`). The plan is worked out first (`call(conn, false)`: nothing is stored). An answer that is
+/// not a plan (a write that needs none, a refusal Python prints as a line) is printed and ends the command with its
+/// status. Otherwise the plan is printed, the owner is asked (unless `--yes`), and only a yes applies it; no prints
+/// `aborted` (Python's line for that command) and exits 1. The question is asked with no store handle open; the apply
 /// works the plan out once more and refuses it if it is not the one that was shown (it is the only guard against a
-/// change made meanwhile: a few microseconds are left between that check and the commit, as in the routes). Returns
-/// what `call` gave for the workspace after the change.
-fn change(
+/// change made meanwhile: a few microseconds are left between that check and the commit, as in the routes). `detect`
+/// runs the account detection first in both sessions (`connector sync`). Returns what `call` gave for the workspace
+/// after the change; a status that is not 0 is the exit code.
+pub(crate) fn change(
     yes: bool,
+    aborted: &str,
+    detect: bool,
     call: impl Fn(&Connection, bool) -> Result<(Outcome, Value), WriteFail>,
 ) -> Result<Value, Stop> {
-    let (shown, body) = write(false, |conn| call(conn, false))?;
+    let (shown, body) = write(detect, |conn| call(conn, false))?;
     if !shown.pending {
+        report(&shown.lines, shown.status)?;
         return Ok(body);
     }
     put_lines(&shown.lines)?;
     if !yes && !ask()? {
-        put("aborted; nothing was changed.\n")?;
+        put(&format!("{aborted}\n"))?;
         return Err(Stop::silent(1));
     }
-    let (done, body) = write(false, |conn| {
+    let (done, body) = write(detect, |conn| {
         if call(conn, false)?.0.lines != shown.lines {
             return Err(WriteFail::Refused {
                 status: 409,
@@ -609,21 +618,70 @@ fn change(
         }
         call(conn, true)
     })?;
-    put_lines(done.lines.get(shown.lines.len()..).unwrap_or_default())?;
+    report(
+        done.lines.get(shown.lines.len()..).unwrap_or_default(),
+        done.status,
+    )?;
     Ok(body)
 }
 
+/// Prints the lines of an answer and turns its status into the exit code. Python raises a `LaunchError` (no usable
+/// keychain, no launcher, a bad connector name) where the routes add its text as the last line with status 1: that
+/// line goes to stderr as Python's `easy-personal: <text>`, the lines before it to stdout.
+pub(crate) fn report(lines: &[String], status: i64) -> Run {
+    let launch = status == 1 && lines.last().is_some_and(|l| launch_error(l));
+    let shown = if launch {
+        &lines[..lines.len() - 1]
+    } else {
+        lines
+    };
+    put_lines(shown)?;
+    match lines.last() {
+        Some(text) if launch => Err(Stop::failed(1, text.clone())),
+        _ if status != 0 => Err(Stop::silent(u8::try_from(status).unwrap_or(1))),
+        _ => Ok(()),
+    }
+}
+
+/// The fixed texts of Python's `LaunchError` that a connector write can raise.
+fn launch_error(line: &str) -> bool {
+    line == crate::keychain::NO_BACKEND
+        || line == "invalid connector name"
+        || line.starts_with("cannot find easy-personal-launch;")
+}
+
+/// One line of stdin, at most `cap` bytes of it, without its line end (`\n`, or `\r\n` as Python's text mode reads it).
+/// `None` at end of input, on a read error and for bytes that are not UTF-8 (Python's `EOFError`, or its crash).
+pub(crate) fn read_line(cap: u64) -> Option<String> {
+    let mut bytes = Vec::new();
+    match std::io::stdin()
+        .lock()
+        .take(cap)
+        .read_until(b'\n', &mut bytes)
+    {
+        Ok(read) if read > 0 => {}
+        _ => return None,
+    }
+    let mut line = String::from_utf8(bytes).ok()?;
+    if line.ends_with('\n') {
+        line.pop();
+        if line.ends_with('\r') {
+            line.pop();
+        }
+    }
+    Some(line)
+}
+
 /// Python's `_confirm_text`: yes or no on stdin. Closed stdin (end of file) or an unreadable line is no.
-fn ask() -> Result<bool, Stop> {
+pub(crate) fn ask() -> Result<bool, Stop> {
     put("Apply these changes? [y/N] ")?;
-    let mut line = String::new();
     // one line, at most 4 KiB of it: a longer answer is not a yes
-    match std::io::stdin().lock().take(4096).read_line(&mut line) {
-        Ok(read) if read > 0 => Ok(matches!(
+    match read_line(4096) {
+        Some(line) => Ok(matches!(
             py_strip(&line).to_lowercase().as_str(),
             "y" | "yes"
         )),
-        _ => {
+        None => {
             put("\n")?;
             Ok(false)
         }

@@ -48,6 +48,10 @@ pub trait Keychain: Send + Sync {
     fn set(&self, service: &str, secret: &str) -> Result<(), Failed>;
     /// Removing an absent item is not a failure.
     fn delete(&self, service: &str) -> Result<(), Failed>;
+    /// The backend's name on `doctor`'s keychain line (Python prints its backend's class name there).
+    fn name(&self) -> &'static str {
+        "keychain"
+    }
 }
 
 /// `[a-z0-9][a-z0-9_-]{0,63}` (Python's `_NAME`), on the whole text.
@@ -217,6 +221,10 @@ impl SecretService {
 
 #[cfg(target_os = "linux")]
 impl Keychain for SecretService {
+    fn name(&self) -> &'static str {
+        "SecretService"
+    }
+
     /// Python asks the backend's priority, which connects to the service; here a read of an item no connector can have
     /// (its name breaks the name rule) does the same: it answers, found or not, only when the service is there.
     fn usable(&self) -> bool {
@@ -254,6 +262,9 @@ impl Keychain for SecretService {
 /// Linux only (the task's scope): elsewhere there is no backend, so nothing is ever written.
 #[cfg(not(target_os = "linux"))]
 impl Keychain for SecretService {
+    fn name(&self) -> &'static str {
+        "SecretService"
+    }
     fn usable(&self) -> bool {
         false
     }
@@ -294,6 +305,10 @@ impl FileKeychain {
 
 #[cfg(any(debug_assertions, test))]
 impl Keychain for FileKeychain {
+    fn name(&self) -> &'static str {
+        "FileKeychain"
+    }
+
     fn usable(&self) -> bool {
         self.0.as_os_str() != "unusable"
     }

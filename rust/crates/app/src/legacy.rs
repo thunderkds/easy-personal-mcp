@@ -24,8 +24,8 @@ use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
-struct Legacy {
-    id: &'static str,
+pub(crate) struct Legacy {
+    pub(crate) id: &'static str,
     keychain: bool,
     /// the default account holds an entry that points at our launcher (ours: may be removed)
     claude: bool,
@@ -35,7 +35,7 @@ struct Legacy {
 
 /// `detect`: the legacy catalog ids not yet stored, in catalog order. The checks run in parallel, as Python's
 /// thread pool does (each `claude mcp get` takes most of a second).
-fn detect(
+pub(crate) fn detect(
     conn: &Connection,
     kc: &dyn Keychain,
     claude: &(dyn Claude + Sync),
@@ -127,7 +127,7 @@ pub(crate) async fn legacy_adopt(State(api): State<Api>, req: Request) -> Respon
     .await
 }
 
-fn adopt(
+pub(crate) fn adopt(
     conn: &Connection,
     yes: bool,
     kc: &dyn Keychain,
