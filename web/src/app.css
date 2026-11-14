@@ -262,6 +262,13 @@ main .kpi { display: flex; flex-direction: column; gap: var(--space-2); padding:
 .kpi .spark-line { filter: var(--glow-line); }
 .progress { height: 6px; margin-top: 14px; border-radius: var(--radius-bar); background: var(--color-track); overflow: hidden; }
 .progress-fill { height: 100%; background: var(--color-accent); }
+.kpi-value.tone-accent { color: var(--color-accent); text-shadow: var(--glow-text); }
+.kpi-value.tone-amber { color: var(--color-amber); }
+.ui-bar { display: flex; height: 6px; overflow: hidden; border-radius: var(--radius-bar); background: var(--color-track); }
+.ui-bar > div { height: 6px; }
+.ui-bar > .tone-accent { background: var(--color-accent); box-shadow: var(--glow-dot); }
+.ui-bar > .tone-amber { background: var(--color-amber); }
+.ui-bar > .tone-faint { background: var(--color-dot); }
 .kpi-cache .kpi-value { color: var(--color-accent); text-shadow: var(--glow-text); }
 .kpi-cache .progress-fill { box-shadow: var(--glow-dot); }
 .limit-amber .progress-fill { background: var(--color-amber); }

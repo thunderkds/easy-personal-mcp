@@ -314,8 +314,12 @@ function Projects({ projects }) {
   )
 }
 
+const UI_TONES = { passed: 'tone-accent', failed: 'tone-amber' } // the artboard: passed in mint, failed in amber
+
 function Ui({ ui }) {
   const { status: _status, first_utc, last_utc, ...counts } = ui
+  const [passed, failed, other] = [counts.passed ?? 0, counts.failed ?? 0, counts.other ?? 0]
+  const total = passed + failed + other
   return (
     <section aria-labelledby="h-ui">
       <h2 id="h-ui">easy-ui checks (overall)</h2>
@@ -323,11 +327,21 @@ function Ui({ ui }) {
         <p>no data</p>
       ) : (
         <>
-          <ul className="entries">
+          <div className="kpi-strip">
             {Object.entries(counts).map(([k, v]) => (
-              <li key={k}>{`${k}: ${fmt(v)}`}</li>
+              <div className="kpi" key={k}>
+                <span className={`kpi-value ${UI_TONES[k] && v > 0 ? UI_TONES[k] : ''}`.trim()}>{fmt(v)}</span>
+                <span className="kpi-note">{k}</span>
+              </div>
             ))}
-          </ul>
+          </div>
+          {total > 0 && (
+            <div className="ui-bar" role="img" aria-label={`${passed} passed, ${failed} failed, ${other} other`}>
+              <div className="tone-accent" style={{ width: `${(passed / total) * 100}%` }} />
+              <div className="tone-amber" style={{ width: `${(failed / total) * 100}%` }} />
+              <div className="tone-faint" style={{ width: `${(other / total) * 100}%` }} />
+            </div>
+          )}
           <p className="muted">
             {localTime(first_utc)} to {localTime(last_utc)}. easy-ui checks are not split by project.
           </p>
