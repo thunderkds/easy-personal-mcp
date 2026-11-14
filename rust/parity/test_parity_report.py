@@ -451,7 +451,7 @@ def _descendants(root):
     return found
 
 
-def _signal_run(args, signame, when, snippet=None):
+def _signal_run(args, signame, when, snippet=None, hup_ignored=False):
     """Start the runner (`--only` through the command line, or `snippet` through `run_all`), send `signame` when `when(world_dirs, children)` holds.
     Returns (exit code, children seen before the signal, children alive afterwards, world folders left)."""
     import contextlib
@@ -464,7 +464,9 @@ def _signal_run(args, signame, when, snippet=None):
     with tempfile.TemporaryDirectory(prefix="t067-tmp-") as tmp:
         env = {"PATH": "/usr/bin:/bin", "HOME": os.environ.get("HOME", "/"), "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": tmp}
         cmd = [sys.executable, str(PARITY / "run_parity.py"), *args] if snippet is None else [sys.executable, "-c", snippet]
-        proc = subprocess.Popen(cmd, env=env, cwd=str(PARITY.parent), stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        ignore = (lambda: signal.signal(signal.SIGHUP, signal.SIG_IGN)) if hup_ignored else None  # what `nohup` does
+        proc = subprocess.Popen(cmd, env=env, cwd=str(PARITY.parent), stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+                                preexec_fn=ignore)
         seen, deadline = {}, time.time() + 60
         try:
             while proc.poll() is None and time.time() < deadline:
@@ -475,6 +477,11 @@ def _signal_run(args, signame, when, snippet=None):
                     break
                 time.sleep(0.005)
             assert proc.poll() is None, f"the run ended before the moment to signal it: {proc.stdout.read()[-300:]!r} {proc.stderr.read()[-300:]!r}"
+            if hup_ignored:  # a hang-up must change nothing; only then the signal under test
+                proc.send_signal(signal.SIGHUP)
+                time.sleep(0.5)
+                assert proc.poll() is None, f"a runner started with SIGHUP ignored stopped on SIGHUP (exit {proc.returncode})"
+                assert _descendants(proc.pid), "the run's server went away on SIGHUP"
             proc.send_signal(getattr(signal, signame))
             code = proc.wait(timeout=60)
             time.sleep(0.5)
@@ -507,6 +514,39 @@ def test_sigterm_during_a_running_server_kills_it_and_removes_the_world_folder()
 def test_sighup_during_a_running_server_kills_it_and_removes_the_world_folder():
     code, seen, alive, left = _signal_run(["--only", "cli: mcp / http-handshake-and-ping"], "SIGHUP", _with_server)
     assert seen and code == 128 + 1 and not alive and left == [], (code, seen, alive, left)
+
+
+def test_a_runner_started_with_sighup_ignored_keeps_running_on_sighup_and_still_cleans_up_on_sigterm():
+    """`nohup python parity/run_parity.py --check &` then a closed terminal: the run must go on (T067 Stage 4)."""
+    code, seen, alive, left = _signal_run(["--only", "cli: mcp / http-handshake-and-ping"], "SIGTERM", _with_server, hup_ignored=True)
+    assert seen and code == 128 + 15 and not alive and left == [], (code, seen, alive, left)
+
+
+def test_a_runner_started_with_sighup_ignored_finishes_its_run_after_a_sighup():
+    import os
+    import signal
+    import subprocess
+    import tempfile
+    import time
+
+    with tempfile.TemporaryDirectory(prefix="t067-tmp-") as tmp:
+        env = {"PATH": "/usr/bin:/bin", "HOME": os.environ.get("HOME", "/"), "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": tmp}
+        proc = subprocess.Popen([sys.executable, str(PARITY / "run_parity.py"), "--only", "cli: mcp / http-handshake-and-ping"], env=env, cwd=str(PARITY.parent),
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, text=True,
+                                preexec_fn=lambda: signal.signal(signal.SIGHUP, signal.SIG_IGN))
+        try:
+            deadline = time.time() + 60
+            while proc.poll() is None and time.time() < deadline and not _descendants(proc.pid):
+                time.sleep(0.005)
+            assert proc.poll() is None, "the run ended before the hang-up"
+            proc.send_signal(signal.SIGHUP)
+            out, err = proc.communicate(timeout=120)
+            assert proc.returncode == 0, f"the run did not finish after SIGHUP: exit {proc.returncode}\n{out[-300:]}\n{err[-300:]}"
+            assert out.startswith("README cli: mcp / http-handshake-and-ping"), out[:300]
+            assert os.listdir(tmp) == [], os.listdir(tmp)
+        finally:
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
 
 
 def test_sigterm_while_a_serve_starts_kills_it():

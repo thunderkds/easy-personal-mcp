@@ -1985,9 +1985,11 @@ def _terminate(signum, _frame):
 
 
 def stop_on_signals():
-    """SIGTERM and SIGHUP end the run the way Ctrl-C does: servers killed, world folder removed. A handler, unlike SIG_IGN (a `nohup` job), is reset by `exec`."""
+    """SIGTERM and SIGHUP end the run the way Ctrl-C does: servers killed, world folder removed. A handler, unlike SIG_IGN, is reset by `exec`.
+    SIGHUP stays ignored when the runner was started with it ignored (`nohup`)."""
     signal.signal(signal.SIGTERM, _terminate)
-    signal.signal(signal.SIGHUP, _terminate)
+    if signal.getsignal(signal.SIGHUP) != signal.SIG_IGN:  # a `nohup` job ignores SIGHUP on purpose: closing the terminal must not stop the run
+        signal.signal(signal.SIGHUP, _terminate)
 
 
 def main(argv=None) -> int:
