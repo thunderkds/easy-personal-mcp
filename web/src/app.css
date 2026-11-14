@@ -83,7 +83,7 @@ input, select, textarea, button { font: inherit; }
   border-bottom: 1px solid var(--color-track);
 }
 .topbar-title { font-size: var(--fs-section); font-weight: 600; color: var(--color-heading); }
-.topbar-scope { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--color-muted); overflow-wrap: anywhere; }
+.topbar-scope { flex: 1 1 0; min-width: 6rem; margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--color-muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* takes what the chips leave; cut with an ellipsis, the title holds the full text */
 .menu-button {
   display: none;
   align-items: center;
@@ -105,7 +105,7 @@ input, select, textarea, button { font: inherit; }
   .topbar { padding: var(--space-2) var(--space-4); }
 }
 @media (max-width: 39.999rem) {
-  .topbar-scope { flex-basis: 100%; margin-left: 0; }
+  .topbar-scope { flex-basis: 100%; margin-left: 0; text-align: left; }
 }
 
 /* Body: main column, and the right rail from 80rem (below it the same data stays on the views) */
@@ -681,3 +681,36 @@ main button.bar-row-toggle:hover { background: none; }
 ul.unassigned { display: flex; flex-direction: column; gap: var(--space-3); }
 ul.unassigned > li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); min-width: 0; padding-top: var(--space-3); border-top: 1px solid var(--color-divider); }
 .unassigned-info { display: flex; flex-direction: column; gap: var(--space-1); flex: 1 1 16rem; min-width: 0; }
+
+/* Top bar status chips (T068, plan G1): live, waiting, last ingest, 5h limit. Sizes follow the Graphite Mint header. */
+.status-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.topbar-scope + .status-chips { margin-left: 0; }
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  font-weight: 400;
+  white-space: nowrap;
+  text-decoration: none;
+}
+button.status-chip { color: var(--color-text); cursor: pointer; }
+.status-ingest { color: var(--color-muted); }
+button.status-chip:hover { background: var(--color-selected); }
+.status-chip.tone-amber { border-color: color-mix(in srgb, var(--color-amber) 35%, transparent); color: var(--color-amber); }
+.status-chip.tone-red { color: var(--color-red); }
+.status-chip.tone-faint { color: var(--color-faint); }
+.status-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--color-dot); }
+.status-chip[data-on='true'] .status-dot { background: var(--color-accent); box-shadow: var(--glow-dot); }
+.status-limit { gap: 8px; }
+.status-bar { display: inline-block; width: 36px; height: 4px; border-radius: 2px; background: var(--color-track); }
+.status-bar-fill { display: block; height: 4px; border-radius: 2px; background: var(--color-accent); }
+.status-limit.tone-amber .status-bar-fill { background: var(--color-amber); }
+.status-limit.tone-red .status-bar-fill { background: var(--color-red); }

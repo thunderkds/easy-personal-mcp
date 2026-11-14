@@ -6,7 +6,7 @@ import { useLoad } from './useLoad.js'
 import { Progress, Ring } from './Widgets.jsx'
 
 const TOP = 3
-const hasPct = (w) => Boolean(w) && !w.stale && typeof w.used_percentage === 'number'
+export const hasPct = (w) => Boolean(w) && !w.stale && typeof w.used_percentage === 'number'
 
 /** The right rail: three cards from data the views already load (summary, warnings, accounts). */
 function Card({ title, state, children }) {
