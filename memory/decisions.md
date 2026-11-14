@@ -291,3 +291,10 @@ Owner gave the prototype canvas (`https://claude.ai/artifact/GGoKuwVrYPQAVGcT6e7
 - Linux tray: Tauri v2 AppIndicator gives no click events, so the popover becomes a native menu with the same rows; dot colours and tooltip as designed.
 - Cut: Live/Board/Scheduled/Memory redesign, light theme, macOS/Windows tray.
 Next: Watch Stage 2 (PRD FR-050 + Out of Scope, slices), then the tray shell after T071.
+
+## 2026-11-14 — T068 and T069 merged (top bar chips, First run rework)
+
+- T068 (`b4dab9e`): `StatusChips.jsx` in the top bar; `LiveProvider` in `LiveView.jsx` holds the page's ONE `EventSource` on `/api/live` (chips + Live view share it; `LiveView` alone still opens its own, for tests). Consequence: Live view state lives for the window's life, not per visit (owner-visible; P3 open: ended sessions stay until reconnect). Ingest age = newest `last_ingest_utc` of `GET /api/store/health` (cheap form); 5h = highest confirmed-account `five_hour` via `hasPct` (exported from `Rail.jsx`).
+- T069 (`9b4ac9e`): First run cards/progress/Copy/Check again (`onCheckAgain` re-reads `/api/first-run` in `App`); unknown step ids now get a generic card; nav badge is the bare number.
+- Verify recipe for web-only changes: build the branch's web, `easy-personal-rs serve --no-ingest --static-dir <branch>/src/easy_personal/dashboard/static` on a copy of `rust/parity/store-v11.sqlite`, screenshot over CDP (`google-chrome --screenshot` never finishes: the live SSE keeps the page busy).
+Open P3s: raw `12.5px`/`13.5px` in First run CSS (`--fs-note`/`--fs-control`); evidence PNGs/scripts under `tasks/evidence-T068/`.

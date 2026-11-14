@@ -54,6 +54,7 @@
 - [HUN-46 servers: Gmail, SendGrid, Teams, Discord](decisions.md#2026-10-22--hun-46-catalog-servers-gmail-sendgrid-teams-discord) — pinned community servers; `claude_ai_link` required with yes.
 - [Workspaces; agent account picks workspace](decisions.md#2026-10-26--workspaces-group-connectors-the-agent-account-picks-its-workspace) — workspace = email/repos/connectors, no agent settings; Codex listed only (DDR-0001 stands); not yet planned.
 - [Watch + tray: path A chosen; window UI redesign T068-T071](decisions.md#2026-11-14--window-ui-redesign-planned-graphite-mint-prototype-watch-path-a-chosen) — Graphite Mint is a delta (chips, First run, polish, icons); design in `docs/design/graphite-mint/`; Linux tray = native menu; Watch Stage 2 next.
+- [T068, T069 merged](decisions.md#2026-11-14--t068-and-t069-merged-top-bar-chips-first-run-rework) — one shared `/api/live` stream (`LiveProvider`); web-only verify = Rust `serve` + CDP screenshot (plain `--screenshot` hangs on SSE).
 ### Learnings
 - [Parallel agents in worktrees (T033-T038)](learnings.md#2026-11-11--parallel-agents-in-worktrees-t033-t038) — worktree starts at an older HEAD (commit guides first, ff-merge, apply by patch); venv missing in worktrees; workspaces_parity fails under a hidden path; post-write hook adds root KANBAN rows.
 - [Rust P3 wave 1 learnings](learnings.md#2026-11-11--rust-p3-wave-1-t040-t042-t046-merging-and-reviewing-parallel-route-tasks) — leak registry + tool lists conflict every merge; cherry-pick -n; ~90-call agent limit; one reviewer per wave
