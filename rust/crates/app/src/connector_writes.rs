@@ -434,10 +434,16 @@ pub(crate) fn remove_connector(
         );
         return outcome(0, lines, false);
     }
+    // T066: the row is deleted first but committed only once the item is gone. A store refusal leaves both; a keychain
+    // refusal rolls the row back (both stay); only a failed COMMIT leaves a row without its item, as Python's order
+    // (item, then row) leaves after any row failure. Never an item without its row (`doctor` could not see it).
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM connectors WHERE id = ?1", [connector_id])?;
     if let Err(e) = keychain::remove(kc, connector_id) {
+        tx.rollback()?;
         return launch_failed(lines, e);
     }
-    conn.execute("DELETE FROM connectors WHERE id = ?1", [connector_id])?;
+    tx.commit()?;
     lines.push(format!("connector {connector_id} removed."));
     outcome(0, lines, false)
 }

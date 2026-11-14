@@ -1037,6 +1037,15 @@ must map field names to strings`, `unknown connector`, `account must be an accou
     changes nothing for that account: the plan step is ``skipped (`claude` could not run)``, and the pre-workspace remove answers status 1,
     ``the `claude` CLI could not run (it did not start or timed out); nothing was removed.`` A `claude` that ran and exited non-zero
     (127 included) is still "no entry", as in Python.
+13. **Remove order: row, then keychain item, one commit** (T066). Python deletes the keychain item, then the row: a store
+    failure between them leaves a row whose secret is gone. Rust deletes the row inside a transaction, then the item, then
+    commits: a store refusal leaves both, a keychain refusal rolls the row back (both stay), and only a failed commit after
+    the item is gone leaves Python's state (a row without its item, which `doctor` reports and a second `remove` finishes).
+    An item without its row (which nothing would ever show or delete) is never left.
+14. **A timed-out `claude` is killed with its whole process group** (T066). `claude` runs in a process group of its own;
+    at the 60 s timeout the group gets `SIGKILL`, so a process it started does not live on (Python's `subprocess.run`
+    kills only the direct child). Because of the own group, a Ctrl-C at the terminal reaches this program, not a running
+    `claude` call: that call finishes, or is killed at its timeout.
 
 Not built (cut list): macOS and Windows keychains, retries, a new catalog entry, `configured` in `GET /api/connectors` (T046 read side
 unchanged). The `connector ...` and `doctor` CLI commands are T060's (next section).
