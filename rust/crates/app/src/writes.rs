@@ -189,12 +189,18 @@ fn account_id(path: &str) -> Option<String> {
 
 /// What a refusal looks like on the wire: Python's status and text, or a fixed one.
 fn refusal(failure: WriteFail) -> Response {
+    let (status, text) = refusal_parts(failure);
+    fail(status, &text)
+}
+
+/// The status and the text of [`refusal`]. The CLI (`cli_cmds.rs`, T058) prints the same text.
+pub(crate) fn refusal_parts(failure: WriteFail) -> (StatusCode, String) {
     match failure {
-        WriteFail::Refused { status, text } => fail(
+        WriteFail::Refused { status, text } => (
             StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_REQUEST),
-            &text,
+            text,
         ),
-        WriteFail::NeedsClaude => fail(StatusCode::CONFLICT, NEEDS_CLAUDE),
+        WriteFail::NeedsClaude => (StatusCode::CONFLICT, NEEDS_CLAUDE.to_string()),
         WriteFail::Store(error) => {
             let text = match &error {
                 StoreError::NoStore | StoreError::Newer { .. } | StoreError::NoHome => {
@@ -203,7 +209,7 @@ fn refusal(failure: WriteFail) -> Response {
                 StoreError::Busy => BUSY.to_string(),
                 StoreError::NotAFile | StoreError::Unreadable(_) => NOT_WRITABLE.to_string(),
             };
-            fail(StatusCode::SERVICE_UNAVAILABLE, &text)
+            (StatusCode::SERVICE_UNAVAILABLE, text)
         }
         WriteFail::Write(error) => {
             let text = match &error {
@@ -211,7 +217,7 @@ fn refusal(failure: WriteFail) -> Response {
                 WriteError::Busy => BUSY.to_string(),
                 _ => NOT_WRITABLE.to_string(),
             };
-            fail(StatusCode::SERVICE_UNAVAILABLE, &text)
+            (StatusCode::SERVICE_UNAVAILABLE, text)
         }
     }
 }

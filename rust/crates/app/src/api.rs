@@ -607,7 +607,7 @@ fn internal() -> Failure {
 
 /// 503 for every way the store cannot be served. A missing store and a newer one keep the core's own text (neither
 /// has a path in it); busy, not-a-file and unreadable share one fixed text.
-fn store_failure(error: StoreError) -> Failure {
+pub(crate) fn store_failure(error: StoreError) -> Failure {
     let text = match &error {
         StoreError::NoStore | StoreError::Newer { .. } | StoreError::NoHome => error.to_string(),
         StoreError::Busy | StoreError::NotAFile | StoreError::Unreadable(_) => {
