@@ -650,8 +650,9 @@ fn launch_error(line: &str) -> bool {
         || line.starts_with("cannot find easy-personal-launch;")
 }
 
-/// One line of stdin, at most `cap` bytes of it, without its line end (`\n`, or `\r\n` as Python's text mode reads it).
-/// `None` at end of input, on a read error and for bytes that are not UTF-8 (Python's `EOFError`, or its crash).
+/// One line of stdin, at most `cap` bytes of it, without its final `\n`. A `\r` before it stays, as Python's
+/// `sys.stdin` keeps it on Linux (`newline="\n"`): `getpass`'s fallback stores it; `input().strip()` and the question
+/// strip it. `None` at end of input, on a read error and for bytes that are not UTF-8 (Python's `EOFError`, or its crash).
 pub(crate) fn read_line(cap: u64) -> Option<String> {
     let mut bytes = Vec::new();
     match std::io::stdin()
@@ -665,9 +666,6 @@ pub(crate) fn read_line(cap: u64) -> Option<String> {
     let mut line = String::from_utf8(bytes).ok()?;
     if line.ends_with('\n') {
         line.pop();
-        if line.ends_with('\r') {
-            line.pop();
-        }
     }
     Some(line)
 }

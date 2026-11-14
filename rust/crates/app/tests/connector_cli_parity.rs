@@ -75,6 +75,10 @@ pub fn run_step(
     }
     let mut child = cmd.spawn().unwrap();
     let mut input = child.stdin.take().unwrap();
+    // the oracle's stdin is `io.StringIO(stdin, newline=None)`: universal newlines, so `\r\n` and a lone `\r` reach
+    // Python as `\n`. The real stdin keeps the `\r` (T066; `connector_cli.rs` proves that case), so the same
+    // translation is applied here to send what the oracle's Python read.
+    let stdin = stdin.replace("\r\n", "\n").replace('\r', "\n");
     let _ = input.write_all(stdin.as_bytes()); // a command that never reads stdin may be gone already
     drop(input);
     let out = child.wait_with_output().unwrap();
