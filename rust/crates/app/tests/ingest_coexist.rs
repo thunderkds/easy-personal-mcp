@@ -41,6 +41,9 @@ const BYPASS_LINES: usize = 200;
 const BYPASS_PAD: usize = 40;
 const BYPASS_ATTEMPTS: usize = 30;
 const LADDER: [u64; 4] = [0, 5, 20, 50];
+/// What a run prints when SQLite's own busy wait ends (the lock bypassed, a loaded machine): exit 1.
+const SQLITE_BUSY_LINE: &str =
+    "easy-personal-rs: the store is busy (another process is writing); try again in a moment\n";
 /// How long the readers test may take to see 50 polls during an ingest. A wall-clock bound, not a count of rounds: a
 /// slow or loaded machine runs fewer, longer rounds and would trip a round cap although nothing is wrong. Equal to
 /// the per-process [`LIMIT`], so one stuck round still fails by [`LIMIT`] and the whole test never runs unbounded.
@@ -303,6 +306,7 @@ fn the_race_oracle_sees_two_writers_when_the_lock_is_bypassed() {
     );
     let mut seen = None;
     let mut took: Vec<Duration> = Vec::new();
+    let mut busy_attempts = 0;
     for attempt in 0..BYPASS_ATTEMPTS {
         // A fresh store per attempt (the set stays); the previous attempt's folders are this test's own: remove them.
         case.home = case.root.join(format!("home-{attempt}"));
@@ -323,10 +327,28 @@ fn the_race_oracle_sees_two_writers_when_the_lock_is_bypassed() {
             (step, 0)
         };
         let (oa, ob) = race(&case, &a, &b, delays, attempt);
+        // With the lock bypassed, two writers meet in SQLite itself. When the machine is loaded, SQLite's own busy wait can
+        // end first: that run exits 1 with the fixed busy line. This is what the control provokes, not a failure, but the
+        // attempt cannot show two writers that both added rows: try the next one. Any other outcome is a real failure.
+        let sqlite_busy = |o: &Out| o.code == Some(1) && o.stderr == SQLITE_BUSY_LINE;
+        if sqlite_busy(&oa) || sqlite_busy(&ob) {
+            let other_ok = [&oa, &ob]
+                .iter()
+                .all(|o| o.code == Some(0) || sqlite_busy(o));
+            assert!(
+                other_ok,
+                "bypass attempt {attempt}: stderr {:?} / {:?}",
+                oa.stderr, ob.stderr
+            );
+            busy_attempts += 1;
+            continue;
+        }
         assert_eq!(
             (oa.code, ob.code),
             (Some(0), Some(0)),
-            "bypass attempt {attempt}"
+            "bypass attempt {attempt}: stderr {:?} / {:?}",
+            oa.stderr,
+            ob.stderr
         );
         took.push(oa.elapsed.min(ob.elapsed));
         let (na, nb) = (oa.new_events(), ob.new_events());
@@ -339,7 +361,7 @@ fn the_race_oracle_sees_two_writers_when_the_lock_is_bypassed() {
     let (attempt, na, nb, ta, tb) = seen.unwrap_or_else(|| {
         panic!(
             "this is a timing control: the bypassed lock was never seen as two writers in {BYPASS_ATTEMPTS} attempts \
-             over a {bytes}-byte set; the shortest of the two ingest durations per attempt was {took:?} (the set must \
+             ({busy_attempts} of them ended in SQLite's own busy refusal) over a {bytes}-byte set; the shortest of the two ingest durations per attempt was {took:?} (the set must \
              keep each ingest well past 1 s for the two write windows to overlap)"
         )
     });
