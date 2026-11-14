@@ -64,7 +64,7 @@ SECRET = "xoxb-PLANTED-t061-secret"
 PY_CLI = "import sys; from easy_personal.surfaces.cli import main; sys.exit(main())"
 PY_SERVE = (
     "import sys\nfrom pathlib import Path\nfrom easy_personal.core import live\nfrom easy_personal.surfaces import api\n"
-    "if len(sys.argv) > 1:\n    api.static_dir = lambda: Path(sys.argv[1])\n"
+    "api.static_dir = lambda: Path(sys.argv[1])\n"
     "tail = live.LiveTail().start()\ntry:\n    api.serve(open_browser=lambda url: None)\nfinally:\n    tail.stop()\n"
 )
 FAKE_KEYRING = '''import json, os
@@ -302,6 +302,12 @@ class LineReader:
         return text.decode("utf-8", "replace") + "\n"
 
 
+def static_arg(root: Path, page: bool) -> str:
+    """The folder Python's server serves as the page. Python's `create_app` falls back to the packaged bundle (`src/easy_personal/dashboard/static/`,
+    a gitignored build output) when it is not told, so it is always told: the world's folder, or one that does not exist (no page, no mount)."""
+    return str(root / "static") if page else str(root / "no-static")
+
+
 def connect_with_retry(port):
     """Python prints its URL before uvicorn listens (the socket is bound, not yet listening): retry a refused connection for 10 s."""
     end = time.monotonic() + 10
@@ -322,11 +328,11 @@ class Server:
 
     def __init__(self, run: Run):
         self.run = run
-        static = str(run.root / "static") if run.sp["static"] else None
+        static = static_arg(run.root, run.sp["static"])
         if run.app == "py":
-            cmd = [str(VENV_PY), "-c", PY_SERVE, *([static] if static else [])]
+            cmd = [str(VENV_PY), "-c", PY_SERVE, static]
         else:
-            cmd = [str(BINARY), "serve", "--no-ingest", *(["--static-dir", static] if static else [])]
+            cmd = [str(BINARY), "serve", "--no-ingest", *(["--static-dir", static] if run.sp["static"] else [])]
         self.proc = subprocess.Popen(cmd, env=run.env, cwd=run.root / "nowhere", stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, start_new_session=True)
         self.reader = LineReader(self.proc.stdout)
@@ -1376,6 +1382,9 @@ def define_http_probes():
     route("route: GET /api/workspaces", "guard", [R("GET", "/api/workspaces", token=False), R("GET", "/api/workspaces", headers={"Host": "evil.example"}),
                                                   R("GET", "/api/workspaces", headers={"Origin": "http://evil.example"}), R("GET", "/api/nope"),
                                                   R("GET", "/api/workspaces/1"), R("POST", "/api/usage/summary", {})])
+    route("route: GET /api/workspaces", "guard-with-page", [R("GET", "/api/workspaces/1"), R("GET", "/api/nope"), R("POST", "/api/usage/summary", {}),
+                                                            R("DELETE", "/api/usage/summary"), R("GET", "/api/workspaces", token=False)], RICH_DISK_STATIC,
+          note="with the page served (a real deployment): Python's static mount answers where its routes would say 405")
     # writes: each on a fresh world, with the store rows, keychain and `claude` calls compared after
     route("route: POST /api/workspaces", "add", [R("POST", "/api/workspaces", {"name": "newone", "repos": ["/work/x", "/work/y/"], "color": "#112233", "description": "d"})], RICH)
     route("route: POST /api/workspaces", "refusals", [R("POST", "/api/workspaces", {"name": "acme"}), R("POST", "/api/workspaces", {"name": "Bad Name"}),
@@ -1481,7 +1490,7 @@ EXPECT = {
     ("cli: schedule install", "dry-run"): ["Schedule#1"], ("cli: schedule install", "dry-run-retention"): ["Schedule#1"],
     ("cli: schedule install", "no-systemd"): ["Schedule#1"], ("cli: dashboard", "start-and-stop"): ["T051#1"],
     ("route: GET /api/first-run", "list"): ["T040#1"], ("route: GET /api/workspaces", "guard"): ["Static#1"],
-    ("route: GET / (static files of the page)", "files"): ["Static#1"],
+    ("route: GET / (static files of the page)", "files"): ["Static#1"], ("route: GET /api/workspaces", "guard-with-page"): ["Static#1"],
     ("mcp protocol: initialize", "handshake"): ["McpInit#1"],
     ("mcp tool: usage_summary", "calls"): ["T047#1"], ("mcp tool: usage_breakdown", "calls"): ["T047#1"],
     ("mcp tool: save_report", "valid-and-store"): ["T047#6"], ("mcp tool: save_report", "refusals"): ["T047#1"],
@@ -1596,6 +1605,11 @@ NOT_RUN: dict[str, str] = {}
 EXTRA_KEYS = ["mcp protocol: initialize"]
 # Findings: key -> (cause in one line, proposed task). A `differs: new` row with no entry here fails the run (a finding needs its proposed task).
 FINDINGS: dict[str, tuple[str, str]] = {
+    "route: GET /api/workspaces": (
+        "With the page served (Python's built bundle, as on a real machine; Rust's `serve --static-dir`), a `GET` of a route that has only write methods is `404 Not Found` in Python and `405` in Rust: "
+        "Python's static mount at `/` matches the path before the route's own method check can answer 405. README T048 item 9 says Rust's is `405`; it does not say Python's differs. "
+        "(Without a page the two agree on 405; the plain-text `Not Found` / `Method Not Allowed` bodies against Rust's empty ones are `Static` item 1.)",
+        "C0, Risk Low: add the 404-versus-405 line to the T048 \"Decided for you\" list, or make Rust answer 404 there when the page is served."),
     "cli: usage": (
         "Two usage errors give another text and exit 2 in both, with an empty stdout. `--by week`: Python's argparse says `invalid choice: 'week' (choose from day, model, project, tool)` "
         "after its usage text; Rust says the core's one line `easy-personal: by must be one of day, model, project, tool` (T058 item 8 names *clap's* text, and this is not clap's). "
@@ -1863,6 +1877,7 @@ def render(rows, inv, rust_only, scanned) -> str:
             "- Rule T060 item 3 drops every `claude mcp get` call, argv included: a wrong `get` argument would not show.",
             "- Mask N4's `c` + 8 hex digits is applied to all text, not only to ids.",
             "- A SIGTERM to the runner skips its `finally` blocks and leaves the world folder in the temp folder.",
+            "- Python's `dashboard` command (probe `cli: dashboard`) cannot be told a static folder, so it serves the packaged bundle if the machine has one; the probe asks one API route, which the bundle does not change.",
             "- The static fixture holds no dotfile and no symlink (the README's `Static` paragraph names both).",
             "- Rules N3 and the clock caveat: the rows for warnings, plan, kit, outliers and kit-findings carry it in their Note.", ""]
     return "\n".join(out)

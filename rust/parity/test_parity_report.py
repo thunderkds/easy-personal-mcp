@@ -274,6 +274,48 @@ def test_the_inventory_leaves_no_temp_folder_behind():
     assert after <= before, f"left behind: {sorted(after - before)}"
 
 
+def test_python_is_always_told_which_static_folder_to_serve():
+    """Python's `create_app` serves the packaged dashboard bundle (`src/easy_personal/dashboard/static/`, a gitignored build output) when it exists.
+    A probe must not depend on whether the machine has built it: the Python child always gets an explicit folder, a missing one for "no page"."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "static").mkdir()
+        assert rp.static_arg(root, True) == str(root / "static")
+        no_page = rp.static_arg(root, False)
+        assert no_page and not Path(no_page).exists(), "a probe without a page must point at a folder that does not exist"
+    assert "sys.argv[1]" in rp.PY_SERVE and "if len(sys.argv) > 1" not in rp.PY_SERVE, "the folder is not optional"
+
+
+def test_a_built_bundle_on_this_machine_does_not_change_the_guard_probe():
+    import subprocess
+
+    bundle = rp.REPO / "src" / "easy_personal" / "dashboard" / "static"
+    made = not bundle.exists()
+    if made:
+        bundle.mkdir(parents=True)
+        (bundle / "index.html").write_text("<!doctype html><title>throwaway</title>\n")
+    try:
+        env = {"PATH": "/usr/bin:/bin", "HOME": "/", "PYTHONDONTWRITEBYTECODE": "1"}
+        done = subprocess.run([sys.executable, str(PARITY / "run_parity.py"), "--only", "route: GET /api/workspaces / guard"], capture_output=True,
+                              text=True, env=env, cwd=str(PARITY.parent), check=False, timeout=300)
+    finally:
+        if made:
+            import shutil
+
+            shutil.rmtree(bundle.parent, ignore_errors=True)  # `dashboard/` held only the throwaway bundle (the folder is a gitignored build output)
+    first = done.stdout.splitlines()[0] if done.stdout else done.stderr[-300:]
+    assert first.startswith("README") and "Static#1" in first, f"the guard probe depends on the bundle: {first}\n{done.stdout[:600]}"
+
+
+def test_the_guard_is_also_probed_with_the_page_mounted_as_in_a_real_deployment():
+    rp.define_all()
+    probes = [p for p in rp.PROBES if p["key"] == "route: GET /api/workspaces" and p["id"] == "guard-with-page"]
+    assert probes and probes[0]["spec"]["static"] is True, "no probe of the guard with the page served"
+    assert "route: GET /api/workspaces" in rp.FINDINGS, "Python answers 404 for a GET of a write-only route when the page is mounted; Rust 405"
+
+
 def main() -> int:
     failed = 0
     for name, fn in sorted((n, f) for n, f in globals().items() if n.startswith("test_") and callable(f)):
