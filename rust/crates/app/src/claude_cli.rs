@@ -4,7 +4,8 @@
 //! `claude` is found on `PATH` like `shutil.which` (an executable regular file; an empty `PATH` entry is skipped, where
 //! Python would look in the working folder). It runs with an argument list, never a shell; with this process's
 //! environment minus `CLAUDE_CONFIG_DIR`, plus `CLAUDE_CONFIG_DIR=<folder>` for an account that is not the default one;
-//! stdin closed; for at most 60 s (then it is killed and the call answers 127, as Python's `TimeoutExpired` path does).
+//! stdin closed; in a process group of its own; for at most 60 s (then the whole group is killed, so no process it
+//! started lives on (T066), and the call answers 127, as Python's `TimeoutExpired` path does).
 //! stdout is kept up to 1 MiB and only parsed (`Command:` / `Args:` of `claude mcp get`); stderr is read and dropped.
 //! Neither is ever shown, logged or sent.
 
@@ -12,7 +13,7 @@ use easy_personal_core::sync::{Claude, LAUNCHER, Ran};
 use std::ffi::OsString;
 use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::process::ExitStatusExt;
+use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
@@ -24,6 +25,11 @@ const TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_STDOUT: usize = 1 << 20;
 /// Python's answer when `claude` could not run or timed out.
 const NOT_RUN: i32 = 127;
+const SIGKILL: i32 = 9;
+
+unsafe extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
 
 pub struct SystemClaude {
     /// The `PATH` `claude` and the launcher are looked up on (this process's, read once per request).
@@ -76,7 +82,8 @@ impl Claude for SystemClaude {
             .env_remove("CLAUDE_CONFIG_DIR")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::piped())
+            .process_group(0); // its own group: a timeout kills what it started too
         if let Some(dir) = config_dir_env {
             cmd.env("CLAUDE_CONFIG_DIR", dir);
         }
@@ -124,6 +131,11 @@ fn finish(mut child: Child, timeout: Duration) -> Ran {
         }
     };
     let Some(status) = status else {
+        // the group's id is the child's pid (`process_group(0)`); the child is not reaped yet, so the id is still its
+        if let Ok(group) = i32::try_from(child.id()) {
+            // SAFETY: a signal to the process group this function started
+            unsafe { kill(-group, SIGKILL) };
+        }
         let _ = child.kill();
         let _ = child.wait();
         return Ran {
@@ -266,6 +278,42 @@ mod tests {
             !Path::new(&format!("/proc/{}", pid.trim())).exists(),
             "the process is gone"
         );
+    }
+
+    /// T066 AC6: a timed-out `claude` that started a process of its own leaves no live process: the whole process group
+    /// is killed, not only the direct child.
+    #[test]
+    fn a_timeout_kills_claudes_whole_process_group() {
+        let fake = Fake::new(
+            "group",
+            "sleep 30 & echo $! > \"$(dirname \"$0\")/grandchild\"; echo $$ > \"$(dirname \"$0\")/pid\"; wait",
+        );
+        // 2 s: the fake writes both files long before the timeout, even on a loaded machine
+        let got = fake
+            .claude(Duration::from_secs(2))
+            .run(&["mcp", "get", "a"], None);
+        assert_eq!((got.code, got.not_run), (127, true));
+        for file in ["pid", "grandchild"] {
+            let pid = std::fs::read_to_string(fake.dir.join("bin").join(file)).unwrap();
+            let stat = format!("/proc/{}/stat", pid.trim());
+            // gone, or a zombie its new parent has not reaped yet: either way it runs no more
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let live = loop {
+                let live = std::fs::read_to_string(&stat)
+                    .ok()
+                    .and_then(|s| {
+                        s.rsplit(')')
+                            .next()
+                            .map(|r| !r.trim_start().starts_with('Z'))
+                    })
+                    .unwrap_or(false);
+                if !live || Instant::now() > deadline {
+                    break live;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            };
+            assert!(!live, "{file} {} still runs", pid.trim());
+        }
     }
 
     #[test]

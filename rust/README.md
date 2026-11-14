@@ -1037,6 +1037,15 @@ must map field names to strings`, `unknown connector`, `account must be an accou
     changes nothing for that account: the plan step is ``skipped (`claude` could not run)``, and the pre-workspace remove answers status 1,
     ``the `claude` CLI could not run (it did not start or timed out); nothing was removed.`` A `claude` that ran and exited non-zero
     (127 included) is still "no entry", as in Python.
+13. **Remove order: row, then keychain item, one commit** (T066). Python deletes the keychain item, then the row: a store
+    failure between them leaves a row whose secret is gone. Rust deletes the row inside a transaction, then the item, then
+    commits: a store refusal leaves both, a keychain refusal rolls the row back (both stay), and only a failed commit after
+    the item is gone leaves Python's state (a row without its item, which `doctor` reports and a second `remove` finishes).
+    An item without its row (which nothing would ever show or delete) is never left.
+14. **A timed-out `claude` is killed with its whole process group** (T066). `claude` runs in a process group of its own;
+    at the 60 s timeout the group gets `SIGKILL`, so a process it started does not live on (Python's `subprocess.run`
+    kills only the direct child). Because of the own group, a Ctrl-C at the terminal reaches this program, not a running
+    `claude` call: that call finishes, or is killed at its timeout.
 
 Not built (cut list): macOS and Windows keychains, retries, a new catalog entry, `configured` in `GET /api/connectors` (T046 read side
 unchanged). The `connector ...` and `doctor` CLI commands are T060's (next section).
@@ -1093,6 +1102,10 @@ could echo it, a canary on `claude`'s stderr and in an account path: 0 hits.
    `Warning: Password input may be echoed.` line is. Ctrl-C at a secret prompt restores echo, prints Python's `input ended at the
    prompt; nothing was written` and exits 2, as Python. Ctrl-C at a plain-field prompt or at the question ends the process (exit 130,
    nothing written); Python prints `input ended ...` (exit 2) or `aborted ...` (exit 1).
+   Since T066, as Python: with no controlling terminal (`/dev/tty` cannot be opened) but a terminal as stdin, echo is turned
+   off on stdin (the prompt and the line end on stderr, no fallback warning) and restored after the line or a Ctrl-C.
+   **Differs from Python (T066):** when echo cannot be turned off (`tcsetattr` fails), Rust refuses with `cannot turn off echo
+   on the terminal; nothing was read or written` (exit 2) and reads nothing; Python falls back and reads the secret with echo on.
 2. **Never shown: `claude`'s stderr** (as T050 #1). Python prints it as a line after a failed `claude mcp add-json` or `remove`.
 3. **The question is asked with no store handle open** (as T058 #3) for `remove`, `sync`, `move`, `alias` and `adopt-legacy`: the plan is
    worked out again after a yes and refused if it changed. So the `claude mcp get` reads run up to three times (the oracle compares the
@@ -1103,20 +1116,24 @@ could echo it, a canary on `claude`'s stderr and in an account path: 0 hits.
 5. **`doctor`'s keychain line names this build's backend**: `ok keychain: SecretService` (`FileKeychain` in a debug test run). Python
    prints its backend's class name (`Keyring`, or another keyring backend's).
 6. **A `claude` that could not run** (it did not start, or ran past 60 s) is never "no entry" (T050 #12). `doctor` prints
-   ``FAIL <name>: `claude mcp get` could not run (it did not start or timed out); not checked``, where Python reports a missing entry or
-   says nothing. `remove`, `sync`, `move` and `alias` skip that account (`skipped (`claude` could not run)`): nothing is removed or
-   forgotten.
-7. **Not changed: legacy detection still reads "could not run" as "no entry"** (`legacy.rs`, Python's behaviour, as T050 left it). It
-   reaches `connector adopt-legacy` and `doctor`'s `note` line: with a `claude` that cannot run, adoption stores the row in orphan but
-   does not remove the default account's entry (that entry still points at the launcher and still works), and the note can miss a
-   connector that has only an entry. Nothing is deleted. Left for the owner to decide.
+   one line for it, ``FAIL claude: `claude` could not run (it did not start or timed out); entries not checked``, runs `claude`
+   no more and skips the entries it would have checked (T066; T060 printed one `FAIL` line per catalog id and registration),
+   where Python reports a missing entry or says nothing. `remove`, `sync`, `move` and `alias` skip that account (`skipped
+   (`claude` could not run)`): nothing is removed or forgotten.
+7. **Legacy detection: "could not run" is not "no entry"** (T066; replaces T060's "not changed"). `connector adopt-legacy` (and
+   `POST /api/connectors/legacy`) answers ``the `claude` CLI could not run (it did not start or timed out); nothing was
+   adopted.`` (exit 1) and changes nothing; Python adopts the keychain items it found and leaves the default account's entry.
+   `doctor`'s note is ``note legacy connectors not checked: `claude` could not run (it did not start or timed out)``. The
+   read-only `GET /api/connectors/legacy` keeps Python's answer (an id it could not check is absent).
 8. **A keychain that answers but refuses a read** is a `FAIL <name>: no usable OS keychain ...` line in `doctor` (Python crashes).
 9. **`workspace edit --rename` and `workspace delete` now exit with the apply's status** (T058's shared `change`, widened here): a failed
    `claude` step exits 1 and `edit` prints no JSON, as Python. T058 printed the JSON and exited 0.
-10. **Input lines**: `\r\n` ends a line as `\n`; a lone `\r` does not (in Python's `input()` and in universal-newline reading it does). One line holds at
-    most 64 KiB of a value (4 KiB of an answer); bytes that are not UTF-8 are end of input (Python crashes). **A secret read from piped stdin
-    differs from real Python**: Python's `getpass` fallback keeps the `\r` (`printf 'tok\r\n' |` stores `tok\r`, and a bare `\r\n` line is not empty);
-    Rust stores `tok` and calls a bare `\r\n` line empty. The oracle reads its stdin with universal newlines, so its cases do not show this.
+10. **Input lines** (corrected by T066): stdin is read as Python's `sys.stdin` reads it on Linux: only the final `\n` ends a line,
+    a `\r` before it stays. So a secret read from piped stdin keeps it, as Python's `getpass` fallback does (`printf 'tok\r\n' |`
+    stores `tok\r`; a bare `\r\n` line stores `\r`), and a plain field and the question strip it (`strip()`). One line holds at
+    most 64 KiB of a value (4 KiB of an answer); bytes that are not UTF-8 are end of input (Python crashes). The oracle reads its
+    stdin with universal newlines, so `connector_cli_parity.rs` sends each step's stdin translated the same way;
+    `connector_cli.rs` (`a_piped_secret_keeps_a_trailing_cr_as_python_getpass_does`) holds the real case.
 11. **Which input is echoed**: `connector add <provider>` with an unknown provider names it (`unknown provider 'x'; available: ...`), as
     Python's does, on the owner's own terminal; the leak check does not type the canary there. Every other refusal is a fixed text.
 12. **Usage errors** print clap's text on stderr (Python's is argparse's); stdout is empty and the exit code is 2 in both.

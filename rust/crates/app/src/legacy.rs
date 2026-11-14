@@ -7,6 +7,10 @@
 //! `(id, alias = id, orphan)` and, only after `confirm: true`, runs `claude mcp remove <id> --scope user` in the default
 //! account. An entry of that name that is not ours is never removed; the keychain is never written; no other account
 //! and no other name is touched. No line holds a secret.
+//!
+//! A `claude mcp get` that could not run (it did not start or timed out) is not "no entry" (T066; Python takes it as
+//! one): adoption refuses with [`NOT_RUN`] and changes nothing, and `doctor`'s note says the check did not run. The
+//! read-only `GET` keeps Python's answer (the entries it could not check are absent).
 
 use crate::api::{Api, Failure, serve};
 use crate::claude_cli::SystemClaude;
@@ -18,11 +22,21 @@ use axum::http::{StatusCode, Uri};
 use axum::response::Response;
 use easy_personal_core::catalog;
 use easy_personal_core::pyjson::sh_quote;
-use easy_personal_core::sync::{self, Claude};
+use easy_personal_core::sync::{self, Claude, NotRun};
 use easy_personal_core::workspaces::{Outcome, WriteFail, is_constraint};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
+
+/// `adopt`'s answer when a `claude mcp get` could not run.
+pub(crate) const NOT_RUN: &str =
+    "the `claude` CLI could not run (it did not start or timed out); nothing was adopted.";
+
+/// What [`detect`] found, and whether a `claude mcp get` could not run (then an id that has only an entry is missing).
+pub(crate) struct Detected {
+    pub(crate) found: Vec<Legacy>,
+    pub(crate) claude_not_run: bool,
+}
 
 pub(crate) struct Legacy {
     pub(crate) id: &'static str,
@@ -39,7 +53,7 @@ pub(crate) fn detect(
     conn: &Connection,
     kc: &dyn Keychain,
     claude: &(dyn Claude + Sync),
-) -> Result<Vec<Legacy>, LaunchError> {
+) -> Result<Detected, LaunchError> {
     let stored: BTreeSet<String> = conn
         .prepare("SELECT id FROM connectors")
         .and_then(|mut s| s.query_map([], |r| r.get(0))?.collect())
@@ -49,25 +63,29 @@ pub(crate) fn detect(
         .into_iter()
         .filter(|n| !stored.contains(*n))
         .collect();
-    let check = |name: &'static str| -> Result<Option<Legacy>, LaunchError> {
+    type Checked = Result<(Option<Legacy>, bool), LaunchError>;
+    let check = |name: &'static str| -> Checked {
         let in_keychain = keychain::has_item(kc, name)?;
-        let got = if has_claude {
-            // could not run: taken as no entry, as Python does (the status only reads)
-            sync::entry_exists(claude, name, None).unwrap_or(None)
+        let (got, not_run) = if has_claude {
+            match sync::entry_exists(claude, name, None) {
+                Ok(got) => (got, false),
+                Err(NotRun) => (None, true),
+            }
         } else {
-            None
+            (None, false)
         };
         let ours = got
             .as_ref()
             .is_some_and(|g| sync::points_at_launcher(g, name));
-        Ok((in_keychain || ours).then_some(Legacy {
+        let item = (in_keychain || ours).then_some(Legacy {
             id: name,
             keychain: in_keychain,
             claude: ours,
             foreign: got.is_some() && !ours,
-        }))
+        });
+        Ok((item, not_run))
     };
-    let results: Vec<Result<Option<Legacy>, LaunchError>> = std::thread::scope(|scope| {
+    let results: Vec<Checked> = std::thread::scope(|scope| {
         let handles: Vec<_> = names
             .iter()
             .map(|&name| scope.spawn(move || check(name)))
@@ -80,13 +98,16 @@ pub(crate) fn detect(
             })
             .collect()
     });
-    let mut found = Vec::new();
+    let mut detected = Detected {
+        found: Vec::new(),
+        claude_not_run: false,
+    };
     for result in results {
-        if let Some(item) = result? {
-            found.push(item);
-        }
+        let (item, not_run) = result?;
+        detected.found.extend(item);
+        detected.claude_not_run |= not_run;
     }
-    Ok(found)
+    Ok(detected)
 }
 
 /// `GET /api/connectors/legacy`: `{"legacy": [{id, keychain, claude, foreign}]}`, or 503 with the keychain text. The
@@ -95,7 +116,8 @@ pub(crate) async fn legacy_status(State(api): State<Api>, uri: Uri) -> Response 
     serve(api, uri, |conn, _q, _now| {
         let kc = keychain::system();
         let found = detect(conn, &*kc, &SystemClaude::new())
-            .map_err(|e| -> Failure { (StatusCode::SERVICE_UNAVAILABLE, e.0) })?;
+            .map_err(|e| -> Failure { (StatusCode::SERVICE_UNAVAILABLE, e.0) })?
+            .found;
         let items: Vec<Value> = found
             .iter()
             .map(|i| json!({"id": i.id, "keychain": i.keychain, "claude": i.claude, "foreign": i.foreign}))
@@ -134,7 +156,10 @@ pub(crate) fn adopt(
     claude: &(dyn Claude + Sync),
 ) -> Result<Outcome, WriteFail> {
     let found = match detect(conn, kc, claude) {
-        Ok(found) => found,
+        Ok(detected) if detected.claude_not_run => {
+            return outcome(1, vec![NOT_RUN.into()], false);
+        }
+        Ok(detected) => detected.found,
         Err(e) => return launch_failed(Vec::new(), e),
     };
     if found.is_empty() {

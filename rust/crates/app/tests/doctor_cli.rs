@@ -57,9 +57,14 @@ fn doctor_reads_only() {
     assert!(writes.is_empty(), "only `claude mcp get`: {log}");
 }
 
+/// T066 AC3 and AC4 (replaces T060's per-entry lines): a `claude` that cannot run (it does not start) is one `FAIL`
+/// line, never "no entry" and never one line per catalog id or registration; the legacy note says it was not checked.
 #[test]
-fn a_claude_that_cannot_run_is_a_fail_line_never_no_entry() {
-    let (w, case) = world(&REGISTERED, json!({"easy-personal/slack": "{}"}), json!({}));
+fn a_claude_that_cannot_run_is_one_fail_line_never_no_entry() {
+    let items = json!({
+        "easy-personal/slack": "{}", "easy-personal/gmail": "{}", "easy-personal/slack-acme": "{}",
+    });
+    let (w, case) = world(&REGISTERED, items, json!({}));
     std::fs::write(
         w.dir.join("bin/claude"),
         "#!/nonexistent/t060-interpreter\n",
@@ -68,19 +73,45 @@ fn a_claude_that_cannot_run_is_a_fail_line_never_no_entry() {
     let out = doctor(&w, &case);
     assert_eq!(out.status.code(), Some(1));
     let stdout = text(&out.stdout);
-    let not_run = "`claude mcp get` could not run (it did not start or timed out); not checked";
     assert!(stdout.contains("ok claude: on PATH\n"), "{stdout}");
-    // a keychain item with an unknown entry: Python would say "no Claude Code entry"
+    let fails: Vec<&str> = stdout.lines().filter(|l| l.starts_with("FAIL")).collect();
+    assert_eq!(
+        fails,
+        [
+            "FAIL claude: `claude` could not run (it did not start or timed out); entries not checked"
+        ],
+        "{stdout}"
+    );
     assert!(
-        stdout.contains(&format!("FAIL slack: {not_run}\n")),
+        stdout.contains(
+            "note legacy connectors not checked: `claude` could not run (it did not start or timed out)\n"
+        ),
         "{stdout}"
     );
     assert!(!stdout.contains("no Claude Code entry"), "{stdout}");
+    assert!(!stdout.contains("drift: missing"), "{stdout}");
+}
+
+/// T066 AC3: a `claude` that ran and answered "no entry" keeps the old lines.
+#[test]
+fn a_claude_that_answers_no_entry_keeps_the_old_lines() {
+    let (w, case) = world(&[], json!({"easy-personal/slack": "{}"}), json!({}));
+    let out = doctor(&w, &case);
+    assert_eq!(out.status.code(), Some(1));
+    let stdout = text(&out.stdout);
     assert!(
-        stdout.contains(&format!("FAIL Claude work acme-slack: {not_run}\n")),
+        stdout.contains(
+            "FAIL slack: keychain item present but no Claude Code entry; run connector add\n"
+        ),
         "{stdout}"
     );
-    assert!(!stdout.contains("drift: missing"), "{stdout}");
+    assert!(
+        stdout.contains(
+            "note legacy connectors not adopted: slack; run `easy-personal connector adopt-legacy`\n"
+        ),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("could not run"), "{stdout}");
 }
 
 #[test]
