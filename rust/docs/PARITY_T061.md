@@ -2,7 +2,7 @@
 
 Made by `rust/parity/run_parity.py`; checked by `rust/parity/test_parity_report.py`. Nothing in this file is written by hand.
 
-Counts: equal 25 + equal except JSON key order 29, differs README 26, differs new 7, not run 0.
+Counts: equal 26 + equal except JSON key order 29, differs README 32, differs new 0, not run 0.
 
 `equal except JSON key order`: the parsed bodies are equal and the key order of at least one body differs (Python sends insertion order, Rust sorted; rule N6).
 
@@ -22,7 +22,7 @@ Counts: equal 25 + equal except JSON key order 29, differs README 26, differs ne
 
 | Surface | Probes | Result | Note |
 |---|---|---|---|
-| `cli: --version` | 1 | differs: new |  |
+| `cli: --version` | 1 | differs: README T058 item 13 |  |
 | `cli: account add` | 2 | equal |  |
 | `cli: account confirm` | 2 | equal |  |
 | `cli: account ignore` | 2 | equal |  |
@@ -42,21 +42,21 @@ Counts: equal 25 + equal except JSON key order 29, differs README 26, differs ne
 | `cli: ingest` | 4 | differs: README Ingest item 1, T058 item 8 | 4 of 4 probes differ: `canary-tree`, `twice-then-usage`, `retention-zero`, `no-store` |
 | `cli: kit` | 6 | differs: README T058 item 8 | 1 of 6 probes differ: `bad-flag`; no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
 | `cli: kit-findings` | 5 | differs: README T058 item 8 | 1 of 5 probes differ: `bad-limit`; no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
-| `cli: mcp` | 3 | differs: new | 2 of 3 probes differ: `http-handshake-and-ping`, `bad-host` |
+| `cli: mcp` | 3 | differs: README McpHttp item 1, T051 item 2, T051 item 8 | 2 of 3 probes differ: `http-handshake-and-ping`, `bad-host` |
 | `cli: outliers` | 5 | equal | no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
 | `cli: ping` | 1 | equal |  |
 | `cli: plan` | 6 | differs: README T058 item 8 | 1 of 6 probes differ: `bad-flag`; no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
 | `cli: schedule install` | 3 | differs: README Schedule item 1 | 3 of 3 probes differ: `dry-run`, `dry-run-retention`, `no-systemd` |
 | `cli: schedule remove` | 1 | equal |  |
 | `cli: store-check` | 4 | equal |  |
-| `cli: usage` | 12 | differs: new | 3 of 12 probes differ: `bad-by`, `bad-date`, `no-store` |
+| `cli: usage` | 12 | differs: README T058 item 1, T058 item 14 | 3 of 12 probes differ: `bad-by`, `bad-date`, `no-store` |
 | `cli: warnings` | 6 | differs: README T058 item 8 | 1 of 6 probes differ: `bad-flag`; no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
 | `cli: workspace add` | 4 | equal |  |
 | `cli: workspace delete` | 4 | equal |  |
 | `cli: workspace edit` | 6 | equal |  |
 | `cli: workspace list` | 2 | differs: README T058 item 1 | 1 of 2 probes differ: `no-store` |
-| `mcp prompt: investigate` | 1 | differs: new |  |
-| `mcp protocol: initialize` | 5 | differs: new | 3 of 5 probes differ: `handshake`, `unknown-method`, `stderr-log` |
+| `mcp prompt: investigate` | 1 | differs: README T047 item 7 |  |
+| `mcp protocol: initialize` | 5 | differs: README McpInit item 1, T047 item 8 | 3 of 5 probes differ: `handshake`, `unknown-method`, `stderr-log` |
 | `mcp tool: connector_catalog` | 1 | equal |  |
 | `mcp tool: connector_status` | 2 | differs: README ConnTool item 1 | 1 of 2 probes differ: `keychain-and-claude` |
 | `mcp tool: connector_suggestions` | 1 | equal |  |
@@ -84,7 +84,7 @@ Counts: equal 25 + equal except JSON key order 29, differs README 26, differs ne
 | `route: GET /api/kit/report-files` | 1 | equal |  |
 | `route: GET /api/kit/reports` | 1 | equal except JSON key order | key order of 1 body differs (N6) |
 | `route: GET /api/kit/workspaces` | 1 | equal except JSON key order | key order of 3 bodies differs (N6) |
-| `route: GET /api/live` | 2 | differs: new | 2 of 2 probes differ: `first-event`, `query-token` |
+| `route: GET /api/live` | 2 | equal |  |
 | `route: GET /api/memory-graph` | 1 | equal except JSON key order | key order of 2 bodies differs (N6) |
 | `route: GET /api/plan` | 1 | equal | no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
 | `route: GET /api/reports` | 1 | equal except JSON key order | key order of 1 body differs (N6) |
@@ -96,7 +96,7 @@ Counts: equal 25 + equal except JSON key order 29, differs README 26, differs ne
 | `route: GET /api/usage/sessions` | 1 | equal except JSON key order | key order of 4 bodies differs (N6) |
 | `route: GET /api/usage/summary` | 1 | equal except JSON key order | key order of 5 bodies differs (N6) |
 | `route: GET /api/warnings` | 1 | equal except JSON key order | key order of 3 bodies differs (N6); no rule fires at this clock (events are months old); rule firing is covered by the frozen-clock goldens |
-| `route: GET /api/workspaces` | 3 | differs: new | 2 of 3 probes differ: `guard`, `guard-with-page`; key order of 1 body differs (N6); with the page served (a real deployment): Python's static mount answers where its routes would say 405 |
+| `route: GET /api/workspaces` | 3 | differs: README Static item 1, T048 item 15 | 2 of 3 probes differ: `guard`, `guard-with-page`; key order of 1 body differs (N6); with the page served (a real deployment): Python's static mount answers where its routes would say 405 |
 | `route: GET /api/workspaces/unassigned` | 1 | equal |  |
 | `route: PATCH /api/workspaces/{id}` | 3 | equal except JSON key order | key order of 3 bodies differs (N6) |
 | `route: POST /api/accounts` | 1 | equal |  |
@@ -112,147 +112,7 @@ Counts: equal 25 + equal except JSON key order 29, differs README 26, differs ne
 
 ## Findings (`differs: new`)
 
-Each is reported, not fixed (AC5). The proposed task names a Complexity and a Risk.
-
-### Finding: `cli: --version`
-
-Cause: Python prints the bare package version (`0.4.0`); Rust prints clap's `easy-personal-rs 0.2.0` (its Cargo version). The README's build section shows the Rust text but lists it in no "Decided for you" list. The numbers differ because the two packages are versioned apart.
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'cli: --version / version'` (probe `version`; world: store=none).
-Run: `--version`
-
-- at `steps[0]/stdout` (zone UTC):
-  - Python: `"0.4.0\n"`
-  - Rust: `"easy-personal-rs 0.2.0\n"`
-
-Proposed task: C0, Risk Low: decide whether `--version` should print `easy-personal-rs <version>` on purpose (then add a line to a README list) or Python's bare form.
-
-### Finding: `cli: mcp`
-
-Cause: `mcp --transport http` stopped with Ctrl-C: Python's process ends by the SIGINT signal (exit -2, shell 130) after uvicorn's shutdown, and uvicorn prints one access-log line per request on stdout; Rust exits 0 with an empty stdout. The README ("`mcp --transport http`") states Rust's side ("stdout stays empty", "Ctrl-C stops the server with exit 0") and does not say Python differs. (The SSE body and the session id are named by T051 item 2 and are not part of this finding.)
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'cli: mcp / http-handshake-and-ping'` (probe `http-handshake-and-ping`; world: store=rich).
-Run: probe `http-handshake-and-ping`
-
-- at `steps[4]/code` (zone UTC):
-  - Python: `-2`
-  - Rust: `0`
-- at `steps[4]/stdout` (zone UTC):
-  - Python: `"INFO:     127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 202 Accepted\nINFO:     127.0.0.1:<PORT> - \"POST /mcp HTTP/1.1\" 200 OK\nINFO:     127.0.0.1:<PORT> - \"PO...`
-  - Rust: `""`
-
-Proposed task: C0, Risk Low: add one line to the T051 "Decided for you" list (Rust's exit 0 is the better one); nothing to change in the code.
-
-### Finding: `cli: usage`
-
-Cause: Two usage errors give another text and exit 2 in both, with an empty stdout. `--by week`: Python's argparse says `invalid choice: 'week' (choose from day, model, project, tool)` after its usage text; Rust says the core's one line `easy-personal: by must be one of day, model, project, tool` (T058 item 8 names *clap's* text, and this is not clap's). `--since banana`: Python's argparse says `argument --since: invalid iso_datetime value: 'banana'`; Rust says `easy-personal: Invalid isoformat string: 'banana'` (T058 item 7 says only that Rust echoes the bad value, "as Python does", not that the text differs). The `acct_bad_list_xby_colour`-style errors that clap itself prints are item 8 and stay `differs: README`.
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'cli: usage / bad-by'` (probe `bad-by`; world: store=rich).
-Run: `usage --by week`
-
-- at `steps[0]/stderr` (zone UTC):
-  - Python: `"usage: easy-personal usage [-h] [--since SINCE] [--until UNTIL]\n                           [--by {day,model,project,tool}]\n                           [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal usage: e...`
-  - Rust: `"easy-personal: by must be one of day, model, project, tool\n"`
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'cli: usage / bad-date'` (probe `bad-date`; world: store=rich).
-Run: `usage --since banana`
-
-- at `steps[0]/stderr` (zone UTC):
-  - Python: `"usage: easy-personal usage [-h] [--since SINCE] [--until UNTIL]\n                           [--by {day,model,project,tool}]\n                           [--workspace WORKSPACE] [--account ACCOUNT]\neasy-personal usage: e...`
-  - Rust: `"easy-personal: Invalid isoformat string: 'banana'\n"`
-
-Proposed task: C0, Risk Low: document both texts in T058's "Decided for you" list, or print Python's.
-
-### Finding: `mcp prompt: investigate`
-
-Cause: `prompts/get` of an unknown prompt: Python's error code is `0`, Rust's `-32602`; the message `Unknown prompt: nope` is equal. The README says only "a JSON-RPC error".
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'mcp prompt: investigate / prompts'` (probe `prompts`; world: store=rich-disk).
-Run: `prompts/list  ; prompts/get {"name": "investigate", "arguments": {}} ; prompts/get {"name": "investigate", "arguments": {"workspace": "demo"}} ; prompts/get {"name": "investigate", "arguments": {"workspace": "a\"b", "account": "c"}} ; prompts/get {"name": "nope", "arguments": {}}`
-
-- at `steps[4]/answer/error/code` (zone UTC):
-  - Python: `0`
-  - Rust: `-32602`
-
-Proposed task: C0, Risk Low: add the code to the T047 "Decided for you" list (Rust's `-32602` is the correct one).
-
-### Finding: `mcp protocol: initialize`
-
-Cause: Two differences no README item names. (1) `initialize` capabilities: Python also sends `experimental: {}`, `resources: {subscribe, listChanged: false}` and `listChanged: false` under `tools` and `prompts`; Rust sends `prompts: {}` and `tools: {}` only (the README names the `prompts` one, in the `investigate` paragraph; the server name and version are named by "McpInit" and are not part of this finding). (2) An unknown JSON-RPC method: Python answers `-32602` `Invalid request parameters`, Rust `-32601` with the method name (`-32601` is the JSON-RPC code for it). (3) stderr of `mcp` over stdio (probe `stderr-log`, not stripped): Python's SDK writes `Processing request of type <X>` for every request, Rust writes nothing. Every other MCP probe drops those Python lines (rule N7) so this is reported once.
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'mcp protocol: initialize / handshake'` (probe `handshake`; world: store=rich-disk).
-Run: `initialize`
-
-- at `steps[0]/answer/result/capabilities/experimental` (zone UTC):
-  - Python: `{}`
-  - Rust: `"<absent>"`
-- at `steps[0]/answer/result/capabilities/prompts/listChanged` (zone UTC):
-  - Python: `false`
-  - Rust: `"<absent>"`
-- at `steps[0]/answer/result/capabilities/resources` (zone UTC):
-  - Python: `{"subscribe": false, "listChanged": false}`
-  - Rust: `"<absent>"`
-- at `steps[0]/answer/result/capabilities/tools/listChanged` (zone UTC):
-  - Python: `false`
-  - Rust: `"<absent>"`
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'mcp protocol: initialize / unknown-method'` (probe `unknown-method`; world: store=rich-disk).
-Run: `nope/method `
-
-- at `steps[0]/answer/error/code` (zone UTC):
-  - Python: `-32602`
-  - Rust: `-32601`
-- at `steps[0]/answer/error/data` (zone UTC):
-  - Python: `""`
-  - Rust: `"<absent>"`
-- at `steps[0]/answer/error/message` (zone UTC):
-  - Python: `"Invalid request parameters"`
-  - Rust: `"nope/method"`
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'mcp protocol: initialize / stderr-log'` (probe `stderr-log`; world: store=rich-disk).
-Run: `tools/call {"name": "ping", "arguments": {}}`
-
-
-Proposed task: C1, Risk Low: align the capabilities (a client that checks `resources` sees none) or list both differences in the T047 "Decided for you" list; keep `-32601` on purpose and say so.
-
-### Finding: `route: GET /api/live`
-
-Cause: The content type is `text/event-stream; charset=utf-8` in Python and `text/event-stream` in Rust. The README (T056 "The route") states Rust's value but not that Python's differs. A browser `EventSource` reads both.
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'route: GET /api/live / first-event'` (probe `first-event`; world: store=rich-disk).
-Run: `GET /api/live`
-
-- at `steps[0]/type` (zone UTC):
-  - Python: `"text/event-stream; charset=utf-8"`
-  - Rust: `"text/event-stream"`
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'route: GET /api/live / query-token'` (probe `query-token`; world: store=rich-disk).
-Run: `GET /api/live ; GET /api/live`
-
-- at `steps[0]/type` (zone UTC):
-  - Python: `"text/event-stream; charset=utf-8"`
-  - Rust: `"text/event-stream"`
-
-Proposed task: C0, Risk Low: add `; charset=utf-8` to the Rust header (or add the difference to the T056 list).
-
-### Finding: `route: GET /api/workspaces`
-
-Cause: With the page served (Python's built bundle, as on a real machine; Rust's `serve --static-dir`), a `GET` of a route that has only write methods is `404 Not Found` in Python and `405` in Rust: Python's static mount at `/` matches the path before the route's own method check can answer 405. README T048 item 9 says Rust's is `405`; it does not say Python's differs. (Without a page the two agree on 405; the plain-text `Not Found` / `Method Not Allowed` bodies against Rust's empty ones are `Static` item 1.)
-
-Reproduce: `./parity/.venv/bin/python parity/run_parity.py --only 'route: GET /api/workspaces / guard-with-page'` (probe `guard-with-page`; world: store=rich-disk).
-Run: `GET /api/workspaces/1 ; GET /api/nope ; POST /api/usage/summary {} ; DELETE /api/usage/summary ; GET /api/workspaces`
-
-- at `steps[0]/body` (zone UTC):
-  - Python: `"Not Found"`
-  - Rust: `""`
-- at `steps[0]/status` (zone UTC):
-  - Python: `404`
-  - Rust: `405`
-- at `steps[0]/type` (zone UTC):
-  - Python: `"text/plain; charset=utf-8"`
-  - Rust: `null`
-
-Proposed task: C0, Risk Low: add the 404-versus-405 line to the T048 "Decided for you" list, or make Rust answer 404 there when the page is served.
+None.
 
 ## Differences the README already names
 
@@ -261,14 +121,23 @@ Proposed task: C0, Risk Low: add the 404-versus-405 line to the T048 "Decided fo
 | ConnRoute item 1 | **`configured` is always `false`**: Python answers `true` only when the OS keychain holds the item *and* `claude mcp get` knows the entry, and answers... | `route: GET /api/connectors` |
 | ConnTool item 1 | `connector_status` -> `{"connectors": [{id, configured}]}`, **`configured` always `false`** for the reason given for `GET /api/connectors` above;... | `mcp tool: connector_status` |
 | Ingest item 1 | / prints `kit_trace`, `context`, `ui`, `verifier` / prints the same four keys (T051 ported `context`) and `skipped` / one JSON, Python's keys /... | `cli: ingest` |
+| McpHttp item 1 | a host other than `127.0.0.1` (`0.0.0.0`, `localhost`, `::1`, a name), with `stdio` too, as Python / exit 2 and one line, before any socket is bound /... | `cli: mcp` |
+| McpInit item 1 | `initialize` reports `easy-personal-rs` and the Cargo version; the revisions with the handshake (2024-11-05 to 2025-11-25) are served, the 2026-07-28 ... | `mcp protocol: initialize` |
 | Schedule item 1 | **The command line is the Rust binary**: `ExecStart=<absolute path of the running binary, shell-quoted> ingest [--retention-days N]`. Install from the... | `cli: schedule install` |
-| Static item 1 | `serve --static-dir <DIR>` also serves the built dashboard's files from `<DIR>` on the same origin, behind the same guard and with the same CSP on eve... | `route: GET / (static files of the page)` |
+| Static item 1 | `serve --static-dir <DIR>` also serves the built dashboard's files from `<DIR>` on the same origin, behind the same guard and with the same CSP on eve... | `route: GET / (static files of the page)`, `route: GET /api/workspaces` |
 | T040 item 1 | Decided for you (T040; Rust differs from Python): a report whose snapshot Python cannot read is a fixed `500` here (Python: a traceback), and in the l... | `route: GET /api/first-run` |
 | T047 item 1 | A wrong argument type gets a short fixed text; Python's pydantic text echoes the offending value (`input_value=...`), which for a summary would put th... | `mcp tool: save_report`, `mcp tool: usage_breakdown`, `mcp tool: usage_summary` |
 | T047 item 6 | `server_version` is this build's Cargo version (Python's is its package version).... | `mcp tool: save_report` |
+| T047 item 7 | An unknown prompt (`prompts/get` of `nope`) is the JSON-RPC error `-32602` (invalid params) with the message `Unknown prompt: nope`; the message is Py... | `mcp prompt: investigate` |
+| T047 item 8 | Three more differences in the protocol under the tools, all kept: (a) `initialize` capabilities are `prompts: {}` and `tools: {}` only; Python also se... | `mcp protocol: initialize` |
+| T048 item 15 | (T067) **With the page served, a `GET` of a route that has only write methods is `405` here.** Python answers `404 Not Found` there: its static mount ... | `route: GET /api/workspaces` |
 | T051 item 1 | `--no-ingest` exists on `serve` and `app` (Python's `dashboard` has no such flag). Python's `dashboard` stops with the ingest's exit code when the ing... | `cli: dashboard` |
-| T058 item 1 | **A missing store, or one newer than this build, is refused, and nothing is created or migrated.** Python's `store.opened` creates the store and migra... | `cli: workspace list` |
+| T051 item 2 | `mcp --transport http` is stateless and answers JSON, not SSE; `GET` and `DELETE` are 405; there is no `Mcp-Session-Id`. `--port` is a `u16` (Python: ... | `cli: mcp` |
+| T051 item 8 | **Ctrl-C on `mcp --transport http` ends the server with exit 0 and an empty stdout.** Python's process ends by the SIGINT signal (exit code -2, shell ... | `cli: mcp` |
+| T058 item 1 | **A missing store, or one newer than this build, is refused, and nothing is created or migrated.** Python's `store.opened` creates the store and migra... | `cli: usage`, `cli: workspace list` |
 | T058 item 12 | **Not here**: nothing since T060 (`connector` and `doctor`). `exec` and `headers` are the separate `easy-personal-launch` program (T050). `store-check... | `cli: exec`, `cli: headers` |
+| T058 item 13 | **`--version` prints `easy-personal-rs <version>`** (clap's text and this build's Cargo version, for example `easy-personal-rs 0.2.0`). Python prints ... | `cli: --version` |
+| T058 item 14 | **Two usage errors have a one-line text, not argparse's.** `usage --by week` prints `easy-personal: by must be one of day, model, project, tool` (Pyth... | `cli: usage` |
 | T058 item 8 | **Arguments.** `--limit` is read like Python's `int()` (a sign, spaces, `1_0`); digits of other scripts are refused, and a number past 64 bits is vali... | `cli: account list`, `cli: ingest`, `cli: kit`, `cli: kit-findings`, `cli: plan`, `cli: warnings` |
 | T059 item 6 | **JSON key order in the route.** The route sends serde_json's sorted keys; Python's route sends keys in insertion order. The parsed objects are equal.... | `route: GET /api/store/health` |
 | T060 item 1 | **The terminal.** Echo is turned off through the C library's `tcgetattr` / `tcsetattr` (no new crate; Linux's `termios` layout, so Linux only: elsewhe... | `cli: connector add` |
@@ -307,7 +176,9 @@ Proposed task: C0, Risk Low: add the 404-versus-405 line to the T048 "Decided fo
 - Rule T047 item 6 sets column 2 (`server_version`) of every `investigate_reports` row to `<VERSION>` without checking it.
 - Rule T060 item 3 drops every `claude mcp get` call, argv included: a wrong `get` argument would not show.
 - Mask N4's `c` + 8 hex digits is applied to all text, not only to ids.
-- A SIGTERM to the runner skips its `finally` blocks and leaves the world folder in the temp folder.
+- Rule T058 item 13 matches `<digits>.<digits>.<digits>` against `easy-personal-rs <digits>.<digits>.<digits>`; it does not check that the number is the package's version.
+- Rules T047 item 7 and item 8 match Python's stderr dump by its first line and its shape (a traceback, a list of pydantic errors), not line by line.
+- A signal that arrives in the few instructions between a child's start and the runner's note of it can leave that child alive (SIGTERM and SIGHUP are handled like Ctrl-C).
 - Python's `dashboard` command (probe `cli: dashboard`) cannot be told a static folder, so it serves the packaged bundle if the machine has one; the probe asks one API route, which the bundle does not change.
 - The static fixture holds no dotfile and no symlink (the README's `Static` paragraph names both).
 - Rules N3 and the clock caveat: the rows for warnings, plan, kit, outliers and kit-findings carry it in their Note.

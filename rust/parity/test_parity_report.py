@@ -160,21 +160,29 @@ def test_the_runner_does_not_depend_on_an_inherited_ignored_sigint():
     done = subprocess.run([sys.executable, str(PARITY / "run_parity.py"), "--only", "cli: mcp / http-handshake-and-ping"], capture_output=True,
                           text=True, env=env, cwd=str(PARITY.parent), check=False, timeout=300,
                           preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN))
-    assert "step 4 /code" in done.stdout, f"the exit code of the HTTP MCP server is not in the output:\n{done.stdout[-600:]}\n{done.stderr[-300:]}"
+    # T067: the probe is `differs: README T051 item 8` only when Python's exit code is -2; a child that ignored SIGINT would show `step 4 /code`
+    assert done.stdout.startswith("README cli: mcp / http-handshake-and-ping") and "T051#8" in done.stdout.splitlines()[0], (
+        f"the HTTP MCP server did not end by SIGINT (exit -2):\n{done.stdout[-600:]}\n{done.stderr[-300:]}")
 
 
-def test_the_usage_error_texts_that_no_readme_item_describes_are_findings():
-    """T058 item 8 says Rust prints clap's text; `--by week` is the core's one line, and `--since banana` is the core's text (item 7 says nothing about a different text)."""
+def test_the_usage_error_texts_are_explained_by_item_14_and_only_when_exact():
+    """T058 item 8 says Rust prints clap's text; `--by week` and `--since banana` are the core's one line (T067 added item 14 for them)."""
     argparse_by = "usage: easy-personal usage [-h]\neasy-personal usage: error: argument --by: invalid choice: 'week' (choose from day, model, project, tool)\n"
     core_by = "easy-personal: by must be one of day, model, project, tool\n"
-    assert rp.classify_zone({"explain": ["T058#8"]}, zone(2, "", argparse_by), zone(2, "", core_by)) == ("new", [])
+    assert rp.classify_zone({"explain": ["T058#8"]}, zone(2, "", argparse_by), zone(2, "", core_by)) == ("new", []), "item 8 is clap's text, not this one"
+    assert rp.classify_zone({"explain": ["T058#14"]}, zone(2, "", argparse_by), zone(2, "", core_by)) == ("readme", ["T058#14"])
     argparse_date = "usage: easy-personal usage [-h]\neasy-personal usage: error: argument --since: invalid iso_datetime value: 'banana'\n"
     core_date = "easy-personal: Invalid isoformat string: 'banana'\n"
-    assert rp.classify_zone({"explain": ["T058#8"]}, zone(2, "", argparse_date), zone(2, "", core_date)) == ("new", [])
+    assert rp.classify_zone({"explain": ["T058#14"]}, zone(2, "", argparse_date), zone(2, "", core_date)) == ("readme", ["T058#14"])
+    # mutations: one other byte differs, so the difference is not the one the item names
+    assert rp.classify_zone({"explain": ["T058#14"]}, zone(2, "", argparse_date), zone(2, "", "easy-personal: Invalid isoformat string: 'bananas'\n")) == ("new", [])
+    assert rp.classify_zone({"explain": ["T058#14"]}, zone(2, "", argparse_by), zone(2, "", core_by.replace("project", "projects"))) == ("new", [])
+    assert rp.classify_zone({"explain": ["T058#14"]}, zone(2, "", argparse_by), zone(1, "", core_by)) == ("new", []), "the exit code must be 2 in both"
+    assert rp.classify_zone({"explain": ["T058#14"]}, zone(2, "", argparse_by), zone(2, "x", core_by)) == ("new", []), "stdout must be empty"
     assert "T058#7" not in rp.RULES, "item 7 does not describe a different text: no rule may stand for it"
     rp.define_all()
     expects = {(p["key"], p["id"]): p["explain"] for p in rp.PROBES}
-    assert expects[("cli: usage", "bad-by")] == [] and expects[("cli: usage", "bad-date")] == [], "these two probes must be findings"
+    assert expects[("cli: usage", "bad-by")] == ["T058#14"] and expects[("cli: usage", "bad-date")] == ["T058#14"]
     clap = "error: invalid value 'colour' for '--by <BY>'\n  [possible values: account, provider]\n\nFor more information, try '--help'.\n"
     assert rp.classify_zone({"explain": ["T058#8"]}, zone(2, "", "usage: easy-personal account list [-h]\n...error: invalid choice: 'colour'\n"),
                             zone(2, "", clap)) == ("readme", ["T058#8"]), "clap's own text is what item 8 describes"
@@ -313,7 +321,252 @@ def test_the_guard_is_also_probed_with_the_page_mounted_as_in_a_real_deployment(
     rp.define_all()
     probes = [p for p in rp.PROBES if p["key"] == "route: GET /api/workspaces" and p["id"] == "guard-with-page"]
     assert probes and probes[0]["spec"]["static"] is True, "no probe of the guard with the page served"
-    assert "route: GET /api/workspaces" in rp.FINDINGS, "Python answers 404 for a GET of a write-only route when the page is mounted; Rust 405"
+    assert "T048#15" in probes[0]["explain"], "Python answers 404 for a GET of a write-only route when the page is mounted; Rust 405 (README T048 item 15)"
+
+
+def test_version_rule_explains_only_the_version_text():
+    probe = {"explain": ["T058#13"]}
+    assert rp.classify_zone(probe, zone(0, "0.4.0\n", ""), zone(0, "easy-personal-rs 0.2.0\n", "")) == ("readme", ["T058#13"])
+    assert rp.classify_zone(probe, zone(0, "0.4.0\n", ""), zone(0, "easy-personal-rs 0.2.0 extra\n", "")) == ("new", [])
+    assert rp.classify_zone(probe, zone(0, "0.4.0\n", ""), zone(0, "other-name 0.2.0\n", "")) == ("new", [])
+    assert rp.classify_zone(probe, zone(0, "0.4.0\n", ""), zone(1, "easy-personal-rs 0.2.0\n", "")) == ("new", []), "the exit code is still compared"
+    assert rp.classify_zone(probe, zone(0, "0.4.0\n", ""), zone(0, "easy-personal-rs 0.2.0\n", "warning\n")) == ("new", []), "stderr is still compared"
+
+
+def http_zone(code, stdout):
+    return {"steps": [{"step": "ping-tool", "status": 200}, {"step": "exit", "code": code, "stdout": stdout}], "state": zone(0, "", "")["state"]}
+
+
+def test_ctrl_c_rule_explains_only_the_signal_exit_and_the_access_log():
+    probe = {"explain": ["T051#8"]}
+    log = 'INFO:     127.0.0.1:<PORT> - "POST /mcp HTTP/1.1" 200 OK\nINFO:     127.0.0.1:<PORT> - "POST /mcp HTTP/1.1" 202 Accepted\n'
+    assert rp.classify_zone(probe, http_zone(-2, log), http_zone(0, "")) == ("readme", ["T051#8"])
+    assert rp.classify_zone(probe, http_zone(-2, log + "Traceback (most recent call last):\n"), http_zone(0, "")) == ("new", []), "other stdout text is not an access log"
+    assert rp.classify_zone(probe, http_zone(-2, log), http_zone(0, "one line\n")) == ("new", []), "Rust's stdout must be empty"
+    assert rp.classify_zone(probe, http_zone(-2, log), http_zone(1, "")) == ("new", []), "Rust's exit code must be 0"
+    assert rp.classify_zone(probe, http_zone(-9, log), http_zone(0, "")) == ("new", []), "Python must end by SIGINT (-2)"
+    assert rp.classify_zone(probe, http_zone("did not stop", log), http_zone(0, "")) == ("new", [])
+
+
+def mcp_zone(steps, stderr="", exit_code=0):
+    return {"steps": steps, "state": zone(0, "", "")["state"], "exit": exit_code, "stderr": stderr}
+
+
+def answer(method, **kw):
+    return {"method": method, "params": None, "answer": {"jsonrpc": "2.0", "id": 1, **kw}}
+
+
+def test_prompt_rule_explains_only_the_code_and_the_traceback():
+    probe = {"explain": ["T047#7"]}
+    trace = ("Error getting prompt nope\nTraceback (most recent call last):\n  File \"x.py\", line 1, in get_prompt\n"
+             "    raise ValueError(f\"Unknown prompt: {name}\")\nValueError: Unknown prompt: nope\n")
+    py = mcp_zone([answer("prompts/get", error={"code": 0, "message": "Unknown prompt: nope"})], trace)
+    rs = mcp_zone([answer("prompts/get", error={"code": -32602, "message": "Unknown prompt: nope"})])
+    assert rp.classify_zone(probe, py, rs) == ("readme", ["T047#7"])
+    other_message = mcp_zone([answer("prompts/get", error={"code": -32602, "message": "Unknown prompt: other"})])
+    assert rp.classify_zone(probe, py, other_message) == ("new", []), "the message must be equal"
+    wrong_code = mcp_zone([answer("prompts/get", error={"code": -32601, "message": "Unknown prompt: nope"})])
+    assert rp.classify_zone(probe, py, wrong_code) == ("new", []), "Rust's code must be -32602"
+    assert rp.classify_zone(probe, mcp_zone(py["steps"], trace + "more\n"), rs) == ("new", []), "the stderr must be the traceback and nothing more"
+    assert rp.classify_zone(probe, py, mcp_zone(rs["steps"], "something\n")) == ("new", []), "Rust must write nothing on stderr"
+
+
+def test_protocol_rule_explains_only_the_three_named_differences():
+    probe = {"explain": ["T047#8"]}
+    caps_py = {"experimental": {}, "prompts": {"listChanged": False}, "resources": {"subscribe": False, "listChanged": False}, "tools": {"listChanged": False}}
+    init = lambda caps: [answer("initialize", result={"capabilities": caps})]  # noqa: E731
+    assert rp.classify_zone(probe, mcp_zone(init(caps_py)), mcp_zone(init({"prompts": {}, "tools": {}}))) == ("readme", ["T047#8"])
+    assert rp.classify_zone(probe, mcp_zone(init(caps_py)), mcp_zone(init({"prompts": {}, "tools": {}, "logging": {}}))) == ("new", []), "one more capability is not the item"
+    assert rp.classify_zone(probe, mcp_zone(init({**caps_py, "completions": {}})), mcp_zone(init({"prompts": {}, "tools": {}}))) == ("new", [])
+    dump = "Failed to validate request: 2 validation errors for ClientRequest\nPingRequest.method\n  Input should be 'ping' [type=x]\n    For further information visit https://e/x\n" * 1
+    dump += "InitializeRequest.method\n  Input should be 'initialize' [type=x]\n    For further information visit https://e/y\n"
+    py_err = answer("nope/method", error={"code": -32602, "message": "Invalid request parameters", "data": ""})
+    rs_err = answer("nope/method", error={"code": -32601, "message": "nope/method"})
+    assert rp.classify_zone(probe, mcp_zone([py_err], dump), mcp_zone([rs_err])) == ("readme", ["T047#8"])
+    assert rp.classify_zone(probe, mcp_zone([py_err], dump), mcp_zone([rs_err], "x\n")) == ("new", []), "Rust must write nothing on stderr"
+    assert rp.classify_zone(probe, mcp_zone([py_err], dump + "extra\n"), mcp_zone([rs_err])) == ("new", []), "the dump must be the validation dump only"
+    bad = answer("nope/method", error={"code": -32601, "message": "a sentence with spaces"})
+    assert rp.classify_zone(probe, mcp_zone([py_err], dump), mcp_zone([bad])) == ("new", []), "Rust's message must be a method name"
+    assert rp.classify_zone(probe, mcp_zone([py_err], dump), mcp_zone([answer("nope/method", error={"code": -32602, "message": "nope/method"})])) == ("new", [])
+    log = "Processing request of type PingRequest\nProcessing request of type CallToolRequest\n"
+    assert rp.classify_zone(probe, mcp_zone([], log), mcp_zone([])) == ("readme", ["T047#8"])
+    assert rp.classify_zone(probe, mcp_zone([], log + "other\n"), mcp_zone([])) == ("new", [])
+
+
+def test_write_only_route_rule_explains_only_404_against_405_with_the_page():
+    probe = {"explain": ["T048#15"]}
+    py = route_zone(404, "text/plain; charset=utf-8", "Not Found")
+    assert rp.classify_zone(probe, py, route_zone(405, None, "")) == ("readme", ["T048#15"])
+    assert rp.classify_zone(probe, py, route_zone(403, None, "")) == ("new", []), "only 405 is the item"
+    assert rp.classify_zone(probe, py, route_zone(405, "application/json", "")) == ("new", [])
+    assert rp.classify_zone(probe, py, route_zone(405, None, "x")) == ("new", [])
+    assert rp.classify_zone(probe, route_zone(404, "text/plain; charset=utf-8", "Gone"), route_zone(405, None, "")) == ("new", [])
+
+
+def test_each_t067_item_is_in_the_readme_marked_decided_for_you_and_has_a_rule():
+    for rid in ("T058#13", "T058#14", "T051#8", "T047#7", "T047#8", "T048#15"):
+        ref, number = rp.RULES[rid].ref
+        body = rp.readme_item(ref, number)
+        assert body, f"README `{ref}` item {number} is not there"
+        assert "⚠ decided for you (t067)" in body.lower(), f"{ref} item {number} is not marked decided for you"
+        assert rp.readme_ok(ref, number, rp.EXPLAIN_WORDS[(ref, number)]), f"{ref} item {number} lacks the words the rule states"
+    assert rp.FINDINGS == {}, "the seven findings are closed: none is left in FINDINGS"
+
+
+def test_the_report_has_no_new_difference_and_no_surface_left_unrun():
+    text = report_text()
+    found = rp.COUNTS.search(text)
+    assert found and found.group(4) == "0" and found.group(5) == "0", f"differs new / not run is not 0: {found.group(0) if found else None}"
+    assert not any(r["result"] == "differs: new" for r in rp.parse_report(text))
+    assert "A SIGTERM to the runner skips" not in text, "the SIGTERM known limit must be gone"
+    live = [r for r in rp.parse_report(text) if r["key"] == "route: GET /api/live"]
+    assert live and live[0]["result"] == "equal", f"`/api/live` is aligned in Rust: it must be equal, not explained: {live}"
+
+
+# ---- T067: SIGTERM and SIGHUP end a run the way Ctrl-C does: no server of the run alive, no world folder left
+
+def _proc_table():
+    import os
+
+    table = {}
+    for entry in os.listdir("/proc"):
+        if entry.isdigit():
+            try:
+                raw = Path(f"/proc/{entry}/stat").read_text()
+                rest = raw[raw.rindex(")") + 2:].split()
+                table[int(entry)] = (int(rest[1]), rest[0], Path(f"/proc/{entry}/cmdline").read_text().replace("\0", " ")[:120])
+            except (OSError, ValueError):
+                pass
+    return table
+
+
+def _descendants(root):
+    table, found, todo = _proc_table(), {}, [root]
+    while todo:
+        cur = todo.pop()
+        for pid, (ppid, state, cmd) in table.items():
+            if ppid == cur and state != "Z" and pid not in found:
+                found[pid] = cmd
+                todo.append(pid)
+    return found
+
+
+def _signal_run(args, signame, when, snippet=None, hup_ignored=False):
+    """Start the runner (`--only` through the command line, or `snippet` through `run_all`), send `signame` when `when(world_dirs, children)` holds.
+    Returns (exit code, children seen before the signal, children alive afterwards, world folders left)."""
+    import contextlib
+    import os
+    import signal
+    import subprocess
+    import tempfile
+    import time
+
+    with tempfile.TemporaryDirectory(prefix="t067-tmp-") as tmp:
+        env = {"PATH": "/usr/bin:/bin", "HOME": os.environ.get("HOME", "/"), "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": tmp}
+        cmd = [sys.executable, str(PARITY / "run_parity.py"), *args] if snippet is None else [sys.executable, "-c", snippet]
+        ignore = (lambda: signal.signal(signal.SIGHUP, signal.SIG_IGN)) if hup_ignored else None  # what `nohup` does
+        proc = subprocess.Popen(cmd, env=env, cwd=str(PARITY.parent), stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+                                preexec_fn=ignore)
+        seen, deadline = {}, time.time() + 60
+        try:
+            while proc.poll() is None and time.time() < deadline:
+                kids = _descendants(proc.pid)
+                seen.update(kids)
+                worlds = [d for d in os.listdir(tmp) if d.startswith("parity-world-")]
+                if when(worlds, kids):
+                    break
+                time.sleep(0.005)
+            assert proc.poll() is None, f"the run ended before the moment to signal it: {proc.stdout.read()[-300:]!r} {proc.stderr.read()[-300:]!r}"
+            if hup_ignored:  # a hang-up must change nothing; only then the signal under test
+                proc.send_signal(signal.SIGHUP)
+                time.sleep(0.5)
+                assert proc.poll() is None, f"a runner started with SIGHUP ignored stopped on SIGHUP (exit {proc.returncode})"
+                assert _descendants(proc.pid), "the run's server went away on SIGHUP"
+            proc.send_signal(getattr(signal, signame))
+            code = proc.wait(timeout=60)
+            time.sleep(0.5)
+            table = _proc_table()
+            alive = {pid: cmd for pid, cmd in seen.items() if pid in table and table[pid][1] != "Z"}
+            left = sorted(os.listdir(tmp))
+            return code, seen, alive, left
+        finally:
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+            for pid in list(seen):  # a failed test must not leave its servers: only the PIDs this run started
+                with contextlib.suppress(OSError):
+                    os.kill(pid, signal.SIGKILL)
+            for stream in (proc.stdout, proc.stderr):
+                stream.close()
+
+
+def _with_server(worlds, kids):
+    return bool(kids)
+
+
+def test_sigterm_during_a_running_server_kills_it_and_removes_the_world_folder():
+    code, seen, alive, left = _signal_run(["--only", "cli: mcp / http-handshake-and-ping"], "SIGTERM", _with_server)
+    assert seen, "no server of the run was seen: the test did not reach the state it tests"
+    assert code == 128 + 15, f"exit code {code}"
+    assert not alive, f"servers still alive: {alive}"
+    assert left == [], f"left in the temp folder: {left}"
+
+
+def test_sighup_during_a_running_server_kills_it_and_removes_the_world_folder():
+    code, seen, alive, left = _signal_run(["--only", "cli: mcp / http-handshake-and-ping"], "SIGHUP", _with_server)
+    assert seen and code == 128 + 1 and not alive and left == [], (code, seen, alive, left)
+
+
+def test_a_runner_started_with_sighup_ignored_keeps_running_on_sighup_and_still_cleans_up_on_sigterm():
+    """`nohup python parity/run_parity.py --check &` then a closed terminal: the run must go on (T067 Stage 4)."""
+    code, seen, alive, left = _signal_run(["--only", "cli: mcp / http-handshake-and-ping"], "SIGTERM", _with_server, hup_ignored=True)
+    assert seen and code == 128 + 15 and not alive and left == [], (code, seen, alive, left)
+
+
+def test_a_runner_started_with_sighup_ignored_finishes_its_run_after_a_sighup():
+    import os
+    import signal
+    import subprocess
+    import tempfile
+    import time
+
+    with tempfile.TemporaryDirectory(prefix="t067-tmp-") as tmp:
+        env = {"PATH": "/usr/bin:/bin", "HOME": os.environ.get("HOME", "/"), "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": tmp}
+        proc = subprocess.Popen([sys.executable, str(PARITY / "run_parity.py"), "--only", "cli: mcp / http-handshake-and-ping"], env=env, cwd=str(PARITY.parent),
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, text=True,
+                                preexec_fn=lambda: signal.signal(signal.SIGHUP, signal.SIG_IGN))
+        try:
+            deadline = time.time() + 60
+            while proc.poll() is None and time.time() < deadline and not _descendants(proc.pid):
+                time.sleep(0.005)
+            assert proc.poll() is None, "the run ended before the hang-up"
+            proc.send_signal(signal.SIGHUP)
+            out, err = proc.communicate(timeout=120)
+            assert proc.returncode == 0, f"the run did not finish after SIGHUP: exit {proc.returncode}\n{out[-300:]}\n{err[-300:]}"
+            assert out.startswith("README cli: mcp / http-handshake-and-ping"), out[:300]
+            assert os.listdir(tmp) == [], os.listdir(tmp)
+        finally:
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+
+
+def test_sigterm_while_a_serve_starts_kills_it():
+    """`Server.__init__` waits for the URL line; the caller never gets the object, so the constructor itself must close the child."""
+    code, seen, alive, left = _signal_run(["--only", "route: GET /api/live / first-event"], "SIGTERM", _with_server)
+    assert seen and code == 128 + 15 and not alive and left == [], (code, seen, alive, left)
+
+
+def test_sigterm_before_any_server_exists_removes_the_world_folder():
+    """The world folder exists (the store copy and the fixtures are being made) and no child has started yet."""
+    code, seen, alive, left = _signal_run(["--only", "cli: mcp / http-handshake-and-ping"], "SIGTERM", lambda worlds, kids: bool(worlds) and not kids)
+    assert code == 128 + 15 and not alive and left == [], (code, seen, alive, left)
+
+
+def test_sigterm_in_the_full_run_path_cleans_up_as_well():
+    """`run_all` (what a plain run and `--check` use) has its own `finally`: signal it through a driver that calls it with one probe."""
+    snippet = ("import sys; sys.path.insert(0, 'parity'); import run_parity as rp; rp.stop_on_signals()\n"
+               "try:\n    rp.run_all(['cli: mcp / http-handshake-and-ping'])\nexcept rp.Terminated as stop:\n    sys.exit(128 + stop.signum)\n")
+    code, seen, alive, left = _signal_run([], "SIGTERM", _with_server, snippet=snippet)
+    assert seen and code == 128 + 15 and not alive and left == [], (code, seen, alive, left)
 
 
 def main() -> int:

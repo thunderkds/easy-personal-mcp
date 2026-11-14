@@ -515,6 +515,7 @@ FastMCP fake of `tests/fakes/mcp_server.py`. `crates/core/tests/context_parity.r
 5. The start-up ingest runs before the static folder is checked, so a bad `--static-dir` is reported after the ingest.
 6. The HTTP server has a 10 s request-read limit and a cap of 64 open connections (Python's FastMCP/uvicorn has no such limit); the limit is a total per request, not per read, and does not run while a tool exchange is in flight. Writes to a slow reader have no timeout.
 7. Every existing test that starts `serve` now passes `--no-ingest` (they test a read-only server over a fixed store); `startup_ingest.rs` tests the default.
+8. **Ctrl-C on `mcp --transport http` ends the server with exit 0 and an empty stdout.** Python's process ends by the SIGINT signal (exit code -2, shell 130) after uvicorn's shutdown, and uvicorn prints one access-log line per request on stdout (`INFO:     127.0.0.1:<port> - "POST /mcp HTTP/1.1" 200 OK`). Exit 0 says "stopped as asked" and stdout stays free for a client. ⚠ decided for you (T067).
 
 ## Scheduled ingest (P2c)
 
@@ -584,7 +585,7 @@ ranges where the two differ (circled and squared letters such as U+24B6, combini
 on an integer above 64 bits or a float outside the double range: here the JSON line is a parse error (`-32700`) or the number is read as a double
 (`1e+23` for `10**23`), never a crash. (4) The scope is checked on a read-only handle, and the write handle opens only after the rules are measured, so Python's
 "measure then insert" has one extra step between them that no reader can see. (5) The store file's journal mode: a store still in `delete` mode (the test fixture
-only) is switched to WAL by the save, as Python's `connect` does. (6) `server_version` is this build's Cargo version (Python's is its package version).
+only) is switched to WAL by the save, as Python's `connect` does. (6) `server_version` is this build's Cargo version (Python's is its package version). (7) An unknown prompt (`prompts/get` of `nope`) is the JSON-RPC error `-32602` (invalid params) with the message `Unknown prompt: nope`; the message is Python's, but Python's error code is `0`. Over stdio, Python also logs the error with a traceback on stderr (`Error getting prompt nope`, then `ValueError: Unknown prompt: nope`); Rust writes nothing on stderr. ⚠ decided for you (T067). (8) Three more differences in the protocol under the tools, all kept: (a) `initialize` capabilities are `prompts: {}` and `tools: {}` only; Python also sends `experimental: {}`, `resources: {subscribe: false, listChanged: false}` and `listChanged: false` under `prompts` and `tools`. Rust serves no resources, so a client that checks `resources` sees none. (b) A JSON-RPC method the server does not have, such as `nope/method`, is `-32601` (method not found) with the method name as the message; Python answers `-32602` `Invalid request parameters` and logs its validation dump on stderr (`Failed to validate request: 28 validation errors for ClientRequest ...`, which echoes the method); Rust writes nothing there. (c) Over stdio, stderr stays empty; Python's SDK writes `Processing request of type <X>` for every request. ⚠ decided for you (T067).
 
 ## Kit (T042)
 
@@ -863,6 +864,7 @@ Added by T054 (the review fixes of T048):
 12. A body of 95,000 distinct keys (about 1 MiB) is scanned in linear time (`key_order`), and the scan runs in the blocking task, not on an async worker.
 13. A fact, not a choice: the in-process `WRITE_LOCK` is not what makes the concurrent test pass (six writers also pass without it, because `BEGIN IMMEDIATE` and the 5 s busy timeout are enough); it is kept.
 14. A `413` also answers a body whose read fails (a broken connection): no client is left to read it.
+15. (T067) **With the page served, a `GET` of a route that has only write methods is `405` here.** Python answers `404 Not Found` there: its static mount at `/` matches the path before the route's own method check can answer 405 (`GET /api/workspaces/1` and `GET /api/workspaces` are the probed cases). Without a page, both answer 405. The body of each answer is `Static` item 1. ⚠ decided for you (T067).
 
 Stale reference (report only): `docs/release/rust-v0.2.0.md` "not in this release" should drop the workspace and account writes.
 
@@ -948,6 +950,8 @@ asked: the refusals below, `dashboard`, and account detection. `parity/leak_rust
     too, as `easy-personal-rs connector sync`; the note keeps Python's text (as every other line that names `easy-personal`).
 11. **`warnings`, `plan`, `kit`** (added after the first T058 report; the guide's list did not name them): `kit` lists projects whose folder is gone, as Python's CLI does (the dashboard route hides them). The owner's `config.yaml` threshold override is not read by this build (`rules.rs`, `kitperf.rs` say so), so the shipped thresholds apply and Python's exit 2 for a bad one does not exist here.
 12. **Not here**: nothing since T060 (`connector` and `doctor`). `exec` and `headers` are the separate `easy-personal-launch` program (T050). `store-check` is here since T059. Every other subcommand of Python's parser, with the same flags, is here (`schedule install|remove` already were). Rust has three more: `store-info`, `serve` and `app`.
+13. **`--version` prints `easy-personal-rs <version>`** (clap's text and this build's Cargo version, for example `easy-personal-rs 0.2.0`). Python prints the bare package version (`0.4.0`). The two programs are versioned apart, and the name tells which program answered. ⚠ decided for you (T067).
+14. **Two usage errors have a one-line text, not argparse's.** `usage --by week` prints `easy-personal: by must be one of day, model, project, tool` (Python: argparse's usage text, then `invalid choice: 'week' (choose from day, model, project, tool)`), and `usage --since banana` or `--until banana` prints `easy-personal: Invalid isoformat string: 'banana'` (Python: `argument --since: invalid iso_datetime value: 'banana'`). The exit code is 2 and stdout is empty in both. The `--by` text does not echo the value; the date text does, as item 7 says. ⚠ decided for you (T067).
 
 ## Connector writes, keychain and launcher (T050)
 
@@ -1249,7 +1253,7 @@ keeps its bytes and mtime); the scheduled ingest stays the only writer. It is no
 other connection has it open, SQLite creates empty `store.sqlite-wal` / `store.sqlite-shm` files next to it for the read-only
 open and may leave them (T049 README item 1; confirmed at Stage 4).
 
-**The route.** `GET /api/live` answers `200`, `content-type: text/event-stream`, `cache-control: no-store`, `x-accel-buffering: no`
+**The route.** `GET /api/live` answers `200`, `content-type: text/event-stream; charset=utf-8`, `cache-control: no-store`, `x-accel-buffering: no`
 (Python's headers) and the CSP. Messages, in Python's order:
 
 ```
