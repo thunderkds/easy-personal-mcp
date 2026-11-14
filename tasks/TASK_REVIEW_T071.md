@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `tests/test_icons.py`; Supervisor re-run: `29 passed in 0.51s` |
+| Verification command run | ☑ pass | Supervisor: `python3 scripts/gen_icons.py --check` exit 0 (byte-identical); agent: `cargo test --workspace` 884 passed, 0 failed — pass |
+| Negative cases hold | ☑ pass | agent: idle PNG replaced by an active one → test fails; `magick` missing → exit 2 with message — pass |
+| verify | ☑ pass | Supervisor 2026-11-14: `cargo build --features window` in this worktree, `app --no-ingest --self-test` on a store copy, DISPLAY=:0: `self-test: live snapshot ok`, `self-test: ok`, exit 0 (window embeds the new `icons/icon.png`, tauri-codegen default) — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | generator, SVG sources, PNGs, test, window.rs comment |
+| Full smoke suite still green (no regression) | ☑ pass | Rust suite 884 passed (agent run; only Rust change is a doc comment) — pass |
+| **Companion score (easy-verifier)** | ☑ N/A | not run for this asset-only change |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | contact sheet `reports/T071-contact-sheet.png` viewed by the Supervisor vs `TrayIcons.dc.html`: shape, dot place, colours match; idle no dot; app icon corners transparent (checked by pixel) — pass |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | pixel test asserts exact table colours ±8 — pass |
+| **UI: Responsiveness at target viewports** | ☑ N/A | fixed-size raster assets |
 
 ---
 
@@ -108,3 +108,17 @@ Contact sheet of all 24 tray PNGs on dark `#1C1F1E` and light `#E8EBE9` panels (
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T071.jsonl`, never the
 implementing agent alone]
+
+## Stage 4 — code-review (Supervisor, 2026-11-14)
+
+Scope: `main...T071`. Lane: `C1, 34 files, 289 lines, EXCEEDS (files 34 > 6; lines 289 > 250)` — the excess is 28 generated PNGs, not code. Reachability: `scripts/gen_icons.py` runs; `icons/icon.png` embedded by tauri-codegen (window self-test passed). Startup reads line present.
+
+P0: none. P1: none. P2: none.
+P3 (optional):
+| File | Finding | Confidence | Action |
+|---|---|---|---|
+| `tests/test_icons.py` | Lives in the Python `tests/` folder that T063 removes ("app tests") | 75 | T063 must keep or move this test |
+| tray PNGs | Opaque dot ring in the panel colour shows as a halo on a taskbar of another colour (agent decision 4) | 75 | Tray shell task: decide ring vs transparent cut-out |
+| `scripts/gen_icons.py` | Byte-identical output depends on the ImageMagick build (7.1.2-18) | 100 | Documented in README; `--check` may report stale on another machine |
+
+0 safe fixes applied.
