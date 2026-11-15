@@ -69,8 +69,8 @@ cd web && npm test 2>&1 | tail -5 && npm run build 2>&1 | tail -3
 | Item | Result | Evidence |
 |---|---|---|
 | New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
+| Verification command | ☑ | Supervisor `/verify` 2026-11-15 pass (build, real serve, 3 routes 200, screenshots) |
+| code-review | ☑ | 0 P0/P1, 2 P2 (dead export; no auto refresh -> follow-up), 2 P3 |
 | UI: visual regression | ☐ | |
 | UI: design-system compliance | ☐ | |
 | UI: responsiveness | ☐ | |
