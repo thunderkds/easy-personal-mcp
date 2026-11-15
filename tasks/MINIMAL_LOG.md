@@ -3,6 +3,20 @@
 > One Decision record per minimal-track task (`docs/claude-md/tracks.md`), **newest first**: insert each
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
+## T080 — Load-flaky Rust tests 2: an empty store after an early kill is whole; the 95,000-key route test as a ratio · minimal
+**Asked:** "continue" (second supervisor session, `[admin]`); failure text and task from the other supervisor `rust-57` (its T072 full run, load average ~20)
+**Decisions:**
+- Track minimal — C1, Risk Low: test code only, no production code, one session, no UI
+- `ingest_coexist` `a_killed_rust_ingest_leaves_whole_files_and_a_rust_rerun_equals_a_clean_run` panicked at `ingest_coexist_common/mod.rs:438:10`. Cause confirmed, not "database is locked": the killer's process group is checked gone (`assert_group_gone`) before the check, and a real `easy-personal-rs ingest` SIGKILLed 2-6 ms after its start leaves `store.sqlite` with `integrity_check` `ok`, 0 `sqlite_master` rows, `user_version` 0, and `no such table: events` (20 of 80 early-kill runs; under load the fixed 30 ms kill point lands there). `assert_intact` now accepts a store with no `events` table only when its schema is empty (0 rows, `user_version` 0); a half-made schema still fails
+- `writes.rs` (integration) `a_hostile_link_chain_and_a_body_of_95000_keys_are_answered_in_under_a_second`: the 95,000-key PATCH's 1 s wall-clock limit becomes a ratio to a 9,500-key body, best of 3, fails at 30x (measured 10.0x twice); the two link-chain limits (1 s each) are unchanged
+- Assumed: the Rust ingest's schema commits in one transaction (every measured early-kill store had 0 schema rows) — the new `a_half_made_schema_without_events_is_not_whole` test fails on any other shape
+**Checked:**
+- New tests `an_empty_store_left_by_an_early_kill_is_whole` and `a_half_made_schema_without_events_is_not_whole` — against the old `assert_intact` both fail at `ingest_coexist_common/mod.rs:438:10` with `no such table: events` (the peer's panic), after the change both pass (2026-11-15 04:56Z)
+- Suite: `cargo test --workspace --no-fail-fast` — passed=928 failed=0 (2026-11-15 04:59Z); `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --check` ok
+- Real run: test-only change; the early-kill measurement above ran the real binary (`python3 -I t080_early_kill.py`, 80 kills at 0-60 ms)
+**Files:** `rust/crates/app/tests/ingest_coexist_common/mod.rs`, `rust/crates/app/tests/ingest_coexist.rs`, `rust/crates/app/tests/writes.rs`, `tasks/MINIMAL_LOG.md`
+**Not done:** merge (the other supervisor / the owner decides)
+
 ## T079 — Load-flaky Rust tests: retry the timed-out fake, linear time as a ratio, ignore SQLite's -wal/-shm · minimal
 **Asked:** "continue" (second supervisor session, `[admin]`; task agreed with the other supervisor `rust-57`, who owns `main` and the board row)
 **Decisions:**
