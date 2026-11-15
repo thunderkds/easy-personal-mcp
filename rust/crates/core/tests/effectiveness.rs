@@ -586,3 +586,46 @@ fn a_relative_or_missing_project_never_reads_the_git_history_of_the_working_fold
     assert_eq!(task(&body, "T072")["done_state"], "unknown", "{body:#}");
     assert_eq!(task(&body, "T072")["project"], "(unknown)");
 }
+
+#[test]
+fn a_good_result_follows_the_main_thread_even_when_sub_agent_events_outnumber_it() {
+    let mut fx = Fx::new("sidechainheavy");
+    let repo = fx.folder("repo");
+    git(&repo, DAY, &["init", "-q"]);
+    commit(&repo, DAY, "base");
+    // the sub-agent commits on its worktree branch inside the session's window
+    git(
+        &repo,
+        DAY + 3600,
+        &["checkout", "-q", "-b", "worktree-agent-x"],
+    );
+    commit(&repo, DAY + 36_000 + 600, "agent-work");
+    git(&repo, DAY + 36_000 + 700, &["checkout", "-q", "main"]);
+    // S1: one main-thread event on T30, three sidechain events on worktree-agent-x (the majority of the session)
+    fx.add(Ev {
+        tools: Some("Bash"),
+        errors: Some(0),
+        ..Ev::new("S1", &repo, "T30", "m1")
+    });
+    for i in 2..5 {
+        fx.add(Ev {
+            sidechain: 1,
+            tools: Some("Bash"),
+            errors: Some(0),
+            ..Ev::new("S1", &repo, "worktree-agent-x", &format!("m{i}"))
+        });
+    }
+    let body = fx.run();
+    let t30 = task(&body, "T30");
+    assert_eq!(t30["tokens"], 440, "the main thread and its sidechains");
+    assert_eq!(t30["good_results"], 1, "{body:#}");
+    assert_eq!(t30["tokens_per_good_result"], 440.0);
+    let lines: i64 = body["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["good_results"].as_i64().unwrap())
+        .sum::<i64>()
+        + body["unattributed"]["good_results"].as_i64().unwrap();
+    assert_eq!(body["totals"]["good_results"].as_i64().unwrap(), lines);
+}

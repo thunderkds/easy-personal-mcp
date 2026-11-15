@@ -339,13 +339,16 @@ pub fn effectiveness_in(
         }
     }
 
-    // good results (FR-061), on the line of the session's own branch, among the sessions of that line
+    // good results (FR-061), on the line of the session's main-thread branch (as its tokens; kitperf's own branch, a
+    // majority over sidechain events too, only when the session has no main thread), among the sessions of that line
     for (session, path, branch, good) in kitperf::session_results(conn, b.since.as_deref())? {
         if good != Some(1) {
             continue;
         }
-        let key = branch
-            .as_deref()
+        let key = mains
+            .get(&session)
+            .map(String::as_str)
+            .or(branch.as_deref())
             .and_then(task_id)
             .map(|id| (project_of(path.as_deref()).unwrap_or_default(), id));
         let line = match key {
