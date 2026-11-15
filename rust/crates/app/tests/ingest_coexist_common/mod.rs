@@ -428,6 +428,27 @@ pub fn assert_intact(store: &Path, what: &str) {
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .unwrap();
     assert_eq!(ok, "ok", "{what}: integrity_check");
+    // T080: an ingest killed a few ms after its start (measured: 2-6 ms on an idle machine, so a fixed 30 ms kill point
+    // on a loaded one) has created the file but not committed its schema: the store is then empty, which is whole.
+    // A half-made schema (some tables, no `events`) still fails here.
+    let has_events: bool = c
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'events'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap()
+        == 1;
+    if !has_events {
+        let schema: (i64, i64) = (
+            c.query_row("SELECT COUNT(*) FROM sqlite_master", [], |r| r.get(0))
+                .unwrap(),
+            c.query_row("PRAGMA user_version", [], |r| r.get(0))
+                .unwrap(),
+        );
+        assert_eq!(schema, (0, 0), "{what}: no events table, but a schema");
+        return;
+    }
     let dups: i64 = c
         .query_row(
             "SELECT COUNT(*) FROM (SELECT 1 FROM events \

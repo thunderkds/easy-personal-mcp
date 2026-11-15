@@ -957,7 +957,8 @@ fn two_writes_at_once_both_finish_and_the_store_is_intact() {
 }
 
 /// T054: a link chain that doubles at every hop (30 deep: 2^30 expansions without a cache of resolved links) as a repo
-/// path and as an agent folder, and a 1 MiB PATCH body of 95,000 distinct keys, are each answered in under a second. T048
+/// path and as an agent folder are each answered in under a second, and a 1 MiB PATCH body of 95,000 distinct keys in
+/// linear time (T080: as a ratio to a 9,500-key body, not a wall-clock limit, which a loaded machine broke). T048
 /// walked the chain while it held the write lock and scanned the keys in quadratic time.
 #[test]
 fn a_hostile_link_chain_and_a_body_of_95000_keys_are_answered_in_under_a_second() {
@@ -1002,15 +1003,28 @@ fn a_hostile_link_chain_and_a_body_of_95000_keys_are_answered_in_under_a_second(
     assert_eq!(got.status, 201, "{}", got.body);
     assert_eq!(got.json()["folder"], json!(format!("{work}/cfg")));
     assert!(took < Duration::from_secs(1), "account chain took {took:?}");
-    let keys: Vec<String> = (0..95_000).map(|n| format!("\"k{n:05}\":1")).collect();
-    let big = format!("{{{}}}", keys.join(","));
-    assert!(big.len() < 1 << 20, "{} bytes", big.len());
-    let (got, took) = timed("PATCH", "/api/workspaces/2", big.as_bytes());
-    assert_eq!(
-        (got.status, got.error()),
-        (400, "unknown field".to_string())
+    // ten times the keys: about ten times as long when linear, about a hundred times when quadratic; best of 3 each
+    let best = |count: usize| {
+        let keys: Vec<String> = (0..count).map(|n| format!("\"k{n:05}\":1")).collect();
+        let body = format!("{{{}}}", keys.join(","));
+        assert!(body.len() < 1 << 20, "{} bytes", body.len());
+        (0..3)
+            .map(|_| {
+                let (got, took) = timed("PATCH", "/api/workspaces/2", body.as_bytes());
+                assert_eq!(
+                    (got.status, got.error()),
+                    (400, "unknown field".to_string())
+                );
+                took
+            })
+            .min()
+            .unwrap()
+    };
+    let (small, large) = (best(9_500), best(95_000));
+    assert!(
+        large < small * 30,
+        "9,500 keys {small:?}, 95,000 keys {large:?}"
     );
-    assert!(took < Duration::from_secs(1), "95,000 keys took {took:?}");
 }
 
 #[test]
