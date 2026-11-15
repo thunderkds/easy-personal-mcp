@@ -36,10 +36,10 @@ The package holds files only. It changes nothing in your home folder. Run these 
 easy-personal-rs --version
 easy-personal-rs schedule install
 claude mcp add --scope user easy-personal -- /usr/bin/easy-personal-rs mcp
-easy-personal-rs dashboard --static-dir /usr/share/easy-personal-rs/static
+easy-personal-rs app --static-dir /usr/share/easy-personal-rs/static
 ```
 
-`schedule install` starts a systemd user timer that ingests every day. Restart Claude Code after `claude mcp add`. Use the full path `/usr/bin/easy-personal-rs`, because a copy in `~/.local/bin` can come first on `PATH`. The `dashboard` command opens the dashboard window. The menu entry "Easy Personal" opens it too.
+`schedule install` starts a systemd user timer that ingests every day. Restart Claude Code after `claude mcp add`. Use the full path `/usr/bin/easy-personal-rs`, because a copy in `~/.local/bin` can come first on `PATH`. The `app` command opens the dashboard window. The menu entry "Easy Personal" opens it too.
 
 To run the tray at login, start it with `--autostart on`:
 

@@ -50,7 +50,7 @@ CONNECT_STEPS = ["catalog form", "OS keychain", "claude mcp add-json", "launcher
 DEB_BUILD = "rust/packaging/build-deb.sh"
 DEB_INSTALL = "sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb"
 RS_MCP_ADD = "claude mcp add --scope user easy-personal -- /usr/bin/easy-personal-rs mcp"
-RS_DASHBOARD = "easy-personal-rs dashboard --static-dir /usr/share/easy-personal-rs/static"
+RS_DASHBOARD = "easy-personal-rs app --static-dir /usr/share/easy-personal-rs/static"
 RS_TRAY = "easy-personal-rs tray --static-dir /usr/share/easy-personal-rs/static --autostart on"
 REQUIRED_COMMANDS = [
     DEB_BUILD,
