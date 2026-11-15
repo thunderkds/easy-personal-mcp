@@ -105,6 +105,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/jobs": [""],
     "/api/store/health": [""],  # T059: also over a store planted with canaries, in `store_check`
     "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
+    "/api/machine": [""],  # T072: the in-memory machine status history; no store, no path
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -1051,6 +1052,7 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (2, ["outliers", "--account", "{key}"]), (2, ["warnings", "--workspace", "{key}"]), (2, ["warnings", "--account", "{key}"]),
     (2, ["plan", "--workspace", "{key}"]), (2, ["plan", "--account", "{key}"]), (2, ["kit", "--workspace", "{key}"]),
     (2, ["kit", "--account", "{key}"]), (2, ["kit", "--workspace", ""]), (2, ["kit-findings", "--limit", "0"]), (2, ["kit-findings", "--since", "garbage"]),
+    (0, ["machine"]), (0, ["machine", "--json"]),  # T072: reads /proc and the store's folder only
 ]
 # Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
 CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "help", "connector", "doctor"}  # T060: `connector_cli`

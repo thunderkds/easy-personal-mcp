@@ -17,6 +17,7 @@ mod legacy;
 mod live_feed;
 mod mcp;
 mod mcp_http;
+mod sampler;
 mod schedule_cmd;
 mod server;
 mod static_files;
@@ -72,6 +73,12 @@ enum Command {
         /// Do not ingest before the start (default: ingest first, as Python's `dashboard`)
         #[arg(long)]
         no_ingest: bool,
+    },
+    /// Machine status of this computer now: CPU, RAM, disk of the store's folder, load, battery, `claude` processes ("no data" where the OS gives none)
+    Machine {
+        /// Print one JSON object (the same keys as a sample of `GET /api/machine`) instead of text
+        #[arg(long)]
+        json: bool,
     },
     /// Print the shared core status (the MCP `ping` text)
     Ping,
@@ -169,6 +176,7 @@ fn main() -> ExitCode {
             window::run(&static_dir, self_test)
         }
         Command::Mcp(args) => mcp::main(args),
+        Command::Machine { json } => cli_cmds::machine(json),
         Command::Ping => cli_cmds::ping(),
         Command::Usage(args) => cli_cmds::usage(args),
         Command::Outliers(args) => cli_cmds::outliers(args),

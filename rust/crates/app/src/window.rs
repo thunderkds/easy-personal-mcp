@@ -141,7 +141,11 @@ mod shell {
             Ok(feed) => feed,
             Err(e) => return fail(&Failure(1, e)),
         };
-        let running = match server::start(Some(&root), Some(feed)) {
+        let machine = match crate::sampler::machine() {
+            Ok(machine) => machine,
+            Err(e) => return fail(&Failure(1, e)),
+        };
+        let running = match server::start(Some(&root), Some(feed), Some(machine)) {
             Ok(running) => running,
             Err(e) => return fail(&Failure(1, e)),
         };

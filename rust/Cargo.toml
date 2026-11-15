@@ -23,3 +23,5 @@ jiff = "=0.2.42"
 # Window shell (T023, spike-T016.md): only built with the app crate's `window` feature. Exact pins, like the spike.
 tauri = "=2.12.5"
 tauri-build = "=2.7.4"
+# Linux `statvfs` for the machine status disk (T072); already in the lock (a transitive crate), so no new download.
+libc = "=0.2.191"
