@@ -66,7 +66,7 @@
   --color-muted: #8c9590;
   --color-faint: #6e7772;
 
-  /* Accent (neon mint) and its tints (alpha 14, 59, 4d); links keep the softer mint; amber; red is for limits of 90 % and more and for errors (6.9:1 on the page) */
+  /* Accent (neon mint) and its tints (alpha 14, 59, 4d); links keep the softer mint; amber; red is for limits of 90 % and more and for errors and problem states (8.1:1 on the page; the artboards use #E8968F) */
   --color-accent: #3cf5a8;
   --color-accent-soft: #3cf5a814;
   --color-accent-line: #3cf5a859;
@@ -75,7 +75,7 @@
   --color-link-hover: #b2edcf;
   --color-amber: #e3b66b;
   --color-amber-soft: #e3b66b1f;
-  --color-red: #ef7b7b;
+  --color-red: #e8968f;
 
   /* Glow (neon pass): text, box, dot and line; each is a full value of text-shadow / box-shadow / filter */
   --glow-text: 0 0 12px #3cf5a859;

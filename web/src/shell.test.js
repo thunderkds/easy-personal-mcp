@@ -34,6 +34,21 @@ describe('rail groups and badge (HUN-160)', () => {
     expect(badge).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(/)
   })
 
+  it('sets First run font sizes from the type tokens, not raw px (T070)', () => {
+    const own = css.split('\n').filter((l) => /first-run/.test(l)).join('\n')
+    expect(own).not.toMatch(/font-size:\s*[\d.]+px/)
+  })
+
+  it('uses the artboard problem red #E8968F, which holds 4.5:1 on the page (T070)', () => {
+    const hex = (name) => tokens.match(new RegExp(`--${name}:\\s*#([0-9a-f]{6})`))[1]
+    const lum = (h) => {
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    expect(hex('color-red')).toBe('e8968f')
+    expect((lum(hex('color-red')) + 0.05) / (lum(hex('color-bg')) + 0.05)).toBeGreaterThanOrEqual(4.5)
+  })
+
   it('styles the First run cards with tokens only', () => {
     const own = css.split('\n').filter((l) => /first-run/.test(l)).join('\n')
     expect(own).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(/)

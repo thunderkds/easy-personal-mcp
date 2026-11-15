@@ -120,6 +120,7 @@ function NotChecked({ abstained, onOpenAgents }) {
             </li>
           ))}
         </ul>
+        <p className="muted">Not measured is not the same as passed.</p>
       </details>
     </section>
   )

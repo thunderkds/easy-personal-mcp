@@ -229,7 +229,15 @@ function StatusLine({ account }) {
   const windows = limits && [limits.five_hour, limits.seven_day].some((w) => w && w.used_percentage !== null && w.used_percentage !== undefined)
   return (
     <div className="status-line">
-      {who && <p className="who">{`👤 ${who}`}</p>}
+      {who && (
+        <p className="who">
+          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="8" cy="5.5" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M3 13.5c.9-2.4 2.8-3.6 5-3.6s4.1 1.2 5 3.6" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+          <span>{who}</span>
+        </p>
+      )}
       <p>{`${s.last_model ? `${s.last_model} · ` : ''}last active ${ago(s.last_active_utc)}`}</p>
       <p>{`Tokens: ${fmt(s.tokens_today)} today · ${fmt(s.tokens_7d)} last 7 days`}</p>
       {windows ? (
@@ -248,7 +256,7 @@ function AccountRow({ account, workspaces, onChanged, justConfirmed }) {
   const { provider, label, folder, status } = account
   const name = label || folder.split('/').filter(Boolean).pop() || folder
   return (
-    <li aria-label={name}>
+    <li aria-label={name} data-status={status}>
       <div className="entry-head">
         <strong>{name}</strong>
         <span className={`label ${status === 'confirmed' ? 'label-improve' : status === 'missing' ? 'label-warning' : 'label-aware'}`}>
@@ -257,7 +265,7 @@ function AccountRow({ account, workspaces, onChanged, justConfirmed }) {
         <span className="muted">{provider}</span>
       </div>
       <p className="muted">{folder}</p>
-      <StatusLine account={account} />
+      {status === 'missing' ? <p className="muted">The folder is gone. Its stored usage stays in reports.</p> : <StatusLine account={account} />}
       {['detected', 'ignored', 'confirmed'].includes(status) && <AccountActions account={account} onChanged={onChanged} />}
       {status === 'confirmed' && justConfirmed && (
         <p role="status" className="muted">
