@@ -61,8 +61,22 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-15T02:46:33Z and 02:46:36Z, branch `T072` at `244e983`, before any implementation commit):
+
+```
+$ cd rust && cargo run -q -p easy-personal-rs -- machine
+error: `cargo run` could not determine which binary to run. Use the `--bin` option to specify a binary, or the `default-run` manifest key.
+available binaries: easy-personal-launch, easy-personal-rs
+
+$ cargo run -q -p easy-personal-rs --bin easy-personal-rs -- machine
+error: unrecognized subcommand 'machine'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+```
+
+(The guide's verification command needs `--bin easy-personal-rs`: the package has two binaries.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
