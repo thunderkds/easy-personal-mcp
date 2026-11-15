@@ -37,6 +37,8 @@ getrandom.workspace = true
 rmcp.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
+# T088: `localtime_r` for the local time of an alert in the tray menu (the workspace's libc, already in Cargo.lock; no new package).
+libc.workspace = true
 futures-core = "=0.3.34"
 keyring = { version = "=3.6.3", default-features = false, features = ["async-secret-service", "tokio", "crypto-rust"] }
 tauri = { workspace = true, optional = true }

@@ -13,7 +13,7 @@
 //! `~/.config/autostart/`), written or removed by `tray --autostart on|off`. Nothing else is written.
 #![cfg_attr(not(feature = "window"), allow(dead_code))]
 
-use crate::alerts::{self, HIGH, LOW_BATTERY};
+use crate::alerts::{self, Alert, HIGH, LOW_BATTERY};
 use easy_personal_core::limits_watch::Round;
 use easy_personal_core::machine::Sample;
 use serde_json::Value;
@@ -64,6 +64,8 @@ pub(crate) fn theme_of(color_scheme: Option<u32>) -> Theme {
 pub(crate) const OPEN: &str = "open";
 pub(crate) const WAITING: &str = "waiting";
 pub(crate) const FAILING: &str = "failing";
+/// "All alerts in dashboard…" (T088): the same handler as [`OPEN`].
+pub(crate) const ALERTS: &str = "alerts";
 pub(crate) const PAUSE: &str = "pause";
 pub(crate) const QUIT: &str = "quit";
 
@@ -214,12 +216,71 @@ fn machine_line(machine: Option<&Sample>) -> String {
     parts.join(" · ")
 }
 
-/// The whole menu at one look, in the approved order.
+/// The alert block shows this many alerts; one more in the list adds the "All alerts in dashboard…" row.
+pub(crate) const ALERTS_SHOWN: usize = 5;
+/// The most characters of an alert's text in a row (a longer text ends with `…`), so a long project name does not widen
+/// the menu.
+const ROW_TEXT_MAX: usize = 60;
+
+/// The local zone's offset from UTC, in seconds, at the UTC time `t` (so a summer-time day is right); 0 when the zone
+/// cannot be read.
+pub(crate) fn local_offset(t: i64) -> i64 {
+    let time: libc::time_t = t;
+    // SAFETY: `localtime_r` only writes into the `tm` given; a zeroed `tm` is a valid value of it.
+    unsafe {
+        let mut tm: libc::tm = std::mem::zeroed();
+        if libc::localtime_r(&time, &mut tm).is_null() {
+            0
+        } else {
+            tm.tm_gmtoff
+        }
+    }
+}
+
+/// (local day number since 1970-01-01, local month, day, hour, minute) of the UTC time `t` in the zone `offset` gives.
+fn local_parts(t: i64, offset: fn(i64) -> i64) -> (i64, i64, i64, i64, i64) {
+    let local = t.saturating_add(offset(t));
+    let days = local.div_euclid(86_400);
+    let secs = local.rem_euclid(86_400);
+    // civil date from the day number (H. Hinnant's days_from_civil, inverted)
+    let z = days + 719_468;
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    (days, month, day, secs / 3_600, secs % 3_600 / 60)
+}
+
+/// `HH:MM · <text>`, or `MM-DD HH:MM · <text>` when the alert is from an earlier local day than `now`; the text cut to
+/// [`ROW_TEXT_MAX`] characters.
+fn alert_row(a: &Alert, now: i64, offset: fn(i64) -> i64) -> String {
+    let (day, month, date, hour, minute) = local_parts(a.t, offset);
+    let when = if day == local_parts(now, offset).0 {
+        format!("{hour:02}:{minute:02}")
+    } else {
+        format!("{month:02}-{date:02} {hour:02}:{minute:02}")
+    };
+    let text = if a.text.chars().count() > ROW_TEXT_MAX {
+        let head: String = a.text.chars().take(ROW_TEXT_MAX - 1).collect();
+        format!("{head}…")
+    } else {
+        a.text.clone()
+    };
+    format!("{when} · {text}")
+}
+
+/// The whole menu at one look, in the approved order. `alerts` is newest first (T088); with none, no block.
+/// `now` is UTC seconds; `offset` gives the local zone's offset at a UTC time ([`local_offset`]).
 pub(crate) fn view(
     live: &Value,
     machine: Option<&Sample>,
     limits: Option<&Round>,
     paused: bool,
+    alerts: &[Alert],
+    now: i64,
+    offset: fn(i64) -> i64,
 ) -> View {
     let state = pick(live, machine, limits);
     let all = sessions(live);
@@ -237,6 +298,18 @@ pub(crate) fn view(
     }
     rows.extend(limit_rows(limits).into_iter().map(Row::Info));
     rows.push(Row::Info(machine_line(machine)));
+    if !alerts.is_empty() {
+        rows.extend([Row::Separator, Row::Info("Recent alerts".into())]);
+        rows.extend(
+            alerts
+                .iter()
+                .take(ALERTS_SHOWN)
+                .map(|a| Row::Info(alert_row(a, now, offset))),
+        );
+        if alerts.len() > ALERTS_SHOWN {
+            rows.push(Row::Action(ALERTS, "All alerts in dashboard…".into()));
+        }
+    }
     rows.extend([
         Row::Separator,
         Row::Action(OPEN, "Open dashboard".into()),
@@ -277,7 +350,17 @@ impl Inputs {
                 .latest()
                 .cloned()
         });
-        view(&live, sample.as_ref(), round.as_ref(), self.alerts.paused())
+        // one more than shown tells `view` whether the "All alerts" row is due; the lock is gone before any row is built
+        let recent = self.alerts.recent(ALERTS_SHOWN + 1);
+        view(
+            &live,
+            sample.as_ref(),
+            round.as_ref(),
+            self.alerts.paused(),
+            &recent,
+            now / 1_000_000,
+            local_offset,
+        )
     }
 }
 
@@ -478,6 +561,17 @@ mod tests {
     use super::*;
     use easy_personal_core::accounts::LimitPercents;
     use serde_json::json;
+
+    /// The menu with no alerts: what every test before T088 calls.
+    fn view(live: &Value, machine: Option<&Sample>, limits: Option<&Round>, paused: bool) -> View {
+        super::view(live, machine, limits, paused, &[], 0, utc)
+    }
+    fn utc(_: i64) -> i64 {
+        0
+    }
+    fn plus7(_: i64) -> i64 {
+        7 * 3600
+    }
 
     fn sample() -> Sample {
         Sample {
@@ -1035,5 +1129,189 @@ mod tests {
             assert!(desktop_entry(ok, Path::new(bad)).is_err(), "{bad:?}");
             assert!(desktop_entry(Path::new(bad), ok).is_err(), "{bad:?}");
         }
+    }
+
+    // -- T088: the "Recent alerts" block ------------------------------------------------------------------------------
+
+    /// 2026-11-15 14:02:00 UTC.
+    const NOW: i64 = 1_794_751_320;
+
+    fn alert(t: i64, text: &str) -> Alert {
+        Alert {
+            t,
+            kind: "disk",
+            text: text.into(),
+            account: None,
+            session: None,
+        }
+    }
+    /// `n` alerts newest first, one minute apart, the newest at `NOW`; texts `a0` (newest), `a1`, ...
+    fn recent(n: usize) -> Vec<Alert> {
+        (0..n)
+            .map(|i| alert(NOW - 60 * i as i64, &format!("a{i}")))
+            .collect()
+    }
+    fn with(alerts: &[Alert], paused: bool, offset: fn(i64) -> i64) -> Vec<Row> {
+        super::view(&Value::Null, None, None, paused, alerts, NOW, offset).rows
+    }
+    /// The rows between the machine line and the second separator, i.e. the alert block (separator included).
+    fn block(rows: &[Row]) -> &[Row] {
+        let from = rows
+            .iter()
+            .position(|r| matches!(r, Row::Info(t) if t == "Machine · no data"))
+            .unwrap()
+            + 1;
+        let to = rows
+            .iter()
+            .position(|r| matches!(r, Row::Action(OPEN, _)))
+            .unwrap();
+        &rows[from..to]
+    }
+
+    /// AC 1: no alert, no block: the rows are today's rows.
+    #[test]
+    fn no_alert_means_no_block() {
+        assert_eq!(
+            with(&[], false, utc),
+            view(&Value::Null, None, None, false).rows
+        );
+        assert_eq!(block(&with(&[], false, utc)), [Row::Separator]);
+    }
+
+    /// AC 2: header, then newest first as `HH:MM · text`; no more row.
+    #[test]
+    fn three_alerts_list_newest_first() {
+        let rows = with(&recent(3), false, utc);
+        assert_eq!(
+            block(&rows),
+            [
+                Row::Separator,
+                Row::Info("Recent alerts".into()),
+                Row::Info("14:02 · a0".into()),
+                Row::Info("14:01 · a1".into()),
+                Row::Info("14:00 · a2".into()),
+                Row::Separator,
+            ]
+        );
+        assert!(!rows.iter().any(|r| matches!(r, Row::Action(ALERTS, _))));
+        // local time: +07:00 moves the clock, the offset is the zone's at that moment
+        assert_eq!(
+            block(&with(&recent(1), false, plus7))[2],
+            Row::Info("21:02 · a0".into())
+        );
+    }
+
+    /// AC 3: at most 5 rows; the dashboard row only above 5.
+    #[test]
+    fn five_rows_at_most_and_a_row_for_the_rest() {
+        for (n, rows, more) in [(1, 1, false), (5, 5, false), (6, 5, true), (50, 5, true)] {
+            let all = with(&recent(n.min(6)), false, utc);
+            let b = block(&all);
+            let shown = b
+                .iter()
+                .filter(|r| matches!(r, Row::Info(t) if t.contains(" · a")))
+                .count();
+            assert_eq!(shown, rows, "{n} alerts");
+            let action = Row::Action(ALERTS, "All alerts in dashboard…".into());
+            assert_eq!(b.contains(&action), more, "{n} alerts");
+            if more {
+                assert_eq!(b[b.len() - 2], action, "the row ends the block");
+            }
+        }
+        // the view is given 6 at most (`Shared::recent(6)`); a longer slice is still cut to 5
+        let b = with(&recent(50), false, utc);
+        let b = block(&b);
+        assert_eq!(b.len(), 1 + 1 + 5 + 1 + 1);
+    }
+
+    /// AC 4: an earlier local day shows the date, in the local zone (18:30 UTC on the 14th is 01:30 on the 15th at +7).
+    #[test]
+    fn an_earlier_day_shows_the_date() {
+        let a = [
+            alert(NOW, "today"),
+            alert(NOW - 86_400, "day before"),
+            alert(NOW - 86_400 * 40, "month before"),
+        ];
+        assert_eq!(
+            block(&with(&a, false, utc))[2..5],
+            [
+                Row::Info("14:02 · today".into()),
+                Row::Info("11-14 14:02 · day before".into()),
+                Row::Info("10-06 14:02 · month before".into()),
+            ]
+        );
+        // 2026-11-14 18:30 UTC is 11-15 01:30 at +7: the same local day as NOW (21:02 at +7), no date
+        let a = [alert(1_794_681_000, "late")];
+        assert_eq!(
+            block(&with(&a, false, plus7))[2],
+            Row::Info("01:30 · late".into())
+        );
+        // the same instants in UTC are two days
+        assert_eq!(
+            block(&with(&a, false, utc))[2],
+            Row::Info("11-14 18:30 · late".into())
+        );
+    }
+
+    /// AC 5: paused stops popups only; the rows stay and the check item is ticked.
+    #[test]
+    fn paused_still_lists_the_alerts() {
+        let rows = with(&recent(2), true, utc);
+        assert_eq!(block(&rows)[2], Row::Info("14:02 · a0".into()));
+        assert!(rows.contains(&Row::Check(PAUSE, "Pause alerts".into(), true)));
+    }
+
+    /// AC 6: the block coming is a rebuild; the same count between two looks is an update in place.
+    #[test]
+    fn the_block_changes_the_shape_once() {
+        let none = with(&[], false, utc);
+        let one = with(&recent(1), false, utc);
+        let two = with(&recent(2), false, utc);
+        let mut changed = recent(2);
+        changed[0].text = "other".into();
+        changed[0].t += 60;
+        assert!(!same_shape(&none, &one), "the first alert");
+        assert!(!same_shape(&one, &two), "a second row");
+        assert!(same_shape(&two, &with(&changed, false, utc)), "same count");
+        assert!(same_shape(
+            &with(&recent(5), false, utc),
+            &with(&recent(5), true, utc)
+        ));
+        assert!(
+            !same_shape(&with(&recent(5), false, utc), &with(&recent(6), false, utc)),
+            "the dashboard row comes"
+        );
+        assert!(same_shape(
+            &with(&recent(6), false, utc),
+            &with(&recent(6), false, utc)
+        ));
+    }
+
+    /// A long text is cut with an ellipsis; a short one is kept whole.
+    #[test]
+    fn a_long_alert_text_is_cut() {
+        let long = "x".repeat(200);
+        let rows = with(&[alert(NOW, &long)], false, utc);
+        let Row::Info(text) = &block(&rows)[2] else {
+            panic!("{rows:?}")
+        };
+        assert_eq!(
+            text.chars().count(),
+            "14:02 · ".chars().count() + ROW_TEXT_MAX
+        );
+        assert!(text.ends_with('…'), "{text}");
+        let fit = "y".repeat(ROW_TEXT_MAX);
+        let rows = with(&[alert(NOW, &fit)], false, utc);
+        assert_eq!(block(&rows)[2], Row::Info(format!("14:02 · {fit}")));
+    }
+
+    /// The real zone lookup answers a plausible offset (within a day) and never panics.
+    #[test]
+    fn the_local_offset_is_within_a_day() {
+        assert!(local_offset(NOW).abs() <= 14 * 3600);
+        assert!(
+            local_offset(i64::MAX).abs() <= 14 * 3600,
+            "an unreadable time gives 0"
+        );
     }
 }
