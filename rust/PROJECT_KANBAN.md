@@ -9,7 +9,7 @@
 ## Board
 
 ### Todo
-- [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
+- [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md` | 2026-11-15: owner go-ahead, Ubuntu only (macOS/Windows stay not planned), given in the second supervisor session ("as your recommend, let continue", relayed); Stage 2 by that session on its own branch; step 0 = owner runs the ignored `real_keychain_items_cross_check`
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
 - [ ] **T076** — Watch 5: `tray` command (tray icon 4 states, native menu, alerts on, XDG autostart) | Backend-Developer | C3 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T076.md` (2026-11-15); Depends on T072-T074; HITL menu check; PRD FR-099

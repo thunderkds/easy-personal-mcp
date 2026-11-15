@@ -57,6 +57,7 @@
 - [T068, T069 merged](decisions.md#2026-11-14--t068-and-t069-merged-top-bar-chips-first-run-rework) — one shared `/api/live` stream (`LiveProvider`); web-only verify = Rust `serve` + CDP screenshot (plain `--screenshot` hangs on SSE).
 - [T066, T067 merged](decisions.md#2026-11-14--t066-and-t067-merged-admin-retire-python-follow-ups-parity-findings-closed) — connector `\r`, echo-off fallback, claude-not-run, remove order, group kill; parity `differs new 0`, `/api/live` charset; runner SIGTERM cleanup
 - [Watch Stage 2; T070-T072, T078 merged](decisions.md#2026-11-15--watch-stage-2-t072-t077-t070-t072-and-t078-merged-done--any-merge-reachable-from-main) — FR-095..100; done = any merge reachable from main (ff hid T070); keychain lib; no claude under write lock
+- [Owner: T062 Ubuntu go, HUN-245 copy, T078 skip](decisions.md#2026-11-15--owner-decisions-relayed-by-the-second-supervisor-session-t062-go-ahead-ubuntu-only-hun-245--copy-t078-d-bus-skip-confirmed) — relayed by the second session; it builds T062 + HUN-245
 ### Learnings
 - [Two supervisors; leak gate routes](learnings.md#2026-11-15--two-supervisor-sessions-in-parallel-new-routes-and-the-leak-gate) — guides must be on main to spawn; register new routes in leak_rust.py; never commit -a on main
 - [Parallel agents in worktrees (T033-T038)](learnings.md#2026-11-11--parallel-agents-in-worktrees-t033-t038) — worktree starts at an older HEAD (commit guides first, ff-merge, apply by patch); venv missing in worktrees; workspaces_parity fails under a hidden path; post-write hook adds root KANBAN rows.

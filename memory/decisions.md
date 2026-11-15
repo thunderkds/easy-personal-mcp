@@ -316,3 +316,13 @@ Open P3s: raw `12.5px`/`13.5px` in First run CSS (`--fs-note`/`--fs-control`); e
 - T072: generic `Sampler<T>` (`rust/crates/app/src/sampler.rs`) and `Ring<T>` (`core::machine`) for T073/T076 reuse; `/api/machine` never opens the store.
 **Why**: owner, 2026-11-15: "continue your work as parallel [admin]".
 **Files**: `PRD.md`, `rust/crates/core/src/{machine,effectiveness,workspaces}.rs`, `rust/crates/app/src/{sampler,launch,main}.rs`, `rust/crates/app/Cargo.toml`
+
+## 2026-11-15 — Owner decisions relayed by the second supervisor session: T062 go-ahead (Ubuntu only), HUN-245 = copy, T078 D-Bus skip confirmed
+
+- Owner answered "as your recommend, let continue" in the second supervisor session (relayed to this session, not seen here first-hand):
+  (a) T062 cutover go-ahead, Ubuntu only; macOS and Windows stay not planned.
+  (b) HUN-245 execution model = copy: the button copies a fixed command and runs nothing (answers PRD open question 34; FR-092 to be amended to the copy model).
+  (c) T078 D-Bus timeout skip confirmed.
+- T062 and HUN-245 are taken by the second session (own worktrees and branches; guides and PRD change on its branch, cherry-picked to main by this session; this session decides merges).
+**Why**: owner, 2026-11-15, in the second session.
+**Files**: `rust/PROJECT_KANBAN.md`, `PRD.md` (FR-092, question 34), `README.md`
