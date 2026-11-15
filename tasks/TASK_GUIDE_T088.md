@@ -125,5 +125,5 @@ Alert rules, `POPUP_GAP`, `DBusNotifier`, `/api/alerts` route, `web/**`, store s
 The ACs above, each as an automated test (1-6), plus AC 7 real run and the verification command's real output.
 
 ## Completion Checklist
-- [ ] Every AC with pasted output in `tasks/TASK_REVIEW_T088.md`
-- [ ] Commits on branch `T088` only; final report with `Status:`
+- [x] Every AC with pasted output in `tasks/TASK_REVIEW_T088.md`
+- [x] Commits on branch `T088` only; final report with `Status:`

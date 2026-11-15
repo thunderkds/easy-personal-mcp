@@ -134,3 +134,13 @@ Supervisor rerun: `cargo test -p easy-personal-rs --features window --bin easy-p
 ## AC 7 — owner real run (2026-11-15)
 
 Owner ran `cargo run --features window --bin easy-personal-rs -- tray --static-dir /usr/share/easy-personal-rs/static` from this worktree (installed tray quit first). First try showed no block: correct, no alert had been raised (a permission prompt is not "waiting"; only an open `AskUserQuestion` / `ExitPlanMode` call is, `core/src/live.rs` `WAITING_TOOLS`). The Supervisor then held an `AskUserQuestion` open; owner opened the tray menu and answered "Block is shown".
+
+## Stage 5 — /verify (Supervisor, 2026-11-15, at c0880db)
+
+Rust recipe in this worktree, temp `EASY_PERSONAL_HOME`:
+- `easy-personal-rs 0.3.0`; `store-info` user_version 11
+- `serve`: `/api/version` with token `{"version":"0.3.0"}`, without token `403`; stopped by PID
+- `mcp`: initialize + `usage_summary` answered
+- `ingest` s3 twice: run 1 new_events 3, run 2 new_events 0, both exit 0
+- leak gate (`env -u CLAUDE_CONFIG_DIR`, the session sets it): `leak check: 0 hits over 42 canaries, 828 surfaces, 1808320 bytes`, exit 0
+- window step: `cargo build --features window`; `app --self-test` → `self-test: ok`, exit 0; plain `cargo build` last
