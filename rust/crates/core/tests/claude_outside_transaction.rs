@@ -178,6 +178,12 @@ fn a_confirmed_rename_commits_once_with_its_repos() {
     })
     .expect("the rename answers");
     assert_eq!(done.status, 0, "{:?}", done.lines);
+    // a replay miss (a call the record pass did not make) skips the account with status 0: it must not happen here
+    assert!(
+        !done.lines.iter().any(|l| l.contains("could not")),
+        "{:?}",
+        done.lines
+    );
     let conn = Connection::open(&store).unwrap();
     let alias: String = conn
         .query_row(

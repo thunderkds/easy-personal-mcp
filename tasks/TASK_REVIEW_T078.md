@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/claude_outside_transaction.rs` (5 tests: move plan + yes, alias, rename/delete, sync apply, confirmed rename commits with repos and no replay miss); `rust/crates/app/src/connector_writes.rs` `a_remove_runs_claude_with_the_write_lock_free`; keychain unit tests now run once in `unittests src/keychain.rs` (7 passed, 1 ignored). RED before the fix: 2 FAILED at 02:56:17Z (see item 2) — pass |
+| Verification command run | ☑ pass | Supervisor, 2026-11-15 03:19Z-03:30Z, worktree T078 at the Stage 4 fix commit: `cargo test --workspace --no-fail-fast` passed=896 failed=0 (second full run; the first had 1 panic in the untouched T066 test `claude_cli::tests::a_timeout_kills_claudes_whole_process_group`, `claude_cli.rs:297` pid file not written within 2 s under load avg 5.5 from parallel builds; that test then passed 5/5 alone: pre-existing timing flake, not T078); `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --check` exit 0; `cargo build --features window` ok; `leak check: 0 hits over 42 canaries, 778 surfaces, 1763251 bytes` — pass |
+| Negative cases hold | ☑ pass | replay miss → account skipped, never guessed (Replay `could_not_run`); a `claude` that cannot run stops asking in that account (`stuck`); T066 rollback tests pass; launcher real run: no args → usage, exit 2; `headers slack` on an empty fake keychain → `easy-personal: connector 'slack' is not configured`, exit 1; `exec 'bad name'` → `easy-personal: invalid connector name`, exit 1 — pass |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15: full suite, clippy, fmt, window build, leak gate, and a real run of the rebuilt `easy-personal-launch` (linked to the `easy_personal_keychain` lib) against a temp fake keychain — feature confirmed working — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...HEAD` (lane_check: `C2, 8 files, 587 lines, EXCEEDS (lines 587 > 500)`, mostly the new test file and task docs; warn-only) plus callers of `change()` (`patch`, `delete`, `move_connector`, `set_alias`), `sync::plan`/`entry_exists`, keychain lib users. Two independent read-only reviewers: correctness/tests P0 0, P1 0, P2 0, P3 3 (2 applied: invariant comment at `sync::plan`, no-replay-miss assertion; 1 accepted: a store change between passes reports "`claude` could not run" for that account, safe, `connector sync` finishes it); security: no findings at or above the bar (P3 note: `cargo test --release` would no longer compile app bin tests using `FileKeychain`; nothing runs release tests) — pass |
+| Full smoke suite still green (no regression) | ☑ pass | same run as the Verification row: 896 passed, 0 failed — pass |
+| **Companion score (easy-verifier)** | ☑ N/A | not run in `[admin]` mode: low signal on this repo (T050 overall 41, change_risk abstained; ~850 KB output) |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | backend only |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | backend only |
+| **UI: Responsiveness at target viewports** | ☑ N/A | backend only |
 
 ---
 
@@ -116,7 +116,7 @@ Why a library and no new crate: the launcher already depended on `easy-personal-
 
 **DELTA**: `keychain.rs` compiles once, a store or write to the keychain cannot be reached by a second copy of the module, and a workspace or connector change no longer holds the store's write lock while `claude` runs.
 
-**WITNESS**: [to be derived by the reviewer from `memory/event-trace/T078.jsonl`; the implementing agent ran the commands above on 2026-11-15, 02:51Z to 03:10Z]
+**WITNESS**: the implementing agent ran BEFORE/AFTER on 2026-11-15, 02:51Z to 03:10Z; the Supervisor (second supervisor session) re-ran the verification command, the RED-to-GREEN core tests and the launcher real run independently on 2026-11-15, 03:19Z to 03:30Z, with `active_task` = T078 written before each run.
 
 
 ---
