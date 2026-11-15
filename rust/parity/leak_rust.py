@@ -106,6 +106,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/store/health": [""],  # T059: also over a store planted with canaries, in `store_check`
     "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
     "/api/machine": [""],  # T072: the in-memory machine status history; no store, no path
+    "/api/limits/history": [""],  # T073: the in-memory plan-limit history; no store, no path
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
