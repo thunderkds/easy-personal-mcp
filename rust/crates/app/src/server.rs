@@ -6,6 +6,7 @@
 //! printed URL fragment (or the window's URL, `app`): no response, error or log line carries it.
 //! `start` is the one way a server is made: `run` (the `serve` subcommand) and the window (`window.rs`) both call it.
 
+use crate::alerts::{self, Notifier};
 use crate::api::{self, Api};
 use crate::live_feed::{LIVE_PATH, LiveFeed};
 use crate::sampler::{self, Sampler};
@@ -191,6 +192,8 @@ pub struct Running {
     machine: Option<Sampler<Sample>>,
     /// The plan-limit sampler (`serve` and `app`, T073); stopped and joined by `stop` (and by drop).
     limits: Option<Sampler<Round>>,
+    /// The alert engine (`serve` and `app` with `--alerts`, T074); stopped and joined by `stop` (and by drop).
+    alerts: Option<Sampler<()>>,
 }
 
 /// How long `stop` waits for requests in flight before it drops them.
@@ -223,6 +226,9 @@ impl Running {
         let Running { runtime, task, .. } = &mut self;
         let _ = runtime.block_on(async { tokio::time::timeout(STOP_GRACE, task).await });
         self.runtime.shutdown_timeout(STOP_GRACE);
+        if let Some(alerts) = self.alerts.take() {
+            alerts.stop();
+        }
         if let Some(machine) = self.machine.take() {
             machine.stop();
         }
@@ -240,11 +246,25 @@ impl Running {
 /// with `None` that route sends the empty snapshot, as Python does with no tail running.
 /// `machine` (the machine status sampler, T072) is what `GET /api/machine` reads; with `None` that route answers an empty history.
 /// `limits` (the plan-limit sampler, T073) is what `GET /api/limits/history` reads, with the same `None` rule.
+/// This one starts no alert engine; `serve` and `app` call [`start_with_alerts`].
+#[cfg(test)]
 pub(crate) fn start(
     static_dir: Option<&Path>,
     feed: Option<LiveFeed>,
     machine: Option<Sampler<Sample>>,
     limits: Option<Sampler<Round>>,
+) -> Result<Running, String> {
+    start_with_alerts(static_dir, feed, machine, limits, None)
+}
+
+/// [`start`] with the alert engine (T074) when `notifier` is given: it reads the feed's tail and the two samplers'
+/// histories, and shows its popups through `notifier`. It starts last, after every step that can fail.
+pub(crate) fn start_with_alerts(
+    static_dir: Option<&Path>,
+    feed: Option<LiveFeed>,
+    machine: Option<Sampler<Sample>>,
+    limits: Option<Sampler<Round>>,
+    notifier: Option<Box<dyn Notifier>>,
 ) -> Result<Running, String> {
     let static_root = static_dir.map(static_files::canonical_root).transpose()?;
     let token = new_token().map_err(|e| format!("no OS random source: {e}"))?;
@@ -255,7 +275,9 @@ pub(crate) fn start(
     let runtime = Runtime::new().map_err(|e| format!("cannot start the runtime: {e}"))?;
     let authenticated = Arc::new(AtomicBool::new(false));
     let stopping = Arc::new(AtomicBool::new(false));
+    let shared = Arc::<alerts::Shared>::default();
     let api = Api::system()
+        .with_alerts(Arc::clone(&shared))
         .with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping))
         .with_machine(machine.as_ref().map(Sampler::history))
         .with_limits(limits.as_ref().map(Sampler::history));
@@ -279,6 +301,17 @@ pub(crate) fn start(
             .await
             .map_err(|e| format!("server stopped: {e}"))
     });
+    let alerts = notifier
+        .map(|notifier| {
+            alerts::start(
+                shared,
+                notifier,
+                feed.as_ref().map(LiveFeed::tail),
+                machine.as_ref().map(Sampler::history),
+                limits.as_ref().map(Sampler::history),
+            )
+        })
+        .transpose()?;
     Ok(Running {
         port,
         token,
@@ -290,17 +323,20 @@ pub(crate) fn start(
         feed,
         machine,
         limits,
+        alerts,
     })
 }
 
 /// The `serve` subcommand: the live feed, `start`, print the two lines Python's `serve()` prints, run until Ctrl-C,
 /// then `stop` (open streams end, the feed's thread is joined).
-pub fn run(static_dir: Option<&Path>) -> Result<(), String> {
-    let mut running = start(
+pub fn run(static_dir: Option<&Path>, alerts: bool) -> Result<(), String> {
+    let notifier = alerts.then(|| Box::new(alerts::DBusNotifier::new()) as Box<dyn Notifier>);
+    let mut running = start_with_alerts(
         static_dir,
         Some(LiveFeed::system()?),
         Some(sampler::machine()?),
         Some(sampler::limits()?),
+        notifier,
     )?;
     let mut out = io::stdout();
     write!(
