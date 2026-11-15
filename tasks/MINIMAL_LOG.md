@@ -3,6 +3,22 @@
 > One Decision record per minimal-track task (`docs/claude-md/tracks.md`), **newest first**: insert each
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
+## T082 — Load-flaky web tests: 20 s test timeout, 10 s Testing Library wait · minimal
+**Asked:** "continue" (second supervisor session, `[admin]`; task offered by the other supervisor `rust-57`: "web/src/App.test.jsx 'opens on Usage and switches in-page between the views without changing the URL fragment' times out at 5 s under load ... same kind, test code only")
+**Decisions:**
+- Track minimal — C1, Risk Low: test configuration only (`web/vitest.config.js`, `web/src/test/setup.js`), no app code, no UI change
+- Fixed suite-wide, not in the one test: under 32 busy loops (load avg ~46) the full suite failed in 3 of 3 runs, and the failures were spread over several files — the named App test (4606-5897 ms), `the Usage period is app-wide…`, `global scope selector… AC4`, `Timeline… AC1: 60 sessions` (7196 ms), two `UsageView` tests (5689-5715 ms). A per-test timeout would leave the others
+- `testTimeout` 5 s → 20 s (vitest config) and `asyncUtilTimeout` 3 s → 10 s (setup.js; same reason HUN-121 raised it from 1 s). A real failure still fails: it only takes longer to report
+- Assumed: no test waits for the full Testing Library timeout on purpose (grep: no `rejects` on a `findBy`, no `waitForElementToBeRemoved`), so the unloaded suite is not slower: 18.19 s
+**Checked:**
+- Before (old config): the named test alone, unloaded: 403-525 ms. Alone, 6 runs under 24 busy loops: all passed. Full suite under 32 busy loops: failed 3 of 3 runs (`Tests  1 failed | 913 passed (914)` and two runs with 4 failures)
+- After: full suite under the same 32 busy loops: `Tests  914 passed (914)` in 3 of 3 runs (87-89 s); unloaded: `Test Files  27 passed (27)`, `Tests  914 passed (914)`, 18.19 s (2026-11-15 09:00Z)
+- Mutant: the named test looking for a heading `Totals-mutant` fails (`Unable to find role="heading" and name "Totals-mutant"`, 10043 ms); restored afterwards
+- Build: `npm --prefix web run build` — `✓ built`
+- Real run: test-only change; the runs above are the run
+**Files:** `web/vitest.config.js`, `web/src/test/setup.js`, `tasks/MINIMAL_LOG.md`
+**Not done:** merge (the other supervisor / the owner decides); the board row (the other supervisor owns the board)
+
 ## T081 — Load-flaky `live_feed` panic test: wait for the third step, not a fixed 550 ms sleep · minimal
 **Asked:** "continue" (second supervisor session, `[admin]`; task agreed with the other supervisor `rust-57`: "take the live_feed `a_step_that_panics_is_skipped_and_the_thread_goes_on` load flake as a T079-style minimal fix (test code only, next free T-number, own branch)")
 **Decisions:**
