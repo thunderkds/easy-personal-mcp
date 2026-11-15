@@ -20,7 +20,7 @@
 use crate::kitperf;
 use crate::metrics::{
     MetricsError, bounds, folder, local_day, owner_map, parse_iso, period, period_json, round_py,
-    run_git_within, stored_branches, text,
+    run_git_answer, stored_branches, text,
 };
 use crate::prices::PriceTable;
 use crate::scope::{self, Clause, Scope};
@@ -30,11 +30,13 @@ use rusqlite::{Connection, params_from_iter};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 type Result<T> = std::result::Result<T, MetricsError>;
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(5);
+/// All git work of one request (every project's done time) ends by then; a project not reached is unknown.
+const GIT_BUDGET: Duration = Duration::from_secs(10);
 const UNATTRIBUTED_PREFIXES: [&str; 2] = ["worktree-agent-", "fix-"];
 
 /// The first task id in a branch name, or `None` for an id-less (or excluded) branch.
@@ -182,36 +184,41 @@ fn main_threads(conn: &Connection) -> Result<HashMap<String, String>> {
 }
 
 /// Branch -> its first merge time (unix seconds) into `main` (else `master`), among the merges reachable from it;
-/// `None` when the folder has no git history or neither branch. Only an absolute path is read: an empty or relative
+/// `None` (done time unknown) when the folder has no git history or neither branch, or when git fails or does not
+/// answer before `deadline` (one deadline for the whole request). Only an absolute path is read: an empty or relative
 /// project would otherwise be resolved against the process's working folder.
-fn first_merges(repo: &str) -> Option<HashMap<String, i64>> {
+fn first_merges(repo: &str, deadline: Instant) -> Option<HashMap<String, i64>> {
     if !Path::new(repo).is_absolute() || !Path::new(repo).join(".git").exists() {
         return None;
     }
+    // each call gets at most GIT_TIMEOUT and never more than what is left of the request's deadline
+    let git = |args: &[&str]| {
+        let left = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|d| !d.is_zero())?;
+        run_git_answer(repo, args, left.min(GIT_TIMEOUT))
+            .ok()
+            .flatten()
+    };
     let main = ["main", "master"].into_iter().find(|b| {
-        run_git_within(
-            repo,
-            &[
-                "rev-parse",
-                "--verify",
-                "--quiet",
-                &format!("refs/heads/{b}"),
-            ],
-            GIT_TIMEOUT,
-        )
-        .is_some()
+        git(&[
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            &format!("refs/heads/{b}"),
+        ])
+        .is_some_and(|t| !t.trim().is_empty())
     })?;
-    let log = run_git_within(
-        repo,
-        &[
-            "log",
-            "--merges",
-            "--format=%ct%x09%s",
-            &format!("refs/heads/{main}"),
-        ],
-        GIT_TIMEOUT,
-    )
-    .unwrap_or_default(); // empty output: no merge yet
+    // `--grep` is a fixed string here (`--fixed-strings`), so only merge commits named `Merge branch '...` are listed;
+    // an empty answer of a git that succeeded is "no merge yet", a failure or a timeout is unknown
+    let log = git(&[
+        "log",
+        "--merges",
+        "--fixed-strings",
+        "--grep=Merge branch '",
+        "--format=%ct%x09%s",
+        &format!("refs/heads/{main}"),
+    ])?;
     let mut first = HashMap::new();
     for line in log.lines() {
         let Some((secs, subject)) = line.split_once('\t') else {
@@ -363,13 +370,14 @@ pub fn effectiveness_in(
 
     // done time from local git, once per project
     let mut merges: HashMap<String, Option<HashMap<String, i64>>> = HashMap::new();
+    let deadline = Instant::now() + GIT_BUDGET;
     let mut no_git: BTreeSet<String> = BTreeSet::new();
     let (mut done_count, mut done_tokens) = (0_i64, 0_i64);
     let mut rows: Vec<(i64, Value)> = Vec::new();
     for ((project, id), line) in &tasks {
         let known = merges
             .entry(project.clone())
-            .or_insert_with(|| first_merges(project));
+            .or_insert_with(|| first_merges(project, deadline));
         // only a branch that holds this task's id makes it done (not a sub-agent's shared `worktree-agent-*`)
         let done = known.as_ref().map(|m| {
             line.branches
@@ -430,7 +438,7 @@ pub fn effectiveness_in(
     let mut notes = Vec::new();
     if !no_git.is_empty() {
         notes.push(format!(
-            "no local git history for {}: done time unknown",
+            "no local git history for {} (or git failed or did not answer in time): done time unknown",
             no_git.into_iter().collect::<Vec<_>>().join(", ")
         ));
     }
