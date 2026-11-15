@@ -60,6 +60,7 @@ type Sides = (Vec<f64>, Vec<f64>);
 
 #[derive(Default)]
 struct Row {
+    session: String,
     tokens: i64,
     cost: Option<f64>,
     assistants: i64,
@@ -272,6 +273,7 @@ fn session_rows(
             rows.insert(
                 session.clone(),
                 Row {
+                    session: session.clone(),
                     cost: Some(0.0),
                     ..Row::default()
                 },
@@ -534,6 +536,20 @@ fn as_json(f: &Finding, text: &str) -> Value {
         "server": f.server, "measure": f.measure, "delta_pct": f.delta, "with": f.with, "without": f.without,
         "text": text, "habit": f.habit,
     })
+}
+
+/// Per compared session (one with a tool call): its id, main project path, branch and good result (FR-061: 1, 0, or
+/// `None` = unknown), as `kit_findings` computes them for events from `since_utc` (stored form) on. For
+/// `effectiveness.rs`; the ids stay in the core.
+pub(crate) fn session_results(
+    conn: &Connection,
+    since_utc: Option<&str>,
+) -> Result<Vec<(String, Option<String>, Option<String>, Option<i64>)>> {
+    let prices = PriceTable::shipped().map_err(MetricsError::Prices)?;
+    Ok(prepare(conn, since_utc, &prices, KIT_ERROR_RATE)?
+        .into_iter()
+        .map(|r| (r.session, r.path, r.branch, r.good_result))
+        .collect())
 }
 
 /// [`kit_findings`] with `since` read in the machine's local zone (Python's `astimezone()`).

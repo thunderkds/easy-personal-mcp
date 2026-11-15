@@ -3,6 +3,7 @@ pub mod board;
 pub mod catalog;
 pub mod clock;
 pub mod easymem;
+pub mod effectiveness;
 pub mod first_run;
 pub mod folders;
 pub mod ingest;

@@ -61,8 +61,39 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured by backend-developer on the clean tree (HEAD `244e983`, no T075 change; work stashed), before any T075 commit.
+The guide's command as written cannot reach `effectiveness`: `cargo run -p easy-personal-rs` needs `--bin easy-personal-rs`
+(the package has two binaries), so the same check was also run with `--bin`. The one failed test (`ingest_coexist`,
+`a_killed_rust_ingest_leaves_whole_files_and_a_rust_rerun_equals_a_clean_run`) fails on clean main, before T075.
+
+```
+2026-11-15T02:54:11Z
+HEAD 244e983, clean tree
+$ cd rust && cargo test --workspace 2>&1 | tail -5 && cargo run -q -p easy-personal-rs -- effectiveness
+    a_killed_rust_ingest_leaves_whole_files_and_a_rust_rerun_equals_a_clean_run
+
+test result: FAILED. 13 passed; 1 failed; 10 ignored; 0 measured; 0 filtered out; finished in 112.92s
+
+error: test failed, to rerun pass `-p easy-personal-rs --test ingest_coexist`
+error: `cargo run` could not determine which binary to run. Use the `--bin` option to specify a binary, or the `default-run` manifest key.
+available binaries: easy-personal-launch, easy-personal-rs
+exit=101
+2026-11-15T02:59:21Z
+2026-11-15T02:59:33Z
+$ EASY_PERSONAL_HOME=<empty temp dir> cargo run -q -p easy-personal-rs --bin easy-personal-rs -- effectiveness
+info: syncing channel updates for stable-x86_64-unknown-linux-gnu
+info: latest update on 2026-11-12 for version 1.100.0 (0ef1bc386 2026-11-09)
+info: downloading 5 components
+warn: the missing active toolchain `stable-x86_64-unknown-linux-gnu` has been auto-installed
+warn: this might cause rustup commands to take longer time to finish than expected
+info: you may opt out with `RUSTUP_AUTO_INSTALL=0` or `rustup set auto-install disable`
+error: unrecognized subcommand 'effectiveness'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+exit=2
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
