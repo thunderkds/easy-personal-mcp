@@ -54,6 +54,8 @@ claude mcp add --scope user easy-personal -- /usr/bin/easy-personal-rs mcp
 easy-personal-rs tray --static-dir /usr/share/easy-personal-rs/static --autostart on   # optional: tray at login
 ```
 
+The tray icon needs a tray host. On Ubuntu GNOME that is the "Ubuntu AppIndicators" extension: if the tray prints `no tray area (no StatusNotifier host)`, run `gnome-extensions enable ubuntu-appindicators@ubuntu.com` and log in again. Alerts work without it.
+
 For a second Claude account, put `CLAUDE_CONFIG_DIR="$HOME/.claude-work"` (its folder) in front of the `claude` command. The dashboard needs the page folder: `easy-personal-rs dashboard --static-dir /usr/share/easy-personal-rs/static`, or use the menu entry.
 
 ## Relation to the cutover install
