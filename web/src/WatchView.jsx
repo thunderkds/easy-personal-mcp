@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import { compact } from './format.js'
-import { useLoad } from './useLoad.js'
 
+const REFRESH_MS = 60_000 // the sampler interval
 const DAY_S = 86400
 const W = 200
 const H = 40
@@ -15,13 +16,12 @@ const gb = (bytes) => (bytes / 2 ** 30).toFixed(1)
 const ratio = (used, total) => (used === null || total === null || !total ? null : (used / total) * 100)
 
 /**
- * The line of `points` ([{t, v}], oldest first) over the 24 h that end at the last point, as SVG path text.
+ * The line of `points` ([{t, v}], oldest first) over the 24 h that end at `end` (the shared "now"), as SVG path text.
  * A `null` value or a pause longer than `gapS` ends the piece, so a gap is drawn as a gap, never as 0.
  * A piece of one reading is a zero-length line (a dot with a round cap). `max` is the top of the scale.
  */
-export function linePath(points, max, gapS) {
+function linePath(points, max, gapS, end) {
   if (points.length === 0) return ''
-  const end = points.at(-1).t
   const x = (t) => Math.max(0, ((t - (end - DAY_S)) / DAY_S) * W)
   const y = (v) => H - PAD - (Math.min(Math.max(v, 0), max) / max) * (H - 2 * PAD)
   const pieces = []
@@ -53,22 +53,60 @@ function Chart({ label, tall, children }) {
   )
 }
 
-/** One part of the page: its heading, then a loading line, an error line or `children(data)`. */
+/**
+ * Read `path` now and every 60 s while the view is open. A tick is skipped while the earlier read is in flight.
+ * A failed read keeps the last good `data` next to the error: {status: 'loading'|'ready'|'error', data, message}.
+ */
+function useWatched(path) {
+  const [state, setState] = useState({ status: 'loading' })
+  useEffect(() => {
+    let current = true
+    let busy = false
+    const read = () => {
+      if (busy) return
+      busy = true
+      getJson(path)
+        .then(
+          (data) => current && setState({ status: 'ready', data }),
+          (error) => current && setState((s) => ({ status: 'error', message: error.message, data: s.data })),
+        )
+        .finally(() => {
+          busy = false
+        })
+    }
+    read()
+    const timer = setInterval(read, REFRESH_MS)
+    return () => {
+      current = false
+      clearInterval(timer)
+    }
+  }, [path])
+  return state
+}
+
+/** The newest sample time of all the graphs (`null` when there is no sample): every graph ends there. */
+function newestSample(machine, limits) {
+  const times = [machine?.samples.at(-1)?.t, ...(limits?.accounts ?? []).map((a) => a.samples.at(-1)?.t)].filter((t) => t !== undefined)
+  return times.length ? Math.max(...times) : null
+}
+
+/** One part of the page: its heading, an error line (the last good data stays below it), a loading line or `children(data)`. */
 function Part({ id, title, label, read, children }) {
   return (
     <section className="card" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
-      {read.status === 'error' ? (
+      {read.status === 'error' && (
         <p role="alert" className="error">
           Could not load {label}: {read.message}
         </p>
-      ) : read.status === 'loading' ? (
+      )}
+      {read.status === 'loading' ? (
         <p role="status" className="part-loading muted">
           <span className="spinner" aria-hidden="true" />
           Loading {label}
         </p>
       ) : (
-        children(read.data)
+        read.data && children(read.data)
       )}
     </section>
   )
@@ -103,7 +141,7 @@ const TILES = [
   { name: 'Claude processes', of: (s) => s.claude_procs, max: null, show: (s) => (s.claude_procs === null ? 'no data' : String(s.claude_procs)) },
 ]
 
-function Machine({ data }) {
+function Machine({ data, now }) {
   if (data.samples.length === 0) return <p className="muted">No samples yet. The first one comes within a minute.</p>
   const latest = data.latest ?? data.samples.at(-1)
   const gapS = 2 * data.interval_s
@@ -112,7 +150,7 @@ function Machine({ data }) {
       {TILES.map((tile) => {
         const points = data.samples.map((s) => ({ t: s.t, v: tile.of(s) }))
         const top = tile.max ?? Math.max(1, ...points.map((p) => p.v ?? 0))
-        const d = linePath(points, top, gapS)
+        const d = linePath(points, top, gapS, now)
         const value = tile.show(latest)
         const note = tile.note?.(latest)
         return (
@@ -130,15 +168,15 @@ function Machine({ data }) {
 
 const limitClass = (v) => (v !== null && v !== undefined && v >= 90 ? 'limit-red' : undefined)
 
-function Limits({ data }) {
+function Limits({ data, now }) {
   if (data.accounts.length === 0) return <p className="muted">No Claude account yet.</p>
   const gapS = 2 * data.interval_s
   return (
     <div className="watch-accounts">
       {data.accounts.map((account) => {
         const last = account.samples.at(-1) ?? { five_h_pct: null, seven_d_pct: null }
-        const five = linePath(account.samples.map((s) => ({ t: s.t, v: s.five_h_pct })), 100, gapS)
-        const seven = linePath(account.samples.map((s) => ({ t: s.t, v: s.seven_d_pct })), 100, gapS)
+        const five = linePath(account.samples.map((s) => ({ t: s.t, v: s.five_h_pct })), 100, gapS, now)
+        const seven = linePath(account.samples.map((s) => ({ t: s.t, v: s.seven_d_pct })), 100, gapS, now)
         const ref = H - PAD - 0.9 * (H - 2 * PAD)
         return (
           <section key={account.id} className="watch-account" aria-labelledby={`watch-account-${account.id}`}>
@@ -231,18 +269,19 @@ function Effectiveness({ data }) {
 
 /** The Watch view (FR-100): 24 h machine status, 24 h plan limits per account and effectiveness per task. Read-only. */
 export default function WatchView() {
-  const machine = useLoad(() => getJson('/api/machine'))
-  const limits = useLoad(() => getJson('/api/limits/history'))
-  const effectiveness = useLoad(() => getJson('/api/effectiveness'))
+  const machine = useWatched('/api/machine')
+  const limits = useWatched('/api/limits/history')
+  const effectiveness = useWatched('/api/effectiveness')
+  const now = newestSample(machine.data, limits.data)
   return (
     <main className="watch">
       <h1>Watch</h1>
       <p className="muted">Last 24 h, one sample a minute. Kept in memory: the graphs start empty after a restart.</p>
       <Part id="watch-machine" title="Machine" label="machine status" read={machine}>
-        {(data) => <Machine data={data} />}
+        {(data) => <Machine data={data} now={now} />}
       </Part>
       <Part id="watch-limits" title="Plan limits" label="plan limits" read={limits}>
-        {(data) => <Limits data={data} />}
+        {(data) => <Limits data={data} now={now} />}
       </Part>
       <Part id="watch-effectiveness" title="Effectiveness" label="effectiveness" read={effectiveness}>
         {(data) => <Effectiveness data={data} />}

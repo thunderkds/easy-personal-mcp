@@ -61,8 +61,21 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-15T09:52:43Z on branch T083 at b4c8469 (no implementation commit yet; the new T083 tests exist only in the working tree). Command: `cd web && npx vitest run src/WatchView.test.jsx` (new tests added for AC1-AC3; `grep setInterval src/WatchView.jsx` finds nothing, and `export function linePath` is still at line 22):
+```
+ FAIL  ... > refresh every 60 s (T083 AC1, AC2) > reads each of the three routes again after 60 s, and stops when the view closes
+AssertionError: expected "vi.fn()" to be called 6 times, but got 3 times
+ FAIL  ... > refresh every 60 s > skips a tick while the earlier read of that route is still in flight
+AssertionError: expected "vi.fn()" to be called 6 times, but got 3 times
+ FAIL  ... > refresh every 60 s > keeps the last good data and shows the error line when a refresh fails; the next good read clears it
+ FAIL  ... > refresh every 60 s > shows newer rows after a refresh
+ FAIL  ... > graphs share one "now" (T083 AC3) > a limits series that stopped 1 h earlier ends before the right edge
+AssertionError: expected 200 to be close to 191.66666666666666, received difference is 8.333333333333343, but expected 0.05
+ FAIL  ... > graphs share one "now" (T083 AC3) > a machine series ends at the newest sample of the limits, not at its own last sample
+AssertionError: expected 200 to be close to 191.66666666666666, received difference is 8.333333333333343, but expected 0.05
+ Test Files  1 failed (1)
+      Tests  6 failed | 28 passed (34)
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
