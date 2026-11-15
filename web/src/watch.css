@@ -6,9 +6,10 @@
 .watch-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-4); }
 .watch-tile { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius); }
 .watch-tile .kpi-name, .watch-tile .kpi-value, .watch-tile .kpi-note { margin: 0; }
+.watch-tile .kpi-value { margin-bottom: var(--space-2); }
 
 /* Graphs: a null reading or a pause breaks the path (a gap), so nothing is ever drawn at 0 */
-.watch-chart { display: block; width: 100%; height: 3rem; margin-top: var(--space-2); overflow: visible; }
+.watch-chart { display: block; width: 100%; height: 3rem; margin-top: auto; overflow: visible; }
 .watch-chart-tall { height: 6rem; }
 .watch-line { stroke: var(--color-accent); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; filter: var(--glow-line); }
 .watch-line-7d { stroke: var(--color-amber); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
@@ -30,4 +31,6 @@
 /* Effectiveness: the table scrolls inside its frame, never the page */
 .watch .table-wrap { max-width: 100%; }
 .watch table { min-width: 44rem; }
+.watch .table-frame th, .watch .table-frame td { padding-inline: var(--space-3); white-space: nowrap; }
+.watch .table-frame thead th { white-space: normal; vertical-align: bottom; }
 .watch-unattributed th, .watch-unattributed td { color: var(--color-muted); }
