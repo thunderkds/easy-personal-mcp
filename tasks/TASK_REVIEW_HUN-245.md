@@ -61,8 +61,18 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-15T05:29Z, base commit `4c12530`, before any implementation commit; Rust `serve --no-ingest --static-dir` on a temp store holding workspaces `company` (2 repos, one path with a space and a `'`), `solo` (1 repo), `empty` (0 repos)):
+
+```
+$ grep -c 'Copy a Claude command' dist-before/assets/*.js      # build of the unmodified worktree
+0
+$ grep -c 'claude --continue' dist-before/assets/*.js
+0
+```
+
+Screenshots of the Workspaces page today, no copy block on any card (overflow 0 px at both sizes):
+- `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/before-1280x720-before.png`
+- `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/before-390x844-before.png`
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
