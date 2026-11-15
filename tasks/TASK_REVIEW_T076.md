@@ -84,9 +84,43 @@ $ ls $XDG_CONFIG_HOME/autostart
 ls: cannot access '/tmp/tmp.qUaeGVdD0E/autostart': No such file or directory
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: same binary, same temp `XDG_CONFIG_HOME` pattern, branch `T076` (default build answers exit 4 for `tray`; the window build below). Captured by backend-developer:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```text
+2026-11-15T08:33:09Z
+$ tray --autostart on --static-dir web
+autostart on: wrote $SCRATCH/tmp.bRiWLzX5sm/autostart/easy-personal-tray.desktop
+exit 0
+$ find $XDG_CONFIG_HOME
+$XDG_CONFIG_HOME
+$XDG_CONFIG_HOME/autostart
+$XDG_CONFIG_HOME/autostart/easy-personal-tray.desktop
+$ cat the entry
+[Desktop Entry]
+Type=Application
+Name=Easy Personal tray
+Comment=Tray icon and desktop alerts of easy-personal
+Exec="/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T076/rust/target/debug/easy-personal-rs" tray --static-dir "$SCRATCH/web"
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+$ tray --autostart off
+autostart off: removed $SCRATCH/tmp.bRiWLzX5sm/autostart/easy-personal-tray.desktop
+exit 0
+$XDG_CONFIG_HOME
+$XDG_CONFIG_HOME/autostart
+$ tray --autostart off (again)
+autostart off: $SCRATCH/tmp.bRiWLzX5sm/autostart/easy-personal-tray.desktop was not there
+exit 0
+$ tray --autostart on (no --static-dir)
+easy-personal-rs: tray --autostart on needs --static-dir <DIR>
+exit 2
+$ tray with no display
+easy-personal-rs: no display: neither WAYLAND_DISPLAY nor DISPLAY is set (serve, mcp and store-info need no display)
+exit 5
+```
+
+**DELTA**: the user can run `easy-personal-rs tray --static-dir <DIR>` to get one tray process (live tail, samplers, alerts on) with a state icon and a native menu, and `tray --autostart on|off` to start it at login; before, `tray` was an unknown subcommand (exit 2).
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T076.jsonl`, never the
 implementing agent alone]
@@ -126,3 +160,73 @@ Differences from the canvas (proposed cuts; owner to confirm):
 
 1. Menu rows: "Approve as listed". All 10 rows are approved; row 4 (`<n> failing · <project>`) is KEPT. The listed differences from the canvas are accepted (no ingest row and no "Run ingest now", no reset time, "Pause alerts" with no timer, text only).
 2. State rule: "Approved plan". Restated intent 1 wins over the canvas: attention = a session waiting or a plan limit >= 90 %; problem = a failing session or a machine-pressure alert.
+
+---
+
+## Implementer evidence (backend-developer, 2026-11-15)
+
+Tests were written in the same step as `tray.rs` (no separate red run was captured; the first run passed).
+
+**AC 1 (state pick), AC 2 (autostart), AC 3 (single instance, no tray area)**: `rust/crates/app/src/tray.rs` `mod tests` (13 tests). Window build, `cargo test --features window -p easy-personal-rs --bin easy-personal-rs -- window:: tray::`:
+
+```text
+test tray::tests::an_entry_refuses_a_path_it_cannot_carry ... ok
+test tray::tests::autostart_makes_the_folder_and_refuses_a_symlink ... ok
+test tray::tests::autostart_path_follows_the_xdg_rules ... ok
+test tray::tests::no_secret_or_markup_reaches_a_row ... ok
+test tray::tests::autostart_writes_and_removes_only_its_file ... ok
+test tray::tests::rows_say_no_data_and_never_zero ... ok
+test tray::tests::several_projects_and_accounts_and_failing_rows ... ok
+test tray::tests::the_lock_lets_one_tray_run ... ok
+test tray::tests::the_menu_has_the_approved_rows_in_order ... ok
+test tray::tests::the_state_is_the_most_urgent_input ... ok
+test tray::tests::the_theme_is_light_only_when_the_desktop_says_light ... ok
+test tray::tests::the_lock_falls_back_beside_the_store ... ok
+test window::tests::a_blocked_url_is_logged_by_host_only ... ok
+test window::tests::the_compiled_capability_set_is_empty ... ok
+test window::tests::everything_else_is_blocked ... ok
+test window::tests::no_capability_file_exists_and_no_tauri_feature_adds_power ... ok
+test window::tests::only_the_servers_own_origin_is_allowed ... ok
+test window::tests::the_tauri_config_gives_the_page_no_power ... ok
+test tray::tests::no_bus_means_no_tray_area_and_the_dark_theme ... ok
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 153 filtered out; finished in 0.01s
+```
+
+**AC 4, verification command** (`cd rust && cargo build --features window 2>&1 | tail -2 && cargo test --workspace 2>&1 | tail -5`, 2026-11-15T08:41:18Z): the build finished (`Finished \`dev\` profile [unoptimized + debuginfo] target(s) in 29.40s`). The test run stopped at `memgraph_parity::two_hundred_thousand_links_are_counted_in_time ... FAILED`. That is a timing test in `crates/core` that this task does not touch. It passed alone at 2026-11-15T08:47:44Z (`test result: ok. 1 passed`). Then `cargo test --workspace --no-fail-fast`: `suite exit 0`, 91 test binaries, **984 passed, 0 failed, 28 ignored**. `cargo clippy --all-targets` (default) and `cargo clippy --all-targets --features window -p easy-personal-rs`: no warning. `cargo fmt --all` applied.
+
+**AC 4, real run on this desktop (Ubuntu GNOME 50.1, Wayland)**:
+- Real session bus: `ubuntu-appindicators@ubuntu.com` is installed but `Enabled: No`, `State: INACTIVE`, and `NameHasOwner org.kde.StatusNotifierWatcher` = `(false,)`. The tray printed `easy-personal-rs: no tray area (no StatusNotifier host): the tray icon is not shown; alerts keep working` once, kept running, and stopped on SIGTERM. Restated intent 3 / the "GNOME without AppIndicator" edge case was observed live. A second `tray` printed `easy-personal-rs: a tray already runs for this user` and exited 0.
+- The panel screenshot of the icon and the open menu was **not taken**. This desktop has no tray area, and enabling the extension changes desktop config, which the guide forbids. Owner step: `gnome-extensions enable ubuntu-appindicators@ubuntu.com`, then `rust/target/debug/easy-personal-rs tray --static-dir <built web/dist>` (window build), click the icon, and take the screenshot.
+- Instead, on a private test bus (`dbus-daemon --session`) with a stand-in StatusNotifierWatcher, the tray registered `/org/ayatana/NotificationItem/tray_icon_tray_app_easy_personal`. `EASY_PERSONAL_HOME` pointed at an empty temp folder, so the state was idle. The exported menu (`com.canonical.dbusmenu.GetLayout`) read:
+
+```text
+2 'label': <'Easy Personal · idle'>, 'enabled': <false>
+3 'enabled': <true>, 'type': <'separator'>
+4 'label': <'No sessions running'>, 'enabled': <false>
+5 'label': <'5h limit · no data · 7d · no data'>, 'enabled': <false>
+6 'label': <'CPU no data · RAM 28 % · disk 20 %'>, 'enabled': <false>
+7 'enabled': <true>, 'type': <'separator'>
+8 'label': <'Open dashboard'>, 'enabled': <true>
+9 'label': <'Pause alerts'>, 'enabled': <true>, 'toggle-type': <'checkmark'>, 'toggle-state': <0>
+10 'enabled': <true>, 'type': <'separator'>
+11 'label': <'127.0.0.1 · local only'>, 'enabled': <false>
+12 'label': <'Quit'>, 'enabled': <true>
+```
+
+- The icon file the item served (`IconName` = `/run/user/1000/tray-icon/tray-icon-easy-personal-0.png`, 32x32) has `magick compare -metric AE` = `0` differing pixels against `icons/tray/dark/idle-32.png`. That is the T071 icon (dark theme: the portal is unreachable on the test bus).
+- Clicking `Pause alerts` (dbusmenu `Event clicked`) made the next rebuilt menu show `'Pause alerts'`, `'toggle-state': <1>`.
+- `Open dashboard` opened one window `easy-personal` (X11 backend, `xwininfo` count 0 -> 2 frame+client). A second click made no second window (count stays 2). After Wnck closed the window, the tray kept running, and `Open dashboard` opened it again. `Quit` ended the process with `exit 0`, and the icon temp file was removed. SIGTERM printed `stopping on a signal` and exited 0. With no display, `tray` exited 5 (output in AFTER).
+
+**Leak gate**: no new `/api` route, so nothing was registered in `rust/parity/leak_rust.py`. The pause toggle sets the same in-memory flag as `POST /api/alerts/pause`.
+
+**Dependency rule**: no new crate. Feature `tauri/tray-icon` was added to the `window` feature. `tray-icon` 0.25.1, `libappindicator` 0.9.0 and `muda` 0.20.0 were already in `Cargo.lock`, which is unchanged. At run time it loads `libayatana-appindicator3.so.1`, which is installed. The T023 test `no_capability_file_exists_and_no_tauri_feature_adds_power` now expects this one feature (`tray-icon` left its forbidden list). `the_compiled_capability_set_is_empty` still passes.
+
+**Cut list**:
+- The icon follows the current values with no 85 % re-arm band (the popups keep theirs).
+- The theme is read once at start.
+- No ingest at tray start (`app` ingests by default).
+- The waiting/failing rows open the dashboard, not the Live view directly.
+- One icon size (32 px; the panel scales it).
+- `--autostart on` refuses paths holding `" ` $ \ %` or control characters instead of escaping them.
+- Non-Linux trays (out of scope).
+

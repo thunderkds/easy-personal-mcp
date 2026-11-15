@@ -24,6 +24,8 @@ mod server;
 mod static_files;
 mod store_check_cmd;
 mod sync_apply;
+#[cfg(any(feature = "window", test))]
+mod tray;
 mod window;
 mod writes;
 
@@ -134,6 +136,15 @@ enum Command {
         #[arg(long)]
         alerts: bool,
     },
+    /// Show a tray icon with the live state and raise desktop alerts, in one process per user (needs a build with `--features window`)
+    Tray {
+        /// Serve the built dashboard's files from this folder ("Open dashboard" shows it)
+        #[arg(long, value_name = "DIR")]
+        static_dir: Option<PathBuf>,
+        /// Write (on) or remove (off) the login entry `$XDG_CONFIG_HOME/autostart/easy-personal-tray.desktop`, then exit
+        #[arg(long, value_parser = ["on", "off"])]
+        autostart: Option<String>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -186,6 +197,10 @@ fn main() -> ExitCode {
             }
             window::run(&static_dir, self_test, alerts)
         }
+        Command::Tray {
+            static_dir,
+            autostart,
+        } => window::tray(static_dir.as_deref(), autostart.as_deref()),
         Command::Mcp(args) => mcp::main(args),
         Command::Machine { json } => cli_cmds::machine(json),
         Command::Ping => cli_cmds::ping(),

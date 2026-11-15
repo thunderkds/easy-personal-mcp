@@ -22,6 +22,9 @@
 //! `snapshot` with the snapshot keys. Then it prints `self-test: live snapshot ok` and `self-test: ok` and exits 0,
 //! else exits 3.
 //!
+//! The `tray` subcommand (T076) lives here too: one lock per user, the same server with the alert engine on, a tray
+//! icon and native menu (`tray.rs` builds the rows), and the same window opened from "Open dashboard".
+//!
 //! Not done here: macOS and Windows. They need no display preflight (a window server is always there; `display.rs` is
 //! Unix-only) and use other webviews (WKWebView, WebView2), the signal watch uses Unix signals, and the icon is a PNG
 //! (no `.icns` or `.ico` yet). A second launch does not focus the first (RS-005's last clause).
@@ -33,6 +36,13 @@ use std::process::ExitCode;
 
 #[cfg(not(feature = "window"))]
 pub fn run(_static_dir: &Path, _self_test: bool, _alerts: bool) -> ExitCode {
+    eprintln!("this build has no window: rebuild with --features window");
+    ExitCode::from(EXIT_NO_WINDOW_BUILD)
+}
+
+/// The `tray` subcommand (T076) needs the window build too.
+#[cfg(not(feature = "window"))]
+pub fn tray(_static_dir: Option<&Path>, _autostart: Option<&str>) -> ExitCode {
     eprintln!("this build has no window: rebuild with --features window");
     ExitCode::from(EXIT_NO_WINDOW_BUILD)
 }
@@ -82,13 +92,14 @@ fn blocked_target(url: &str) -> String {
 }
 
 #[cfg(feature = "window")]
-pub use shell::run;
+pub use shell::{run, tray};
 
 #[cfg(feature = "window")]
 mod shell {
     use super::{blocked_target, navigation_allowed};
     use crate::live_feed::LiveFeed;
     use crate::server::{self, Running};
+    use crate::tray::{self, Row, State, Theme};
     use crate::{display, static_files};
     use std::io::{self, Write};
     use std::panic::{self, AssertUnwindSafe};
@@ -98,8 +109,11 @@ mod shell {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread;
     use std::time::{Duration, Instant};
+    use tauri::image::Image;
+    use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
+    use tauri::tray::TrayIconBuilder;
     use tauri::webview::NewWindowResponse;
-    use tauri::{AppHandle, Url, WebviewUrl, WebviewWindowBuilder};
+    use tauri::{App, AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, Wry};
 
     const EXIT_SELF_TEST_TIMEOUT: i32 = 3;
     const EXIT_NO_DISPLAY: u8 = 5;
@@ -129,38 +143,9 @@ mod shell {
     struct Failure(u8, String);
 
     pub fn run(static_dir: &Path, self_test: bool, alerts: bool) -> ExitCode {
-        let root = match static_files::canonical_root(static_dir) {
-            Ok(root) => root,
-            Err(e) => return fail(&Failure(1, e)),
-        };
-        if let Err(e) = display::preflight() {
-            let hint = "serve, mcp and store-info need no display";
-            return fail(&Failure(EXIT_NO_DISPLAY, format!("{e} ({hint})")));
-        }
-        let feed = match LiveFeed::system() {
-            Ok(feed) => feed,
-            Err(e) => return fail(&Failure(1, e)),
-        };
-        let machine = match crate::sampler::machine() {
-            Ok(machine) => machine,
-            Err(e) => return fail(&Failure(1, e)),
-        };
-        let limits = match crate::sampler::limits() {
-            Ok(limits) => limits,
-            Err(e) => return fail(&Failure(1, e)),
-        };
-        let notifier = alerts.then(|| {
-            Box::new(crate::alerts::DBusNotifier::new()) as Box<dyn crate::alerts::Notifier>
-        });
-        let running = match server::start_with_alerts(
-            Some(&root),
-            Some(feed),
-            Some(machine),
-            Some(limits),
-            notifier,
-        ) {
+        let running = match start(static_dir, alerts) {
             Ok(running) => running,
-            Err(e) => return fail(&Failure(1, e)),
+            Err(failure) => return fail(&failure),
         };
         let signalled = Arc::new(AtomicBool::new(false));
         let outcome = match open(&running, self_test, &signalled) {
@@ -184,6 +169,30 @@ mod shell {
             }
             Err(failure) => fail(&failure),
         }
+    }
+
+    /// The folder check, the display preflight, the live feed, the two samplers and the server (with the alert
+    /// engine when `alerts`): what `app` and `tray` both run before any Tauri code.
+    fn start(static_dir: &Path, alerts: bool) -> Result<Running, Failure> {
+        let root = static_files::canonical_root(static_dir).map_err(|e| Failure(1, e))?;
+        if let Err(e) = display::preflight() {
+            let hint = "serve, mcp and store-info need no display";
+            return Err(Failure(EXIT_NO_DISPLAY, format!("{e} ({hint})")));
+        }
+        let feed = LiveFeed::system().map_err(|e| Failure(1, e))?;
+        let machine = crate::sampler::machine().map_err(|e| Failure(1, e))?;
+        let limits = crate::sampler::limits().map_err(|e| Failure(1, e))?;
+        let notifier = alerts.then(|| {
+            Box::new(crate::alerts::DBusNotifier::new()) as Box<dyn crate::alerts::Notifier>
+        });
+        server::start_with_alerts(
+            Some(&root),
+            Some(feed),
+            Some(machine),
+            Some(limits),
+            notifier,
+        )
+        .map_err(|e| Failure(1, e))
     }
 
     /// `--self-test`, second half (T057): `GET /api/live?token=<token>` must give a first `snapshot` from a running
@@ -210,30 +219,46 @@ mod shell {
         self_test: bool,
         signalled: &Arc<AtomicBool>,
     ) -> Result<i32, Failure> {
-        let port = running.port;
-        let url: Url = format!("http://127.0.0.1:{port}/#{}", running.token)
-            .parse()
-            .map_err(|_| Failure(1, "cannot form the window address".into()))?;
         let started = Arc::new(AtomicBool::new(false));
         watch_startup(&started);
-        // Without a display `tao` panics inside `build` (T016): turn that into the no-display exit.
+        let app = build_app()?;
+        open_window(&app, running.port, &running.token)?;
+        started.store(true, Ordering::Relaxed);
+        eprintln!(
+            "easy-personal-rs: window open on http://127.0.0.1:{}/",
+            running.port
+        );
+        watch_signals(running, app.handle().clone(), Arc::clone(signalled));
+        if self_test {
+            watch_self_test(Arc::clone(&running.authenticated), app.handle().clone());
+        }
+        Ok(app.run_return(|_, _| {}))
+    }
+
+    /// The Tauri app with no window yet. Without a display `tao` panics inside `build` (T016): that is the no-display exit.
+    fn build_app() -> Result<App, Failure> {
         let hook = panic::take_hook();
         panic::set_hook(Box::new(|_| {}));
         let built = panic::catch_unwind(AssertUnwindSafe(|| {
             tauri::Builder::default().build(tauri::generate_context!())
         }));
         panic::set_hook(hook);
-        let app = match built {
-            Ok(Ok(app)) => app,
-            Ok(Err(e)) => return Err(Failure(1, format!("cannot start the window toolkit: {e}"))),
-            Err(_) => {
-                return Err(Failure(
-                    EXIT_NO_DISPLAY,
-                    "no display: the window toolkit could not start".into(),
-                ));
-            }
-        };
-        WebviewWindowBuilder::new(&app, "main", WebviewUrl::External(url))
+        match built {
+            Ok(Ok(app)) => Ok(app),
+            Ok(Err(e)) => Err(Failure(1, format!("cannot start the window toolkit: {e}"))),
+            Err(_) => Err(Failure(
+                EXIT_NO_DISPLAY,
+                "no display: the window toolkit could not start".into(),
+            )),
+        }
+    }
+
+    /// The dashboard window `main` on `http://127.0.0.1:<port>/#<token>`, locked to the server's origin.
+    fn open_window<M: Manager<Wry>>(manager: &M, port: u16, token: &str) -> Result<(), Failure> {
+        let url: Url = format!("http://127.0.0.1:{port}/#{token}")
+            .parse()
+            .map_err(|_| Failure(1, "cannot form the window address".into()))?;
+        WebviewWindowBuilder::new(manager, "main", WebviewUrl::External(url))
             .title("easy-personal")
             .inner_size(1280.0, 800.0)
             .resizable(true)
@@ -257,14 +282,227 @@ mod shell {
                 NewWindowResponse::Deny
             })
             .build()
-            .map_err(|e| Failure(1, format!("cannot open the window: {e}")))?;
-        started.store(true, Ordering::Relaxed);
-        eprintln!("easy-personal-rs: window open on http://127.0.0.1:{port}/");
-        watch_signals(running, app.handle().clone(), Arc::clone(signalled));
-        if self_test {
-            watch_self_test(Arc::clone(&running.authenticated), app.handle().clone());
+            .map(|_| ())
+            .map_err(|e| Failure(1, format!("cannot open the window: {e}")))
+    }
+
+    // -- tray (T076) ----------------------------------------------------------------------------------------------------
+
+    const TRAY_ID: &str = "easy-personal";
+    /// The tray looks every this long (the alert engine's tick).
+    const TRAY_TICK: Duration = Duration::from_secs(5);
+
+    /// `tray`: `--autostart on|off` writes or removes the autostart entry and exits; else the tray runs (one per user).
+    pub fn tray(static_dir: Option<&Path>, autostart: Option<&str>) -> ExitCode {
+        match autostart {
+            Some(toggle) => set_autostart(static_dir, toggle == "on"),
+            None => match static_dir {
+                Some(dir) => run_tray(dir),
+                None => {
+                    eprintln!("easy-personal-rs: tray needs --static-dir <DIR>");
+                    ExitCode::from(2)
+                }
+            },
         }
-        Ok(app.run_return(|_, _| {}))
+    }
+
+    fn set_autostart(static_dir: Option<&Path>, on: bool) -> ExitCode {
+        let path = match tray::autostart_path(
+            std::env::var_os("XDG_CONFIG_HOME"),
+            std::env::var_os("HOME"),
+        ) {
+            Ok(path) => path,
+            Err(e) => return fail(&Failure(1, e)),
+        };
+        if !on {
+            return match tray::autostart_off(&path) {
+                Ok(true) => {
+                    println!("autostart off: removed {}", path.display());
+                    ExitCode::SUCCESS
+                }
+                Ok(false) => {
+                    println!("autostart off: {} was not there", path.display());
+                    ExitCode::SUCCESS
+                }
+                Err(e) => fail(&Failure(1, e)),
+            };
+        }
+        let Some(dir) = static_dir else {
+            eprintln!("easy-personal-rs: tray --autostart on needs --static-dir <DIR>");
+            return ExitCode::from(2);
+        };
+        let written = static_files::canonical_root(dir)
+            .and_then(|root| {
+                let exe = std::env::current_exe()
+                    .and_then(|e| e.canonicalize())
+                    .map_err(|_| "cannot find this program's path".to_string())?;
+                tray::desktop_entry(&exe, &root)
+            })
+            .and_then(|entry| tray::autostart_on(&path, &entry));
+        match written {
+            Ok(()) => {
+                println!("autostart on: wrote {}", path.display());
+                ExitCode::SUCCESS
+            }
+            Err(e) => fail(&Failure(1, e)),
+        }
+    }
+
+    fn run_tray(static_dir: &Path) -> ExitCode {
+        let store = easy_personal_core::store::store_path().ok();
+        let lock = tray::lock_path(std::env::var_os("XDG_RUNTIME_DIR"), store)
+            .and_then(|path| tray::try_lock(&path));
+        let _held = match lock {
+            Ok(Some(file)) => file,
+            Ok(None) => {
+                println!("easy-personal-rs: a tray already runs for this user");
+                return ExitCode::SUCCESS;
+            }
+            Err(e) => return fail(&Failure(1, e)),
+        };
+        let running = match start(static_dir, true) {
+            Ok(running) => running,
+            Err(failure) => return fail(&failure),
+        };
+        let signalled = Arc::new(AtomicBool::new(false));
+        let outcome = tray_loop(&running, &signalled);
+        running.stop();
+        match outcome {
+            Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
+            Err(failure) => fail(&failure),
+        }
+    }
+
+    fn icon(theme: Theme, state: State) -> Image<'static> {
+        use tauri::include_image;
+        match (theme, state) {
+            (Theme::Dark, State::Idle) => include_image!("icons/tray/dark/idle-32.png"),
+            (Theme::Dark, State::Active) => include_image!("icons/tray/dark/active-32.png"),
+            (Theme::Dark, State::Attention) => include_image!("icons/tray/dark/attention-32.png"),
+            (Theme::Dark, State::Problem) => include_image!("icons/tray/dark/problem-32.png"),
+            (Theme::Light, State::Idle) => include_image!("icons/tray/light/idle-32.png"),
+            (Theme::Light, State::Active) => include_image!("icons/tray/light/active-32.png"),
+            (Theme::Light, State::Attention) => include_image!("icons/tray/light/attention-32.png"),
+            (Theme::Light, State::Problem) => include_image!("icons/tray/light/problem-32.png"),
+        }
+    }
+
+    fn menu_of(handle: &AppHandle, rows: &[Row]) -> tauri::Result<Menu<Wry>> {
+        let menu = Menu::new(handle)?;
+        for row in rows {
+            match row {
+                Row::Info(text) => {
+                    menu.append(&MenuItem::new(handle, text, false, None::<&str>)?)?
+                }
+                Row::Action(id, text) => {
+                    menu.append(&MenuItem::with_id(handle, *id, text, true, None::<&str>)?)?
+                }
+                Row::Check(id, text, checked) => menu.append(&CheckMenuItem::with_id(
+                    handle,
+                    *id,
+                    text,
+                    true,
+                    *checked,
+                    None::<&str>,
+                )?)?,
+                Row::Separator => menu.append(&PredefinedMenuItem::separator(handle)?)?,
+            }
+        }
+        Ok(menu)
+    }
+
+    /// "Open dashboard" and the waiting / failing rows: focus the window when it is open, else open it.
+    fn show_dashboard(handle: &AppHandle, port: u16, token: &str) {
+        if let Some(window) = handle.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        } else if let Err(failure) = open_window(handle, port, token) {
+            eprintln!("easy-personal-rs: {}", failure.1);
+        }
+    }
+
+    /// The tray's event loop: the icon and the menu (when a tray area is there), refreshed every [`TRAY_TICK`] when a
+    /// row or the state changed; a closed dashboard window does not end it, Quit or a signal does.
+    fn tray_loop(running: &Running, signalled: &Arc<AtomicBool>) -> Result<i32, Failure> {
+        let started = Arc::new(AtomicBool::new(false));
+        watch_startup(&started);
+        let app = build_app()?;
+        started.store(true, Ordering::Relaxed);
+        let inputs = running.tray_inputs();
+        if tray::tray_host(None) {
+            let theme = tray::theme_of(tray::desktop_color_scheme(None));
+            let view = inputs.view();
+            let menu = menu_of(app.handle(), &view.rows)
+                .map_err(|e| Failure(1, format!("cannot make the tray menu: {e}")))?;
+            let (port, token, shared) = (
+                running.port,
+                running.token.clone(),
+                Arc::clone(&inputs.alerts),
+            );
+            TrayIconBuilder::with_id(TRAY_ID)
+                .icon(icon(theme, view.state))
+                .tooltip(&view.tooltip)
+                .menu(&menu)
+                .on_menu_event(move |handle, event| match event.id().as_ref() {
+                    tray::OPEN | tray::WAITING | tray::FAILING => {
+                        show_dashboard(handle, port, &token)
+                    }
+                    tray::PAUSE => shared.set_paused(!shared.paused()),
+                    tray::QUIT => handle.exit(0),
+                    _ => {}
+                })
+                .build(&app)
+                .map_err(|e| Failure(1, format!("cannot show the tray icon: {e}")))?;
+            watch_tray(inputs, view, theme, app.handle().clone());
+        } else {
+            eprintln!(
+                "easy-personal-rs: no tray area (no StatusNotifier host): the tray icon is not shown; alerts keep working"
+            );
+        }
+        watch_signals(running, app.handle().clone(), Arc::clone(signalled));
+        eprintln!(
+            "easy-personal-rs: tray running, dashboard on http://127.0.0.1:{}/",
+            running.port
+        );
+        Ok(app.run_return(|_, event| {
+            // the last window closed: the tray keeps running (an exit with a code is Quit or a signal)
+            if let RunEvent::ExitRequested {
+                code: None, api, ..
+            } = event
+            {
+                api.prevent_exit();
+            }
+        }))
+    }
+
+    /// Every [`TRAY_TICK`]: a new view; when it differs from the last, the icon, tooltip and menu are set on the main
+    /// thread. Ends when the event loop is gone.
+    fn watch_tray(inputs: tray::Inputs, mut last: tray::View, theme: Theme, handle: AppHandle) {
+        thread::spawn(move || {
+            loop {
+                thread::sleep(TRAY_TICK);
+                let view = inputs.view();
+                if view == last {
+                    continue;
+                }
+                last = view.clone();
+                let main = handle.clone();
+                let sent = handle.run_on_main_thread(move || {
+                    let Some(icon_of_tray) = main.tray_by_id(TRAY_ID) else {
+                        return;
+                    };
+                    let _ = icon_of_tray.set_icon(Some(icon(theme, view.state)));
+                    let _ = icon_of_tray.set_tooltip(Some(&view.tooltip));
+                    if let Ok(menu) = menu_of(&main, &view.rows) {
+                        let _ = icon_of_tray.set_menu(Some(menu));
+                    }
+                });
+                if sent.is_err() {
+                    return;
+                }
+            }
+        });
     }
 
     /// If the window is not up within `STARTUP_LIMIT` the display is stuck: say so and leave (exit 5).
@@ -482,7 +720,10 @@ mod tests {
         let build = include_str!("../build.rs");
         assert!(build.contains("capabilities_path_pattern(\"./no-capabilities/*.json\")"));
         let manifest = include_str!("../Cargo.toml");
-        assert!(manifest.contains("[features]\nwindow = [\"dep:tauri\", \"dep:tauri-build\"]"));
+        // T076: `tray-icon` is the one Tauri feature added (the `tray` command's icon and menu; no IPC command)
+        assert!(manifest.contains(
+            "[features]\nwindow = [\"dep:tauri\", \"dep:tauri-build\", \"tauri/tray-icon\"]"
+        ));
         assert!(
             !manifest.contains("default = [\"window\"]"),
             "the window feature is off by default"
@@ -496,7 +737,6 @@ mod tests {
             "devtools",
             "protocol-asset",
             "isolation",
-            "tray-icon",
             "unstable",
             "native-tls",
             "rustls",

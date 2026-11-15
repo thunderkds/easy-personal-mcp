@@ -33,11 +33,11 @@ const TICK: Duration = Duration::from_secs(5);
 /// The least time between two popups.
 const POPUP_GAP: Duration = Duration::from_secs(10);
 /// A measure at or above this percent raises an alert.
-const HIGH: f64 = 90.0;
+pub(crate) const HIGH: f64 = 90.0;
 /// A measure below this percent re-arms it.
 const REARM_HIGH: f64 = 85.0;
 /// A battery at or below this percent (and not charging) raises an alert.
-const LOW_BATTERY: u8 = 15;
+pub(crate) const LOW_BATTERY: u8 = 15;
 /// A battery at or above this percent re-arms it.
 const REARM_BATTERY: u8 = 20;
 const SHORT_ID: usize = 8;
@@ -129,7 +129,7 @@ fn cross(tripped: &mut HashSet<String>, key: &str, trigger: bool, rearm: bool) -
     }
 }
 
-fn pct(used: Option<u64>, total: Option<u64>) -> Option<f64> {
+pub(crate) fn pct(used: Option<u64>, total: Option<u64>) -> Option<f64> {
     match (used, total) {
         (Some(u), Some(t)) if t > 0 => Some(u as f64 * 100.0 / t as f64),
         _ => None,
@@ -138,7 +138,7 @@ fn pct(used: Option<u64>, total: Option<u64>) -> Option<f64> {
 
 /// A piece of free text for a notification: control characters and the markup characters of the notification body
 /// (`<`, `>`, `&`) dropped, cut to [`PIECE_MAX`] characters; `None` when empty or secret-looking.
-fn clean(text: &str) -> Option<String> {
+pub(crate) fn clean(text: &str) -> Option<String> {
     let kept: String = text
         .chars()
         .filter(|c| !c.is_control() && !matches!(c, '<' | '>' | '&'))
