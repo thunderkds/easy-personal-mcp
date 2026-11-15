@@ -121,3 +121,8 @@ Differences from the canvas (proposed cuts; owner to confirm):
 - State rule follows the Restated intent 1 (attention = waiting or a limit >= 90 %; problem = a failing or machine-pressure alert active), not the canvas's 70 % / ingest-failed wording.
 - Tooltip `Easy Personal · <live line>` is set, but AppIndicator does not show tooltips on GNOME.
 
+
+### Owner answers (2026-11-15, relayed by the Supervisor via AskUserQuestion)
+
+1. Menu rows: "Approve as listed". All 10 rows are approved; row 4 (`<n> failing · <project>`) is KEPT. The listed differences from the canvas are accepted (no ingest row and no "Run ingest now", no reset time, "Pause alerts" with no timer, text only).
+2. State rule: "Approved plan". Restated intent 1 wins over the canvas: attention = a session waiting or a plan limit >= 90 %; problem = a failing session or a machine-pressure alert.
