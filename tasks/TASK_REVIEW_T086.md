@@ -80,14 +80,29 @@ Step 0.2 still asks the owner to close every session
 test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
+Correction (honest note): the first capture above failed at line 130 because my test asserted the wrong prefix (`not fully checked (` instead of `verdict: not fully checked (`). I fixed the test line, put the old `store_health.rs` back for one run, and captured again on the same old source:
+
+`2026-11-15T09:59:15Z` `cargo test -p easy-personal-core --test store_health_parity the_hint`
+```
+thread 'the_hint_names_the_rust_binary' panicked at crates/core/tests/store_health_parity.rs:131:5:
+verdict: not fully checked (integrity_check, foreign_key_check, sources not finished in time); run `easy-personal store-check --full` for the integrity verdict
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out
+```
+
 Prior doc content (verbatim, `rust/docs/CUTOVER.md` at b4c8469):
 - Step 0.2: "Also close every Claude Code session that uses the easy-personal MCP server. Each open session runs its own Python `easy-personal mcp` process, and it keeps the store open. Close the Python dashboard too." / "You should see: `pgrep` prints nothing. If it prints a line, close that process and run it again."
 - Step 0.4: command `rust/target/debug/easy-personal-rs store-check`; "You should see: the last line is `verdict: healthy`, and the exit code is 0 (`echo $?` prints `0`)."
 - The week: "`easy-personal-rs store-check` ends with `verdict: healthy`."
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-15, same tests, new code):
+```
+cargo test -p easy-personal-core --test store_health_parity   -> 11 passed (incl. the_hint_names_the_rust_binary, every_golden_case_equals_python)
+cargo test -p easy-personal-rs --test cutover_doc             -> 7 passed (incl. the_steps_that_expect_a_verdict_run_store_check_full, step_0_2_does_not_ask_to_close_every_session)
+cargo test -p easy-personal-rs --test store_check             -> 12 passed, 1 ignored
+```
+New text: hint `run `easy-personal-rs store-check --full` for the integrity verdict`. CUTOVER.md Step 0.2 "Stop the ingest timer" (no session close; says why the timer stops), Step 0.4 runs `store-check --full` and explains `not fully checked` (exit 3), The week uses `store-check --full`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: the owner can follow CUTOVER.md on a large store and get `verdict: healthy`, keep Claude Code sessions open during Step 0, and the hint names the right binary.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

@@ -127,7 +127,7 @@ fn the_hint_names_the_rust_binary() {
         .expect("the oracle has a budget_zero case");
     let health = check(&home.join("store.sqlite"), &options(case), &cancel());
     let verdict = health.lines().pop().unwrap();
-    assert!(verdict.starts_with("not fully checked ("), "{verdict}");
+    assert!(verdict.starts_with("verdict: not fully checked ("), "{verdict}");
     assert!(
         verdict.ends_with(&format!("run {RUST_HINT} for the integrity verdict")),
         "{verdict}"
