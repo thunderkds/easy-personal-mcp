@@ -38,6 +38,8 @@ serde_json.workspace = true
 futures-core = "=0.3.34"
 keyring = { version = "=3.6.3", default-features = false, features = ["async-secret-service", "tokio", "crypto-rust"] }
 tauri = { workspace = true, optional = true }
+# Desktop notifications (T074): the same zbus 4.4.0 that `keyring` already pulls in (default features, `tokio` through keyring); no new package in Cargo.lock.
+zbus = "=4.4.0"
 
 [build-dependencies]
 tauri-build = { workspace = true, optional = true }

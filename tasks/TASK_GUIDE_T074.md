@@ -53,7 +53,7 @@ No new crate (`zbus` is already a dependency; record the version).
 
 | # | Criterion (testable) | Traces to |
 |---|---|---|
-| 1 | Hysteresis tests per measure: value 89→91→90→86→91 raises 2 alerts, 84→91 re-arms | intent |
+| 1 | Hysteresis tests per measure: value 89→91→90→86→91 raises 1 alert (86 is not below 85); a later 84→91 re-arms and raises the 2nd (corrected at Stage 4: PRD FR-097 re-arm 5 points below) | intent |
 | 2 | Session tests: waiting → alert; still waiting → none; leaves and comes back → second alert | intent |
 | 3 | Leak test: planted secret / message text in a fake live state never reaches the notifier or `/api/alerts` | intent |
 | 4 | Pause test: paused → notifier not called, `/api/alerts` still lists | intent |
@@ -72,10 +72,10 @@ cd rust && cargo test --workspace 2>&1 | tail -5
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
-| security-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | 21 new tests (alerts.rs 16, api_tests.rs 3, server.rs 2), `cargo test --workspace` 971 passed 0 failed; see TASK_REVIEW_T074.md |
+| Verification command | ☑ | Supervisor `/verify` 2026-11-15 pass, incl. leak gate 0 hits and window self-test ok |
+| code-review | ☑ | 0 P0/P1, 2 P2 (1 fixed in guide, 1 accepted), 2 P3 |
+| security-review | ☑ | 0 P0/P1/P2, 1 P3 (leak gate without `--alerts`, follow-up) |
 | UI: visual regression | ☐ N/A | backend only |
 | UI: design-system compliance | ☐ N/A | backend only |
 | UI: responsiveness | ☐ N/A | backend only |

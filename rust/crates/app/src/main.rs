@@ -3,6 +3,7 @@ use easy_personal_core::store::{read_info, store_path};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+mod alerts;
 mod api;
 mod claude_cli;
 mod cli_cmds;
@@ -73,6 +74,9 @@ enum Command {
         /// Do not ingest before the start (default: ingest first, as Python's `dashboard`)
         #[arg(long)]
         no_ingest: bool,
+        /// Raise desktop alerts (a session waiting or failing, a plan limit, disk, RAM or battery) over the session D-Bus; they are listed at `GET /api/alerts`
+        #[arg(long)]
+        alerts: bool,
     },
     /// Machine status of this computer now: CPU, RAM, disk of the store's folder, load, battery, `claude` processes ("no data" where the OS gives none)
     Machine {
@@ -126,6 +130,9 @@ enum Command {
         /// Do not ingest before the start (default: ingest first)
         #[arg(long)]
         no_ingest: bool,
+        /// Raise desktop alerts (a session waiting or failing, a plan limit, disk, RAM or battery) over the session D-Bus; they are listed at `GET /api/alerts`
+        #[arg(long)]
+        alerts: bool,
     },
 }
 
@@ -155,11 +162,12 @@ fn main() -> ExitCode {
         Command::Serve {
             static_dir,
             no_ingest,
+            alerts,
         } => {
             if !no_ingest {
                 ingest_cmd::startup(); // before the live feed's thread starts (it starts inside `server::run`)
             }
-            match server::run(static_dir.as_deref()) {
+            match server::run(static_dir.as_deref(), alerts) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
                     eprintln!("easy-personal-rs: {e}");
@@ -171,11 +179,12 @@ fn main() -> ExitCode {
             static_dir,
             self_test,
             no_ingest,
+            alerts,
         } => {
             if !no_ingest && cfg!(feature = "window") {
                 ingest_cmd::startup(); // a build with no window starts nothing, so it ingests nothing
             }
-            window::run(&static_dir, self_test)
+            window::run(&static_dir, self_test, alerts)
         }
         Command::Mcp(args) => mcp::main(args),
         Command::Machine { json } => cli_cmds::machine(json),

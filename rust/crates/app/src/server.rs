@@ -6,6 +6,7 @@
 //! printed URL fragment (or the window's URL, `app`): no response, error or log line carries it.
 //! `start` is the one way a server is made: `run` (the `serve` subcommand) and the window (`window.rs`) both call it.
 
+use crate::alerts::{self, Notifier};
 use crate::api::{self, Api};
 use crate::live_feed::{LIVE_PATH, LiveFeed};
 use crate::sampler::{self, Sampler};
@@ -191,6 +192,8 @@ pub struct Running {
     machine: Option<Sampler<Sample>>,
     /// The plan-limit sampler (`serve` and `app`, T073); stopped and joined by `stop` (and by drop).
     limits: Option<Sampler<Round>>,
+    /// The alert engine (`serve` and `app` with `--alerts`, T074); stopped and joined by `stop` (and by drop).
+    alerts: Option<Sampler<()>>,
 }
 
 /// How long `stop` waits for requests in flight before it drops them.
@@ -223,6 +226,9 @@ impl Running {
         let Running { runtime, task, .. } = &mut self;
         let _ = runtime.block_on(async { tokio::time::timeout(STOP_GRACE, task).await });
         self.runtime.shutdown_timeout(STOP_GRACE);
+        if let Some(alerts) = self.alerts.take() {
+            alerts.stop();
+        }
         if let Some(machine) = self.machine.take() {
             machine.stop();
         }
@@ -240,11 +246,25 @@ impl Running {
 /// with `None` that route sends the empty snapshot, as Python does with no tail running.
 /// `machine` (the machine status sampler, T072) is what `GET /api/machine` reads; with `None` that route answers an empty history.
 /// `limits` (the plan-limit sampler, T073) is what `GET /api/limits/history` reads, with the same `None` rule.
+/// This one starts no alert engine; `serve` and `app` call [`start_with_alerts`].
+#[cfg(test)]
 pub(crate) fn start(
     static_dir: Option<&Path>,
     feed: Option<LiveFeed>,
     machine: Option<Sampler<Sample>>,
     limits: Option<Sampler<Round>>,
+) -> Result<Running, String> {
+    start_with_alerts(static_dir, feed, machine, limits, None)
+}
+
+/// [`start`] with the alert engine (T074) when `notifier` is given: it reads the feed's tail and the two samplers'
+/// histories, and shows its popups through `notifier`. It starts last, after every step that can fail.
+pub(crate) fn start_with_alerts(
+    static_dir: Option<&Path>,
+    feed: Option<LiveFeed>,
+    machine: Option<Sampler<Sample>>,
+    limits: Option<Sampler<Round>>,
+    notifier: Option<Box<dyn Notifier>>,
 ) -> Result<Running, String> {
     let static_root = static_dir.map(static_files::canonical_root).transpose()?;
     let token = new_token().map_err(|e| format!("no OS random source: {e}"))?;
@@ -255,7 +275,9 @@ pub(crate) fn start(
     let runtime = Runtime::new().map_err(|e| format!("cannot start the runtime: {e}"))?;
     let authenticated = Arc::new(AtomicBool::new(false));
     let stopping = Arc::new(AtomicBool::new(false));
+    let shared = Arc::<alerts::Shared>::default();
     let api = Api::system()
+        .with_alerts(Arc::clone(&shared))
         .with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping))
         .with_machine(machine.as_ref().map(Sampler::history))
         .with_limits(limits.as_ref().map(Sampler::history));
@@ -279,6 +301,17 @@ pub(crate) fn start(
             .await
             .map_err(|e| format!("server stopped: {e}"))
     });
+    let alerts = notifier
+        .map(|notifier| {
+            alerts::start(
+                shared,
+                notifier,
+                feed.as_ref().map(LiveFeed::tail),
+                machine.as_ref().map(Sampler::history),
+                limits.as_ref().map(Sampler::history),
+            )
+        })
+        .transpose()?;
     Ok(Running {
         port,
         token,
@@ -290,17 +323,20 @@ pub(crate) fn start(
         feed,
         machine,
         limits,
+        alerts,
     })
 }
 
 /// The `serve` subcommand: the live feed, `start`, print the two lines Python's `serve()` prints, run until Ctrl-C,
 /// then `stop` (open streams end, the feed's thread is joined).
-pub fn run(static_dir: Option<&Path>) -> Result<(), String> {
-    let mut running = start(
+pub fn run(static_dir: Option<&Path>, alerts: bool) -> Result<(), String> {
+    let notifier = alerts.then(|| Box::new(alerts::DBusNotifier::new()) as Box<dyn Notifier>);
+    let mut running = start_with_alerts(
         static_dir,
         Some(LiveFeed::system()?),
         Some(sampler::machine()?),
         Some(sampler::limits()?),
+        notifier,
     )?;
     let mut out = io::stdout();
     write!(
@@ -552,6 +588,83 @@ mod tests {
             "streams dropped, feed thread joined"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T074: with a notifier, `start_with_alerts` runs the engine (first look at once) on its own thread: the popup goes
+    /// to the notifier, `GET /api/alerts` lists the alert, the pause route stops the next popup, and `stop` joins the thread.
+    #[test]
+    fn start_with_alerts_runs_the_engine_serves_the_list_and_stop_joins_it() {
+        use std::io::Read;
+        use std::sync::Mutex;
+        struct Fake(Arc<Mutex<Vec<String>>>);
+        impl Notifier for Fake {
+            fn notify(&mut self, _: &str, body: &str) {
+                self.0.lock().unwrap().push(body.into());
+            }
+        }
+        let hot = Sampler::start("test-machine", 4, Duration::from_secs(3600), || Sample {
+            t: 1,
+            cpu_pct: None,
+            ram_used: None,
+            ram_total: None,
+            disk_used: Some(97),
+            disk_total: Some(100),
+            load1: None,
+            battery_pct: None,
+            charging: None,
+            claude_procs: None,
+        })
+        .unwrap();
+        let popups = Arc::new(Mutex::new(Vec::new()));
+        let running = start_with_alerts(
+            None,
+            None,
+            Some(hot),
+            None,
+            Some(Box::new(Fake(Arc::clone(&popups)))),
+        )
+        .unwrap();
+        assert_eq!(*popups.lock().unwrap(), ["Disk 97 % used"]);
+        let call = |request: String| {
+            let mut stream = std::net::TcpStream::connect(("127.0.0.1", running.port)).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            stream.write_all(request.as_bytes()).unwrap();
+            let mut answer = String::new();
+            let _ = stream.read_to_string(&mut answer);
+            answer
+        };
+        let head = format!(
+            "Host: 127.0.0.1:{}\r\nx-dashboard-token: {}\r\nConnection: close\r\n",
+            running.port, running.token
+        );
+        let list = call(format!("GET /api/alerts HTTP/1.1\r\n{head}\r\n"));
+        assert!(list.starts_with("HTTP/1.1 200"), "{list}");
+        let body: serde_json::Value =
+            serde_json::from_str(list.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        assert_eq!(body["paused"], false);
+        assert_eq!(body["alerts"][0]["text"], "Disk 97 % used");
+        let pause = call(format!(
+            "POST /api/alerts/pause HTTP/1.1\r\n{head}Content-Type: application/json\r\nContent-Length: 15\r\n\r\n{{\"paused\":true}}"
+        ));
+        assert!(pause.starts_with("HTTP/1.1 200"), "{pause}");
+        assert!(pause.ends_with(r#"{"paused":true}"#), "{pause}");
+        let began = std::time::Instant::now();
+        running.stop();
+        assert!(
+            began.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            began.elapsed()
+        );
+    }
+
+    /// T074: no notifier (the default) starts no thread, and the list stays empty and answers.
+    #[test]
+    fn start_without_alerts_starts_no_engine() {
+        let running = start(None, None, None, None).unwrap();
+        assert!(running.alerts.is_none());
+        running.stop();
     }
 
     /// T056: the query `token` counts only for `GET /api/live` with no token header; Host and Origin still apply.

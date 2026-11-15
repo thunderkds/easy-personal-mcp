@@ -32,7 +32,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 #[cfg(not(feature = "window"))]
-pub fn run(_static_dir: &Path, _self_test: bool) -> ExitCode {
+pub fn run(_static_dir: &Path, _self_test: bool, _alerts: bool) -> ExitCode {
     eprintln!("this build has no window: rebuild with --features window");
     ExitCode::from(EXIT_NO_WINDOW_BUILD)
 }
@@ -128,7 +128,7 @@ mod shell {
     /// A failure before the window ran: its exit code and one line for stderr.
     struct Failure(u8, String);
 
-    pub fn run(static_dir: &Path, self_test: bool) -> ExitCode {
+    pub fn run(static_dir: &Path, self_test: bool, alerts: bool) -> ExitCode {
         let root = match static_files::canonical_root(static_dir) {
             Ok(root) => root,
             Err(e) => return fail(&Failure(1, e)),
@@ -149,7 +149,16 @@ mod shell {
             Ok(limits) => limits,
             Err(e) => return fail(&Failure(1, e)),
         };
-        let running = match server::start(Some(&root), Some(feed), Some(machine), Some(limits)) {
+        let notifier = alerts.then(|| {
+            Box::new(crate::alerts::DBusNotifier::new()) as Box<dyn crate::alerts::Notifier>
+        });
+        let running = match server::start_with_alerts(
+            Some(&root),
+            Some(feed),
+            Some(machine),
+            Some(limits),
+            notifier,
+        ) {
             Ok(running) => running,
             Err(e) => return fail(&Failure(1, e)),
         };

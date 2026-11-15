@@ -41,13 +41,13 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | 21 new tests, all pass: `rust/crates/app/src/alerts.rs` (16: AC1 hysteresis disk/ram/limit/battery + per-account, AC2 session once/leave/return, AC3 leak, AC4 engine pause, AC5 no D-Bus warns once, popup gap + summary, clock jump, live-tail path), `rust/crates/app/src/api_tests.rs` (3: routes, guard, 415/400, pause through the route keeps the list), `rust/crates/app/src/server.rs` (2: engine wired + stop joins, no engine without a notifier) |
+| Verification command run | ☑ pass | `cd rust && cargo test --workspace`: 91 test binaries, passed 971, failed 0, ignored 28 (ignored = existing). `cargo clippy --workspace --all-targets`: no warning. `cargo fmt --check`: clean. `cargo check --features window`: finished. |
+| Negative cases hold | ☑ pass | secret-looking tool / project / session id and planted message text never reach popup or list; pause with bad body 400, wrong type 415, no token 403, store never opened by the routes (counter 0) |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15T06:25Z (script `verify_t074.sh`, temp EASY_PERSONAL_HOME from `parity/store-v11.sqlite`): `--version` 0.2.0, store-info user_version 11; serve: /api/version, /api/alerts, /api/machine 200 with token / 403 without; GET /api/alerts `{"alerts":[],"paused":false}`; POST pause 200 `{"paused":true}`, bad body 400, no token 403, text/plain 415; server stopped by PID; mcp tools/list 13 tools; ingest s3 twice exit 0; leak gate `0 hits over 42 canaries, 818 surfaces, 1794776 bytes` exit 0; `cargo build --features window` + `app --self-test` -> `self-test: ok` exit 0; merge-tree vs main clean — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...T074` (10 files) plus direct callers `sampler.rs`, `keychain::off_runtime`, `writes.rs`, `core/src/live.rs`; whole repo not reviewed. code-review: 0 P0/P1, 2 P2 (AC 1 example text wrong -> guide fixed `9643cf8`; first look can delay start up to 3 s on a hung bus -> accepted, follow-up), 2 P3 (newest-first assert reads an old snapshot; log-once checked by flag only). security-review: 0 P0/P1/P2, 1 P3 (leak gate runs serve without `--alerts`, so alert text is covered by the unit test only -> follow-up). lane_check: `EXCEEDS (lines 1429 > 500)`, files unpredicted because the guide lists bare names (warn-only) |
+| Full smoke suite still green (no regression) | ☑ pass | same `cargo test --workspace` run, 0 failed; leak gate: `env -u CLAUDE_CONFIG_DIR <main>/rust/parity/.venv/bin/python parity/leak_rust.py` -> `leak check: 0 hits over 42 canaries, 818 surfaces, 1793501 bytes`, exit 0, no failed check line (`/api/alerts`, `/api/alerts/pause` and 4 pause write calls registered) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier score not run for this task: reviews and the leak gate cover the change; advisory only |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
@@ -61,12 +61,43 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (main 5b9adb4 + branch T074, no implementation yet; HOME is an empty fixture folder):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+2026-11-15T05:24:47Z
+$ easy-personal-rs serve --alerts
+error: unexpected argument '--alerts' found
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Usage: easy-personal-rs serve [OPTIONS]
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T074.jsonl`, never the
-implementing agent alone]
+For more information, try '--help'.
+exit=2
+$ easy-personal-rs serve --no-ingest ; GET /api/alerts and POST /api/alerts/pause with the right token
+GET /api/alerts -> 404
+POST /api/alerts/pause -> 404
+```
+
+**AFTER** (2026-11-15, fixture store and transcript in a scratch folder, no real home; `DISPLAY=:0`, session D-Bus; `serve --no-ingest --alerts`; a transcript line with an open `AskUserQuestion` call was written after start):
+
+```
+GET /api/alerts -> {"alerts":[{"account":null,"kind":"session_waiting","session":"0123abcd","t":1794723133,"text":"Waiting for you, AskUserQuestion, project shop-front, session 0123abcd"}],"paused":false}
+serve stderr: (empty)
+dbus-monitor --session "interface='org.freedesktop.Notifications'" (the Notify call from our process, sender :1.524):
+method call time=1794723133.524542 sender=:1.524 -> destination=org.freedesktop.Notifications serial=2 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=Notify
+   string "easy-personal"
+   uint32 0
+   string ""
+   string "Easy Personal"
+   string "Waiting for you, AskUserQuestion, project shop-front, session 0123abcd"
+   array [
+   ]
+   array [
+   ]
+   int32 10000
+```
+
+(The shell then forwarded the same Notify to the desktop's notification server, so the popup was shown. The planted text "hunter2-planted" and "planted question text" in the transcript appear in neither the popup nor the list.) Leak gate and tests: see Evidence.
+
+**DELTA**: With `serve --alerts` (or `app --alerts`) the owner gets one desktop popup when a session waits for them or fails, a plan limit, disk, RAM or battery crosses its line, and can read the last 50 alerts at `GET /api/alerts` and pause the popups with `POST /api/alerts/pause`.
+
+**WITNESS**: Supervisor (not the implementing agent) ran `/verify` at 2026-11-15T06:25Z; output kept in the session task log. `memory/event-trace/T074.jsonl` (56 entries) does not witness it: the shared `active_task` file was also read by the second supervisor session, so its entries are that session's T062 / HUN-245 commands, and this session's Bash calls were not traced. Real D-Bus run by the agent: `dbus-monitor` capture in AFTER above.

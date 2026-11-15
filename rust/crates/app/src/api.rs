@@ -8,6 +8,7 @@
 //! `PUT /api/connectors/{id}/alias`), `GET`/`POST /api/connectors/legacy` (`legacy.rs`) and `POST /api/sync`
 //! (`sync_apply.rs`); they use the keychain and the `claude` CLI.
 //! `GET /api/machine` (T072) answers the machine status sampler's in-memory history (`sampler.rs`); it reads no store and writes nothing.
+//! `GET /api/alerts` and `POST /api/alerts/pause` (T074) answer the alert engine's in-memory list and pause flag (`alerts.rs`); they read no store and write nothing to disk.
 //! `GET /api/live` (T056) is the one stream: Server-Sent Events from the live feed (`live_feed.rs`); it reads no store
 //! itself, and it is the one route whose token may come in the query (`server.rs`).
 //! The read routes are all `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
@@ -29,6 +30,7 @@
 //! through as a `serde_json::Value`; no body carries a path, SQL or row text (NFR-002): a store problem becomes one of
 //! a few fixed texts.
 
+use crate::alerts::Shared as Alerts;
 use crate::live_feed::{LIVE_PATH, SharedTail, SseBody, resume_id};
 use crate::{connector_writes, legacy, sync_apply, writes};
 use axum::Router;
@@ -101,6 +103,8 @@ pub struct Api {
     limits: Option<LimitsHistory>,
     /// The machine status samples `GET /api/machine` reads (`None`: no sampler runs, the route answers an empty history).
     machine: Option<MachineHistory>,
+    /// The alert list and the pause flag of `GET /api/alerts` and `POST /api/alerts/pause` (T074); empty when no engine runs.
+    alerts: Arc<Alerts>,
 }
 
 impl Api {
@@ -116,7 +120,14 @@ impl Api {
             health: Arc::default(),
             limits: None,
             machine: None,
+            alerts: Arc::default(),
         }
+    }
+
+    /// The alert list the engine fills (`alerts.rs`); with the default one the list stays empty.
+    pub(crate) fn with_alerts(mut self, alerts: Arc<Alerts>) -> Self {
+        self.alerts = alerts;
+        self
     }
 
     /// The history `GET /api/machine` reads.
@@ -226,6 +237,35 @@ pub fn routes() -> Router<Api> {
         .route("/api/jobs", get(jobs))
         .route("/api/limits/history", get(limits_history))
         .route("/api/machine", get(machine))
+        .route("/api/alerts", get(alert_list))
+        .route("/api/alerts/pause", post(alert_pause))
+}
+
+/// `GET /api/alerts` (T074, FR-097): `{alerts, paused}`, the last 50 alerts newest first. It reads no store and writes nothing.
+async fn alert_list(State(api): State<Api>) -> Response {
+    respond(StatusCode::OK, &api.alerts.json())
+}
+
+/// `POST /api/alerts/pause` `{"paused": bool}`: stops (or resumes) the desktop popups, in memory only. The state and the list go on.
+/// Same order as the other writes: content type (415), body (413, 400); it opens no store.
+async fn alert_pause(State(api): State<Api>, req: axum::extract::Request) -> Response {
+    let (_, raw) = match writes::raw_body(req).await {
+        Ok(body) => body,
+        Err(answer) => return answer,
+    };
+    match writes::parse(&raw) {
+        Some(Value::Object(map))
+            if map.len() == 1 && map.get("paused").is_some_and(Value::is_boolean) =>
+        {
+            api.alerts.set_paused(map["paused"] == true);
+            respond(StatusCode::OK, &json!({ "paused": api.alerts.paused() }))
+        }
+        Some(_) => writes::fail(
+            StatusCode::BAD_REQUEST,
+            "body must be an object with a boolean paused",
+        ),
+        None => writes::fail(StatusCode::BAD_REQUEST, "body must be JSON"),
+    }
 }
 
 /// `GET /api/limits/history` (T073, FR-096): the sampler's in-memory 24 h plan-limit samples per Claude account. No store read.
