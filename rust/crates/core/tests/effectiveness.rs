@@ -307,6 +307,24 @@ fn done_is_the_first_merge_into_main_and_a_squash_or_fast_forward_is_not_done() 
         &["merge", "-q", "--no-ff", "--no-edit", "T4"],
     );
     git(&repo, DAY + 350, &["checkout", "-q", "main"]);
+    // T8's sub-agent branch worktree-agent-zz is merged into main: only a branch that holds T8 makes T8 done
+    git(
+        &repo,
+        DAY + 360,
+        &["checkout", "-q", "-b", "worktree-agent-zz"],
+    );
+    commit(&repo, DAY + 370, "zz");
+    git(&repo, DAY + 380, &["checkout", "-q", "main"]);
+    git(
+        &repo,
+        DAY + 390,
+        &["merge", "-q", "--no-ff", "--no-edit", "worktree-agent-zz"],
+    );
+    fx.add(Ev::new("S3", &repo, "T8", "m20"));
+    fx.add(Ev {
+        sidechain: 1,
+        ..Ev::new("S3", &repo, "worktree-agent-zz", "m21")
+    });
     let plain = fx.folder("plain"); // not a git folder
     for (i, branch) in ["T1", "T2", "T3", "T4"].iter().enumerate() {
         fx.add(Ev::new("S1", &repo, branch, &format!("m{i}")));
@@ -321,12 +339,16 @@ fn done_is_the_first_merge_into_main_and_a_squash_or_fast_forward_is_not_done() 
     );
     assert_eq!(t1["done_state"], "done");
     assert_eq!(t1["tokens_per_task_done"], 110);
-    for id in ["T2", "T3", "T4"] {
+    assert_eq!(task(&body, "T8")["tokens"], 220, "its sidechain counts");
+    for id in ["T2", "T3", "T4", "T8"] {
         let t = task(&body, id);
         assert_eq!(t["done_utc"], Value::Null, "{id}");
         assert_eq!(t["done_state"], "not done", "{id}");
         assert_eq!(t["tokens_per_task_done"], Value::Null, "{id}");
-        assert_eq!(t["tokens"], 110, "tokens still shown for {id}");
+        assert!(
+            t["tokens"].as_i64().unwrap() > 0,
+            "tokens still shown for {id}"
+        );
     }
     let t5 = task(&body, "T5");
     assert_eq!(t5["done_state"], "unknown", "no git history");
@@ -339,7 +361,7 @@ fn done_is_the_first_merge_into_main_and_a_squash_or_fast_forward_is_not_done() 
             .any(|n| n.as_str().unwrap().contains("no local git history")),
         "{body:#}"
     );
-    assert_eq!(body["totals"]["tasks"], 5);
+    assert_eq!(body["totals"]["tasks"], 6);
     assert_eq!(body["totals"]["tasks_done"], 1);
     assert_eq!(body["totals"]["tokens_per_task_done"], 110.0);
 }
@@ -512,4 +534,22 @@ fn a_read_changes_nothing_honours_the_period_and_the_scope_and_names_no_path_or_
     let text = all.to_string();
     assert!(!text.contains("secret-session"), "{text}");
     assert!(!text.contains(fx.dir.to_str().unwrap()), "{text}");
+}
+
+#[test]
+fn a_relative_or_missing_project_never_reads_the_git_history_of_the_working_folder() {
+    // the test runs in `crates/core`; `../../..` is this repo's checkout, whose main has `Merge branch 'T071'`
+    let mut fx = Fx::new("noproject");
+    fx.add(Ev::new("S1", "../../..", "T071", "m1"));
+    fx.add(Ev::new("S2", "", "T072", "m2"));
+    fx.conn
+        .execute(
+            "UPDATE events SET project_path = NULL WHERE session_id = 'S2'",
+            [],
+        )
+        .unwrap();
+    let body = fx.run();
+    assert_eq!(task(&body, "T071")["done_state"], "unknown", "{body:#}");
+    assert_eq!(task(&body, "T072")["done_state"], "unknown", "{body:#}");
+    assert_eq!(task(&body, "T072")["project"], "(unknown)");
 }

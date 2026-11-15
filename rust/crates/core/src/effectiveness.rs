@@ -9,7 +9,7 @@
 //! (owner project, task id), so the same id in two repos is two tasks.
 //!
 //! *Good result* = FR-061, as `kitperf` computes it per session; it counts for the line of the session's own branch.
-//! *Done* = the first merge commit of one of the task's branches on the first-parent history of the repo's `main`
+//! *Done* = the first merge commit of one of the task's branches that holds its id on the first-parent history of the repo's `main`
 //! (else `master`), read with `git log --merges --first-parent`; none = not done; no git history = unknown.
 //!
 //! Usage is counted once per `message.id`, as `usage_summary`. Read-only; only values are bound. The answer names
@@ -180,9 +180,10 @@ fn main_threads(conn: &Connection) -> Result<HashMap<String, String>> {
 }
 
 /// Branch -> its first merge time (unix seconds) on the first-parent history of `main` (else `master`);
-/// `None` when the folder has no git history or neither branch.
+/// `None` when the folder has no git history or neither branch. Only an absolute path is read: an empty or relative
+/// project would otherwise be resolved against the process's working folder.
 fn first_merges(repo: &str) -> Option<HashMap<String, i64>> {
-    if !Path::new(repo).join(".git").exists() {
+    if !Path::new(repo).is_absolute() || !Path::new(repo).join(".git").exists() {
         return None;
     }
     let main = ["main", "master"].into_iter().find(|b| {
@@ -349,9 +350,15 @@ pub fn effectiveness_in(
         let known = merges
             .entry(project.clone())
             .or_insert_with(|| first_merges(project));
-        let done = known
-            .as_ref()
-            .map(|m| line.branches.iter().filter_map(|b| m.get(b)).min().copied());
+        // only a branch that holds this task's id makes it done (not a sub-agent's shared `worktree-agent-*`)
+        let done = known.as_ref().map(|m| {
+            line.branches
+                .iter()
+                .filter(|b| task_id(b).as_deref() == Some(id.as_str()))
+                .filter_map(|b| m.get(b))
+                .min()
+                .copied()
+        });
         let (done_utc, state) = match done {
             None => {
                 no_git.insert(folder(Some(project)));
