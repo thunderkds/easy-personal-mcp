@@ -61,8 +61,26 @@ describe('shellLine (AC1)', () => {
   ])('refuses a path with a %s', (_name, path) => {
     expect(shellLine(path, wake)).toBeNull()
   })
-  it('does not refuse U+0080 and above', () => {
-    expect(shellLine('/a\u0080b', wake)).toBe(`cd -- '/a\u0080b' && claude "/wake"`)
+  it.each([
+    ['C1 start U+0080', '/a\u0080b'],
+    ['C1 end U+009F', '/a\u009fb'],
+    ['line separator U+2028', '/a\u2028b'],
+    ['paragraph separator U+2029', '/a\u2029b'],
+    ['zero-width space U+200B', '/a\u200bb'],
+    ['zero-width joiner U+200D', '/a\u200db'],
+    ['right-to-left mark U+200F', '/a\u200fb'],
+    ['bidi embedding U+202A', '/a\u202ab'],
+    ['bidi override U+202E', '/a\u202eb'],
+    ['bidi isolate U+2066', '/a\u2066b'],
+    ['pop directional isolate U+2069', '/a\u2069b'],
+    ['byte order mark U+FEFF', '/a\ufeffb'],
+  ])('refuses a path with a hidden character: %s', (_name, path) => {
+    expect(shellLine(path, wake)).toBeNull()
+  })
+  it('does not refuse the characters just outside those ranges', () => {
+    for (const c of ['\u00a0', '\u00e9', '\u2010', '\u202f', '\u2065', '\u206a', '\ufffd']) {
+      expect(shellLine(`/a${c}b`, wake)).toBe(`cd -- '/a${c}b' && claude "/wake"`)
+    }
   })
   it('refuses an empty or missing path', () => {
     expect(shellLine('', wake)).toBeNull()
@@ -150,11 +168,37 @@ describe('CopyCommand (AC2)', () => {
     expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
     pick('Repo', '/work/b\nc')
     expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
-    expect(screen.getByText('This repo path has a control character; copy is off.')).toBeInTheDocument()
+    expect(screen.getByText('This repo path has a hidden or control character; copy is off.')).toBeInTheDocument()
     expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
     pick('Repo', '/work/a')
     expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
-    expect(screen.queryByText(/control character/)).toBeNull()
+    expect(screen.queryByText(/hidden or control character/)).toBeNull()
+  })
+
+  it('offers no Copy for a repo path with a bidi or zero-width character', () => {
+    render(<CopyCommand repos={['/work/a\u202eb']} />)
+    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
+    expect(screen.getByText('This repo path has a hidden or control character; copy is off.')).toBeInTheDocument()
+  })
+
+  it('says it has no path, and offers no Copy, for an empty repo', () => {
+    render(<CopyCommand repos={['']} />)
+    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull()
+    expect(screen.getByText('This repo has no path; copy is off.')).toBeInTheDocument()
+    expect(screen.queryByText(/hidden or control character/)).toBeNull()
+  })
+
+  it('announces the refusal in the polite live region, also when the repo select changes to it', () => {
+    render(<CopyCommand repos={['/work/a', '/work/b\u200bc', '']} />)
+    const status = screen.getByTestId('copy-status')
+    expect(status).toHaveAttribute('aria-live', 'polite')
+    expect(status).toHaveTextContent('')
+    pick('Repo', '/work/b\u200bc')
+    expect(status).toHaveTextContent('This repo path has a hidden or control character; copy is off.')
+    pick('Repo', '')
+    expect(status).toHaveTextContent('This repo has no path; copy is off.')
+    pick('Repo', '/work/a')
+    expect(status).toHaveTextContent('')
   })
 
   it('keeps each block state its own', async () => {

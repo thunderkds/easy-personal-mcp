@@ -104,6 +104,19 @@ cd -- '<tmp>/repos/it'\\''s a repo with space' && claude "/wake" -> claude ran i
 ```
 - Finding: the store refuses a repo path that is not absolute or `~`-prefixed (`easy-personal: repo path must be absolute or start with ~`; a `~` path is expanded to the home folder when stored), so a `-x` repo cannot reach the page today. The `--` is defence in depth; the `-x` case was therefore checked through `shellLine` and `sh`, not through a stored workspace.
 
+**Amendment 2 (Stage 4), 2026-11-15: wider refused set, refusal announced, new note texts**
+- Refused now (`HIDDEN` in `web/src/CopyCommand.jsx`): U+0000-U+001F, U+007F-U+009F, U+200B-U+200F, U+2028, U+2029, U+202A-U+202E, U+2066-U+2069, U+FEFF. Reason: bidi and zero-width characters make the shown path differ from the copied bytes.
+- Notes: "This repo path has a hidden or control character; copy is off." and, for an empty path, "This repo has no path; copy is off." Both now sit in the existing `aria-live="polite"` status `<p>` (the separate note `<p>` is gone), so a change of the repo select announces them.
+- RED first (2026-11-15T08:16:42Z, code unchanged): `Tests  16 failed | 32 passed (48)` — 12 range tests (`refuses a path with a hidden character: C1 start U+0080` ... `byte order mark U+FEFF`) plus the 4 note tests (`offers no Copy for a repo path with a control character, and says why`, `... bidi or zero-width character`, `says it has no path ... for an empty repo`, `announces the refusal in the polite live region ...`).
+- After the change (2026-11-15T08:17:09Z):
+```
+npm --prefix web test -- --run   → Test Files  26 passed (26)   Tests  886 passed (886)
+npm --prefix web run build       → ../src/easy_personal/dashboard/static/assets/index-CDVgWusl.js  349.36 kB │ gzip: 104.69 kB
+                                   ✓ built in 637ms
+python3 scripts/check_static.py  → check_static: ok
+```
+- Layout unchanged (the note moved into the existing status line), so no new browser check.
+
 **DELTA**: A workspace card with repos now has a block where the user picks one of three fixed Claude commands (and a repo), and copies one shell-safe line to paste into their own terminal; the page runs nothing.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the

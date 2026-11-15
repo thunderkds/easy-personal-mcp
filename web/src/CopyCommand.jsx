@@ -7,18 +7,22 @@ export const COMMANDS = [
   { label: 'Verify', command: 'claude "/verify"' },
 ]
 
-const CONTROL = /[\u0000-\u001f\u007f]/
+// C0 and C1 controls, DEL, line and paragraph separators, zero-width and LRM/RLM marks, bidi embeddings and isolates, BOM:
+// each can make the shown path differ from the copied bytes.
+const HIDDEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]/
 
 /**
  * The one line to paste into a POSIX shell: `cd -- '<repo>' && <command>`.
  * The `--` ends the options, so a path that starts with `-` is not read as one.
  * The repo is in single quotes and each `'` in it is written `'\''`, so nothing in it reaches the shell as syntax.
- * Returns null for a path the line cannot carry safely: empty, or holding a C0 control character or U+007F.
+ * Returns null for a path the line cannot carry safely: empty, or holding a hidden or control character (see HIDDEN).
  */
 export function shellLine(repo, command) {
-  if (typeof repo !== 'string' || repo === '' || CONTROL.test(repo)) return null
+  if (typeof repo !== 'string' || repo === '' || HIDDEN.test(repo)) return null
   return `cd -- '${repo.replaceAll("'", "'\\''")}' && ${command}`
 }
+
+const refusal = (repo) => (repo === '' ? 'This repo has no path; copy is off.' : 'This repo path has a hidden or control character; copy is off.')
 
 /** A small block on a workspace card: pick a command (and a repo), then copy one line. It runs nothing and sends nothing. */
 export default function CopyCommand({ repos }) {
@@ -82,12 +86,11 @@ export default function CopyCommand({ repos }) {
           </button>
         )}
       </div>
-      {line === null && <p className="muted">This repo path has a control character; copy is off.</p>}
       {outcome === 'manual' && line !== null && (
         <input ref={manual} className="mono" type="text" readOnly aria-label="Command to copy" value={line} />
       )}
       <p className="muted" data-testid="copy-status" aria-live="polite">
-        {outcome === 'copied' ? 'Copied' : outcome === 'manual' ? 'Copy it with Ctrl+C.' : ''}
+        {line === null ? refusal(repo) : outcome === 'copied' ? 'Copied' : outcome === 'manual' ? 'Copy it with Ctrl+C.' : ''}
       </p>
     </div>
   )
