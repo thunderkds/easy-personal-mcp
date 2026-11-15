@@ -326,3 +326,11 @@ Open P3s: raw `12.5px`/`13.5px` in First run CSS (`--fs-note`/`--fs-control`); e
 - T062 and HUN-245 are taken by the second session (own worktrees and branches; guides and PRD change on its branch, cherry-picked to main by this session; this session decides merges).
 **Why**: owner, 2026-11-15, in the second session.
 **Files**: `rust/PROJECT_KANBAN.md`, `PRD.md` (FR-092, question 34), `README.md`
+
+### 2026-11-15 — Watch: owner HITL answers for T076 (tray) and T077 (Watch view)
+- T077 layout "Approve as proposed": Watch tab in `// work` after Live; effectiveness over all time (no period picker); 6 machine tiles; one plan-limit card per account; no auto refresh (cut list; follow-up).
+- T076 tray menu "Approve as listed": 10 rows incl. the extra "<n> failing · <project>" row; canvas ingest rows and reset time cut; "Pause alerts" with no timer (T074 pause has none); text only.
+- T076 state rule "Approved plan" over the Tray canvas: attention = a session waiting or a limit >= 90 %; problem = a failing session or a disk/RAM/battery alert. The canvas rule (70 %/90 %, ingest failed) is not used.
+- T074 AC 1 example corrected at Stage 4: re-arm is below 85 (PRD FR-097), so 89→91→90→86→91 raises 1 alert.
+**Why**: owner answers via AskUserQuestion, 2026-11-15; T074 code-review P2.
+**Files**: `web/src/WatchView.jsx`, `rust/crates/app/src/tray.rs`, `rust/crates/app/src/alerts.rs`, `tasks/TASK_GUIDE_T074.md`, `tasks/TASK_REVIEW_T076.md`, `tasks/TASK_REVIEW_T077.md`
