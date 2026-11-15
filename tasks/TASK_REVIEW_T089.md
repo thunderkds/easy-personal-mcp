@@ -101,3 +101,17 @@ Screenshots (headless google-chrome): `tasks/T089-screens/hero-desktop.png`, `he
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T089.jsonl`, never the
 implementing agent alone]
+
+---
+
+## Stage 4 — code-review (Supervisor inline, 2026-11-15)
+
+Scope: `site/index.html`, `README.md`, `rust/README.md`, `tests/test_site_content.py`. Commands checked against `rust/crates/app/src/main.rs` and `rust/packaging/*.desktop`.
+
+- P1 (fixed, `014f7eb`): the window step used `easy-personal-rs dashboard`. In the Rust app `dashboard` is an alias of `serve` (`main.rs:71`): it serves on 127.0.0.1 and prints a URL; it opens no window. The `.desktop` entry runs `app --static-dir /usr/share/easy-personal-rs/static`. Page, README and `RS_DASHBOARD` now use `app`.
+- Pre-existing failure fixed in scope: `test_stat_strip_numbers_come_from_real_sources` failed on main (page 9 views, `web/src/App.jsx` 10 since T077 Watch view). Stat → 10.
+- P1 (process): startup reads partial (PROJECT_SPEC.md, rust/PROJECT_SPEC.md, agents/frontend.md line counts only). No content impact found.
+- P3: `rust/packaging/README.md` says "The dashboard needs the page folder: `easy-personal-rs dashboard --static-dir …`" — correct for `serve`, but a reader may expect a window. Not touched (out of scope); candidate follow-up.
+- Agent choice accepted: the AppIndicators `gnome-extensions enable …@ubuntu.com` command is linked, not copied (the `@` trips the no-email scan).
+
+Tests after fixes: site + readme `98 passed`; full suite `1856 passed, 2 skipped, 7 deselected, 1 xfailed`.

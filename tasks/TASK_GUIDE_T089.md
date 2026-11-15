@@ -74,13 +74,13 @@ uv run pytest tests/test_site_content.py tests/test_site_theme.py tests/test_sit
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | new tests in tests/test_site_content.py (deb-before-uv on page and README, Recent alerts + AppIndicators named, rust/README Not done, apt-line negative); Supervisor rerun `uv run pytest tests/test_site_content.py tests/test_site_theme.py tests/test_site_deploy_config.py tests/test_readme.py -q` → `98 passed in 0.97s` |
+| Verification command | ☑ | full `uv run pytest -q` (Supervisor, after Stage 4 fixes) → `1856 passed, 2 skipped, 7 deselected, 1 xfailed, 1 warning in 165.40s` |
+| code-review | ☑ | Supervisor inline 2026-11-15: 1 P1 fixed (`014f7eb`: `easy-personal-rs dashboard` is an alias of `serve` and opens no window → `app`, as the .desktop entry runs), 1 pre-existing failure fixed in scope (views stat 9 → 10 after T077); 1 P1 process (startup reads partial) |
 | security-review | ☐ N/A | Risk Low: static docs; `test_site_tree_has_no_host_path_email_or_token` still runs |
-| UI: visual regression | ☐ | |
-| UI: design-system compliance | ☐ | |
-| UI: responsiveness | ☐ | |
+| UI: visual regression | ☑ | tasks/T089-screens/hero-desktop.png + hero-375.png retaken after fixes (headless Chrome); install-*.png from the agent (pre-fix text, same layout) |
+| UI: design-system compliance | ☑ | test_site_theme passes; one new CSS rule `h3.sub { margin-top: 1rem; }`, no new colours |
+| UI: responsiveness | ☑ | 375 px: scrollWidth == clientWidth (agent iframe check); commands scroll inside `pre` |
 
 ## Demonstration
 > BEFORE/AFTER/DELTA/WITNESS go in `tasks/TASK_REVIEW_T089.md`. BEFORE = the current hero install box and `#install` text, quoted.
@@ -124,5 +124,5 @@ Test first: change the test data/new tests, see them fail, then edit README, pag
 ACs 1-6 as automated tests with pasted output; AC 7 screenshots.
 
 ## Completion Checklist
-- [ ] Every AC with pasted output in `tasks/TASK_REVIEW_T089.md`
-- [ ] Commits on branch `T089` only; final report with `Status:`
+- [x] Every AC with pasted output in `tasks/TASK_REVIEW_T089.md`
+- [x] Commits on branch `T089` only; final report with `Status:`
