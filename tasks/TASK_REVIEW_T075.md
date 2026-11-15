@@ -41,9 +41,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | AC1-AC4: `rust/crates/core/tests/effectiveness.rs` (7 tests: attribution incl. sidechain of a branch session / of a `main` session / `worktree-agent-x` / `fix-foo` / HEAD / two ids / two repos; first merge of two wins, squash, fast-forward and merge-into-`side` not done, shared `worktree-agent-*` merge not done, no git = unknown; 0 good results = null, unknown price; an FR-061 good result; pruned store via `Writer::prune` -> oldest day, local day in Tokyo; read-only, period, scope, no path / session id; relative or missing project never reads the cwd's git) + `rust/crates/core/src/effectiveness.rs` unit test `task_ids_are_read_as_written_first_one_wins`. AC5: `rust/crates/app/src/api_tests.rs` `the_effectiveness_route_answers_the_core_and_maps_its_errors`; `rust/crates/app/tests/mcp.rs` `effectiveness_is_listed_read_only_and_answers_the_cores_json`, `effectiveness_with_no_store_is_a_tool_error_without_a_path_and_creates_nothing`; `rust/crates/app/tests/cli_cmds.rs` `effectiveness_prints_a_table_or_the_json_and_refuses_a_bad_scope` + missing / newer store / read-only lists; tool counts 12->13 in `mcp_http.rs`, `save_report.rs`, `mcp.rs` (name list, registration order); `/api/effectiveness` added to `FORBIDDEN_ROUTES` in `tests/server.rs` (guard, no echo, 503 store states). Output: `cargo test -q -p easy-personal-core --test effectiveness` -> `test result: ok. 7 passed; 0 failed`; app suites `mcp` 30 passed, `cli_cmds` 14 passed, `server` 52 passed, `mcp_http` 13 passed, `save_report` 7 passed, `kit` 7, `dirs_jobs` 5, `connectors` 13 (all 0 failed). |
+| Verification command run | ☑ pass (with 2 notes) | Full run (see AFTER): `test binaries 85 passed 904 failed 5 ignored 29`; the 5 failures are timing / race tests in 4 binaries outside T075 (`jobs_parity` crontab `< 3.0 s`, `live_parity` 100k pairing, `memgraph_parity` `took 9.58s`, `ingest_coexist` x2) under load average 16-18 from parallel worktrees; each binary passes alone right after: `jobs_parity` 7 passed, `live_parity` 15 passed, `memgraph_parity` 27 passed, `ingest_coexist` 14 passed (0 failed); `ingest_coexist` also failed on clean main in BEFORE. Note 1: the guide's `cargo run -p easy-personal-rs` needs `--bin easy-personal-rs`. Note 2: the real run uses a fixture store (synthetic events on this repo's path; the owner's store is not opened), with done times from this repo's real local git. |
+| Negative cases hold | ☑ pass | bad `since` -> 400 / tool error / exit 2 `Invalid isoformat string: 'bad'`; unknown workspace -> `unknown workspace`; no token -> 403; no store / newer store -> fixed texts, nothing created, no path in the text; wrong argument type -> `argument `until` must be a string or null`; store bytes unchanged after API, MCP and CLI reads. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -95,9 +95,42 @@ For more information, try '--help'.
 exit=2
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: run by backend-developer at HEAD `fb2216d` (fixture store: synthetic events whose project is this repo's main checkout; done times from its real local git).
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+2026-11-15T03:59:11Z
+HEAD fb2216d
+$ cd rust && cargo test --workspace --no-fail-fast 2>&1 | tail -5   (+ the sum of every "test result" line)
+cargo test exit=101
+test binaries 85 passed 904 failed 5 ignored 29
+error: 4 targets failed:
+    `-p easy-personal-core --test jobs_parity`
+    `-p easy-personal-core --test live_parity`
+    `-p easy-personal-core --test memgraph_parity`
+    `-p easy-personal-rs --test ingest_coexist`
+$ EASY_PERSONAL_HOME=<fixture home> cargo run -q -p easy-personal-rs --bin easy-personal-rs -- effectiveness
+task          project            tokens   cost                     sessions  good  tokens/good  done                  tokens/task done
+T071          easy-personal-mcp  427200   $0.4100                  1         0     -            2026-11-15T02:40:32Z  427200
+T070          easy-personal-mcp  373800   $0.3588                  1         0     -            not done              -
+T069          easy-personal-mcp  320400   $0.3075                  1         0     -            2026-11-14T16:40:44Z  320400
+T068          easy-personal-mcp  267000   $0.2562                  1         0     -            2026-11-14T16:39:21Z  267000
+T067          easy-personal-mcp  213600   $0.2050                  1         0     -            2026-11-14T16:34:21Z  213600
+T066          easy-personal-mcp  160200   $0.1537                  1         0     -            2026-11-14T16:34:00Z  160200
+T075          easy-personal-mcp  106800   $0.0512 + unknown price  1         0     -            not done              -
+unattributed  -                  3631200  $3.4850                  3         0     -            -                     -
+total         -                  5500200  $5.2275 + unknown price  4         0     -            5 of 7 done           277680.0
+Oldest stored day: 2026-11-14 (older events may have been pruned with --retention-days)
+exit=0
+2026-11-15T04:14:44Z
+```
+
+Finding in the AFTER run: T070 shows `not done`, but a run at `29d2ff7` 36 min earlier showed `2026-11-15T02:48:44Z`.
+Cause: `main` was fast-forwarded to `t078-keychain-leftovers` (reflog `10:56:09 merge t078-keychain-leftovers: Fast-forward`),
+whose `b411c19 Merge branch 'main' into t078-keychain-leftovers` made the old main the second parent. So
+`Merge branch 'T070'` is no longer on main's first-parent chain. The guide's rule (`--first-parent`) is kept as written; see the
+report's Question.
+
+**DELTA**: The owner can now see, per task branch, the tokens, the cost, the good results and the done time from git, computed on read. The API (`GET /api/effectiveness`), the CLI (`effectiveness`, `--json`) and the MCP tool (`effectiveness`) show them. Before, the command did not exist (`unrecognized subcommand 'effectiveness'`).
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T075.jsonl`, never the
 implementing agent alone]
