@@ -61,8 +61,29 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-15, before any implementation commit; new tests written first, main b4c8469 code and doc unchanged):
+
+`2026-11-15T09:51:37Z` `cargo test -p easy-personal-core --test store_health_parity the_hint`
+```
+test the_hint_names_the_rust_binary ... FAILED
+thread 'the_hint_names_the_rust_binary' panicked at crates/core/tests/store_health_parity.rs:130:5:
+verdict: not fully checked (integrity_check, foreign_key_check, sources not finished in time); run `easy-personal store-check --full` for the integrity verdict
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out
+```
+
+`2026-11-15T09:5xZ` `cargo test -p easy-personal-rs --test cutover_doc`
+```
+test step_0_2_does_not_ask_to_close_every_session ... FAILED
+test the_steps_that_expect_a_verdict_run_store_check_full ... FAILED
+Step 0.4: `rust/target/debug/easy-personal-rs store-check` lacks --full
+Step 0.2 still asks the owner to close every session
+test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+Prior doc content (verbatim, `rust/docs/CUTOVER.md` at b4c8469):
+- Step 0.2: "Also close every Claude Code session that uses the easy-personal MCP server. Each open session runs its own Python `easy-personal mcp` process, and it keeps the store open. Close the Python dashboard too." / "You should see: `pgrep` prints nothing. If it prints a line, close that process and run it again."
+- Step 0.4: command `rust/target/debug/easy-personal-rs store-check`; "You should see: the last line is `verdict: healthy`, and the exit code is 0 (`echo $?` prints `0`)."
+- The week: "`easy-personal-rs store-check` ends with `verdict: healthy`."
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
