@@ -72,10 +72,10 @@ cd rust && cargo test --workspace 2>&1 | tail -5
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
-| security-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | 21 new tests (alerts.rs 16, api_tests.rs 3, server.rs 2), `cargo test --workspace` 971 passed 0 failed; see TASK_REVIEW_T074.md |
+| Verification command | ☑ | Supervisor `/verify` 2026-11-15 pass, incl. leak gate 0 hits and window self-test ok |
+| code-review | ☑ | 0 P0/P1, 2 P2 (1 fixed in guide, 1 accepted), 2 P3 |
+| security-review | ☑ | 0 P0/P1/P2, 1 P3 (leak gate without `--alerts`, follow-up) |
 | UI: visual regression | ☐ N/A | backend only |
 | UI: design-system compliance | ☐ N/A | backend only |
 | UI: responsiveness | ☐ N/A | backend only |
