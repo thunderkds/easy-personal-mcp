@@ -66,9 +66,9 @@ cd rust && cargo test -p easy-personal-rs --bin easy-personal-rs alert 2>&1 | ta
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | `a_hung_notifier_never_blocks_the_start`, `stop_before_the_first_tick_shows_nothing`, `paused_before_the_first_tick…`, real-tail one-alert test; 23 alert tests pass |
+| Verification command | ☑ | Supervisor `/verify` pass |
+| code-review | ☑ | inline: 0 findings |
 | security-review | ☐ N/A | Risk Low |
 | UI: visual regression | ☐ N/A | backend only |
 | UI: design-system compliance | ☐ N/A | backend only |
