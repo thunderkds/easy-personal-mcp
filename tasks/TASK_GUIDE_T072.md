@@ -65,7 +65,7 @@ No new crate (use `std` + `libc`/`nix` only if already in `Cargo.lock`; record w
 
 ### Verification Command
 ```bash
-cd rust && cargo test --workspace 2>&1 | tail -5 && cargo run -q -p easy-personal-rs -- machine
+cd rust && cargo test --workspace 2>&1 | tail -5 && cargo run -q -p easy-personal-rs --bin easy-personal-rs -- machine
 ```
 
 ### Evidence (filled by reviewer at Stage 4/5)

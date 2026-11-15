@@ -67,7 +67,7 @@ No new crate.
 
 ### Verification Command
 ```bash
-cd rust && cargo test --workspace 2>&1 | tail -5 && cargo run -q -p easy-personal-rs -- effectiveness
+cd rust && cargo test --workspace 2>&1 | tail -5 && cargo run -q -p easy-personal-rs --bin easy-personal-rs -- effectiveness
 ```
 
 ### Evidence (filled by reviewer at Stage 4/5)
