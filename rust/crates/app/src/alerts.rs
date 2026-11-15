@@ -980,6 +980,92 @@ mod tests {
         assert!(n.warned);
     }
 
+    /// The whole path from a transcript: a call to `AskUserQuestion` with no result makes the live tail say *waiting*, and
+    /// the engine thread, reading that tail, raises the alert with the tool, the project folder and the short session id.
+    #[test]
+    fn a_waiting_session_in_a_real_live_tail_raises_one_alert() {
+        use crate::live_feed::LiveFeed;
+        use easy_personal_core::live::Root;
+        use easy_personal_core::prices::PriceTable;
+        let dir =
+            std::env::temp_dir().join(format!("easy-personal-rs-t074-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("p")).unwrap();
+        let roots = vec![Root {
+            account: None,
+            projects: dir.clone(),
+        }];
+        let feed = LiveFeed::start(
+            PriceTable::shipped().unwrap(),
+            now_micros,
+            move |tail, now| tail.poll_once(&roots, now, None),
+        )
+        .unwrap();
+        std::thread::sleep(Duration::from_millis(400)); // the first scan is over: what comes next is new
+        let (days, secs) = (
+            now_micros() / 1_000_000 / 86_400,
+            now_micros() / 1_000_000 % 86_400,
+        );
+        let z = days + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z.rem_euclid(146_097);
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let (day, month) = (
+            doy - (153 * mp + 2) / 5 + 1,
+            if mp < 10 { mp + 3 } else { mp - 9 },
+        );
+        let year = yoe + era * 400 + i64::from(month <= 2);
+        let ts = format!(
+            "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+            secs / 3600,
+            secs / 60 % 60,
+            secs % 60
+        );
+        let line = format!(
+            "{{\"type\":\"assistant\",\"sessionId\":\"0123abcd-ffff-4000-8000-000000000001\",\"cwd\":\"/home/x/shop-front\",\"timestamp\":\"{ts}\",\"message\":{{\"id\":\"m1\",\"model\":\"x\",\"content\":[{{\"type\":\"text\",\"text\":\"my password is hunter2-planted\"}},{{\"type\":\"tool_use\",\"id\":\"b1\",\"name\":\"AskUserQuestion\",\"input\":{{\"question\":\"planted question text\"}}}}]}}}}\n"
+        );
+        std::fs::write(dir.join("p/s.jsonl"), line).unwrap();
+        let fake = Fake::default();
+        let end = Instant::now() + Duration::from_secs(10);
+        let thread = loop {
+            // a fresh engine thread each round: its first look is taken at once, so it is a poll with no sleep
+            let probe = Arc::new(Shared::default());
+            let t = start_every(
+                Duration::from_secs(3600),
+                Arc::clone(&probe),
+                Box::new(fake.clone()),
+                Some(feed.tail()),
+                None,
+                None,
+            )
+            .unwrap();
+            if probe.list.lock().unwrap().len() == 1 {
+                break (t, probe);
+            }
+            t.stop();
+            assert!(Instant::now() < end, "the live tail never said waiting");
+            std::thread::sleep(Duration::from_millis(100));
+        };
+        let text = thread.1.json()["alerts"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            text,
+            "Waiting for you, AskUserQuestion, project shop-front, session 0123abcd"
+        );
+        let all = format!("{} {}", thread.1.json(), fake.bodies().join(" "));
+        assert!(
+            !all.contains("hunter2") && !all.contains("planted"),
+            "{all}"
+        );
+        thread.0.stop();
+        feed.stop();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// The engine on its own thread through the sampler: it looks at once, reads the shared inputs, and stops quickly.
     #[test]
     fn the_thread_looks_at_the_inputs_and_stops_quickly() {

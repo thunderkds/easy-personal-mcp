@@ -590,6 +590,83 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// T074: with a notifier, `start_with_alerts` runs the engine (first look at once) on its own thread: the popup goes
+    /// to the notifier, `GET /api/alerts` lists the alert, the pause route stops the next popup, and `stop` joins the thread.
+    #[test]
+    fn start_with_alerts_runs_the_engine_serves_the_list_and_stop_joins_it() {
+        use std::io::Read;
+        use std::sync::Mutex;
+        struct Fake(Arc<Mutex<Vec<String>>>);
+        impl Notifier for Fake {
+            fn notify(&mut self, _: &str, body: &str) {
+                self.0.lock().unwrap().push(body.into());
+            }
+        }
+        let hot = Sampler::start("test-machine", 4, Duration::from_secs(3600), || Sample {
+            t: 1,
+            cpu_pct: None,
+            ram_used: None,
+            ram_total: None,
+            disk_used: Some(97),
+            disk_total: Some(100),
+            load1: None,
+            battery_pct: None,
+            charging: None,
+            claude_procs: None,
+        })
+        .unwrap();
+        let popups = Arc::new(Mutex::new(Vec::new()));
+        let running = start_with_alerts(
+            None,
+            None,
+            Some(hot),
+            None,
+            Some(Box::new(Fake(Arc::clone(&popups)))),
+        )
+        .unwrap();
+        assert_eq!(*popups.lock().unwrap(), ["Disk 97 % used"]);
+        let call = |request: String| {
+            let mut stream = std::net::TcpStream::connect(("127.0.0.1", running.port)).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            stream.write_all(request.as_bytes()).unwrap();
+            let mut answer = String::new();
+            let _ = stream.read_to_string(&mut answer);
+            answer
+        };
+        let head = format!(
+            "Host: 127.0.0.1:{}\r\nx-dashboard-token: {}\r\nConnection: close\r\n",
+            running.port, running.token
+        );
+        let list = call(format!("GET /api/alerts HTTP/1.1\r\n{head}\r\n"));
+        assert!(list.starts_with("HTTP/1.1 200"), "{list}");
+        let body: serde_json::Value =
+            serde_json::from_str(list.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        assert_eq!(body["paused"], false);
+        assert_eq!(body["alerts"][0]["text"], "Disk 97 % used");
+        let pause = call(format!(
+            "POST /api/alerts/pause HTTP/1.1\r\n{head}Content-Type: application/json\r\nContent-Length: 15\r\n\r\n{{\"paused\":true}}"
+        ));
+        assert!(pause.starts_with("HTTP/1.1 200"), "{pause}");
+        assert!(pause.ends_with(r#"{"paused":true}"#), "{pause}");
+        let began = std::time::Instant::now();
+        running.stop();
+        assert!(
+            began.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            began.elapsed()
+        );
+    }
+
+    /// T074: no notifier (the default) starts no thread, and the list stays empty and answers.
+    #[test]
+    fn start_without_alerts_starts_no_engine() {
+        let running = start(None, None, None, None).unwrap();
+        assert!(running.alerts.is_none());
+        running.stop();
+    }
+
     /// T056: the query `token` counts only for `GET /api/live` with no token header; Host and Origin still apply.
     #[test]
     fn the_query_token_counts_only_for_get_on_the_live_route() {

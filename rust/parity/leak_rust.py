@@ -108,6 +108,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/machine": [""],  # T072: the in-memory machine status history; no store, no path
     "/api/effectiveness": ["", "?since=2026-01-01", "?workspace=acme", "?account=1", "?account=nope", "?since=garbage"],  # T075
     "/api/limits/history": [""],  # T073: the in-memory plan-limit history; no store, no path
+    "/api/alerts": [""],  # T074: the in-memory alert list; no store, no path
+    "/api/alerts/pause": [""],  # T074: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -177,6 +179,10 @@ WRITE_CALLS = [
     ("account workspaces key as name", "PUT", "/api/accounts/1/workspaces", '{"workspaces":["{key}"]}'),
     ("account workspaces key as type", "PUT", "/api/accounts/1/workspaces", '{"workspaces":"{key}"}'),
     ("account workspaces accepted", "PUT", "/api/accounts/1/workspaces", '{"workspaces":["leak-check"]}'),
+    ("alert pause key as flag", "POST", "/api/alerts/pause", '{"paused":"{key}"}'),  # T074
+    ("alert pause key as field", "POST", "/api/alerts/pause", '{"{key}":true}'),
+    ("alert pause key not JSON", "POST", "/api/alerts/pause", '{{key}'),
+    ("alert pause accepted", "POST", "/api/alerts/pause", '{"paused":false}'),
 ]
 # MCP tool -> argument variants (the Python suite's MCP_CALLS for these tools, plus error paths).
 MCP_CALLS: dict[str, list[dict]] = {

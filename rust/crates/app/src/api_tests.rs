@@ -1077,3 +1077,147 @@ fn the_limits_sampler_ticks_on_its_own_thread_and_stop_joins_it_quickly() {
         began.elapsed()
     );
 }
+
+// ---- T074: GET /api/alerts, POST /api/alerts/pause ----
+
+fn alerts_app() -> (Router, Arc<crate::alerts::Shared>, Arc<AtomicUsize>) {
+    let shared = Arc::<crate::alerts::Shared>::default();
+    // a store lookup that counts its calls: the alert routes must never ask for the store
+    let calls = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&calls);
+    let api = Api::new(
+        move || {
+            seen.fetch_add(1, Ordering::SeqCst);
+            Err(StoreError::NoHome)
+        },
+        || 0,
+    )
+    .with_alerts(Arc::clone(&shared));
+    (router(TOKEN.into(), PORT, api), shared, calls)
+}
+
+async fn pause_call(
+    app: &Router,
+    token: bool,
+    content_type: Option<&str>,
+    body: &str,
+) -> (StatusCode, Value) {
+    let mut request = Request::builder()
+        .method("POST")
+        .uri("/api/alerts/pause")
+        .header("host", format!("127.0.0.1:{PORT}"));
+    if token {
+        request = request.header("x-dashboard-token", TOKEN);
+    }
+    if let Some(content_type) = content_type {
+        request = request.header("content-type", content_type);
+    }
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+#[tokio::test]
+async fn alerts_with_no_engine_is_empty_not_paused_guarded_and_reads_no_store() {
+    let (app, _, calls) = alerts_app();
+    assert_eq!(get(&app, "/api/alerts", false).await.0, 403);
+    let (status, body) = get(&app, "/api/alerts", true).await;
+    assert_eq!(status, 200);
+    assert_eq!(body, json!({"alerts": [], "paused": false}));
+    for verb in ["POST", "PUT", "PATCH", "DELETE"] {
+        assert_eq!(method(&app, verb, "/api/alerts").await.0, 405, "{verb}");
+    }
+    for verb in ["GET", "PUT", "PATCH", "DELETE"] {
+        assert_eq!(
+            method(&app, verb, "/api/alerts/pause").await.0,
+            405,
+            "{verb}"
+        );
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn pause_is_guarded_like_a_write_and_sets_the_flag_in_memory_only() {
+    let (app, shared, calls) = alerts_app();
+    let json = Some("application/json");
+    assert_eq!(
+        pause_call(&app, false, json, r#"{"paused":true}"#).await.0,
+        403
+    );
+    assert!(!shared.paused(), "a refused call changes nothing");
+    assert_eq!(
+        pause_call(&app, true, None, r#"{"paused":true}"#).await.0,
+        415
+    );
+    assert_eq!(
+        pause_call(&app, true, Some("text/plain"), r#"{"paused":true}"#)
+            .await
+            .0,
+        415
+    );
+    for bad in [
+        "",
+        "nope",
+        "[]",
+        "{}",
+        r#"{"paused":"yes"}"#,
+        r#"{"paused":1}"#,
+        r#"{"paused":true,"x":1}"#,
+    ] {
+        let (status, body) = pause_call(&app, true, json, bad).await;
+        assert_eq!(status, 400, "{bad}");
+        assert!(body["error"].is_string());
+    }
+    assert!(!shared.paused());
+    let (status, body) = pause_call(&app, true, json, r#"{"paused":true}"#).await;
+    assert_eq!((status, body), (StatusCode::OK, json!({"paused": true})));
+    assert!(shared.paused());
+    assert_eq!(get(&app, "/api/alerts", true).await.1["paused"], true);
+    let (status, body) = pause_call(
+        &app,
+        true,
+        Some("application/json; charset=utf-8"),
+        r#"{"paused":false}"#,
+    )
+    .await;
+    assert_eq!((status, body), (StatusCode::OK, json!({"paused": false})));
+    assert!(!shared.paused());
+    assert_eq!(calls.load(Ordering::SeqCst), 0, "no store is opened");
+}
+
+/// T074 AC 4: through the route, a paused engine calls no notifier, and `GET /api/alerts` still lists the alert.
+#[tokio::test]
+async fn paused_through_the_route_stops_the_popup_but_the_list_still_has_the_alert() {
+    use crate::alerts::{Engine, Notifier};
+    struct Count(Arc<AtomicUsize>);
+    impl Notifier for Count {
+        fn notify(&mut self, _: &str, _: &str) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let (app, shared, _) = alerts_app();
+    let popups = Arc::new(AtomicUsize::new(0));
+    let mut engine = Engine::new(Arc::clone(&shared), Box::new(Count(Arc::clone(&popups))));
+    let mut hot = machine_sample(1, None);
+    hot.disk_used = Some(95);
+    hot.disk_total = Some(100);
+    pause_call(&app, true, Some("application/json"), r#"{"paused":true}"#).await;
+    engine.tick(1_800_000_000, Instant::now(), None, Some(&hot), None);
+    assert_eq!(popups.load(Ordering::SeqCst), 0, "paused: no popup");
+    let (_, body) = get(&app, "/api/alerts", true).await;
+    assert_eq!(body["paused"], true);
+    assert_eq!(body["alerts"].as_array().unwrap().len(), 1);
+    assert_eq!(body["alerts"][0]["kind"], "disk");
+    assert_eq!(body["alerts"][0]["text"], "Disk 95 % used");
+    assert_eq!(body["alerts"][0]["t"], 1_800_000_000);
+    assert!(body["alerts"][0]["account"].is_null() && body["alerts"][0]["session"].is_null());
+}
