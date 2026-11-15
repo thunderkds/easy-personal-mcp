@@ -619,3 +619,11 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **A red run that ends on a thread timeout leaves its temp folder behind** (the drop guard never runs): clean up after deliberate red runs.
 - **The agent step in the sandbox**: no heredocs, no `source`, no `cd` + git in one command; call `$HOME/.cargo/bin/cargo` directly and put multi-step runs in a script under the scratchpad.
 - **A QA agent stopped from the transcript view can be resumed by the user**: its partial logs in `/var/tmp` already hold usable evidence; read them before re-running.
+
+## 2026-11-15 — Two supervisor sessions in parallel; new routes and the leak gate
+
+- **The spawn hook resolves guides from the main checkout**: a guide that exists only on a task branch blocks the spawn. The session that owns `main` cherry-picks the guide commit.
+- **A new `/api` route fails the leak gate until it is registered in `rust/parity/leak_rust.py`** (`FAILED: unregistered /api route(s)`). Agents' Rust tests do not catch it; put "register the route in leak_rust.py" in every guide that adds a route.
+- **Never `git commit -a` on main**: the owner keeps uncommitted edits to the root `PROJECT_KANBAN.md` and HUN guides there. Add paths by name.
+- **Load average ~20 with 3-4 cargo worktrees**: `ingest_coexist`, `writes` 1 s timing, `*_parity` timing tests fail; re-run alone before calling a failure (T079 hardens them).
+- **A sampler that opens the store at start creates `-wal`/`-shm`** and breaks the store-health "writes nothing" tests (T073: first sample after one interval).

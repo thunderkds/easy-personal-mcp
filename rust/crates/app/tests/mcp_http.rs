@@ -270,8 +270,8 @@ fn http_answers_like_stdio_for_the_tool_list_the_prompt_and_the_tools() {
     }
     assert_eq!(
         want[0]["result"]["tools"].as_array().unwrap().len(),
-        12,
-        "the 12 tools of tools/list"
+        13,
+        "the 12 tools of Python's tools/list and `effectiveness`"
     );
     let (code, out, err) = server.stop();
     assert_eq!(code, Some(0));

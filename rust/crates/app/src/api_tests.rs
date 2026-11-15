@@ -850,65 +850,50 @@ async fn the_route_never_runs_the_full_check_and_keeps_the_default_budget() {
     );
 }
 
-// ---- GET /api/limits/history (T073) ----------------------------------------------------------------------------------
+// ---- T075: `/api/effectiveness` ----
 
 #[tokio::test]
-async fn limits_history_is_guarded_read_only_and_has_the_shape() {
-    let store = TempStore::new("store-v11.sqlite");
-    let folder = store.dir.join("claude-a");
-    std::fs::create_dir_all(&folder).unwrap();
-    let reset = FROZEN_NOW / 1_000_000 + 3600;
-    std::fs::write(
-        folder.join("easy-personal-limits.json"),
-        format!(
-            r#"{{"five_hour":{{"used_percentage":33.0,"resets_at":{reset}}},"seven_day":{{"used_percentage":7.0,"resets_at":{reset}}}}}"#
-        ),
-    )
-    .unwrap();
-    rusqlite::Connection::open(store.path())
-        .unwrap()
-        .execute(
-            "INSERT INTO agent_accounts (provider, folder, label, status) VALUES ('claude', ?1, 'A', 'confirmed')",
-            [folder.to_string_lossy()],
-        )
-        .unwrap();
+async fn the_effectiveness_route_answers_the_core_and_maps_its_errors() {
+    let store = TempStore::new(RICH);
     let before = std::fs::read(store.path()).unwrap();
-    let (app, api, _) = health_app(store.path());
-
-    assert_eq!(
-        get(&app, "/api/limits/history", false).await.0,
-        StatusCode::FORBIDDEN
-    );
-    let (status, empty) = get(&app, "/api/limits/history", true).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(empty, json!({ "accounts": [], "interval_s": 60 }));
-
-    api.sample_limits();
-    let (_, body) = get(&app, "/api/limits/history", true).await;
-    assert_eq!(body["interval_s"], 60);
-    let account = body["accounts"].as_array().unwrap().last().unwrap();
-    assert_eq!(account["label"], "A");
-    assert_eq!(
-        account["samples"],
-        json!([{ "t": FROZEN_NOW / 1_000_000, "five_h_pct": 33.0, "seven_d_pct": 7.0 }])
-    );
-
-    for verb in ["POST", "PUT", "PATCH", "DELETE"] {
-        assert_eq!(
-            method(&app, verb, "/api/limits/history").await.0,
-            StatusCode::METHOD_NOT_ALLOWED,
-            "{verb}"
-        );
+    let app = app(store.path(), FROZEN_NOW);
+    let conn = store::open_read_only(&store.path()).unwrap();
+    for (query, since, scope) in [
+        ("", None, Scope::default()),
+        (
+            "?since=2026-01-13T00%3A00%3A00Z&workspace=acme",
+            Some("2026-01-13T00:00:00Z"),
+            Scope {
+                workspace: Some("acme"),
+                account: None,
+            },
+        ),
+    ] {
+        let (status, body) = get(&app, &format!("/api/effectiveness{query}"), true).await;
+        assert_eq!(status, 200, "{query}: {body}");
+        let want =
+            easy_personal_core::effectiveness::effectiveness(&conn, since, None, scope).unwrap();
+        assert_eq!(body, want, "{query}");
     }
+    for (query, text) in [
+        (
+            "?since=bad&workspace=nope",
+            "Invalid isoformat string: 'bad'",
+        ),
+        ("?workspace=nope", "unknown workspace"),
+    ] {
+        let (status, body) = get(&app, &format!("/api/effectiveness{query}"), true).await;
+        assert_eq!(status, 400, "{query}");
+        assert_eq!(body, json!({ "error": text }), "{query}");
+    }
+    let (status, body) = get(&app, "/api/effectiveness", false).await;
+    assert_eq!(status, 403);
+    assert_eq!(body, json!({"error": "forbidden"}));
+    drop(conn);
     assert_eq!(
         std::fs::read(store.path()).unwrap(),
         before,
-        "the store is untouched"
-    );
-    assert_eq!(
-        std::fs::read_dir(&folder).unwrap().count(),
-        1,
-        "the account folder is untouched"
+        "the route wrote to the store"
     );
 }
 
@@ -994,4 +979,66 @@ async fn machine_is_guarded_and_read_only() {
         let response = app.clone().oneshot(request).await.unwrap();
         assert_eq!(response.status(), 405, "{method}");
     }
+}
+
+// ---- GET /api/limits/history (T073) ----------------------------------------------------------------------------------
+
+#[tokio::test]
+async fn limits_history_is_guarded_read_only_and_has_the_shape() {
+    let store = TempStore::new("store-v11.sqlite");
+    let folder = store.dir.join("claude-a");
+    std::fs::create_dir_all(&folder).unwrap();
+    let reset = FROZEN_NOW / 1_000_000 + 3600;
+    std::fs::write(
+        folder.join("easy-personal-limits.json"),
+        format!(
+            r#"{{"five_hour":{{"used_percentage":33.0,"resets_at":{reset}}},"seven_day":{{"used_percentage":7.0,"resets_at":{reset}}}}}"#
+        ),
+    )
+    .unwrap();
+    rusqlite::Connection::open(store.path())
+        .unwrap()
+        .execute(
+            "INSERT INTO agent_accounts (provider, folder, label, status) VALUES ('claude', ?1, 'A', 'confirmed')",
+            [folder.to_string_lossy()],
+        )
+        .unwrap();
+    let before = std::fs::read(store.path()).unwrap();
+    let (app, api, _) = health_app(store.path());
+
+    assert_eq!(
+        get(&app, "/api/limits/history", false).await.0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, empty) = get(&app, "/api/limits/history", true).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(empty, json!({ "accounts": [], "interval_s": 60 }));
+
+    api.sample_limits();
+    let (_, body) = get(&app, "/api/limits/history", true).await;
+    assert_eq!(body["interval_s"], 60);
+    let account = body["accounts"].as_array().unwrap().last().unwrap();
+    assert_eq!(account["label"], "A");
+    assert_eq!(
+        account["samples"],
+        json!([{ "t": FROZEN_NOW / 1_000_000, "five_h_pct": 33.0, "seven_d_pct": 7.0 }])
+    );
+
+    for verb in ["POST", "PUT", "PATCH", "DELETE"] {
+        assert_eq!(
+            method(&app, verb, "/api/limits/history").await.0,
+            StatusCode::METHOD_NOT_ALLOWED,
+            "{verb}"
+        );
+    }
+    assert_eq!(
+        std::fs::read(store.path()).unwrap(),
+        before,
+        "the store is untouched"
+    );
+    assert_eq!(
+        std::fs::read_dir(&folder).unwrap().count(),
+        1,
+        "the account folder is untouched"
+    );
 }

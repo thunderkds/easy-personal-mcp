@@ -1,7 +1,7 @@
 //! The dashboard API's routes: the read routes `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
 //! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
-//! `/api/board` and `/api/memory-graph` (T043), `/api/store/health` (T059, below), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
+//! `/api/board` and `/api/memory-graph` (T043), `/api/effectiveness` (T075: `since`, `until`, `workspace`, `account`), `/api/store/health` (T059, below), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
 //! and the seven store-only write routes of T048, which `writes.rs` serves. T050 adds the connector writes
 //! (`connector_writes.rs`: `POST /api/connectors`, `DELETE /api/connectors/{id}`, `POST /api/connectors/{id}/move`,
@@ -191,6 +191,7 @@ pub fn routes() -> Router<Api> {
         .route("/api/usage/breakdown", get(breakdown))
         .route("/api/usage/sessions", get(sessions))
         .route("/api/usage/outliers", get(outliers))
+        .route("/api/effectiveness", get(effectiveness))
         .route("/api/warnings", get(warnings))
         .route("/api/plan", get(plan))
         .route(
@@ -325,6 +326,20 @@ async fn outliers(State(api): State<Api>, uri: Uri) -> Response {
     serve(api, uri, |conn, q, _now| {
         session_outliers_scoped(conn, q.get("since"), q.get("until"), q.scope())
             .map_err(metrics_failure)
+    })
+    .await
+}
+
+/// `GET /api/effectiveness` (T075, FR-098): tokens per good result and per task done, computed on read.
+async fn effectiveness(State(api): State<Api>, uri: Uri) -> Response {
+    serve(api, uri, |conn, q, _now| {
+        easy_personal_core::effectiveness::effectiveness(
+            conn,
+            q.get("since"),
+            q.get("until"),
+            q.scope(),
+        )
+        .map_err(metrics_failure)
     })
     .await
 }

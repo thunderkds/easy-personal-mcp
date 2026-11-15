@@ -106,6 +106,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/store/health": [""],  # T059: also over a store planted with canaries, in `store_check`
     "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
     "/api/machine": [""],  # T072: the in-memory machine status history; no store, no path
+    "/api/effectiveness": ["", "?since=2026-01-01", "?workspace=acme", "?account=1", "?account=nope", "?since=garbage"],  # T075
     "/api/limits/history": [""],  # T073: the in-memory plan-limit history; no store, no path
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
@@ -192,6 +193,7 @@ MCP_CALLS: dict[str, list[dict]] = {
     "connector_status": [{}, {"account": "1"}],
     "connector_suggestions": [{}, {"workspace": "acme"}],
     "kit_findings": [{}, {"limit": 10}, {"since": "2026-01-01"}, {"limit": 0}, {"limit": "x"}, {"since": "garbage"}],
+    "effectiveness": [{}, {"since": "2026-01-01"}, {"workspace": "acme"}, {"account": "1"}, {"account": "nope"}, {"since": "garbage"}],  # T075
     # the one tool that writes (T047): a good call, an unknown scope, bad types; the canary-in-text calls are in `mcp()`
     "save_report": [{"summary": "leak check report", "fixes": [{"text": "a fix", "tool": "warnings", "number": 1}]},
                     {"summary": "x", "fixes": [], "workspace": "nope"}, {"summary": 5, "fixes": []}, {"summary": "x"},
@@ -1054,6 +1056,8 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (2, ["plan", "--workspace", "{key}"]), (2, ["plan", "--account", "{key}"]), (2, ["kit", "--workspace", "{key}"]),
     (2, ["kit", "--account", "{key}"]), (2, ["kit", "--workspace", ""]), (2, ["kit-findings", "--limit", "0"]), (2, ["kit-findings", "--since", "garbage"]),
     (0, ["machine"]), (0, ["machine", "--json"]),  # T072: reads /proc and the store's folder only
+    (0, ["effectiveness"]), (0, ["effectiveness", "--json"]), (2, ["effectiveness", "--workspace", "{key}"]),  # T075
+    (2, ["effectiveness", "--account", "{key}"]), (2, ["effectiveness", "--since", "garbage"]),
 ]
 # Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
 CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "help", "connector", "doctor"}  # T060: `connector_cli`

@@ -496,15 +496,25 @@ mod tests {
 
     #[test]
     fn ninety_five_thousand_keys_are_scanned_in_linear_time() {
-        let keys: Vec<String> = (0..95_000).map(|n| format!("\"k{n:05}\":1")).collect();
-        let body = format!("{{{}}}", keys.join(","));
-        let started = std::time::Instant::now();
-        let order = key_order(body.as_bytes());
-        assert_eq!(order.len(), 95_000);
+        // T079: linear is checked as a ratio, not a wall-clock limit (a loaded machine slows both sizes alike): ten
+        // times the keys takes about ten times as long when linear, about a hundred times when quadratic. Best of 3.
+        let best = |count: usize| {
+            let keys: Vec<String> = (0..count).map(|n| format!("\"k{n:05}\":1")).collect();
+            let body = format!("{{{}}}", keys.join(","));
+            (0..3)
+                .map(|_| {
+                    let started = std::time::Instant::now();
+                    let order = key_order(body.as_bytes());
+                    assert_eq!(order.len(), count);
+                    started.elapsed()
+                })
+                .min()
+                .unwrap()
+        };
+        let (small, large) = (best(9_500), best(95_000));
         assert!(
-            started.elapsed() < Duration::from_secs(1),
-            "{:?}",
-            started.elapsed()
+            large < small * 30,
+            "9500 keys {small:?}, 95000 keys {large:?}"
         );
     }
 

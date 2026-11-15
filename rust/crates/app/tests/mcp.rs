@@ -266,6 +266,7 @@ fn tools_list_equals_the_golden_for_each_of_the_twelve_tools() {
             "connector_catalog",
             "connector_status",
             "connector_suggestions",
+            "effectiveness",
             "improvement_plan",
             "kit_findings",
             "kit_summary",
@@ -281,6 +282,9 @@ fn tools_list_equals_the_golden_for_each_of_the_twelve_tools() {
     let golden = golden("mcp__tools_list");
     for tool in tools {
         let name = tool["name"].as_str().unwrap();
+        if name == "effectiveness" {
+            continue; // Rust-only (T075): Python has no such tool, so no golden; checked below
+        }
         let expected = golden
             .as_array()
             .unwrap()
@@ -764,7 +768,8 @@ fn session_outliers_is_listed_after_usage_breakdown_in_pythons_registration_orde
             "connector_catalog",
             "connector_status",
             "connector_suggestions",
-            "save_report"
+            "save_report",
+            "effectiveness"
         ]
     );
     let entry = answer["result"]["tools"]
@@ -945,5 +950,106 @@ fn a_changed_row_breaks_the_session_outliers_comparison() {
     assert_ne!(
         structured(&answer),
         &rich_golden("mcp__session_outliers__all")
+    );
+}
+
+// ---- T075: `effectiveness` (Rust-only, read-only) ----
+
+/// The core's answer over the same store, without the two zone-dependent keys (the test runs in any zone, the
+/// binary under `TZ=UTC`); the bounds the tests pass carry an offset.
+fn core_effectiveness(store: &Path, args: (Option<&str>, Option<&str>, Option<&str>)) -> Value {
+    let conn = easy_personal_core::store::open_read_only(store).unwrap();
+    let scope = easy_personal_core::scope::Scope {
+        workspace: args.1,
+        account: args.2,
+    };
+    let body =
+        easy_personal_core::effectiveness::effectiveness(&conn, args.0, None, scope).unwrap();
+    zoneless(&body)
+}
+
+fn zoneless(body: &Value) -> Value {
+    let mut body = body.clone();
+    let map = body.as_object_mut().unwrap();
+    assert!(map.remove("oldest_stored_day").is_some());
+    assert!(map.remove("retention_note").is_some());
+    body
+}
+
+#[test]
+fn effectiveness_is_listed_read_only_and_answers_the_cores_json() {
+    let home = Home::with_rich_store();
+    let before = std::fs::read(home.store()).unwrap();
+    let mut mcp = Mcp::started(&home);
+    let listed = mcp.request("tools/list", json!({}));
+    let tool = listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "effectiveness")
+        .expect("effectiveness is not listed")
+        .clone();
+    let props = tool["inputSchema"]["properties"].as_object().unwrap();
+    let mut keys: Vec<&str> = props.keys().map(String::as_str).collect();
+    keys.sort();
+    assert_eq!(keys, ["account", "since", "until", "workspace"]);
+    assert!(
+        tool["description"]
+            .as_str()
+            .unwrap()
+            .contains("tokens per good result")
+    );
+    assert_eq!(tool["outputSchema"]["type"], "object");
+
+    let all = mcp.call("effectiveness", json!({}));
+    assert_eq!(structured(&all)["oldest_stored_day"], "2026-01-02", "{all}");
+    assert_eq!(
+        zoneless(structured(&all)),
+        core_effectiveness(&home.store(), (None, None, None))
+    );
+    let since = "2026-01-13T00:00:00Z";
+    let window = mcp.call("effectiveness", json!({"since": since, "account": "1"}));
+    assert_eq!(
+        zoneless(structured(&window)),
+        core_effectiveness(&home.store(), (Some(since), None, Some("1")))
+    );
+    for (arguments, text) in [
+        (json!({"since": "bad"}), "Invalid isoformat string: 'bad'"),
+        (json!({"workspace": "nope"}), "unknown workspace"),
+        (
+            json!({"until": 5}),
+            "argument `until` must be a string or null",
+        ),
+    ] {
+        assert_eq!(
+            error_text(&mcp.call("effectiveness", arguments.clone())),
+            format!("Error executing tool effectiveness: {text}"),
+            "{arguments}"
+        );
+    }
+    drop(mcp);
+    assert_eq!(
+        std::fs::read(home.store()).unwrap(),
+        before,
+        "the tool wrote to the store"
+    );
+}
+
+#[test]
+fn effectiveness_with_no_store_is_a_tool_error_without_a_path_and_creates_nothing() {
+    let home = Home::new();
+    let mut mcp = Mcp::started(&home);
+    let text = error_text(&mcp.call("effectiveness", json!({})));
+    assert!(
+        text.starts_with("Error executing tool effectiveness: "),
+        "{text}"
+    );
+    assert!(
+        !text.contains(home.0.to_str().unwrap()),
+        "path leaked: {text}"
+    );
+    assert!(
+        !home.store().exists(),
+        "the server must not create the store"
     );
 }

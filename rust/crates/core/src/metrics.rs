@@ -807,6 +807,16 @@ pub(crate) fn run_git_timed(
     args: &[&str],
     timeout: Duration,
 ) -> std::result::Result<Option<String>, GitTimedOut> {
+    Ok(run_git_answer(cwd, args, timeout)?.filter(|text| !text.is_empty()))
+}
+
+/// [`run_git_timed`] that keeps an empty answer of a git call that succeeded (`Ok(Some(""))`); `Ok(None)` is a
+/// failure only.
+pub(crate) fn run_git_answer(
+    cwd: &str,
+    args: &[&str],
+    timeout: Duration,
+) -> std::result::Result<Option<String>, GitTimedOut> {
     let Ok(mut child) = Command::new("git")
         .args(["-c", "core.fsmonitor=false", "-C", cwd])
         .args(args)
@@ -851,7 +861,7 @@ pub(crate) fn run_git_timed(
         Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(None),
     };
     let text = String::from_utf8_lossy(&buf).trim().to_string();
-    Ok((status.success() && !text.is_empty()).then_some(text))
+    Ok(status.success().then_some(text))
 }
 
 /// The git repo an existing folder is in (a worktree gives its main repo), else `None`.

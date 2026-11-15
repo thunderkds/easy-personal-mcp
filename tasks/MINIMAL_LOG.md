@@ -3,6 +3,23 @@
 > One Decision record per minimal-track task (`docs/claude-md/tracks.md`), **newest first**: insert each
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
+## T079 — Load-flaky Rust tests: retry the timed-out fake, linear time as a ratio, ignore SQLite's -wal/-shm · minimal
+**Asked:** "continue" (second supervisor session, `[admin]`; task agreed with the other supervisor `rust-57`, who owns `main` and the board row)
+**Decisions:**
+- Track minimal — C1, Risk Low: test code only, no production code, one session, no UI
+- `claude_cli.rs` `a_timeout_kills_claudes_whole_process_group` and `a_slow_claude_is_killed_at_the_timeout_and_answers_127`: the fake `claude` can be killed at the timeout before it writes its pid file (seen 2026-11-15 03:19Z in the T078 full run: `panicked at crates/app/src/claude_cli.rs:297:80`, load avg 5.5). New helper `Fake::run_until_written` re-runs with a doubled timeout (4 tries) until the files exist; the kill checks are unchanged
+- `writes.rs` `ninety_five_thousand_keys_are_scanned_in_linear_time`: the 1 s wall-clock limit (debug build) becomes a ratio, 95 000 keys against 9 500, best of 3, fails at 30x (linear ~10x, quadratic ~100x; measured 3x, 6x, 13x on the loaded machine)
+- `store_health_route.rs` `the_route_does_not_migrate_a_store_one_migration_behind`: failed once in this task's own full run (`left: ["store.sqlite-shm", "store.sqlite-wal", "store.sqlite"]`, `right: ["store.sqlite"]`); the listing now ignores only SQLite's `-wal`/`-shm` (an open connection of `serve`), so any backup file still fails it
+- Not changed: `live.rs` `ten_streams_get_the_events_while_one_client_never_reads` and `ingest_coexist` `the_race_oracle_sees_two_writers_when_the_lock_is_bypassed` — 4 rounds each under 12 busy loops on 8 cores all passed, and no recent failure text exists; a fix would be a guess
+- Assumed: the `-wal`/`-shm` files come from `serve`'s normal read connection, not from a write — the route test's `user_version` check (one behind, unchanged) still guards against a migration
+**Checked:**
+- New test `claude_cli::tests::a_fake_killed_before_it_wrote_its_pid_is_run_again_with_a_longer_timeout` — makes the flake on purpose (a fake that writes its pid after 0.7 s, killed at 300 ms: no pid file, the old tests' panic), then passes through the retry
+- Under CPU load (12 busy loops, load avg 14-19): changed `claude_cli` tests 8/8 and the ratio test 1/1 in each of 6 rounds
+- Suite: `cargo test --workspace --no-fail-fast` — passed=897 failed=0 (2026-11-15 04:24Z); `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --check` ok
+- Real run: test-only change; the tests above are the run
+**Files:** `rust/crates/app/src/claude_cli.rs`, `rust/crates/app/src/writes.rs`, `rust/crates/app/tests/store_health_route.rs`, `tasks/MINIMAL_LOG.md`
+**Not done:** merge (the other supervisor / the owner decides); `live.rs` and `ingest_coexist` (not reproduced)
+
 ## T065 — Debug-only fake keychain: owner-only file, written by rename · minimal
 **Asked:** "let start all parallel" (after the owner call on T050's open item, with the recommendation "yes: about five lines, removes the plaintext-0644 risk")
 **Decisions:**
