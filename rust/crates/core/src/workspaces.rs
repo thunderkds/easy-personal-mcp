@@ -766,7 +766,7 @@ fn copy_repos(repos: &Repos) -> Repos {
     match repos {
         Ok(list) => Ok(list
             .iter()
-            .map(|one| one.as_ref().map(String::clone).map_err(copy))
+            .map(|one| one.as_ref().map(|s| s.to_string()).map_err(copy))
             .collect()),
         Err(e) => Err(copy(e)),
     }

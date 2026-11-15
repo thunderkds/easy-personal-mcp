@@ -12,7 +12,7 @@ mod connector_writes;
 mod display;
 mod doctor_cmd;
 mod ingest_cmd;
-mod keychain;
+use easy_personal_keychain as keychain;
 mod legacy;
 mod live_feed;
 mod mcp;

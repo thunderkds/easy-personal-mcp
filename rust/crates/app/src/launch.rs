@@ -7,12 +7,10 @@
 //!
 //! The command comes only from the keychain item; nothing on the command line or in the environment chooses it. Every
 //! message is one of Python's fixed texts on stderr, prefixed `easy-personal: `; none holds a secret. A separate binary
-//! that uses only `keychain.rs` (std, `serde_json`, `keyring`, the core's `pyjson` text helpers): no server, no store.
+//! that uses only the `easy_personal_keychain` library (`keychain.rs`: std, `serde_json`, `keyring`, the core's `pyjson`
+//! text helpers): no server, no store.
 
-#[path = "keychain.rs"]
-#[allow(dead_code)] // the launcher reads items; it never stores or removes them
-mod keychain;
-
+use easy_personal_keychain as keychain;
 use keychain::{Keychain, LaunchError};
 use std::io::Write;
 use std::os::unix::process::CommandExt;

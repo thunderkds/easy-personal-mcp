@@ -10,8 +10,14 @@ publish.workspace = true
 [features]
 window = ["dep:tauri", "dep:tauri-build"]
 
+# `src/keychain.rs` is the one library both binaries use (T078): it compiles once, and the launcher links it without the
+# server. The library is that one file; it has no `lib.rs`.
+[lib]
+name = "easy_personal_keychain"
+path = "src/keychain.rs"
+
 # The default binary `easy-personal-rs` is `src/main.rs`. The connector launcher (T050) is a second, small one: Claude Code
-# runs `easy-personal-launch exec <connector>`; it uses only `src/keychain.rs` (and the core's `pyjson` text helpers).
+# runs `easy-personal-launch exec <connector>`; it uses only the keychain library (and the core's `pyjson` text helpers).
 [[bin]]
 name = "easy-personal-rs"
 path = "src/main.rs"
