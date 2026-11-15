@@ -101,7 +101,7 @@ Last 24 h, one sample a minute. Kept in memory: the graphs start empty after a r
 +-------------+-------------+-------------+
 | CPU         | RAM         | Disk        |      grid: auto-fit, min 11.9rem
 | 23 %        | 6.1 / 15 GB | 71 %        |      (like .kpi-strip: 3 per row at 1440,
-| ~~/\~~/\~~~ | ___/--\____ | ------------|       2 at 1024, 1 at 375)
+| ~~/~~/~~~ | ___/--\____ | ------------|       2 at 1024, 1 at 375)
 +-------------+-------------+-------------+
 | Load (1 min)| Battery     | Claude      |
 | 0.42        | 88 % charg. | processes 3 |
