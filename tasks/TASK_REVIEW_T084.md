@@ -41,13 +41,13 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/src/alerts.rs` tests `a_hung_notifier_never_blocks_the_start` (AC 1), `a_waiting_session_in_a_real_live_tail_raises_one_alert` (AC 2, exactly one alert and one popup over several ticks), `stop_before_the_first_tick_shows_nothing`, `paused_before_the_first_tick_lists_the_alert_and_shows_nothing`; `rust/crates/app/src/server.rs` test `start_with_alerts_runs_the_engine_serves_the_list_and_stop_joins_it` (waits for the popup). 23 passed, 0 failed (2026-11-15T10:25Z) |
+| Verification command run | ☑ pass | `cargo test -p easy-personal-rs --bin easy-personal-rs alert`: `test result: ok. 23 passed; 0 failed`. `cargo test --workspace --no-fail-fast`: 993 passed, 2 failed, both timing tests in `easy-personal-core` (`jobs_parity::a_crontab_of_ten_thousand_lines_with_hostile_lines_is_listed_fast` 3.2-3.35 s vs 3.0 s limit, `memgraph_parity::two_hundred_thousand_links_are_counted_in_time` 7.1-9.2 s) at load average 33-40; `core` is not in this diff. Leak gate from `rust/`: `leak check: 0 hits over 42 canaries, 818 surfaces, 1804554 bytes`, exit 0. `cargo fmt --check` and `cargo clippy -p easy-personal-rs --all-targets` clean |
 | Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 ~10:35Z on `9f0b313`, load avg 38: `cargo build` ok; alert tests 23 passed; server tests 16 passed; window build `app --self-test` → `self-test: ok`; tray tests 16 passed; leak gate `0 hits`, 1 failed check = `store-check made no file beside the store (corrupted)` — the known load flake fixed by T085, not this diff; merge-tree clean — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff b4c8469..T084` (alerts.rs, server.rs) reviewed inline by the Supervisor (C1, Low): the first `Sampler` item is a no-op, as `sampler::limits` already does; `sampler.rs` untouched, so machine/limits first-look behaviour unchanged; first alert now ~1 TICK (5 s) after start, as intent 2 allows. 0 P0-P3 |
+| Full smoke suite still green (no regression) | ☑ pass | agent workspace `--no-fail-fast`: 993 passed; 2 failed = core timing tests `jobs_parity a_crontab_of_ten_thousand…` and `memgraph_parity two_hundred_thousand…` (untouched code; memgraph fails on main too at load 32) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not connected this session; advisory only |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
@@ -61,12 +61,33 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-15T09:52:08Z (start of the run), worktree `T084` at b4c8469 plus the new tests only (no implementation change), command `cd rust && timeout 590 cargo test -p easy-personal-rs --bin easy-personal-rs alerts::`. The test `a_hung_notifier_never_blocks_the_start` uses a notifier that blocks until released. On the old code `start_every` runs the first look on the calling thread, so it never returned and the 590 s timeout killed the run (last lines of the output, after the build):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+running 19 tests
+...
+test alerts::tests::stop_before_the_first_tick_shows_nothing ... FAILED
+test alerts::tests::the_thread_looks_at_the_inputs_and_stops_quickly ... ok
+...
+test alerts::tests::paused_before_the_first_tick_lists_the_alert_and_shows_nothing ... ok
+test alerts::tests::a_waiting_session_in_a_real_live_tail_raises_one_alert ... ok
+test alerts::tests::a_hung_notifier_never_blocks_the_start has been running for over 60 seconds
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+(`stop_before_the_first_tick_shows_nothing` fails because the first look already popped at start.)
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**AFTER**: 2026-11-15T10:25:04Z, same command with the filter `alert`, after the change (`alerts::start_every` makes the `Sampler::start` first item a no-op, so the first look is the thread's first tick):
+
+```
+test alerts::tests::stop_before_the_first_tick_shows_nothing ... ok
+test alerts::tests::a_hung_notifier_never_blocks_the_start ... ok
+test alerts::tests::the_thread_looks_at_the_inputs_and_stops_quickly ... ok
+test alerts::tests::paused_before_the_first_tick_lists_the_alert_and_shows_nothing ... ok
+test alerts::tests::a_waiting_session_in_a_real_live_tail_raises_one_alert ... ok
+test server::tests::start_with_alerts_runs_the_engine_serves_the_list_and_stop_joins_it ... ok
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 155 filtered out; finished in 5.10s
+```
+
+**DELTA**: `serve --alerts`, `app --alerts` and `tray` no longer wait for a D-Bus `Notify` call at start; a hung notification service only delays the engine thread.
+
+**WITNESS**: Supervisor (not the implementing agent) ran `/verify` 2026-11-15 ~10:35Z with active_task = T084.

@@ -605,7 +605,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// T074: with a notifier, `start_with_alerts` runs the engine (first look at once) on its own thread: the popup goes
+    /// T074: with a notifier, `start_with_alerts` runs the engine on its own thread (the first look is its first tick): the popup goes
     /// to the notifier, `GET /api/alerts` lists the alert, the pause route stops the next popup, and `stop` joins the thread.
     #[test]
     fn start_with_alerts_runs_the_engine_serves_the_list_and_stop_joins_it() {
@@ -639,6 +639,12 @@ mod tests {
             Some(Box::new(Fake(Arc::clone(&popups)))),
         )
         .unwrap();
+        // the first look is the engine thread's first tick (T084), not part of the start
+        let end = std::time::Instant::now() + Duration::from_secs(30);
+        while popups.lock().unwrap().is_empty() {
+            assert!(std::time::Instant::now() < end, "no popup");
+            std::thread::sleep(Duration::from_millis(20));
+        }
         assert_eq!(*popups.lock().unwrap(), ["Disk 97 % used"]);
         let call = |request: String| {
             let mut stream = std::net::TcpStream::connect(("127.0.0.1", running.port)).unwrap();
