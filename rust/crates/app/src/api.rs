@@ -8,6 +8,7 @@
 //! `PUT /api/connectors/{id}/alias`), `GET`/`POST /api/connectors/legacy` (`legacy.rs`) and `POST /api/sync`
 //! (`sync_apply.rs`); they use the keychain and the `claude` CLI.
 //! `GET /api/machine` (T072) answers the machine status sampler's in-memory history (`sampler.rs`); it reads no store and writes nothing.
+//! `GET /api/alerts` and `POST /api/alerts/pause` (T074) answer the alert engine's in-memory list and pause flag (`alerts.rs`); they read no store and write nothing to disk.
 //! `GET /api/live` (T056) is the one stream: Server-Sent Events from the live feed (`live_feed.rs`); it reads no store
 //! itself, and it is the one route whose token may come in the query (`server.rs`).
 //! The read routes are all `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
