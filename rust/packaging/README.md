@@ -2,7 +2,7 @@
 
 `build-deb.sh` builds `easy-personal-rs_<version>_amd64.deb` from this repo. The package holds files only. It runs no script when you install or remove it, and it changes nothing in your home folder: no MCP registration, no timer, no store, no autostart entry.
 
-`<version>` is the crate version (`0.2.0` today). The script reads it from `cargo metadata`.
+`<version>` is the crate version (`0.3.0` today). The script reads it from `cargo metadata`.
 
 ## Build
 
@@ -14,7 +14,7 @@ rust/packaging/build-deb.sh
 
 It runs `npm --prefix web ci && npm --prefix web run build`, then `cargo build --release --locked -p easy-personal-rs --features window`, lays out a staging folder, finds the library dependencies with `dpkg-shlibdeps`, and runs `dpkg-deb --build --root-owner-group`. The first build takes several minutes. It needs no root and installs nothing.
 
-Output: `rust/target/deb/easy-personal-rs_0.2.0_amd64.deb` (the folder is git-ignored). Set `EP_DEB_MAINTAINER="Name <mail>"` to change the `Maintainer` field.
+Output: `rust/target/deb/easy-personal-rs_0.3.0_amd64.deb` (the folder is git-ignored). Set `EP_DEB_MAINTAINER="Name <mail>"` to change the `Maintainer` field.
 
 Check the result: `rust/packaging/test_deb.sh`. It is offline and works in temp folders. It lists the files, modes and owner, the `Depends` line and the `.desktop` files, runs the unpacked program, and proves the check fails when one file is missing.
 
@@ -37,7 +37,7 @@ Both `.desktop` files call `/usr/bin/easy-personal-rs` with `--static-dir /usr/s
 ## Install and remove
 
 ```bash
-sudo apt install ./rust/target/deb/easy-personal-rs_0.2.0_amd64.deb
+sudo apt install ./rust/target/deb/easy-personal-rs_0.3.0_amd64.deb
 sudo apt remove easy-personal-rs
 ```
 

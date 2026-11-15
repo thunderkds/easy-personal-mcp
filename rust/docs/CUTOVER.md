@@ -111,7 +111,7 @@ ln -sf ~/.local/share/easy-personal-rs/bin/easy-personal-rs ~/.local/bin/easy-pe
 easy-personal-rs --version
 ```
 
-You should see: `easy-personal-rs 0.2.0`.
+You should see: `easy-personal-rs 0.3.0`.
 
 This replaces the old file `~/.local/bin/easy-personal-rs` (version 0.1.0) with a link. Link only this one program. Do **not** link `easy-personal-launch`: that name in `~/.local/bin` stays Python's, so a rollback keeps working.
 
@@ -237,7 +237,7 @@ You can leave `~/.local/bin/easy-personal-rs` and `~/.local/share/easy-personal-
 
 The full list is in [`PARITY_T061.md`](PARITY_T061.md), the T061 parity report. These are the ones that you meet in daily use:
 
-- The command is `easy-personal-rs`, not `easy-personal`. `easy-personal-rs --version` prints `easy-personal-rs 0.2.0`.
+- The command is `easy-personal-rs`, not `easy-personal`. `easy-personal-rs --version` prints `easy-personal-rs 0.3.0`.
 - `dashboard` does not open the browser. You open the printed URL.
 - The dashboard Connectors page and the MCP tool `connector_status` show every connector as not configured. Use `easy-personal-rs doctor` to check connectors.
 - `exec` and `headers` are not commands of `easy-personal-rs`. They belong to the separate program `easy-personal-launch`.
