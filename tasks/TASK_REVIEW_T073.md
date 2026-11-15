@@ -61,8 +61,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (real `serve --no-ingest` of the unchanged `T073` branch at `244e983`, temp HOME, guarded request with the token):
+```
+2026-11-15T02:48:02Z
+GET /api/limits/history:
+HTTP/1.1 404 Not Found
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+content-length: 0
+date: Sun, 15 Nov 2026 02:48:02 GMT
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

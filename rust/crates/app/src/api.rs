@@ -45,6 +45,7 @@ use easy_personal_core::clock::now_micros;
 use easy_personal_core::first_run;
 use easy_personal_core::folders;
 use easy_personal_core::kit;
+use easy_personal_core::limits_watch::{self, LimitsWatch};
 use easy_personal_core::memgraph::{self, Env};
 use easy_personal_core::metrics::{self, MetricsError};
 use easy_personal_core::plan::improvement_plan_scoped;
@@ -90,6 +91,8 @@ pub struct Api {
     stopping: Arc<AtomicBool>,
     /// The answers of `GET /api/store/health` (shared by every clone of the `Api`).
     health: Arc<HealthCache>,
+    /// The plan-limit ring buffers (T073) that `GET /api/limits/history` answers and `run_limits_sampler` fills.
+    limits: Arc<LimitsWatch>,
 }
 
 impl Api {
@@ -103,7 +106,35 @@ impl Api {
             live: None,
             stopping: Arc::default(),
             health: Arc::default(),
+            limits: Arc::default(),
         }
+    }
+
+    /// One plan-limit sample per Claude account (T073). A store that cannot be opened gives no sample.
+    pub(crate) fn sample_limits(&self) {
+        let Ok(path) = (self.store_path)() else {
+            return;
+        };
+        if let Ok(conn) = store::open_checked(&path) {
+            let _ = self.limits.tick(&conn, (self.clock)());
+        }
+    }
+
+    /// The Watch sampler of the plan limits (T073): one sample now, then one every `INTERVAL_S` seconds, until
+    /// `stopping` is set (checked every second). Its own thread and tick; nothing is written to the store or to disk.
+    pub(crate) fn run_limits_sampler(&self, stopping: Arc<AtomicBool>) {
+        let api = self.clone();
+        std::thread::spawn(move || {
+            while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
+                api.sample_limits();
+                for _ in 0..limits_watch::INTERVAL_S {
+                    if stopping.load(std::sync::atomic::Ordering::Relaxed) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_secs(1));
+                }
+            }
+        });
     }
 
     /// The live feed's tail for `GET /api/live`, and the flag that ends the open streams.
@@ -198,6 +229,12 @@ pub fn routes() -> Router<Api> {
         .route("/api/sync", get(sync_plan).post(sync_apply::sync_apply))
         .route("/api/dirs", get(dirs))
         .route("/api/jobs", get(jobs))
+        .route("/api/limits/history", get(limits_history))
+}
+
+/// `GET /api/limits/history` (T073, FR-096): the in-memory 24 h plan-limit samples per Claude account. No store read.
+async fn limits_history(State(api): State<Api>) -> Response {
+    respond(StatusCode::OK, &api.limits.history())
 }
 
 /// `GET /api/live` (T056): Python's `live_stream`, served by `live_feed::SseBody`. A repeated `Last-Event-ID` is

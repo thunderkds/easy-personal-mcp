@@ -236,6 +236,7 @@ pub fn start(static_dir: Option<&Path>, feed: Option<LiveFeed>) -> Result<Runnin
     let authenticated = Arc::new(AtomicBool::new(false));
     let stopping = Arc::new(AtomicBool::new(false));
     let api = Api::system().with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping));
+    api.run_limits_sampler(Arc::clone(&stopping));
     let app = router_with_static(
         token.clone(),
         port,

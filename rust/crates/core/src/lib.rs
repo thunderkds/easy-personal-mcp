@@ -10,6 +10,7 @@ pub mod ingest_lock;
 pub mod jobs;
 pub mod kit;
 pub mod kitperf;
+pub mod limits_watch;
 pub mod live;
 pub mod memgraph;
 pub mod metrics;

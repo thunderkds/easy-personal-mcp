@@ -334,6 +334,40 @@ fn limits(account: &Account, now: i64) -> Value {
     })
 }
 
+/// One Claude account's plan-limit percents, for the Watch sampler (T073): the 5 h and 7 d `used_percentage` from the
+/// status-line snapshot through [`limits`] (no second parser). A window that is missing, broken or stale (its reset time
+/// passed) is `None`.
+pub struct LimitPercents {
+    pub id: i64,
+    pub label: String,
+    pub five_h_pct: Option<f64>,
+    pub seven_d_pct: Option<f64>,
+}
+
+/// [`LimitPercents`] of every stored Claude account that is not ignored, by id. `now` is microseconds since the epoch.
+pub fn limit_percents(conn: &Connection, now: i64) -> Result<Vec<LimitPercents>> {
+    let percent = |limits: &Value, window: &str| -> Option<f64> {
+        let w = limits.get(window)?;
+        if w.get("stale")?.as_bool()? {
+            return None;
+        }
+        w.get("used_percentage")?.as_f64()
+    };
+    Ok(list(conn)?
+        .iter()
+        .filter(|a| a.provider == "claude" && a.status != "ignored")
+        .map(|a| {
+            let l = limits(a, now);
+            LimitPercents {
+                id: a.id,
+                label: a.label.clone().unwrap_or_else(|| a.provider.clone()),
+                five_h_pct: percent(&l, "five_hour"),
+                seven_d_pct: percent(&l, "seven_day"),
+            }
+        })
+        .collect())
+}
+
 // ---- writes (T048) ----
 //
 // `add`, `confirm`, `ignore` and `use` of `accounts.py` and the `_get` / `_find` they share, store only. Each answers
