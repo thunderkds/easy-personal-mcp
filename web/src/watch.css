@@ -1,0 +1,33 @@
+/* T077 Watch view (FR-100). Tokens only: no colour literal, no raw px font size. Shares .card, .kpi-*, .table-frame, .table-wrap with app.css. */
+.watch { max-width: none; }
+.watch .part-loading { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Machine: six tiles, 3 per row wide, 2 medium, 1 on a phone */
+.watch-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-4); }
+.watch-tile { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius); }
+.watch-tile .kpi-name, .watch-tile .kpi-value, .watch-tile .kpi-note { margin: 0; }
+
+/* Graphs: a null reading or a pause breaks the path (a gap), so nothing is ever drawn at 0 */
+.watch-chart { display: block; width: 100%; height: 3rem; margin-top: var(--space-2); overflow: visible; }
+.watch-chart-tall { height: 6rem; }
+.watch-line { stroke: var(--color-accent); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; filter: var(--glow-line); }
+.watch-line-7d { stroke: var(--color-amber); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.watch-ref { stroke: var(--color-red); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.6; }
+.watch-axis { display: flex; justify-content: space-between; margin: 0; font-size: var(--fs-label); color: var(--color-faint); }
+
+/* Plan limits: one card per account */
+.watch-accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: var(--space-4); }
+.watch-account { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius); }
+.watch-account-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-3); }
+.watch-account-head h3 { overflow-wrap: anywhere; }
+.watch-values { margin: 0; font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-heading); }
+.watch-key { margin-left: var(--space-3); color: var(--color-muted); }
+.watch-key:first-child { margin-left: 0; }
+.watch-key-5h { border-bottom: 2px solid var(--color-accent); }
+.watch-key-7d { border-bottom: 2px solid var(--color-amber); }
+.watch .limit-red { color: var(--color-red); }
+
+/* Effectiveness: the table scrolls inside its frame, never the page */
+.watch .table-wrap { max-width: 100%; }
+.watch table { min-width: 44rem; }
+.watch-unattributed th, .watch-unattributed td { color: var(--color-muted); }
