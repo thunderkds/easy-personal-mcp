@@ -61,8 +61,43 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-15T05:27:48Z, before any implementation commit (branch `t062-cutover`, HEAD `1dfd4bb`).
+
+Terminal capture (the thing absent):
+
+```
+$ ls -l rust/docs/CUTOVER.md rust/crates/app/tests/cutover_doc.rs
+ls: cannot access 'rust/docs/CUTOVER.md': No such file or directory
+ls: cannot access 'rust/crates/app/tests/cutover_doc.rs': No such file or directory
+$ cd rust && cargo test -p easy-personal-rs --test cutover_doc
+error: no test target named `cutover_doc` in `easy-personal-rs` package
+$ grep -c "Rust app" README.md
+0
+```
+
+Verbatim prior `README.md` `## Install` section (README has no `## Rust app` section; the next heading is `## Quick start`):
+
+~~~~markdown
+## Install
+
+You need Python 3.11 or newer, [uv](https://docs.astral.sh/uv/) and Node.js. The dashboard page is built from `web/` and is not in git, so build it before you install.
+
+```bash
+git clone https://github.com/thunderkds/easy-personal-mcp.git
+cd easy-personal-mcp
+npm --prefix web ci && npm --prefix web run build
+uv tool install --reinstall --no-cache .
+```
+
+Check the install:
+
+```bash
+easy-personal --version
+easy-personal ping
+```
+
+The first command prints `0.4.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
+~~~~
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
