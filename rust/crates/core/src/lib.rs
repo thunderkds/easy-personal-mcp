@@ -12,6 +12,7 @@ pub mod jobs;
 pub mod kit;
 pub mod kitperf;
 pub mod live;
+pub mod machine;
 pub mod memgraph;
 pub mod metrics;
 pub mod plan;

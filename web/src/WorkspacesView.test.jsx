@@ -53,6 +53,26 @@ describe('cards (AC1)', () => {
     expect(screen.getByRole('button', { name: '+ Add workspace' })).toBeInTheDocument()
   })
 
+  it('puts email and repo count on one line, aliases as chips, and a letter in the tile when there is no icon (T070)', async () => {
+    stub()
+    render(<WorkspacesView />)
+    const company = await card('company')
+    expect(within(company).getByText('me@company.test').parentElement).toContainElement(within(company).getByText('2 repos'))
+    expect(within(company).getByText('company-slack').closest('ul')).toHaveClass('aliases')
+    const side = await card('side')
+    expect(within(side).getByTestId('swatch')).toHaveTextContent('S')
+    expect(within(await card('orphan')).getByTestId('swatch')).toHaveTextContent('?')
+    expect(await card('orphan')).toHaveAttribute('data-orphan', 'true')
+    expect(within(company).getByTestId('swatch')).toHaveTextContent('C')
+  })
+
+  it('marks every Delete as a problem action (T070)', async () => {
+    stub()
+    render(<WorkspacesView />)
+    const orphan = await card('orphan')
+    for (const b of within(orphan).getAllByRole('button', { name: 'Delete' })) expect(b).toHaveClass('danger')
+  })
+
   it('shows the orphan card as not active, with Assign for each of its connectors', async () => {
     stub()
     render(<WorkspacesView />)
@@ -474,7 +494,8 @@ describe('legacy connectors banner (AC6)', () => {
     })
     render(<WorkspacesView />)
     const banner = await screen.findByRole('region', { name: 'Legacy connectors' })
-    expect(within(banner).getByText(/slack/)).toBeInTheDocument()
+    expect(within(banner).getByText('slack')).toHaveClass('mono')
+    expect(banner.querySelector('svg')).not.toBeNull()
     expect(banner).toHaveTextContent('1 connector was set up before workspaces: slack. Adopt it into the orphan workspace to manage it here.')
     click(within(banner).getByRole('button', { name: 'Adopt' }))
     expect(await screen.findByText(/adopt 'slack' into orphan/)).toBeInTheDocument()

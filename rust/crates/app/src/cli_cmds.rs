@@ -1,5 +1,5 @@
 //! The CLI commands that Python's `easy-personal` has and `easy-personal-rs` had not (T058): `ping`, `usage`, `outliers`,
-//! `kit-findings`, `workspace list|add|edit|delete` and `account list|confirm|ignore|add|use` (`surfaces/cli.py`:
+//! `kit-findings`, `machine` (T072), `workspace list|add|edit|delete` and `account list|confirm|ignore|add|use` (`surfaces/cli.py`:
 //! `_workspace`, `_account` and `main`). `dashboard` is `serve` under its Python name (`main.rs`).
 //!
 //! No store logic is written here. Every command calls what the API routes and the MCP tools already run: the core's
@@ -21,6 +21,7 @@ use easy_personal_core::accounts;
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::kit::kit_summary;
 use easy_personal_core::kitperf::kit_findings_local;
+use easy_personal_core::machine::{Collector, Sample};
 use easy_personal_core::metrics::{MetricsError, usage_breakdown_scoped, usage_summary_scoped};
 use easy_personal_core::plan::improvement_plan_scoped;
 use easy_personal_core::rules::{RulesError, ScopedRulesError, evaluate_scoped, shipped_rules};
@@ -376,6 +377,66 @@ pub enum AccountAction {
 
 pub fn ping() -> ExitCode {
     finish(put(&format!("{}\n", mcp::PING_TEXT)))
+}
+
+/// `machine` (T072, FR-095): one sample of this computer now. It reads `/proc` twice, 200 ms apart, so that CPU % has a
+/// delta; the disk is the file system of the store's folder. No store is opened and nothing is written. Text has one line
+/// per measure, "no data" where the OS gives none; `--json` prints the sample with the keys of `GET /api/machine`.
+pub fn machine(json: bool) -> ExitCode {
+    let folder = store::store_path()
+        .ok()
+        .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
+        .unwrap_or_default(); // an empty path is no folder: the disk is "no data"
+    let mut collector = Collector::system(&folder);
+    let now = || now_micros() / 1_000_000;
+    collector.sample(now());
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    let sample = collector.sample(now());
+    finish(if json {
+        put_json(&sample.json())
+    } else {
+        put_lines(&machine_lines(&sample))
+    })
+}
+
+fn gib(bytes: u64) -> String {
+    format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+}
+
+/// "used of total", or "no data" when either is missing.
+fn of_total(used: Option<u64>, total: Option<u64>) -> String {
+    match used.zip(total) {
+        Some((used, total)) => format!("{} of {}", gib(used), gib(total)),
+        None => NO_DATA.into(),
+    }
+}
+
+const NO_DATA: &str = "no data";
+
+fn machine_lines(s: &Sample) -> Vec<String> {
+    let or_no_data = |v: Option<String>| v.unwrap_or_else(|| NO_DATA.into());
+    let battery = s.battery_pct.map(|pct| match s.charging {
+        Some(true) => format!("{pct} % (charging)"),
+        Some(false) => format!("{pct} % (not charging)"),
+        None => format!("{pct} %"),
+    });
+    vec![
+        format!(
+            "CPU: {}",
+            or_no_data(s.cpu_pct.map(|v| format!("{v:.1} %")))
+        ),
+        format!("RAM: {}", of_total(s.ram_used, s.ram_total)),
+        format!("Disk: {}", of_total(s.disk_used, s.disk_total)),
+        format!(
+            "Load (1 min): {}",
+            or_no_data(s.load1.map(|v| format!("{v:.2}")))
+        ),
+        format!("Battery: {}", or_no_data(battery)),
+        format!(
+            "Claude processes: {}",
+            or_no_data(s.claude_procs.map(|v| v.to_string()))
+        ),
+    ]
 }
 
 pub fn usage(args: UsageArgs) -> ExitCode {
@@ -1100,6 +1161,53 @@ mod tests {
         );
         let findings_only = json!({"findings": [finding("A.", json!("Do a.")), finding("B.", json!("Do b."))], "other": [], "not_enough": []});
         assert_eq!(findings_text(&findings_only), "A. Do a.\nB. Do b.\n");
+    }
+
+    #[test]
+    fn the_machine_text_is_one_line_per_measure_and_no_data_where_null() {
+        let sample = Sample {
+            t: 1,
+            cpu_pct: Some(12.34),
+            ram_used: Some(3 * 1024 * 1024 * 1024),
+            ram_total: Some(16 * 1024 * 1024 * 1024),
+            disk_used: None,
+            disk_total: None,
+            load1: Some(0.5),
+            battery_pct: Some(88),
+            charging: Some(true),
+            claude_procs: Some(0),
+        };
+        assert_eq!(
+            machine_lines(&sample),
+            [
+                "CPU: 12.3 %",
+                "RAM: 3.0 GiB of 16.0 GiB",
+                "Disk: no data",
+                "Load (1 min): 0.50",
+                "Battery: 88 % (charging)",
+                "Claude processes: 0",
+            ]
+        );
+        let none = Sample {
+            t: 1,
+            cpu_pct: None,
+            ram_used: None,
+            ram_total: None,
+            disk_used: None,
+            disk_total: None,
+            load1: None,
+            battery_pct: None,
+            charging: None,
+            claude_procs: None,
+        };
+        assert!(
+            machine_lines(&none)
+                .iter()
+                .all(|l| l.ends_with(": no data")),
+            "{:?}",
+            machine_lines(&none)
+        );
+        assert_eq!(machine_lines(&none).len(), 6);
     }
 
     /// Python passes an empty `--workspace` / `--account` on, and its scope check refuses it; the core would read it as no filter.

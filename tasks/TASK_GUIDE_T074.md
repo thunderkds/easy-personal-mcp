@@ -41,7 +41,7 @@
 ---
 
 ## Dependencies & Reachability
-**Depends on**: T072, T073 merged
+**Depends on**: T072, T073 merged (T072's `Sampler<T>` in `rust/crates/app/src/sampler.rs`; T078's `easy_personal_keychain` lib shows the `zbus` use)
 **Entry point**: new `rust/crates/app/src/alerts.rs`, `api.rs`, `main.rs` flag
 
 ## Dependency rule
@@ -58,7 +58,7 @@ No new crate (`zbus` is already a dependency; record the version).
 | 3 | Leak test: planted secret / message text in a fake live state never reaches the notifier or `/api/alerts` | intent |
 | 4 | Pause test: paused → notifier not called, `/api/alerts` still lists | intent |
 | 5 | D-Bus missing → no panic, one log line; real run on this desktop: one notification seen (screenshot or `dbus-monitor` line pasted) | intent |
-| 6 | `cargo test --workspace` and the leak test pass; `security-review` at Stage 4 (Risk Medium) | intent |
+| 6 | `cargo test --workspace` passes; `/api/alerts` and `/api/alerts/pause` registered in `rust/parity/leak_rust.py` and `env -u CLAUDE_CONFIG_DIR <main checkout>/rust/parity/.venv/bin/python parity/leak_rust.py` prints `0 hits` with no `failed checks`, exit 0; `security-review` at Stage 4 (Risk Medium) | intent |
 
 ---
 

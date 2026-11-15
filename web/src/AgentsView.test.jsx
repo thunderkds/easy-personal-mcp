@@ -108,6 +108,23 @@ describe('Agents view', () => {
     expect(within(r).queryByRole('group', { name: 'Workspaces' })).toBeNull()
   })
 
+  it('T070: a missing folder says the folder is gone and its stored usage stays, with no usage lines', async () => {
+    stub()
+    render(<AgentsView />)
+    const r = await screen.findByRole('listitem', { name: 'Claude gone' })
+    expect(within(r).getByText('The folder is gone. Its stored usage stays in reports.')).toBeInTheDocument()
+    expect(within(r).queryByText(/last active/)).toBeNull()
+    expect(within(r).queryByText(/Plan limits/)).toBeNull()
+    expect(within(r).queryByText(/Tokens:/)).toBeNull()
+  })
+
+  it('T070: each card carries its status so a detected account can be lit', async () => {
+    stub()
+    render(<AgentsView />)
+    expect(await screen.findByRole('listitem', { name: /claude-new/ })).toHaveAttribute('data-status', 'detected')
+    expect(screen.getByRole('listitem', { name: 'Claude gone' })).toHaveAttribute('data-status', 'missing')
+  })
+
   it('edge: no workspaces yet shows a create-a-workspace hint', async () => {
     stub({ overrides: { workspaces: { workspaces: [{ id: 1, name: 'orphan', is_orphan: true }] } } })
     render(<AgentsView />)
@@ -337,9 +354,11 @@ describe('Agents status card (HUN-116)', () => {
 
   it('AC1: shows email, readable plan and organization; omits the line when all are null', async () => {
     await open()
-    expect(within(row('Claude default')).getByText('👤 a@b.c · subscription · Acme Org')).toBeInTheDocument()
-    expect(within(row('Claude personal')).getByText('👤 me@home.test')).toBeInTheDocument()
-    expect(within(row('Claude bare')).queryByText(/👤/)).toBeNull()
+    const who = within(row('Claude default')).getByText('a@b.c · subscription · Acme Org')
+    expect(who.closest('p')).toHaveClass('who')
+    expect(who.closest('p').querySelector('svg')).not.toBeNull() // the person mark is an icon, not an emoji
+    expect(within(row('Claude personal')).getByText('me@home.test').closest('p')).toHaveClass('who')
+    expect(row('Claude bare').querySelector('.who')).toBeNull()
   })
 
   it('AC2: shows last model and relative last-active time, "never" when null', async () => {

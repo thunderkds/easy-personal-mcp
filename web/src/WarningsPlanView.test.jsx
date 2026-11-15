@@ -97,6 +97,12 @@ describe('not checked (AC6)', () => {
     expect(onOpenAgents).toHaveBeenCalledTimes(1)
   })
 
+  it('says in the Not checked block that not measured is not the same as passed (T070)', async () => {
+    await renderView()
+    const details = screen.getByText('Not checked (1)').closest('details')
+    expect(within(details).getByText('Not measured is not the same as passed.')).toBeInTheDocument()
+  })
+
   it('omits the Agents hint when no reason is about missing data', async () => {
     const warn = { as_of_utc: 'x', hits: [], abstained: [{ rule_id: 'r_x', title: 'T', reason: 'less than 7 days of stored history' }] }
     vi.stubGlobal('fetch', fakeFetch({ warnings: warn }))

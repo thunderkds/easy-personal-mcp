@@ -327,6 +327,8 @@ fn pairs(conn: &Connection, sql: &str, account_id: i64) -> Result<BTreeMap<Strin
 }
 
 /// `plan`: the steps that make one account match its picks; `drop` holds connector ids treated as not desired.
+/// Which `claude` calls it makes must depend on the store only, never on an earlier call's answer: the record/replay
+/// passes of `workspaces::change` (T078) rely on it.
 pub fn plan(
     conn: &Connection,
     account_id: i64,
