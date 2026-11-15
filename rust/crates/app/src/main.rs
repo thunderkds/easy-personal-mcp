@@ -87,6 +87,8 @@ enum Command {
     Kit(cli_cmds::ScopeArgs),
     /// Kit servers linked to cheaper or better sessions (same as the MCP `kit_findings`)
     KitFindings(cli_cmds::KitFindingsArgs),
+    /// Tokens per good result and per task done, per task branch (same JSON as the MCP `effectiveness`)
+    Effectiveness(cli_cmds::EffectivenessArgs),
     /// List, create, edit or delete workspaces (store only: a change that needs the `claude` CLI is refused until T050)
     Workspace {
         #[command(subcommand)]
@@ -176,6 +178,7 @@ fn main() -> ExitCode {
         Command::Plan(args) => cli_cmds::plan(args),
         Command::Kit(args) => cli_cmds::kit(args),
         Command::KitFindings(args) => cli_cmds::kit_findings(args),
+        Command::Effectiveness(args) => cli_cmds::effectiveness(args),
         Command::Workspace { action } => cli_cmds::workspace(action),
         Command::Account { action } => cli_cmds::account(action),
         Command::Connector { action } => connector_cmd::run(action),

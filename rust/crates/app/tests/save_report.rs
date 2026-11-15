@@ -217,7 +217,7 @@ fn the_tool_is_listed_with_pythons_description_and_schemas_and_the_prompt_capabi
     }
     let listed: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(
-        listed.contains(&"save_report") && listed.len() == 12,
+        listed.contains(&"save_report") && listed.len() == 13,
         "{listed:?}"
     );
     assert!(

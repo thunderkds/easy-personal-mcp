@@ -1,6 +1,6 @@
 # easy-personal-rs
 
-Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has these subcommands: `store-info`, `ingest`, `schedule`, `serve` (also `dashboard`), `mcp`, `app` (opens a window only in a build with `--features window`) and, since T058, `ping`, `usage`, `outliers`, `warnings`, `plan`, `kit`, `kit-findings`, `workspace` and `account` (see "CLI commands (T058)") and, since T060, `connector` and `doctor` (see "Connector and doctor commands (T060)"); the Python app
+Rust port of easy-personal, built in slices (see `PROJECT_SPEC.md`). Today it has these subcommands: `store-info`, `ingest`, `schedule`, `serve` (also `dashboard`), `mcp`, `app` (opens a window only in a build with `--features window`) and, since T058, `ping`, `usage`, `outliers`, `warnings`, `plan`, `kit`, `kit-findings`, `workspace` and `account` (see "CLI commands (T058)"), since T075 `effectiveness` (see "Effectiveness (T075)") and, since T060, `connector` and `doctor` (see "Connector and doctor commands (T060)"); the Python app
 stays the working one.
 
 ## Build and run
@@ -466,7 +466,7 @@ starts after the ingest. If the ingest fails (the lock stays busy for the whole 
 easy-personal-rs mcp [--transport stdio|http] [--host 127.0.0.1] [--port 8765]
 ```
 
-`http` serves the same 12 tools and the `investigate` prompt as stdio, at `POST http://127.0.0.1:<port>/mcp` (no token, as Python's FastMCP). `--port 0` picks a free port. stderr gets
+`http` serves the same 13 tools (Python's 12 and `effectiveness`) and the `investigate` prompt as stdio, at `POST http://127.0.0.1:<port>/mcp` (no token, as Python's FastMCP). `--port 0` picks a free port. stderr gets
 `MCP over HTTP: http://127.0.0.1:<port>/mcp` and `Ctrl-C to stop.`; stdout stays empty. Ctrl-C stops the server with exit 0: open requests get 3 s, then the connections are dropped (a client stuck mid-request cannot keep it alive).
 
 | Input | Result |
@@ -694,6 +694,30 @@ Decided for you (differences from Python, all on hostile or unusual input):
 Not served yet: nothing of Python's routes, and (since T060) nothing of Python's CLI. The connector writes and the sync apply are served since T050, `/api/live` since T056, `GET /api/store/health` since T059, and the `connector` and `doctor` commands since T060. This list was stale before T043 (`/api/sync`, the report files, `/api/accounts` and
 `/api/dirs` are served); T043 serves `/api/board` and `/api/memory-graph`, and T048 the store-only workspace and account writes. The release note `docs/release/rust-v0.2.0.md` "not in this release" list may still name some of these; it is the Supervisor's to update.
 
+## Effectiveness (T075)
+
+FR-098, computed on read (nothing stored, no migration): `core/src/effectiveness.rs`, served by `GET /api/effectiveness`,
+the CLI `effectiveness` (`--json` for the JSON) and the read-only MCP tool `effectiveness` (Rust-only: Python has no such
+tool, so it has no golden and is listed after Python's 12). All take `since`, `until`, `workspace` and `account`, with the
+usage tools' errors (400 / tool error / exit 2).
+
+- **Task** = a branch name holding a task id (`T123`, `HUN-123`, as written; the first one; not right after a letter or
+  digit). A message goes to the task of its own branch; a sidechain message on an id-less branch goes to the task of its
+  session's main-thread branch (most non-sidechain events; a tie is none). `main`, `HEAD`, `worktree-agent-*`, `fix-*`
+  and other id-less branches, and sidechains of such sessions, are the `unattributed` line. Key = (owner project, id).
+- **Tokens** once per `message.id` (as `usage_summary`); cost as `usage_breakdown` (`usd` null when nothing is priced,
+  `unknown_price` true when a model has no price, never $0 for an unknown price).
+- **Good result** = FR-061 from `kitperf` (`session_results`), counted on the line of the session's own branch.
+- **Done** = the first `git log --merges --first-parent --reverse refs/heads/main` (else `master`) subject that names one of
+  the task's branches; none = `not done`; no `.git` = `unknown`, with a note. Squash and fast-forward merges are not done.
+- **`oldest_stored_day`** = the local day of the oldest stored event, always given (the store keeps no record of a
+  prune, so the answer cannot tell a pruned store from a young one).
+- The answer names no path and no session id: a project is its folder name.
+
+Cut list: MINIMAL_LOG mapping of `fix-*` branches; a stored ledger; the UI (T077); a per-task good result for sub-agent
+work (FR-061 is per session, and a sub-agent's records share its parent session, so a task done by sub-agents of a
+supervisor session on `main` shows 0 good results).
+
 ## Board and memory graph (T043)
 
 `GET /api/board[?workspace=&account=]` and `GET /api/memory-graph[?project=]` answer what Python answers (`core/board.rs`, `core/memgraph.rs`, `core/easymem.rs`), read-only.
@@ -894,6 +918,7 @@ arguments, prints, asks the question and maps a refusal to an exit code.
 | `plan [--workspace W] [--account A]` | JSON `{"groups": [...]}` | `improvement_plan_scoped` |
 | `kit [--workspace W] [--account A]` | JSON `{"projects": [...]}`, gone projects included | `kit_summary` (the MCP `kit_summary`) |
 | `kit-findings [--json] [--limit N] [--since D]` | the findings and their habits as text, or JSON | `kit_findings_local` |
+| `effectiveness [--json] [--since D] [--until D] [--workspace W] [--account A]` | a table per task, or JSON (T075) | `effectiveness::effectiveness` |
 | `workspace list` | JSON `{"workspaces": [...]}` | `workspaces::list_all` |
 | `workspace add NAME [--color C] [--icon I] [--description T] [--email E] [--repo P ...]` (`create` is the same) | the workspace, JSON | `workspaces::add` |
 | `workspace edit NAME [--color\|--icon\|--description\|--email V (empty clears)] [--rename NEW] [--add-repo P ...] [--remove-repo P ...] [--yes]` | the workspace, JSON | `workspaces::patch` |
