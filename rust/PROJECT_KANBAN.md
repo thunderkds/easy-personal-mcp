@@ -9,13 +9,13 @@
 ## Board
 
 ### Todo
-- [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md` | 2026-11-15: owner go-ahead, Ubuntu only (macOS/Windows stay not planned), given in the second supervisor session ("as your recommend, let continue", relayed); Stage 2 by that session on its own branch; step 0 = owner runs the ignored `real_keychain_items_cross_check`
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
 - [ ] **T076** — Watch 5: `tray` command (tray icon 4 states, native menu, alerts on, XDG autostart) | Backend-Developer | C3 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T076.md` (2026-11-15); Depends on T072-T074; HITL menu check; PRD FR-099
 - [ ] **T077** — Watch 6: dashboard Watch view (24 h graphs, effectiveness table) | Frontend-Developer | C2 | Risk: Low | P2 | guide `tasks/TASK_GUIDE_T077.md` (2026-11-15); Depends on T072, T073, T075; HITL layout check; PRD FR-100
 
 ### In Progress
+- [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md` | 2026-11-15: owner go-ahead, Ubuntu only (macOS/Windows stay not planned), given in the second supervisor session ("as your recommend, let continue", relayed); Stage 2 by that session on its own branch; step 0 = owner runs the ignored `real_keychain_items_cross_check`; started 2026-11-15 by the second supervisor session: guide `tasks/TASK_GUIDE_T062.md` (cherry-picked to main), worktree `easy-personal-mcp-wt/T062`, branch `t062-cutover`; design: `cargo install --root ~/.local/share/easy-personal-rs`, only `easy-personal-rs` linked into `~/.local/bin`, Python launcher kept for rollback; docs `rust/docs/CUTOVER.md` + a README section
 - [ ] **T074** — Watch 3: alerts with hysteresis + desktop notifications (D-Bus), `GET /api/alerts`, pause | Backend-Developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T074.md` (2026-11-15); Depends on T072, T073; PRD FR-097; started 2026-11-15 after T072+T073 merged: own worktree `easy-personal-mcp-wt/T074`, branch `T074`
 
 ### Ready for Review
