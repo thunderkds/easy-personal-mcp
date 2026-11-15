@@ -41,11 +41,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/machine.rs` (17 tests: AC1 readers on a fake `/proc` + `/sys`, CPU delta, null cases; AC2 `the_ring_keeps_1440_samples_drops_the_oldest_and_keeps_the_order`); `rust/crates/app/src/api_tests.rs` (3 `machine_*` tests: shape, 403 with no token, 405 on POST/PUT/PATCH/DELETE, store never asked); `rust/crates/app/src/sampler.rs` (4 tests); `rust/crates/app/src/cli_cmds.rs` (`the_machine_text_is_one_line_per_measure_and_no_data_where_null`); `rust/crates/app/tests/machine.rs` (3 tests on the real binary: `machine`, `machine --json`, `serve` + `GET /api/machine`). `cargo test --workspace` 2026-11-15T02:57Z: 925 passed, 0 failed, 29 ignored (incl. `ctrl_c_stops_the_server_frees_the_port_and_leaks_no_token`). |
+| Verification command run | ☑ pass | `cargo test --workspace` exit 0, see above. Real run 2026-11-15T03:06:47Z (needs `--bin easy-personal-rs`, two binaries): `CPU: 25.0 %` / `RAM: 6.8 GiB of 31.0 GiB` / `Disk: 352.3 GiB of 454.4 GiB` / `Load (1 min): 5.36` / `Battery: no data` / `Claude processes: 6`, exit 0. |
+| Negative cases hold | ☑ pass | Leak gate (`env -u CLAUDE_CONFIG_DIR .../rust/parity/.venv/bin/python parity/leak_rust.py`, from the worktree's `rust/`, 2026-11-15): exit 0, last line `leak check: 0 hits over 42 canaries, 783 surfaces, 1764411 bytes` (no failed checks). `/api/machine` is fetched as `surface api GET /api/machine: 639 bytes`; CLI `machine` and `machine --json` are registered in `CLI_CALLS` and scanned (`cli #91`, `cli #92`). The first run after only adding the route failed `check cli commands all registered (unregistered ['machine'])`, so the CLI registration was added too. Also 403 without token, 405 on write methods, null not 0 (Rust tests). |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 on `6938d5c`: default build; `--version` `easy-personal-rs 0.2.0`; `store-info` user_version 11; `serve` on a store copy: `GET /api/machine` with token → interval 60, 1 sample, 10 keys; no token 403; POST 405; stopped by PID; `mcp` initialize + `usage_summary` answer; `ingest` twice exit 0; leak gate `0 hits over 42 canaries, 783 surfaces` exit 0 (first run before the fix round failed: `/api/machine` unregistered, fixed in `6938d5c`); full suite 924 passed, 2 failed under load average ~20 (`ingest_coexist` killed-ingest, `writes` 1 s timing: both on T079's known-flake list) and both pass alone; window step: `app --self-test` → `self-test: live snapshot ok`, `self-test: ok`, exit 0 — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| code-review | ☑ pass | independent reviewer 2026-11-15: P0 0, P1 0, P2 0, P3 2: guide verification command needed `--bin` (fixed on main `e6b66f7`), unchecked u64 CPU tick sums (fixed `6938d5c`) |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
@@ -61,12 +62,50 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-15T02:46:33Z and 02:46:36Z, branch `T072` at `244e983`, before any implementation commit):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+$ cd rust && cargo run -q -p easy-personal-rs -- machine
+error: `cargo run` could not determine which binary to run. Use the `--bin` option to specify a binary, or the `default-run` manifest key.
+available binaries: easy-personal-launch, easy-personal-rs
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+$ cargo run -q -p easy-personal-rs --bin easy-personal-rs -- machine
+error: unrecognized subcommand 'machine'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+```
+
+(The guide's verification command needs `--bin easy-personal-rs`: the package has two binaries.)
+
+**AFTER** (2026-11-15T03:06:47Z, same branch after the commit `T072: machine status readers...`):
+
+```
+$ cargo run -q -p easy-personal-rs --bin easy-personal-rs -- machine
+CPU: 25.0 %
+RAM: 6.8 GiB of 31.0 GiB
+Disk: 352.3 GiB of 454.4 GiB
+Load (1 min): 5.36
+Battery: no data
+Claude processes: 6
+
+$ ... -- machine --json
+{
+  "battery_pct": null,
+  "charging": null,
+  "claude_procs": 6,
+  "cpu_pct": 27.0,
+  "disk_total": 487863541760,
+  "disk_used": 378326298624,
+  "load1": 5.36,
+  "ram_total": 33256267776,
+  "ram_used": 7294607360,
+  "t": 1794712008
+}
+```
+
+**DELTA**: a user can now read this machine's CPU, RAM, disk, load, battery and `claude` process count with `machine` (or `GET /api/machine`, which also gives the last 24 h in memory), with "no data" instead of 0 where the OS gives nothing.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T072.jsonl`, never the
 implementing agent alone]

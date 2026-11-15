@@ -8,6 +8,7 @@
 
 use crate::api::{self, Api};
 use crate::live_feed::{LIVE_PATH, LiveFeed};
+use crate::sampler::{self, Sampler};
 use crate::static_files;
 use axum::Router;
 use axum::extract::{Request, State};
@@ -16,6 +17,7 @@ use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
+use easy_personal_core::machine::Sample;
 use std::io::{self, Write};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
@@ -184,6 +186,8 @@ pub struct Running {
     stopping: Arc<AtomicBool>,
     /// The live feed (`serve` and `app`); stopped and joined last by `stop`.
     feed: Option<LiveFeed>,
+    /// The machine status sampler (`serve` and `app`, T072); stopped and joined by `stop` (and by drop).
+    machine: Option<Sampler<Sample>>,
 }
 
 /// How long `stop` waits for requests in flight before it drops them.
@@ -216,6 +220,9 @@ impl Running {
         let Running { runtime, task, .. } = &mut self;
         let _ = runtime.block_on(async { tokio::time::timeout(STOP_GRACE, task).await });
         self.runtime.shutdown_timeout(STOP_GRACE);
+        if let Some(machine) = self.machine.take() {
+            machine.stop();
+        }
         if let Some(feed) = self.feed.take() {
             feed.stop();
         }
@@ -225,7 +232,12 @@ impl Running {
 /// Binds `127.0.0.1` on a free port, makes the token and starts serving. `static_dir` is resolved once, before
 /// anything is bound. `feed` (the live feed of `serve` and `app`, already polling) is what `GET /api/live` reads;
 /// with `None` that route sends the empty snapshot, as Python does with no tail running.
-pub fn start(static_dir: Option<&Path>, feed: Option<LiveFeed>) -> Result<Running, String> {
+/// `machine` (the machine status sampler, T072) is what `GET /api/machine` reads; with `None` that route answers an empty history.
+pub(crate) fn start(
+    static_dir: Option<&Path>,
+    feed: Option<LiveFeed>,
+    machine: Option<Sampler<Sample>>,
+) -> Result<Running, String> {
     let static_root = static_dir.map(static_files::canonical_root).transpose()?;
     let token = new_token().map_err(|e| format!("no OS random source: {e}"))?;
     let listener = std::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
@@ -235,7 +247,9 @@ pub fn start(static_dir: Option<&Path>, feed: Option<LiveFeed>) -> Result<Runnin
     let runtime = Runtime::new().map_err(|e| format!("cannot start the runtime: {e}"))?;
     let authenticated = Arc::new(AtomicBool::new(false));
     let stopping = Arc::new(AtomicBool::new(false));
-    let api = Api::system().with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping));
+    let api = Api::system()
+        .with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping))
+        .with_machine(machine.as_ref().map(Sampler::history));
     api.run_limits_sampler(Arc::clone(&stopping));
     let app = router_with_static(
         token.clone(),
@@ -266,13 +280,18 @@ pub fn start(static_dir: Option<&Path>, feed: Option<LiveFeed>) -> Result<Runnin
         task,
         stopping,
         feed,
+        machine,
     })
 }
 
 /// The `serve` subcommand: the live feed, `start`, print the two lines Python's `serve()` prints, run until Ctrl-C,
 /// then `stop` (open streams end, the feed's thread is joined).
 pub fn run(static_dir: Option<&Path>) -> Result<(), String> {
-    let mut running = start(static_dir, Some(LiveFeed::system()?))?;
+    let mut running = start(
+        static_dir,
+        Some(LiveFeed::system()?),
+        Some(sampler::machine()?),
+    )?;
     let mut out = io::stdout();
     write!(
         out,
@@ -351,7 +370,7 @@ mod tests {
 
     #[test]
     fn start_binds_loopback_and_marks_only_a_guarded_api_request_with_the_token() {
-        let running = start(None, None).unwrap();
+        let running = start(None, None, None).unwrap();
         assert_eq!(running.token.len(), 43);
         assert!(!running.authenticated.load(Ordering::Relaxed));
         // Refused or outside `/api/`: the flag stays off.
@@ -378,7 +397,7 @@ mod tests {
     /// T057 AC 3, without a display: the self-test's live check passes on the server `serve` and `app` start.
     #[test]
     fn the_live_self_check_reads_the_first_snapshot_with_the_token_in_the_query() {
-        let running = start(None, Some(idle_feed())).unwrap();
+        let running = start(None, Some(idle_feed()), None).unwrap();
         assert_eq!(running.live_self_check(), Ok(()));
         let data = crate::live_feed::read_first_snapshot(running.port, &running.token).unwrap();
         assert_eq!(data["sessions"], serde_json::json!([]));
@@ -390,7 +409,7 @@ mod tests {
     /// route still answers Python's empty snapshot then.
     #[test]
     fn the_live_self_check_fails_without_a_feed() {
-        let running = start(None, None).unwrap();
+        let running = start(None, None, None).unwrap();
         assert!(crate::live_feed::read_first_snapshot(running.port, &running.token).is_ok());
         assert_eq!(
             running.live_self_check(),
@@ -402,7 +421,7 @@ mod tests {
     /// T057 AC 3: a wrong token (403) fails the check, and the error never holds the token.
     #[test]
     fn the_live_self_check_fails_on_a_refused_token() {
-        let running = start(None, Some(idle_feed())).unwrap();
+        let running = start(None, Some(idle_feed()), None).unwrap();
         let wrong = "x".repeat(43);
         let err = crate::live_feed::read_first_snapshot(running.port, &wrong).unwrap_err();
         assert_eq!(err, "GET /api/live answered 403");
@@ -412,7 +431,10 @@ mod tests {
 
     #[test]
     fn two_starts_get_two_ports_and_two_tokens() {
-        let (a, b) = (start(None, None).unwrap(), start(None, None).unwrap());
+        let (a, b) = (
+            start(None, None, None).unwrap(),
+            start(None, None, None).unwrap(),
+        );
         assert_ne!(a.port, b.port);
         assert_ne!(a.token, b.token);
         a.stop();
@@ -421,7 +443,7 @@ mod tests {
 
     #[test]
     fn start_refuses_a_static_dir_that_is_not_a_folder_before_it_binds() {
-        let err = start(Some(Path::new("/this/folder/does/not/exist")), None)
+        let err = start(Some(Path::new("/this/folder/does/not/exist")), None, None)
             .err()
             .unwrap();
         assert_eq!(err, "--static-dir is not a readable directory");
@@ -429,7 +451,7 @@ mod tests {
 
     #[test]
     fn stop_returns_in_bounded_time_with_a_request_stuck_in_flight_and_frees_the_port() {
-        let running = start(None, None).unwrap();
+        let running = start(None, None, None).unwrap();
         let port = running.port;
         // A connection that sent half a request line and then waits: graceful shutdown alone would never end.
         let mut stuck = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
@@ -467,7 +489,7 @@ mod tests {
             move |tail, now| tail.poll_once(&roots, now, None),
         )
         .unwrap();
-        let running = start(None, Some(feed)).unwrap();
+        let running = start(None, Some(feed), None).unwrap();
         let tail = running.feed.as_ref().unwrap().tail();
         let baseline = Arc::strong_count(&tail);
         let open = || {

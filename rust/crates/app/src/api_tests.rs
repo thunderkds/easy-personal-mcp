@@ -911,3 +911,87 @@ async fn limits_history_is_guarded_read_only_and_has_the_shape() {
         "the account folder is untouched"
     );
 }
+
+// ---- T072: GET /api/machine ----
+
+fn machine_sample(t: i64, cpu: Option<f64>) -> easy_personal_core::machine::Sample {
+    easy_personal_core::machine::Sample {
+        t,
+        cpu_pct: cpu,
+        ram_used: Some(1),
+        ram_total: Some(2),
+        disk_used: None,
+        disk_total: None,
+        load1: Some(0.5),
+        battery_pct: None,
+        charging: None,
+        claude_procs: Some(3),
+    }
+}
+
+fn machine_app(history: Option<crate::api::MachineHistory>) -> (Router, Arc<AtomicUsize>) {
+    // a store lookup that counts its calls: the machine route must never ask for the store
+    let calls = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&calls);
+    let api = Api::new(
+        move || {
+            seen.fetch_add(1, Ordering::SeqCst);
+            Err(StoreError::NoHome)
+        },
+        || 0,
+    )
+    .with_machine(history);
+    (router(TOKEN.into(), PORT, api), calls)
+}
+
+#[tokio::test]
+async fn machine_gives_latest_the_samples_and_the_interval_and_reads_no_store() {
+    let mut ring = easy_personal_core::machine::Ring::new(easy_personal_core::machine::CAPACITY);
+    ring.push(machine_sample(100, None));
+    ring.push(machine_sample(160, Some(12.5)));
+    let (app, calls) = machine_app(Some(Arc::new(Mutex::new(ring))));
+    let (status, body) = get(&app, "/api/machine", true).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["interval_s"], 60);
+    assert_eq!(body["samples"].as_array().unwrap().len(), 2);
+    assert_eq!(body["samples"][0]["t"], 100);
+    assert!(
+        body["samples"][0]["cpu_pct"].is_null(),
+        "no data is null, not 0"
+    );
+    assert_eq!(body["latest"], body["samples"][1]);
+    assert_eq!(body["latest"]["cpu_pct"], 12.5);
+    assert_eq!(body["latest"]["claude_procs"], 3);
+    assert_eq!(body["latest"].as_object().unwrap().len(), 10);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn machine_with_no_sampler_or_no_sample_yet_is_empty_not_an_error() {
+    let (app, _) = machine_app(None);
+    let (status, body) = get(&app, "/api/machine", true).await;
+    assert_eq!(status, 200);
+    assert_eq!(
+        body,
+        json!({"latest": null, "samples": [], "interval_s": 60})
+    );
+}
+
+#[tokio::test]
+async fn machine_is_guarded_and_read_only() {
+    let (app, _) = machine_app(None);
+    let (status, body) = get(&app, "/api/machine", false).await;
+    assert_eq!(status, 403);
+    assert_eq!(body, json!({"error": "forbidden"}));
+    for method in ["POST", "PUT", "PATCH", "DELETE"] {
+        let request = Request::builder()
+            .method(method)
+            .uri("/api/machine")
+            .header("host", format!("127.0.0.1:{PORT}"))
+            .header("x-dashboard-token", TOKEN)
+            .body(Body::empty())
+            .unwrap();
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), 405, "{method}");
+    }
+}

@@ -7,6 +7,7 @@
 //! (`connector_writes.rs`: `POST /api/connectors`, `DELETE /api/connectors/{id}`, `POST /api/connectors/{id}/move`,
 //! `PUT /api/connectors/{id}/alias`), `GET`/`POST /api/connectors/legacy` (`legacy.rs`) and `POST /api/sync`
 //! (`sync_apply.rs`); they use the keychain and the `claude` CLI.
+//! `GET /api/machine` (T072) answers the machine status sampler's in-memory history (`sampler.rs`); it reads no store and writes nothing.
 //! `GET /api/live` (T056) is the one stream: Server-Sent Events from the live feed (`live_feed.rs`); it reads no store
 //! itself, and it is the one route whose token may come in the query (`server.rs`).
 //! The read routes are all `GET`. `/api/dirs` lists folders of the file system and `/api/jobs` runs the read-only `systemctl` / `crontab`
@@ -46,6 +47,7 @@ use easy_personal_core::first_run;
 use easy_personal_core::folders;
 use easy_personal_core::kit;
 use easy_personal_core::limits_watch::{self, LimitsWatch};
+use easy_personal_core::machine::{INTERVAL_S, Sample};
 use easy_personal_core::memgraph::{self, Env};
 use easy_personal_core::metrics::{self, MetricsError};
 use easy_personal_core::plan::improvement_plan_scoped;
@@ -78,6 +80,8 @@ const TIMELINE_DETAIL_SESSIONS: usize = 50;
 pub(crate) type Failure = (StatusCode, String);
 type StorePath = Arc<dyn Fn() -> Result<PathBuf, StoreError> + Send + Sync>;
 pub(crate) type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
+/// The history of the machine status sampler (`sampler.rs`).
+pub(crate) type MachineHistory = crate::sampler::History<Sample>;
 
 /// What the routes need from outside: where the store is, and what time it is (microseconds since the epoch, UTC).
 /// The binary passes the real ones ([`Api::system`]); the clock can be injected only in-process, by a test.
@@ -93,6 +97,8 @@ pub struct Api {
     health: Arc<HealthCache>,
     /// The plan-limit ring buffers (T073) that `GET /api/limits/history` answers and `run_limits_sampler` fills.
     limits: Arc<LimitsWatch>,
+    /// The machine status samples `GET /api/machine` reads (`None`: no sampler runs, the route answers an empty history).
+    machine: Option<MachineHistory>,
 }
 
 impl Api {
@@ -107,7 +113,14 @@ impl Api {
             stopping: Arc::default(),
             health: Arc::default(),
             limits: Arc::default(),
+            machine: None,
         }
+    }
+
+    /// The history `GET /api/machine` reads.
+    pub(crate) fn with_machine(mut self, machine: Option<MachineHistory>) -> Self {
+        self.machine = machine;
+        self
     }
 
     /// One plan-limit sample now (T073), for the route test; the sampler thread calls the free function.
@@ -241,6 +254,7 @@ pub fn routes() -> Router<Api> {
         .route("/api/dirs", get(dirs))
         .route("/api/jobs", get(jobs))
         .route("/api/limits/history", get(limits_history))
+        .route("/api/machine", get(machine))
 }
 
 /// `GET /api/limits/history` (T073, FR-096): the in-memory 24 h plan-limit samples per Claude account. No store read.
@@ -640,6 +654,23 @@ async fn store_health_get(State(api): State<Api>) -> Response {
 /// `HEAD`: headers only, and no check runs.
 async fn store_health_head() -> Response {
     (StatusCode::OK, [(CACHE_CONTROL, "no-store")]).into_response()
+}
+
+/// `GET /api/machine` (T072, FR-095): `{latest, samples, interval_s}` from the sampler's history, oldest sample first. A
+/// measure with no data is `null`. It reads no store, takes only the history's lock and writes nothing.
+async fn machine(State(api): State<Api>) -> Response {
+    let samples: Vec<Sample> = api.machine.as_ref().map_or_else(Vec::new, |history| {
+        history
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .to_vec()
+    });
+    let body = json!({
+        "latest": samples.last().map(Sample::json),
+        "samples": samples.iter().map(Sample::json).collect::<Vec<_>>(),
+        "interval_s": INTERVAL_S,
+    });
+    respond(StatusCode::OK, &body)
 }
 
 /// Parses the query, then runs `read` on a fresh read-only connection off the async workers.

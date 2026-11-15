@@ -12,6 +12,7 @@ pub mod kit;
 pub mod kitperf;
 pub mod limits_watch;
 pub mod live;
+pub mod machine;
 pub mod memgraph;
 pub mod metrics;
 pub mod plan;
