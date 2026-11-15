@@ -219,6 +219,16 @@ describe('details toggle (AC6)', () => {
   })
 })
 
+describe('no data is not zero note (T070)', () => {
+  it('says "no data" is not zero once the details table is open, and not before', async () => {
+    await renderView()
+    const note = '"no data" means the kit part left nothing to read for that project. It is not zero.'
+    expect(screen.queryByText(note)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
+    expect(screen.getByText(note)).toBeInTheDocument()
+  })
+})
+
 describe('details table (unchanged)', () => {
   it('shows "no data" for no-data and absent parts, never zero', async () => {
     await renderView()
