@@ -53,7 +53,7 @@ No new crate (`zbus` is already a dependency; record the version).
 
 | # | Criterion (testable) | Traces to |
 |---|---|---|
-| 1 | Hysteresis tests per measure: value 89→91→90→86→91 raises 2 alerts, 84→91 re-arms | intent |
+| 1 | Hysteresis tests per measure: value 89→91→90→86→91 raises 1 alert (86 is not below 85); a later 84→91 re-arms and raises the 2nd (corrected at Stage 4: PRD FR-097 re-arm 5 points below) | intent |
 | 2 | Session tests: waiting → alert; still waiting → none; leaves and comes back → second alert | intent |
 | 3 | Leak test: planted secret / message text in a fake live state never reaches the notifier or `/api/alerts` | intent |
 | 4 | Pause test: paused → notifier not called, `/api/alerts` still lists | intent |
