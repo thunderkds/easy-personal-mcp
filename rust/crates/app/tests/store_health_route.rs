@@ -314,9 +314,12 @@ fn the_route_does_not_migrate_a_store_one_migration_behind() {
         body["user_version"],
         body["latest_migration"].as_i64().unwrap() - 1
     );
+    // T079: `-wal` / `-shm` are SQLite's own files while a connection of the server is open (they come and go with
+    // its timing), not a backup; any other new file is
     let listing: Vec<String> = fs::read_dir(&server.home)
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name != "store.sqlite-wal" && name != "store.sqlite-shm")
         .collect();
     assert_eq!(
         listing,
