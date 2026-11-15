@@ -61,8 +61,31 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-15T02:51:44Z to 02:55:44Z, branch `t078-keychain-leftovers` at `532aeb8`, no implementation commit yet):
+
+```
+$ grep -n 'path = "keychain.rs"\|allow(dead_code)' rust/crates/app/src/launch.rs
+12:#[path = "keychain.rs"]
+13:#[allow(dead_code)] // the launcher reads items; it never stores or removes them
+$ grep -n "mod keychain" rust/crates/app/src/main.rs rust/crates/app/src/launch.rs
+rust/crates/app/src/main.rs:15:mod keychain;
+rust/crates/app/src/launch.rs:15:mod keychain;
+$ cargo build --bin easy-personal-launch --bin easy-personal-rs      # cold, fresh target dir
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3m 38s
+$ ls -l target/debug/easy-personal-launch target/debug/easy-personal-rs
+-rwxrwxr-x 2 ... 101078368 Nov 15 09:54 target/debug/easy-personal-launch
+-rwxrwxr-x 2 ... 202314880 Nov 15 09:55 target/debug/easy-personal-rs
+$ cargo tree -p easy-personal-rs -e normal --depth 1
+easy-personal-rs v0.2.0 (.../rust/crates/app)
+|- axum v0.8.9, clap v4.6.7, easy-personal-core v0.2.0, futures-core v0.3.34, getrandom v0.4.3,
+|  keyring v3.6.3, rmcp v3.9.0, rusqlite v0.41.1, serde_json v1.0.154, tokio v1.54.1
+$ strings -a target/debug/easy-personal-launch | grep -c <name>      # what the launcher binary holds
+axum: 0   rmcp: 0   clap: 0   rusqlite: 8091   tokio: 46242   zbus: 58399   sqlite3_open: 3
+$ wc -l crates/app/src/keychain.rs crates/app/src/launch.rs
+  665 keychain.rs   77 launch.rs
+```
+
+Item 2 BEFORE: the measuring test (below) did not exist yet; see its first run under "Item 2".
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
