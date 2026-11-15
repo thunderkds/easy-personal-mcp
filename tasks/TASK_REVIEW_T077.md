@@ -137,3 +137,5 @@ Last 24 h, one sample a minute. Kept in memory: the graphs start empty after a r
 **Cut list (not built)**: totals row, per-task branches/project column, period picker (fixed to All time), tooltips on the graphs, alerts list.
 
 **Questions for the owner**: (1) nav place: `// work` after Live (recommended) or `// usage`? (2) Effectiveness period: all time (recommended) or last 30 days? (3) OK with the 6 machine tiles and one card per account?
+
+**Owner answer (2026-11-15, relayed by the Supervisor)**: "Approve as proposed". Watch tab in `// work` after Live; effectiveness over all time; 6 machine tiles; one limits card per account; the cut list stands.
