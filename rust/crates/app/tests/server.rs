@@ -473,7 +473,8 @@ fn ctrl_c_stops_the_server_frees_the_port_and_leaks_no_token() {
 // `warnings` and `plan` depend on the current time, so they are compared in-process with a fixed clock
 // (`src/api_tests.rs`); there is no env var or flag in the binary that changes the clock.
 
-const FORBIDDEN_ROUTES: [&str; 6] = [
+const FORBIDDEN_ROUTES: [&str; 7] = [
+    "/api/effectiveness",
     "/api/usage/summary",
     "/api/usage/breakdown?by=day",
     "/api/warnings",

@@ -147,9 +147,11 @@ fn ping_prints_the_core_line_and_needs_no_store() {
 #[test]
 fn a_missing_store_is_refused_with_the_fixed_text_and_nothing_is_created() {
     let home = Home::new();
-    let commands: [&[&str]; 9] = [
+    let commands: [&[&str]; 11] = [
         &["usage"],
         &["usage", "--by", "day"],
+        &["effectiveness"],
+        &["effectiveness", "--json"],
         &["outliers"],
         &["kit-findings", "--json"],
         &["workspace", "list"],
@@ -176,8 +178,9 @@ fn a_newer_store_is_refused_and_left_as_it_was() {
     let home = Home::new();
     home.sql("CREATE TABLE events (id INTEGER PRIMARY KEY, note TEXT); INSERT INTO events (note) VALUES ('keep'); PRAGMA user_version = 99;");
     let before = home.files();
-    let commands: [&[&str]; 6] = [
+    let commands: [&[&str]; 7] = [
         &["usage"],
+        &["effectiveness"],
         &["outliers"],
         &["kit-findings"],
         &["workspace", "list"],
@@ -206,9 +209,18 @@ fn a_newer_store_is_refused_and_left_as_it_was() {
 fn a_read_command_writes_nothing() {
     let home = Home::rich();
     let before = fs::read(home.store()).unwrap();
-    let commands: [&[&str]; 7] = [
+    let commands: [&[&str]; 9] = [
         &["usage"],
         &["usage", "--by", "model", "--workspace", "acme"],
+        &["effectiveness"],
+        &[
+            "effectiveness",
+            "--json",
+            "--workspace",
+            "acme",
+            "--since",
+            "2026-01-10",
+        ],
         &["outliers"],
         &["outliers", "--account", "2"],
         &["kit-findings"],
@@ -572,4 +584,74 @@ fn dashboard_says_one_fixed_line_when_the_ingest_fails_and_starts_anyway() {
         !stderr.contains(home.dir.to_str().unwrap()),
         "a path in {stderr}"
     );
+}
+
+// ---- T075: `effectiveness` ----
+
+#[test]
+fn effectiveness_prints_a_table_or_the_json_and_refuses_a_bad_scope() {
+    let home = Home::rich();
+    let folder = home.dir.join("plain");
+    fs::create_dir_all(&folder).unwrap();
+    let folder = folder.to_str().unwrap();
+    home.sql(&format!(
+        "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, record_type, ts_utc,
+         session_id, project_path, git_branch, is_sidechain, model, message_id, input_tokens, output_tokens,
+         cache_creation_input_tokens, cache_read_input_tokens)
+         VALUES ('m', 'claude_code', 't075.jsonl', 1, 1, 0, 'assistant', '2026-01-15T10:00:00.000000Z', 's-t075',
+         '{folder}', 'T5', 0, 'mystery-model', 't075-m1', 1000, 200, 0, 0)"
+    ));
+    let done = home.run(&["effectiveness", "--json"]);
+    assert_eq!(done.status.code(), Some(0), "{}", err(&done));
+    let body: serde_json::Value = serde_json::from_str(&out(&done)).unwrap();
+    let task = &body["tasks"][0];
+    assert_eq!(task["task_id"], "T5");
+    assert_eq!(task["project"], "plain");
+    assert_eq!(task["tokens"], 1200);
+    assert_eq!(task["done_state"], "unknown");
+    assert_eq!(task["api_equivalent_cost"]["usd"], serde_json::Value::Null);
+    assert_eq!(body["oldest_stored_day"], "2026-01-02");
+
+    let done = home.run(&["effectiveness"]);
+    assert_eq!(done.status.code(), Some(0), "{}", err(&done));
+    let text = out(&done);
+    let row = text
+        .lines()
+        .find(|l| l.starts_with("T5 "))
+        .unwrap_or_else(|| panic!("{text}"));
+    for cell in ["plain", "1200", "unknown price", "unknown"] {
+        assert!(row.contains(cell), "{cell} not in {row:?}");
+    }
+    assert!(
+        text.lines().any(|l| l.starts_with("unattributed ")),
+        "{text}"
+    );
+    assert!(text.lines().any(|l| l.starts_with("total ")), "{text}");
+    assert!(text.contains("Oldest stored day: 2026-01-02"), "{text}");
+    assert!(text.contains("no local git history for plain"), "{text}");
+    assert!(
+        !text.contains(home.dir.to_str().unwrap()),
+        "a path in {text}"
+    );
+    assert!(!text.contains("s-t075"), "a session id in {text}");
+
+    for (args, line) in [
+        (
+            &["effectiveness", "--workspace", "nope"][..],
+            "unknown workspace",
+        ),
+        (
+            &["effectiveness", "--since", "garbage"][..],
+            "Invalid isoformat string: 'garbage'",
+        ),
+    ] {
+        let done = home.run(args);
+        assert_eq!(done.status.code(), Some(2), "{args:?}");
+        assert_eq!(out(&done), "");
+        assert_eq!(
+            err(&done),
+            format!("easy-personal-rs: {line}\n"),
+            "{args:?}"
+        );
+    }
 }

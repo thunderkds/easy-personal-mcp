@@ -1,6 +1,7 @@
 //! `mcp` subcommand: the MCP server on stdio with `ping`, `usage_summary`, `usage_breakdown` (T008), `session_outliers`
 //! (T020), `warnings` and `improvement_plan` (T015), `kit_summary`, `kit_findings`, `connector_catalog`,
-//! `connector_status`, `connector_suggestions` and `save_report` (the 12 tools of Python's `tools/list`). `usage_summary`, `usage_breakdown`, `warnings` and
+//! `connector_status`, `connector_suggestions` and `save_report` (the 12 tools of Python's `tools/list`), plus the Rust-only
+//! read-only `effectiveness` (T075: `since`, `until`, `workspace`, `account`; it has no Python golden). `usage_summary`, `usage_breakdown`, `warnings` and
 //! `improvement_plan` take an optional `workspace` and `account` (T019); `session_outliers` takes `since` and `until`
 //! only, as Python's tool does. `kit_summary` takes the same `workspace` and `account` and `kit_findings` takes `limit`
 //! and `since`; `kit_summary` also reads the kit projects' own files and runs `git` (read-only). `connector_catalog`, `connector_status` and `connector_suggestions` (T046) take no
@@ -63,6 +64,8 @@ const PLAN_DESCRIPTION: &str = "The fired rules grouped by priority (1 first), e
 const KIT_DESCRIPTION: &str = "What the Easy Kit did per project (folder name): kernel-trace tool calls, errors, kit\ntasks and last activity. A part with nothing to read says \"no data\". Optional `workspace`\n(name) and `account` (id or label) keep only that scope's projects.";
 
 const KIT_FINDINGS_DESCRIPTION: &str = "Which Easy Kit MCP servers (easy-ui, easy-verifier, easy-context, easy-memory) are linked to\ncheaper or better sessions, comparing sessions with and without each server inside the same\nproject, main model and tool-call band (tokens and cost per tool call, share of good results).\n`findings` = at most `limit` (default 3, max 10) comparisons where the server side is better by at least 5 %, each\nwith numbers, group sizes and one fixed habit; `other` = every other comparison that has at least 10\nsessions on each side (no habit); `not_enough` lists servers with fewer. Worded \"linked to\", never\n\"caused\". `since` is an ISO date or datetime (without an offset: local time); omitted means all\nstored history.";
+
+const EFFECTIVENESS_DESCRIPTION: &str = "Effectiveness per task, computed on read: for each branch that holds a task id (T123, HUN-123), its\ntokens (events on the branch plus sub-agent events of a session whose main thread is on it), API-equivalent cost\n(null = unknown price, never $0), sessions, good results, tokens per good result, done time (the first merge commit\ninto main in local git) and tokens per task done; one `unattributed` line (main, HEAD, worktree-agent-*, fix-* and\nother id-less branches) and `totals`. `oldest_stored_day` is the oldest event still stored (older ones may be\npruned). Bounds are ISO 8601 dates or datetimes; without an offset they are local time. Optional `workspace`\n(name) and `account` (id or label). Read-only.";
 
 const CONNECTOR_CATALOG_DESCRIPTION: &str = "The provider catalog: id, provider, category, whether Claude.ai has an official connector\n(and its link), and the field labels each needs. Read-only; never a secret value.";
 
@@ -414,6 +417,7 @@ impl ServerHandler for Server {
                 | "improvement_plan"
                 | "kit_summary"
                 | "kit_findings"
+                | "effectiveness"
                 | "connector_catalog"
                 | "connector_status"
                 | "connector_suggestions"
@@ -568,6 +572,22 @@ fn tools() -> Vec<Tool> {
             }),
             dict_output("save_reportDictOutput"),
         ),
+        // Rust-only (T075), after Python's 12 so their registration order is unchanged
+        tool(
+            "effectiveness",
+            EFFECTIVENESS_DESCRIPTION,
+            json!({
+                "properties": {
+                    "since": nullable_string("Since"),
+                    "until": nullable_string("Until"),
+                    "workspace": nullable_string("Workspace"),
+                    "account": nullable_string("Account")
+                },
+                "title": "effectivenessArguments",
+                "type": "object"
+            }),
+            dict_output("effectivenessDictOutput"),
+        ),
     ]
 }
 
@@ -663,6 +683,21 @@ fn run_tool(
                     limit,
                     since.as_deref(),
                     now_micros,
+                )
+                .map_err(|e| e.to_string())
+            })?;
+            Ok(CallToolResult::structured(body))
+        }
+        "effectiveness" => {
+            let (since, until) = (optional(args, "since")?, optional(args, "until")?);
+            let (workspace, account) = scope_args(args)?;
+            let body = with_store(&store, |conn| {
+                let scope = scope_of(&workspace, &account);
+                easy_personal_core::effectiveness::effectiveness(
+                    conn,
+                    since.as_deref(),
+                    until.as_deref(),
+                    scope,
                 )
                 .map_err(|e| e.to_string())
             })?;

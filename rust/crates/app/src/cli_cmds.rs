@@ -256,6 +256,25 @@ pub struct KitFindingsArgs {
     since: Option<String>,
 }
 
+#[derive(Args)]
+pub struct EffectivenessArgs {
+    /// Print the full result as JSON
+    #[arg(long)]
+    json: bool,
+    /// ISO date or datetime, inclusive
+    #[arg(long, value_name = "SINCE")]
+    since: Option<String>,
+    /// ISO date or datetime, exclusive
+    #[arg(long, value_name = "UNTIL")]
+    until: Option<String>,
+    /// Only events under this workspace's repo paths
+    #[arg(long)]
+    workspace: Option<String>,
+    /// Only events of this agent account (id or label)
+    #[arg(long)]
+    account: Option<String>,
+}
+
 #[derive(Subcommand)]
 pub enum WorkspaceAction {
     /// List workspaces with their repo paths
@@ -485,6 +504,128 @@ pub fn kit_findings(args: KitFindingsArgs) -> ExitCode {
             put(&findings_text(&body))
         }
     })())
+}
+
+/// `effectiveness` (T075): the core's JSON with `--json`, else one table row per task, the unattributed line and the totals.
+pub fn effectiveness(args: EffectivenessArgs) -> ExitCode {
+    finish((|| {
+        let conn = open_read()?;
+        let scope = scope(&args.workspace, &args.account);
+        let body = easy_personal_core::effectiveness::effectiveness(
+            &conn,
+            args.since.as_deref(),
+            args.until.as_deref(),
+            scope,
+        )
+        .map_err(metrics_stop)?;
+        if args.json {
+            put_json(&body)
+        } else {
+            put(&effectiveness_text(&body))
+        }
+    })())
+}
+
+fn effectiveness_text(body: &Value) -> String {
+    let cell = |v: &Value| match v {
+        Value::Null => "-".to_string(),
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    };
+    let cost = |line: &Value| {
+        let c = &line["api_equivalent_cost"];
+        match (
+            c["usd"].as_f64(),
+            c["unknown_price"].as_bool() == Some(true),
+        ) {
+            (None, _) => "unknown price".to_string(),
+            (Some(usd), true) => format!("${usd:.4} + unknown price"),
+            (Some(usd), false) => format!("${usd:.4}"),
+        }
+    };
+    let numbers = |line: &Value| {
+        vec![
+            cell(&line["tokens"]),
+            cost(line),
+            cell(&line["sessions"]),
+            cell(&line["good_results"]),
+            cell(&line["tokens_per_good_result"]),
+        ]
+    };
+    let mut rows = vec![
+        [
+            "task",
+            "project",
+            "tokens",
+            "cost",
+            "sessions",
+            "good",
+            "tokens/good",
+            "done",
+            "tokens/task done",
+        ]
+        .map(String::from)
+        .to_vec(),
+    ];
+    for task in body["tasks"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
+        let done = match task["done_utc"].as_str() {
+            Some(utc) => utc.to_string(),
+            None => cell(&task["done_state"]),
+        };
+        let mut row = vec![cell(&task["task_id"]), cell(&task["project"])];
+        row.extend(numbers(task));
+        row.extend([done, cell(&task["tokens_per_task_done"])]);
+        rows.push(row);
+    }
+    let mut row = vec!["unattributed".to_string(), "-".to_string()];
+    row.extend(numbers(&body["unattributed"]));
+    row.extend(["-".to_string(), "-".to_string()]);
+    rows.push(row);
+    let totals = &body["totals"];
+    let mut row = vec!["total".to_string(), "-".to_string()];
+    row.extend(numbers(totals));
+    row.extend([
+        format!(
+            "{} of {} done",
+            cell(&totals["tasks_done"]),
+            cell(&totals["tasks"])
+        ),
+        cell(&totals["tokens_per_task_done"]),
+    ]);
+    rows.push(row);
+    let widths: Vec<usize> = (0..rows[0].len())
+        .map(|i| rows.iter().map(|r| r[i].chars().count()).max().unwrap_or(0))
+        .collect();
+    let mut out = String::new();
+    for row in &rows {
+        let line: Vec<String> = row
+            .iter()
+            .zip(&widths)
+            .map(|(c, w)| format!("{c:<w$}"))
+            .collect();
+        out += line.join("  ").trim_end();
+        out += "\n";
+    }
+    match body["oldest_stored_day"].as_str() {
+        Some(day) => {
+            out += &format!(
+                "Oldest stored day: {day} (older events may have been pruned with --retention-days)\n"
+            )
+        }
+        None => out += "No usage stored yet.\n",
+    }
+    for note in body["notes"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
+        out += &format!("Note: {}\n", cell(note));
+    }
+    out
 }
 
 /// The text of `kit-findings` without `--json` (Python's `main`): each finding with its habit, then the others under a

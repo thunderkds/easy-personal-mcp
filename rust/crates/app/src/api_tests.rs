@@ -850,6 +850,53 @@ async fn the_route_never_runs_the_full_check_and_keeps_the_default_budget() {
     );
 }
 
+// ---- T075: `/api/effectiveness` ----
+
+#[tokio::test]
+async fn the_effectiveness_route_answers_the_core_and_maps_its_errors() {
+    let store = TempStore::new(RICH);
+    let before = std::fs::read(store.path()).unwrap();
+    let app = app(store.path(), FROZEN_NOW);
+    let conn = store::open_read_only(&store.path()).unwrap();
+    for (query, since, scope) in [
+        ("", None, Scope::default()),
+        (
+            "?since=2026-01-13T00%3A00%3A00Z&workspace=acme",
+            Some("2026-01-13T00:00:00Z"),
+            Scope {
+                workspace: Some("acme"),
+                account: None,
+            },
+        ),
+    ] {
+        let (status, body) = get(&app, &format!("/api/effectiveness{query}"), true).await;
+        assert_eq!(status, 200, "{query}: {body}");
+        let want =
+            easy_personal_core::effectiveness::effectiveness(&conn, since, None, scope).unwrap();
+        assert_eq!(body, want, "{query}");
+    }
+    for (query, text) in [
+        (
+            "?since=bad&workspace=nope",
+            "Invalid isoformat string: 'bad'",
+        ),
+        ("?workspace=nope", "unknown workspace"),
+    ] {
+        let (status, body) = get(&app, &format!("/api/effectiveness{query}"), true).await;
+        assert_eq!(status, 400, "{query}");
+        assert_eq!(body, json!({ "error": text }), "{query}");
+    }
+    let (status, body) = get(&app, "/api/effectiveness", false).await;
+    assert_eq!(status, 403);
+    assert_eq!(body, json!({"error": "forbidden"}));
+    drop(conn);
+    assert_eq!(
+        std::fs::read(store.path()).unwrap(),
+        before,
+        "the route wrote to the store"
+    );
+}
+
 // ---- T072: GET /api/machine ----
 
 fn machine_sample(t: i64, cpu: Option<f64>) -> easy_personal_core::machine::Sample {
