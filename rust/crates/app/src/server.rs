@@ -17,6 +17,7 @@ use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
+use easy_personal_core::limits_watch::Round;
 use easy_personal_core::machine::Sample;
 use std::io::{self, Write};
 use std::net::{Ipv4Addr, SocketAddr};
@@ -188,6 +189,8 @@ pub struct Running {
     feed: Option<LiveFeed>,
     /// The machine status sampler (`serve` and `app`, T072); stopped and joined by `stop` (and by drop).
     machine: Option<Sampler<Sample>>,
+    /// The plan-limit sampler (`serve` and `app`, T073); stopped and joined by `stop` (and by drop).
+    limits: Option<Sampler<Round>>,
 }
 
 /// How long `stop` waits for requests in flight before it drops them.
@@ -223,6 +226,9 @@ impl Running {
         if let Some(machine) = self.machine.take() {
             machine.stop();
         }
+        if let Some(limits) = self.limits.take() {
+            limits.stop();
+        }
         if let Some(feed) = self.feed.take() {
             feed.stop();
         }
@@ -233,10 +239,12 @@ impl Running {
 /// anything is bound. `feed` (the live feed of `serve` and `app`, already polling) is what `GET /api/live` reads;
 /// with `None` that route sends the empty snapshot, as Python does with no tail running.
 /// `machine` (the machine status sampler, T072) is what `GET /api/machine` reads; with `None` that route answers an empty history.
+/// `limits` (the plan-limit sampler, T073) is what `GET /api/limits/history` reads, with the same `None` rule.
 pub(crate) fn start(
     static_dir: Option<&Path>,
     feed: Option<LiveFeed>,
     machine: Option<Sampler<Sample>>,
+    limits: Option<Sampler<Round>>,
 ) -> Result<Running, String> {
     let static_root = static_dir.map(static_files::canonical_root).transpose()?;
     let token = new_token().map_err(|e| format!("no OS random source: {e}"))?;
@@ -249,7 +257,8 @@ pub(crate) fn start(
     let stopping = Arc::new(AtomicBool::new(false));
     let api = Api::system()
         .with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping))
-        .with_machine(machine.as_ref().map(Sampler::history));
+        .with_machine(machine.as_ref().map(Sampler::history))
+        .with_limits(limits.as_ref().map(Sampler::history));
     let app = router_with_static(
         token.clone(),
         port,
@@ -280,6 +289,7 @@ pub(crate) fn start(
         stopping,
         feed,
         machine,
+        limits,
     })
 }
 
@@ -290,6 +300,7 @@ pub fn run(static_dir: Option<&Path>) -> Result<(), String> {
         static_dir,
         Some(LiveFeed::system()?),
         Some(sampler::machine()?),
+        Some(sampler::limits()?),
     )?;
     let mut out = io::stdout();
     write!(
@@ -369,7 +380,7 @@ mod tests {
 
     #[test]
     fn start_binds_loopback_and_marks_only_a_guarded_api_request_with_the_token() {
-        let running = start(None, None, None).unwrap();
+        let running = start(None, None, None, None).unwrap();
         assert_eq!(running.token.len(), 43);
         assert!(!running.authenticated.load(Ordering::Relaxed));
         // Refused or outside `/api/`: the flag stays off.
@@ -396,7 +407,7 @@ mod tests {
     /// T057 AC 3, without a display: the self-test's live check passes on the server `serve` and `app` start.
     #[test]
     fn the_live_self_check_reads_the_first_snapshot_with_the_token_in_the_query() {
-        let running = start(None, Some(idle_feed()), None).unwrap();
+        let running = start(None, Some(idle_feed()), None, None).unwrap();
         assert_eq!(running.live_self_check(), Ok(()));
         let data = crate::live_feed::read_first_snapshot(running.port, &running.token).unwrap();
         assert_eq!(data["sessions"], serde_json::json!([]));
@@ -408,7 +419,7 @@ mod tests {
     /// route still answers Python's empty snapshot then.
     #[test]
     fn the_live_self_check_fails_without_a_feed() {
-        let running = start(None, None, None).unwrap();
+        let running = start(None, None, None, None).unwrap();
         assert!(crate::live_feed::read_first_snapshot(running.port, &running.token).is_ok());
         assert_eq!(
             running.live_self_check(),
@@ -420,7 +431,7 @@ mod tests {
     /// T057 AC 3: a wrong token (403) fails the check, and the error never holds the token.
     #[test]
     fn the_live_self_check_fails_on_a_refused_token() {
-        let running = start(None, Some(idle_feed()), None).unwrap();
+        let running = start(None, Some(idle_feed()), None, None).unwrap();
         let wrong = "x".repeat(43);
         let err = crate::live_feed::read_first_snapshot(running.port, &wrong).unwrap_err();
         assert_eq!(err, "GET /api/live answered 403");
@@ -431,8 +442,8 @@ mod tests {
     #[test]
     fn two_starts_get_two_ports_and_two_tokens() {
         let (a, b) = (
-            start(None, None, None).unwrap(),
-            start(None, None, None).unwrap(),
+            start(None, None, None, None).unwrap(),
+            start(None, None, None, None).unwrap(),
         );
         assert_ne!(a.port, b.port);
         assert_ne!(a.token, b.token);
@@ -442,15 +453,20 @@ mod tests {
 
     #[test]
     fn start_refuses_a_static_dir_that_is_not_a_folder_before_it_binds() {
-        let err = start(Some(Path::new("/this/folder/does/not/exist")), None, None)
-            .err()
-            .unwrap();
+        let err = start(
+            Some(Path::new("/this/folder/does/not/exist")),
+            None,
+            None,
+            None,
+        )
+        .err()
+        .unwrap();
         assert_eq!(err, "--static-dir is not a readable directory");
     }
 
     #[test]
     fn stop_returns_in_bounded_time_with_a_request_stuck_in_flight_and_frees_the_port() {
-        let running = start(None, None, None).unwrap();
+        let running = start(None, None, None, None).unwrap();
         let port = running.port;
         // A connection that sent half a request line and then waits: graceful shutdown alone would never end.
         let mut stuck = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
@@ -488,7 +504,7 @@ mod tests {
             move |tail, now| tail.poll_once(&roots, now, None),
         )
         .unwrap();
-        let running = start(None, Some(feed), None).unwrap();
+        let running = start(None, Some(feed), None, None).unwrap();
         let tail = running.feed.as_ref().unwrap().tail();
         let baseline = Arc::strong_count(&tail);
         let open = || {

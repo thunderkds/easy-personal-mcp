@@ -46,6 +46,7 @@ use easy_personal_core::clock::now_micros;
 use easy_personal_core::first_run;
 use easy_personal_core::folders;
 use easy_personal_core::kit;
+use easy_personal_core::limits_watch::{self, Round};
 use easy_personal_core::machine::{INTERVAL_S, Sample};
 use easy_personal_core::memgraph::{self, Env};
 use easy_personal_core::metrics::{self, MetricsError};
@@ -81,6 +82,8 @@ type StorePath = Arc<dyn Fn() -> Result<PathBuf, StoreError> + Send + Sync>;
 pub(crate) type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 /// The history of the machine status sampler (`sampler.rs`).
 pub(crate) type MachineHistory = crate::sampler::History<Sample>;
+/// The history of the plan-limit sampler (`sampler.rs`, T073).
+pub(crate) type LimitsHistory = crate::sampler::History<Round>;
 
 /// What the routes need from outside: where the store is, and what time it is (microseconds since the epoch, UTC).
 /// The binary passes the real ones ([`Api::system`]); the clock can be injected only in-process, by a test.
@@ -94,6 +97,8 @@ pub struct Api {
     stopping: Arc<AtomicBool>,
     /// The answers of `GET /api/store/health` (shared by every clone of the `Api`).
     health: Arc<HealthCache>,
+    /// The plan-limit rounds `GET /api/limits/history` reads (`None`: no sampler runs, the route answers an empty history).
+    limits: Option<LimitsHistory>,
     /// The machine status samples `GET /api/machine` reads (`None`: no sampler runs, the route answers an empty history).
     machine: Option<MachineHistory>,
 }
@@ -109,6 +114,7 @@ impl Api {
             live: None,
             stopping: Arc::default(),
             health: Arc::default(),
+            limits: None,
             machine: None,
         }
     }
@@ -116,6 +122,12 @@ impl Api {
     /// The history `GET /api/machine` reads.
     pub(crate) fn with_machine(mut self, machine: Option<MachineHistory>) -> Self {
         self.machine = machine;
+        self
+    }
+
+    /// The history `GET /api/limits/history` reads.
+    pub(crate) fn with_limits(mut self, limits: Option<LimitsHistory>) -> Self {
+        self.limits = limits;
         self
     }
 
@@ -212,7 +224,19 @@ pub fn routes() -> Router<Api> {
         .route("/api/sync", get(sync_plan).post(sync_apply::sync_apply))
         .route("/api/dirs", get(dirs))
         .route("/api/jobs", get(jobs))
+        .route("/api/limits/history", get(limits_history))
         .route("/api/machine", get(machine))
+}
+
+/// `GET /api/limits/history` (T073, FR-096): the sampler's in-memory 24 h plan-limit samples per Claude account. No store read.
+async fn limits_history(State(api): State<Api>) -> Response {
+    let rounds: Vec<Round> = api.limits.as_ref().map_or_else(Vec::new, |history| {
+        history
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .to_vec()
+    });
+    respond(StatusCode::OK, &limits_watch::history(&rounds))
 }
 
 /// `GET /api/live` (T056): Python's `live_stream`, served by `live_feed::SseBody`. A repeated `Last-Event-ID` is

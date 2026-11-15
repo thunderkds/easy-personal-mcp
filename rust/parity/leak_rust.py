@@ -107,6 +107,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
     "/api/machine": [""],  # T072: the in-memory machine status history; no store, no path
     "/api/effectiveness": ["", "?since=2026-01-01", "?workspace=acme", "?account=1", "?account=nope", "?since=garbage"],  # T075
+    "/api/limits/history": [""],  # T073: the in-memory plan-limit history; no store, no path
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [

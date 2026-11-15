@@ -41,13 +41,13 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/src/limits_watch.rs` (5 tests: AC1 fresh/stale/missing/broken -> values/null/null, over-100 kept, AC2 1,440 bound + oldest dropped, add/remove/ignore/codex, no write to the account folder); `rust/crates/app/src/api_tests.rs::limits_history_is_guarded_read_only_and_has_the_shape` (AC3: 403 without token, shape, 405 on POST/PUT/PATCH/DELETE, store file and account folder unchanged). All 6 `ok` in `cargo test --workspace` |
+| Verification command run | ☑ pass | Fix round 3, on `841217c` (after `git merge main`, which brought T079). The plan-limit sampler now runs on `sampler::Sampler<Round>` (thread `easy-personal-limits`, kept in `Running`, joined by `stop()`, `machine::INTERVAL_S`/`CAPACITY`; the duplicate constants and the own loop are gone). `cargo test --workspace --no-fail-fast`: `passed 950 failed 0 ignored 28`, `exit=0`. New/changed tests: `limits_watch` 6 (incl. a gap round), `api_tests::limits_history_is_guarded_read_only_and_has_the_shape`, `api_tests::the_limits_sampler_ticks_on_its_own_thread_and_stop_joins_it_quickly` (10 ms interval, 3 rounds, `stop` < 1 s). `cargo clippy --workspace --all-targets`: clean; `cargo check --features window`: clean. Leak gate: `surface api GET /api/limits/history: 249 bytes`, `leak check: 0 hits over 42 canaries, 812 surfaces, 1791460 bytes`, `exit=0`, no `failed checks`. First sample at once was tried and fails: `store_health_route::the_route_writes_nothing_and_names_no_folder` (store `wal_no_shm`) sees the `-shm` mtime change (`before` vs `after` differ by 3 ms) even with T079; so the first round of `sampler::limits()` is a gap and the first real round comes after one interval (comment states the true reason). With the gap: `store_health_route` 10 passed |
 | Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 on `0dd259e`, store copy of `rust/parity/store-v11.sqlite`: default build, `easy-personal-rs 0.2.0`; `serve`: `GET /api/limits/history` with token → `{"accounts":[],"interval_s":60}` (no accounts in the fixture store), no token 403, POST 405, `/api/machine` 1 sample beside it; stopped by PID; window step: `app --self-test` → `self-test: live snapshot ok`, `self-test: ok`, exit 0; agent: 950 passed 0 failed, leak 0 hits over 812 surfaces — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | independent code-review 2026-11-15 over `git diff main...T073` + callers of `accounts::limit_percents`, `server::start`, `Api` constructors: P0 0, P1 0, P2 1 (own sampler loop beside T072's `Sampler<T>`, not joined) → fixed `841217c`; P3 3: wrong reason in the first-sample comment → comment now gives the true reason (store_health `-shm` mtime), thread spawned before fallible steps → fixed by `Sampler`, no thread test → added. Verdict merge. |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **Companion score (easy-verifier)** | ☑ N/A | not run: low signal on this repo (memory 2026-11-14) |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
@@ -61,12 +61,31 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (real `serve --no-ingest` of the unchanged `T073` branch at `244e983`, temp HOME, guarded request with the token):
+```
+2026-11-15T02:48:02Z
+GET /api/limits/history:
+HTTP/1.1 404 Not Found
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'
+content-length: 0
+date: Sun, 15 Nov 2026 02:48:02 GMT
+```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (real `serve --no-ingest`, temp HOME, store copy with one Claude account "Demo" whose folder holds a fresh `easy-personal-limits.json` with 37.5 / 12.0):
+```
+2026-11-15T03:50:47Z
+GET /api/limits/history (no token):
+403
+GET /api/limits/history (token), at start:
+{"accounts":[],"interval_s":60}
+2026-11-15T03:51:52Z
+after 65 s:
+HTTP/1.1 200 OK
+content-type: application/json
+{"accounts":[{"id":1,"label":"Demo","samples":[{"five_h_pct":37.5,"seven_d_pct":12.0,"t":1794714707}]}],"interval_s":60}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: the dashboard server now answers `GET /api/limits/history` with a per-account 24 h in-memory series of 5 h / 7 d plan-limit used % (null where the snapshot is missing, broken or stale), one sample per minute.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T073.jsonl`, never the
 implementing agent alone]
