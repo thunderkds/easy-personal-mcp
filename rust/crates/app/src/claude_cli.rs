@@ -198,6 +198,24 @@ mod tests {
         fn log(&self) -> String {
             std::fs::read_to_string(self.dir.join("log")).unwrap_or_default()
         }
+
+        /// T079: runs `mcp get a` with `first` as the timeout, until the fake has written every file in `files` before
+        /// it was killed; on a loaded machine the shell may not get that far in time, so the timeout doubles (4 tries).
+        /// Returns the answer and the timeout of the run that counts.
+        fn run_until_written(&self, first: Duration, files: &[&str]) -> (Ran, Duration) {
+            let mut timeout = first;
+            for _ in 0..4 {
+                for file in files {
+                    let _ = std::fs::remove_file(self.dir.join("bin").join(file));
+                }
+                let got = self.claude(timeout).run(&["mcp", "get", "a"], None);
+                if files.iter().all(|f| self.dir.join("bin").join(f).exists()) {
+                    return (got, timeout);
+                }
+                timeout *= 2;
+            }
+            panic!("the fake never wrote {files:?}, even with a {timeout:?} timeout");
+        }
     }
 
     impl Drop for Fake {
@@ -257,9 +275,7 @@ mod tests {
     fn a_slow_claude_is_killed_at_the_timeout_and_answers_127() {
         let fake = Fake::new("slow", "echo $$ > \"$(dirname \"$0\")/pid\"; exec sleep 30");
         let started = Instant::now();
-        let got = fake
-            .claude(Duration::from_millis(500))
-            .run(&["mcp", "get", "a"], None);
+        let (got, timeout) = fake.run_until_written(Duration::from_millis(500), &["pid"]);
         assert_eq!(
             got,
             Ran {
@@ -268,8 +284,9 @@ mod tests {
                 not_run: true
             }
         );
+        // every try ends at its timeout (500 ms, then doubled), never at the fake's 30 s sleep
         assert!(
-            started.elapsed() < Duration::from_secs(5),
+            started.elapsed() < timeout * 2 + Duration::from_secs(4),
             "{:?}",
             started.elapsed()
         );
@@ -280,6 +297,26 @@ mod tests {
         );
     }
 
+    /// T079: the load flake made on purpose. A fake that is slow to start (as on a loaded machine) is killed before it
+    /// writes its pid, so a single run leaves no file to check (the old tests then panicked reading it);
+    /// `run_until_written` retries with a longer timeout until the fake got that far.
+    #[test]
+    fn a_fake_killed_before_it_wrote_its_pid_is_run_again_with_a_longer_timeout() {
+        let fake = Fake::new(
+            "late",
+            "sleep 0.7; echo $$ > \"$(dirname \"$0\")/pid\"; exec sleep 30",
+        );
+        fake.claude(Duration::from_millis(300))
+            .run(&["mcp", "get", "a"], None);
+        assert!(
+            !fake.dir.join("bin/pid").exists(),
+            "one 300 ms run: killed before the pid was written"
+        );
+        let (got, timeout) = fake.run_until_written(Duration::from_millis(300), &["pid"]);
+        assert_eq!((got.code, got.not_run), (127, true));
+        assert!(timeout >= Duration::from_millis(1200), "{timeout:?}");
+    }
+
     /// T066 AC6: a timed-out `claude` that started a process of its own leaves no live process: the whole process group
     /// is killed, not only the direct child.
     #[test]
@@ -288,10 +325,7 @@ mod tests {
             "group",
             "sleep 30 & echo $! > \"$(dirname \"$0\")/grandchild\"; echo $$ > \"$(dirname \"$0\")/pid\"; wait",
         );
-        // 2 s: the fake writes both files long before the timeout, even on a loaded machine
-        let got = fake
-            .claude(Duration::from_secs(2))
-            .run(&["mcp", "get", "a"], None);
+        let (got, _) = fake.run_until_written(Duration::from_secs(2), &["pid", "grandchild"]);
         assert_eq!((got.code, got.not_run), (127, true));
         for file in ["pid", "grandchild"] {
             let pid = std::fs::read_to_string(fake.dir.join("bin").join(file)).unwrap();
