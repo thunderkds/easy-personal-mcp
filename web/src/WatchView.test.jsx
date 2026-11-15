@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WatchView from './WatchView.jsx'
 
@@ -317,5 +317,103 @@ describe('design tokens (AC3)', () => {
   it('WatchView.jsx holds no colour literal', () => {
     const src = readFileSync(resolve(process.cwd(), 'src/WatchView.jsx'), 'utf8')
     expect(src).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/)
+  })
+})
+
+describe('refresh every 60 s (T083 AC1, AC2)', () => {
+  beforeEach(() => {
+    // Only the interval is faked: promises and the waiting of findBy / waitFor stay real.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+  const tick = (ms) => act(() => vi.advanceTimersByTime(ms))
+  const urls = (f) => f.mock.calls.map(([u]) => u).sort()
+
+  it('reads each of the three routes again after 60 s, and stops when the view closes', async () => {
+    const f = stub()
+    const { unmount } = render(<WatchView />)
+    await screen.findByText('Task')
+    expect(f).toHaveBeenCalledTimes(3)
+    tick(59_000)
+    expect(f).toHaveBeenCalledTimes(3)
+    tick(1_000)
+    await waitFor(() => expect(f).toHaveBeenCalledTimes(6))
+    expect(urls(f)).toEqual(['/api/effectiveness', '/api/effectiveness', '/api/limits/history', '/api/limits/history', '/api/machine', '/api/machine'])
+    unmount()
+    tick(300_000)
+    expect(f).toHaveBeenCalledTimes(6)
+  })
+
+  it('skips a tick while the earlier read of that route is still in flight', async () => {
+    const f = stub()
+    render(<WatchView />)
+    await screen.findByText('Task')
+    f.mockImplementation(() => new Promise(() => {}))
+    tick(60_000)
+    expect(f).toHaveBeenCalledTimes(6)
+    tick(180_000)
+    expect(f).toHaveBeenCalledTimes(6)
+  })
+
+  it('keeps the last good data and shows the error line when a refresh fails; the next good read clears it', async () => {
+    const f = stub()
+    render(<WatchView />)
+    await screen.findByRole('heading', { name: 'CPU', level: 3 })
+    stub({ '/api/machine': new Error('boom') })
+    tick(60_000)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load machine status')
+    expect(tile('CPU')).toHaveTextContent('24 %')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+    expect(f).toHaveBeenCalled()
+    stub()
+    tick(60_000)
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(tile('CPU')).toHaveTextContent('24 %')
+  })
+
+  it('shows newer rows after a refresh', async () => {
+    stub()
+    render(<WatchView />)
+    await screen.findByRole('heading', { name: 'CPU', level: 3 })
+    const next = [...samples, sample(5, { cpu_pct: 77 })]
+    stub({ '/api/machine': { latest: next.at(-1), samples: next, interval_s: 60 } })
+    tick(60_000)
+    await waitFor(() => expect(tile('CPU')).toHaveTextContent('77 %'))
+  })
+})
+
+describe('graphs share one "now" (T083 AC3)', () => {
+  const lastX = (d) => Number(d.match(/([\d.]+) [\d.]+$/)[1])
+  const pair = (endT) => [
+    { t: endT - 3600, five_h_pct: 10, seven_d_pct: 20 },
+    { t: endT, five_h_pct: 30, seven_d_pct: 40 },
+  ]
+
+  it('a limits series that stopped 1 h earlier ends before the right edge', async () => {
+    const lim = {
+      interval_s: 60,
+      accounts: [
+        { id: 1, label: 'live', samples: pair(T0 + 7200) },
+        { id: 2, label: 'stale', samples: pair(T0 + 3600) },
+      ],
+    }
+    stub({ '/api/limits/history': lim })
+    render(<WatchView />)
+    const card = async (name) => (await screen.findByRole('heading', { name, level: 3 })).closest('section')
+    const live = within(await card('live')).getByRole('img').querySelector('path.watch-line').getAttribute('d')
+    const stale = within(await card('stale')).getByRole('img').querySelector('path.watch-line').getAttribute('d')
+    expect(lastX(live)).toBeCloseTo(200, 1)
+    // 1 h of 24 h is 8.33 of 200
+    expect(lastX(stale)).toBeCloseTo(200 - 200 / 24, 1)
+  })
+
+  it('a machine series ends at the newest sample of the limits, not at its own last sample', async () => {
+    const lim = { interval_s: 60, accounts: [{ id: 1, label: 'live', samples: pair(T0 + 4 * 60 + 3600) }] }
+    stub({ '/api/limits/history': lim })
+    render(<WatchView />)
+    await screen.findByRole('heading', { name: 'live', level: 3 })
+    expect(lastX(pathOf(sparkOf('CPU')))).toBeCloseTo(200 - 200 / 24, 1)
   })
 })

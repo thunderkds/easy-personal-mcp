@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/WatchView.test.jsx`: AC1 'reads each of the three routes again after 60 s, and stops when the view closes' + 'skips a tick while ... in flight'; AC2 'keeps the last good data and shows the error line ...'; AC3 'graphs share one "now"' (2 tests). Watch file: 34 passed |
+| Verification command run | ☑ pass | `npx vitest run`: `Tests  920 passed (920)`; `npm run build`: `✓ built in 923ms` |
 | Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 ~10:05Z on `85582c5`: vitest 920/920; `npm run build` ✓; raw-hex grep 0; real Rust `serve --no-ingest --static-dir <wt>/src/easy_personal/dashboard/static` over temp `store-v11.sqlite`: `GET /` 200, `/api/machine`, `/api/limits/history`, `/api/effectiveness` 200; stopped by PID; merge-tree vs main clean — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff b4c8469..T083` (WatchView.jsx, WatchView.test.jsx) reviewed inline by the Supervisor (C1, Low): 0 P0/P2 in code; P1 PROCESS: the agent did not read `PROJECT_SPEC.md`, `rust/PROJECT_SPEC.md` or `agents/frontend.md` as a file (startup-reads check) — recorded, no code impact; P3: shared 'now' is the newest sample, not wall-clock, so if every series stops the graphs still end at the right edge (allowed by intent point 2) |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not connected this session; advisory only |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | 1440 px shot of this build against the mock server vs T077's: layout, tiles, graphs, table identical by vision compare (series end at the same right edge because the mock data ends at one time). Shots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp-rust/cc5835e1-dc0e-4f72-a3be-4f6c5c161ce5/scratchpad/t083shots/watch-1440.png` vs `.../t077shots/watch-1440.png`. pass |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `grep -nE '#[0-9a-fA-F]{3,8}\\b|rgba?\\(|hsla?\\(' web/src/WatchView.jsx` found nothing (exit 1); watch.css and app.css unchanged; the existing token test passes. pass |
+| **UI: Responsiveness at target viewports** | ☑ pass | CDP measure: 1440 px scrollW 1440; 1024 px scrollW 1024; 375 px scrollW 375 (innerW equal: no horizontal page scroll). Shots `.../t083shots/watch-{1440,1024,375}.png`. pass |
 
 ---
 
@@ -61,12 +61,24 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-15T09:52:43Z on branch T083 at b4c8469 (no implementation commit yet; the new T083 tests exist only in the working tree). Command: `cd web && npx vitest run src/WatchView.test.jsx` (new tests added for AC1-AC3; `grep setInterval src/WatchView.jsx` finds nothing, and `export function linePath` is still at line 22):
+```
+ FAIL  ... > refresh every 60 s (T083 AC1, AC2) > reads each of the three routes again after 60 s, and stops when the view closes
+AssertionError: expected "vi.fn()" to be called 6 times, but got 3 times
+ FAIL  ... > refresh every 60 s > skips a tick while the earlier read of that route is still in flight
+AssertionError: expected "vi.fn()" to be called 6 times, but got 3 times
+ FAIL  ... > refresh every 60 s > keeps the last good data and shows the error line when a refresh fails; the next good read clears it
+ FAIL  ... > refresh every 60 s > shows newer rows after a refresh
+ FAIL  ... > graphs share one "now" (T083 AC3) > a limits series that stopped 1 h earlier ends before the right edge
+AssertionError: expected 200 to be close to 191.66666666666666, received difference is 8.333333333333343, but expected 0.05
+ FAIL  ... > graphs share one "now" (T083 AC3) > a machine series ends at the newest sample of the limits, not at its own last sample
+AssertionError: expected 200 to be close to 191.66666666666666, received difference is 8.333333333333343, but expected 0.05
+ Test Files  1 failed (1)
+      Tests  6 failed | 28 passed (34)
+```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-11-15T09:55:56Z, commit 7b3a9dc, same command `cd web && npx vitest run src/WatchView.test.jsx`: `Test Files  1 passed (1)`, `Tests  34 passed (34)` (28 old + 6 new). `grep -n "export function linePath\|setInterval" web/src/WatchView.jsx` prints only `78:    const timer = setInterval(read, REFRESH_MS)`. Full suite `cd web && npx vitest run`: `Tests  920 passed (920)`; `npm run build`: `built in 923ms`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: A Watch page left open now updates itself every minute (a failed read keeps the old graph and adds the error line), and a graph whose data stopped ends before "now" instead of being stretched to it.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor (not the implementing agent) ran `/verify` 2026-11-15 ~10:05Z with active_task = T083.

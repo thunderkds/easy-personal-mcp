@@ -67,13 +67,13 @@ cd web && npx vitest run 2>&1 | tail -5 && npm run build 2>&1 | tail -3
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | 6 new WatchView tests (refresh, unmount, in-flight skip, failed refresh keeps rows, shared end); 34/34 |
+| Verification command | ☑ | Supervisor `/verify` pass |
+| code-review | ☑ | inline: 0 code P0-P2; P1 process (startup reads); 1 P3 |
 | security-review | ☐ N/A | Risk Low |
-| UI: visual regression | ☐ | |
-| UI: design-system compliance | ☐ | |
-| UI: responsiveness | ☐ | |
+| UI: visual regression | ☑ | 1440 px vs T077 shot: same layout |
+| UI: design-system compliance | ☑ | raw-hex grep 0; CSS unchanged |
+| UI: responsiveness | ☑ | scrollW = innerW at 375/1024/1440 |
 
 ## Demonstration
 > **Moved.** BEFORE/AFTER/DELTA/WITNESS live in `tasks/TASK_REVIEW_T083.md`.
