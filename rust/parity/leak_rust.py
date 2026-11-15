@@ -21,6 +21,7 @@ Refuses to run when an env var or the temp folder points at the owner's real hom
 import argparse
 import base64
 import contextlib
+import datetime
 import hashlib
 import http.client
 import json
@@ -62,6 +63,9 @@ DATA_FILES = {
     "ingest.lock",
 }  # all the data folder may hold
 CHILD_TIMEOUT = 60
+ALERTS_WANT = {"session_waiting": 3, "session_failing": 1}  # the alerts `plant_alerts` leaves (T085)
+NO_BUS = "unix:path=/nonexistent/leak-rs-no-bus"  # a session bus address that leads nowhere
+SIDECARS = {"store.sqlite-shm", "store.sqlite-wal"}
 SERVER_TIMEOUT = 300
 API_ROUTE = re.compile(r'\.route\(\s*"(/api/[^"]+)"')  # T050: also a route whose path is on the next line
 # Every `/api/*` route of the Rust server -> query variants (the Python suite's API_CALLS for these routes, plus bad input).
@@ -376,6 +380,41 @@ def plant(canaries: Canaries, root: Path) -> dict[str, Path]:
             "easy_memory": root / "easy-memory", "verifier": root / "no-verifier-container"}  # fmt: skip
 
 
+def plant_alerts(canaries: Canaries, agent: Path) -> Path:
+    """T085: an agent folder of its own (never read by ingest: a canary in a project path would be stored by design) whose
+    transcripts leave four sessions that need you, every free piece of the alert text a canary or too long: a waiting
+    session whose project folder is a secret-looking canary, one whose session id is, one whose project folder is 64
+    characters and then a canary (past the cut), and a failing one whose tool name is. Their times are now minus 2 minutes:
+    a session with no open call (the failing one) leaves the live list 5 minutes after its last record, so the tree is
+    planted right before the `serve` that reads it. The live tail reads a file with no store cursor from its first line."""
+    v = canaries.values
+    projects = agent / "projects" / "-work-alerts"
+    projects.mkdir(parents=True)
+    when = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+    def line(cwd: str, session: str, kind: str, content: list, extra: dict | None = None) -> str:
+        message = {"role": kind, "content": content}
+        if kind == "assistant":
+            message |= {"id": f"msg_alert_{len(content)}_{session[-4:]}", "model": "claude-fixture-model-1", "usage": {
+                "input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}  # fmt: skip
+        return json.dumps({"isSidechain": False, "entrypoint": "cli", "cwd": cwd, "sessionId": session, "version": "2.1.295",
+                           "timestamp": when, "type": kind, "message": message, **(extra or {})}) + "\n"  # fmt: skip
+
+    def use(n: int, name: str) -> dict:
+        return {"type": "tool_use", "id": f"toolu_alert_{n}", "name": name, "input": {}}
+
+    plain = "00000000-0000-4000-8000-0000000000e"
+    (projects / "waiting-project.jsonl").write_text(line(f"/work/{v['api_key']}", plain + "1", "assistant", [use(1, "AskUserQuestion")]))
+    (projects / "waiting-session.jsonl").write_text(line("/work/plain-alert", v["claude_json_env_secret"], "assistant", [use(2, "ExitPlanMode")]))
+    (projects / "waiting-cut.jsonl").write_text(line("/work/" + "P" * 64 + v["message_text"], plain + "3", "assistant", [use(3, "AskUserQuestion")]))
+    tool = v["api_key"]
+    (projects / "failing-tool.jsonl").write_text(
+        line("/work/plain-failing", plain + "4", "assistant", [use(n, tool) for n in (4, 5, 6)])
+        + line("/work/plain-failing", plain + "4", "user", [{"type": "tool_result", "tool_use_id": f"toolu_alert_{n}", "is_error": True, "content": "x"} for n in (4, 5, 6)])
+    )  # fmt: skip
+    return agent
+
+
 def planted_where(canaries: Canaries, root: Path) -> dict[str, list[str]]:
     """Each canary -> the planted files (relative) that hold it raw or JSON-escaped."""
     files = [
@@ -415,7 +454,7 @@ class Run:
             "EASY_PERSONAL_UI_REPORTS": str(planted["ui_reports"]), "EASY_PERSONAL_VERIFIER_REPORTS": str(planted["verifier"]),
             "EASY_PERSONAL_LOCK_TIMEOUT": "30", "TZ": "UTC", "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8",
             "RUST_LOG": "trace", "RUST_BACKTRACE": "1", "NO_COLOR": "1",
-            "DBUS_SESSION_BUS_ADDRESS": "unix:path=/nonexistent/leak-rs-no-bus",  # T050: no real keychain is reachable
+            "DBUS_SESSION_BUS_ADDRESS": NO_BUS,  # T050: no real keychain is reachable; T085: no real popup either
             "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
         }  # fmt: skip
         for name in ("HOME", "EASY_PERSONAL_HOME", "EASY_PERSONAL_AGENT_ROOT", "EASY_PERSONAL_CLAUDE_PROJECTS",
@@ -629,6 +668,67 @@ def serve(run: Run, checks: list[str], key: str) -> None:
     if not kids:
         raise Fatal("serve: could not find the server's PID under `timeout`")
     checks.append(f"check serve stopped by PID (SIGINT)   ok (exit {rc}, no process left)")
+
+
+def alerts(run: Run, checks: list[str], canaries: Canaries) -> None:
+    """T085 (T074 security-review P3): one `serve --alerts` over `plant_alerts`' transcripts, then `GET /api/alerts` is scanned.
+    The alert text is the one place a free piece of a transcript (project folder, tool name, session id) goes into a sentence, so
+    a canary in the list is a hit. The server has a data folder of its own: a store with one confirmed Claude account whose folder
+    is the planted one (the live tail reads the confirmed accounts' folders). No popup reaches the owner's desktop: the session bus
+    address leads nowhere (and the env has no `XDG_RUNTIME_DIR`), and the run fails unless the server says it could not notify."""
+    agent = plant_alerts(canaries, run.logs / "alert-agent")
+    digest = tree_digest(agent)
+    home, empty = run.logs / "alerts-home", run.logs / "alerts-empty"
+    empty.mkdir()
+    refuse("alerts home", home)
+    dead = run.env.get("DBUS_SESSION_BUS_ADDRESS") == NO_BUS and not Path("/nonexistent").exists() and "XDG_RUNTIME_DIR" not in run.env
+    checks.append(f"check alerts session bus leads nowhere     {'ok' if dead else 'FAILED'}")
+    if not dead:
+        return
+    saved = {name: run.env.get(name) for name in ("EASY_PERSONAL_HOME", "EASY_PERSONAL_AGENT_ROOT")}
+    run.env["EASY_PERSONAL_HOME"] = str(home)
+    run.env["EASY_PERSONAL_AGENT_ROOT"] = str(run.logs / "alerts-no-agent-root")  # no folder is detected beside the planted one
+    try:
+        run.run("alerts ingest (an empty source: creates the store)", "ingest", "--source", str(empty))
+        run.run("alerts account add", "account", "add", str(agent))
+        run.run("alerts account confirm", "account", "confirm", "--label", "Alert check", str(agent))
+        proc, errlog = run.popen(SERVER_TIMEOUT, "serve", "--no-ingest", "--alerts", err=run.logs / "alerts-serve.stderr")
+        kids, first, body, listed = [], b"", b"", []
+        try:
+            lines = Lines(proc.stdout.fileno())
+            first = lines.read(20) or b""
+            match = re.fullmatch(rb"dashboard: http://127\.0\.0\.1:(\d+)/#([A-Za-z0-9_-]{43})\n", first)
+            if not match:
+                raise Fatal("alerts serve: no `dashboard:` line within 20 s")
+            port, token = int(match[1]), match[2].decode()
+            kids = children(proc.pid)
+            base = {"Host": f"127.0.0.1:{port}", "x-dashboard-token": token}
+            deadline = time.monotonic() + 90  # the first look finds no session (the tail polls 100 ms later); the next is 5 s on
+            while time.monotonic() < deadline and len(listed) < sum(ALERTS_WANT.values()):
+                status, body = request(port, "GET", "/api/alerts", base)
+                listed = json.loads(body.split(b"\n\n", 1)[1]).get("alerts", []) if status == 200 else []
+                time.sleep(0.25)
+            run.add(f"api GET /api/alerts (serve --alerts, {len(listed)} alerts)", body)
+            run.add("alerts serve stdout (first line, token inside)", first + lines.buf)
+        finally:
+            rc = run.stop("alerts serve", proc, kids, signal.SIGINT)
+            errlog.close()
+            run.add("alerts serve stdout (after stop)", proc.stdout.read() if proc.stdout else b"")
+            err = (run.logs / "alerts-serve.stderr").read_bytes()
+            run.add("alerts serve stderr", err)
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                run.env.pop(name, None)
+            else:
+                run.env[name] = value
+    kinds = {k: sum(1 for a in listed if a.get("kind") == k) for k in ALERTS_WANT}
+    ok = bool(listed) and kinds == ALERTS_WANT and len(listed) == sum(ALERTS_WANT.values())
+    checks.append(f"check alerts listed, one per planted session  {'ok' if ok else 'FAILED'} ({len(listed)} alerts: {kinds})")
+    gone = b"desktop notifications are not available" in err
+    checks.append(f"check alerts popup went nowhere (no bus)  {'ok' if gone else 'FAILED'}")
+    checks.append(f"check alerts serve stopped by PID (SIGINT)  {'ok' if kids else 'FAILED'} (exit {rc}, no process left)")
+    checks.append(f"check alert transcripts unchanged        {'ok' if tree_digest(agent) == digest else 'FAILED'} (sha256 of the tree)")
 
 
 def mcp(run: Run, checks: list[str], canaries: Canaries) -> None:
@@ -1132,12 +1232,21 @@ def context_failures(run: Run, canaries: Canaries, checks: list[str], url_host_p
     run.dump("store .dump (after the context failures)")
 
 
+def folder_state(home: Path) -> dict[str, tuple[int, int]]:
+    """Each file of `home` -> (size, mtime in ns). Never opened: a POSIX lock of this process on a file is dropped when this
+    process closes any descriptor of that file, and the `locked` variant holds its lock from this very process. The `-shm` file
+    is only SQLite's shared scratch index (a read open rewrites it), so only its name counts."""
+    return {p.name: (0, 0) if p.name == "store.sqlite-shm" else (p.stat().st_size, p.stat().st_mtime_ns)
+            for p in sorted(home.iterdir()) if p.is_file()}  # fmt: skip
+
+
 def exercise_store_check(run: Run, checks: list[str], label: str, home: Path, want: set[int], route: bool = True) -> None:
     """`store-check` (default, `--json`, `--full`, `--full --json`) and `GET /api/store/health` over the data folder `home`: every
     output becomes a surface. The route is asked twice (the second answer comes from the cache), then without the token, with
-    POST and with HEAD. Nothing may appear beside the store, and no `easy-personal-check-*` folder may stay in the temp folder."""
+    POST and with HEAD. The four commands may make or change no file beside the store; `serve` may only add `-shm` and an empty `-wal`
+    (see the end of this function); no `easy-personal-check-*` folder may stay in the temp folder."""
     tmp, saved = Path(run.env["TMPDIR"]), run.env.get("EASY_PERSONAL_HOME")
-    listing = sorted(p.name for p in home.iterdir()) if home.is_dir() else None
+    listing = folder_state(home) if home.is_dir() else None
     run.env["EASY_PERSONAL_HOME"] = str(home)
     try:
         codes = {}
@@ -1150,6 +1259,9 @@ def exercise_store_check(run: Run, checks: list[str], label: str, home: Path, wa
             codes[" ".join(args)] = done.returncode
         ok = set(codes.values()) <= want
         checks.append(f"check store-check {label}, 4 forms, exit {sorted(want)}  {'ok' if ok else 'FAILED'} ({codes})")
+        if listing is not None:  # the four commands run alone: no `serve` is alive, so no file may be made or changed at all
+            after = folder_state(home)
+            checks.append(f"check store-check made no file beside the store ({label})  {'ok' if after == listing else 'FAILED'} ({len(after)} files)")
         status = None
         if route:
             proc, errlog = run.popen(SERVER_TIMEOUT, "serve", "--no-ingest", err=run.logs / f"store-check-{label}.stderr")
@@ -1178,8 +1290,16 @@ def exercise_store_check(run: Run, checks: list[str], label: str, home: Path, wa
     left = sorted(p.name for p in tmp.iterdir() if p.name.startswith("easy-personal-check-"))
     checks.append(f"check no private copy left after {label}  {'ok' if not left else 'FAILED'} ({len(left)} folders)")
     if listing is not None:
-        after = sorted(p.name for p in home.iterdir())
-        checks.append(f"check store-check made no file beside the store ({label})  {'ok' if after == listing else 'FAILED'} ({len(after)} files)")
+        # T085: a `serve` makes `store.sqlite-shm` and an empty `store.sqlite-wal` once its live tail (every 100 ms) or its plan-limit
+        # sampler has opened a WAL store read-only (SQLite cannot delete them on close without a write lock). On an idle machine the
+        # server is gone before the first look; under load it is not. So after a `serve` only these two names may be new, a new
+        # `-wal` must be empty, and every other file (and a `-wal` that was there) must keep its size and mtime.
+        after = folder_state(home)
+        new = set(after) - set(listing)
+        wal = home / "store.sqlite-wal"
+        grew = "store.sqlite-wal" in new and wal.stat().st_size != 0
+        ok = not (new - SIDECARS) and not grew and all(after.get(name) == digest for name, digest in listing.items() if name in after) and set(listing) <= set(after)
+        checks.append(f"check store health route made nothing beside the store but -shm and an empty -wal ({label})  {'ok' if ok else 'FAILED'} ({len(after)} files)")
 
 
 def store_check(run: Run, checks: list[str], canaries: Canaries) -> None:
@@ -1364,6 +1484,7 @@ def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
     run.run("store-info", "store-info")
     run.run("store-info --json", "store-info", "--json")
     serve(run, checks, canaries.values["api_key"])
+    alerts(run, checks, canaries)
     store_check(run, checks, canaries)
     mcp(run, checks, canaries)
     mcp_http(run, checks, canaries)
