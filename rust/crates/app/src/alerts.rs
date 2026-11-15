@@ -1,4 +1,4 @@
-//! Watch 3 (T074, FR-097): the alert engine. Every [`TICK`] one thread (a [`Sampler`], `sampler.rs`) reads the live tail's
+//! Watch 3 (T074, FR-097): the alert engine. Every [`TICK`] one thread (a [`Sampler`], `sampler.rs`; the first look is the first tick, never part of the start) reads the live tail's
 //! snapshot, the newest machine sample and the newest plan-limit round, and raises an *alert* once per state change:
 //! a session *waiting for you* or *failing* (re-armed when the session leaves the state), a plan limit at or above 90 %
 //! per account and window, disk or RAM at or above 90 % used (each re-armed below 85 %), a battery at or below 15 % and
@@ -423,7 +423,9 @@ impl Notifier for DBusNotifier {
     }
 }
 
-/// Starts the alert thread (`easy-personal-alerts`): the first look is taken now, then one every [`TICK`].
+/// Starts the alert thread (`easy-personal-alerts`): one look every [`TICK`], the first on the thread after one [`TICK`].
+/// `Sampler::start` takes its first item on the calling thread, and a look may wait for a hung D-Bus (T084): so that first
+/// item is no look, and the start never waits for a popup.
 pub(crate) fn start(
     shared: Arc<Shared>,
     notifier: Box<dyn Notifier>,
@@ -444,7 +446,11 @@ pub(crate) fn start_every(
     limits: Option<History<Round>>,
 ) -> Result<Sampler<()>, String> {
     let mut engine = Engine::new(shared, notifier);
+    let mut first = true;
     Sampler::start("easy-personal-alerts", 1, interval, move || {
+        if std::mem::take(&mut first) {
+            return;
+        }
         let now = now_micros();
         let live = tail.as_ref().map(|t| {
             t.lock()
@@ -1032,7 +1038,10 @@ mod tests {
         let end = Instant::now() + Duration::from_secs(10);
         while feed.tail().lock().unwrap().snapshot(now_micros())["sessions"]
             .as_array()
-            .is_none_or(|s| s.iter().all(|s| s["attention"].as_array().is_none_or(Vec::is_empty)))
+            .is_none_or(|s| {
+                s.iter()
+                    .all(|s| s["attention"].as_array().is_none_or(Vec::is_empty))
+            })
         {
             assert!(Instant::now() < end, "the live tail never said waiting");
             std::thread::sleep(Duration::from_millis(50));

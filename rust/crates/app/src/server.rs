@@ -605,7 +605,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// T074: with a notifier, `start_with_alerts` runs the engine (first look at once) on its own thread: the popup goes
+    /// T074: with a notifier, `start_with_alerts` runs the engine on its own thread (the first look is its first tick): the popup goes
     /// to the notifier, `GET /api/alerts` lists the alert, the pause route stops the next popup, and `stop` joins the thread.
     #[test]
     fn start_with_alerts_runs_the_engine_serves_the_list_and_stop_joins_it() {
