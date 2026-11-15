@@ -43,14 +43,14 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 |-------|--------|------------------------|
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/tests/cutover_doc.rs` (4 tests): `test result: ok. 4 passed; 0 failed` (06:12Z); fails on a made-up subcommand (see Demonstration AFTER). Implementer's paste; reviewer to confirm |
 | Verification command run | ☑ pass | workspace: 954 passed, 0 failed, 28 ignored; clippy `-D warnings` clean; `cargo fmt --check` ok (Demonstration AFTER, AC7). Implementer's paste; reviewer to confirm |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Negative cases hold | ☑ pass | `a_made_up_subcommand_is_caught` passes (the guard fails on an invented subcommand); the doc changed back to `--bin` made `the_keychain_gate_command_runs_the_lib_test` fail with ``the keychain command lacks `--lib` `` (fix round, f28de5e); temp WAL store: plain `cp` kept 0 of 5 rows, the documented backup kept 5, restore over a stale `-wal`/`-shm` gave rows `[0, 1, 2, 3, 4]` `('ok',)`. |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 ~08:20Z on `19de0a0`, temp `EASY_PERSONAL_HOME`: `cutover_doc` 5 passed; clippy exit 0; fmt exit 0; `easy-personal-rs 0.2.0`; `store-info` user_version 11, pending no; `serve` `/api/version` `{"version":"0.2.0"}` with token, `403` without; MCP initialize, tools/list, usage_summary answered; ingest s3 twice: new_events 3 then 0, exit 0; leak gate (`env -u CLAUDE_CONFIG_DIR`) `leak check: 0 hits over 42 canaries, 812 surfaces, 1795985 bytes`, exit 0; `--help` exit 0 for store-check, schedule install, connector sync, doctor, dashboard, app, mcp. Window step skipped (the doc only; AC4 install run by the implementer). Feature confirmed — pass. |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Stage 4 code-review and security-review read `git diff main...HEAD`: rust/docs/CUTOVER.md, README.md section, cutover_doc.rs, one comment in keychain.rs:582; findings P1 ×2, P2 ×2, P3 ×1, all but the P3 fixed in f28de5e (P3 flag-typo check skipped: ~25 lines, over the minimal-change limit). |
+| Full smoke suite still green (no regression) | ☑ pass | Implementer 08:08Z: 955 passed, 0 failed, 28 ignored. Supervisor run: 954 passed, 1 failed: `live_feed::tests::a_step_that_panics_is_skipped_and_the_thread_goes_on` (bin target), a timing test (`sleep 550 ms`, expects ≥3 calls) T062 does not touch; re-run alone 10/10 `ok`, full bin target `138 passed; 0 failed`. Load flake, pre-existing; reported to the other supervisor. |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP server unreachable this session (`ECONNREFUSED`); advisory only. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | Docs and one test; no UI (guide: UI/Design AC N/A). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | Docs and one test; no UI (guide: UI/Design AC N/A). |
+| **UI: Responsiveness at target viewports** | ☑ N/A | Docs and one test; no UI (guide: UI/Design AC N/A). |
 
 ---
 
@@ -248,5 +248,4 @@ $ cargo fmt --check                                        -> exit 0
 
 **DELTA**: The owner can follow one document, `rust/docs/CUTOVER.md`, to switch the MCP server, the timer, the connectors and the dashboard from `easy-personal` to `easy-personal-rs` and back, and a test fails when the document names a command that does not exist.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T062.jsonl`, never the
-implementing agent alone]
+**WITNESS**: `memory/event-trace/T062.jsonl` (main checkout), 72 records from 2026-11-15T05:27:46Z (implementer writes the active_task marker, then the BEFORE capture) to 08:23:46Z (Supervisor `/verify` and review-file reads). Supervisor `/verify` run 2026-11-15 ~08:20Z, separate from the implementer; its output is in `scratchpad/t062-verify/out.txt`.
