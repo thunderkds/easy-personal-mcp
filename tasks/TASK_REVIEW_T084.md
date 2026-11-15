@@ -61,8 +61,20 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-15T09:52:08Z (start of the run), worktree `T084` at b4c8469 plus the new tests only (no implementation change), command `cd rust && timeout 590 cargo test -p easy-personal-rs --bin easy-personal-rs alerts::`. The test `a_hung_notifier_never_blocks_the_start` uses a notifier that blocks until released. On the old code `start_every` runs the first look on the calling thread, so it never returned and the 590 s timeout killed the run (last lines of the output, after the build):
+
+```
+running 19 tests
+...
+test alerts::tests::stop_before_the_first_tick_shows_nothing ... FAILED
+test alerts::tests::the_thread_looks_at_the_inputs_and_stops_quickly ... ok
+...
+test alerts::tests::paused_before_the_first_tick_lists_the_alert_and_shows_nothing ... ok
+test alerts::tests::a_waiting_session_in_a_real_live_tail_raises_one_alert ... ok
+test alerts::tests::a_hung_notifier_never_blocks_the_start has been running for over 60 seconds
+```
+
+(`stop_before_the_first_tick_shows_nothing` fails because the first look already popped at start.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

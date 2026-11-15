@@ -1028,26 +1028,30 @@ mod tests {
         );
         std::fs::write(dir.join("p/s.jsonl"), line).unwrap();
         let fake = Fake::default();
+        // the session is already waiting when the engine starts: wait for the tail to say so first
         let end = Instant::now() + Duration::from_secs(10);
-        let thread = loop {
-            // a fresh engine thread each round: its first look is taken at once, so it is a poll with no sleep
-            let probe = Arc::new(Shared::default());
-            let t = start_every(
-                Duration::from_secs(3600),
-                Arc::clone(&probe),
-                Box::new(fake.clone()),
-                Some(feed.tail()),
-                None,
-                None,
-            )
-            .unwrap();
-            if probe.list.lock().unwrap().len() == 1 {
-                break (t, probe);
-            }
-            t.stop();
+        while feed.tail().lock().unwrap().snapshot(now_micros())["sessions"]
+            .as_array()
+            .is_none_or(|s| s.iter().all(|s| s["attention"].as_array().is_none_or(Vec::is_empty)))
+        {
             assert!(Instant::now() < end, "the live tail never said waiting");
-            std::thread::sleep(Duration::from_millis(100));
-        };
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let probe = Arc::new(Shared::default());
+        let t = start_every(
+            Duration::from_millis(30),
+            Arc::clone(&probe),
+            Box::new(fake.clone()),
+            Some(feed.tail()),
+            None,
+            None,
+        )
+        .unwrap();
+        wait_until(|| probe.list.lock().unwrap().len() == 1);
+        std::thread::sleep(Duration::from_millis(200)); // several more ticks: still one alert, one popup
+        assert_eq!(probe.list.lock().unwrap().len(), 1, "exactly one alert");
+        assert_eq!(fake.bodies().len(), 1, "exactly one popup");
+        let thread = (t, probe);
         let text = thread.1.json()["alerts"][0]["text"]
             .as_str()
             .unwrap()
@@ -1066,12 +1070,80 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// The engine on its own thread through the sampler: it looks at once, reads the shared inputs, and stops quickly.
-    #[test]
-    fn the_thread_looks_at_the_inputs_and_stops_quickly() {
+    fn wait_until(mut done: impl FnMut() -> bool) {
+        let end = Instant::now() + Duration::from_secs(10);
+        while !done() {
+            assert!(Instant::now() < end, "the engine thread never looked");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    fn hot_machine() -> History<Sample> {
         let machine: History<Sample> =
             Arc::new(Mutex::new(easy_personal_core::machine::Ring::new(4)));
         machine.lock().unwrap().push(disk(97));
+        machine
+    }
+
+    /// The engine on its own thread through the sampler: it looks on the first tick, reads the shared inputs, and stops quickly.
+    #[test]
+    fn the_thread_looks_at_the_inputs_and_stops_quickly() {
+        let shared = Arc::new(Shared::default());
+        let fake = Fake::default();
+        let thread = start_every(
+            Duration::from_millis(20),
+            Arc::clone(&shared),
+            Box::new(fake.clone()),
+            None,
+            Some(hot_machine()),
+            None,
+        )
+        .unwrap();
+        wait_until(|| !fake.bodies().is_empty());
+        assert_eq!(shared.list.lock().unwrap().len(), 1);
+        assert_eq!(fake.bodies(), ["Disk 97 % used"]);
+        let began = Instant::now();
+        thread.stop();
+        assert!(began.elapsed() < Duration::from_secs(2));
+    }
+
+    /// T084 AC 1: a notifier that hangs never delays the start. The look runs on the engine thread, not on the caller's.
+    #[test]
+    fn a_hung_notifier_never_blocks_the_start() {
+        use std::sync::atomic::AtomicBool;
+        use std::sync::mpsc;
+        struct Hung(mpsc::Receiver<()>, Arc<AtomicBool>);
+        impl Notifier for Hung {
+            fn notify(&mut self, _: &str, _: &str) {
+                self.1.store(true, Ordering::SeqCst);
+                let _ = self.0.recv(); // returns when the sender is dropped
+            }
+        }
+        let (release, hold) = mpsc::channel::<()>();
+        let entered = Arc::new(AtomicBool::new(false));
+        let began = Instant::now();
+        let thread = start_every(
+            Duration::from_millis(20),
+            Arc::new(Shared::default()),
+            Box::new(Hung(hold, Arc::clone(&entered))),
+            None,
+            Some(hot_machine()),
+            None,
+        )
+        .unwrap();
+        assert!(
+            began.elapsed() < Duration::from_millis(500),
+            "start waited for the notifier: {:?}",
+            began.elapsed()
+        );
+        wait_until(|| entered.load(Ordering::SeqCst)); // the popup is still sent, from the thread
+        drop(release);
+        thread.stop();
+    }
+
+    /// T084: `stop` right after the start, before the first tick, hangs on nothing and no popup goes out.
+    #[test]
+    fn stop_before_the_first_tick_shows_nothing() {
         let shared = Arc::new(Shared::default());
         let fake = Fake::default();
         let thread = start_every(
@@ -1079,14 +1151,36 @@ mod tests {
             Arc::clone(&shared),
             Box::new(fake.clone()),
             None,
-            Some(Arc::clone(&machine)),
+            Some(hot_machine()),
             None,
         )
         .unwrap();
-        assert_eq!(shared.list.lock().unwrap().len(), 1);
-        assert_eq!(fake.bodies(), ["Disk 97 % used"]);
         let began = Instant::now();
         thread.stop();
         assert!(began.elapsed() < Duration::from_secs(2));
+        assert!(fake.bodies().is_empty());
+        assert!(shared.list.lock().unwrap().is_empty());
+    }
+
+    /// T084: paused before the first tick, the alert is listed and no popup goes out.
+    #[test]
+    fn paused_before_the_first_tick_lists_the_alert_and_shows_nothing() {
+        let shared = Arc::new(Shared::default());
+        shared.set_paused(true);
+        let fake = Fake::default();
+        let thread = start_every(
+            Duration::from_millis(20),
+            Arc::clone(&shared),
+            Box::new(fake.clone()),
+            None,
+            Some(hot_machine()),
+            None,
+        )
+        .unwrap();
+        wait_until(|| shared.list.lock().unwrap().len() == 1);
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(fake.bodies().is_empty());
+        assert_eq!(shared.list.lock().unwrap().len(), 1);
+        thread.stop();
     }
 }

@@ -639,6 +639,12 @@ mod tests {
             Some(Box::new(Fake(Arc::clone(&popups)))),
         )
         .unwrap();
+        // the first look is the engine thread's first tick (T084), not part of the start
+        let end = std::time::Instant::now() + Duration::from_secs(30);
+        while popups.lock().unwrap().is_empty() {
+            assert!(std::time::Instant::now() < end, "no popup");
+            std::thread::sleep(Duration::from_millis(20));
+        }
         assert_eq!(*popups.lock().unwrap(), ["Disk 97 % used"]);
         let call = |request: String| {
             let mut stream = std::net::TcpStream::connect(("127.0.0.1", running.port)).unwrap();
