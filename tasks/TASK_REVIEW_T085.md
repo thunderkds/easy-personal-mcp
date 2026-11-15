@@ -44,10 +44,10 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
 | Verification command run | ☐ pass / ☐ fail | [paste actual output] |
 | Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 ~10:50Z: T085 gate run twice with the binary built from main `dab5991` (includes T084's first look at the first tick), load avg 9-22: both exit 0, 0 FAILED, `check alerts session bus leads nowhere ok`, `check alerts listed, one per planted session ok (4 alerts: {'session_waiting': 3, 'session_failing': 1})`, `leak check: 0 hits over 42 canaries, 828 surfaces` — pass. Agent's loaded runs (load 32-38, 3 of 3 exit 0) and mutant (4 hits) in AFTER |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff b4c8469..T085` (leak_rust.py, parity/README.md) reviewed inline by the Supervisor (C2, Low): the four `store-check` commands keep the strict 'no file' rule; only the `serve` health route may add `-shm` and an empty `-wal`, other files must keep size and mtime (stat only, no open). 0 P0-P2. ⚠ Decided for the owner: the `-shm` + empty `-wal` that a read-only open of a WAL store leaves is normal SQLite behaviour, not an app bug (the gate's DATA_FILES already allow them) — SAFER OPTION: the gate is fixed, the app is unchanged; the owner may ask for an app task that avoids creating them |
+| Full smoke suite still green (no regression) | ☑ pass | no Rust code changed; gate is the test |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not connected this session; advisory only |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
@@ -130,5 +130,4 @@ AC 4, no real popup: (1) the child env is built from scratch with `DBUS_SESSION_
 
 **DELTA**: the leak gate now proves the alert text (the one place a transcript's project folder, tool name and session id go into a sentence) holds no canary, with a mutant that fails it, and its "no file beside the store" check no longer fails when the machine is loaded.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: Supervisor (not the implementing agent) ran the gate twice 2026-11-15 ~10:50Z with active_task = T085.

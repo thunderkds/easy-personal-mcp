@@ -67,9 +67,9 @@ cd rust && cargo build -q && env -u CLAUDE_CONFIG_DIR /home/hungnguyenhuu/worksp
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | new gate checks: alerts surface, bus leads nowhere, health-route sidecar rule; mutant gives 4 hits |
+| Verification command | ☑ | Supervisor gate runs exit 0, 0 FAILED |
+| code-review | ☑ | inline: 0 P0-P2; ⚠ -shm/-wal accepted as normal |
 | security-review | ☐ N/A | Risk Low |
 | UI: visual regression | ☐ N/A | backend only |
 | UI: design-system compliance | ☐ N/A | backend only |
