@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/src/tray.rs` tests (state pick boundaries, menu rows, secret/markup filter, autostart on/off on temp XDG_CONFIG_HOME, symlink refusals, lock, icon folder never /tmp, same_shape); window build `tray`+`window` tests 24 passed (Supervisor run) |
+| Verification command run | ☑ pass | `cargo test --workspace --no-fail-fast` 2026-11-15T09:33:59Z: 987 passed, 0 failed, 28 ignored (agent); clippy clean default and `--features window` |
+| Negative cases hold | ☑ pass | second `tray` prints `a tray already runs for this user`, exit 0; no display exit 5; symlinked lock / autostart target refused; XDG_RUNTIME_DIR unset → icon in `<store>/tray-icon`, `/tmp/tray-icon` absent |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15: first run ~08:55Z (routes 200/403, pause 200/400/403/415, mcp 13 tools, ingest twice exit 0, window `self-test: ok`, tray `--autostart off` on temp XDG ok) found leak gate `5 failed checks` + `tray` unregistered → fix round `ad5eeee`; re-run ~09:50Z at load 12.9: leak gate `0 hits over 42 canaries, 818 surfaces, 1800525 bytes`, 0 FAILED lines, exit 0; `app --self-test` → `self-test: ok`; tray+window tests 24 passed; merge-tree vs main clean — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | merge-base..T076 (tray.rs, window.rs, server.rs, alerts.rs, main.rs, Cargo.toml, icons README, leak_rust.py) plus callers. code-review: 0 P0/P1; P2 icon+menu rewritten each tick → fixed; P2 tray host checked only at start → fixed; P3 tooltip no-op on Linux → removed (cut list); P3 `signalled` kept. security-review: 0 P0/P1; P2 icon PNG fallback to /tmp (symlink clobber) → fixed via `temp_dir_path` + `tray::icon_dir`; P3 lock hardening → symlink refusal added. lane_check `C3, 1326 lines, FITS` |
+| Full smoke suite still green (no regression) | ☑ pass | workspace 987 passed 0 failed (agent, fix round); leak gate clean (Supervisor) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not connected this session (ECONNREFUSED); advisory only |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | OPEN (owner): real-panel screenshot of icon + open menu needs the AppIndicator extension, which the agent may not enable. Interim evidence: private-bus `GetLayout` = the 10 approved rows; served icon = T071 `dark/idle-32.png` (0 px diff) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | icons are T071's generated tray PNGs (Graphite Mint); menu is native text only (owner-approved: no colours) |
+| **UI: Responsiveness at target viewports** | ☑ N/A | native tray menu, no viewport |
 
 ---
 
@@ -122,7 +122,7 @@ exit 5
 
 **DELTA**: the user can run `easy-personal-rs tray --static-dir <DIR>` to get one tray process (live tail, samplers, alerts on) with a state icon and a native menu, and `tray --autostart on|off` to start it at login; before, `tray` was an unknown subcommand (exit 2).
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T076.jsonl`, never the
+**WITNESS**: Supervisor (not the implementing agent) ran `/verify` twice on 2026-11-15 (~08:55Z, ~09:50Z after fix round 1); active_task was set to T076 before both. [template: who ran it and when — derived from `memory/event-trace/T076.jsonl`, never the
 implementing agent alone]
 
 ---
