@@ -19,7 +19,7 @@ The dot has radius 3.2 at (13,13) of 16, with a 1.5 ring in the panel colour. `i
 | attention | `#E3B66B` | `#B07A1E` |
 | problem | `#E8968F` | `#C0453B` |
 
-The tray icons are not used yet. The tray shell is a later task.
+The `tray` command (T076, `src/window.rs`) shows the 32 px icons; `tray.rs` picks the state and the theme.
 
 ## Regenerate
 

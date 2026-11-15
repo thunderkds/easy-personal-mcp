@@ -194,6 +194,9 @@ pub struct Running {
     limits: Option<Sampler<Round>>,
     /// The alert engine (`serve` and `app` with `--alerts`, T074); stopped and joined by `stop` (and by drop).
     alerts: Option<Sampler<()>>,
+    /// The alert list and pause flag that `/api/alerts` serves (the tray's "Pause alerts" sets the same flag, T076).
+    #[cfg_attr(not(feature = "window"), allow(dead_code))]
+    shared: Arc<alerts::Shared>,
 }
 
 /// How long `stop` waits for requests in flight before it drops them.
@@ -214,6 +217,17 @@ impl Running {
             return Err("the live feed is not running".into());
         }
         crate::live_feed::read_first_snapshot(self.port, &self.token).map(|_| ())
+    }
+
+    /// What the tray reads (T076): the live tail, the two samplers' histories and the alerts' pause flag.
+    #[cfg(feature = "window")]
+    pub(crate) fn tray_inputs(&self) -> crate::tray::Inputs {
+        crate::tray::Inputs {
+            tail: self.feed.as_ref().map(LiveFeed::tail),
+            machine: self.machine.as_ref().map(Sampler::history),
+            limits: self.limits.as_ref().map(Sampler::history),
+            alerts: Arc::clone(&self.shared),
+        }
     }
 
     /// Ends the open live streams, stops accepting, gives requests in flight `STOP_GRACE` to finish, drops whatever
@@ -304,7 +318,7 @@ pub(crate) fn start_with_alerts(
     let alerts = notifier
         .map(|notifier| {
             alerts::start(
-                shared,
+                Arc::clone(&shared),
                 notifier,
                 feed.as_ref().map(LiveFeed::tail),
                 machine.as_ref().map(Sampler::history),
@@ -324,6 +338,7 @@ pub(crate) fn start_with_alerts(
         machine,
         limits,
         alerts,
+        shared,
     })
 }
 

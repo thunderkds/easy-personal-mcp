@@ -1066,7 +1066,7 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (2, ["effectiveness", "--account", "{key}"]), (2, ["effectiveness", "--since", "garbage"]),
 ]
 # Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
-CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "help", "connector", "doctor"}  # T060: `connector_cli`
+CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "tray", "help", "connector", "doctor"}  # T060: `connector_cli`; T076: `tray` is window-only like `app`
 
 
 def cli(run: Run, checks: list[str], canaries: Canaries) -> None:

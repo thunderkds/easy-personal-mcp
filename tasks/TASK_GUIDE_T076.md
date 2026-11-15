@@ -72,13 +72,13 @@ cd rust && cargo build --features window 2>&1 | tail -2 && cargo test --workspac
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
-| security-review | ☐ | |
-| UI: visual regression | ☐ | |
-| UI: design-system compliance | ☐ | |
-| UI: responsiveness | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | tray.rs tests; see TASK_REVIEW_T076.md |
+| Verification command | ☑ | Supervisor `/verify` pass after fix round 1 (leak gate 0 hits, self-test ok) |
+| code-review | ☑ | 0 P0/P1, 2 P2 fixed, 2 P3 handled |
+| security-review | ☑ | 0 P0/P1, P2 /tmp icon folder fixed, P3 lock symlink refusal added |
+| UI: visual regression | ☐ | OPEN: owner real-panel screenshot (AC 4) |
+| UI: design-system compliance | ☑ | T071 icons; native text menu |
+| UI: responsiveness | ☑ N/A | native menu |
 
 ## Demonstration
 > **Moved.** BEFORE/AFTER/DELTA/WITNESS live in `tasks/TASK_REVIEW_T076.md`.
