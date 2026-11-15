@@ -29,7 +29,7 @@
 **Restated intent** (PRD FR-092):
 > 1. On the Workspaces page, each workspace card that has at least one stored repo gets a small **Copy a Claude command** block: a select of the fixed allow-list, a select of that workspace's repos (shown only when it has more than one), and a **Copy** button.
 > 2. The allow-list is held in code (a constant array), never typed by the user (⚠ decided for the owner, who may change it): `Start a session` → `claude "/wake"`; `Continue the last session` → `claude --continue`; `Verify` → `claude "/verify"`.
-> 3. Copy puts exactly one line on the clipboard: `cd '<repo>' && <command>`. The repo path is wrapped in single quotes and each `'` inside it is written `'\''` (POSIX shell). A repo path that holds any C0 control character (U+0000-U+001F) or U+007F offers no Copy: a fixed note "This repo path has a control character; copy is off." The line is built by one pure function with its own tests.
+> 3. Copy puts exactly one line on the clipboard: `cd -- '<repo>' && <command>` (the `--` ends the options, so a path that starts with `-` is not read as one; Supervisor decision 2026-11-15). The repo path is wrapped in single quotes and each `'` inside it is written `'\''` (POSIX shell). A repo path that holds a hidden or control character offers no Copy: C0 (U+0000-U+001F), U+007F, C1 (U+0080-U+009F), U+2028, U+2029, U+200B-U+200F, U+202A-U+202E, U+2066-U+2069 or U+FEFF (Stage 4 decision: bidi and zero-width characters make the shown path differ from the copied bytes). The fixed note, announced in the polite live region, is "This repo path has a hidden or control character; copy is off."; for an empty path it is "This repo has no path; copy is off." The line is built by one pure function with its own tests.
 > 4. After Copy: a short status "Copied" (polite live region). When `navigator.clipboard.writeText` is missing or refuses, the line is shown in a read-only `<input>`, selected, with the note "Copy it with Ctrl+C."
 > 5. Nothing is sent to the server, stored or logged: no new route, no `fetch`, no `localStorage`. The page never runs anything.
 
@@ -55,7 +55,7 @@ No new npm package.
 
 | # | Criterion (testable) | Traces to |
 |---|---|---|
-| 1 | `shellLine(repo, command)` unit tests: plain path; path with a space; path with `'`; path with `$(…)`, backtick, `;`, `&&` (all stay inside the quotes, byte-exact expected strings); path with `\n`, `\0`, `\t`, U+007F → refused | intent 3 |
+| 1 | `shellLine(repo, command)` unit tests: plain path; path with a space; path with `'`; path with `$(…)`, backtick, `;`, `&&` (all stay inside the quotes, byte-exact expected strings); paths `-x` and `--help` (byte-exact `cd -- '-x' && …`); path with `\n`, `\0`, `\t`, U+007F, and one per range U+0080-U+009F, U+2028/U+2029, U+200B-U+200F, U+202A-U+202E, U+2066-U+2069, U+FEFF → refused (`null`); both notes announced in the live region | intent 3 |
 | 2 | Component tests: a workspace with 0 repos shows no block; with 1 repo no repo select; with 2 repos a repo select; each allow-list entry copies its exact line (`navigator.clipboard.writeText` mocked, argument asserted) | intents 1-3 |
 | 3 | Clipboard refused (mock rejects) → read-only input holding the line, selected, plus the note | intent 4 |
 | 4 | A test asserts no `fetch` call and no `localStorage` write happen on Copy | intent 5 |

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getJson, sendJson } from './api.js'
+import CopyCommand from './CopyCommand.jsx'
 import FolderPicker from './FolderPicker.jsx'
 import Loading from './Loading.jsx'
 import { useNotify } from './Toast.jsx'
@@ -608,6 +609,7 @@ function WorkspaceCard({ workspace: w, data, act, onOpen }) {
             </ul>
           )}
           <p className="muted">Used by: {users.length ? users.join(', ') : 'no agent account'}</p>
+          <CopyCommand repos={w.repos} />
           <div className="actions">
             <button type="button" onClick={onOpen} disabled={act.locked}>
               Open
