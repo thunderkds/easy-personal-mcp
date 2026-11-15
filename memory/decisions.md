@@ -334,3 +334,9 @@ Open P3s: raw `12.5px`/`13.5px` in First run CSS (`--fs-note`/`--fs-control`); e
 - T074 AC 1 example corrected at Stage 4: re-arm is below 85 (PRD FR-097), so 89→91→90→86→91 raises 1 alert.
 **Why**: owner answers via AskUserQuestion, 2026-11-15; T074 code-review P2.
 **Files**: `web/src/WatchView.jsx`, `rust/crates/app/src/tray.rs`, `rust/crates/app/src/alerts.rs`, `tasks/TASK_GUIDE_T074.md`, `tasks/TASK_REVIEW_T076.md`, `tasks/TASK_REVIEW_T077.md`
+
+### 2026-11-15 — Rust cutover executed (T062 steps 0-5)
+- The owner said "run cutover" in the second session; steps 0-5 ran on the real machine. Rust is now the default: MCP `~/.local/bin/easy-personal-rs mcp` in the .claude-hung2 and .claude-personal accounts (others had none), timer ExecStart = Rust binary. Backup `store.sqlite.before-rust` (v11, 601317 events). Old registrations saved in ~/easy-personal-cutover-notes/. Running sessions keep the Python MCP until restart.
+- The week of use runs to about 2026-11-22; T063 (remove Python) waits for the owner after it, and must first re-point connector entries at the Rust launcher.
+**Why**: owner instruction 2026-11-15; T062 plan.
+**Files**: `rust/docs/CUTOVER.md`, `rust/PROJECT_KANBAN.md`
