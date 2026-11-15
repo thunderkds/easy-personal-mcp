@@ -519,7 +519,7 @@ def test_quickstart_links_to_the_install_guide():
 
 
 def test_edited_readme_quickstart_command_fails():
-    readme = README.read_text(encoding="utf-8").replace("easy-personal dashboard\n", "easy-personal board\n")
+    readme = README.read_text(encoding="utf-8").replace("easy-personal-rs schedule install\n", "easy-personal-rs schedule add\n")
     with pytest.raises(AssertionError):
         check_quickstart(readme)
 

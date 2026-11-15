@@ -81,9 +81,23 @@ Quick start strip (`Quick start in four steps`): 1 Install `uv tool install --re
 
 `#install` ("Install and deploy"): intro "You need Python 3.11 or newer, `uv` and Node.js. The dashboard page is built from `web/` and is not in git, so build it before you install. It runs natively on Linux." Eight steps: Install (the four lines above, then `easy-personal --version` / `easy-personal ping`), First run, Register the MCP server, Open the dashboard, Schedule, Connectors, Upgrade, Roll back. No mention of the `.deb`, `easy-personal-rs`, the tray or Recent alerts. `README.md` `## Install` starts with "You need Python 3.11 or newer, [uv](...) and Node.js." and the same four lines.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-15, after the change):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Hero install box (`#install-cmd`), label "Install on Ubuntu (Rust app)":
+```
+git clone https://github.com/thunderkds/easy-personal-mcp.git
+cd easy-personal-mcp
+rust/packaging/build-deb.sh
+sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb
+```
+Quick start: 1 Install `sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb`; 2 Schedule `easy-personal-rs schedule install`; 3 Register `claude mcp add --scope user easy-personal -- /usr/bin/easy-personal-rs mcp`; 4 Open the dashboard `easy-personal-rs dashboard --static-dir /usr/share/easy-personal-rs/static`.
+`#install`: six Rust steps (Build the package, Install the package, Schedule and register, Open the dashboard, Start the tray, Remove the package), then the heading "Python app (second option)" and the eight old Python steps unchanged. The tray step says: "The tray icon shows one state: idle, active, attention or problem. Its menu lists the sessions, the plan limits and the machine load. The "Recent alerts" block lists the newest 5 alerts, and the row "All alerts in dashboard…" opens the dashboard when there are more. The block stays while alerts are paused." and the "Ubuntu AppIndicators" tray-host note. `README.md` `## Install` has `### Ubuntu package (Rust app)` first, then `### Python app`. `rust/README.md` "Not done" no longer lists packaging or a tray.
+
+Test run (`uv run pytest tests/test_site_content.py tests/test_site_theme.py tests/test_site_deploy_config.py tests/test_readme.py -q`): `1 failed, 97 passed`; the one failure is `test_stat_strip_numbers_come_from_real_sources` (page 9 views, App.jsx 10), the same failure as in BEFORE. Full suite: `1 failed, 1855 passed, 2 skipped, 7 deselected, 1 xfailed in 175.68s`.
+
+Screenshots (headless google-chrome): `tasks/T089-screens/hero-desktop.png`, `hero-375.png`, `install-desktop.png`, `install-375.png`. At 375 px an iframe check found `scrollWidth == clientWidth` (360 = 375 minus the scrollbar) and no element past the right edge outside `pre`; long commands scroll inside their `pre`.
+
+**DELTA**: A reader of the page and README now installs the Rust app from a `.deb` on Ubuntu (with the tray and its Recent alerts block explained), and the Python `uv` install is the labelled second option.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T089.jsonl`, never the
 implementing agent alone]

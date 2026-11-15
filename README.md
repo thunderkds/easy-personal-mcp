@@ -47,7 +47,7 @@ To run the tray at login, start it with `--autostart on`:
 easy-personal-rs tray --static-dir /usr/share/easy-personal-rs/static --autostart on
 ```
 
-The tray icon shows one state: idle, active, attention or problem. The menu shows the sessions, the plan limits and the machine load. Below them, the "Recent alerts" block lists the newest 5 alerts. When there are more, the row "All alerts in dashboard…" opens the dashboard. The block stays while alerts are paused. The tray needs a tray host. On Ubuntu GNOME that is the "Ubuntu AppIndicators" extension. If the tray prints `no tray area (no StatusNotifier host)`, run `gnome-extensions enable ubuntu-appindicators@ubuntu.com` and log in again. Alerts work without it.
+The tray icon shows one state: idle, active, attention or problem. The menu shows the sessions, the plan limits and the machine load. Below them, the "Recent alerts" block lists the newest 5 alerts. When there are more, the row "All alerts in dashboard…" opens the dashboard. The block stays while alerts are paused. The tray needs a tray host. On Ubuntu GNOME that is the "Ubuntu AppIndicators" extension. If the tray prints `no tray area (no StatusNotifier host)`, enable the extension and log in again. The command is in [`rust/packaging/README.md`](rust/packaging/README.md). Alerts work without it.
 
 To remove the package:
 
