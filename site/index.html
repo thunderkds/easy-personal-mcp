@@ -193,6 +193,7 @@
   .step { border: 1px solid var(--color-border); border-radius: 8px; padding: 18px 20px; min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; }
   .step h3::before { counter-increment: n; content: counter(n, decimal-leading-zero); display: block; font-family: var(--font-mono); font-size: 0.71875rem; font-weight: 400; color: var(--color-accent); margin-bottom: 4px; }
   .step p { color: var(--color-muted); font-size: 0.84375rem; }
+  h3.sub { margin-top: 1rem; }
   pre { background: var(--color-input); border: 1px solid var(--color-control); border-radius: 6px; padding: 12px 16px; margin: 0; overflow-x: auto; font-size: 0.8125rem; line-height: 1.6; color: var(--color-text); }
 
   /* tools table, connector cards */
@@ -307,18 +308,18 @@
   <p class="lead pitch">The Easy Kit plug-in about you, not a repo: it turns your local Claude Code activity into usage numbers, warnings and an improvement plan, and manages your personal tool connectors.</p>
   <p class="hero-note">Everything runs on your machine. It reads metadata only: token counts, model, time, project folder and tool names. It never stores message text. A <span class="term">kit part</span> is one of the Easy Kit tools that leave files for it to read: the kernel, easy-verifier, easy-ui or easy-context.</p>
   <div class="btn-row"><a class="btn-primary" href="https://github.com/thunderkds/easy-personal-mcp">View on GitHub</a></div>
-  <div class="box-label">Install</div>
+  <div class="box-label">Install on Ubuntu (Rust app)</div>
   <div class="install-box">
 <pre id="install-cmd" tabindex="0"><span class="ln">git clone https://github.com/thunderkds/easy-personal-mcp.git</span>
 <span class="ln">cd easy-personal-mcp</span>
-<span class="ln">npm --prefix web ci &amp;&amp; npm --prefix web run build</span>
-<span class="ln">uv tool install --reinstall --no-cache .</span></pre>
+<span class="ln">rust/packaging/build-deb.sh</span>
+<span class="ln">sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb</span></pre>
     <button type="button" class="copy" data-copy="install-cmd" aria-live="polite" hidden>Copy</button>
   </div>
   <ul class="stats">
     <li data-stat="tools"><span class="stat-num">12</span><span class="stat-label">MCP tools</span></li>
     <li data-stat="connectors"><span class="stat-num">5</span><span class="stat-label">connector providers</span></li>
-    <li data-stat="views"><span class="stat-num">9</span><span class="stat-label">dashboard views</span></li>
+    <li data-stat="views"><span class="stat-num">10</span><span class="stat-label">dashboard views</span></li>
   </ul>
 </section>
 
@@ -328,29 +329,29 @@
     <li data-quickstep="install">
       <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
       <h3>Install</h3>
-      <p>After the build in the box above, install the tool.</p>
-      <code class="cmd">uv tool install <span class="nb">--reinstall</span> <span class="nb">--no-cache</span> .</code>
+      <p>After the build in the box above, install the package.</p>
+      <code class="cmd">sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb</code>
     </li>
-    <li data-quickstep="ingest">
+    <li data-quickstep="schedule">
       <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>
-      <h3>Ingest</h3>
-      <p>Copy your session metadata into the local store.</p>
-      <code class="cmd">easy-personal ingest</code>
+      <h3>Schedule</h3>
+      <p>A systemd user timer copies your session metadata into the local store every day.</p>
+      <code class="cmd">easy-personal-rs schedule install</code>
     </li>
     <li data-quickstep="register">
       <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4"/></svg>
       <h3>Register with Claude Code</h3>
       <p>Restart Claude Code. Claude can then read your numbers.</p>
-      <code class="cmd">claude mcp add <span class="nb">--scope</span> user <span class="nb">easy-personal</span> <span class="nb">--</span> <span class="nb">easy-personal</span> mcp</code>
+      <code class="cmd">claude mcp add <span class="nb">--scope</span> user <span class="nb">easy-personal</span> <span class="nb">--</span> /usr/bin/easy-personal-rs mcp</code>
     </li>
     <li data-quickstep="dashboard">
       <svg class="qs-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 16v-4M12 16V8M17 16v-6"/></svg>
       <h3>Open the dashboard</h3>
-      <p>A page on <code>127.0.0.1</code> opens. Ctrl-C stops it.</p>
-      <code class="cmd">easy-personal dashboard</code>
+      <p>A window opens with the dashboard, served on <code>127.0.0.1</code>.</p>
+      <code class="cmd">easy-personal-rs app <span class="nb">--static-dir</span> /usr/share/easy-personal-rs/static</code>
     </li>
   </ol>
-  <p class="muted qs-more">Schedule, connectors, upgrade and rollback: <a href="#install">the full install and deploy guide</a>.</p>
+  <p class="muted qs-more">The tray, removal and the Python app: <a href="#install">the full install and deploy guide</a>.</p>
 </section>
 
 <section id="flow">
@@ -528,7 +529,45 @@
 
 <section id="install">
   <h2>Install and deploy</h2>
-  <p>You need Python 3.11 or newer, <code>uv</code> and Node.js. The dashboard page is built from <code>web/</code> and is not in git, so build it before you install. It runs natively on Linux.</p>
+  <p>The main way to install is the Rust app on Ubuntu 24.04 or newer. You build a <code>.deb</code> package from this repo and install it with <code>apt</code>. You need Rust stable, Node.js and <code>dpkg-dev</code>. The first build takes several minutes. The package holds files only. It changes nothing in your home folder, so you run the per-user steps yourself.</p>
+  <div class="cols">
+    <div class="step">
+      <h3>Build the package</h3>
+<pre>git clone https://github.com/thunderkds/easy-personal-mcp.git
+cd easy-personal-mcp
+rust/packaging/build-deb.sh</pre>
+    </div>
+    <div class="step">
+      <h3>Install the package</h3>
+      <p>The <code>*</code> stands for the version. <code>apt</code> installs the libraries it needs.</p>
+<pre>sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb
+easy-personal-rs --version</pre>
+    </div>
+    <div class="step">
+      <h3>Schedule and register</h3>
+      <p>Run these as your own user. The timer ingests every day. Restart Claude Code after the second command. Use the full path <code>/usr/bin/easy-personal-rs</code>, because a copy in <code>~/.local/bin</code> can come first on <code>PATH</code>.</p>
+<pre>easy-personal-rs schedule install
+claude mcp add --scope user easy-personal -- /usr/bin/easy-personal-rs mcp</pre>
+    </div>
+    <div class="step">
+      <h3>Open the dashboard</h3>
+      <p>A window opens with the dashboard on <code>127.0.0.1</code>. The menu entry "Easy Personal" opens it too.</p>
+<pre>easy-personal-rs app --static-dir /usr/share/easy-personal-rs/static</pre>
+    </div>
+    <div class="step">
+      <h3>Start the tray</h3>
+      <p>The tray icon shows one state: idle, active, attention or problem. Its menu lists the sessions, the plan limits and the machine load. The "Recent alerts" block lists the newest 5 alerts, and the row "All alerts in dashboard…" opens the dashboard when there are more. The block stays while alerts are paused. <code>--autostart on</code> starts the tray at login.</p>
+<pre>easy-personal-rs tray --static-dir /usr/share/easy-personal-rs/static --autostart on</pre>
+      <p>The tray needs a tray host. On Ubuntu GNOME that is the "Ubuntu AppIndicators" extension. If the tray prints <code>no tray area (no StatusNotifier host)</code>, enable the extension and log in again. The command is in <a href="https://github.com/thunderkds/easy-personal-mcp/blob/main/rust/packaging/README.md">the package guide</a>. Alerts work without it.</p>
+    </div>
+    <div class="step">
+      <h3>Remove the package</h3>
+      <p>Your store, timer and MCP registration stay.</p>
+<pre>sudo apt remove easy-personal-rs</pre>
+    </div>
+  </div>
+  <h3 id="install-python" class="sub">Python app (second option)</h3>
+  <p>The Python app does the same work and runs on Linux. You need Python 3.11 or newer, <code>uv</code> and Node.js. The dashboard page is built from <code>web/</code> and is not in git, so build it before you install.</p>
   <div class="cols">
     <div class="step">
       <h3>Install</h3>
