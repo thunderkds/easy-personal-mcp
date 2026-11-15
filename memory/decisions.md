@@ -340,3 +340,9 @@ Open P3s: raw `12.5px`/`13.5px` in First run CSS (`--fs-note`/`--fs-control`); e
 - The week of use runs to about 2026-11-22; T063 (remove Python) waits for the owner after it, and must first re-point connector entries at the Rust launcher.
 **Why**: owner instruction 2026-11-15; T062 plan.
 **Files**: `rust/docs/CUTOVER.md`, `rust/PROJECT_KANBAN.md`
+
+### 2026-11-15 — T085: `-shm` + empty `-wal` after a read-only `serve` is normal (⚠ decided for the owner)
+- A `serve` that lives longer than ~90 ms opens the store read-only (live tail every 100 ms, plan-limit sampler); SQLite cannot delete `store.sqlite-shm` and the empty `store.sqlite-wal` on a read-only close. Treated as normal SQLite behaviour, not an app bug: the leak gate allows exactly those two after the `serve` health route (other files must keep size and mtime), while the four `store-check` commands keep the strict "no file" rule.
+- SAFER OPTION (gate fixed, app unchanged). The owner may ask for an app task that opens the store so these files are never created.
+**Why**: T085 probe (66 ms → 1 file, 91/323 ms → 3 files); the flake failed 3 of 3 gate runs at load 21-40 before the fix.
+**Files**: `rust/parity/leak_rust.py`, `rust/parity/README.md`, `rust/crates/app/src/live_feed.rs`
