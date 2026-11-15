@@ -70,6 +70,12 @@ fn options(case: &Value) -> Options {
     options
 }
 
+/// The one intended difference from Python's text (T086): the hint names this program's binary, not Python's `easy-personal`.
+/// The goldens stay Python's bytes (`gen_store_health.py --check` regenerates them), so Rust's text is mapped back to
+/// Python's wording before the comparison. `the_hint_names_the_rust_binary` pins the Rust wording itself.
+const RUST_HINT: &str = "`easy-personal-rs store-check --full`";
+const PYTHON_HINT: &str = "`easy-personal store-check --full`";
+
 fn listing(dir: &Path) -> Vec<String> {
     let mut names: Vec<String> = fs::read_dir(dir)
         .unwrap()
@@ -104,6 +110,29 @@ fn fingerprint(dir: &Path) -> Vec<(String, Vec<u8>, std::time::SystemTime)> {
             )
         })
         .collect()
+}
+
+#[test]
+fn the_hint_names_the_rust_binary() {
+    let dir = golden();
+    let home = Tmp::new("hint");
+    copy_dir(&dir.join("big"), &home);
+    let manifest: Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+    let case = manifest["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "budget_zero")
+        .expect("the oracle has a budget_zero case");
+    let health = check(&home.join("store.sqlite"), &options(case), &cancel());
+    let verdict = health.lines().pop().unwrap();
+    assert!(verdict.starts_with("verdict: not fully checked ("), "{verdict}");
+    assert!(
+        verdict.ends_with(&format!("run {RUST_HINT} for the integrity verdict")),
+        "{verdict}"
+    );
+    assert!(!verdict.contains(PYTHON_HINT), "{verdict}");
 }
 
 #[test]
@@ -142,7 +171,7 @@ fn every_golden_case_equals_python() {
                 health.json()
             ));
         }
-        if health.lines().join("\n") + "\n" != expected_lines {
+        if (health.lines().join("\n") + "\n").replace(RUST_HINT, PYTHON_HINT) != expected_lines {
             failures.push(format!(
                 "{name}: lines differ\n  rust:\n{}\n  python:\n{expected_lines}",
                 health.lines().join("\n")

@@ -12,7 +12,7 @@ This covers Ubuntu only. macOS and Windows are not planned.
 - After each block, compare what you see with the "You should see" lines. If it does not match, stop. Do not go on to the next step. Go to "Rollback" if you want to undo.
 - Run every command from the folder of this repo, unless the step says otherwise.
 - If `cargo` is not found, run this first: `. "$HOME/.cargo/env"`.
-- Step 0 stops everything that writes the store. One program writes the store at a time.
+- Step 0 stops the ingest timer, the one writer that starts by itself. One program ingests into the store at a time. You can keep your Claude Code sessions open.
 
 ## Step 0: checks before anything changes
 
@@ -28,16 +28,16 @@ claude mcp get easy-personal | tee ~/easy-personal-cutover-notes/mcp-default.txt
 
 You should see: for the timer, one `ExecStart=` line. If it ends with `--retention-days N`, you set a retention. Remember `N`: Step 3 and the rollback use it again. If the file is missing, you had no timer. For `claude`, the registration: `Command:`, `Args:` and any `Environment:` lines. If `claude` says there is no such server, that account had no registration.
 
-**0.2 Stop every writer.**
+**0.2 Stop the ingest timer.**
 
 ```bash
 systemctl --user stop easy-personal-ingest.timer easy-personal-ingest.service
-pgrep -af easy-personal
+systemctl --user is-active easy-personal-ingest.timer easy-personal-ingest.service
 ```
 
-Also close every Claude Code session that uses the easy-personal MCP server. Each open session runs its own Python `easy-personal mcp` process, and it keeps the store open. Close the Python dashboard too.
+The timer stops because an ingest run that starts during Step 0 would write new events while you back up and check the store, and Step 3 replaces the timer anyway. You do not need to close your Claude Code sessions or the Python dashboard. Step 0.3 uses the SQLite backup call, and that call is safe while other programs read or write the store.
 
-You should see: `pgrep` prints nothing. If it prints a line, close that process and run it again.
+You should see: two lines, `inactive` and `inactive`.
 
 **0.3 Back up the store.** This uses the SQLite backup call, so the backup holds the data that is still in the `-wal` file. A plain `cp` of `store.sqlite` does not.
 
@@ -52,10 +52,14 @@ You should see: no output. The file `~/.easy-personal/store.sqlite.before-rust` 
 ```bash
 . "$HOME/.cargo/env"
 cargo build --locked --manifest-path rust/Cargo.toml -p easy-personal-rs
-rust/target/debug/easy-personal-rs store-check
+rust/target/debug/easy-personal-rs store-check --full
 ```
 
+`--full` has no time limit. On a large store it can take some seconds, and more on a slow machine. Wait for it.
+
 You should see: the last line is `verdict: healthy`, and the exit code is 0 (`echo $?` prints `0`). The line `schema: user_version 11, code has 11, migration pending: no` shows that Rust reads your store as it is and will not migrate it. If it says the store is newer than the program, stop.
+
+The plain `store-check` (without `--full`) is a quick check. It stops after 1.5 seconds. On a large store it cannot finish in that time, so it prints `verdict: not fully checked (... not finished in time)` and the exit code is 3. This does not mean the store is damaged. It means the check ran out of time. Where you need the verdict, run `store-check --full`.
 
 **0.5 Run the keychain interop test.**
 
@@ -190,7 +194,7 @@ Use the Rust commands for one week. Do not run Python's `easy-personal ingest` o
 
 Each day, check these things:
 
-- **Ingest ran.** `systemctl --user list-timers | grep easy-personal` shows a last run from the last 24 hours. `easy-personal-rs store-check` ends with `verdict: healthy`.
+- **Ingest ran.** `systemctl --user list-timers | grep easy-personal` shows a last run from the last 24 hours. `easy-personal-rs store-check --full` ends with `verdict: healthy`. (The plain `store-check` can print `not fully checked` on a large store. That is not a problem, see Step 0.4.)
 - **MCP tools answer.** In Claude Code, `/mcp` lists `easy-personal` as connected. Ask Claude for your usage summary and get numbers.
 - **The dashboard opens.** Step 5 gives a page with data in Usage, Warnings & plan and Kit.
 - **Connectors start.** One tool call of each connector works. `easy-personal-rs doctor` exits 0.

@@ -1406,7 +1406,7 @@ did not finish: "not fully checked").
   and without `--full`, a damaged index, a WAL without SHM, a locked store, hostile table and source names, a BLOB and an integer time, a missing store, a missing
   store with a `-wal`, a zero-byte file, not a database, backups, a foreign-key violation, a later table, 150 tables, sources and backups (long lists under the cap), a table name that is not UTF-8, no optional table, the budget
   forced to 0 with and without a pending migration, `quick_check` forced, `--full` with a 0 budget). The golden is `parity/golden-store-health/` (fixture stores, `<case>.json`, `<case>.txt`).
-  The Rust JSON and lines equal it for every case (`crates/core/tests/store_health_parity.rs`), and the real command's stdout equals it byte for byte for every plain case
+  The Rust JSON and lines equal it for every case (`crates/core/tests/store_health_parity.rs`), with one intended difference (T086): the `not fully checked` hint says `easy-personal-rs store-check --full`, where Python says `easy-personal store-check --full`. The goldens keep Python's text; the test maps Rust's hint back to it and `the_hint_names_the_rust_binary` pins Rust's wording. The real command's stdout equals it byte for byte for every plain case
   (`crates/app/tests/store_check.rs`). The `locked` case repeats its setup in the test: a writer in exclusive WAL mode over a store that has a stale `-wal` and `-shm`.
 
 ### Decided for you (T059, for the owner's review)

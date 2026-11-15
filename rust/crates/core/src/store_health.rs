@@ -317,7 +317,7 @@ impl Health {
                 );
                 if late.contains(&"integrity_check") {
                     word.push_str(
-                        "; run `easy-personal store-check --full` for the integrity verdict",
+                        "; run `easy-personal-rs store-check --full` for the integrity verdict",
                     );
                 }
                 word

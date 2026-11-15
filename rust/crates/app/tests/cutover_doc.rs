@@ -223,3 +223,57 @@ fn the_keychain_gate_command_runs_the_lib_test() {
         "the doc comment in keychain.rs names a wrong command"
     );
 }
+
+/// The text from the first line that starts with `from` up to (not including) the next line that starts with `until`.
+fn section(doc: &str, from: &str, until: &str) -> String {
+    let mut lines = doc.lines().skip_while(|l| !l.starts_with(from));
+    assert!(lines.next().is_some(), "no section starts with `{from}`");
+    let mut text = String::from(from);
+    for line in lines.take_while(|l| !l.starts_with(until)) {
+        text.push('\n');
+        text.push_str(line);
+    }
+    text
+}
+
+/// T086: on a big store the plain `store-check` stops at its time limit and prints `not fully checked`, so the steps that
+/// need the verdict run `store-check --full`, and Step 0.4 says what `not fully checked` means.
+#[test]
+fn the_steps_that_expect_a_verdict_run_store_check_full() {
+    let doc = doc();
+    let step_04 = section(&doc, "**0.4 ", "**0.5 ");
+    let week = section(&doc, "## The week", "## ");
+    for (name, text) in [("Step 0.4", &step_04), ("The week", &week)] {
+        let checks: Vec<String> = command_texts(text)
+            .into_iter()
+            .filter(|t| t.contains("easy-personal-rs store-check"))
+            .collect();
+        assert!(!checks.is_empty(), "{name} shows no store-check command");
+        for check in &checks {
+            assert!(check.contains("--full"), "{name}: `{check}` lacks --full");
+        }
+    }
+    assert!(
+        step_04.contains("not fully checked"),
+        "Step 0.4 does not say what `not fully checked` means"
+    );
+}
+
+/// T086: the backup call is safe beside live readers and writers, so Step 0.2 stops the timer only.
+#[test]
+fn step_0_2_does_not_ask_to_close_every_session() {
+    let doc = doc();
+    let step_02 = section(&doc, "**0.2 ", "**0.3 ");
+    assert!(
+        !step_02.contains("close every Claude Code session"),
+        "Step 0.2 still asks the owner to close every session"
+    );
+    assert!(
+        step_02.contains("systemctl --user stop easy-personal-ingest.timer"),
+        "Step 0.2 must still stop the timer"
+    );
+    assert!(
+        step_02.contains("because"),
+        "Step 0.2 must say why the timer stops"
+    );
+}

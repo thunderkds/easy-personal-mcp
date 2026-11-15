@@ -41,13 +41,13 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/store_health_parity.rs` `the_hint_names_the_rust_binary`; `rust/crates/app/tests/cutover_doc.rs` `the_steps_that_expect_a_verdict_run_store_check_full`, `step_0_2_does_not_ask_to_close_every_session`; BEFORE failed on the old source, AFTER pass |
+| Verification command run | ☑ pass | Supervisor: `cutover_doc` 7 passed, `store_check` 12 passed 1 ignored, `store_health_parity` 11 passed |
+| Negative cases hold | ☑ pass | golden `budget_zero.txt` keeps Python's bytes; the parity test maps the Rust-only hint back (intended difference recorded in rust/README.md) |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 ~10:20Z on `bfee4d6`, load avg 31: `cargo build` ok; the 3 test files pass; `store-check` on a temp copy of `store-v11.sqlite` → `verdict: healthy`, exit 0; code check: `exit_code()` returns 3 for not fully checked in every build, so the doc's 'exit code is 3' is right; leak gate `0 hits`, 1 failed check = `store-check made no file beside the store (text past the cut)` — the known load flake T085 fixes, not this diff; `memgraph_parity two_hundred_thousand_links_are_counted_in_time` fails on main too at load 32 (9.1 s) — pre-existing timing flake; merge-tree clean — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff b4c8469..T086` (6 files) reviewed inline by the Supervisor (C1, Low): 0 code P0-P2. P1 PROCESS: the agent says it did not read PROJECT_SPEC.md, rust/PROJECT_SPEC.md, agents/backend.md or PRD FR-091/NFR-013 (startup reads) — recorded, no code impact. P3: step 0.2's new `systemctl --user is-active` line was not run (never run cutover steps); the owner already ran the cutover |
+| Full smoke suite still green (no regression) | ☑ pass | agent workspace `--no-fail-fast`: only the timing tests `live_parity pairing_100k_calls_is_fast` (passes alone) and `memgraph_parity two_hundred_thousand…` (fails on main too under load) failed |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not connected this session; advisory only |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
@@ -61,12 +61,47 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-15, before any implementation commit; new tests written first, main b4c8469 code and doc unchanged):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+`2026-11-15T09:51:37Z` `cargo test -p easy-personal-core --test store_health_parity the_hint`
+```
+test the_hint_names_the_rust_binary ... FAILED
+thread 'the_hint_names_the_rust_binary' panicked at crates/core/tests/store_health_parity.rs:130:5:
+verdict: not fully checked (integrity_check, foreign_key_check, sources not finished in time); run `easy-personal store-check --full` for the integrity verdict
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+`2026-11-15T09:5xZ` `cargo test -p easy-personal-rs --test cutover_doc`
+```
+test step_0_2_does_not_ask_to_close_every_session ... FAILED
+test the_steps_that_expect_a_verdict_run_store_check_full ... FAILED
+Step 0.4: `rust/target/debug/easy-personal-rs store-check` lacks --full
+Step 0.2 still asks the owner to close every session
+test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+Correction (honest note): the first capture above failed at line 130 because my test asserted the wrong prefix (`not fully checked (` instead of `verdict: not fully checked (`). I fixed the test line, put the old `store_health.rs` back for one run, and captured again on the same old source:
+
+`2026-11-15T09:59:15Z` `cargo test -p easy-personal-core --test store_health_parity the_hint`
+```
+thread 'the_hint_names_the_rust_binary' panicked at crates/core/tests/store_health_parity.rs:131:5:
+verdict: not fully checked (integrity_check, foreign_key_check, sources not finished in time); run `easy-personal store-check --full` for the integrity verdict
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out
+```
+
+Prior doc content (verbatim, `rust/docs/CUTOVER.md` at b4c8469):
+- Step 0.2: "Also close every Claude Code session that uses the easy-personal MCP server. Each open session runs its own Python `easy-personal mcp` process, and it keeps the store open. Close the Python dashboard too." / "You should see: `pgrep` prints nothing. If it prints a line, close that process and run it again."
+- Step 0.4: command `rust/target/debug/easy-personal-rs store-check`; "You should see: the last line is `verdict: healthy`, and the exit code is 0 (`echo $?` prints `0`)."
+- The week: "`easy-personal-rs store-check` ends with `verdict: healthy`."
+
+**AFTER** (2026-11-15, same tests, new code):
+```
+cargo test -p easy-personal-core --test store_health_parity   -> 11 passed (incl. the_hint_names_the_rust_binary, every_golden_case_equals_python)
+cargo test -p easy-personal-rs --test cutover_doc             -> 7 passed (incl. the_steps_that_expect_a_verdict_run_store_check_full, step_0_2_does_not_ask_to_close_every_session)
+cargo test -p easy-personal-rs --test store_check             -> 12 passed, 1 ignored
+```
+New text: hint `run `easy-personal-rs store-check --full` for the integrity verdict`. CUTOVER.md Step 0.2 "Stop the ingest timer" (no session close; says why the timer stops), Step 0.4 runs `store-check --full` and explains `not fully checked` (exit 3), The week uses `store-check --full`.
+
+**DELTA**: the owner can follow CUTOVER.md on a large store and get `verdict: healthy`, keep Claude Code sessions open during Step 0, and the hint names the right binary.
+
+**WITNESS**: Supervisor (not the implementing agent) ran `/verify` 2026-11-15 ~10:20Z with active_task = T086.
