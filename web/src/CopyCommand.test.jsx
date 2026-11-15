@@ -23,28 +23,32 @@ const clip = (impl = async () => {}) => {
 describe('shellLine (AC1)', () => {
   const wake = 'claude "/wake"'
   it('wraps a plain path in single quotes', () => {
-    expect(shellLine('/work/acme', wake)).toBe(`cd '/work/acme' && claude "/wake"`)
+    expect(shellLine('/work/acme', wake)).toBe(`cd -- '/work/acme' && claude "/wake"`)
   })
   it('keeps a trailing slash as stored', () => {
-    expect(shellLine('/work/acme/', wake)).toBe(`cd '/work/acme/' && claude "/wake"`)
+    expect(shellLine('/work/acme/', wake)).toBe(`cd -- '/work/acme/' && claude "/wake"`)
   })
   it('keeps a path with a space inside the quotes', () => {
-    expect(shellLine('/work/my repo', wake)).toBe(`cd '/work/my repo' && claude "/wake"`)
+    expect(shellLine('/work/my repo', wake)).toBe(`cd -- '/work/my repo' && claude "/wake"`)
   })
   it("writes each ' inside the path as '\\''", () => {
-    expect(shellLine("/work/it's", wake)).toBe(`cd '/work/it'\\''s' && claude "/wake"`)
-    expect(shellLine("/a'b'c", wake)).toBe(`cd '/a'\\''b'\\''c' && claude "/wake"`)
-    expect(shellLine("'", wake)).toBe(`cd ''\\''' && claude "/wake"`)
+    expect(shellLine("/work/it's", wake)).toBe(`cd -- '/work/it'\\''s' && claude "/wake"`)
+    expect(shellLine("/a'b'c", wake)).toBe(`cd -- '/a'\\''b'\\''c' && claude "/wake"`)
+    expect(shellLine("'", wake)).toBe(`cd -- ''\\''' && claude "/wake"`)
   })
   it('leaves shell syntax in a path inside the quotes, byte for byte', () => {
-    expect(shellLine('/x/$(rm -rf ~)', wake)).toBe(`cd '/x/$(rm -rf ~)' && claude "/wake"`)
-    expect(shellLine('/x/`id`', wake)).toBe("cd '/x/`id`' && claude \"/wake\"")
-    expect(shellLine('/x;reboot', wake)).toBe(`cd '/x;reboot' && claude "/wake"`)
-    expect(shellLine('/x && rm -rf /', wake)).toBe(`cd '/x && rm -rf /' && claude "/wake"`)
-    expect(shellLine('/x/$HOME\\n"q"', wake)).toBe(`cd '/x/$HOME\\n"q"' && claude "/wake"`)
+    expect(shellLine('/x/$(rm -rf ~)', wake)).toBe(`cd -- '/x/$(rm -rf ~)' && claude "/wake"`)
+    expect(shellLine('/x/`id`', wake)).toBe("cd -- '/x/`id`' && claude \"/wake\"")
+    expect(shellLine('/x;reboot', wake)).toBe(`cd -- '/x;reboot' && claude "/wake"`)
+    expect(shellLine('/x && rm -rf /', wake)).toBe(`cd -- '/x && rm -rf /' && claude "/wake"`)
+    expect(shellLine('/x/$HOME\\n"q"', wake)).toBe(`cd -- '/x/$HOME\\n"q"' && claude "/wake"`)
+  })
+  it('puts -- after cd so a path that starts with - is never read as an option', () => {
+    expect(shellLine('-x', wake)).toBe(`cd -- '-x' && claude "/wake"`)
+    expect(shellLine('--help', wake)).toBe(`cd -- '--help' && claude "/wake"`)
   })
   it('keeps non-ASCII text', () => {
-    expect(shellLine('/work/café/日本', wake)).toBe(`cd '/work/café/日本' && claude "/wake"`)
+    expect(shellLine('/work/café/日本', wake)).toBe(`cd -- '/work/café/日本' && claude "/wake"`)
   })
   it.each([
     ['newline', '/a\nb'],
@@ -58,7 +62,7 @@ describe('shellLine (AC1)', () => {
     expect(shellLine(path, wake)).toBeNull()
   })
   it('does not refuse U+0080 and above', () => {
-    expect(shellLine('/a\u0080b', wake)).toBe(`cd '/a\u0080b' && claude "/wake"`)
+    expect(shellLine('/a\u0080b', wake)).toBe(`cd -- '/a\u0080b' && claude "/wake"`)
   })
   it('refuses an empty or missing path', () => {
     expect(shellLine('', wake)).toBeNull()
@@ -111,9 +115,9 @@ describe('CopyCommand (AC2)', () => {
     const writeText = clip()
     render(<CopyCommand repos={['/work/a']} />)
     for (const [label, line] of [
-      ['Start a session', `cd '/work/a' && claude "/wake"`],
-      ['Continue the last session', `cd '/work/a' && claude --continue`],
-      ['Verify', `cd '/work/a' && claude "/verify"`],
+      ['Start a session', `cd -- '/work/a' && claude "/wake"`],
+      ['Continue the last session', `cd -- '/work/a' && claude --continue`],
+      ['Verify', `cd -- '/work/a' && claude "/verify"`],
     ]) {
       pick('Command', label)
       click(screen.getByRole('button', { name: 'Copy' }))
@@ -127,7 +131,7 @@ describe('CopyCommand (AC2)', () => {
     render(<CopyCommand repos={['/work/a', "/work/it's a repo"]} />)
     pick('Repo', "/work/it's a repo")
     click(screen.getByRole('button', { name: 'Copy' }))
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`cd '/work/it'\\''s a repo' && claude "/wake"`))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`cd -- '/work/it'\\''s a repo' && claude "/wake"`))
   })
 
   it('says "Copied" in a polite live region after Copy, and clears it when a choice changes', async () => {
@@ -168,7 +172,7 @@ describe('CopyCommand (AC2)', () => {
     await waitFor(() => expect(within(one).getByTestId('copy-status')).toHaveTextContent('Copied'))
     expect(within(two).getByTestId('copy-status')).toHaveTextContent('')
     expect(within(two).getByRole('option', { name: 'Verify' }).selected).toBe(true)
-    expect(writeText).toHaveBeenCalledWith(`cd '/one' && claude "/wake"`)
+    expect(writeText).toHaveBeenCalledWith(`cd -- '/one' && claude "/wake"`)
   })
 })
 
@@ -176,7 +180,7 @@ describe('clipboard refused (AC3)', () => {
   afterEach(() => {
     delete navigator.clipboard
   })
-  const line = `cd '/work/a' && claude "/wake"`
+  const line = `cd -- '/work/a' && claude "/wake"`
   const expectFallback = () => {
     const field = screen.getByRole('textbox', { name: 'Command to copy' })
     expect(field).toHaveAttribute('readonly')
@@ -272,7 +276,7 @@ describe('on the Workspaces page (AC2, AC4)', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem')
     const logs = [vi.spyOn(console, 'log'), vi.spyOn(console, 'info'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')]
     click(within(company).getByRole('button', { name: 'Copy' }))
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`cd '/work/company' && claude "/wake"`))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`cd -- '/work/company' && claude "/wake"`))
     await waitFor(() => expect(within(company).getByTestId('copy-status')).toHaveTextContent('Copied'))
     expect(fn.mock.calls.length).toBe(before)
     expect(setItem).not.toHaveBeenCalled()

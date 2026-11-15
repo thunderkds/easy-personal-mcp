@@ -10,13 +10,14 @@ export const COMMANDS = [
 const CONTROL = /[\u0000-\u001f\u007f]/
 
 /**
- * The one line to paste into a POSIX shell: `cd '<repo>' && <command>`.
+ * The one line to paste into a POSIX shell: `cd -- '<repo>' && <command>`.
+ * The `--` ends the options, so a path that starts with `-` is not read as one.
  * The repo is in single quotes and each `'` in it is written `'\''`, so nothing in it reaches the shell as syntax.
  * Returns null for a path the line cannot carry safely: empty, or holding a C0 control character or U+007F.
  */
 export function shellLine(repo, command) {
   if (typeof repo !== 'string' || repo === '' || CONTROL.test(repo)) return null
-  return `cd '${repo.replaceAll("'", "'\\''")}' && ${command}`
+  return `cd -- '${repo.replaceAll("'", "'\\''")}' && ${command}`
 }
 
 /** A small block on a workspace card: pick a command (and a repo), then copy one line. It runs nothing and sends nothing. */

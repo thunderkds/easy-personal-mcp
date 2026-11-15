@@ -41,8 +41,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/CopyCommand.test.jsx` (32 tests: `shellLine` byte-exact cases and refusals; allow-list; component 0/1/2 repos, each entry copies its exact line; refused/missing clipboard fallback; no fetch / no localStorage / no console on Copy; two blocks independent). Mutation check: removing the `\'` escaping and the control-char refusal made 10 of them fail. |
-| Verification command run | ☑ pass | `npm --prefix web test -- --run` → `Test Files  26 passed (26)`, `Tests  870 passed (870)`; `npm --prefix web run build` → `✓ built in 142ms`; `python3 scripts/check_static.py` → `check_static: ok`. |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/CopyCommand.test.jsx` (33 tests: `shellLine` byte-exact cases and refusals; allow-list; component 0/1/2 repos, each entry copies its exact line; refused/missing clipboard fallback; no fetch / no localStorage / no console on Copy; two blocks independent). Mutation check: removing the `\'` escaping and the control-char refusal made 10 of them fail. |
+| Verification command run | ☑ pass | `npm --prefix web test -- --run` → `Test Files  26 passed (26)`, `Tests  871 passed (871)`; `npm --prefix web run build` → `✓ built in 641ms`; `python3 scripts/check_static.py` → `check_static: ok`. |
 | Negative cases hold | ☑ pass | Path with \n, \r, NUL, tab, ESC, U+001F, U+007F → `shellLine` returns null, no Copy button, fixed note; clipboard missing / no `writeText` / rejects / throws → read-only selected input + "Copy it with Ctrl+C."; 0 repos → no block. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
@@ -80,16 +80,29 @@ Screenshots of the Workspaces page today, no copy block on any card (overflow 0 
 $ grep -c 'Copy a Claude command' dist-after/assets/*.js
 1
 1280x720 horizontal overflow px: 0        390x844 horizontal overflow px: 0
-Start a session            -> status "Copied", clipboard: cd '<tmp>/repos/plain' && claude "/wake"
-Continue the last session  -> status "Copied", clipboard: cd '<tmp>/repos/plain' && claude --continue
-Verify                     -> status "Copied", clipboard: cd '<tmp>/repos/plain' && claude "/verify"
-(same three for the repo "it's a repo with space": cd '<tmp>/repos/it'\''s a repo with space' && claude ...)
+Start a session            -> status "Copied", clipboard: cd -- '<tmp>/repos/plain' && claude "/wake"
+Continue the last session  -> status "Copied", clipboard: cd -- '<tmp>/repos/plain' && claude --continue
+Verify                     -> status "Copied", clipboard: cd -- '<tmp>/repos/plain' && claude "/verify"
+(same three for the repo "it's a repo with space": cd -- '<tmp>/repos/it'\''s a repo with space' && claude ...)
 focused after 2 Tabs: BUTTON Copy   (Command select -> Repo select -> Copy); Enter -> status "Copied"
 new resource requests after Copy: 0 ; localStorage keys: 0
 fallback (writeText rejected): readonly=true selected=true focused=true note "Copy it with Ctrl+C."
 ```
 
 Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/after-1280x720-after-copied.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/after-390x844-after-copied.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/extra-fallback.png`.
+
+**Amendment 2026-11-15 (Supervisor decision): line format is now `cd -- '<repo>' && <command>`** so a repo path starting with `-` is never read as a `cd` option.
+- RED first (2026-11-15T06:13:52Z, current code, new tests for `-x` and `--help`): `Expected: "cd -- '-x' && claude "/wake""  Received: "cd '-x' && claude "/wake""` (`Tests  1 failed | 32 skipped`). Then code and all expected strings changed: `Test Files  26 passed (26)`, `Tests  871 passed (871)`; build `✓ built in 641ms`; `check_static: ok`.
+- Real browser: Copy on the `company` card puts `cd -- '<tmp>/repos/it'\\''s a repo with space' && claude "/wake"` (and `--continue`, `"/verify"`, and the `plain` repo) on the clipboard; overflow 0 px at 1280x720 and 390x844.
+- Real `sh`, fake `claude` on PATH, folders `-x` and `--help` under `$S/repos/`, line produced by the real `shellLine` source text:
+```
+cd -- '-x' && claude "/wake"        -> claude ran in: $S/repos/-x args: /wake
+cd '-x' && claude "/wake" (old)     -> sh: 1: cd: Illegal option -x
+cd -- '--help' && claude "/wake"   -> claude ran in: $S/repos/--help args: /wake
+cd '--help' && claude "/wake" (old) -> sh: 1: cd: Illegal option --
+cd -- '<tmp>/repos/it'\\''s a repo with space' && claude "/wake" -> claude ran in: <tmp>/repos/it's a repo with space args: /wake
+```
+- Finding: the store refuses a repo path that is not absolute or `~`-prefixed (`easy-personal: repo path must be absolute or start with ~`; a `~` path is expanded to the home folder when stored), so a `-x` repo cannot reach the page today. The `--` is defence in depth; the `-x` case was therefore checked through `shellLine` and `sh`, not through a stored workspace.
 
 **DELTA**: A workspace card with repos now has a block where the user picks one of three fixed Claude commands (and a repo), and copies one shell-safe line to paste into their own terminal; the page runs nothing.
 
