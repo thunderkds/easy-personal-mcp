@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=easy-personal tray
+Comment=Tray icon with the live state of Claude Code sessions
+Exec=/usr/bin/easy-personal-rs tray --static-dir /usr/share/easy-personal-rs/static
+Icon=easy-personal
+Terminal=false
+Categories=Development;
