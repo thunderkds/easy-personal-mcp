@@ -68,15 +68,15 @@ No new crate. Local time formatting: use what the crate already has (check `Carg
 
 ### Verification Command
 ```bash
-cd rust && cargo test -p easy-personal-app tray 2>&1 | tail -5 && cargo build --features window 2>&1 | tail -2 && cargo test --workspace 2>&1 | tail -5
+cd rust && cargo test -p easy-personal-rs --bin easy-personal-rs -- tray:: 2>&1 | tail -5 && cargo build --features window 2>&1 | tail -2 && cargo test --workspace 2>&1 | tail -5
 ```
 
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | 9 new tests (tray.rs 8, alerts.rs 1); Supervisor rerun 2026-11-15 `cargo test -p easy-personal-rs --features window --bin easy-personal-rs -- tray:: window:: alerts::` → `test result: ok. 50 passed; 0 failed` |
+| Verification command | ☑ | agent: workspace 1006 passed, 1 failed (`connector_cli_parity::every_connector_and_doctor_step_equals_the_python_cli`, fails on main too: installed `/usr/bin/easy-personal-launch` on PATH, RUNBOOK.md known failure); Supervisor: clippy window all-targets clean, fmt ok |
+| code-review | ☑ | Supervisor inline 2026-11-15: 0 P0, 0 code P1, 0 P2, 3 P3 (see TASK_REVIEW_T088.md `## Stage 4`); 1 P1 process (startup reads) |
 | security-review | ☐ N/A | Risk Low: alert text is already `clean`ed by the engine (NFR-002); no new input |
 | UI: visual regression | ☐ | |
 | UI: design-system compliance | ☐ | |

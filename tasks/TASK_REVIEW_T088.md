@@ -110,3 +110,23 @@ test result: ok. 1 passed; 0 failed
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T088.jsonl`, never the
 implementing agent alone]
+
+---
+
+## Stage 4 — code-review (Supervisor inline, 2026-11-15)
+
+Scope: `rust/crates/app/src/{alerts.rs,tray.rs,window.rs}`, `rust/crates/app/Cargo.toml`; caller of `tray::view` = `Inputs::view` only (grep).
+Lane check: `lane: C1, 6 files, 575 lines, EXCEEDS (lines 575 > 250)` — ~190 lines are tests and ~250 are guide/log/review docs; code is ~110 lines. C1 kept.
+Reachability: entry `tray.rs::view` present (line 276). Conditional reviewers: security skipped (no new input; alert text already `clean`ed by the engine, NFR-002); over-engineering run (new fns + libc edge).
+
+P0: None. P1 (code): None. P2: None.
+P1 (process): startup reads — `PROJECT_SPEC.md` read head only; `rust/PROJECT_SPEC.md` not read; `agents/backend.md` reported as loaded system prompt (true for this agent type). No code impact found.
+P3:
+| File | Line | Finding | Confidence | Action |
+|---|---|---|---|---|
+| rust/crates/app/src/tray.rs | ~242 | Hand-rolled civil-date maths duplicates what `localtime_r` already returns (`tm_mon`, `tm_mday`, `tm_hour`, `tm_min`); kept because it makes the day logic testable with a fixed offset | 75 | optional: keep |
+| rust/crates/app/src/tray.rs | ~228 | `libc::localtime_r` / `tm_gmtoff` is Unix-only; fine while the tray is Linux-only, needs a cfg when macOS/Windows come | 75 | note for the macOS/Windows port |
+| rust/crates/app/src/tray.rs | test `five_rows_at_most…` | the n=50 case passes `recent(n.min(6))`, so it tests 6, not 50 (the 50-slice case is covered just below) | 75 | optional |
+
+Safe fix applied: guide verification command named a non-existent package `easy-personal-app` → `easy-personal-rs`.
+Supervisor rerun: `cargo test -p easy-personal-rs --features window --bin easy-personal-rs -- tray:: window:: alerts::` → `test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 137 filtered out; finished in 0.68s`; `cargo clippy -p easy-personal-rs --features window --all-targets` clean; `cargo fmt --check` ok.
