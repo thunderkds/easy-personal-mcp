@@ -882,10 +882,16 @@ mod tests {
             },
         )
         .unwrap();
-        thread::sleep(Duration::from_millis(550));
+        // Wait for the third step (two of the first three panic) instead of a fixed sleep: under a loaded
+        // `cargo test --workspace` a 550 ms sleep once saw fewer than 3 steps (T081).
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while calls.load(Ordering::SeqCst) < 3 && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(20));
+        }
         assert!(feed.tail().lock().is_ok(), "the lock is not poisoned");
         assert!(feed.stop());
-        assert!(calls.load(Ordering::SeqCst) >= 3);
+        let calls = calls.load(Ordering::SeqCst);
+        assert!(calls >= 3, "the thread stopped after {calls} steps");
     }
 
     #[test]

@@ -3,6 +3,22 @@
 > One Decision record per minimal-track task (`docs/claude-md/tracks.md`), **newest first**: insert each
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
+## T081 — Load-flaky `live_feed` panic test: wait for the third step, not a fixed 550 ms sleep · minimal
+**Asked:** "continue" (second supervisor session, `[admin]`; task agreed with the other supervisor `rust-57`: "take the live_feed `a_step_that_panics_is_skipped_and_the_thread_goes_on` load flake as a T079-style minimal fix (test code only, next free T-number, own branch)")
+**Decisions:**
+- Track minimal — C1, Risk Low: test code only, one test, no production code, no UI
+- `live_feed::tests::a_step_that_panics_is_skipped_and_the_thread_goes_on` (bin target) failed once in the T062 `/verify` full run (2026-11-15 ~08:20Z, `cargo test --workspace`; 954 passed, 1 failed). It slept a fixed 550 ms and then required ≥3 steps (POLL is 100 ms). It now waits until 3 steps ran, polling every 20 ms, with a 10 s deadline, then checks the lock, `stop()` and the count (the count assert prints the number of steps)
+- Not changed: `the_thread_polls_every_tenth_of_a_second_with_the_injected_clock` (same 550 ms sleep, `3..=6` steps). It checks the poll rate, so a wait would remove what it tests, and no failure of it has been seen
+- Assumed: the failure was the `≥3` count under load. The failure text was not kept, but the other asserts cannot fail under load alone: the lock is held outside `catch_unwind`, so it is never poisoned, and `stop()` waits 10 s
+**Checked:**
+- Not reproduced on purpose: 20 runs under 16 busy loops (load avg ~38) all passed with the old test, so the fix rests on the one full-run failure
+- Mutant: `catch_unwind` removed (a panic ends the thread) → the new test fails (`panicked at crates/app/src/live_feed.rs:891:9`, `assert!(feed.stop())`, after the 10 s deadline); restored afterwards
+- Fixed test alone: 20 of 20 ok
+- Suite: `cargo test --workspace --no-fail-fast` — passed=976 failed=0 (2026-11-15 ~08:50Z); `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --check` ok
+- Real run: test-only change; the runs above are the run
+**Files:** `rust/crates/app/src/live_feed.rs` (test module only), `tasks/MINIMAL_LOG.md`
+**Not done:** merge (the other supervisor / the owner decides); the board row (the other supervisor owns `rust/PROJECT_KANBAN.md`)
+
 ## T080 — Load-flaky Rust tests 2: an empty store after an early kill is whole; the 95,000-key route test as a ratio · minimal
 **Asked:** "continue" (second supervisor session, `[admin]`); failure text and task from the other supervisor `rust-57` (its T072 full run, load average ~20)
 **Decisions:**
