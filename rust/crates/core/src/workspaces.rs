@@ -13,7 +13,7 @@ use crate::prices::PriceTable;
 use crate::scope::under;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{Map, Value, json};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::store::{self, StoreError};
 use crate::sync::{self, Claude, SyncError};
@@ -559,44 +559,138 @@ fn delete_to_orphan(conn: &Connection, id: i64) -> Done<Vec<String>> {
     Ok(moved)
 }
 
+/// One `claude` call as the plan asks it: its arguments and the account folder (`CLAUDE_CONFIG_DIR`).
+type Call = (Vec<String>, Option<String>);
+
+/// First pass of [`change`]: records the calls the plan makes and answers "no entry" to each. Nothing runs.
+struct Record<'a> {
+    claude: &'a dyn Claude,
+    calls: std::cell::RefCell<Vec<Call>>,
+}
+
+/// Second pass of [`change`]: answers each call from what the real `claude` said while no transaction was open. A call
+/// not in the list (the store moved between the passes) is "could not run": that account is skipped, never guessed.
+struct Replay<'a> {
+    claude: &'a dyn Claude,
+    answers: BTreeMap<Call, sync::Ran>,
+}
+
+fn call_of(args: &[&str], config_dir_env: Option<&str>) -> Call {
+    (
+        args.iter().map(ToString::to_string).collect(),
+        config_dir_env.map(str::to_string),
+    )
+}
+
+fn could_not_run() -> sync::Ran {
+    sync::Ran {
+        code: 127,
+        stdout: String::new(),
+        not_run: true,
+    }
+}
+
+impl Claude for Record<'_> {
+    fn on_path(&self) -> bool {
+        self.claude.on_path()
+    }
+    fn run(&self, args: &[&str], config_dir_env: Option<&str>) -> sync::Ran {
+        self.calls.borrow_mut().push(call_of(args, config_dir_env));
+        sync::Ran {
+            code: 1,
+            stdout: String::new(),
+            not_run: false,
+        }
+    }
+    fn launcher(&self) -> std::result::Result<String, String> {
+        self.claude.launcher()
+    }
+}
+
+impl Claude for Replay<'_> {
+    fn on_path(&self) -> bool {
+        self.claude.on_path()
+    }
+    fn run(&self, args: &[&str], config_dir_env: Option<&str>) -> sync::Ran {
+        (self.answers.get(&call_of(args, config_dir_env)).cloned()).unwrap_or_else(could_not_run)
+    }
+    fn launcher(&self) -> std::result::Result<String, String> {
+        self.claude.launcher()
+    }
+}
+
+/// `mutate` and the plan of the accounts it touches, in a transaction that is returned open.
+fn plan_change<'c>(
+    conn: &'c Connection,
+    claude: &dyn Claude,
+    mutate: &impl Fn(&Connection) -> Done<(BTreeSet<String>, Vec<String>)>,
+) -> Done<(Transaction<'c>, Vec<String>, Vec<sync::Step>)> {
+    let tx = begin(conn)?;
+    let (cids, mut lines) = mutate(&tx)?;
+    let marks = vec!["?"; cids.len()].join(",");
+    let sql = format!(
+        "SELECT account_id FROM account_registrations WHERE connector_id IN ({marks}) UNION \
+         SELECT p.account_id FROM account_workspaces p JOIN connectors c ON c.workspace_id = p.workspace_id \
+         WHERE c.id IN ({marks})"
+    );
+    let ids = tx
+        .prepare(&sql)?
+        .query_map(params_from_iter(cids.iter().chain(&cids)), |r| {
+            r.get::<_, i64>(0)
+        })?
+        .collect::<std::result::Result<BTreeSet<_>, _>>()?;
+    let mut steps = Vec::new();
+    for id in ids {
+        steps.extend(
+            sync::plan(&tx, id, &BTreeSet::new(), claude)?
+                .into_iter()
+                .filter(|s| cids.contains(s.connector_id()) || s.is_skipped()),
+        );
+    }
+    lines.extend(steps.iter().map(|s| format!("  {}", s.line())));
+    lines.push("  keychain: untouched".into());
+    Ok((tx, lines, steps))
+}
+
 /// `_change`: one owner action. `mutate` changes the desired state inside the transaction and returns the connector
 /// ids it touched and the lines that describe it; the plan for the accounts that hold or pick those connectors is
 /// added. Without `yes` the plan is the answer and everything is rolled back. With `yes` the change is committed and
 /// then applied (`sync::apply`); a failure while applying keeps the committed state (`connector sync` finishes it).
+///
+/// T078: no `claude` call runs while the transaction (the store's write lock) is open. The plan asks `claude` which
+/// entries exist, and which it asks depends on what `mutate` changed. So `mutate` and the plan run twice: the first
+/// time only records the calls and is rolled back; the calls then run with no transaction open; the second time
+/// replays their answers and is the one that commits. `mutate` must therefore be repeatable on the same store.
 fn change(
     conn: &Connection,
     yes: bool,
     claude: &dyn Claude,
-    mutate: impl FnOnce(&Connection) -> Done<(BTreeSet<String>, Vec<String>)>,
+    mutate: impl Fn(&Connection) -> Done<(BTreeSet<String>, Vec<String>)>,
 ) -> Done<Outcome> {
-    let tx = begin(conn)?;
-    let planned = (|| {
-        let (cids, mut lines) = mutate(&tx)?;
-        let marks = vec!["?"; cids.len()].join(",");
-        let sql = format!(
-            "SELECT account_id FROM account_registrations WHERE connector_id IN ({marks}) UNION \
-             SELECT p.account_id FROM account_workspaces p JOIN connectors c ON c.workspace_id = p.workspace_id \
-             WHERE c.id IN ({marks})"
-        );
-        let ids = tx
-            .prepare(&sql)?
-            .query_map(params_from_iter(cids.iter().chain(&cids)), |r| {
-                r.get::<_, i64>(0)
-            })?
-            .collect::<std::result::Result<BTreeSet<_>, _>>()?;
-        let mut steps = Vec::new();
-        for id in ids {
-            steps.extend(
-                sync::plan(&tx, id, &BTreeSet::new(), claude)?
-                    .into_iter()
-                    .filter(|s| cids.contains(s.connector_id()) || s.is_skipped()),
-            );
+    let record = Record {
+        claude,
+        calls: Default::default(),
+    };
+    drop(plan_change(conn, &record, &mutate)?); // the transaction is dropped: rolled back
+    let mut answers = BTreeMap::new();
+    let mut stuck = BTreeSet::new(); // account folders where `claude` could not run: the plan stops asking there
+    for call in record.calls.into_inner() {
+        if answers.contains_key(&call) {
+            continue;
         }
-        lines.extend(steps.iter().map(|s| format!("  {}", s.line())));
-        lines.push("  keychain: untouched".into());
-        Ok::<_, WriteFail>((lines, steps))
-    })();
-    let (mut lines, steps) = planned?;
+        let done = if stuck.contains(&call.1) {
+            could_not_run()
+        } else {
+            let args: Vec<&str> = call.0.iter().map(String::as_str).collect();
+            claude.run(&args, call.1.as_deref())
+        };
+        if done.not_run {
+            stuck.insert(call.1.clone());
+        }
+        answers.insert(call, done);
+    }
+    let replay = Replay { claude, answers };
+    let (tx, mut lines, steps) = plan_change(conn, &replay, &mutate)?;
     if !yes {
         return Ok(Outcome {
             status: 1,
@@ -662,6 +756,22 @@ fn alias_ok(
     }
 }
 
+/// A second copy of a [`Repos`], for a `change` that runs its mutation twice (T078). [`prepare_repos`] makes only
+/// refusals, so no other failure is copied.
+fn copy_repos(repos: &Repos) -> Repos {
+    let copy = |e: &WriteFail| match e {
+        WriteFail::Refused { status, text } => refuse(*status, text.clone()),
+        _ => refuse(400, "repos must be a list of paths"),
+    };
+    match repos {
+        Ok(list) => Ok(list
+            .iter()
+            .map(|one| one.as_ref().map(String::clone).map_err(copy))
+            .collect()),
+        Err(e) => Err(copy(e)),
+    }
+}
+
 /// `PATCH /api/workspaces/{id}`: the body's changes without `confirm`, and `confirm` as `yes`. A body whose `name` is
 /// the current one has no rename. Without a rename, or when the workspace holds no connector, the edit is applied at
 /// once; a rename of one that does is the plan first (`rename_workspace`: the default aliases follow the new name).
@@ -689,7 +799,7 @@ pub fn patch(
         });
     }
     change(conn, yes, claude, |conn| {
-        let name = edit_in_txn(conn, id, &changes, repos)?["name"]
+        let name = edit_in_txn(conn, id, &changes, repos.as_ref().map(copy_repos))?["name"]
             .as_str()
             .unwrap_or_default()
             .to_string();
@@ -716,7 +826,7 @@ pub fn patch(
                 lines.push(format!("  connector {cid}: alias {old} -> {new}"));
             }
         }
-        Ok((held.into_iter().collect(), lines))
+        Ok((held.iter().cloned().collect(), lines))
     })
 }
 

@@ -773,4 +773,60 @@ mod tests {
         assert_eq!(got.unwrap().status, 0);
         assert_eq!((rows, item), (0, None));
     }
+    /// T078: a `claude` that, when called, asks the store for its write lock from a second connection.
+    struct Probing {
+        store: std::path::PathBuf,
+        locked: std::cell::RefCell<Vec<bool>>,
+    }
+
+    impl Claude for Probing {
+        fn on_path(&self) -> bool {
+            true
+        }
+        fn run(&self, _: &[&str], _: Option<&str>) -> sync::Ran {
+            let second = Connection::open(&self.store).unwrap();
+            second.busy_timeout(std::time::Duration::ZERO).unwrap();
+            let free = second.execute_batch("BEGIN IMMEDIATE; ROLLBACK").is_ok();
+            self.locked.borrow_mut().push(!free);
+            sync::Ran {
+                code: 1, // `mcp get`: no entry
+                stdout: String::new(),
+                not_run: false,
+            }
+        }
+        fn launcher(&self) -> Result<String, String> {
+            Ok("/usr/bin/easy-personal-launch".into())
+        }
+    }
+
+    /// T078 AC3: `remove` asks `claude` about the registration with no transaction open (the row delete and the
+    /// keychain delete are the only transaction, and they run no `claude`).
+    #[test]
+    fn a_remove_runs_claude_with_the_write_lock_free() {
+        let (dir, conn, kc) = one_connector("probe", false);
+        let account = dir.join("acct");
+        std::fs::create_dir_all(&account).unwrap();
+        conn.execute(
+            "UPDATE agent_accounts SET folder = ?1 WHERE id = 2",
+            [account.to_str().unwrap()],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO account_registrations VALUES (2, 'acme-slack', 'c00000066')",
+            [],
+        )
+        .unwrap();
+        let claude = Probing {
+            store: dir.join("store.sqlite"),
+            locked: Default::default(),
+        };
+        let got = remove_connector(&conn, "c00000066", "acme-slack", true, &kc, &claude);
+        let (rows, locked) = (row_count(&conn), claude.locked.borrow().clone());
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(got.unwrap().status, 0);
+        assert_eq!(rows, 0, "the row is gone");
+        assert!(!locked.is_empty(), "the plan must ask `claude`");
+        assert!(locked.iter().all(|l| !l), "write lock held during `claude`");
+    }
 }
