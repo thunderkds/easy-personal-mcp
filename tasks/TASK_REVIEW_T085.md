@@ -61,8 +61,37 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-15, branch `T085` at main b4c8469, no implementation commit yet; command: `cd rust && env -u CLAUDE_CONFIG_DIR .../parity/.venv/bin/python parity/leak_rust.py; echo exit=$?`):
+
+Idle-ish machine (load average 32 at start, other agents building; `cargo build -q` had just finished), 2026-11-15T09:55:09Z to 09:55:56Z. The gate passes and has no alert surface: `/api/alerts` is read from a `serve` WITHOUT `--alerts`, so it is the empty list:
+```
+exit=0
+202:surface api GET /api/alerts: 246 bytes
+910:check store-check made no file beside the store (healthy)  ok (4 files)
+914:check store-check made no file beside the store (text past the cut)  ok (1 files)
+918:check store-check made no file beside the store (blob source)  ok (1 files)
+...
+981:leak check: 0 hits over 42 canaries, 818 surfaces, 1801725 bytes
+```
+The same command with 24 busy loops of mine running (my PIDs only, later killed by PID), 3 runs in a row, 09:56:17Z to 09:58:15Z, load average 21 / 35 / 40:
+```
+2026-11-15T09:56:17Z  load average: 21.42  -> exit=1
+910:check store-check made no file beside the store (healthy)  FAILED (6 files)
+983:leak check: 0 hits over 42 canaries, 818 surfaces, 1802202 bytes; 1 failed checks
+2026-11-15T09:57:19Z  load average: 35.17  -> exit=1
+918:check store-check made no file beside the store (blob source)  FAILED (3 files)
+983:leak check: 0 hits over 42 canaries, 818 surfaces, 1802245 bytes; 1 failed checks
+2026-11-15T09:58:15Z  load average: 40.58  -> exit=1
+914:check store-check made no file beside the store (text past the cut)  FAILED (3 files)
+918:check store-check made no file beside the store (blob source)  FAILED (3 files)
+983:leak check: 0 hits over 42 canaries, 818 surfaces, 1802555 bytes; 2 failed checks
+```
+The kept folders show what was beside the store: `store.sqlite-shm` (32768 bytes) and `store.sqlite-wal` (0 bytes). Probe (a `serve --no-ingest` over a copy of the store, SIGINT after the first line, folder listed after exit):
+```
+hold 0.04s (stopped 66 ms after the first line): ['store.sqlite']
+hold 0.06s (stopped 91 ms after the first line): ['store.sqlite', 'store.sqlite-shm', 'store.sqlite-wal']
+hold 0.3s (stopped 323 ms after the first line): ['store.sqlite', 'store.sqlite-shm', 'store.sqlite-wal']
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
