@@ -41,8 +41,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/machine.rs` (17 tests: AC1 readers on a fake `/proc` + `/sys`, CPU delta, null cases; AC2 `the_ring_keeps_1440_samples_drops_the_oldest_and_keeps_the_order`); `rust/crates/app/src/api_tests.rs` (3 `machine_*` tests: shape, 403 with no token, 405 on POST/PUT/PATCH/DELETE, store never asked); `rust/crates/app/src/sampler.rs` (4 tests); `rust/crates/app/src/cli_cmds.rs` (`the_machine_text_is_one_line_per_measure_and_no_data_where_null`); `rust/crates/app/tests/machine.rs` (3 tests on the real binary: `machine`, `machine --json`, `serve` + `GET /api/machine`). `cargo test --workspace` 2026-11-15T02:57Z: 925 passed, 0 failed, 29 ignored (incl. `ctrl_c_stops_the_server_frees_the_port_and_leaks_no_token`). |
+| Verification command run | ☑ pass | `cargo test --workspace` exit 0, see above. Real run 2026-11-15T03:06:47Z (needs `--bin easy-personal-rs`, two binaries): `CPU: 25.0 %` / `RAM: 6.8 GiB of 31.0 GiB` / `Disk: 352.3 GiB of 454.4 GiB` / `Load (1 min): 5.36` / `Battery: no data` / `Claude processes: 6`, exit 0. |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
@@ -78,9 +78,33 @@ For more information, try '--help'.
 
 (The guide's verification command needs `--bin easy-personal-rs`: the package has two binaries.)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-15T03:06:47Z, same branch after the commit `T072: machine status readers...`):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ cargo run -q -p easy-personal-rs --bin easy-personal-rs -- machine
+CPU: 25.0 %
+RAM: 6.8 GiB of 31.0 GiB
+Disk: 352.3 GiB of 454.4 GiB
+Load (1 min): 5.36
+Battery: no data
+Claude processes: 6
+
+$ ... -- machine --json
+{
+  "battery_pct": null,
+  "charging": null,
+  "claude_procs": 6,
+  "cpu_pct": 27.0,
+  "disk_total": 487863541760,
+  "disk_used": 378326298624,
+  "load1": 5.36,
+  "ram_total": 33256267776,
+  "ram_used": 7294607360,
+  "t": 1794712008
+}
+```
+
+**DELTA**: a user can now read this machine's CPU, RAM, disk, load, battery and `claude` process count with `machine` (or `GET /api/machine`, which also gives the last 24 h in memory), with "no data" instead of 0 where the OS gives nothing.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T072.jsonl`, never the
 implementing agent alone]
