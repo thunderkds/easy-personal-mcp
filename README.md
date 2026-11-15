@@ -19,7 +19,47 @@ It reads these files and never changes them. Everything goes into one SQLite sto
 
 ## Install
 
-You need Python 3.11 or newer, [uv](https://docs.astral.sh/uv/) and Node.js. The dashboard page is built from `web/` and is not in git, so build it before you install.
+### Ubuntu package (Rust app)
+
+On Ubuntu 24.04 or newer, build the `.deb` package and install it. You need Rust stable, Node.js and `dpkg-dev`. The first build takes several minutes.
+
+```bash
+git clone https://github.com/thunderkds/easy-personal-mcp.git
+cd easy-personal-mcp
+rust/packaging/build-deb.sh
+sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb
+```
+
+The package holds files only. It changes nothing in your home folder. Run these steps as your own user:
+
+```bash
+easy-personal-rs --version
+easy-personal-rs schedule install
+claude mcp add --scope user easy-personal -- /usr/bin/easy-personal-rs mcp
+easy-personal-rs dashboard --static-dir /usr/share/easy-personal-rs/static
+```
+
+`schedule install` starts a systemd user timer that ingests every day. Restart Claude Code after `claude mcp add`. Use the full path `/usr/bin/easy-personal-rs`, because a copy in `~/.local/bin` can come first on `PATH`. The `dashboard` command opens the dashboard window. The menu entry "Easy Personal" opens it too.
+
+To run the tray at login, start it with `--autostart on`:
+
+```bash
+easy-personal-rs tray --static-dir /usr/share/easy-personal-rs/static --autostart on
+```
+
+The tray icon shows one state: idle, active, attention or problem. The menu shows the sessions, the plan limits and the machine load. Below them, the "Recent alerts" block lists the newest 5 alerts. When there are more, the row "All alerts in dashboard…" opens the dashboard. The block stays while alerts are paused. The tray needs a tray host. On Ubuntu GNOME that is the "Ubuntu AppIndicators" extension. If the tray prints `no tray area (no StatusNotifier host)`, run `gnome-extensions enable ubuntu-appindicators@ubuntu.com` and log in again. Alerts work without it.
+
+To remove the package:
+
+```bash
+sudo apt remove easy-personal-rs
+```
+
+Your store, timer and MCP registration stay. The details are in [`rust/packaging/README.md`](rust/packaging/README.md).
+
+### Python app
+
+The Python app is the second option. You need Python 3.11 or newer, [uv](https://docs.astral.sh/uv/) and Node.js. The dashboard page is built from `web/` and is not in git, so build it before you install.
 
 ```bash
 git clone https://github.com/thunderkds/easy-personal-mcp.git

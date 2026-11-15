@@ -237,7 +237,8 @@ SIGINT or SIGTERM stops the server and exits 0, and no WebKit process is left be
   `crates/app/tests/fixtures/self-test`: `cargo run --features window -- app --self-test --static-dir crates/app/tests/fixtures/self-test`.
   The real-window tests are ignored by default; run them with a display:
   `cargo test --features window --test window -- --ignored --test-threads=1`.
-- Not done: macOS and Windows (other webviews, no display check, Unix signals only), packaging, a tray or menu, embedding the
+- Packaging and the tray are done: the Ubuntu `.deb` is in `packaging/README.md`, and the tray runs with `easy-personal-rs tray`.
+- Not done: macOS and Windows (other webviews, no display check, Unix signals only), embedding the
   dashboard in the binary, and focusing the first window when `app` runs twice (each run gets its own port and token). The real
   dashboard is not built here (`web/` needs `npm ci`).
 

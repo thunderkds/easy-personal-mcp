@@ -47,7 +47,20 @@ GITHUB = "https://github.com/thunderkds/easy-personal-mcp"
 ASIDE_GROUPS = ["// overview", "// getting started", "// reference"]
 READ_STEPS = ["transcripts + kit reports", "ingest", "local store", "MCP / CLI / dashboard"]
 CONNECT_STEPS = ["catalog form", "OS keychain", "claude mcp add-json", "launcher"]
+DEB_BUILD = "rust/packaging/build-deb.sh"
+DEB_INSTALL = "sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb"
+RS_MCP_ADD = "claude mcp add --scope user easy-personal -- /usr/bin/easy-personal-rs mcp"
+RS_DASHBOARD = "easy-personal-rs dashboard --static-dir /usr/share/easy-personal-rs/static"
+RS_TRAY = "easy-personal-rs tray --static-dir /usr/share/easy-personal-rs/static --autostart on"
 REQUIRED_COMMANDS = [
+    DEB_BUILD,
+    DEB_INSTALL,
+    "easy-personal-rs --version",
+    "easy-personal-rs schedule install",
+    RS_MCP_ADD,
+    RS_DASHBOARD,
+    RS_TRAY,
+    "sudo apt remove easy-personal-rs",
     "npm --prefix web ci && npm --prefix web run build",
     "uv tool install --reinstall --no-cache .",
     "easy-personal ingest",
@@ -390,10 +403,10 @@ def test_flow_is_inline_html_without_a_library_or_image():
 # ---- HUN-201 (FR-067): system diagram in #flow and the quick-start strip ----
 
 QUICKSTART_COMMANDS = [
-    "uv tool install --reinstall --no-cache .",
-    "easy-personal ingest",
-    "claude mcp add --scope user easy-personal -- easy-personal mcp",
-    "easy-personal dashboard",
+    DEB_INSTALL,
+    "easy-personal-rs schedule install",
+    RS_MCP_ADD,
+    RS_DASHBOARD,
 ]
 _SVG_PAINT_OK = {"none", "currentcolor"}
 
@@ -716,6 +729,58 @@ def test_flipped_claude_ai_flag_fails():
                if e.id == "slack" else e for e in entries]
     with pytest.raises(AssertionError):
         check_connectors(_page(), flipped)
+
+
+# ---- T089: the Rust .deb leads, the Python uv install is the second option; the tray is described ----
+
+RUST_README = ROOT / "rust" / "README.md"
+
+
+def _install_blocks() -> list[str]:
+    return [b.text for b in _in(_page(), "install", "pre")]
+
+
+def test_first_install_command_block_is_the_deb_path_and_python_comes_after():
+    box = [e for e in _in(_page(), "hero", "pre", "id") if e.attrs["id"] == "install-cmd"][0].text
+    assert DEB_BUILD in box and DEB_INSTALL in box and "uv tool install" not in box
+    blocks = _install_blocks()
+    deb = next(i for i, b in enumerate(blocks) if DEB_BUILD in b)
+    uv = next(i for i, b in enumerate(blocks) if "uv tool install" in b)
+    assert deb < uv, "the .deb block must come before the uv tool install block in #install"
+    assert DEB_INSTALL in blocks[deb] or DEB_INSTALL in blocks[deb + 1]
+    text = _norm(" ".join(e.text for e in _in(_page(), "install", "h3")))
+    assert "Python app" in text
+
+
+def test_readme_install_leads_with_the_deb_and_keeps_python_under_its_own_heading():
+    readme = README.read_text(encoding="utf-8")
+    install = readme.split("\n## Install\n", 1)[1].split("\n## ", 1)[0]
+    assert DEB_BUILD in install and DEB_INSTALL in install
+    assert "### Python app" in install
+    assert install.index(DEB_BUILD) < install.index("### Python app") < install.index("uv tool install")
+
+
+def test_page_and_readme_describe_the_tray_recent_alerts_and_the_tray_host():
+    page = _norm(" ".join(e.text for e in _page().elements if e.tag == "body"))
+    readme = _norm(README.read_text(encoding="utf-8"))
+    for text in (page, readme):
+        assert "Recent alerts" in text and "All alerts in dashboard" in text
+        assert "AppIndicators" in text
+
+
+def test_rust_readme_no_longer_lists_packaging_or_a_tray_as_not_done():
+    text = RUST_README.read_text(encoding="utf-8")
+    not_done = text.split("- Not done:", 1)[1].split("\n\n", 1)[0]
+    assert "packaging" not in not_done and "a tray or menu" not in not_done
+    assert "packaging/README.md" in text and "easy-personal-rs tray" in text
+
+
+def test_readme_without_the_deb_install_line_fails():
+    readme = README.read_text(encoding="utf-8").replace(DEB_INSTALL + "\n", "", 1)
+    with pytest.raises(AssertionError):
+        check_install(_page(), readme)
+    with pytest.raises(AssertionError):
+        check_quickstart(readme)
 
 
 def test_edited_readme_command_fails():
