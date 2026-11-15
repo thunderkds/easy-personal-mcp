@@ -66,9 +66,9 @@ cd rust && cargo test -p easy-personal-rs --test cutover_doc 2>&1 | tail -3 && c
 ### Evidence (filled by reviewer at Stage 4/5)
 | Item | Result | Evidence |
 |---|---|---|
-| New test(s) cover acceptance criteria | ☐ | |
-| Verification command | ☐ | |
-| code-review | ☐ | |
+| New test(s) cover acceptance criteria | ☑ | 3 new tests; see TASK_REVIEW_T086.md |
+| Verification command | ☑ | Supervisor `/verify` pass (timing flakes noted) |
+| code-review | ☑ | inline: 0 code P0-P2; P1 process (startup reads); 1 P3 |
 | security-review | ☐ N/A | Risk Low |
 | UI: visual regression | ☐ N/A | backend only |
 | UI: design-system compliance | ☐ N/A | backend only |
