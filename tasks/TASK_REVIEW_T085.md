@@ -93,9 +93,42 @@ hold 0.06s (stopped 91 ms after the first line): ['store.sqlite', 'store.sqlite-
 hold 0.3s (stopped 323 ms after the first line): ['store.sqlite', 'store.sqlite-shm', 'store.sqlite-wal']
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (branch `T085`, commits 66f60db and the README commit; the guide's verification command, 2026-11-15T10:27:26Z to 10:28:21Z, load average 29):
+```
+exit=0
+leak check: 0 hits over 42 canaries, 828 surfaces, 1806705 bytes        (0 lines with FAILED)
+```
+AC 1, the surface line and its checks (same run family, `ac3-3` below):
+```
+surface api GET /api/alerts (serve --alerts, 4 alerts): 790 bytes
+check alerts session bus leads nowhere     ok
+check alerts listed, one per planted session  ok (4 alerts: {'session_waiting': 3, 'session_failing': 1})
+check alerts popup went nowhere (no bus)  ok
+check alerts serve stopped by PID (SIGINT)  ok (exit 0, no process left)
+check alert transcripts unchanged        ok (sha256 of the tree)
+```
+AC 2, mutant: `alerts::clean` made `Some(text.to_string())` (crates/app/src/alerts.rs, reverted with `git checkout`, rebuilt, `git status` clean):
+```
+exit=1
+HIT canary api_key as raw in [api GET /api/alerts (serve --alerts, 4 alerts)]: ect [api_key], se
+HIT canary api_key as json in [api GET /api/alerts (serve --alerts, 4 alerts)]: ect [api_key], se
+HIT canary api_key as url in [api GET /api/alerts (serve --alerts, 4 alerts)]: ect [api_key], se
+HIT canary message_text as raw in [api GET /api/alerts (serve --alerts, 4 alerts)]: PPPP[message_text], se
+leak check: 4 hits over 42 canaries, 828 surfaces, 1806125 bytes
+```
+(`api_key` = the secret-looking project folder; `message_text` = the canary past the 64-character cut.)
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+AC 3, three runs in a row with 24 busy loops of mine alive (started as 24 PIDs, killed by exactly those PIDs afterwards, 0 left), 10:24:02Z to 10:26:52Z:
+```
+run 1 start load average: 32.72, 32.33, 31.52 -> exit=0  leak check: 0 hits over 42 canaries, 828 surfaces, 1806369 bytes   (0 FAILED)
+run 2 start load average: 33.12, 32.50, 31.62 -> exit=0  leak check: 0 hits over 42 canaries, 828 surfaces, 1806363 bytes   (0 FAILED)
+run 3 start load average: 38.24, 33.85, 32.13 -> exit=0  leak check: 0 hits over 42 canaries, 828 surfaces, 1806323 bytes   (0 FAILED)
+```
+(Before the change the same loop failed 3 of 3 at load 21 to 40.) A deterministic stress, so the pass does not depend on luck: every `/api/store/health` request delayed by 0.3 s (the server lives past the live tail's first 100 ms look, so `-shm` and an empty `-wal` always appear). With the new rule: `exit 0`, `0 hits`. With the rule made strict (`SIDECARS = set()`): `exit=1`, `check store health route made nothing beside the store but -shm and an empty -wal (healthy) FAILED (6 files)` and 4 more variants, i.e. the check still bites.
+
+AC 4, no real popup: (1) the child env is built from scratch with `DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/leak-rs-no-bus` and no `XDG_RUNTIME_DIR` (`zbus::Connection::session()` has no other bus to try), and the gate checks both before the `serve` starts (`check alerts session bus leads nowhere ok`); (2) the run fails unless the server's stderr holds `desktop notifications are not available`, which the app prints only after its `Notify` call failed (`check alerts popup went nowhere (no bus) ok`). My own prototype runs used the same dead address.
+
+**DELTA**: the leak gate now proves the alert text (the one place a transcript's project folder, tool name and session id go into a sentence) holds no canary, with a mutant that fails it, and its "no file beside the store" check no longer fails when the machine is loaded.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
