@@ -61,8 +61,25 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-15T15:54Z, before any implementation commit; `site/index.html` at commit 9a74ae4):
+
+Test run (`uv run pytest tests/test_site_content.py tests/test_site_theme.py tests/test_site_deploy_config.py -q 2>&1 | tail -3`, 2026-11-15T15:54:36Z):
+```
+FAILED tests/test_site_content.py::test_stat_strip_numbers_come_from_real_sources
+1 failed, 73 passed in 1.38s
+```
+(Pre-existing failure, not from T089: the page shows 9 dashboard views, `web/src/App.jsx` has 10.)
+
+Hero install box (`#install-cmd`):
+```
+git clone https://github.com/thunderkds/easy-personal-mcp.git
+cd easy-personal-mcp
+npm --prefix web ci && npm --prefix web run build
+uv tool install --reinstall --no-cache .
+```
+Quick start strip (`Quick start in four steps`): 1 Install `uv tool install --reinstall --no-cache .` ("After the build in the box above, install the tool."); 2 Ingest `easy-personal ingest`; 3 Register with Claude Code `claude mcp add --scope user easy-personal -- easy-personal mcp`; 4 Open the dashboard `easy-personal dashboard`.
+
+`#install` ("Install and deploy"): intro "You need Python 3.11 or newer, `uv` and Node.js. The dashboard page is built from `web/` and is not in git, so build it before you install. It runs natively on Linux." Eight steps: Install (the four lines above, then `easy-personal --version` / `easy-personal ping`), First run, Register the MCP server, Open the dashboard, Schedule, Connectors, Upgrade, Roll back. No mention of the `.deb`, `easy-personal-rs`, the tray or Recent alerts. `README.md` `## Install` starts with "You need Python 3.11 or newer, [uv](...) and Node.js." and the same four lines.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
