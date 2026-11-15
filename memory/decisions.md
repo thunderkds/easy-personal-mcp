@@ -307,3 +307,12 @@ Open P3s: raw `12.5px`/`13.5px` in First run CSS (`--fs-note`/`--fs-control`); e
 - Lessons: two sessions committed on `main` in parallel (T068-T071 UI redesign) — board rows conflict on merge, keep both; a full-suite run under parallel agent load showed 2 flaky failures (not reproduced alone; known: `live.rs` ten-streams, `ingest_coexist`).
 **Why**: owner, 2026-11-14: "continue your work as parallel [admin]", then "push".
 **Files**: `rust/crates/app/src/{connector_cmd,cli_cmds,legacy,doctor_cmd,connector_writes,claude_cli,api,live_feed}.rs`, `rust/parity/run_parity.py`, `rust/docs/PARITY_T061.md`, `rust/README.md`
+
+## 2026-11-15 — Watch Stage 2 (T072-T077), T070-T072 and T078 merged; done = any merge reachable from main
+
+- Watch breakdown T072-T077 approved by the owner ("Approve as listed"); PRD FR-095..FR-100 added, FR-050 and Out of Scope amended (`tray` may raise desktop notifications). ⚠ decided for the owner: a task merged twice is done at its FIRST merge.
+- ⚠ decided for the owner (T075): "done" reads every merge reachable from main (`Merge branch '<b>'` or `... into main`), not only `--first-parent`. Cause: main was fast-forwarded to `t078-keychain-leftovers`, which had merged main into itself, so earlier `Merge branch 'T070'` left the first-parent chain. Supervisor merges use `--no-ff` from now on where the gate allows.
+- T078 (second supervisor session): `keychain.rs` is the `easy_personal_keychain` `[lib]` both binaries use; `workspaces::change` runs mutate+plan twice (record pass rolled back, `claude` calls with no transaction, replay pass commits), so no `claude` subprocess runs under the store write lock; `sync::plan`'s calls must depend on store state only. D-Bus timeout skipped.
+- T072: generic `Sampler<T>` (`rust/crates/app/src/sampler.rs`) and `Ring<T>` (`core::machine`) for T073/T076 reuse; `/api/machine` never opens the store.
+**Why**: owner, 2026-11-15: "continue your work as parallel [admin]".
+**Files**: `PRD.md`, `rust/crates/core/src/{machine,effectiveness,workspaces}.rs`, `rust/crates/app/src/{sampler,launch,main}.rs`, `rust/crates/app/Cargo.toml`
