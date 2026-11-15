@@ -773,3 +773,21 @@ button.status-chip:hover { background: var(--color-selected); }
 .status-bar-fill { display: block; height: 4px; border-radius: 2px; background: var(--color-accent); }
 .status-limit.tone-amber .status-bar-fill { background: var(--color-amber); }
 .status-limit.tone-red .status-bar-fill { background: var(--color-red); }
+
+/* HUN-245 */
+.copy-command { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding-top: var(--space-3); border-top: 1px solid var(--color-divider); }
+.copy-command-title { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
+.copy-command-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); min-width: 0; }
+.copy-command label { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; max-width: 100%; font-size: var(--fs-cell); color: var(--color-secondary); }
+.copy-command select, .copy-command input {
+  max-width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-control);
+  border-radius: var(--radius-sm);
+  background: var(--color-input);
+  color: var(--color-text);
+  font-size: var(--fs-control);
+}
+.copy-command input { width: 100%; font-family: var(--font-mono); }
+.copy-command [aria-live] { min-height: 1lh; }
