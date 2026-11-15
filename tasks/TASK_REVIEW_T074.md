@@ -61,8 +61,21 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (main 5b9adb4 + branch T074, no implementation yet; HOME is an empty fixture folder):
+
+```
+2026-11-15T05:24:47Z
+$ easy-personal-rs serve --alerts
+error: unexpected argument '--alerts' found
+
+Usage: easy-personal-rs serve [OPTIONS]
+
+For more information, try '--help'.
+exit=2
+$ easy-personal-rs serve --no-ingest ; GET /api/alerts and POST /api/alerts/pause with the right token
+GET /api/alerts -> 404
+POST /api/alerts/pause -> 404
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
