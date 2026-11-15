@@ -61,8 +61,18 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-15T09:57:14Z in the T087 worktree, branch `t087-deb`, before any implementation commit:
+
+```
+$ ls rust/packaging
+ls: cannot access 'rust/packaging': No such file or directory
+$ grep -n '"bundle"' rust/crates/app/tauri.conf.json
+12:  "bundle": { "active": false }
+$ ls rust/target/deb
+ls: cannot access 'rust/target/deb': No such file or directory
+```
+
+No packaging script, no `.deb` output folder, Tauri bundling off.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
