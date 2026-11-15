@@ -205,7 +205,7 @@ function ConnectorRow({ connector: c, workspaces, orphan, act }) {
         >
           {verb}
         </button>
-        <button type="button" disabled={act.locked} onClick={() => act.review((confirm) => sendJson('DELETE', url, { confirm }))}>
+        <button type="button" className="danger" disabled={act.locked} onClick={() => act.review((confirm) => sendJson('DELETE', url, { confirm }))}>
           Delete
         </button>
       </div>
@@ -553,7 +553,7 @@ function WorkspaceForm({ workspace, data, act, onBack }) {
             again later.
           </p>
           <div className="actions">
-            <button type="button" disabled={act.locked} onClick={() => act.review((confirm) => sendJson('DELETE', `/api/workspaces/${workspace.id}`, { confirm }))}>
+            <button type="button" className="danger" disabled={act.locked} onClick={() => act.review((confirm) => sendJson('DELETE', `/api/workspaces/${workspace.id}`, { confirm }))}>
               Delete workspace
             </button>
           </div>
@@ -567,10 +567,10 @@ function WorkspaceCard({ workspace: w, data, act, onOpen }) {
   const mine = data.connectors.filter((c) => c.workspace === w.name)
   const users = data.accounts.filter((a) => a.provider === 'claude' && a.workspaces?.includes(w.name)).map(accountName)
   return (
-    <section aria-label={w.name}>
+    <section aria-label={w.name} data-orphan={w.is_orphan ? 'true' : undefined}>
       <div className="entry-head">
         <span className="swatch" data-testid="swatch" aria-hidden="true" style={w.color ? { backgroundColor: w.color } : undefined}>
-          {w.icon}
+          {w.is_orphan ? '?' : w.icon || w.name.charAt(0).toUpperCase()}
         </span>
         <h2>{w.name}</h2>
       </div>
@@ -589,8 +589,13 @@ function WorkspaceCard({ workspace: w, data, act, onOpen }) {
         </>
       ) : (
         <>
-          {w.email && <p>{w.email}</p>}
-          <p>
+          <p className="ws-meta">
+            {w.email && (
+              <>
+                <span>{w.email}</span>
+                <span aria-hidden="true"> · </span>
+              </>
+            )}
             <span>{w.repos.length === 1 ? '1 repo' : `${w.repos.length} repos`}</span>
           </p>
           {mine.length === 0 ? (
@@ -619,15 +624,27 @@ function LegacyBanner({ legacy, act }) {
   const foreign = legacy.filter((l) => l.foreign).map((l) => l.id)
   return (
     <section className="notice" aria-label="Legacy connectors">
-      <p>
-        {legacy.length === 1 ? '1 connector was' : `${legacy.length} connectors were`} set up before workspaces:{' '}
-        {legacy.map((l) => l.id).join(', ')}. Adopt {legacy.length === 1 ? 'it' : 'them'} into the orphan workspace to manage {legacy.length === 1 ? 'it' : 'them'} here.
-      </p>
-      {foreign.length > 0 && (
-        <p className="muted">
-          A Claude Code entry with the same name as {foreign.join(', ')} was not created by easy-personal and stays untouched.
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M8 7v4M8 4.6v.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+      <div className="notice-text">
+        <p>
+          {legacy.length === 1 ? '1 connector was' : `${legacy.length} connectors were`} set up before workspaces:{' '}
+          {legacy.map((l, i) => (
+            <span key={l.id}>
+              {i > 0 && ', '}
+              <span className="mono">{l.id}</span>
+            </span>
+          ))}
+          . Adopt {legacy.length === 1 ? 'it' : 'them'} into the orphan workspace to manage {legacy.length === 1 ? 'it' : 'them'} here.
         </p>
-      )}
+        {foreign.length > 0 && (
+          <p className="muted">
+            A Claude Code entry with the same name as {foreign.join(', ')} was not created by easy-personal and stays untouched.
+          </p>
+        )}
+      </div>
       <div className="actions">
         <button type="button" disabled={act.locked} onClick={() => act.review((confirm) => sendJson('POST', '/api/connectors/legacy', { confirm }))}>
           Adopt

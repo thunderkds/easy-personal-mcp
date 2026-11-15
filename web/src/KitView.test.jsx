@@ -219,6 +219,16 @@ describe('details toggle (AC6)', () => {
   })
 })
 
+describe('no data is not zero note (T070)', () => {
+  it('says "no data" is not zero once the details table is open, and not before', async () => {
+    await renderView()
+    const note = '"no data" means the kit part left nothing to read for that project. It is not zero.'
+    expect(screen.queryByText(note)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }))
+    expect(screen.getByText(note)).toBeInTheDocument()
+  })
+})
+
 describe('details table (unchanged)', () => {
   it('shows "no data" for no-data and absent parts, never zero', async () => {
     await renderView()
@@ -285,8 +295,25 @@ describe('easy-ui overall', () => {
   it('shows easy-ui overall, or no data', async () => {
     await renderView()
     const ui = screen.getByRole('region', { name: 'easy-ui checks (overall)' })
-    expect(ui).toHaveTextContent('sessions: 6')
-    expect(ui).toHaveTextContent('failed: 1')
+    expect(within(ui).getByText('sessions').previousSibling).toHaveTextContent('6')
+    expect(within(ui).getByText('failed').previousSibling).toHaveTextContent('1')
+  })
+
+  it('lays the counts out as a strip of cells with a pass/fail bar, amber for failures (T070)', async () => {
+    await renderView()
+    const ui = screen.getByRole('region', { name: 'easy-ui checks (overall)' })
+    const cells = ui.querySelectorAll('.kpi-strip > .kpi')
+    expect([...cells].map((c) => c.querySelector('.kpi-note').textContent)).toEqual(['sessions', 'passed', 'failed', 'other', 'actions'])
+    expect(within(ui).getByText('passed').previousSibling).toHaveClass('tone-accent')
+    expect(within(ui).getByText('failed').previousSibling).toHaveClass('tone-amber')
+    expect(within(ui).getByText('other').previousSibling).not.toHaveClass('tone-amber')
+    const bar = within(ui).getByRole('img', { name: '4 passed, 1 failed, 1 other' })
+    expect([...bar.children].map((s) => Math.round(parseFloat(s.style.width)))).toEqual([67, 17, 17])
+  })
+
+  it('shows no bar when the easy-ui checks are all zero (T070)', async () => {
+    await renderView({ kit: { ...kit, ui: { status: 'ok', sessions: 0, passed: 0, failed: 0, other: 0, actions: 0, first_utc: null, last_utc: null } } })
+    expect(within(screen.getByRole('region', { name: 'easy-ui checks (overall)' })).queryByRole('img')).toBeNull()
   })
 
   it('shows easy-ui "no data" explicitly, and the empty message with no toggle for 0 projects', async () => {
