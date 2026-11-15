@@ -9,16 +9,18 @@
 //! (owner project, task id), so the same id in two repos is two tasks.
 //!
 //! *Good result* = FR-061, as `kitperf` computes it per session; it counts for the line of the session's own branch.
-//! *Done* = the first merge commit of one of the task's branches that holds its id on the first-parent history of the repo's `main`
-//! (else `master`), read with `git log --merges --first-parent`; none = not done; no git history = unknown.
+//! *Done* = the first merge commit (by commit time) reachable from the repo's `main` (else `master`) whose subject is
+//! `Merge branch '<b>'` or `Merge branch '<b>' into main`, for a branch `<b>` that holds the task's id (`into` another
+//! branch does not count; not first-parent only, so a fast-forward of a branch that merged main in keeps the merge);
+//! none = not done; no git history = unknown.
 //!
 //! Usage is counted once per `message.id`, as `usage_summary`. Read-only; only values are bound. The answer names
 //! no path and no session id: a project is its folder name.
 
 use crate::kitperf;
 use crate::metrics::{
-    MetricsError, bounds, folder, local_day, merge_branch, owner_map, parse_iso, period,
-    period_json, round_py, run_git_within, stored_branches, text,
+    MetricsError, bounds, folder, local_day, owner_map, parse_iso, period, period_json, round_py,
+    run_git_within, stored_branches, text,
 };
 use crate::prices::PriceTable;
 use crate::scope::{self, Clause, Scope};
@@ -179,7 +181,7 @@ fn main_threads(conn: &Connection) -> Result<HashMap<String, String>> {
         .collect())
 }
 
-/// Branch -> its first merge time (unix seconds) on the first-parent history of `main` (else `master`);
+/// Branch -> its first merge time (unix seconds) into `main` (else `master`), among the merges reachable from it;
 /// `None` when the folder has no git history or neither branch. Only an absolute path is read: an empty or relative
 /// project would otherwise be resolved against the process's working folder.
 fn first_merges(repo: &str) -> Option<HashMap<String, i64>> {
@@ -204,8 +206,6 @@ fn first_merges(repo: &str) -> Option<HashMap<String, i64>> {
         &[
             "log",
             "--merges",
-            "--first-parent",
-            "--reverse",
             "--format=%ct%x09%s",
             &format!("refs/heads/{main}"),
         ],
@@ -217,11 +217,28 @@ fn first_merges(repo: &str) -> Option<HashMap<String, i64>> {
         let Some((secs, subject)) = line.split_once('\t') else {
             continue;
         };
-        if let (Ok(secs), Some(branch)) = (secs.parse::<i64>(), merge_branch(subject)) {
-            first.entry(branch).or_insert(secs); // oldest first: the first merge wins
+        if let (Ok(secs), Some(branch)) = (secs.parse::<i64>(), merged_into(subject, main)) {
+            let at = first.entry(branch).or_insert(secs);
+            *at = (*at).min(secs); // the first merge by commit time wins
         }
     }
     Some(first)
+}
+
+/// The branch of a subject `Merge branch '<b>'` (optionally `: ...`) or `Merge branch '<b>' into <main>`; a merge
+/// `into` another branch is not a merge into main.
+fn merged_into(subject: &str, main: &str) -> Option<String> {
+    let rest = subject.strip_prefix("Merge branch '")?;
+    let end = rest.find('\'').filter(|e| *e > 0)?;
+    if let Some(target) = rest[end + 1..].strip_prefix(" into ") {
+        let target = target
+            .split(|c: char| c.is_whitespace() || c == ':')
+            .next()?;
+        if target != main {
+            return None;
+        }
+    }
+    Some(rest[..end].to_string())
 }
 
 fn utc(secs: i64) -> Option<String> {

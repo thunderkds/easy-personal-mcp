@@ -130,6 +130,8 @@ whose `b411c19 Merge branch 'main' into t078-keychain-leftovers` made the old ma
 `Merge branch 'T070'` is no longer on main's first-parent chain. The guide's rule (`--first-parent`) is kept as written; see the
 report's Question.
 
+**Fix round (⚠ decided for you — please review):** done time no longer reads `--first-parent` only. It reads every merge reachable from `main` and counts a subject `Merge branch '<branch>'` or `Merge branch '<branch>' into main`; a subject with ` into <other>` does not count; the first such merge by commit time wins. Decided by the Supervisor for the owner in [admin] mode, on backend-developer's recommendation, after the T070 finding above. New test case: T9 merged into main, then main fast-forwarded to `ff` (which had merged main into itself) -> T9 still done at its merge time; `Merge branch 'T4' into side` reachable from main -> T4 still not done (`rust/crates/core/tests/effectiveness.rs`, `done_is_the_first_merge_into_main_and_a_squash_or_fast_forward_is_not_done`).
+
 **DELTA**: The owner can now see, per task branch, the tokens, the cost, the good results and the done time from git, computed on read. The API (`GET /api/effectiveness`), the CLI (`effectiveness`, `--json`) and the MCP tool (`effectiveness`) show them. Before, the command did not exist (`unrecognized subcommand 'effectiveness'`).
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T075.jsonl`, never the

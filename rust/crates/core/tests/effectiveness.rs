@@ -320,6 +320,34 @@ fn done_is_the_first_merge_into_main_and_a_squash_or_fast_forward_is_not_done() 
         DAY + 390,
         &["merge", "-q", "--no-ff", "--no-edit", "worktree-agent-zz"],
     );
+    // T9: merged into main, then main is fast-forwarded to `ff`, a branch that had merged main into itself, so
+    // the T9 merge is no longer on main's first-parent chain: it still counts
+    git(&repo, DAY + 400, &["checkout", "-q", "-b", "ff"]);
+    commit(&repo, DAY + 410, "ff");
+    git(&repo, DAY + 420, &["checkout", "-q", "main"]);
+    git(&repo, DAY + 430, &["checkout", "-q", "-b", "T9"]);
+    commit(&repo, DAY + 440, "t9");
+    git(&repo, DAY + 450, &["checkout", "-q", "main"]);
+    git(
+        &repo,
+        DAY + 460,
+        &["merge", "-q", "--no-ff", "--no-edit", "T9"],
+    );
+    git(&repo, DAY + 470, &["checkout", "-q", "ff"]);
+    git(
+        &repo,
+        DAY + 480,
+        &["merge", "-q", "--no-ff", "--no-edit", "main"],
+    );
+    git(&repo, DAY + 490, &["checkout", "-q", "main"]);
+    git(&repo, DAY + 500, &["merge", "-q", "--ff-only", "ff"]);
+    // `side` (holding `Merge branch 'T4' into side`) now reaches main: a merge into another branch still does not count
+    git(
+        &repo,
+        DAY + 510,
+        &["merge", "-q", "--no-ff", "--no-edit", "side"],
+    );
+    fx.add(Ev::new("S4", &repo, "T9", "m22"));
     fx.add(Ev::new("S3", &repo, "T8", "m20"));
     fx.add(Ev {
         sidechain: 1,
@@ -340,6 +368,11 @@ fn done_is_the_first_merge_into_main_and_a_squash_or_fast_forward_is_not_done() 
     assert_eq!(t1["done_state"], "done");
     assert_eq!(t1["tokens_per_task_done"], 110);
     assert_eq!(task(&body, "T8")["tokens"], 220, "its sidechain counts");
+    assert_eq!(
+        task(&body, "T9")["done_utc"],
+        "2026-01-10T00:07:40Z",
+        "off the first-parent chain, still done"
+    );
     for id in ["T2", "T3", "T4", "T8"] {
         let t = task(&body, id);
         assert_eq!(t["done_utc"], Value::Null, "{id}");
@@ -361,8 +394,8 @@ fn done_is_the_first_merge_into_main_and_a_squash_or_fast_forward_is_not_done() 
             .any(|n| n.as_str().unwrap().contains("no local git history")),
         "{body:#}"
     );
-    assert_eq!(body["totals"]["tasks"], 6);
-    assert_eq!(body["totals"]["tasks_done"], 1);
+    assert_eq!(body["totals"]["tasks"], 7);
+    assert_eq!(body["totals"]["tasks_done"], 2);
     assert_eq!(body["totals"]["tokens_per_task_done"], 110.0);
 }
 

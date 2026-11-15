@@ -708,8 +708,11 @@ usage tools' errors (400 / tool error / exit 2).
 - **Tokens** once per `message.id` (as `usage_summary`); cost as `usage_breakdown` (`usd` null when nothing is priced,
   `unknown_price` true when a model has no price, never $0 for an unknown price).
 - **Good result** = FR-061 from `kitperf` (`session_results`), counted on the line of the session's own branch.
-- **Done** = the first `git log --merges --first-parent --reverse refs/heads/main` (else `master`) subject that names one of
-  the task's branches that holds its id (a shared `worktree-agent-*` merge does not count); none = `not done`; no `.git` = `unknown`, with a note. Squash and fast-forward merges are not done.
+- **Done** = the first merge by commit time among `git log --merges refs/heads/main` (else `master`; every merge
+  reachable from main, not first-parent only) whose subject is `Merge branch '<b>'` or `Merge branch '<b>' into main`,
+  for a branch `<b>` that holds the task's id (a shared `worktree-agent-*` merge, or one `into` another branch, does not
+  count); none = `not done`; no `.git` = `unknown`, with a note. Squash and fast-forward merges are not done. A
+  fast-forward of main to a branch that had merged main in keeps the earlier task merges (decided for the owner, T075).
 - **`oldest_stored_day`** = the local day of the oldest stored event, always given (the store keeps no record of a
   prune, so the answer cannot tell a pruned store from a young one).
 - The answer names no path and no session id: a project is its folder name.
