@@ -632,3 +632,8 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **Files**: `scripts/pull_moment.py`, `scripts/board_sync.py`, `tasks/TASK_GUIDE_HUN-*.md`
 - `pull_moment.py` (wake, craft-spawn-prompt spawn) runs `pull_cache` in the main checkout and rewrites `tasks/TASK_GUIDE_<ID>.md` from the Linear board description. A board-tracked guide changed in git but not pushed with `board_sync.py update --guide <ID>` gets reverted to the stale board text as an uncommitted edit, which then blocks a merge ("local changes would be overwritten").
 - So the uncommitted `TASK_GUIDE_HUN-*` edits on main may be pull artifacts, not owner edits. After merging a board-tracked guide change, run `board_sync.py update --guide <ID>`. Before a merge blocked by such a file, stash only that file (`git stash push -- <path>`) and tell the owner; never discard it.
+
+## 2026-11-15 — T087 .deb build gotchas
+- `dpkg-shlibdeps` prints a "diversions involved" warning on usr-merged Ubuntu; it is benign, the Depends line is still right.
+- Overriding `HOME` for `cargo test` needs `CARGO_HOME` and `RUSTUP_HOME` set to the real ones, or rustup downloads a fresh toolchain into the fake home.
+- `live.rs ten_streams_get_the_events_while_one_client_never_reads` failed once under load (8/8 alone): a T081-style load flake candidate.
