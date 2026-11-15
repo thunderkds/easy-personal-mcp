@@ -120,6 +120,33 @@ fn the_guard_refuses_an_agent_root_outside_the_temp_folder() {
         .spawn();
 }
 
+/// T080: what an ingest killed 2-6 ms after its start leaves (measured on the real binary: the file, journal mode set,
+/// no table, `user_version` 0) is a whole store for the post-kill check, as `no file` is.
+#[test]
+fn an_empty_store_left_by_an_early_kill_is_whole() {
+    let case = Case::new();
+    fs::create_dir_all(&case.home).unwrap();
+    let c = Connection::open(case.store_path()).unwrap();
+    let _: String = c
+        .query_row("PRAGMA journal_mode=WAL", [], |r| r.get(0))
+        .unwrap();
+    drop(c);
+    assert_intact(&case.store_path(), "early kill");
+}
+
+/// T080: a schema with tables but no `events` table is not what a kill can leave (the schema commits at once): it fails.
+#[test]
+#[should_panic(expected = "half schema: no events table, but a schema")]
+fn a_half_made_schema_without_events_is_not_whole() {
+    let case = Case::new();
+    fs::create_dir_all(&case.home).unwrap();
+    let c = Connection::open(case.store_path()).unwrap();
+    c.execute_batch("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
+        .unwrap();
+    drop(c);
+    assert_intact(&case.store_path(), "half schema");
+}
+
 // -- criterion 2: simultaneous writers
 
 /// `REPEAT` races of `first` and `second` on one fresh store, started at one barrier, one of them delayed by the
