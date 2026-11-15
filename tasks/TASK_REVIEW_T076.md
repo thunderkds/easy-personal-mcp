@@ -61,8 +61,28 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: default build of branch `T076` at 892aa99 (no implementation commit yet), temp `XDG_CONFIG_HOME`; captured by backend-developer:
+
+```text
+2026-11-15T08:08:06Z
+892aa99 Board: T063 note: re-point connector entries at the Rust launcher before removing Python (from T062)
+$ easy-personal-rs tray
+error: unrecognized subcommand 'tray'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+exit 2
+$ easy-personal-rs tray --autostart on
+error: unrecognized subcommand 'tray'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+exit 2
+$ ls $XDG_CONFIG_HOME/autostart
+ls: cannot access '/tmp/tmp.qUaeGVdD0E/autostart': No such file or directory
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
@@ -70,3 +90,34 @@ first implementation commit] OR [verbatim excerpt of the prior content, for non-
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T076.jsonl`, never the
 implementing agent alone]
+
+---
+
+## Menu proposal
+
+Native Linux menu (AppIndicator via Tauri `tray-icon`), rebuilt on each 5 s alert-engine look. Source: `docs/design/graphite-mint/TrayPopover.dc.html`, reduced to the rows named in the guide's Restated intent 2. Example values are the canvas's `attention` sample. "info" = disabled row (text only); "action" = clickable.
+
+| # | Row (exact label) | Kind | Shown when | Example / other forms |
+|---|---|---|---|---|
+| 1 | `Easy Personal · <state>` | info | always | `Easy Personal · attention` (state = `idle` / `active` / `attention` / `problem`) |
+| — | separator | | | |
+| 2 | live line | info | always | `2 sessions active`, `1 session active`, `No sessions running` |
+| 3 | `<n> waiting for you · <project>` | action: opens the dashboard (the canvas's "Open" button) | at least 1 session waiting | `1 waiting for you · easy-memory`; several projects: `3 waiting for you · easy-memory +2` |
+| 4 | `<n> failing · <project>` | action: opens the dashboard | at least 1 session failing | `1 failing · easy-personal-mcp` (NOT in the canvas; explains a `problem` state. Owner choice: keep or drop) |
+| 5 | `5h limit · <p> % · 7d · <p> %` | info | always; one row per Claude account when there are several, prefixed `<label>: ` | `5h limit · 78 % · 7d · 41 %`; missing/stale window: `5h limit · no data · 7d · 41 %` |
+| 6 | machine line | info | always | `CPU 12 % · RAM 64 % · disk 71 % · battery 80 %`; no battery: the battery part is left out (never 0 %); no sample: `Machine · no data` |
+| — | separator | | | |
+| 7 | `Open dashboard` | action: opens the existing dashboard window (`app` window), focuses it if already open | always | |
+| 8 | `Pause alerts` | check item (action): toggles the same in-memory flag as `POST /api/alerts/pause` | always | ticked while paused |
+| — | separator | | | |
+| 9 | `127.0.0.1 · local only` | info | always | canvas footer |
+| 10 | `Quit` | action: stops the server, the feed, the samplers and the alerts, removes the icon, exit 0 | always | |
+
+Differences from the canvas (proposed cuts; owner to confirm):
+- No ingest row and no "Run ingest now": not in the Restated intent 2 (the tray does not run ingest).
+- No "resets in 2h 10m": the plan-limit sampler (`LimitPercents`) carries no reset time; adding it is extra reading.
+- "Pause alerts", not "Pause alerts for 1 hour": T074's pause is a plain flag with no timer (Restated intent 2 says toggle).
+- No colours, dots or progress bars: a native AppIndicator menu shows text only. The state colour is on the icon.
+- State rule follows the Restated intent 1 (attention = waiting or a limit >= 90 %; problem = a failing or machine-pressure alert active), not the canvas's 70 % / ingest-failed wording.
+- Tooltip `Easy Personal · <live line>` is set, but AppIndicator does not show tooltips on GNOME.
+
