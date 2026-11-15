@@ -78,8 +78,8 @@ cd rust && cargo test -p easy-personal-rs --bin easy-personal-rs -- tray:: 2>&1 
 | Verification command | ☑ | agent: workspace 1006 passed, 1 failed (`connector_cli_parity::every_connector_and_doctor_step_equals_the_python_cli`, fails on main too: installed `/usr/bin/easy-personal-launch` on PATH, RUNBOOK.md known failure); Supervisor: clippy window all-targets clean, fmt ok |
 | code-review | ☑ | Supervisor inline 2026-11-15: 0 P0, 0 code P1, 0 P2, 3 P3 (see TASK_REVIEW_T088.md `## Stage 4`); 1 P1 process (startup reads) |
 | security-review | ☐ N/A | Risk Low: alert text is already `clean`ed by the engine (NFR-002); no new input |
-| UI: visual regression | ☐ | |
-| UI: design-system compliance | ☐ | |
+| UI: visual regression | ☑ | owner real run 2026-11-15 on GNOME (`cargo run --features window --bin easy-personal-rs -- tray`), alert raised by a live AskUserQuestion in the Supervisor session; owner answer: "Block is shown" |
+| UI: design-system compliance | ☑ | exact labels pinned by unit tests (`three_alerts_list_newest_first`, `five_rows_at_most_and_a_row_for_the_rest`); native text menu, no colours |
 | UI: responsiveness | ☐ N/A | native text menu |
 
 ## Demonstration

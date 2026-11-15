@@ -130,3 +130,7 @@ P3:
 
 Safe fix applied: guide verification command named a non-existent package `easy-personal-app` → `easy-personal-rs`.
 Supervisor rerun: `cargo test -p easy-personal-rs --features window --bin easy-personal-rs -- tray:: window:: alerts::` → `test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 137 filtered out; finished in 0.68s`; `cargo clippy -p easy-personal-rs --features window --all-targets` clean; `cargo fmt --check` ok.
+
+## AC 7 — owner real run (2026-11-15)
+
+Owner ran `cargo run --features window --bin easy-personal-rs -- tray --static-dir /usr/share/easy-personal-rs/static` from this worktree (installed tray quit first). First try showed no block: correct, no alert had been raised (a permission prompt is not "waiting"; only an open `AskUserQuestion` / `ExitPlanMode` call is, `core/src/live.rs` `WAITING_TOOLS`). The Supervisor then held an `AskUserQuestion` open; owner opened the tray menu and answered "Block is shown".
