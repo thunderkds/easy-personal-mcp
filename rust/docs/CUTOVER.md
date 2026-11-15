@@ -12,21 +12,42 @@ This covers Ubuntu only. macOS and Windows are not planned.
 - After each block, compare what you see with the "You should see" lines. If it does not match, stop. Do not go on to the next step. Go to "Rollback" if you want to undo.
 - Run every command from the folder of this repo, unless the step says otherwise.
 - If `cargo` is not found, run this first: `. "$HOME/.cargo/env"`.
-- Stop the Python dashboard and any other `easy-personal` process before you start. One program writes the store at a time.
+- Step 0 stops everything that writes the store. One program writes the store at a time.
 
 ## Step 0: checks before anything changes
 
-Nothing is installed or changed in this step except a backup file and one build in `rust/target`.
+Nothing is installed in this step. It records what you have now, stops every writer, makes a backup and runs two checks.
 
-**0.1 Back up the store.**
+**0.1 Record what you have now.** The rollback uses these notes to put things back exactly as they were. Run the `claude` line once for each Claude account. The default account is `~/.claude`. For every other account, put `CLAUDE_CONFIG_DIR="$HOME/.claude-work"` (its folder) in front of the command, and change the file name.
 
 ```bash
-cp -p ~/.easy-personal/store.sqlite ~/.easy-personal/store.sqlite.before-rust
+mkdir -p ~/easy-personal-cutover-notes
+grep ExecStart ~/.config/systemd/user/easy-personal-ingest.service | tee ~/easy-personal-cutover-notes/timer.txt
+claude mcp get easy-personal | tee ~/easy-personal-cutover-notes/mcp-default.txt
+```
+
+You should see: for the timer, one `ExecStart=` line. If it ends with `--retention-days N`, you set a retention. Remember `N`: Step 3 and the rollback use it again. If the file is missing, you had no timer. For `claude`, the registration: `Command:`, `Args:` and any `Environment:` lines. If `claude` says there is no such server, that account had no registration.
+
+**0.2 Stop every writer.**
+
+```bash
+systemctl --user stop easy-personal-ingest.timer easy-personal-ingest.service
+pgrep -af easy-personal
+```
+
+Also close every Claude Code session that uses the easy-personal MCP server. Each open session runs its own Python `easy-personal mcp` process, and it keeps the store open. Close the Python dashboard too.
+
+You should see: `pgrep` prints nothing. If it prints a line, close that process and run it again.
+
+**0.3 Back up the store.** This uses the SQLite backup call, so the backup holds the data that is still in the `-wal` file. A plain `cp` of `store.sqlite` does not.
+
+```bash
+python3 -c "import sqlite3,os;p=os.path.expanduser('~/.easy-personal/store.sqlite');s=sqlite3.connect(p);d=sqlite3.connect(p+'.before-rust');s.backup(d);d.close();s.close()"
 ```
 
 You should see: no output. The file `~/.easy-personal/store.sqlite.before-rust` exists.
 
-**0.2 Build the Rust program and check the store.**
+**0.4 Build the Rust program and check the store.**
 
 ```bash
 . "$HOME/.cargo/env"
@@ -36,19 +57,19 @@ rust/target/debug/easy-personal-rs store-check
 
 You should see: the last line is `verdict: healthy`, and the exit code is 0 (`echo $?` prints `0`). The line `schema: user_version 11, code has 11, migration pending: no` shows that Rust reads your store as it is and will not migrate it. If it says the store is newer than the program, stop.
 
-**0.3 Run the keychain interop test.**
+**0.5 Run the keychain interop test.**
 
 The Rust launcher must read the secrets that Python stored in the keychain. This test proves it. It writes two throwaway items in your real Secret Service (`easy-personal/t050-crosscheck-...`), reads each one with the other program, and deletes both. Unlock the keyring first.
 
 ```bash
 cd rust
-EASY_PERSONAL_PYTHON=~/.local/share/uv/tools/easy-personal-mcp/bin/python cargo test -p easy-personal-rs --bin easy-personal-rs real_keychain_items_cross_check -- --ignored
+EASY_PERSONAL_PYTHON=~/.local/share/uv/tools/easy-personal-mcp/bin/python cargo test -p easy-personal-rs --lib real_keychain_items_cross_check -- --ignored
 cd ..
 ```
 
-You should see: `test result: ok. 1 passed`.
+You should see: `test result: ok. 1 passed`. If it says `0 passed`, the test did not run: stop and tell the Supervisor.
 
-**If this test fails, the cutover stops here.** Do not run Step 1. Without it, Rust cannot read your connector secrets. Tell the Supervisor what the test printed.
+**If this test fails, the cutover stops here.** Do not run Step 1. Without it, Rust cannot read your connector secrets. Tell the Supervisor what the test printed. Start the timer again with `systemctl --user start easy-personal-ingest.timer`, and reopen your Claude Code sessions.
 
 ## Step 1: install
 
@@ -94,7 +115,7 @@ The Rust program still finds its own launcher. It looks for `easy-personal-launc
 
 ## Step 2: the MCP server
 
-Repeat this step for each Claude account you confirmed. List them with `easy-personal-rs account list`. The default account is `~/.claude`. For every other account, put `CLAUDE_CONFIG_DIR="$HOME/.claude-work"` (its folder) in front of each `claude` command.
+Repeat this step for each Claude account you confirmed. List them with `easy-personal-rs account list`. The default account is `~/.claude`. For every other account, put `CLAUDE_CONFIG_DIR="$HOME/.claude-work"` (its folder) in front of each `claude` command. You saved the old registration of each account in Step 0.1.
 
 ```bash
 claude mcp remove easy-personal --scope user
@@ -108,7 +129,9 @@ If `remove` says the server does not exist, go on with `add`. Restart Claude Cod
 
 ## Step 3: the daily ingest timer
 
-The Rust timer uses the same unit names as the Python timer. It replaces the Python timer. You keep one timer, not two.
+The Rust timer uses the same unit names as the Python timer. It replaces the Python timer. You keep one timer, not two. Step 0.2 stopped the timer. The install enables it and starts it again.
+
+If the `ExecStart=` line that you saved in Step 0.1 ended with `--retention-days N`, add the same `--retention-days N` to both `schedule install` commands. Otherwise leave it out.
 
 ```bash
 easy-personal-rs schedule install --dry-run
@@ -120,7 +143,8 @@ You should see:
 
 - The dry run prints two unit files and writes nothing. The line `ExecStart=` ends with `easy-personal-rs ingest`, and its path starts with `/home/<you>/.local/share/easy-personal-rs/bin/`.
 - The install prints `installed easy-personal-ingest.timer in /home/<you>/.config/systemd/user`.
-- `list-timers` shows one row for `easy-personal-ingest.timer`, with a next run time.
+- `list-timers` shows one row for `easy-personal-ingest.timer`, with a next run time. If the row is missing, run `systemctl --user start easy-personal-ingest.timer`.
+- If you passed `--retention-days N`, the `ExecStart=` line ends with `ingest --retention-days N`.
 
 Do not move or delete `~/.local/share/easy-personal-rs/bin/`. The timer runs the program from there.
 
@@ -177,21 +201,31 @@ After a week with no blocking problem, tell the Supervisor. That is the gate for
 
 ## Rollback
 
-The Python app is still installed, so a rollback takes a few minutes. Run only the parts you need.
+The Python app is still installed, so a rollback takes a few minutes. Run only the parts you need. Your notes from Step 0.1 are in `~/easy-personal-cutover-notes/`.
 
 ```bash
 uv tool install --reinstall --no-cache .
 easy-personal schedule install
 claude mcp remove easy-personal --scope user
-claude mcp add --scope user easy-personal -- easy-personal mcp
+claude mcp add --scope user easy-personal -- <Command> <Args>
 easy-personal connector sync
 ```
 
 - The first line is only needed if the Python tool is gone. It installs Python's program from this repo.
-- `easy-personal schedule install` writes the Python timer over the Rust one (same unit names).
-- Run the two `claude mcp` lines for each account, as in Step 2.
+- `easy-personal schedule install` writes the Python timer over the Rust one (same unit names), enables it and starts it. If your saved `ExecStart=` line ended with `--retention-days N`, add the same `--retention-days N`. Check with `systemctl --user list-timers | grep easy-personal`.
+- Run the two `claude mcp` lines for each account. In the `add` line, use the `Command:` and `Args:` from the note of that account (`mcp-default.txt` or the file you saved for it), not the default from the README. For each `Environment:` line in the note, add `-e KEY=value` before the name `easy-personal`. If the note says that account had no registration, run only the `remove` line.
 - `easy-personal connector sync` checks the connector entries. They did not change in Step 4, so it should print `nothing to change.`
-- Restore the store backup only if a migration happened. None is expected, because Python and Rust both read schema 11. If you need it, stop every `easy-personal` process, then run `cp -p ~/.easy-personal/store.sqlite.before-rust ~/.easy-personal/store.sqlite`.
+- Restore the store backup only if a migration happened. None is expected, because Python and Rust both read schema 11. A restore also drops everything the store gained since the backup. The next ingest reads it again from your transcripts, if Claude Code has not deleted them. If you need the restore, do these in order:
+
+```bash
+systemctl --user stop easy-personal-ingest.timer easy-personal-ingest.service
+pgrep -af easy-personal
+rm -f ~/.easy-personal/store.sqlite-wal ~/.easy-personal/store.sqlite-shm
+cp -p ~/.easy-personal/store.sqlite.before-rust ~/.easy-personal/store.sqlite
+systemctl --user start easy-personal-ingest.timer
+```
+
+Before the `rm` line, close every process that `pgrep` prints, and every Claude Code session that uses easy-personal. Delete the `-wal` and `-shm` files only when no process has the store open: a stale `-wal` file left from the Rust week would be applied to the restored store.
 
 You can leave `~/.local/bin/easy-personal-rs` and `~/.local/share/easy-personal-rs` in place.
 

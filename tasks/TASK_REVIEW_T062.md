@@ -194,6 +194,58 @@ $ cargo fmt --check                                         -> FMT_OK
 
 The 28 ignored tests were not run (they include `real_keychain_items_cross_check`; the owner runs that in Step 0.3).
 
+**Stage 4 fix round (2026-11-15, 08:08Z to 08:30Z)**
+
+P1-1, keychain gate (Step 0.5 in the document, was 0.3). `--bin` listed nothing since T078 made `keychain.rs` the `[lib]` target:
+
+```
+$ cargo test -p easy-personal-rs --bin easy-personal-rs real_keychain_items_cross_check -- --list --ignored
+     Running unittests src/main.rs (...)
+0 tests, 0 benchmarks
+$ cargo test -p easy-personal-rs --lib real_keychain_items_cross_check -- --list --ignored
+     Running unittests src/keychain.rs (target/debug/deps/easy_personal_keychain-...)
+tests::real_keychain_items_cross_check_with_python_keyring: test
+1 test, 0 benchmarks
+```
+
+The document now uses `--lib` and says `0 passed` means the test did not run. The doc comment at `rust/crates/app/src/keychain.rs:582` names the same `--lib` command (the only src edit; one comment line). New test `the_keychain_gate_command_runs_the_lib_test` in `cutover_doc.rs`: the one `cargo test` line with `real_keychain_items_cross_check` must contain `-p easy-personal-rs`, `--lib`, `-- --ignored` and no `--bin`; `keychain.rs` must still hold `fn real_keychain_items_cross_check` and `--lib real_keychain_items_cross_check` in its comment. With the document line changed back to `--bin easy-personal-rs` it fails: ``the keychain command lacks `--lib`: ...--bin easy-personal-rs real_keychain_items_cross_check``.
+
+P1-2, WAL-safe backup and restore. Step 0 order is now 0.1 record, 0.2 stop the timer (`systemctl --user stop easy-personal-ingest.timer easy-personal-ingest.service`), `pgrep -af easy-personal` must print nothing, and close every Claude Code session (each runs its own Python MCP server) and the Python dashboard; 0.3 backup with the SQLite backup call (the coordinator's `python3 -c` command, used verbatim); 0.4 build and `store-check`; 0.5 keychain test. Step 3 says the install enables and starts the timer again, with a fallback `systemctl --user start`. The rollback's restore block: stop timer, `pgrep`, `rm -f ~/.easy-personal/store.sqlite-wal ~/.easy-personal/store.sqlite-shm`, `cp -p` the backup back, start the timer. Tested on a temp WAL store (HOME = `<t062>/walhome`; the `systemctl` and `pgrep` lines were NOT run, they touch the real user session):
+
+```
+(writer: WAL mode, wal_autocheckpoint=0, 5 rows committed, then kill -9, so they live only in the -wal file)
+-rw-r--r-- 8192  store.sqlite    -rw-r--r-- 32768 store.sqlite-shm    -rw-r--r-- 20632 store.sqlite-wal
+plain cp of store.sqlite -> rows in plain cp: 0
+$ HOME=<walhome> python3 -c "import sqlite3,os;p=os.path.expanduser('~/.easy-personal/store.sqlite');s=sqlite3.connect(p);d=sqlite3.connect(p+'.before-rust');s.backup(d);d.close();s.close()"
+exit 0   -> store.sqlite, store.sqlite.before-rust (8192 bytes)
+rows in backup: 5 ('ok',)
+(later writer adds rows, killed again, a stale -wal is left; store.sqlite-wal and -shm present)
+$ HOME=<walhome> sh -c 'rm -f ~/.easy-personal/store.sqlite-wal ~/.easy-personal/store.sqlite-shm; cp -p ~/.easy-personal/store.sqlite.before-rust ~/.easy-personal/store.sqlite'
+exit 0   -> store.sqlite, store.sqlite.before-rust (no -wal, no -shm)
+rows after restore: 5 [0, 1, 2, 3, 4] ('ok',)
+```
+
+P2-1: Step 0.1 saves `grep ExecStart ~/.config/systemd/user/easy-personal-ingest.service` to `~/easy-personal-cutover-notes/timer.txt` and says to remember `--retention-days N`; Step 3 (both `schedule install` commands, and its expected `ExecStart=` line) and the rollback pass the same `--retention-days N`.
+
+P2-2: Step 0.1 saves `claude mcp get easy-personal` per account to `~/easy-personal-cutover-notes/mcp-default.txt` (other accounts: another file name, with `CLAUDE_CONFIG_DIR`). The rollback re-adds with the saved `Command:` and `Args:` (and `-e KEY=value` per `Environment:` line), not the README default; an account with no saved registration only gets the `remove` line. Step 2 points back at the notes.
+
+P3, flag typos: skipped. The check needs the tokens after each command, which means a different return type for `word_runs` and a second walk, about 25 lines (the limit was 20). Not built; subcommand paths only, as the guide says. I checked the flags in the document by hand while writing them.
+
+Re-run (08:08:49Z, after the fixes; state file rewritten to T062 before each run):
+
+```
+$ cargo test -p easy-personal-rs --test cutover_doc
+test the_keychain_gate_command_runs_the_lib_test ... ok
+test the_document_shows_the_commands_of_every_step ... ok
+test a_made_up_subcommand_is_caught ... ok
+test real_commands_arguments_and_paths_pass ... ok
+test every_command_in_the_cutover_document_exists ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+$ cargo test --workspace --no-fail-fast   -> exit 0; passed 955, failed 0, ignored 28; 0 "FAILED"
+$ cargo clippy --workspace --all-targets -- -D warnings   -> exit 0, no warning
+$ cargo fmt --check                                        -> exit 0
+```
+
 **DELTA**: The owner can follow one document, `rust/docs/CUTOVER.md`, to switch the MCP server, the timer, the connectors and the dashboard from `easy-personal` to `easy-personal-rs` and back, and a test fails when the document names a command that does not exist.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T062.jsonl`, never the

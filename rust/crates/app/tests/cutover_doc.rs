@@ -186,3 +186,40 @@ fn real_commands_arguments_and_paths_pass() {
     assert!(runs.contains(&vec!["mcp".to_string()]));
     assert!(!runs.iter().any(|r| r.iter().any(|w| w == "static")));
 }
+
+/// Since T078 `keychain.rs` is the `[lib]` target, so `--bin` lists no test and the gate would run zero tests. The command
+/// in the document must name `--lib`, the package and the test, and that test must still exist in `keychain.rs`.
+#[test]
+fn the_keychain_gate_command_runs_the_lib_test() {
+    const TEST: &str = "real_keychain_items_cross_check";
+    let doc = doc();
+    let lines: Vec<&str> = doc.lines().filter(|l| l.contains("cargo test")).collect();
+    let gate: Vec<&&str> = lines.iter().filter(|l| l.contains(TEST)).collect();
+    assert_eq!(
+        gate.len(),
+        1,
+        "one `cargo test ... {TEST}` command expected: {gate:?}"
+    );
+    for want in ["-p easy-personal-rs", "--lib", "-- --ignored"] {
+        assert!(
+            gate[0].contains(want),
+            "the keychain command lacks `{want}`: {}",
+            gate[0]
+        );
+    }
+    assert!(
+        !gate[0].contains("--bin"),
+        "a `--bin` filter lists no keychain test"
+    );
+    let source =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/keychain.rs"))
+            .unwrap();
+    assert!(
+        source.contains(&format!("fn {TEST}")),
+        "the test is gone from keychain.rs"
+    );
+    assert!(
+        source.contains(&format!("--lib {TEST}")),
+        "the doc comment in keychain.rs names a wrong command"
+    );
+}
