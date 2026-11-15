@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/WatchView.test.jsx`: AC1 'reads each of the three routes again after 60 s, and stops when the view closes' + 'skips a tick while ... in flight'; AC2 'keeps the last good data and shows the error line ...'; AC3 'graphs share one "now"' (2 tests). Watch file: 34 passed |
+| Verification command run | ☑ pass | `npx vitest run`: `Tests  920 passed (920)`; `npm run build`: `✓ built in 923ms` |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | 1440 px shot of this build against the mock server vs T077's: layout, tiles, graphs, table identical by vision compare (series end at the same right edge because the mock data ends at one time). Shots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp-rust/cc5835e1-dc0e-4f72-a3be-4f6c5c161ce5/scratchpad/t083shots/watch-1440.png` vs `.../t077shots/watch-1440.png`. pass |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `grep -nE '#[0-9a-fA-F]{3,8}\\b|rgba?\\(|hsla?\\(' web/src/WatchView.jsx` found nothing (exit 1); watch.css and app.css unchanged; the existing token test passes. pass |
+| **UI: Responsiveness at target viewports** | ☑ pass | CDP measure: 1440 px scrollW 1440; 1024 px scrollW 1024; 375 px scrollW 375 (innerW equal: no horizontal page scroll). Shots `.../t083shots/watch-{1440,1024,375}.png`. pass |
 
 ---
 
@@ -77,9 +77,9 @@ AssertionError: expected 200 to be close to 191.66666666666666, received differe
       Tests  6 failed | 28 passed (34)
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: 2026-11-15T09:55:56Z, commit 7b3a9dc, same command `cd web && npx vitest run src/WatchView.test.jsx`: `Test Files  1 passed (1)`, `Tests  34 passed (34)` (28 old + 6 new). `grep -n "export function linePath\|setInterval" web/src/WatchView.jsx` prints only `78:    const timer = setInterval(read, REFRESH_MS)`. Full suite `cd web && npx vitest run`: `Tests  920 passed (920)`; `npm run build`: `built in 923ms`.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: A Watch page left open now updates itself every minute (a failed read keeps the old graph and adds the error line), and a graph whose data stopped ends before "now" instead of being stretched to it.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
