@@ -110,29 +110,31 @@ impl Api {
         }
     }
 
-    /// One plan-limit sample per Claude account (T073). A store that cannot be opened gives no sample.
+    /// One plan-limit sample now (T073), for the route test; the sampler thread calls the free function.
+    #[cfg(test)]
     pub(crate) fn sample_limits(&self) {
-        let Ok(path) = (self.store_path)() else {
-            return;
-        };
-        if let Ok(conn) = store::open_checked(&path) {
-            let _ = self.limits.tick(&conn, (self.clock)());
-        }
+        sample_limits(&self.store_path, &self.clock, &self.limits);
     }
 
-    /// The Watch sampler of the plan limits (T073): one sample now, then one every `INTERVAL_S` seconds, until
+    /// The Watch sampler of the plan limits (T073): one sample every `INTERVAL_S` seconds (the first after one interval, so
+    /// that starting `serve` opens the store for nothing: its WAL files would appear in the data folder), until
     /// `stopping` is set (checked every second). Its own thread and tick; nothing is written to the store or to disk.
     pub(crate) fn run_limits_sampler(&self, stopping: Arc<AtomicBool>) {
-        let api = self.clone();
+        // Only what the sample needs, not the whole `Api`: a clone would keep the live tail alive after `stop`.
+        let (store_path, clock, limits) = (
+            Arc::clone(&self.store_path),
+            Arc::clone(&self.clock),
+            Arc::clone(&self.limits),
+        );
         std::thread::spawn(move || {
-            while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
-                api.sample_limits();
+            loop {
                 for _ in 0..limits_watch::INTERVAL_S {
                     if stopping.load(std::sync::atomic::Ordering::Relaxed) {
                         return;
                     }
                     std::thread::sleep(Duration::from_secs(1));
                 }
+                sample_limits(&store_path, &clock, &limits);
             }
         });
     }
@@ -157,6 +159,15 @@ impl Api {
     /// `EASY_PERSONAL_HOME` / `HOME` read on each request (like Python's `config.store_path()`), and the system clock.
     pub fn system() -> Self {
         Api::new(store::store_path, now_micros)
+    }
+}
+
+fn sample_limits(store_path: &StorePath, clock: &Clock, limits: &LimitsWatch) {
+    let Ok(path) = store_path() else {
+        return;
+    };
+    if let Ok(conn) = store::open_checked(&path) {
+        let _ = limits.tick(&conn, clock());
     }
 }
 

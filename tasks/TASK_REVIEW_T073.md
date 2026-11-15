@@ -41,8 +41,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/src/limits_watch.rs` (5 tests: AC1 fresh/stale/missing/broken -> values/null/null, over-100 kept, AC2 1,440 bound + oldest dropped, add/remove/ignore/codex, no write to the account folder); `rust/crates/app/src/api_tests.rs::limits_history_is_guarded_read_only_and_has_the_shape` (AC3: 403 without token, shape, 405 on POST/PUT/PATCH/DELETE, store file and account folder unchanged). All 6 `ok` in `cargo test --workspace` |
+| Verification command run | ☑ pass | `cargo test --workspace` on branch T073 (incl. `store_health_route` and `a_disconnected_stream_ends_and_stop_joins_the_feed`, which caught two real regressions in my first version, fixed): 84 `test result: ok` lines, sum `passed 903 failed 0 ignored 29`, `exit=0`. `cargo clippy --workspace --all-targets` clean |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
@@ -71,9 +71,21 @@ content-length: 0
 date: Sun, 15 Nov 2026 02:48:02 GMT
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (real `serve --no-ingest`, temp HOME, store copy with one Claude account "Demo" whose folder holds a fresh `easy-personal-limits.json` with 37.5 / 12.0):
+```
+2026-11-15T03:50:47Z
+GET /api/limits/history (no token):
+403
+GET /api/limits/history (token), at start:
+{"accounts":[],"interval_s":60}
+2026-11-15T03:51:52Z
+after 65 s:
+HTTP/1.1 200 OK
+content-type: application/json
+{"accounts":[{"id":1,"label":"Demo","samples":[{"five_h_pct":37.5,"seven_d_pct":12.0,"t":1794714707}]}],"interval_s":60}
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: the dashboard server now answers `GET /api/limits/history` with a per-account 24 h in-memory series of 5 h / 7 d plan-limit used % (null where the snapshot is missing, broken or stale), one sample per minute.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T073.jsonl`, never the
 implementing agent alone]
