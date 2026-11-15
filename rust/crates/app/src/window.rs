@@ -145,7 +145,11 @@ mod shell {
             Ok(machine) => machine,
             Err(e) => return fail(&Failure(1, e)),
         };
-        let running = match server::start(Some(&root), Some(feed), Some(machine)) {
+        let limits = match crate::sampler::limits() {
+            Ok(limits) => limits,
+            Err(e) => return fail(&Failure(1, e)),
+        };
+        let running = match server::start(Some(&root), Some(feed), Some(machine), Some(limits)) {
             Ok(running) => running,
             Err(e) => return fail(&Failure(1, e)),
         };

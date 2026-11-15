@@ -1,11 +1,12 @@
 //! A sampler (T072, FR-095): one thread that calls `take` every `interval` (the first call is made by `start` itself), and keeps what it returns in a
 //! bounded in-memory [`Ring`]. Nothing is written to disk or to the store. It knows nothing of what a sample is, so the
-//! plan-limit sampler (T073) and the tray reuse it. [`machine`] is the machine status sampler of `serve` and `app`.
+//! plan-limit sampler (T073, [`limits`]) and the tray reuse it. [`machine`] is the machine status sampler of `serve` and `app`.
 //! Dropping the sampler stops it like [`Sampler::stop`].
 
 use easy_personal_core::clock::now_micros;
+use easy_personal_core::limits_watch::{self, Round};
 use easy_personal_core::machine::{CAPACITY, Collector, INTERVAL_S, Ring, Sample};
-use easy_personal_core::store::store_path;
+use easy_personal_core::store::{self, StoreError, store_path};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -98,6 +99,42 @@ pub(crate) fn machine() -> Result<Sampler<Sample>, String> {
         Duration::from_secs(INTERVAL_S),
         move || collector.sample(now_micros() / 1_000_000),
     )
+}
+
+/// The plan-limit sampler (T073, FR-096): every [`INTERVAL_S`] seconds one [`Round`], [`CAPACITY`] kept (24 h), on its own
+/// thread `easy-personal-limits`. It opens the store read-only for the accounts; a store that cannot be read is a gap.
+/// The round `Sampler::start` takes at once is a gap too, so the first real round comes after one interval: a read open
+/// of the store while `serve` starts touches the `-shm` file of a WAL store, and
+/// `store_health_route::the_route_writes_nothing_and_names_no_folder` (a `wal_no_shm` store whose files must keep their
+/// bytes and mtimes) fails on that.
+pub(crate) fn limits() -> Result<Sampler<Round>, String> {
+    let mut first = true;
+    limits_with(
+        move || {
+            if std::mem::take(&mut first) {
+                Err(StoreError::NoStore)
+            } else {
+                store::store_path()
+            }
+        },
+        now_micros,
+        Duration::from_secs(INTERVAL_S),
+    )
+}
+
+/// [`limits`] with the store, the clock (microseconds) and the interval given, for a test.
+pub(crate) fn limits_with(
+    mut store_path: impl FnMut() -> Result<PathBuf, StoreError> + Send + 'static,
+    clock: impl Fn() -> i64 + Send + 'static,
+    interval: Duration,
+) -> Result<Sampler<Round>, String> {
+    Sampler::start("easy-personal-limits", CAPACITY, interval, move || {
+        let now = clock();
+        match store_path().and_then(|path| store::open_checked(&path)) {
+            Ok(conn) => limits_watch::round(&conn, now),
+            Err(_) => Round::gap(now),
+        }
+    })
 }
 
 #[cfg(test)]

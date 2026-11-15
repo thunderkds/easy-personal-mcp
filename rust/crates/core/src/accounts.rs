@@ -337,6 +337,7 @@ fn limits(account: &Account, now: i64) -> Value {
 /// One Claude account's plan-limit percents, for the Watch sampler (T073): the 5 h and 7 d `used_percentage` from the
 /// status-line snapshot through [`limits`] (no second parser). A window that is missing, broken or stale (its reset time
 /// passed) is `None`.
+#[derive(Clone, Debug)]
 pub struct LimitPercents {
     pub id: i64,
     pub label: String,

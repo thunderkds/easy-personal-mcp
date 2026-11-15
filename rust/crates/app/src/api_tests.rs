@@ -1004,8 +1004,9 @@ async fn limits_history_is_guarded_read_only_and_has_the_shape() {
         )
         .unwrap();
     let before = std::fs::read(store.path()).unwrap();
-    let (app, api, _) = health_app(store.path());
-
+    let path = store.path();
+    // no sampler: an empty history, still guarded
+    let (app, _, _) = health_app(path.clone());
     assert_eq!(
         get(&app, "/api/limits/history", false).await.0,
         StatusCode::FORBIDDEN
@@ -1014,7 +1015,16 @@ async fn limits_history_is_guarded_read_only_and_has_the_shape() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(empty, json!({ "accounts": [], "interval_s": 60 }));
 
-    api.sample_limits();
+    // a sampler takes its first round at once
+    let sampler = crate::sampler::limits_with(
+        move || Ok(path.clone()),
+        || FROZEN_NOW,
+        Duration::from_secs(3600),
+    )
+    .unwrap();
+    let api =
+        Api::new(|| Err(StoreError::NoHome), || FROZEN_NOW).with_limits(Some(sampler.history()));
+    let app = router(TOKEN.into(), PORT, api);
     let (_, body) = get(&app, "/api/limits/history", true).await;
     assert_eq!(body["interval_s"], 60);
     let account = body["accounts"].as_array().unwrap().last().unwrap();
@@ -1040,5 +1050,30 @@ async fn limits_history_is_guarded_read_only_and_has_the_shape() {
         std::fs::read_dir(&folder).unwrap().count(),
         1,
         "the account folder is untouched"
+    );
+}
+
+#[test]
+fn the_limits_sampler_ticks_on_its_own_thread_and_stop_joins_it_quickly() {
+    let store = TempStore::new("store-v11.sqlite");
+    let path = store.path();
+    let sampler = crate::sampler::limits_with(
+        move || Ok(path.clone()),
+        || FROZEN_NOW,
+        Duration::from_millis(10),
+    )
+    .unwrap();
+    let history = sampler.history();
+    let end = Instant::now() + Duration::from_secs(10);
+    while history.lock().unwrap().len() < 3 {
+        assert!(Instant::now() < end, "the limits sampler did not tick");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let began = Instant::now();
+    sampler.stop();
+    assert!(
+        began.elapsed() < Duration::from_secs(1),
+        "{:?}",
+        began.elapsed()
     );
 }
