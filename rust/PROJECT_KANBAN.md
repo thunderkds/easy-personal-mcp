@@ -12,7 +12,14 @@
 - [ ] **T062** — Retire Python 5: cutover (README quick start, MCP registration and timer reinstall steps) and one week of use with Rust as the default | Common-Infrastructure | C1 | Risk: Medium | P3 | OWNER GATE: go-ahead, macOS/Windows question; Depends on T061; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert
 
+- [ ] **T074** — Watch 3: alerts with hysteresis + desktop notifications (D-Bus), `GET /api/alerts`, pause | Backend-Developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T074.md` (2026-11-15); Depends on T072, T073; PRD FR-097
+- [ ] **T076** — Watch 5: `tray` command (tray icon 4 states, native menu, alerts on, XDG autostart) | Backend-Developer | C3 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T076.md` (2026-11-15); Depends on T072-T074; HITL menu check; PRD FR-099
+- [ ] **T077** — Watch 6: dashboard Watch view (24 h graphs, effectiveness table) | Frontend-Developer | C2 | Risk: Low | P2 | guide `tasks/TASK_GUIDE_T077.md` (2026-11-15); Depends on T072, T073, T075; HITL layout check; PRD FR-100
+
 ### In Progress
+- [ ] **T072** — Watch 1: machine status reader + 60 s in-memory sampler, `GET /api/machine`, CLI `machine` | Backend-Developer | C2 | Risk: Low | P1 | guide `tasks/TASK_GUIDE_T072.md` (2026-11-15); PRD FR-095; started 2026-11-15 on the owner's "continue your work as parallel [admin]": own worktree `easy-personal-mcp-wt/T072`, branch `T072`
+- [ ] **T073** — Watch 2: plan-limit watch per account (5 h / 7 d) in the sampler, `GET /api/limits/history` | Backend-Developer | C1 | Risk: Low | P1 | guide `tasks/TASK_GUIDE_T073.md` (2026-11-15); PRD FR-096; started 2026-11-15: own worktree `easy-personal-mcp-wt/T073`, branch `T073`, parallel with T072 (merge T072 first)
+- [ ] **T075** — Watch 4: effectiveness on read (tokens per good result, per task done), API + CLI + MCP tool | Backend-Developer | C3 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T075.md` (2026-11-15); PRD FR-098; Done = first merge (⚠ decided for the owner); started 2026-11-15: own worktree `easy-personal-mcp-wt/T075`, branch `T075`
 - [ ] **T070** — UI redesign 3: per-screen polish vs the artboards (Usage, Warnings, Kit, Workspaces, Agents; problem red) | Frontend-Developer | C2 | Risk: Low | P2 | Depends on T068; plan G3/G4; guide `tasks/TASK_GUIDE_T070.md` (2026-11-14); started 2026-11-14 after T068 merged: own worktree `easy-personal-mcp-wt/T070`, branch `T070`
 
 ### Ready for Review
@@ -121,4 +128,4 @@
 | 1 Set up | ✅ Done (T001 spike, toolchain and Ubuntu packages) |
 | 2 Plan | ✅ Done for P2 (`BRAINSTORMING_LOG_RUSTP2.md` locked 2026-11-11); P3 not planned yet |
 | 3 Execute | 🔄 In Progress (P0, P1, P1b, P2 Done; P3 planned 2026-11-11, `BRAINSTORMING_LOG_RUSTP3.md`, T040-T051 in Todo) |
-| 0.5 Watch + tray (new feature) | ✅ Path A chosen 2026-11-14 (owner: "yes, just following the guide"); open questions 1-3 take the recommended answers; tray design = `docs/design/graphite-mint/Tray*.dc.html`, native menu on Linux. Next: Stage 2 (amend PRD FR-050 + Out of Scope, `to-issues`), tray shell after T071 |
+| 0.5 Watch + tray (new feature) | ✅ Path A chosen 2026-11-14 (owner: "yes, just following the guide"); open questions 1-3 take the recommended answers; tray design = `docs/design/graphite-mint/Tray*.dc.html`, native menu on Linux. Stage 2 done 2026-11-15: breakdown T072-T077 approved by the owner ("Approve as listed"); PRD FR-095..FR-100 added, FR-050 and Out of Scope amended; done = first merge (⚠ decided for the owner) |
