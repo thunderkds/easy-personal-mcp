@@ -627,3 +627,8 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **Never `git commit -a` on main**: the owner keeps uncommitted edits to the root `PROJECT_KANBAN.md` and HUN guides there. Add paths by name.
 - **Load average ~20 with 3-4 cargo worktrees**: `ingest_coexist`, `writes` 1 s timing, `*_parity` timing tests fail; re-run alone before calling a failure (T079 hardens them).
 - **A sampler that opens the store at start creates `-wal`/`-shm`** and breaks the store-health "writes nothing" tests (T073: first sample after one interval).
+
+### 2026-11-15 — Board pull rewrites TASK_GUIDE files in the main checkout
+- **Files**: `scripts/pull_moment.py`, `scripts/board_sync.py`, `tasks/TASK_GUIDE_HUN-*.md`
+- `pull_moment.py` (wake, craft-spawn-prompt spawn) runs `pull_cache` in the main checkout and rewrites `tasks/TASK_GUIDE_<ID>.md` from the Linear board description. A board-tracked guide changed in git but not pushed with `board_sync.py update --guide <ID>` gets reverted to the stale board text as an uncommitted edit, which then blocks a merge ("local changes would be overwritten").
+- So the uncommitted `TASK_GUIDE_HUN-*` edits on main may be pull artifacts, not owner edits. After merging a board-tracked guide change, run `board_sync.py update --guide <ID>`. Before a merge blocked by such a file, stash only that file (`git stash push -- <path>`) and tell the owner; never discard it.
