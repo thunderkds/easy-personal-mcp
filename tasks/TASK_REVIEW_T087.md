@@ -105,3 +105,9 @@ PASS: .../rust/target/deb/easy-personal-rs_0.2.0_amd64.deb
 **DELTA**: The owner can run one script to get an installable Ubuntu `.deb` of the Rust app (programs, dashboard page, menu and tray entries, icons) and one test that proves its contents, without installing anything.
 
 **WITNESS**: run by the common-infrastructure agent for T087 on 2026-11-15 (build at 17:12-17:13 local, test runs after; timestamps in the agent's own session); `memory/event-trace/T087.jsonl` not read by the agent, so the Supervisor should derive the witness from it.
+
+## Stage 4/5 (Supervisor, 2026-11-15)
+- code-review: 0 P0, 0 P1. P2 fixed in a4a9d94: README now names the tray host (Ubuntu AppIndicators extension); found live, the owner's GNOME has no `org.kde.StatusNotifierWatcher`, the tray prints `no tray area (no StatusNotifier host)`. Accepted agent decisions: absolute `Exec=/usr/bin/easy-personal-rs` (menu never runs the ~/.local cutover copy); Maintainer `thunderkds <thunderkds@users.noreply.github.com>` (no personal mail). Entry point `rust/packaging/build-deb.sh` exists.
+- security-review: files only, no maintainer scripts (control archive `./control` only), all root/root, binaries 0755, no setuid, no link, nothing outside /usr; `rm -rf` limited to `rust/target/deb/stage`; secret scan of added lines: 0 hits (only the word "secrets" in Description).
+- /verify (worktree, a4a9d94): `build-deb.sh` build exit=0; `test_deb.sh` PASS exit=0 (`--version` 0.2.0, doctor launcher at extract path, `GET / 200`, server stopped, negative case rejected naming easy-personal-tray.desktop); `cargo clippy --workspace --all-targets -- -D warnings` exit=0; `cargo fmt --check` exit=0. Workspace tests: agent run 991 passed; `live.rs ten_streams_...` failed once under load, passed alone (8/8); no Rust file changed.
+- easy-verifier score: not run (server ECONNREFUSED this session).
