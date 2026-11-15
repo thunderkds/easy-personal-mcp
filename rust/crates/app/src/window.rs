@@ -387,28 +387,44 @@ mod shell {
         }
     }
 
-    fn menu_of(handle: &AppHandle, rows: &[Row]) -> tauri::Result<Menu<Wry>> {
+    /// The handle of one shown row, to change its text or tick in place (`None` for a separator).
+    enum Item {
+        Plain(MenuItem<Wry>),
+        Check(CheckMenuItem<Wry>),
+        Separator,
+    }
+
+    fn menu_of(handle: &AppHandle, rows: &[Row]) -> tauri::Result<(Menu<Wry>, Vec<Item>)> {
         let menu = Menu::new(handle)?;
+        let mut items = Vec::with_capacity(rows.len());
         for row in rows {
-            match row {
-                Row::Info(text) => {
-                    menu.append(&MenuItem::new(handle, text, false, None::<&str>)?)?
-                }
+            let item = match row {
+                Row::Info(text) => Item::Plain(MenuItem::new(handle, text, false, None::<&str>)?),
                 Row::Action(id, text) => {
-                    menu.append(&MenuItem::with_id(handle, *id, text, true, None::<&str>)?)?
+                    Item::Plain(MenuItem::with_id(handle, *id, text, true, None::<&str>)?)
                 }
-                Row::Check(id, text, checked) => menu.append(&CheckMenuItem::with_id(
+                Row::Check(id, text, checked) => Item::Check(CheckMenuItem::with_id(
                     handle,
                     *id,
                     text,
                     true,
                     *checked,
                     None::<&str>,
-                )?)?,
-                Row::Separator => menu.append(&PredefinedMenuItem::separator(handle)?)?,
+                )?),
+                Row::Separator => {
+                    menu.append(&PredefinedMenuItem::separator(handle)?)?;
+                    items.push(Item::Separator);
+                    continue;
+                }
+            };
+            match &item {
+                Item::Plain(i) => menu.append(i)?,
+                Item::Check(i) => menu.append(i)?,
+                Item::Separator => {}
             }
+            items.push(item);
         }
-        Ok(menu)
+        Ok((menu, items))
     }
 
     /// "Open dashboard" and the waiting / failing rows: focus the window when it is open, else open it.
@@ -422,44 +438,48 @@ mod shell {
         }
     }
 
-    /// The tray's event loop: the icon and the menu (when a tray area is there), refreshed every [`TRAY_TICK`] when a
-    /// row or the state changed; a closed dashboard window does not end it, Quit or a signal does.
+    /// The tray's event loop: the icon and the menu, refreshed every [`TRAY_TICK`]; a closed dashboard window does not
+    /// end it, Quit or a signal does. The icon is always made: without a StatusNotifier host now, one line says so, and
+    /// the tray library registers the icon when a host appears later (an extension turned on after login).
     fn tray_loop(running: &Running, signalled: &Arc<AtomicBool>) -> Result<i32, Failure> {
         let started = Arc::new(AtomicBool::new(false));
         watch_startup(&started);
         let app = build_app()?;
         started.store(true, Ordering::Relaxed);
-        let inputs = running.tray_inputs();
-        if tray::tray_host(None) {
-            let theme = tray::theme_of(tray::desktop_color_scheme(None));
-            let view = inputs.view();
-            let menu = menu_of(app.handle(), &view.rows)
-                .map_err(|e| Failure(1, format!("cannot make the tray menu: {e}")))?;
-            let (port, token, shared) = (
-                running.port,
-                running.token.clone(),
-                Arc::clone(&inputs.alerts),
-            );
-            TrayIconBuilder::with_id(TRAY_ID)
-                .icon(icon(theme, view.state))
-                .tooltip(&view.tooltip)
-                .menu(&menu)
-                .on_menu_event(move |handle, event| match event.id().as_ref() {
-                    tray::OPEN | tray::WAITING | tray::FAILING => {
-                        show_dashboard(handle, port, &token)
-                    }
-                    tray::PAUSE => shared.set_paused(!shared.paused()),
-                    tray::QUIT => handle.exit(0),
-                    _ => {}
-                })
-                .build(&app)
-                .map_err(|e| Failure(1, format!("cannot show the tray icon: {e}")))?;
-            watch_tray(inputs, view, theme, app.handle().clone());
-        } else {
+        if !tray::tray_host(None) {
             eprintln!(
                 "easy-personal-rs: no tray area (no StatusNotifier host): the tray icon is not shown; alerts keep working"
             );
         }
+        let icons = tray::icon_dir(
+            std::env::var_os("XDG_RUNTIME_DIR"),
+            easy_personal_core::store::store_path().ok(),
+        )
+        .map_err(|e| Failure(1, e))?;
+        let inputs = running.tray_inputs();
+        let theme = tray::theme_of(tray::desktop_color_scheme(None));
+        let view = inputs.view();
+        let (menu, items) = menu_of(app.handle(), &view.rows)
+            .map_err(|e| Failure(1, format!("cannot make the tray menu: {e}")))?;
+        let (port, token, shared) = (
+            running.port,
+            running.token.clone(),
+            Arc::clone(&inputs.alerts),
+        );
+        let shown = TrayIconBuilder::with_id(TRAY_ID)
+            .temp_dir_path(&icons)
+            .icon(icon(theme, view.state))
+            .menu(&menu)
+            .on_menu_event(move |handle, event| match event.id().as_ref() {
+                tray::OPEN | tray::WAITING | tray::FAILING => show_dashboard(handle, port, &token),
+                tray::PAUSE => shared.set_paused(!shared.paused()),
+                tray::QUIT => handle.exit(0),
+                _ => {}
+            })
+            .build(&app)
+            .map_err(|e| Failure(1, format!("cannot make the tray icon: {e}")))?;
+        drop(shown); // the manager keeps it; a clone held here would outlive the exit and leave the icon file behind
+        watch_tray(inputs, view, items, theme, app.handle().clone());
         watch_signals(running, app.handle().clone(), Arc::clone(signalled));
         eprintln!(
             "easy-personal-rs: tray running, dashboard on http://127.0.0.1:{}/",
@@ -476,31 +496,57 @@ mod shell {
         }))
     }
 
-    /// Every [`TRAY_TICK`]: a new view; when it differs from the last, the icon, tooltip and menu are set on the main
-    /// thread. Ends when the event loop is gone.
-    fn watch_tray(inputs: tray::Inputs, mut last: tray::View, theme: Theme, handle: AppHandle) {
+    /// Every [`TRAY_TICK`]: a new view. The icon is set only when the state changed. When the rows keep their places
+    /// (`tray::same_shape`) only the changed texts and ticks are set; else the menu is rebuilt. Tauri runs each call on
+    /// the main thread. Ends when the icon is gone or a call fails (the event loop ended).
+    fn watch_tray(
+        inputs: tray::Inputs,
+        mut last: tray::View,
+        mut items: Vec<Item>,
+        theme: Theme,
+        handle: AppHandle,
+    ) {
         thread::spawn(move || {
             loop {
                 thread::sleep(TRAY_TICK);
+                // looked up each tick and dropped at its end: at exit the manager's drop removes the icon file
+                let Some(shown) = handle.tray_by_id(TRAY_ID) else {
+                    return;
+                };
                 let view = inputs.view();
-                if view == last {
-                    continue;
-                }
-                last = view.clone();
-                let main = handle.clone();
-                let sent = handle.run_on_main_thread(move || {
-                    let Some(icon_of_tray) = main.tray_by_id(TRAY_ID) else {
-                        return;
-                    };
-                    let _ = icon_of_tray.set_icon(Some(icon(theme, view.state)));
-                    let _ = icon_of_tray.set_tooltip(Some(&view.tooltip));
-                    if let Ok(menu) = menu_of(&main, &view.rows) {
-                        let _ = icon_of_tray.set_menu(Some(menu));
-                    }
-                });
-                if sent.is_err() {
+                if view.state != last.state
+                    && shown.set_icon(Some(icon(theme, view.state))).is_err()
+                {
                     return;
                 }
+                if tray::same_shape(&view.rows, &last.rows) {
+                    for ((new, old), item) in view.rows.iter().zip(&last.rows).zip(&items) {
+                        if new == old {
+                            continue;
+                        }
+                        let done = match (new, item) {
+                            (Row::Info(text) | Row::Action(_, text), Item::Plain(i)) => {
+                                i.set_text(text)
+                            }
+                            (Row::Check(_, text, checked), Item::Check(i)) => {
+                                i.set_text(text).and_then(|()| i.set_checked(*checked))
+                            }
+                            _ => Ok(()),
+                        };
+                        if done.is_err() {
+                            return;
+                        }
+                    }
+                } else {
+                    let Ok((menu, fresh)) = menu_of(shown.app_handle(), &view.rows) else {
+                        return;
+                    };
+                    if shown.set_menu(Some(menu)).is_err() {
+                        return;
+                    }
+                    items = fresh;
+                }
+                last = view;
             }
         });
     }

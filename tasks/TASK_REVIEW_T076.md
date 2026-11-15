@@ -129,7 +129,7 @@ implementing agent alone]
 
 ## Menu proposal
 
-Native Linux menu (AppIndicator via Tauri `tray-icon`), rebuilt on each 5 s alert-engine look. Source: `docs/design/graphite-mint/TrayPopover.dc.html`, reduced to the rows named in the guide's Restated intent 2. Example values are the canvas's `attention` sample. "info" = disabled row (text only); "action" = clickable.
+Native Linux menu (AppIndicator via Tauri `tray-icon`), refreshed on each 5 s look (in place since the fix round; rebuilt only when rows come or go). Source: `docs/design/graphite-mint/TrayPopover.dc.html`, reduced to the rows named in the guide's Restated intent 2. Example values are the canvas's `attention` sample. "info" = disabled row (text only); "action" = clickable.
 
 | # | Row (exact label) | Kind | Shown when | Example / other forms |
 |---|---|---|---|---|
@@ -213,20 +213,50 @@ test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 153 filtered out; f
 12 'label': <'Quit'>, 'enabled': <true>
 ```
 
-- The icon file the item served (`IconName` = `/run/user/1000/tray-icon/tray-icon-easy-personal-0.png`, 32x32) has `magick compare -metric AE` = `0` differing pixels against `icons/tray/dark/idle-32.png`. That is the T071 icon (dark theme: the portal is unreachable on the test bus).
+- The icon file the item served (first round: `IconName` = `/run/user/1000/tray-icon/tray-icon-easy-personal-0.png`, the library's default folder; since the fix round the tray names the folder itself, see below; 32x32) has `magick compare -metric AE` = `0` differing pixels against `icons/tray/dark/idle-32.png`. That is the T071 icon (dark theme: the portal is unreachable on the test bus).
 - Clicking `Pause alerts` (dbusmenu `Event clicked`) made the next rebuilt menu show `'Pause alerts'`, `'toggle-state': <1>`.
 - `Open dashboard` opened one window `easy-personal` (X11 backend, `xwininfo` count 0 -> 2 frame+client). A second click made no second window (count stays 2). After Wnck closed the window, the tray kept running, and `Open dashboard` opened it again. `Quit` ended the process with `exit 0`, and the icon temp file was removed. SIGTERM printed `stopping on a signal` and exited 0. With no display, `tray` exited 5 (output in AFTER).
 
-**Leak gate**: no new `/api` route, so nothing was registered in `rust/parity/leak_rust.py`. The pause toggle sets the same in-memory flag as `POST /api/alerts/pause`.
+**Leak gate**: no new `/api` route. The `tray` CLI command is registered in `rust/parity/leak_rust.py` `CLI_ELSEWHERE` (fix round; window-only like `app`). The pause toggle sets the same in-memory flag as `POST /api/alerts/pause`.
 
 **Dependency rule**: no new crate. Feature `tauri/tray-icon` was added to the `window` feature. `tray-icon` 0.25.1, `libappindicator` 0.9.0 and `muda` 0.20.0 were already in `Cargo.lock`, which is unchanged. At run time it loads `libayatana-appindicator3.so.1`, which is installed. The T023 test `no_capability_file_exists_and_no_tauri_feature_adds_power` now expects this one feature (`tray-icon` left its forbidden list). `the_compiled_capability_set_is_empty` still passes.
 
 **Cut list**:
 - The icon follows the current values with no 85 % re-arm band (the popups keep theirs).
 - The theme is read once at start.
+- No tooltip: AppIndicator has none on Linux (`tray-icon` `set_tooltip` is a no-op there), so the tray sets none.
 - No ingest at tray start (`app` ingests by default).
 - The waiting/failing rows open the dashboard, not the Live view directly.
 - One icon size (32 px; the panel scales it).
 - `--autostart on` refuses paths holding `" ` $ \ %` or control characters instead of escaping them.
 - Non-Linux trays (out of scope).
 
+---
+
+## Fix round 1 (Stage 4 + /verify findings), backend-developer, 2026-11-15
+
+| # | Finding | Fix | Evidence |
+|---|---|---|---|
+| 1 | Security P2: `tray-icon` writes the icon PNG with `File::create` (follows symlinks, predictable name) into `dirs::runtime_dir().unwrap_or_else(std::env::temp_dir).join("tray-icon")`. With `XDG_RUNTIME_DIR` unset that is `/tmp/tray-icon`, so another local user could plant a symlink. | `tray::icon_dir` uses the lock's folder rule (`private_dir`): `$XDG_RUNTIME_DIR/tray-icon` when absolute, else `<store folder>/tray-icon` (`~/.easy-personal/tray-icon` or `EASY_PERSONAL_HOME`). It never falls back to `/tmp`, and with no folder it is an error. `TrayIconBuilder::temp_dir_path(icon_dir)`. The lock also refuses a symlink (P3). | Tests `the_icon_folder_is_private_and_never_tmp` and `a_symlinked_lock_is_refused`. Real run with `env -u XDG_RUNTIME_DIR`: the item's `IconName` = `$SCRATCH/ephome2/tray-icon/tray-icon-easy-personal-0.png`, and `ls /tmp/tray-icon` gave `No such file or directory`. |
+| 2a | Leak gate: `check cli commands all registered FAILED (22 commands; unregistered ['tray'])` | `tray` added to `CLI_ELSEWHERE` (window-only like `app`) | `check cli commands all registered   ok (22 commands)` |
+| 2b | Leak gate: `store-check made no file beside the store ... FAILED` | Not caused by T076 code; it is load-dependent. A debug print showed the extra files were `store.sqlite-shm`, `store.sqlite-wal`, left by the gate's `serve` stop. The failing labels changed between runs: first healthy, text past the cut, blob source, wal without shm; then healthy, text past the cut, blob source, blob time. Load average at those runs was about 30 (my full test suites and others were running). The same T076 binary then passed twice under lower load (09:06 and 09:07Z, `0 hits`, no FAILED). The `serve` code path is unchanged apart from one extra `Arc` field in `Running`. | Final gate below |
+| 3 | Code-review P2: `set_icon` and `set_menu` ran on every view change | `watch_tray` sets the icon only when the state changes. When `tray::same_shape` holds (same row kinds and ids), it calls `set_text` / `set_checked` on the kept item handles. It rebuilds the menu only when a row comes or goes. | Test `the_shape_decides_update_or_rebuild`. Real run: after `Pause alerts` was clicked, the dbusmenu item ids stayed 2..12 (`same item ids: updated in place, not rebuilt`) with `toggle-state <1>`. After 70 s, row 6 changed in place to `CPU 14 % · RAM 29 % · disk 21 %`, and the icon file stayed `-0.png` (not rewritten). |
+| 4 | Code-review P2: a host that appears later never got the icon | The icon is always built. The "no tray area" line is only a warning. | Real run: the tray started on a private bus with no watcher and printed the warning. The stand-in watcher started 6 s later, and the log shows `register sender=:1.2 arg=/org/ayatana/NotificationItem/tray_icon_tray_app_easy_personal`. |
+| P3 | Tooltip is a no-op on Linux | `View.tooltip` and the tooltip calls were removed; recorded in the cut list | — |
+| P3 | `signalled` param | Kept: `watch_signals` uses it to tell a signal stop from Quit (same as `app`) | — |
+| new | The first version of fix 3 kept a `TrayIcon` clone in the refresh thread, so at Quit the icon file stayed in the folder | The thread now looks the icon up each tick (`tray_by_id`) and holds it only for that tick | Real run: icon folder while running `tray-icon-easy-personal-0.png`; after Quit `exit 0` and the folder is empty (`[]`) |
+
+**Tests**:
+- Window build: `cargo test --features window -p easy-personal-rs --bin easy-personal-rs -- window:: tray::` gave `test result: ok. 22 passed; 0 failed`.
+- 2026-11-15T09:33:59Z: `cargo test --workspace --no-fail-fast` gave `suite exit 0`, 91 binaries, **987 passed, 0 failed, 28 ignored**.
+- `cargo clippy --all-targets` (default build and `--features window`): no warning.
+
+**Leak gate, final** (2026-11-15T09:43:25Z, after `cargo build`, with no tray, watcher, bus or cargo of mine running; command `env -u CLAUDE_CONFIG_DIR .../parity/.venv/bin/python parity/leak_rust.py`):
+
+```text
+check store-check made no file beside the store (healthy)  ok (4 files)
+check cli commands all registered   ok (22 commands)
+leak check: 0 hits over 42 canaries, 818 surfaces, 1800313 bytes
+exit=0
+```
+85 `check ... ok` lines, no `FAILED` line.

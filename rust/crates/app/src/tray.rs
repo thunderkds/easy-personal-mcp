@@ -79,12 +79,24 @@ pub(crate) enum Row {
     Separator,
 }
 
+/// True when two menus have the same rows in the same places (kind and id), so the shown one can be updated item by
+/// item (text, tick) instead of rebuilt.
+pub(crate) fn same_shape(a: &[Row], b: &[Row]) -> bool {
+    a.len() == b.len()
+        && a.iter().zip(b).all(|pair| match pair {
+            (Row::Info(_), Row::Info(_)) | (Row::Separator, Row::Separator) => true,
+            (Row::Action(x, _), Row::Action(y, _)) | (Row::Check(x, _, _), Row::Check(y, _, _)) => {
+                x == y
+            }
+            _ => false,
+        })
+}
+
 /// What the tray shows at one look.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct View {
     pub state: State,
     pub rows: Vec<Row>,
-    pub tooltip: String,
 }
 
 fn sessions(live: &Value) -> &[Value] {
@@ -233,11 +245,7 @@ pub(crate) fn view(
         Row::Info("127.0.0.1 · local only".into()),
         Row::Action(QUIT, "Quit".into()),
     ]);
-    View {
-        state,
-        rows,
-        tooltip: format!("Easy Personal · {live}"),
-    }
+    View { state, rows }
 }
 
 /// What the tray reads every look: the server's live tail, its two samplers and the alerts' pause flag.
@@ -276,28 +284,47 @@ impl Inputs {
 // -- single instance ---------------------------------------------------------------------------------------------------
 
 const LOCK_FILE: &str = "easy-personal-tray.lock";
+const ICON_DIR: &str = "tray-icon";
 
-/// `$XDG_RUNTIME_DIR/easy-personal-tray.lock` when that is an absolute path, else the lock beside the store
-/// (`~/.easy-personal/`, or `EASY_PERSONAL_HOME`).
-pub(crate) fn lock_path(
-    runtime_dir: Option<OsString>,
-    store: Option<PathBuf>,
-) -> Result<PathBuf, String> {
+/// The tray's own folder: `$XDG_RUNTIME_DIR` when that is an absolute path, else the store's folder (`~/.easy-personal/`,
+/// or `EASY_PERSONAL_HOME`). Never the shared temp folder (`/tmp`): another user could plant a symlink there.
+fn private_dir(runtime_dir: Option<OsString>, store: Option<PathBuf>) -> Result<PathBuf, String> {
     if let Some(dir) = runtime_dir.map(PathBuf::from).filter(|d| d.is_absolute()) {
-        return Ok(dir.join(LOCK_FILE));
+        return Ok(dir);
     }
     store
         .as_deref()
         .and_then(Path::parent)
-        .map(|dir| dir.join(LOCK_FILE))
-        .ok_or_else(|| "no runtime folder and no home folder for the tray lock".into())
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "no runtime folder and no home folder for the tray".into())
 }
 
-/// Takes the lock: `Some(file)` while it is held (drop it to let go), `None` when another process holds it.
+/// `<private dir>/easy-personal-tray.lock` ([`private_dir`]).
+pub(crate) fn lock_path(
+    runtime_dir: Option<OsString>,
+    store: Option<PathBuf>,
+) -> Result<PathBuf, String> {
+    private_dir(runtime_dir, store).map(|dir| dir.join(LOCK_FILE))
+}
+
+/// `<private dir>/tray-icon` ([`private_dir`]): where the tray library writes the icon PNG it hands to the panel. Given
+/// to it explicitly, because its own default falls back to `/tmp/tray-icon` when `XDG_RUNTIME_DIR` is unset.
+pub(crate) fn icon_dir(
+    runtime_dir: Option<OsString>,
+    store: Option<PathBuf>,
+) -> Result<PathBuf, String> {
+    private_dir(runtime_dir, store).map(|dir| dir.join(ICON_DIR))
+}
+
+/// Takes the lock: `Some(file)` while it is held (drop it to let go), `None` when another process holds it. A symlink
+/// at `path` is refused.
 pub(crate) fn try_lock(path: &Path) -> Result<Option<File>, String> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)
             .map_err(|e| format!("cannot make the lock folder: {}", e.kind()))?;
+    }
+    if fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err("the tray lock is a symlink: not opened".into());
     }
     let file = OpenOptions::new()
         .read(true)
@@ -630,7 +657,6 @@ mod tests {
                 Row::Action(QUIT, "Quit".into()),
             ]
         );
-        assert_eq!(v.tooltip, "Easy Personal · 2 sessions active");
         assert_eq!(
             view(&l, Some(&m), Some(&r), true).rows[8],
             Row::Check(PAUSE, "Pause alerts".into(), true)
@@ -772,6 +798,93 @@ mod tests {
             "free again once the first ends"
         );
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Security fix round (Stage 4): the icon folder follows the lock's rule and is never the shared temp folder.
+    #[test]
+    fn the_icon_folder_is_private_and_never_tmp() {
+        let store = PathBuf::from("/home/u/.easy-personal/store.sqlite");
+        let at = |rt: Option<&str>| icon_dir(rt.map(OsString::from), Some(store.clone())).unwrap();
+        assert_eq!(
+            at(Some("/run/user/1000")),
+            PathBuf::from("/run/user/1000/tray-icon")
+        );
+        assert_eq!(
+            at(None),
+            PathBuf::from("/home/u/.easy-personal/tray-icon"),
+            "XDG_RUNTIME_DIR unset"
+        );
+        assert_eq!(
+            at(Some("")),
+            PathBuf::from("/home/u/.easy-personal/tray-icon"),
+            "empty"
+        );
+        assert_eq!(
+            at(Some("tmp")),
+            PathBuf::from("/home/u/.easy-personal/tray-icon"),
+            "relative"
+        );
+        assert!(
+            icon_dir(None, None).is_err(),
+            "no folder: an error, not /tmp"
+        );
+        assert_eq!(
+            lock_path(None, Some(store.clone())).unwrap().parent(),
+            icon_dir(None, Some(store)).unwrap().parent(),
+            "the same folder as the lock"
+        );
+    }
+
+    #[test]
+    fn a_symlinked_lock_is_refused() {
+        let dir = std::env::temp_dir().join(format!("ep-tray-locklink-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("victim");
+        fs::write(&target, "keep").unwrap();
+        let path = dir.join("easy-personal-tray.lock");
+        std::os::unix::fs::symlink(&target, &path).unwrap();
+        assert!(try_lock(&path).is_err());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "keep");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Code-review fix round: a menu whose rows keep their places is updated in place; a row that comes or goes, or
+    /// changes kind, rebuilds it.
+    #[test]
+    fn the_shape_decides_update_or_rebuild() {
+        let l = |s: Vec<Value>| live(s);
+        let calm = view(&l(vec![]), None, None, false).rows;
+        let paused = view(&l(vec![]), None, None, true).rows;
+        let busy = view(&l(vec![session("a", "p", &[])]), None, None, false).rows;
+        let cpu = view(
+            &l(vec![]),
+            Some(&Sample {
+                cpu_pct: Some(5.0),
+                ..sample()
+            }),
+            None,
+            false,
+        )
+        .rows;
+        assert!(same_shape(&calm, &paused), "a tick");
+        assert!(same_shape(&calm, &busy), "a text");
+        assert!(same_shape(&calm, &cpu), "the machine line");
+        let waiting = view(&l(vec![session("a", "p", &["waiting"])]), None, None, false).rows;
+        assert!(!same_shape(&calm, &waiting), "a waiting row comes");
+        let two = round(&[(1, "a", None, None), (2, "b", None, None)]);
+        assert!(
+            !same_shape(&calm, &view(&l(vec![]), None, Some(&two), false).rows),
+            "a second account row"
+        );
+        assert!(!same_shape(
+            &[Row::Info("x".into())],
+            &[Row::Action(OPEN, "x".into())]
+        ));
+        assert!(!same_shape(
+            &[Row::Action(OPEN, "x".into())],
+            &[Row::Action(QUIT, "x".into())]
+        ));
     }
 
     #[test]
