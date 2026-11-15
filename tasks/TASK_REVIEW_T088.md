@@ -80,9 +80,33 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 178 filtered out
 ```
 No alert rows exist: the menu cannot show the alert list (the engine raises "Waiting for you, ..." for this session, but only a popup and `GET /api/alerts` carry it).
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-15T15:19:20Z, same kind of throwaway print test, now with 6 alerts, local zone +07:00; test file restored after the run):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+ROW Info("Easy Personal · attention")
+ROW Separator
+ROW Info("1 session active")
+ROW Action("waiting", "1 waiting for you · easy-memory")
+ROW Info("5h limit · no data · 7d · no data")
+ROW Info("Machine · no data")
+ROW Separator
+ROW Info("Recent alerts")
+ROW Info("21:02 · a0")
+ROW Info("21:01 · a1")
+ROW Info("21:00 · a2")
+ROW Info("20:59 · a3")
+ROW Info("20:58 · a4")
+ROW Action("alerts", "All alerts in dashboard…")
+ROW Separator
+ROW Action("open", "Open dashboard")
+ROW Check("pause", "Pause alerts", false)
+ROW Separator
+ROW Info("127.0.0.1 · local only")
+ROW Action("quit", "Quit")
+test result: ok. 1 passed; 0 failed
+```
+
+**DELTA**: A user can open the tray menu and read the newest 5 alerts (time and text), even after the popups faded or while "Pause alerts" is on, and reach the rest in the dashboard.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T088.jsonl`, never the
 implementing agent alone]

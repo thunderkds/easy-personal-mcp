@@ -86,6 +86,13 @@ impl Shared {
         list.push_back(alert);
     }
 
+    /// The newest `n` alerts, newest first (a copy: the lock is let go before the caller builds anything).
+    #[cfg_attr(not(feature = "window"), allow(dead_code))]
+    pub(crate) fn recent(&self, n: usize) -> Vec<Alert> {
+        let list = self.list.lock().unwrap_or_else(PoisonError::into_inner);
+        list.iter().rev().take(n).cloned().collect()
+    }
+
     /// `{alerts: [...newest first], paused}`.
     pub(crate) fn json(&self) -> Value {
         let list = self.list.lock().unwrap_or_else(PoisonError::into_inner);
@@ -1191,5 +1198,30 @@ mod tests {
         assert!(fake.bodies().is_empty());
         assert_eq!(shared.list.lock().unwrap().len(), 1);
         thread.stop();
+    }
+
+    /// T088: `recent(n)` is the newest `n`, newest first, and holds no lock afterwards.
+    #[test]
+    fn recent_is_newest_first_and_cut() {
+        let shared = Shared::default();
+        assert!(shared.recent(6).is_empty());
+        for i in 0..60 {
+            shared.push(Alert {
+                t: i,
+                ..alert("disk")
+            });
+        }
+        let got = shared.recent(6);
+        assert_eq!(
+            got.iter().map(|a| a.t).collect::<Vec<_>>(),
+            [59, 58, 57, 56, 55, 54]
+        );
+        assert_eq!(shared.recent(0).len(), 0);
+        assert_eq!(
+            shared.recent(500).len(),
+            KEEP,
+            "no more than the list holds"
+        );
+        shared.push(alert("ram")); // the lock was let go
     }
 }

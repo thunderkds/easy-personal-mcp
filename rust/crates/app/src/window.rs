@@ -427,7 +427,7 @@ mod shell {
         Ok((menu, items))
     }
 
-    /// "Open dashboard" and the waiting / failing rows: focus the window when it is open, else open it.
+    /// "Open dashboard", "All alerts in dashboard…" and the waiting / failing rows: focus the window when it is open, else open it.
     fn show_dashboard(handle: &AppHandle, port: u16, token: &str) {
         if let Some(window) = handle.get_webview_window("main") {
             let _ = window.unminimize();
@@ -471,7 +471,9 @@ mod shell {
             .icon(icon(theme, view.state))
             .menu(&menu)
             .on_menu_event(move |handle, event| match event.id().as_ref() {
-                tray::OPEN | tray::WAITING | tray::FAILING => show_dashboard(handle, port, &token),
+                tray::OPEN | tray::ALERTS | tray::WAITING | tray::FAILING => {
+                    show_dashboard(handle, port, &token)
+                }
                 tray::PAUSE => shared.set_paused(!shared.paused()),
                 tray::QUIT => handle.exit(0),
                 _ => {}
