@@ -290,6 +290,20 @@ tool with error paths, an unknown tool and method, a parse error, an invalid req
 `-wal` and `-shm` while a reader still holds the WAL open (the writer's frames are not merged yet) and after close, and at the end;
 `sqlite3 .dump`; the data folder listing. `RUST_LOG=trace` is set, so any log line would be scanned too.
 
+**Alerts (T085)**: `serve --alerts` runs once over transcripts planted for it (`plant_alerts`: a folder of its own, never ingested, because
+a canary in a project path would be stored by design): three sessions waiting for you (a secret-looking canary as the project folder,
+one as the session id, one as a 64-character folder name followed by a canary, past the cut) and one failing (a canary as the tool
+name). The server has its own store with one confirmed Claude account that names that folder (the live tail reads confirmed accounts'
+folders), and the gate waits for the first alert tick (about 5 s) and scans `GET /api/alerts` (label `api GET /api/alerts (serve
+--alerts, N alerts)`), the server's stdout and stderr. Anti-vacuity: exactly 3 `session_waiting` and 1 `session_failing` are listed.
+No popup reaches the desktop: `DBUS_SESSION_BUS_ADDRESS` leads nowhere, the env has no `XDG_RUNTIME_DIR`, and the run fails unless the
+server's stderr says desktop notifications are not available. Mutant that must fail the gate: make `alerts::clean` return its input.
+
+**Files beside the store (T085)**: the four `store-check` forms may make or change no file at all. The `serve` that answers
+`/api/store/health` may add only `store.sqlite-shm` and an empty `store.sqlite-wal` (every other file keeps its size and mtime). The
+cause is the server's live tail (it opens the store read-only every 100 ms) and the plan-limit sampler: SQLite cannot delete the two
+files on a read-only close. On an idle machine the server stops before the first look; on a loaded one it does not.
+
 **Anti-vacuity** (each fails the run when false): the self-test (a canary in each encoding is found, also inside a SQLite file; a clean
 blob has no hit; a hit is masked); ingest #1 `new_events > 0` and `events` rows exist; the failed `tool_result` is counted
 (`SUM(tool_error_count) = 1`) while its text is nowhere; the **control canary** (the fixture's `sessionId`, stored on purpose) is found

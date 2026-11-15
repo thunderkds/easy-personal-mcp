@@ -44,10 +44,10 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
 | Verification command run | ☐ pass / ☐ fail | [paste actual output] |
 | Negative cases hold | ☐ pass / ☐ fail | |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| verify | ☑ pass | Supervisor `/verify` 2026-11-15 ~10:50Z: T085 gate run twice with the binary built from main `dab5991` (includes T084's first look at the first tick), load avg 9-22: both exit 0, 0 FAILED, `check alerts session bus leads nowhere ok`, `check alerts listed, one per planted session ok (4 alerts: {'session_waiting': 3, 'session_failing': 1})`, `leak check: 0 hits over 42 canaries, 828 surfaces` — pass. Agent's loaded runs (load 32-38, 3 of 3 exit 0) and mutant (4 hits) in AFTER |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff b4c8469..T085` (leak_rust.py, parity/README.md) reviewed inline by the Supervisor (C2, Low): the four `store-check` commands keep the strict 'no file' rule; only the `serve` health route may add `-shm` and an empty `-wal`, other files must keep size and mtime (stat only, no open). 0 P0-P2. ⚠ Decided for the owner: the `-shm` + empty `-wal` that a read-only open of a WAL store leaves is normal SQLite behaviour, not an app bug (the gate's DATA_FILES already allow them) — SAFER OPTION: the gate is fixed, the app is unchanged; the owner may ask for an app task that avoids creating them |
+| Full smoke suite still green (no regression) | ☑ pass | no Rust code changed; gate is the test |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier MCP not connected this session; advisory only |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
@@ -61,12 +61,73 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-15, branch `T085` at main b4c8469, no implementation commit yet; command: `cd rust && env -u CLAUDE_CONFIG_DIR .../parity/.venv/bin/python parity/leak_rust.py; echo exit=$?`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+Idle-ish machine (load average 32 at start, other agents building; `cargo build -q` had just finished), 2026-11-15T09:55:09Z to 09:55:56Z. The gate passes and has no alert surface: `/api/alerts` is read from a `serve` WITHOUT `--alerts`, so it is the empty list:
+```
+exit=0
+202:surface api GET /api/alerts: 246 bytes
+910:check store-check made no file beside the store (healthy)  ok (4 files)
+914:check store-check made no file beside the store (text past the cut)  ok (1 files)
+918:check store-check made no file beside the store (blob source)  ok (1 files)
+...
+981:leak check: 0 hits over 42 canaries, 818 surfaces, 1801725 bytes
+```
+The same command with 24 busy loops of mine running (my PIDs only, later killed by PID), 3 runs in a row, 09:56:17Z to 09:58:15Z, load average 21 / 35 / 40:
+```
+2026-11-15T09:56:17Z  load average: 21.42  -> exit=1
+910:check store-check made no file beside the store (healthy)  FAILED (6 files)
+983:leak check: 0 hits over 42 canaries, 818 surfaces, 1802202 bytes; 1 failed checks
+2026-11-15T09:57:19Z  load average: 35.17  -> exit=1
+918:check store-check made no file beside the store (blob source)  FAILED (3 files)
+983:leak check: 0 hits over 42 canaries, 818 surfaces, 1802245 bytes; 1 failed checks
+2026-11-15T09:58:15Z  load average: 40.58  -> exit=1
+914:check store-check made no file beside the store (text past the cut)  FAILED (3 files)
+918:check store-check made no file beside the store (blob source)  FAILED (3 files)
+983:leak check: 0 hits over 42 canaries, 818 surfaces, 1802555 bytes; 2 failed checks
+```
+The kept folders show what was beside the store: `store.sqlite-shm` (32768 bytes) and `store.sqlite-wal` (0 bytes). Probe (a `serve --no-ingest` over a copy of the store, SIGINT after the first line, folder listed after exit):
+```
+hold 0.04s (stopped 66 ms after the first line): ['store.sqlite']
+hold 0.06s (stopped 91 ms after the first line): ['store.sqlite', 'store.sqlite-shm', 'store.sqlite-wal']
+hold 0.3s (stopped 323 ms after the first line): ['store.sqlite', 'store.sqlite-shm', 'store.sqlite-wal']
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER** (branch `T085`, commits 66f60db and the README commit; the guide's verification command, 2026-11-15T10:27:26Z to 10:28:21Z, load average 29):
+```
+exit=0
+leak check: 0 hits over 42 canaries, 828 surfaces, 1806705 bytes        (0 lines with FAILED)
+```
+AC 1, the surface line and its checks (same run family, `ac3-3` below):
+```
+surface api GET /api/alerts (serve --alerts, 4 alerts): 790 bytes
+check alerts session bus leads nowhere     ok
+check alerts listed, one per planted session  ok (4 alerts: {'session_waiting': 3, 'session_failing': 1})
+check alerts popup went nowhere (no bus)  ok
+check alerts serve stopped by PID (SIGINT)  ok (exit 0, no process left)
+check alert transcripts unchanged        ok (sha256 of the tree)
+```
+AC 2, mutant: `alerts::clean` made `Some(text.to_string())` (crates/app/src/alerts.rs, reverted with `git checkout`, rebuilt, `git status` clean):
+```
+exit=1
+HIT canary api_key as raw in [api GET /api/alerts (serve --alerts, 4 alerts)]: ect [api_key], se
+HIT canary api_key as json in [api GET /api/alerts (serve --alerts, 4 alerts)]: ect [api_key], se
+HIT canary api_key as url in [api GET /api/alerts (serve --alerts, 4 alerts)]: ect [api_key], se
+HIT canary message_text as raw in [api GET /api/alerts (serve --alerts, 4 alerts)]: PPPP[message_text], se
+leak check: 4 hits over 42 canaries, 828 surfaces, 1806125 bytes
+```
+(`api_key` = the secret-looking project folder; `message_text` = the canary past the 64-character cut.)
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+AC 3, three runs in a row with 24 busy loops of mine alive (started as 24 PIDs, killed by exactly those PIDs afterwards, 0 left), 10:24:02Z to 10:26:52Z:
+```
+run 1 start load average: 32.72, 32.33, 31.52 -> exit=0  leak check: 0 hits over 42 canaries, 828 surfaces, 1806369 bytes   (0 FAILED)
+run 2 start load average: 33.12, 32.50, 31.62 -> exit=0  leak check: 0 hits over 42 canaries, 828 surfaces, 1806363 bytes   (0 FAILED)
+run 3 start load average: 38.24, 33.85, 32.13 -> exit=0  leak check: 0 hits over 42 canaries, 828 surfaces, 1806323 bytes   (0 FAILED)
+```
+(Before the change the same loop failed 3 of 3 at load 21 to 40.) A deterministic stress, so the pass does not depend on luck: every `/api/store/health` request delayed by 0.3 s (the server lives past the live tail's first 100 ms look, so `-shm` and an empty `-wal` always appear). With the new rule: `exit 0`, `0 hits`. With the rule made strict (`SIDECARS = set()`): `exit=1`, `check store health route made nothing beside the store but -shm and an empty -wal (healthy) FAILED (6 files)` and 4 more variants, i.e. the check still bites.
+
+AC 4, no real popup: (1) the child env is built from scratch with `DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/leak-rs-no-bus` and no `XDG_RUNTIME_DIR` (`zbus::Connection::session()` has no other bus to try), and the gate checks both before the `serve` starts (`check alerts session bus leads nowhere ok`); (2) the run fails unless the server's stderr holds `desktop notifications are not available`, which the app prints only after its `Notify` call failed (`check alerts popup went nowhere (no bus) ok`). My own prototype runs used the same dead address.
+
+**DELTA**: the leak gate now proves the alert text (the one place a transcript's project folder, tool name and session id go into a sentence) holds no canary, with a mutant that fails it, and its "no file beside the store" check no longer fails when the machine is loaded.
+
+**WITNESS**: Supervisor (not the implementing agent) ran the gate twice 2026-11-15 ~10:50Z with active_task = T085.
