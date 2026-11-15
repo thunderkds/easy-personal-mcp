@@ -61,8 +61,24 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-15T14:57:25Z, branch `T088` at the guide commit, no implementation commit; a throwaway test printing `tray::view` rows for one waiting session, since `view` has no alert input; test file restored after the run). Command: `cd rust && cargo test -p easy-personal-rs --bin easy-personal-rs zz_before -- --nocapture`
+
+```
+ROW Info("Easy Personal · attention")
+ROW Separator
+ROW Info("1 session active")
+ROW Action("waiting", "1 waiting for you · easy-memory")
+ROW Info("5h limit · no data · 7d · no data")
+ROW Info("Machine · no data")
+ROW Separator
+ROW Action("open", "Open dashboard")
+ROW Check("pause", "Pause alerts", false)
+ROW Separator
+ROW Info("127.0.0.1 · local only")
+ROW Action("quit", "Quit")
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 178 filtered out
+```
+No alert rows exist: the menu cannot show the alert list (the engine raises "Waiting for you, ..." for this session, but only a popup and `GET /api/alerts` carry it).
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
