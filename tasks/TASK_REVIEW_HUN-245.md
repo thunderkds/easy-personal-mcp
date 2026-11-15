@@ -41,16 +41,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/CopyCommand.test.jsx` (32 tests: `shellLine` byte-exact cases and refusals; allow-list; component 0/1/2 repos, each entry copies its exact line; refused/missing clipboard fallback; no fetch / no localStorage / no console on Copy; two blocks independent). Mutation check: removing the `\'` escaping and the control-char refusal made 10 of them fail. |
+| Verification command run | ☑ pass | `npm --prefix web test -- --run` → `Test Files  26 passed (26)`, `Tests  870 passed (870)`; `npm --prefix web run build` → `✓ built in 142ms`; `python3 scripts/check_static.py` → `check_static: ok`. |
+| Negative cases hold | ☑ pass | Path with \n, \r, NUL, tab, ESC, U+001F, U+007F → `shellLine` returns null, no Copy button, fixed note; clipboard missing / no `writeText` / rejects / throws → read-only selected input + "Copy it with Ctrl+C."; 0 repos → no block. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real server (Rust `serve --no-ingest --static-dir`, temp store): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/before-1280x720-before.png` vs `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/after-1280x720-after.png`, `after-1280x720-after-copied.png`; mobile `before-390x844-before.png` vs `after-390x844-after.png`, `after-390x844-after-copied.png`; fallback `extra-fallback.png`, `extra-fallback-390.png`; keyboard focus `extra-keyboard-focus.png` (all in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/`). Clipboard read back in headless Chrome for 3 commands x 2 repos at both sizes, e.g. `cd '.../it'\''s a repo with space' && claude "/wake"`; the two lines were run in `sh` with a fake `claude` on PATH and it started in the right folder (`claude ran in: .../it's a repo with space args: /wake`). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Only existing tokens (`--color-control`, `--color-input`, `--color-divider`, `--color-muted`, `--color-secondary`, `--space-*`, `--fs-*`, `--radius-sm`, `--font-mono`) in a new `/* HUN-245 */` block at the end of `web/src/app.css`; Copy uses the existing `main button` style; focus ring is the global `:focus-visible` (computed `solid 2px rgb(60, 245, 168)`). No new colour. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 1280x720 and 390x844: `scrollWidth - clientWidth` = 0 px at both, also with the fallback field open; the block wraps (Command, Repo, Copy stack at card width). |
 
 ---
 
@@ -74,9 +74,24 @@ Screenshots of the Workspaces page today, no copy block on any card (overflow 0 
 - `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/before-1280x720-before.png`
 - `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/before-390x844-before.png`
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-15, final build, same temp store and server, headless Chrome over the DevTools protocol; script `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/tools/cdp.mjs`, `extra.mjs`):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ grep -c 'Copy a Claude command' dist-after/assets/*.js
+1
+1280x720 horizontal overflow px: 0        390x844 horizontal overflow px: 0
+Start a session            -> status "Copied", clipboard: cd '<tmp>/repos/plain' && claude "/wake"
+Continue the last session  -> status "Copied", clipboard: cd '<tmp>/repos/plain' && claude --continue
+Verify                     -> status "Copied", clipboard: cd '<tmp>/repos/plain' && claude "/verify"
+(same three for the repo "it's a repo with space": cd '<tmp>/repos/it'\''s a repo with space' && claude ...)
+focused after 2 Tabs: BUTTON Copy   (Command select -> Repo select -> Copy); Enter -> status "Copied"
+new resource requests after Copy: 0 ; localStorage keys: 0
+fallback (writeText rejected): readonly=true selected=true focused=true note "Copy it with Ctrl+C."
+```
+
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/after-1280x720-after-copied.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/after-390x844-after-copied.png`, `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/9a293e6d-1db7-42ec-9315-2625f8ddcdc7/scratchpad/hun245/extra-fallback.png`.
+
+**DELTA**: A workspace card with repos now has a block where the user picks one of three fixed Claude commands (and a repo), and copies one shell-safe line to paste into their own terminal; the page runs nothing.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
