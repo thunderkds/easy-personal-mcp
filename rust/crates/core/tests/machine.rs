@@ -97,6 +97,14 @@ fn cpu_times_are_null_for_a_missing_or_garbled_file() {
 }
 
 #[test]
+fn cpu_times_are_null_when_the_counters_overflow() {
+    let fake = Fake::new();
+    let max = u64::MAX;
+    fake.put("proc/stat", &format!("cpu  {max} {max} 0 0 0 0 0 0\n"));
+    assert_eq!(read_cpu_times(&fake.proc()), None);
+}
+
+#[test]
 fn ram_is_total_minus_available_in_bytes() {
     let fake = Fake::new();
     fake.put(

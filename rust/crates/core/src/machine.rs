@@ -128,8 +128,8 @@ pub fn read_cpu_times(proc_root: &Path) -> Option<CpuTimes> {
     if ticks.len() < 5 {
         return None;
     }
-    let total: u64 = ticks.iter().sum();
-    let idle = ticks[3] + ticks[4];
+    let total = ticks.iter().try_fold(0u64, |sum, t| sum.checked_add(*t))?;
+    let idle = ticks[3].checked_add(ticks[4])?; // at most `total`, which did not overflow
     Some(CpuTimes {
         busy: total - idle,
         total,
