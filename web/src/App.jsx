@@ -13,6 +13,7 @@ import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
 import StatusChips from './StatusChips.jsx'
 import { ToastProvider } from './Toast.jsx'
 import UsageView from './UsageView.jsx'
+import WatchView from './WatchView.jsx'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
 
@@ -24,6 +25,7 @@ const GROUPS = [
     label: '// work',
     tabs: [
       { id: 'live', label: 'Live', View: LiveView },
+      { id: 'watch', label: 'Watch', View: WatchView },
       { id: 'board', label: 'Board', View: BoardView, scoped: true },
       { id: 'scheduled', label: 'Scheduled', View: JobsView },
       { id: 'memory', label: 'Memory', View: MemoryView, scoped: true },
