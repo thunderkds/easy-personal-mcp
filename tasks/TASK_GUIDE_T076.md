@@ -76,7 +76,7 @@ cd rust && cargo build --features window 2>&1 | tail -2 && cargo test --workspac
 | Verification command | ☑ | Supervisor `/verify` pass after fix round 1 (leak gate 0 hits, self-test ok) |
 | code-review | ☑ | 0 P0/P1, 2 P2 fixed, 2 P3 handled |
 | security-review | ☑ | 0 P0/P1, P2 /tmp icon folder fixed, P3 lock symlink refusal added |
-| UI: visual regression | ☐ | OPEN: owner real-panel screenshot (AC 4) |
+| UI: visual regression | ☑ | owner accepted the real tray on the panel 2026-11-15 ("76 is good to mark done") |
 | UI: design-system compliance | ☑ | T071 icons; native text menu |
 | UI: responsiveness | ☑ N/A | native menu |
 
