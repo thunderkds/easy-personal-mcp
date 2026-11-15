@@ -17,6 +17,7 @@
 - [ ] **T077** — Watch 6: dashboard Watch view (24 h graphs, effectiveness table) | Frontend-Developer | C2 | Risk: Low | P2 | guide `tasks/TASK_GUIDE_T077.md` (2026-11-15); Depends on T072, T073, T075; HITL layout check; PRD FR-100
 
 ### In Progress
+- [ ] **T080** — Harden 2 more load-flaky Rust tests (`tests/writes.rs:1013` 95k keys 1 s limit; `ingest_coexist_common/mod.rs:438` checker query under load): test code only | Supervisor (minimal track, second supervisor session) | C1 | Risk: Low | P3 | worktree `easy-personal-mcp-wt/T080`, branch `t080-load-flakes-2` from `cd78339`; started 2026-11-15; cause of (2) confirmed before any change
 - [ ] **T073** — Watch 2: plan-limit watch per account (5 h / 7 d) in the sampler, `GET /api/limits/history` | Backend-Developer | C1 | Risk: Low | P1 | guide `tasks/TASK_GUIDE_T073.md` (2026-11-15); PRD FR-096; started 2026-11-15: own worktree `easy-personal-mcp-wt/T073`, branch `T073`, parallel with T072 (merge T072 first)
 - [ ] **T075** — Watch 4: effectiveness on read (tokens per good result, per task done), API + CLI + MCP tool | Backend-Developer | C3 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T075.md` (2026-11-15); PRD FR-098; Done = first merge (⚠ decided for the owner); started 2026-11-15: own worktree `easy-personal-mcp-wt/T075`, branch `T075`
 
