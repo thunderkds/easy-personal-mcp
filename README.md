@@ -37,6 +37,10 @@ easy-personal ping
 
 The first command prints `0.4.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
 
+## Rust app (default from T062)
+
+On Ubuntu, the Rust app `easy-personal-rs` is now the default. It replaces the MCP server, the daily ingest timer, the connectors and the dashboard. The Python app stays installed for one week as the way back. The numbered steps, the checks and the rollback are in [`rust/docs/CUTOVER.md`](rust/docs/CUTOVER.md). macOS and Windows are not planned.
+
 ## Quick start
 
 ### First ingest

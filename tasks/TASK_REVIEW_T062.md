@@ -41,8 +41,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/tests/cutover_doc.rs` (4 tests): `test result: ok. 4 passed; 0 failed` (06:12Z); fails on a made-up subcommand (see Demonstration AFTER). Implementer's paste; reviewer to confirm |
+| Verification command run | ☑ pass | workspace: 954 passed, 0 failed, 28 ignored; clippy `-D warnings` clean; `cargo fmt --check` ok (Demonstration AFTER, AC7). Implementer's paste; reviewer to confirm |
 | Negative cases hold | ☐ pass / ☐ fail | |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [what was observed — must literally state "pass" or "fail" here too, e.g. "skill run, feature confirmed working — pass": the merge gate scans this Notes column for the word "pass", not just the Result column] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
@@ -99,9 +99,102 @@ easy-personal ping
 The first command prints `0.4.0`. The install adds two commands: `easy-personal` and `easy-personal-launch`.
 ~~~~
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured 2026-11-15 (05:34Z to 06:30Z), branch `t062-cutover`, all runs in temp folders under `/tmp/claude-1000/.../scratchpad/t062/` (`root` = install root, `localbin` = stand-in for `~/.local/bin`, `home`/`data` = temp HOME and `EASY_PERSONAL_HOME`, `fakebin/claude` = the T050 fake `claude`, `DBUS_SESSION_BUS_ADDRESS` dead).
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+New files: `rust/docs/CUTOVER.md` (steps 0-5, the week, rollback, differences), `rust/crates/app/tests/cutover_doc.rs`. `README.md` gains only `## Rust app (default from T062)` (4 added lines, right after `## Install`, links `rust/docs/CUTOVER.md`).
+
+**AC5, test (written first; red on the absent document, then green)**
+
+```
+$ cargo test -p easy-personal-rs --test cutover_doc          (before CUTOVER.md existed, 05:3xZ)
+test a_made_up_subcommand_is_caught ... ok
+test real_commands_arguments_and_paths_pass ... ok
+test every_command_in_the_cutover_document_exists ... FAILED   (rust/docs/CUTOVER.md must exist)
+test the_document_shows_the_commands_of_every_step ... FAILED
+$ cargo test -p easy-personal-rs --test cutover_doc          (06:12Z, with the document)
+test the_document_shows_the_commands_of_every_step ... ok
+test a_made_up_subcommand_is_caught ... ok
+test real_commands_arguments_and_paths_pass ... ok
+test every_command_in_the_cutover_document_exists ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+```
+
+Made-up subcommand appended to the real document (then restored):
+
+```
+$ printf '\n```bash\neasy-personal-rs frobnicate --now\n```\n' >> rust/docs/CUTOVER.md && cargo test -p easy-personal-rs --test cutover_doc
+test every_command_in_the_cutover_document_exists ... FAILED
+    "`easy-personal-rs frobnicate`: no such subcommand",
+test result: FAILED. 3 passed; 1 failed
+```
+
+**AC4, the install block run into temp folders** (`cargo install` with `CARGO_TARGET_DIR=<worktree>/rust/target` instead of the document's `--target-dir rust/target`, the same thing; `--root <scratchpad>/t062/root`)
+
+```
+$ npm --prefix web ci && npm --prefix web run build           (05:30:41Z)
+found 0 vulnerabilities
+../src/easy_personal/dashboard/static/assets/index-DyyWCd3E.js   347.36 kB | gzip: 104.04 kB
+✓ built in 143ms
+$ cargo install --locked --path rust/crates/app --features window --root <t062>/root
+    Finished `release` profile [optimized] target(s) in 3m 46s
+  Installing <t062>/root/bin/easy-personal-launch
+  Installing <t062>/root/bin/easy-personal-rs
+   Installed package `easy-personal-rs v0.2.0 (...)` (executables `easy-personal-launch`, `easy-personal-rs`)
+$ mkdir -p <t062>/root/static && cp -r src/easy_personal/dashboard/static/. <t062>/root/static/ && ls <t062>/root/static
+assets  index.html
+$ ln -sf <t062>/root/bin/easy-personal-rs <t062>/localbin/easy-personal-rs     (an old regular file `easy-personal-rs` was there; `localbin/easy-personal-launch` is a stand-in for Python's launcher)
+lrwxrwxrwx ... easy-personal-rs -> <t062>/root/bin/easy-personal-rs
+$ <t062>/localbin/easy-personal-rs --version
+easy-personal-rs 0.2.0
+$ easy-personal-rs dashboard --static-dir <t062>/root/static               (05:34:50Z; run as a child, killed afterwards)
+ingesting before start (waits if another ingest runs)...      (stderr)
+dashboard: http://127.0.0.1:42075/#<token>
+Ctrl-C to stop.
+GET /                        -> 200 text/html; charset=utf-8   (<!doctype html> ... <title>easy-personal</title>)
+GET /api/version, no token   -> 403
+GET /api/version, token      -> {"version":"0.2.0"}
+kill <that pid>              -> stopped
+```
+
+**AC3, Python's launcher untouched; the linked program finds the launcher beside its real file**
+
+```
+$ sha256sum <t062>/localbin/easy-personal-launch     before the install block: 8dfcb512...defe16b
+$ sha256sum -c launch.sha                            after link, doctor, sync, dashboard: easy-personal-launch: OK
+$ easy-personal-rs doctor        (run as <t062>/localbin/easy-personal-rs, via the link; PATH = localbin, fakebin, /usr/bin; dead D-Bus)
+FAIL keychain: no usable OS keychain (Secret Service); ...        (expected: the bus is dead on purpose)
+ok claude: on PATH
+ok launcher: <t062>/root/bin/easy-personal-launch                  (beside the REAL file, not localbin's)
+$ easy-personal-rs connector sync </dev/null
+nothing to change.
+$ easy-personal-rs schedule install --dry-run | grep ExecStart
+ExecStart=<t062>/root/bin/easy-personal-rs ingest                 (the real file's path, not the link's)
+```
+
+**Finding (Step 4 text follows it, not the guide's wording)**: `connector sync` decides "points at the launcher" by the program's file name only (`crates/core/src/sync.rs` `points_at_launcher`, same as Python's `writer.points_at_launcher`). Debug binary, fake keychain, fake `claude`, temp world:
+
+```
+$ connector add slack --workspace acme --yes ; connector sync --yes
+Claude default: add acme-slack -> exec c36b29787       (entry: Command: <worktree>/rust/target/debug/easy-personal-launch)
+$ (entry edited to Command: /home/you/.local/bin/easy-personal-launch)  connector sync
+nothing to change.                                     (an entry using Python's launcher is kept)
+$ (entry edited to Command: /home/you/.local/bin/other-launcher)         connector sync --yes
+... remove acme-slack (does not point at the launcher) / add acme-slack -> exec c36b29787 (re-add)
+```
+
+So after the cutover, existing connector entries keep running Python's `~/.local/bin/easy-personal-launch` (a rollback needs nothing), and only new connectors use the Rust launcher. T063 must re-point the entries before it removes Python.
+
+**AC7, verification command (06:12Z to 06:35Z)**
+
+```
+$ cargo test --workspace --no-fail-fast      -> 92 "test result: ok" lines; total passed 954, failed 0, ignored 28; 0 "FAILED"; exit 0
+$ cargo clippy --workspace --all-targets -- -D warnings    -> Finished `dev` profile, no warning
+$ cargo fmt --check                                         -> FMT_OK
+```
+
+The 28 ignored tests were not run (they include `real_keychain_items_cross_check`; the owner runs that in Step 0.3).
+
+**DELTA**: The owner can follow one document, `rust/docs/CUTOVER.md`, to switch the MCP server, the timer, the connectors and the dashboard from `easy-personal` to `easy-personal-rs` and back, and a test fails when the document names a command that does not exist.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T062.jsonl`, never the
 implementing agent alone]
