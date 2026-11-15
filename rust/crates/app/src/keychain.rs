@@ -578,7 +578,7 @@ mod tests {
     }
 
     /// AC9, by hand only (needs a session bus and an unlocked keyring; it writes two throwaway items and deletes them):
-    /// `cargo test -p easy-personal-rs --bin easy-personal-rs real_keychain -- --ignored`. Python is
+    /// `cargo test -p easy-personal-rs --lib real_keychain_items_cross_check -- --ignored`. Python is
     /// `rust/parity/.venv/bin/python` (or `EASY_PERSONAL_PYTHON`), with the app's `keyring`.
     #[test]
     #[ignore = "touches the real Secret Service: run once by hand (T050 AC9)"]
