@@ -135,7 +135,7 @@ impl std::fmt::Display for Refused {
     }
 }
 
-fn utc_now() -> String {
+pub(crate) fn utc_now() -> String {
     jiff::Timestamp::now()
         .strftime("%Y-%m-%dT%H:%M:%SZ")
         .to_string()
@@ -288,6 +288,15 @@ impl Runner {
         self.make_dir()?;
         let file = owner_only(&flag, false)?;
         file.set_permissions(Permissions::from_mode(0o600))
+    }
+
+    /// Removes the flag when it names this account id (the account was ignored or deleted): the setting turns off, and
+    /// a going run sees the flag gone at its next poll and stops. Another account's flag, and no flag, stay as they are.
+    pub fn forget(&self, id: &str) -> io::Result<()> {
+        match self.flag() {
+            Some(flag) if flag == id => self.turn(false),
+            _ => Ok(()),
+        }
     }
 
     /// Writes the flag with this account id as its one line: a new owner-only file renamed over the flag, so a run
@@ -644,7 +653,7 @@ fn account_line(r: &Runner) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use rusqlite::Connection;
     use serde_json::{Map, Value};
@@ -657,7 +666,7 @@ mod tests {
     /// is a test-only one there; a multi-threaded caller (T091) sees at most a short "a run is going".
     static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-    fn serial() -> std::sync::MutexGuard<'static, ()> {
+    pub(crate) fn serial() -> std::sync::MutexGuard<'static, ()> {
         SERIAL
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -685,12 +694,12 @@ mod tests {
 
     /// A temp root with `bin/claude` (a fake that logs its argv, working folder, folder listing and environment, NUL
     /// separated, to `log/`, then runs `tail`), the data folder `data/` (not made yet) and a runner over them.
-    struct Fake {
-        root: PathBuf,
+    pub(crate) struct Fake {
+        pub(crate) root: PathBuf,
     }
 
     impl Fake {
-        fn new(tag: &str, tail: &str) -> Fake {
+        pub(crate) fn new(tag: &str, tail: &str) -> Fake {
             let root = std::env::temp_dir().join(format!(
                 "easy-personal-rs-t090-{tag}-{}",
                 std::process::id()
@@ -711,11 +720,11 @@ mod tests {
             Fake { root }
         }
 
-        fn dir(&self) -> PathBuf {
+        pub(crate) fn dir(&self) -> PathBuf {
             self.root.join("data")
         }
 
-        fn runner_with(&self, extra: &[(&str, &str)], limit: Duration) -> Runner {
+        pub(crate) fn runner_with(&self, extra: &[(&str, &str)], limit: Duration) -> Runner {
             let mut env: Vec<(OsString, OsString)> = vec![
                 (
                     "PATH".into(),
@@ -741,22 +750,27 @@ mod tests {
             }
         }
 
-        fn runner(&self) -> Runner {
+        /// The environment of a runner over this fake, with `extra` set.
+        pub(crate) fn env(&self, extra: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
+            self.runner_with(extra, Duration::from_secs(30)).env
+        }
+
+        pub(crate) fn runner(&self) -> Runner {
             self.runner_with(&[], Duration::from_secs(30))
         }
 
-        fn log(&self, name: &str) -> String {
+        pub(crate) fn log(&self, name: &str) -> String {
             std::fs::read_to_string(self.root.join("log").join(name)).unwrap_or_default()
         }
 
-        fn argv(&self) -> Vec<String> {
+        pub(crate) fn argv(&self) -> Vec<String> {
             self.log("argv")
                 .split_terminator('\0')
                 .map(str::to_string)
                 .collect()
         }
 
-        fn child_env(&self) -> Vec<(String, String)> {
+        pub(crate) fn child_env(&self) -> Vec<(String, String)> {
             self.log("env")
                 .split_terminator('\0')
                 .filter_map(|kv| kv.split_once('='))
@@ -764,7 +778,7 @@ mod tests {
                 .collect()
         }
 
-        fn wait_for(&self, name: &str) {
+        pub(crate) fn wait_for(&self, name: &str) {
             let deadline = Instant::now() + Duration::from_secs(20);
             while !self.root.join("log").join(name).exists() {
                 assert!(Instant::now() < deadline, "the fake never wrote {name}");
@@ -774,7 +788,7 @@ mod tests {
 
         /// A fresh v11 store in the data folder with two confirmed Claude accounts: 1 `home` (the default, no
         /// `CLAUDE_CONFIG_DIR`) and 2 `work` (`/acc/.claude-work`), plus `odd` (3) whose label holds shell text.
-        fn store(&self) -> Connection {
+        pub(crate) fn store(&self) -> Connection {
             std::fs::create_dir_all(self.dir()).unwrap();
             drop(
                 easy_personal_core::writer::open_for_write(&self.dir().join("store.sqlite"))
@@ -799,7 +813,7 @@ mod tests {
         }
     }
 
-    fn insert_report(conn: &Connection, workspace: Option<&str>) -> i64 {
+    pub(crate) fn insert_report(conn: &Connection, workspace: Option<&str>) -> i64 {
         conn.execute(
             "INSERT INTO investigate_reports (saved_utc, server_version, workspace, account, summary, fixes_json, \
              snapshot_json) VALUES ('2026-11-16T00:00:00Z', 't', ?1, NULL, 's', '[]', '{}')",
@@ -827,7 +841,7 @@ mod tests {
     }
 
     /// Gone, or a zombie no one has reaped yet: either way it runs no more.
-    fn runs(pid: &str) -> bool {
+    pub(crate) fn runs(pid: &str) -> bool {
         let stat = format!("/proc/{}/stat", pid.trim());
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
@@ -1112,7 +1126,7 @@ mod tests {
 
     // ---- AC 6: the limit and the stop ----
 
-    const GROUP: &str = "sleep 30 & echo $! > \"$L/grandchild\"; wait";
+    pub(crate) const GROUP: &str = "sleep 30 & echo $! > \"$L/grandchild\"; wait";
 
     #[test]
     fn a_run_past_the_limit_is_killed_with_its_whole_group() {
