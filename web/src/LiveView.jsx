@@ -291,7 +291,7 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, t
         ))}
         <span className="count">{`${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`}</span>
       </button>
-      <Questions states={states} />
+      {!open && <Questions states={states} />}
       <span className="live-bars">
         <Bar label="tokens" text={noSpace(tokens)} ratio={tokensPct} />
         <Bar

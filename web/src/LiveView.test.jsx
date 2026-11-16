@@ -1271,6 +1271,18 @@ describe('your turn and the question text (T095, FR-108)', () => {
     expect(pills('bbbbbbbb')).toEqual(['waiting for you: question'])
   })
 
+  it('Stage 4 fix: an open row holds each question once (in the panel); closing it shows them in the row again', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [waitingWith(['A?', 'B?'])] })]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?'])
+    openRow('aaaaaaaa')
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?']) // once, not four
+    expect(questionsIn(within(card('aaaaaaaa')).getByRole('region'))).toEqual(['A?', 'B?'])
+    fireEvent.click(rowButton('aaaaaaaa'))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?'])
+    expect(card('aaaaaaaa').querySelector('[role=region]')).toBeNull()
+  })
+
   it('AC4: markup in a question is text, never an element', () => {
     const attack = '<img src=x onerror=alert(1)>'
     render(<LiveView />)

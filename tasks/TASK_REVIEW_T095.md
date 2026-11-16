@@ -34,6 +34,10 @@ Paused: auto-mode check failed — no `Memory:` line in the report — run the m
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `grep -rnE "#[0-9a-fA-F]{3,8}\b or rgba?\(" web/src --include=*.jsx` outside tests: only the pre-existing `placeholder="#0b5fd6"` in WorkspacesView.jsx; new CSS rules use only `var(--…)`; computed question line: `14px rgb(220, 224, 221) "IBM Plex Sans"` = `--fs-body` / `--color-text`; design test pins `your_turn` rules |
 | **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280: `scrollWidth == innerWidth` (375/375, 1280/1280) with a 300-character unbroken question (`after-375-long.png`) and with the panel open |
 
+### Stage 4 fix round
+
+P2 (the open row showed its questions twice): `web/src/LiveView.test.jsx` "Stage 4 fix: an open row holds each question once (in the panel); closing it shows them in the row again". Red before the fix (`expected [ 'A?', 'B?', 'A?', 'B?' ] to deeply equal [ 'A?', 'B?' ]`), green after (`Tests 947 passed (947)`, build ok, `check_static: ok`, exit=0). `after-selected-1280.png` and `after-selected-375.png` retaken: the questions show once, in the panel.
+
 ---
 
 ## Demonstration
