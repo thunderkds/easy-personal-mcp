@@ -219,15 +219,23 @@ pub fn call_label(name: &str, input: &Value) -> Option<Label> {
 
 // ---- question text (FR-106, DDR-0005) -------------------------------------------------------------------------------
 
-/// FR-092's control and hidden characters: C0, U+007F, C1, the line and paragraph separators, zero-width and bidi marks.
+/// FR-092's control and hidden characters: C0, U+007F, C1, the line and paragraph separators, zero-width and bidi marks;
+/// and (T094 fix round) the other default-ignorable and invisible format characters, so none can split a secret past
+/// the second check and be joined again by a browser: soft hyphen, combining grapheme joiner, Arabic letter mark,
+/// Hangul fillers, Khmer inherent vowels, Mongolian selectors, U+2060-U+206F, variation selectors, U+FFF0-U+FFFB,
+/// shorthand format controls, musical format controls, tags and supplementary variation selectors.
 fn hidden(c: char) -> bool {
     c.is_control()
         || matches!(c, '\u{2028}' | '\u{2029}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}'
                        | '\u{2066}'..='\u{2069}' | '\u{FEFF}')
+        || matches!(c, '\u{00AD}' | '\u{034F}' | '\u{061C}' | '\u{115F}'..='\u{1160}' | '\u{17B4}'..='\u{17B5}'
+                       | '\u{180B}'..='\u{180F}' | '\u{2060}'..='\u{206F}' | '\u{3164}' | '\u{FE00}'..='\u{FE0F}'
+                       | '\u{FFA0}' | '\u{FFF0}'..='\u{FFFB}' | '\u{1BCA0}'..='\u{1BCA3}'
+                       | '\u{1D173}'..='\u{1D17A}' | '\u{E0000}'..='\u{E0FFF}')
 }
 
 /// One `question` value: a string, its hidden characters (and lone surrogates) removed, cut to
-/// [`QUESTION_MAX_CHARS`] characters; `None` when empty or when the core's secret check matches the raw or the cleaned
+/// [`QUESTION_MAX_CHARS`] characters; `None` when empty or only white space, or when the core's secret check matches the raw or the cleaned
 /// text (a secret past the cut, or one split by a zero-width mark, drops the question too).
 fn clean_question(value: &Value) -> Option<String> {
     let raw = value.as_str()?;
@@ -238,7 +246,7 @@ fn clean_question(value: &Value) -> Option<String> {
         .filter_map(char::from_u32)
         .filter(|&c| !hidden(c))
         .collect();
-    if text.is_empty() || is_secret(text.as_bytes()) {
+    if text.trim().is_empty() || is_secret(text.as_bytes()) {
         return None;
     }
     Some(text.chars().take(QUESTION_MAX_CHARS).collect())
@@ -439,11 +447,52 @@ impl Item {
 /// One line (with its newline) to its item: `json.loads`, a dict, `parse_record`, `_item`. `project_of` resolves a
 /// `cwd` (the tail passes `discovery.resolve_project`, cached).
 pub fn line_item(line: &[u8], project_of: &mut dyn FnMut(&str) -> String) -> Option<Item> {
-    let record = json::loads_keeping(line, LIVE_KEEP_DEPTH)?;
+    match parse_line(line, project_of)? {
+        Parsed::Item(item) => Some(item),
+        Parsed::Turn => None,
+    }
+}
+
+/// What one live line gives the tail. Nearly every value is an `Item`: boxing it would add an allocation per line.
+#[allow(clippy::large_enum_variant)]
+enum Parsed {
+    Item(Item),
+    /// FR-105: a main-thread `assistant` or `user` record the item step skips (it abstains, or has no `sessionId` or
+    /// `timestamp`): it still ends the turn of its stream.
+    Turn,
+}
+
+/// [`line_item`], keeping a skipped main-thread `assistant`/`user` record as [`Parsed::Turn`]. A line is parsed with
+/// `json::loads` (5 levels, as the ingest); only a line that holds an `AskUserQuestion` call is parsed a second time
+/// with [`LIVE_KEEP_DEPTH`] levels, to read its questions (FR-106). No other line holds deeper values in memory.
+fn parse_line(line: &[u8], project_of: &mut dyn FnMut(&str) -> String) -> Option<Parsed> {
+    let mut record = json::loads(line)?;
     if !record.is_dict() {
         return None;
     }
-    item(&record, &parse_record(&record), project_of)
+    if asks(&record) {
+        #[cfg(test)]
+        tests::DEEP_PARSES.set(tests::DEEP_PARSES.get() + 1);
+        record = json::loads_keeping(line, LIVE_KEEP_DEPTH)?;
+    }
+    if let Some(item) = item(&record, &parse_record(&record), project_of) {
+        return Some(Parsed::Item(item));
+    }
+    let main_turn = matches!(record.get("type").as_str(), Some(b"assistant" | b"user"))
+        && !record.get("isSidechain").is_true();
+    main_turn.then_some(Parsed::Turn)
+}
+
+/// An `assistant` record with a `tool_use` block named `AskUserQuestion` (the blocks [`item`] reads).
+fn asks(record: &Value) -> bool {
+    let Value::Array(blocks) = record.get("message").get("content") else {
+        return false;
+    };
+    record.get("type").as_str() == Some(b"assistant")
+        && blocks.iter().any(|b| {
+            b.get("type").as_str() == Some(b"tool_use")
+                && b.get("name").as_str() == Some(b"AskUserQuestion")
+        })
 }
 
 // ---- hostile-safe reading -------------------------------------------------------------------------------------------
@@ -1029,9 +1078,9 @@ impl LiveTail {
     }
 
     /// One line to its item, parsed as soon as it is read: a batch holds items, never raw lines (bounded memory).
-    fn parse_one(&mut self, line: &[u8]) -> Option<Item> {
+    fn parse_one(&mut self, line: &[u8]) -> Option<Parsed> {
         let projects = &mut self.projects;
-        line_item(line, &mut |cwd: &str| {
+        parse_line(line, &mut |cwd: &str| {
             projects
                 .entry(cwd.to_owned())
                 .or_insert_with(|| resolve_project(cwd, Path::new("")))
@@ -1151,12 +1200,26 @@ impl LiveTail {
 
     // -- state updates ------------------------------------------------------------------------------------------------
 
-    fn publish(&mut self, account: Option<&str>, path: &str, items: Vec<Item>, now: i64) {
+    fn publish(&mut self, account: Option<&str>, path: &str, items: Vec<Parsed>, now: i64) {
         let mut tried = false; // the stream's meta file was looked for in this step (one path per call)
         let sub_agent = Path::new(path)
             .components()
             .any(|c| c == Component::Normal("subagents".as_ref()));
-        for item in items {
+        for parsed in items {
+            let item = match parsed {
+                Parsed::Item(item) => item,
+                Parsed::Turn => {
+                    // FR-105: any later main-thread record ends the turn, even one that builds no item.
+                    if !sub_agent {
+                        for session in self.sessions.values_mut() {
+                            if let Some(stream) = session.streams.get_mut(path) {
+                                stream.turn_ended = None;
+                            }
+                        }
+                    }
+                    continue;
+                }
+            };
             let mut appended: Vec<Pending> = Vec::new();
             let session = self.sessions.entry(&item.session_id, || Session {
                 entrypoint: None,
@@ -1390,10 +1453,8 @@ fn attention(session: &Session, quiet_cutoff: &str) -> Vec<Attention> {
                 count: asking.len() as i64,
                 is_sidechain: stream.is_sidechain,
                 since: first.ts.clone(),
-                questions: asking
-                    .iter()
-                    .find(|c| c.tool == "AskUserQuestion")
-                    .and_then(|c| c.questions.clone()),
+                // The oldest open call that kept some text (a call whose questions were all dropped has none).
+                questions: asking.iter().find_map(|c| c.questions.clone()),
             });
         }
         others.extend(
@@ -1466,6 +1527,39 @@ mod tests {
     thread_local! {
         /// T056 fix round: makes `warm` panic right after it set `replaying` (the caller catches it).
         pub(super) static PANIC_IN_REPLAY: Cell<bool> = const { Cell::new(false) };
+        /// T094 fix round: counts the deeper parses of [`line_item`] (`loads_keeping(_, LIVE_KEEP_DEPTH)`).
+        pub(super) static DEEP_PARSES: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// T094 fix round: a line without an `AskUserQuestion` call takes the old path (`json::loads`, 5 levels) and is
+    /// never parsed deeper; its item equals the one built from `json::loads`. A line with such a call is parsed deeper
+    /// once and gives its questions.
+    #[test]
+    fn only_a_line_with_an_ask_user_question_call_is_parsed_deeper() {
+        let nested = "{\"type\":\"assistant\",\"sessionId\":\"s\",\"timestamp\":\"2026-01-20T00:00:00Z\",\"message\":{\"id\":\"m\",\"model\":\"x\",\"content\":[{\"type\":\"tool_use\",\"id\":\"b1\",\"name\":\"MultiEdit\",\"input\":{\"edits\":[{\"old_string\":\"a\",\"new_string\":\"b\"}]}},{\"type\":\"tool_use\",\"id\":\"b2\",\"name\":\"TodoWrite\",\"input\":{\"todos\":[{\"content\":\"x\",\"status\":\"pending\"}]}},{\"type\":\"text\",\"text\":\"AskUserQuestion\"}]}}\n";
+        let identity = &mut |c: &str| c.to_owned();
+        DEEP_PARSES.set(0);
+        let got = line_item(nested.as_bytes(), identity).expect("an item");
+        assert_eq!(
+            DEEP_PARSES.get(),
+            0,
+            "no deeper parse without an AskUserQuestion call"
+        );
+        let record = json::loads(nested.as_bytes()).unwrap();
+        let old = item(&record, &parse_record(&record), identity).unwrap();
+        assert_eq!(format!("{got:?}"), format!("{old:?}"));
+        let ask = nested
+            .replace("\"MultiEdit\"", "\"AskUserQuestion\"")
+            .replace(
+                "{\"edits\":[{\"old_string\":\"a\",\"new_string\":\"b\"}]}",
+                "{\"questions\":[{\"question\":\"kept?\"}]}",
+            );
+        let got = line_item(ask.as_bytes(), identity).expect("an item");
+        assert_eq!(DEEP_PARSES.get(), 1);
+        assert_eq!(
+            got.events[0].questions,
+            Some(Questions(vec!["kept?".to_owned()]))
+        );
     }
 
     fn line(block: &str) -> String {

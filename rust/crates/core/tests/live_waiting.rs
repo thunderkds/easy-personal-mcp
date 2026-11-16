@@ -698,3 +698,151 @@ fn the_ingest_parser_still_keeps_five_levels() {
     );
     assert_eq!(call_questions("AskUserQuestion", &ingest), None);
 }
+
+// ---- Stage 4 fix round ------------------------------------------------------------------------------------------------
+
+/// Fix 1: a default-ignorable or format character outside FR-092's list cannot split a secret past the second check
+/// (both ends of each range, inside an `sk-` key, an `AKIA` key and a 32-character run), and is removed from a
+/// harmless question that stays.
+#[test]
+fn an_invisible_format_character_does_not_split_a_secret() {
+    for c in [
+        '\u{00AD}',
+        '\u{034F}',
+        '\u{061C}',
+        '\u{115F}',
+        '\u{1160}',
+        '\u{17B4}',
+        '\u{17B5}',
+        '\u{180B}',
+        '\u{180E}',
+        '\u{180F}',
+        '\u{2060}',
+        '\u{2064}',
+        '\u{206F}',
+        '\u{3164}',
+        '\u{FE00}',
+        '\u{FE0F}',
+        '\u{FFA0}',
+        '\u{FFF0}',
+        '\u{FFF9}',
+        '\u{FFFB}',
+        '\u{1BCA0}',
+        '\u{1BCA3}',
+        '\u{1D173}',
+        '\u{1D17A}',
+        '\u{E0000}',
+        '\u{E0001}',
+        '\u{E0100}',
+        '\u{E0FFF}',
+    ] {
+        let code = c as u32;
+        for secret in [
+            format!("use sk{c}-ABCDEFGH please"),
+            format!("use sk-{c}ABCDEFGH please"),
+            format!("key AKIA{c}1234ABCD5678EFGH ok?"),
+            format!("key AK{c}IA1234ABCD5678EFGH ok?"),
+            format!("run {}{c}{} now?", "a".repeat(16), "b".repeat(16)),
+        ] {
+            assert_eq!(qs(&one(&secret)), None, "U+{code:04X} split a secret");
+        }
+        assert_eq!(
+            qs(&one(&format!("Ship{c} it?"))).unwrap(),
+            ["Ship it?"],
+            "U+{code:04X} kept"
+        );
+    }
+}
+
+/// Fix 3: a question that is only white space (after cleaning) is dropped; its neighbour stays.
+#[test]
+fn a_blank_question_is_dropped() {
+    assert_eq!(qs(&one("   ")), None);
+    assert_eq!(qs(&one(" \t\u{200B}\u{2060} \n")), None);
+    let two = json!({"questions": [{"question": "  "}, {"question": "real?"}]}).to_string();
+    assert_eq!(qs(&two).unwrap(), ["real?"]);
+}
+
+/// Fix 4: when the first open `AskUserQuestion` call's questions were all dropped, a later open one that has text
+/// gives it.
+#[test]
+fn a_later_open_call_gives_the_questions_when_the_first_has_none() {
+    let tmp = Temp::new("later-call");
+    let mut live = primed(&tmp);
+    let secret = format!("use sk-{} now?", "A".repeat(10));
+    let two = rec(
+        "assistant",
+        Some("cli"),
+        false,
+        TS,
+        json!({"id": "m1", "model": "x", "content": [
+            {"type": "tool_use", "id": "b1", "name": "AskUserQuestion", "input": questions_input(&[&secret])},
+            {"type": "tool_use", "id": "b2", "name": "AskUserQuestion", "input": questions_input(&["second?"])}]}),
+    );
+    tmp.append("s.jsonl", &two);
+    live.poll_once(&tmp.roots(), NOW, None);
+    assert_eq!(states(&live, NOW), ["waiting"]);
+    assert_eq!(
+        format!("{:?}", live.waiting_questions().get("s")),
+        "Some([(0, [\"second?\"])])"
+    );
+}
+
+/// Fix 5: a main-thread `assistant` or `user` record that the item step skips (it abstains: `usage` without a message
+/// id, a record without `timestamp` or `sessionId`, a non-string `cwd`) still ends the turn. A skipped sidechain record
+/// and a skipped `system` record do not.
+#[test]
+fn a_skipped_main_thread_record_still_ends_the_turn() {
+    let without = |kind: &str, key: &str| {
+        let mut r: Value = serde_json::from_str(&rec(
+            kind,
+            Some("cli"),
+            false,
+            TS,
+            json!({"role": kind, "content": "x"}),
+        ))
+        .unwrap();
+        r.as_object_mut().unwrap().remove(key);
+        format!("{r}\n")
+    };
+    let bad_cwd = {
+        let mut r: Value = serde_json::from_str(&user(Some("cli"))).unwrap();
+        r["cwd"] = json!(7);
+        format!("{r}\n")
+    };
+    let no_id_usage = rec(
+        "assistant",
+        Some("cli"),
+        false,
+        TS,
+        json!({"model": "x", "usage": {"input_tokens": 1, "output_tokens": 1,
+               "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}, "content": []}),
+    );
+    let side = rec(
+        "assistant",
+        Some("cli"),
+        true,
+        TS,
+        json!({"model": "x", "usage": {"input_tokens": 1}, "content": []}),
+    );
+    let system = without("system", "timestamp");
+    for (skipped, ends) in [
+        (no_id_usage, true),
+        (without("assistant", "timestamp"), true),
+        (without("user", "sessionId"), true),
+        (bad_cwd, true),
+        (side, false),
+        (system, false),
+    ] {
+        let tmp = Temp::new("skipped");
+        let mut live = primed(&tmp);
+        tmp.append("s.jsonl", &end_turn(Some("cli"), "m1"));
+        live.poll_once(&tmp.roots(), NOW, None);
+        assert_eq!(states(&live, NOW), ["your_turn"]);
+        assert!(line_item(skipped.as_bytes(), &mut |c: &str| c.to_owned()).is_none());
+        tmp.append("s.jsonl", &skipped);
+        live.poll_once(&tmp.roots(), NOW, None);
+        let want: &[&str] = if ends { &[] } else { &["your_turn"] };
+        assert_eq!(states(&live, NOW), want, "{skipped}");
+    }
+}
