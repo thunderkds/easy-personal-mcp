@@ -1179,6 +1179,15 @@ cargo test && cargo clippy --all-targets -- -D warnings
 
 Tests build their own temp stores and never open `~/.easy-personal`.
 
+### Real-machine smoke check (T097)
+
+```bash
+rust/scripts/smoke_real.sh                     # build, tests, notification, window; prints one PASS / FAIL / SKIP line per step
+rust/scripts/smoke_real.sh --claude <account>  # also one real `claude` run (spends plan limits; the setting is put back)
+```
+
+It exits 1 on any FAIL. A step whose tool is missing (`dbus-monitor`, `xprop`), or that has no session bus, display or built dashboard page (`EP_STATIC_DIR`), prints SKIP. `--only notification,window` runs chosen steps.
+
 ## Live tail engine (T049)
 
 `easy_personal_core::live` is the engine of Python's live tail (`src/easy_personal/core/live.py`, FR-043..FR-049,

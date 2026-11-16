@@ -112,6 +112,13 @@ check_package() {
     echo "$depends" | grep -Eq '(^|, )libwebkit2gtk-4\.1-0( |,|$)' || fail "Depends lacks libwebkit2gtk-4.1-0: $depends"
     echo "$depends" | grep -Eq '(^|, )libgtk-3-0(t64)?( |,|$)' || fail "Depends lacks libgtk-3-0 (or libgtk-3-0t64): $depends"
     echo "$depends" | grep -Eq '(^|, )libayatana-appindicator3-1( |,|$)' || fail "Depends lacks libayatana-appindicator3-1: $depends"
+    # T097: both desktop entries name the window's class, so the shell ties the running window to the installed icon.
+    # The class is the one the app's window reports (WM_CLASS on X11, app id on Wayland): the program name.
+    local d
+    for d in easy-personal easy-personal-tray; do
+        dpkg-deb --fsys-tarfile "$pkg" | tar -xO "./usr/share/applications/$d.desktop" 2>/dev/null |
+            grep -qx 'StartupWMClass=easy-personal-rs' || fail "$d.desktop has no StartupWMClass=easy-personal-rs line"
+    done
     # no maintainer scripts: the control archive holds `control` and `md5sums` only
     local extra
     extra=$(dpkg-deb --ctrl-tarfile "$pkg" | tar -t | sed 's|^\./||' | grep -Ev '^(control|md5sums|)$' || true)
@@ -202,5 +209,19 @@ fi
 grep -q 'easy-personal-tray.desktop' "$neg/err" || { echo "FAIL: the rejection does not name the missing file" >&2; cat "$neg/err" >&2; exit 1; }
 echo "ok: rejected, and it names the file:"
 sed 's/^/    /' "$neg/err"
+
+echo "== 6. the check fails when a .desktop file has no StartupWMClass line"
+neg2="$work/neg2"
+mkdir -p "$neg2"
+dpkg-deb -R "$deb" "$neg2/tree"
+sed -i '/^StartupWMClass=/d' "$neg2/tree/usr/share/applications/easy-personal.desktop"
+dpkg-deb --build --root-owner-group "$neg2/tree" "$neg2/noclass.deb" >/dev/null
+if check_package "$neg2/noclass.deb" 2>"$neg2/err"; then
+    echo "FAIL: the check accepted a package whose easy-personal.desktop has no StartupWMClass" >&2
+    exit 1
+fi
+grep -q 'StartupWMClass' "$neg2/err" || { echo "FAIL: the rejection does not name StartupWMClass" >&2; cat "$neg2/err" >&2; exit 1; }
+echo "ok: rejected, and it names StartupWMClass:"
+sed 's/^/    /' "$neg2/err"
 
 echo "PASS: $deb"
