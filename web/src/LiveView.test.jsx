@@ -1124,7 +1124,15 @@ describe('kit stage chip and call labels (FR-084)', () => {
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     const note = screen.getByText(/tokens times the API price table/).textContent
     expect(note).toMatch(/tool names, skill, sub-agent, MCP and command names, counts and times are shown/)
-    expect(note).toMatch(/never message or tool content/)
+    expect(note).toMatch(/never other message or tool content/)
+  })
+
+  it('T095 AC6: the footnote names the one text it shows, the question a waiting session asks', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+    expect(screen.getByText(/tokens times the API price table/).textContent).toContain(
+      'Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; never other message or tool content.',
+    )
   })
 
   it('a long label and a long sub-agent type are cut with an ellipsis in their one-line cell (FR-085)', () => {
@@ -1157,7 +1165,7 @@ describe('design', () => {
   })
 
   it('colors the pill and the row border from tokens only, one rule per state, and never by color alone', () => {
-    for (const state of ['failing', 'waiting', 'needs_attention']) {
+    for (const state of ['failing', 'waiting', 'your_turn', 'needs_attention']) {
       expect(liveCss).toMatch(new RegExp(`\\.live-pill\\[data-state='${state}'\\][^\\n]*color: var\\(--color-[a-z-]+\\)`))
       expect(liveCss).toMatch(new RegExp(`\\.live-session\\[data-state='${state}'\\][^\\n]*border-color: var\\(--color-[a-z-]+\\)`))
     }
@@ -1205,5 +1213,100 @@ describe('design', () => {
     expect(screen.getByRole('main')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Live' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'All sessions' })).toBeInTheDocument()
+  })
+})
+
+describe('your turn and the question text (T095, FR-108)', () => {
+  const turn = { state: 'your_turn', tool: null, count: 1, is_sidechain: false, since: 't' }
+  const waitingWith = (questions) => ({ state: 'waiting', tool: 'AskUserQuestion', count: 1, is_sidechain: false, since: 't', ...(questions === undefined ? {} : { questions }) })
+  const failing = { state: 'failing', tool: 'Edit', count: 3, is_sidechain: false, since: 't' }
+  const stuck = { state: 'needs_attention', tool: 'Bash', count: null, is_sidechain: false, since: 't' }
+  const pills = (idPrefix) => [...card(idPrefix).querySelectorAll('.live-pill')].map((p) => p.textContent)
+  const questionsIn = (el) => [...el.querySelectorAll('.live-question')].map((q) => q.textContent)
+  const order = () => [...document.querySelectorAll('.live-id')].map((h) => h.textContent)
+  const old = new Date(Date.now() - 3_600_000).toISOString()
+
+  it('AC1: a your_turn session shows the badge, counts in the header, sorts first, has a border state and is never idle', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { project: 'alpha', last_ts: new Date().toISOString() }),
+      session('bbbbbbbb-2', { project: 'beta', last_ts: old, attention: [turn] }),
+    ]))
+    expect(pills('bbbbbbbb')).toEqual(['your turn'])
+    expect(screen.getByText('1 session needs you')).toBeInTheDocument()
+    expect(order()).toEqual(['bbbbbbbb', 'aaaaaaaa'])
+    expect(card('bbbbbbbb')).toHaveAttribute('data-state', 'your_turn')
+    expect(card('bbbbbbbb')).not.toHaveAttribute('data-idle')
+    expect(card('bbbbbbbb').textContent).toContain('active · ')
+  })
+
+  it('AC2: states are ordered failing, waiting, your turn, needs attention; an unknown state renders nothing', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [stuck, turn, waitingWith(), failing] }),
+      session('bbbbbbbb-2', { project: 'beta', attention: [{ state: 'mystery', tool: null, count: 1 }] }),
+    ]))
+    expect(pills('aaaaaaaa')).toEqual([
+      'failing: Edit ×3',
+      'waiting for you: question',
+      'your turn',
+      'needs attention: Bash · hung or waiting for permission',
+    ])
+    expect(pills('bbbbbbbb')).toEqual([])
+    expect(screen.getByText('1 session needs you')).toBeInTheDocument()
+  })
+
+  it('AC3: both questions show as text under the waiting badge, in the row and in the open panel; no key, no question', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [waitingWith(['A?', 'B?'])] }),
+      session('bbbbbbbb-2', { project: 'beta', attention: [waitingWith()] }),
+    ]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?'])
+    expect(card('aaaaaaaa').querySelector('button.live-row')?.textContent).not.toContain('A?') // a button holds no list: the questions sit under it
+    openRow('aaaaaaaa')
+    const panel = within(card('aaaaaaaa')).getByRole('region')
+    expect(questionsIn(panel)).toEqual(['A?', 'B?'])
+    expect(questionsIn(card('bbbbbbbb'))).toEqual([])
+    expect(pills('bbbbbbbb')).toEqual(['waiting for you: question'])
+  })
+
+  it('AC4: markup in a question is text, never an element', () => {
+    const attack = '<img src=x onerror=alert(1)>'
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [waitingWith([attack])] })]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual([attack])
+    expect(document.querySelector('img')).toBeNull()
+    openRow('aaaaaaaa')
+    expect(document.querySelector('img')).toBeNull()
+  })
+
+  it.each([['a string', 'Which one?'], ['a number', 7], ['null', null], ['an object', { 0: 'A?' }], ['a list with a non-string item', ['A?', 2]]])(
+    'AC4: questions as %s shows no question and throws nothing',
+    (_, value) => {
+      render(<LiveView />)
+      stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [waitingWith(value)] })]))
+      expect(questionsIn(card('aaaaaaaa'))).toEqual([])
+      expect(pills('aaaaaaaa')).toEqual(['waiting for you: question'])
+      openRow('aaaaaaaa')
+      expect(questionsIn(card('aaaaaaaa'))).toEqual([])
+    },
+  )
+
+  it('a snapshot that changes only the questions draws the row again', () => {
+    render(<LiveView />)
+    const first = { last_ts: '2026-11-16T10:00:00Z' }
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { ...first, attention: [waitingWith(['Old?'])] })]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['Old?'])
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { ...first, attention: [waitingWith(['New?'])] })]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['New?'])
+  })
+
+  it('a question wraps: it has the wrap rule and a width cap, from tokens only', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    const rule = css.split('\n').find((line) => /^\.live-question\b/.test(line)) ?? ''
+    expect(rule).toMatch(/overflow-wrap: anywhere/)
+    expect(rule).toMatch(/min-width: 0/)
+    expect(rule).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb|hsl|white-space: nowrap/)
   })
 })

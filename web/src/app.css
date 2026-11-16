@@ -608,11 +608,15 @@ main button.live-row:focus-visible { outline: none; }
 .live-expanded .live-close { align-self: flex-end; min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
 .live-session[data-state='failing'] { border-color: var(--color-red); }
 .live-session[data-state='waiting'] { border-color: var(--color-accent); }
+.live-session[data-state='your_turn'] { border-color: var(--color-accent); }
 .live-session[data-state='needs_attention'] { border-color: var(--color-amber); }
 .live-pill { box-sizing: border-box; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 var(--space-2); border: 1px solid currentColor; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-label); }
 .live-pill[data-state='failing'] { color: var(--color-red); }
 .live-pill[data-state='waiting'] { color: var(--color-accent); }
+.live-pill[data-state='your_turn'] { color: var(--color-accent); }
 .live-pill[data-state='needs_attention'] { color: var(--color-amber); }
+.live-questions { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.live-question { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-body); color: var(--color-text); }
 .live-session[data-idle] .live-id { color: var(--color-muted); }
 .live-stage { box-sizing: border-box; min-width: 0; max-width: 100%; padding: 0 var(--space-2); border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); overflow-wrap: anywhere; position: relative; z-index: 1; }
 .live-id { margin: 0; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-accent); }

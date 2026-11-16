@@ -60,6 +60,16 @@ const FAMILY = [
 ]
 
 const STORAGE_KEY = 'easy-personal-scope'
+const WANT_MS = 10_000 // a session asked for by the address is looked for this long after the page starts
+const SESSION_ID = /^[0-9a-f-]{1,64}$/i
+
+/** The page's start address: undefined without a `live` parameter, null with one that names no usable session, else the session id. */
+function readStart() {
+  const params = new URLSearchParams(window.location.search)
+  if (!params.has('live')) return undefined
+  const id = params.get('live')
+  return SESSION_ID.test(id) ? id : null
+}
 
 /** The remembered scope, or none: storage may be missing, blocked or hold junk. */
 function readScope() {
@@ -113,7 +123,9 @@ export default function App() {
  * `options` is undefined while loading, null when the request failed (selects hidden, views unscoped).
  */
 function Shell() {
-  const [active, setActive] = useState('usage')
+  const [start] = useState(readStart) // read once: the app opens the window on /?live=<session id>#<token> (T096)
+  const [active, setActive] = useState(start === undefined ? 'usage' : 'live')
+  const [wantedId, setWantedId] = useState(start ?? null) // the session to select; given up after WANT_MS or once selected
   const [menuOpen, setMenuOpen] = useState(false)
   const [chosen, setChosen] = useState(readScope)
   const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064); not remembered across reloads
@@ -121,6 +133,16 @@ function Shell() {
   const [closed, setClosed] = useState({}) // group id -> collapsed
   const [firstRun, setFirstRun] = useState(undefined) // checklist steps; null when the request failed
   const [health, setHealth] = useState(undefined) // GET /api/store/health for the ingest chip; null when the request failed
+
+  // The query is read once and removed, so a reload selects nothing; the fragment (the token) stays.
+  useEffect(() => {
+    if (start !== undefined) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.hash)
+  }, [start])
+  useEffect(() => {
+    if (wantedId === null) return undefined
+    const timer = setTimeout(() => setWantedId(null), WANT_MS)
+    return () => clearTimeout(timer)
+  }, [wantedId])
 
   useEffect(() => {
     let current = true
@@ -165,6 +187,7 @@ function Shell() {
     loadOptions().then(setOptions, () => {})
   }, [])
 
+  const wantedUsed = useCallback(() => setWantedId(null), [])
   const scope = options ? validScope(chosen, options) : NO_SCOPE
   const choose = (next) => {
     setChosen(next)
@@ -266,6 +289,8 @@ function Shell() {
                 onCheckAgain={checkFirstRun}
                 onAccountsChanged={reloadOptions}
                 period={period}
+                wantedId={wantedId}
+                onWantedUsed={wantedUsed}
                 onPeriodChange={setPeriod}
               />
             )}

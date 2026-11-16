@@ -1,6 +1,8 @@
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
+import { act } from '@testing-library/react'
+import { readToken } from './api.js'
 import { fakeFetch, firstRun, workspaceOverrides } from './test/fixtures.js'
 
 beforeEach(() => {
@@ -557,5 +559,137 @@ describe('grouped sidebar and right rail (HUN-121, HUN-126)', () => {
       fireEvent.click(within(nav()).getByRole('button', { name: 'Usage' }))
       expect(await screen.findByText('1 agent account is ignored, so its usage is not counted.')).toBeInTheDocument()
     })
+  })
+})
+
+describe('the session the page is asked for (T095, FR-108)', () => {
+  const ID = 'a1b2c3d4-0000-4000-8000-000000000001'
+  const OTHER = 'a1b2c3d4-0000-4000-8000-000000000002'
+  let sources
+  class FakeStream {
+    constructor() { this.listeners = {}; sources.push(this) }
+    addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn) }
+    close() {}
+    emit(type, data) { act(() => (this.listeners[type] ?? []).forEach((fn) => fn({ type, data: JSON.stringify(data) }))) }
+  }
+  const one = (id, project) => ({ session_id: id, account: 'Claude work', project, last_ts: new Date().toISOString(), tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0 })
+  const snapshot = (...sessions) => sources.at(-1).emit('snapshot', { active_window_s: 300, last_id: 0, sessions })
+  const startOn = (url) => window.history.replaceState(null, '', url)
+  const row = (id) => document.getElementById(`live-row-${id}`)
+  const selected = () => document.querySelectorAll('.live-row[aria-current="true"]')
+  const viewIs = (name) => expect(within(nav()).getByRole('button', { name })).toHaveAttribute('aria-current', 'page')
+
+  beforeEach(() => {
+    sources = []
+    vi.stubGlobal('EventSource', FakeStream)
+    window.scrollTo = vi.fn()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('AC5: /?live=<listed id>#tok opens Live, selects that row with its panel open, and strips the query but not the fragment', async () => {
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    viewIs('Live')
+    expect(window.location.search).toBe('')
+    expect(window.location.hash).toBe('#tok')
+    expect(readToken()).toBe('tok')
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(row(ID)).toHaveAttribute('aria-current', 'true')
+    expect(row(ID)).toHaveAttribute('aria-expanded', 'true')
+    expect(row(OTHER)).not.toHaveAttribute('aria-current')
+    expect(selected()).toHaveLength(1)
+    expect(within(document.getElementById(`live-feed-${ID}`)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+  })
+
+  it('AC5: the row is scrolled into view', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    snapshot(one(ID, 'alpha'))
+    expect(scroll).toHaveBeenCalled()
+    expect(scroll.mock.contexts.at(-1)).toBe(row(ID).closest('li'))
+    delete Element.prototype.scrollIntoView
+  })
+
+  it('AC5: a session that first appears in a later snapshot within 10 s is selected', () => {
+    vi.useFakeTimers()
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    snapshot(one(OTHER, 'beta'))
+    expect(selected()).toHaveLength(0)
+    act(() => vi.advanceTimersByTime(9_000))
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(row(ID)).toHaveAttribute('aria-current', 'true')
+
+  })
+
+  it('AC5: after 10 s the wish is given up: a later snapshot selects nothing', () => {
+    vi.useFakeTimers()
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    snapshot(one(OTHER, 'beta'))
+    act(() => vi.advanceTimersByTime(10_500))
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(selected()).toHaveLength(0)
+    expect(row(ID)).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('AC5: the selection is made once: after the user closes the row a new snapshot does not open it again', () => {
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    snapshot(one(ID, 'alpha'))
+    fireEvent.click(row(ID))
+    expect(row(ID)).toHaveAttribute('aria-expanded', 'false')
+    snapshot(one(ID, 'alpha'), one(OTHER, 'beta'))
+    expect(row(ID)).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('AC5: a selected session that leaves the list clears the selection and shows no error', () => {
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    snapshot(one(ID, 'alpha'), one(OTHER, 'beta'))
+    snapshot(one(OTHER, 'beta'))
+    expect(selected()).toHaveLength(0)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it.each([
+    ['no id', '/?live#tok'],
+    ['an empty id', '/?live=#tok'],
+    ['an unknown id', '/?live=ffffffff-0000#tok'],
+    ['a script', '/?live=%3Cscript%3E#tok'],
+    ['a 65-character id', `/?live=${'a'.repeat(65)}#tok`],
+    ['a non-hex letter', '/?live=xyz#tok'],
+  ])('AC5: ?live with %s opens Live, selects nothing, shows no error, still strips the query', (_, url) => {
+    startOn(url)
+    render(<App />)
+    viewIs('Live')
+    snapshot(one(ID, 'alpha'), one('a'.repeat(65), 'long'))
+    expect(selected()).toHaveLength(0)
+    expect(document.querySelectorAll('.live-row[aria-expanded="true"]')).toHaveLength(0)
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(window.location.search).toBe('')
+    expect(window.location.hash).toBe('#tok')
+    expect(readToken()).toBe('tok')
+  })
+
+  it('AC5: a 64-character id is accepted', () => {
+    const id = 'a'.repeat(64)
+    startOn(`/?live=${id}#tok`)
+    render(<App />)
+    snapshot(one(id, 'alpha'))
+    expect(row(id)).toHaveAttribute('aria-current', 'true')
+  })
+
+  it('AC5: with no parameter the page starts on Usage as before and leaves the address alone', () => {
+    startOn('/?other=1#tok')
+    render(<App />)
+    viewIs('Usage')
+    expect(window.location.search).toBe('?other=1')
+    expect(readToken()).toBe('tok')
   })
 })
