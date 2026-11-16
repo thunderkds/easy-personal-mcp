@@ -82,8 +82,20 @@ Not done: merge (admin: after the auto verify pass); auto verify: not started
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-16T07:19:10Z and 07:19:26Z, before any implementation commit; host-built package `/home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/rust/target/deb/easy-personal-rs_0.3.0_amd64.deb`, read only):
+
+```
+$ dpkg-deb -f easy-personal-rs_0.3.0_amd64.deb Depends
+libc6 (>= 2.39), libcairo2 (>= 1.10.0), libdbus-1-3 (>= 1.10), libgcc-s1 (>= 4.2), libgdk-pixbuf-2.0-0 (>= 2.36.9), libglib2.0-0t64 (>= 2.66.0), libgtk-3-0t64 (>= 3.21.5), libjavascriptcoregtk-4.1-0, libsoup-3.0-0 (>= 3.0.3), libwebkit2gtk-4.1-0 (>= 2.41.90), libayatana-appindicator3-1
+
+$ docker run --rm -v <deb folder>:/deb:ro ubuntu:22.04 sh -c 'apt-get update; apt-get install -y /deb/easy-personal-rs_0.3.0_amd64.deb'
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+The following packages have unmet dependencies:
+ easy-personal-rs : Depends: libc6 (>= 2.39) but 2.35-0ubuntu3.15 is to be installed
+                    Depends: libglib2.0-0t64 (>= 2.66.0) but it is not installable
+                    Depends: libgtk-3-0t64 (>= 3.21.5) but it is not installable
+E: Unable to correct problems, you have held broken packages.
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
