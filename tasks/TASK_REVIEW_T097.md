@@ -68,8 +68,59 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-16 on branch T097 at d822063, no implementation commit yet, debug build `cargo build --locked -p easy-personal-rs --features window`; probes: notify_check.sh / window_probe.sh from the Supervisor's scratchpad):
+
+```
+2026-11-16T11:10:43Z
+== notify
+--- Notify call seen on the session bus:
+   string "easy-personal"
+   uint32 0
+   string ""
+   string "Easy Personal"
+   string "Waiting for you, AskUserQuestion, project tmp, session notify-c"
+   array [
+   ]
+--
+--- serve stderr:
+notify-check: PASS
+== window
+WM_CLASS(STRING) = "easy-personal-rs", "Easy-personal-rs"
+window icon: not set
+== desktop
+(grep exit 1)
+```
+
+Parity test (`cargo test -p easy-personal-rs --test connector_cli_parity`, `/usr/bin/easy-personal-launch` installed):
+
+```
+2026-11-16T11:10:59Z
+---- every_connector_and_doctor_step_equals_the_python_cli stdout ----
+connector cli oracle: 95 cases, 116 steps, 5 different
+
+thread 'every_connector_and_doctor_step_equals_the_python_cli' (1767769) panicked at crates/app/tests/connector_cli_parity.rs:250:5:
+5 problems:
+sync_no_launcher step 0 ["connector", "sync", "--yes"]: exit 0, Python 1; stdout "Claude default: add acme-discord -> exec discord-acme\nClaude default: add acme-gmail -> exec gmail-acme\nClaude default: add acme-sendgrid -> exec sendgrid-acme\nClaude default: add acme-slack -> exec slack-acme\nClau
+=====
+sync_no_launcher: claude writes [Object {"argv": Array [String("mcp"), String("add-json"), String("acme-discord"), String("{\"type\": \"stdio\", \"command\": \"/usr/bin/easy-personal-launch\", \"args\": [\"exec\", \"discord-acme\"]}"), String("--scope"), String("user")], "ccd": String("<unset>")}, O
+  want []
+=====
+sync_no_launcher: claude state {"<WORK>/agent-root/.claude-work":{"acme-discord":"Command: <LAUNCHER>\nArgs: exec discord-acme\n","acme-gmail":"Command: /usr/bin/easy-personal-launch\nArgs: exec gmail-acme\n","acme-sendgrid":"Command: /usr/bin/some-server\nArgs: --serve\n","acme-slack":"Command: <LA
+=====
+sync_no_launcher: table account_registrations [Array [Number(1), String("acme-discord"), String("discord-acme")], Array [Number(1), String("acme-gmail"), String("gmail-acme")], Array [Number(1), String("acme-sendgrid"), String("sendgrid-acme")], Array [Number(1), String("acme-slack"), String("slack-
+  want [Array [Number(2), String("acme-gmail"), String("gmail-acme")], Array [Number(2), String("acme-slack"), String("slack-acme")], Array [Number(2), String("acme-teams"), String("teams-acme")], Array [Number(2), String("old-one"), String("slack-personal")], Array [Number(2), String("old-two"), St
+=====
+doctor_no_launcher step 0 ["doctor"]: exit 0, Python 1; stdout "ok keychain: <BACKEND>\nok claude: on PATH\nok launcher: /usr/bin/easy-personal-launch\n" stderr ""
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    every_connector_and_doctor_step_equals_the_python_cli
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.47s
+
+error: test failed, to rerun pass `-p easy-personal-rs --test connector_cli_parity`
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
