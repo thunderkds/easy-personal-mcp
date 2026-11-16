@@ -579,7 +579,7 @@ fn question_limits_and_odd_inputs() {
         r#"{"questions":[]}"#,
         r#"{"questions":["q", 1, null, ["q"]]}"#,
         r#"{"questions":[{"question":1},{"question":null},{"question":["q"]},{"question":{"q":1}}]}"#,
-        r#"{"questions":[{"question":""},{"question":"​\n"}]}"#,
+        "{\"questions\":[{\"question\":\"\"},{\"question\":\"\\u200b\\n\"}]}",
         r#"{"question":"q"}"#,
         r#"["q"]"#,
         r#""q""#,
@@ -670,4 +670,31 @@ fn header_options_multiselect_and_plan_are_never_read() {
     ] {
         assert!(!out.contains("QUESTION-MARKER"), "{out}");
     }
+}
+
+/// Supervisor decision 1: the ingest's `json::loads` still keeps 5 levels (`record.message.content[i].input`); only
+/// the live tail's `loads_keeping(_, 7)` reaches `input.questions[i]`.
+#[test]
+fn the_ingest_parser_still_keeps_five_levels() {
+    let line = ask("m1", "b1", questions_input(&["kept?"]));
+    let input = |v: &json::Value| {
+        let json::Value::Array(blocks) = v.get("message").get("content") else {
+            panic!("content is kept");
+        };
+        blocks[0].get("input").clone()
+    };
+    let ingest = input(&json::loads(line.as_bytes()).unwrap());
+    assert!(ingest.is_dict(), "level 5 (input) is kept");
+    assert_eq!(
+        ingest.get("questions"),
+        &json::Value::Deep,
+        "level 6 is not"
+    );
+    let live = input(&json::loads_keeping(line.as_bytes(), 7).unwrap());
+    assert!(matches!(live.get("questions"), json::Value::Array(_)));
+    assert_eq!(
+        call_questions("AskUserQuestion", &live).as_deref(),
+        Some(&["kept?".to_owned()][..])
+    );
+    assert_eq!(call_questions("AskUserQuestion", &ingest), None);
 }
