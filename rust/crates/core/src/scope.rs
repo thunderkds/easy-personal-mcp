@@ -162,6 +162,19 @@ fn account_clause(conn: &Connection, reference: &str) -> Result<(&'static str, i
     })
 }
 
+/// The `CLAUDE_CONFIG_DIR` value of the confirmed Claude account an id or a label names (as [`Scope::account`] matches
+/// it): `None` for the default account, whose runs have the variable removed (T090, the agent run). An unknown account,
+/// or one that is not a Claude account, is [`ScopeError::Unknown`]. Read-only.
+pub fn account_config_dir_env(conn: &Connection, reference: &str) -> Result<Option<String>> {
+    let (_, id) = account_clause(conn, reference)?;
+    let found: Option<Option<String>> = conn
+        .prepare("SELECT config_dir_env FROM agent_accounts WHERE id = ?1 AND provider = 'claude'")?
+        .query_map([id], |r| r.get(0))?
+        .next()
+        .transpose()?;
+    found.ok_or_else(|| ScopeError::Unknown("the account is not a Claude account".into()))
+}
+
 /// `path` equals `root`, or lies under it (`workspaces._under`): `/a/b` is never under `/a/bc`.
 pub(crate) fn under(path: &str, root: &str) -> bool {
     path == root

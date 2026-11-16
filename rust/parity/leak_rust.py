@@ -1243,6 +1243,10 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (0, ["machine"]), (0, ["machine", "--json"]),  # T072: reads /proc and the store's folder only
     (0, ["effectiveness"]), (0, ["effectiveness", "--json"]), (2, ["effectiveness", "--workspace", "{key}"]),  # T075
     (2, ["effectiveness", "--account", "{key}"]), (2, ["effectiveness", "--since", "garbage"]),
+    # T090: the flag goes to this gate's own EASY_PERSONAL_HOME; `now` only after `off` (in list order), so it exits 1 and
+    # starts nothing. `now` with the setting on would start a real Claude Code run: never listed here.
+    (0, ["agent-run", "status"]), (0, ["agent-run", "on"]), (0, ["agent-run", "status"]), (0, ["agent-run", "off"]),
+    (1, ["agent-run", "now", "--workspace", "{key}"]), (2, ["agent-run", "nope"]),  # clap echoes an unknown subcommand's name
 ]
 # Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
 CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "tray", "help", "connector", "doctor"}  # T060: `connector_cli`; T076: `tray` is window-only like `app`

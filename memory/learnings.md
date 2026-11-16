@@ -645,3 +645,11 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - An agent stopped by the step limit keeps its context: `SendMessage` to it goes on with the same counter (reset at the block). A second block of the same agent is a stop that stays, so start a fresh agent for a fix round.
 - The Stop hook's auto-mode check blocks a stop while a background agent still runs; the second fire lets it pass and writes a `Paused:` line in the worktree's review file. A review file of a task that has not started must hold its `Mode: auto` block in an HTML comment.
 **Files**: `rust/crates/core/src/live.rs`, `rust/crates/core/src/ingest/json.rs`, `rust/crates/app/src/live_feed.rs`, `rust/parity/leak_rust.py`, `tasks/TASK_REVIEW_T094.md`
+
+## 2026-11-16 — T090 agent run: child process gotchas
+- **Files**: `rust/crates/app/src/agent_run.rs`, `rust/crates/app/src/claude_cli.rs`
+- `PR_SET_PDEATHSIG` follows the *thread* that started the child, not the process. Start a long child from a thread that lives until the child ends (T091: not a short tokio worker), or the child is killed when that thread exits.
+- `flock` belongs to the open file description, and std uses `fork` when `pre_exec` is set. A child that another test thread forks holds the lock until its `exec`, so lock tests fail at random unless they run one at a time (a static mutex in `agent_run::tests`).
+- `connector_cli_parity` `*_no_launcher` cases fail on a machine where the `.deb` is installed: `/usr/bin/easy-personal-launch` is on `PATH`. Same failure without any change; the test should not see the system `PATH`.
+- A hook's `Paused:` line can land in a sub-agent's worktree review file while the Supervisor waits for that agent; the agent removed it. Expect it and check the review file after a hand-back.
+

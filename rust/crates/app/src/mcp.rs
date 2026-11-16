@@ -748,8 +748,9 @@ fn run_tool(
 }
 
 /// The prompt text: Python's fixed text, the scope line when a `workspace` or `account` is given (an empty one counts as
-/// none), then the last step. `json.dumps(ensure_ascii=False)` quoting is `serde_json`'s for a string.
-fn investigate_text(arguments: &JsonObject) -> Result<String, String> {
+/// none), then the last step. `json.dumps(ensure_ascii=False)` quoting is `serde_json`'s for a string. The agent run
+/// (`agent_run.rs`, T090) sends this same text to `claude -p`.
+pub(crate) fn investigate_text(arguments: &JsonObject) -> Result<String, String> {
     let mut scope = Vec::new();
     for key in ["workspace", "account"] {
         match arguments.get(key) {
