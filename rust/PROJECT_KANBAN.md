@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md — Rust port (`rust/`)
-**Last updated**: 2026-11-14
+**Last updated**: 2026-11-16
 
 > Compact task board for the **Rust port** only, kept in `rust/` (Gate 4: a separate board file; the repo-root `PROJECT_KANBAN.md` is the Python app's Linear cache and is overwritten on every pull, so Rust tasks never go there). Guides live in the repo-root `tasks/` so the spawn hook finds them. Full context: `rust/PROJECT_SPEC.md`.
 > Task-to-task preconditions live in each guide's `Depends on:` field.
@@ -9,6 +9,9 @@
 ## Board
 
 ### Todo
+- [ ] **T090** — Agent run 1: the setting (off by default, CLI only), the `claude -p` runner for the fixed job `investigate`, and `agent-run on|off|status|now` | Backend-Developer | C3 | Risk: High | P2 | guide `tasks/TASK_GUIDE_T090.md` (2026-11-16); PRD FR-101, FR-102; plan `BRAINSTORMING_LOG_AGENTRUN.md` (owner 2026-11-16 "yes, plan the run model, opt-in and off by default"); Step 0 spike on the real `claude` flags; HITL: AC 9 is one real run that spends plan limits
+- [ ] **T091** — Agent run 2: `GET /api/agent-run`, `POST /api/agent-run` (403 when off, 409 when a run is going), `POST /api/agent-run/stop`; leak gate | Backend-Developer | C2 | Risk: High | P2 | guide `tasks/TASK_GUIDE_T091.md` (2026-11-16); Depends on T090; PRD FR-103
+- [ ] **T092** — Agent run 3: agent run block on Warnings & plan (off / idle / running / ended), README part | Frontend-Developer | C2 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T092.md` (2026-11-16); Depends on T091; PRD FR-104; landing page not changed while PRD question 37 (Anthropic terms) is open
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert; GUIDE MUST INCLUDE (from T062, 2026-11-15): `connector sync` matches the launcher by file name only (`rust/crates/core/src/sync.rs` `points_at_launcher`), so connector entries made before the cutover keep running `~/.local/bin/easy-personal-launch` (Python). Before Python is removed, re-point every entry at the Rust launcher (remove and re-add, or `connector move` out and back), or every connector breaks
 
 - [x] **T076** — Watch 5: `tray` command (tray icon 4 states, native menu, alerts on, XDG autostart) | Backend-Developer | C3 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T076.md` (2026-11-15); Depends on T072-T074; HITL menu check; PRD FR-099 | owner OK'd menu rows + state rule 2026-11-15; Stage 4: code-review 0 P0/P1 (2 P2 fixed), security-review 0 P0/P1 (P2 icon PNG /tmp fallback fixed, lock symlink refusal added); `/verify` pass after fix round 1 (leak gate 0 hits, self-test ok, 24 tray/window tests); workspace 987 passed | code MERGED to `main` 2026-11-15 (`--no-ff`) | DONE 2026-11-15: Gate 6 visual row closed by the owner's verdict on the real tray ("76 is good to mark done")
