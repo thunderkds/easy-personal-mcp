@@ -604,15 +604,74 @@ describe('the session the page is asked for (T095, FR-108)', () => {
     expect(within(document.getElementById(`live-feed-${ID}`)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('AC5: the row is scrolled into view', async () => {
+  it('AC5: the row is scrolled into view, once', () => {
     const scroll = vi.fn()
     Element.prototype.scrollIntoView = scroll
+    try {
+      startOn(`/?live=${ID}#tok`)
+      render(<App />)
+      snapshot(one(ID, 'alpha'))
+      expect(scroll).toHaveBeenCalledTimes(1)
+      expect(scroll.mock.contexts.at(-1)).toBe(row(ID).closest('li'))
+      snapshot(one(ID, 'alpha'), one(OTHER, 'beta'))
+      expect(scroll).toHaveBeenCalledTimes(1)
+    } finally {
+      delete Element.prototype.scrollIntoView
+    }
+  })
+
+  it('Stage 4 round 2 (1): the 10 s limit runs from the first snapshot: one that arrives at 11 s with the id selects it', () => {
+    vi.useFakeTimers()
     startOn(`/?live=${ID}#tok`)
     render(<App />)
-    snapshot(one(ID, 'alpha'))
-    expect(scroll).toHaveBeenCalled()
-    expect(scroll.mock.contexts.at(-1)).toBe(row(ID).closest('li'))
-    delete Element.prototype.scrollIntoView
+    act(() => vi.advanceTimersByTime(11_000))
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(row(ID)).toHaveAttribute('aria-current', 'true')
+  })
+
+  it('Stage 4 round 2 (1): the id first listed 9 s after a first snapshot (that came at 11 s) is selected; 10.5 s after it is not', () => {
+    vi.useFakeTimers()
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    act(() => vi.advanceTimersByTime(11_000))
+    snapshot(one(OTHER, 'beta'))
+    act(() => vi.advanceTimersByTime(9_000))
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(row(ID)).toHaveAttribute('aria-current', 'true')
+  })
+
+  it('Stage 4 round 2 (1): 10.5 s after a first snapshot (that came at 11 s) without the id, a later one with it selects nothing', () => {
+    vi.useFakeTimers()
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    act(() => vi.advanceTimersByTime(11_000))
+    snapshot(one(OTHER, 'beta'))
+    act(() => vi.advanceTimersByTime(10_500))
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(selected()).toHaveLength(0)
+  })
+
+  it('Stage 4 round 2 (2): the user opening a row ends the wish: the wanted session later listed does not take the selection', () => {
+    vi.useFakeTimers()
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    snapshot(one(OTHER, 'beta'))
+    fireEvent.click(row(OTHER))
+    act(() => vi.advanceTimersByTime(5_000))
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(row(OTHER)).toHaveAttribute('aria-expanded', 'true')
+    expect(row(ID)).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('Stage 4 round 2 (3): leaving Live drops a pending wish: going to Usage and back, the wanted session listed later selects nothing', () => {
+    startOn(`/?live=${ID}#tok`)
+    render(<App />)
+    snapshot(one(OTHER, 'beta'))
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Usage' }))
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Live' }))
+    snapshot(one(OTHER, 'beta'), one(ID, 'alpha'))
+    expect(selected()).toHaveLength(0)
+    expect(row(ID)).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('AC5: a session that first appears in a later snapshot within 10 s is selected', () => {

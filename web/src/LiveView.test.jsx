@@ -1305,6 +1305,57 @@ describe('your turn and the question text (T095, FR-108)', () => {
     },
   )
 
+  it('Stage 4 round 2 (5): questions are read only from a waiting state', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [{ ...turn, questions: ['T?'] }] }),
+      session('bbbbbbbb-2', { project: 'beta', attention: [{ ...failing, questions: ['F?'] }] }),
+      session('cccccccc-3', { project: 'gamma', attention: [{ ...stuck, questions: ['N?'] }] }),
+    ]))
+    for (const id of ['aaaaaaaa', 'bbbbbbbb', 'cccccccc']) expect(questionsIn(card(id))).toEqual([])
+    openRow('aaaaaaaa')
+    expect(questionsIn(card('aaaaaaaa'))).toEqual([])
+  })
+
+  it('Stage 4 round 2 (5): at most the first 4 strings show, each cut to 300 characters, and an empty or blank one is dropped', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([
+      session('aaaaaaaa-1', { attention: [waitingWith(['1?', '2?', '3?', '4?', '5?', '6?'])] }),
+      session('bbbbbbbb-2', { project: 'beta', attention: [waitingWith(['y'.repeat(500)])] }),
+      session('cccccccc-3', { project: 'gamma', attention: [waitingWith(['   ', '', 'Real?'])] }),
+    ]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['1?', '2?', '3?', '4?'])
+    expect(questionsIn(card('bbbbbbbb'))).toEqual(['y'.repeat(300)])
+    expect(questionsIn(card('cccccccc'))).toEqual(['Real?'])
+  })
+
+  it('Stage 4 round 2 (6): a later snapshot that drops the questions, or the key, leaves no question line', () => {
+    render(<LiveView />)
+    const first = { last_ts: '2026-11-16T10:00:00Z' }
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { ...first, attention: [waitingWith(['A?'])] })]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?'])
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { ...first, attention: [waitingWith([])] })]))
+    expect(document.querySelectorAll('.live-question')).toHaveLength(0)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { ...first, attention: [waitingWith(['B?'])] })]))
+    expect(questionsIn(card('aaaaaaaa'))).toEqual(['B?'])
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { ...first, attention: [waitingWith()] })]))
+    expect(document.querySelectorAll('.live-question')).toHaveLength(0)
+  })
+
+  it('Stage 4 round 2 (4): a normal click that opens a row does not scroll', () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    try {
+      render(<LiveView />)
+      stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
+      fireEvent.click(rowButton('aaaaaaaa'))
+      expect(rowButton('aaaaaaaa')).toHaveAttribute('aria-expanded', 'true')
+      expect(scroll).not.toHaveBeenCalled()
+    } finally {
+      delete Element.prototype.scrollIntoView
+    }
+  })
+
   it('a snapshot that changes only the questions draws the row again', () => {
     render(<LiveView />)
     const first = { last_ts: '2026-11-16T10:00:00Z' }

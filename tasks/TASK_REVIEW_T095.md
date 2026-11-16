@@ -38,6 +38,14 @@ Paused: auto-mode check failed — no `Memory:` line in the report — run the m
 
 P2 (the open row showed its questions twice): `web/src/LiveView.test.jsx` "Stage 4 fix: an open row holds each question once (in the panel); closing it shows them in the row again". Red before the fix (`expected [ 'A?', 'B?', 'A?', 'B?' ] to deeply equal [ 'A?', 'B?' ]`), green after (`Tests 947 passed (947)`, build ok, `check_static: ok`, exit=0). `after-selected-1280.png` and `after-selected-375.png` retaken: the questions show once, in the panel.
 
+Round 2 (independent review). Each test was run red before its code (7 red for the right reasons: `expected [ 'T?' ] to deeply equal []`, `expected [ '1?', ..., '6?' ] to deeply equal [ '1?', '2?', '3?', '4?' ]`, `expected "vi.fn()" to not be called at all, but actually been called 1 times`, and for fixes 1-3 `aria-current`/`aria-expanded` not as expected), then green: `Tests 957 passed (957)`, build ok, `check_static: ok`, exit=0.
+1. The 10 s limit runs from the first snapshot (`loaded`), App.test.jsx: "Stage 4 round 2 (1): the 10 s limit runs from the first snapshot: one that arrives at 11 s with the id selects it", "(1): the id first listed 9 s after a first snapshot (that came at 11 s) is selected; ...", "(1): 10.5 s after a first snapshot ... selects nothing". Red: the first two; green: all three.
+2. A user toggle ends the wish, App.test.jsx "(2): the user opening a row ends the wish ...". Red, then green.
+3. Leaving Live drops a pending wish, App.test.jsx "(3): leaving Live drops a pending wish ...". Red, then green.
+4. Scroll only for the address selection: LiveView.test.jsx "(4): a normal click that opens a row does not scroll" (red: called 1 times) and App.test.jsx "AC5: the row is scrolled into view, once" (`toHaveBeenCalledTimes(1)`, also after a later snapshot). Green.
+5. Questions only from a waiting state, at most 4, each 300 characters, blanks dropped: LiveView.test.jsx "(5): questions are read only from a waiting state" and "(5): at most the first 4 strings show, each cut to 300 characters, and an empty or blank one is dropped". Red, then green.
+6. Missing tests: LiveView.test.jsx "(6): a later snapshot that drops the questions, or the key, leaves no question line" (passed at once, a guard); StatusChips.test.jsx "T095: a session whose only state is your_turn is counted in the chip, and is never idle" (passed at once, a guard); the `scrollIntoView` stubs are now removed in `finally`.
+
 ---
 
 ## Demonstration

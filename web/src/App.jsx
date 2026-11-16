@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import AgentsView from './AgentsView.jsx'
 import BoardView from './BoardView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
 import KitView from './KitView.jsx'
-import LiveView, { LiveProvider } from './LiveView.jsx'
+import LiveView, { LiveContext, LiveProvider } from './LiveView.jsx'
 import Loading from './Loading.jsx'
 import MemoryView from './MemoryView.jsx'
 import Rail from './Rail.jsx'
@@ -60,7 +60,7 @@ const FAMILY = [
 ]
 
 const STORAGE_KEY = 'easy-personal-scope'
-const WANT_MS = 10_000 // a session asked for by the address is looked for this long after the page starts
+const WANT_MS = 10_000 // a session asked for by the address is looked for this long after the first snapshot
 const SESSION_ID = /^[0-9a-f-]{1,64}$/i
 
 /** The page's start address: undefined without a `live` parameter, null with one that names no usable session, else the session id. */
@@ -125,7 +125,7 @@ export default function App() {
 function Shell() {
   const [start] = useState(readStart) // read once: the app opens the window on /?live=<session id>#<token> (T096)
   const [active, setActive] = useState(start === undefined ? 'usage' : 'live')
-  const [wantedId, setWantedId] = useState(start ?? null) // the session to select; given up after WANT_MS or once selected
+  const [wantedId, setWantedId] = useState(start ?? null) // the session to select; given up WANT_MS after the first snapshot, once selected, when the owner opens a row, or when Live is left
   const [menuOpen, setMenuOpen] = useState(false)
   const [chosen, setChosen] = useState(readScope)
   const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064); not remembered across reloads
@@ -138,11 +138,16 @@ function Shell() {
   useEffect(() => {
     if (start !== undefined) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.hash)
   }, [start])
+  const loaded = Boolean(useContext(LiveContext)?.loaded) // true once the stream's first snapshot has arrived
   useEffect(() => {
-    if (wantedId === null) return undefined
+    // The wanted session is always looked for in the first snapshot, whenever it comes; the limit runs from that snapshot.
+    if (wantedId === null || !loaded) return undefined
     const timer = setTimeout(() => setWantedId(null), WANT_MS)
     return () => clearTimeout(timer)
-  }, [wantedId])
+  }, [wantedId, loaded])
+  useEffect(() => {
+    if (active !== 'live') setWantedId(null) // leaving Live drops a wish that is still pending
+  }, [active])
 
   useEffect(() => {
     let current = true
