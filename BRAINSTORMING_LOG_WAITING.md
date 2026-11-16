@@ -135,4 +135,4 @@ Files that **must not** be touched:
 ## User Selection
 
 > **Approved direction**: the text part of Option A (text beside the snapshot, stream only) — DEBATED 2026-11-16, all three Advocates. ⚠ decided for you — please review.
-> **Open**: the click mechanism (query / fragment / script). Waiting for the owner's answer; see `## Recommended Path`.
+> **Click mechanism**: a query on the window address, `/?live=<session id>#<token>` (Advocate 1's proposal, the Supervisor's recommendation). The Debate did not settle it and the run paused. The recommendation was put to the owner as option 1 of 3; the owner replied "continue your work [admin]" (2026-11-16) without naming an option, and the Supervisor read that as taking the recommendation. ⚠ Supervisor's reading — please review.

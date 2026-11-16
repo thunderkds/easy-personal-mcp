@@ -22,19 +22,18 @@
 
 ## Requirement
 
-> **OPEN — do not start this task.** How a click tells the page which session to show is not decided: the Debate of 2026-11-16 ended with three different proposals (`tasks/TASK_REVIEW_T095.md` `Paused:`). The text below still describes the Supervisor's draft, a `focus` message on `GET /api/live`; the Supervisor rewrites this guide after the owner's answer.
 
 **Original request** (owner, 2026-11-16): "For the dashboard let show the question, or stop point to the live section" · "go [admin], with question text".
 
 **Restated intent** (FR-108):
 > 1. **Badge.** The attention state `your_turn` shows as a badge with the words `your turn`. It counts in the Live header count, gives the row the same "needs you" sort and border rule as the other states, and such a session is never idle. State order: `failing`, `waiting`, `your_turn`, `needs_attention`. An unknown state name is still left out.
 > 2. **Question text.** A `waiting` state that has the key `questions` (a list of strings, from T094) shows each question as plain text under the badge, in the session row and in its side panel. It is React text, never `dangerouslySetInnerHTML`. Long text wraps and never widens the page. A `questions` value that is not a list of strings shows nothing and throws nothing. Without the key the badge is as today.
-> 3. **Focus.** The page's one stream accepts a new message `event: focus` whose data is `{"session_id": "<id>"}` or `{"session_id": null}` (sent by T096). On it, the page opens the Live view. With an id that is in the list, that session's row is selected: scrolled into view, its side panel open, and marked for assistive technology. With `null`, or an id that is not in the list, nothing is selected and no error shows. A second `focus` for another session moves the selection.
+> 3. **The session the app asks for.** The app opens or reloads the window on `/?live=<session id>#<token>` (T096 does that; the token stays the whole fragment, so `web/src/api.js` is not changed). Once at page start, the page reads `location.search`: with a `live` parameter it opens the Live view, and it removes the query from the address with `history.replaceState` (the fragment stays as it is), so a later reload selects nothing. With an id that is in the list (in the first snapshot, or in a snapshot within 10 s of the start), that session's row is selected: scrolled into view, its side panel open, and marked for assistive technology. With `?live` and no id, with an id that is not a session id (anything but hex digits and `-`, or longer than 64 characters), or with an id that is not in the list, the Live view opens, nothing is selected and no error shows. Without the parameter the page starts as today.
 > 4. **Footnote.** The Live view footnote names the one text it shows: "Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; never other message or tool content."
 > 5. The page works out no state itself (FR-050): it renders what the stream sends.
 > 6. The built page is copied where `scripts/check_static.py` expects it, as T077 did.
 
-**Out of scope**: answering a question from the page (no text input, no button that writes to a session); `header`, option labels, the plan text; the server side of `focus` (T096); the tray; Python code; a new design artboard.
+**Out of scope**: answering a question from the page (no text input, no button that writes to a session); `header`, option labels, the plan text; the app side of the click (T096: building the address, the navigation); a change to `web/src/api.js` or to the token read; the tray; Python code; a new design artboard.
 
 ### Requirement Fidelity Gate
 - [x] Restated intent confirmed: auto (Supervisor), 2026-11-16, `[admin]`
@@ -60,7 +59,7 @@ No new npm package. No change to `web/package-lock.json`.
 | 2 | Test: state order `failing`, `waiting`, `your_turn`, `needs_attention`; an unknown state renders nothing | intent 1 |
 | 3 | Test: `questions: ["A?", "B?"]` renders both under the `waiting` badge in the row and in the side panel; no `questions` key renders the badge as before | intent 2 |
 | 4 | Test: a question `<img src=x onerror=alert(1)>` is shown as that text (no `img` element in the DOM); `questions` as a string, a number, `null`, a list with a non-string item render no question and throw nothing | intent 2 |
-| 5 | Test: a `focus` message with a listed id opens the Live view from another view and selects that row (`aria-current` or `aria-selected`, panel open); with `null` it only opens the Live view; with an unknown id nothing is selected and no error text shows; a second `focus` moves the selection | intent 3 |
+| 5 | Test: the page started on `/?live=<listed id>#tok` opens the Live view and selects that row (`aria-current` or `aria-selected`, panel open) when the session is in the first snapshot, and also when it first appears in a later snapshot inside 10 s; after the start `location.search` is empty and `location.hash` is `#tok`; `?live` with no id only opens the Live view; an unknown id, `?live=<script>` and a 65-character id select nothing and show no error text; no parameter starts on the default view; `readToken()` gives `tok` in every case | intent 3 |
 | 6 | Test: the footnote text of intent 4 | intent 4 |
 | 7 | `grep -n "dangerouslySetInnerHTML\|innerHTML" web/src` prints nothing; no colour literal outside `web/src/tokens.css` | intent 2 |
 | 8 | `cd web && npm test` passes; `npm run build` passes; the static check passes (`python3 scripts/check_static.py`, or the command T077 used) | intents 5, 6 |
@@ -109,8 +108,8 @@ cd web && npm test 2>&1 | tail -5 && npm run build 2>&1 | tail -3 && cd .. && py
 |------------|-----------|--------------|-----------------------------|
 | US-040 | See which session is my turn | a `your_turn` session in the feed | the badge `your turn` shows on its row at 375 px and 1280 px, and the header count includes it |
 | US-040 | Read what a waiting session asks | a `waiting` session with 2 questions | both questions show as text under the badge at both widths |
-| US-040 | Land on the session I clicked | a `focus` message for a listed session while another view is open | the Live view opens and that row is marked selected, its panel open |
-| US-040 | Not be confused by a session that is gone | a `focus` for an id not in the list | the Live view opens, no row is selected, no error text |
+| US-040 | Land on the session I clicked | the page opened on `/?live=<id>#<token>` for a listed session | the Live view is open and that row is marked selected, its panel open, at 375px and 1280px |
+| US-040 | Not be confused by a session that is gone | the page opened on `/?live=<id>#<token>` for an id not in the list | the Live view opens, no row is selected, no error text |
 | US-040 | Empty state | no session | the existing "No active sessions" text, unchanged |
 
 ---
@@ -119,14 +118,14 @@ cd web && npm test 2>&1 | tail -5 && npm run build 2>&1 | tail -3 && cd .. && py
 
 **Pattern reference**: `web/src/LiveView.jsx` `pillText` / the badge list at ~l.263, and `StatusChips` `onOpenLive` in `web/src/App.jsx` — how a view is opened from outside it.
 
-**Vital slice**: the badge, the question lines and the focus handling. No new component file unless a test needs it.
+**Vital slice**: the badge, the question lines and the start-up selection from the address. No new component file unless a test needs it.
 
-Test first (`tdd`). The stream is one `EventSource` for the whole page (T068): add the `focus` listener where the other listeners are, and lift "which view is open" the way `onOpenLive` already does.
+Test first (`tdd`). Read the query once where `App` picks its first view (the way `onOpenLive` already switches to Live), and pass the wanted session id down to `LiveView`. Do not add a router and do not touch `web/src/api.js`.
 
 ## Edge Case Checklist
 - Long question text wraps at 375 px and never widens the page; it is React text, never HTML
 - `questions` with 4 items of 300 characters: the row stays usable (the row may show the first question and the panel all of them, if you say so in your report and the tests match)
-- A `focus` that arrives before the first `snapshot`: the selection is applied when the session appears in the next snapshot, or dropped; say which and test it
+- The wanted session is not in the first snapshot: the selection is applied when it appears within 10 s, then given up; test both
 - A selected session that leaves the list: the selection clears, no error
 - The memoized row (`SAME_KEYS`, the `attention` JSON compare) must redraw when only `questions` changed
 - Keyboard: the selected row is reachable and announced; do not steal focus on every snapshot
@@ -147,3 +146,4 @@ AC 1-6: Vitest output. AC 7: the grep output. AC 8: the three commands' last lin
 - [ ] Commits on branch `T095` only; final report with `Status:`
 
 ## Questions Log
+- 2026-11-16 DEBATE How does a click on a tray row or a popup tell the page which session to show? → not settled by the Debate (Advocate 1: a query on the window address; Advocate 2: the address fragment; Advocate 3: a fixed script run in the window); paused, then answered by the owner: the query on the window address (`tasks/TASK_REVIEW_T095.md § Auto decisions`)
