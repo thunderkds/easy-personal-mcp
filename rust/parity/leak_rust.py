@@ -76,6 +76,13 @@ QUESTION_PATTERNS = {
     "multi_select": "LEAKCANARY q-multi {t}",
     "plan_text": "LEAKCANARY plan {t}",
 }
+# T094 fix round: the only surfaces where the marker question may be (the main server's live answers; the alerts server's
+# is in `run.live_only`), by exact label, never by a part of it.
+LIVE_ANSWER_LABELS = frozenset(f"api GET /api/live ({label}, first message)" for label in ("query token", "header token", "resume"))
+# T094 fix round: the main canaries the alerts server's `GET /api/live` answer names on purpose (`plant_alerts`, DDR-0004): a
+# project folder and a tool name (`api_key`), a session id (`claude_json_env_secret`), the 64-character project folder that ends
+# in `message_text`. Only these planted strings are cut out of that answer before every main canary is looked for in it.
+ALERTS_LIVE_EXPECTED = ("api_key", "claude_json_env_secret", "message_text")
 NO_BUS = "unix:path=/nonexistent/leak-rs-no-bus"  # a session bus address that leads nowhere
 SIDECARS = {"store.sqlite-shm", "store.sqlite-wal"}
 SERVER_TIMEOUT = 300
@@ -379,12 +386,29 @@ def question_scan(run: "Run") -> tuple[list[str], list[str]]:
         for label, blob in surfaces.items():
             text = as_text(blob)
             for name, value in q.values.items():
-                if name == "question_marker" and (live or "GET /api/live" in label):
+                if name == "question_marker" and (live or label in LIVE_ANSWER_LABELS):
                     continue
                 for _, form in Canaries({name: value}).find(text):
                     hits.append(f"HIT T094 {name} as {form} in [{label}]: {excerpt(text, name, value, form)}")
     checks.append(f"check T094 question strings scanned       ok ({len(q.values)} strings, {len(run.out) + len(run.live_only)} surfaces)")
     return hits, checks
+
+
+def live_only_scan(canaries: Canaries, live_only: dict[str, object]) -> list[tuple[str, str, str, str]]:
+    """T094 fix round: the alerts server's `GET /api/live` answer, scanned for every main canary once the planted strings it
+    names on purpose (`ALERTS_LIVE_EXPECTED`, as `plant_alerts` writes them, raw and JSON forms) are cut out. A message text,
+    token or any other canary there is a hit."""
+    v = canaries.values
+    planted = {"api_key": v["api_key"], "claude_json_env_secret": v["claude_json_env_secret"], "message_text": "P" * 64 + v["message_text"]}
+    cut = {}
+    for label, blob in live_only.items():
+        text = as_text(blob)
+        for name in ALERTS_LIVE_EXPECTED:
+            for form in ("raw", "json"):
+                for needle in forms_of(planted[name])[form]:
+                    text = text.replace(needle, "")
+        cut[label] = text
+    return scan(canaries, cut)[0]
 
 
 def plant(canaries: Canaries, root: Path, q: Canaries) -> dict[str, Path]:
@@ -1626,6 +1650,10 @@ def main() -> int:
     hits, scanned = scan(canaries, run.out)
     q_hits, q_checks = question_scan(run)
     checks.extend(q_checks)
+    live_hits = live_only_scan(canaries, run.live_only)
+    hits += live_hits
+    checks.append(f"check alerts live answer, every canary  {'ok' if not live_hits else 'FAILED'} ({len(canaries.values)} canaries, "
+                  f"{len(ALERTS_LIVE_EXPECTED)} planted names cut out, {len(run.live_only)} answers)")  # fmt: skip
     surfaces = len(run.out)
     total = sum(size(b) for b in run.out.values())
     fingerprint = hashlib.sha256("\0".join(sorted(canaries.values.values())).encode()).hexdigest()[
