@@ -23,16 +23,16 @@ Paused: auto-mode check failed — no `Memory:` line in the report — run the m
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/LiveView.test.jsx` (describe "your turn and the question text (T095, FR-108)", AC1-4, footnote AC6, redraw on questions only, wrap CSS rule; design test now lists `your_turn`) and `web/src/App.test.jsx` (describe "the session the page is asked for (T095, FR-108)", AC5: listed id, 64-char id, later snapshot within 10 s, give-up after 10 s, select once, leaves the list, no id / empty / unknown / script / 65-char / non-hex, no parameter, `readToken()` = `tok`) |
+| Verification command run | ☑ pass | `cd web && npm test` ->  Test Files  27 passed (27) /       Tests  946 passed (946) /  / ✓ built in 154ms / check_static: ok / exit=0 (static check prints `check_static: ok`, exit=0) |
+| Negative cases hold | ☑ pass | Red before the code: LiveView.test.jsx `9 failed, 100 passed (109)`; App.test.jsx `-t T095`: `12 failed, 2 passed`. Green after: LiveView + App `170 passed`. Not a mutation run. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | left to the reviewer (code-review at Stage 4); blast radius: `statesOf` is also read by `web/src/StatusChips.jsx` (the "N waiting" chip now counts a `your_turn` session too) |
+| Full smoke suite still green (no regression) | ☑ pass | all 27 web test files, 946 tests, green; Python tests not run (no Python changed) |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | BEFORE `tasks/evidence-T095/before-1280.png`; AFTER `tasks/evidence-T095/after-1280.png`, `after-selected-1280.png`, `after-selected-375.png`, `after-375-long.png`, `after-unknown-1280.png`, `after-unknown-375.png`: the `your turn` badge, the question lines and the selected row use the existing pill, text and card styles; nothing else moved (read by LLM vision) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `grep -rnE "#[0-9a-fA-F]{3,8}\b or rgba?\(" web/src --include=*.jsx` outside tests: only the pre-existing `placeholder="#0b5fd6"` in WorkspacesView.jsx; new CSS rules use only `var(--…)`; computed question line: `14px rgb(220, 224, 221) "IBM Plex Sans"` = `--fs-body` / `--color-text`; design test pins `your_turn` rules |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280: `scrollWidth == innerWidth` (375/375, 1280/1280) with a 300-character unbroken question (`after-375-long.png`) and with the panel open |
 
 ---
 
@@ -45,9 +45,9 @@ Paused: auto-mode check failed — no `Memory:` line in the report — run the m
 
 **BEFORE** (2026-11-16T17:54:28+07:00, main code at 7f3aaef built, before any implementation commit): `tasks/evidence-T095/before-1280.png`, the Live view fed by `tasks/evidence-T095/fixture_server.py full` (a `your_turn` session `cccccccc3`, a `waiting` session `bbbbbbbb2` with 2 `questions`). Real measure output: `{"scrollW":1280,"innerW":1280,"view":"Live","pills":["waiting for you: question"],"questions":[],"open":[],"head":"1 session needs you"}`. It shows one pill (`waiting for you: question`) with no question text, and the `your_turn` session is drawn as idle (`idle · 30 min age`) with no badge.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (2026-11-16, same fixture server, built page): `tasks/evidence-T095/after-1280.png`, `after-selected-1280.png`, `after-selected-375.png`, `after-375-long.png`. Measure output of the same feed: `{"view":"Live","pills":["waiting for you: question","your turn"],"questions":["Which database should the migration targ…","Keep the old column or drop it?"],"head":"2 sessions need you","scrollW":1280,"innerW":1280}`; on `/?live=bbbbbbbb2#tok`: `"current":["live-row"],"open":["beta"],"url":"http://127.0.0.1:<port>/#tok"` (query stripped, fragment kept); on `?live=deadbeef`: `"current":[],"open":[]`; at 375 `scrollW 375` also with a 300-character unbroken question.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The Live view now shows a `your turn` badge, shows the question a waiting session asks, and opens on the session the page is asked for.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
