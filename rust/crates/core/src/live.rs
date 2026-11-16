@@ -12,6 +12,9 @@
 //! Read-only on every source (NFR-003); an event holds names, ids, numbers and timestamps only (FR-002). Of a tool
 //! call's input only `skill`, `subagent_type` and a Bash command's first word are read ([`call_label`], DDR-0004); of a
 //! sub-agent meta file only `agentType` (FR-082). Labels, sub-agent types and the stage live in memory, never stored.
+//! Rust only (T094): of an `AskUserQuestion` input the `questions[].question` strings ([`call_questions`], FR-106,
+//! DDR-0005), held on the open call and given out only by [`LiveTail::waiting_questions`], never by the snapshot; of
+//! an `assistant` record whether `message.stop_reason` is `end_turn`, for the *your turn* state (FR-105).
 //!
 //! Hostile files (wave-3 rules): every transcript and meta file is opened `O_NOFOLLOW | O_NONBLOCK`, judged on the open
 //! handle (a regular file with the scanned inode), and read through a bound. ⚠ decided for you, where Python differs:
@@ -62,6 +65,14 @@ pub const DEFAULT_LABEL: &str = "Claude default";
 /// ⚠ decided for you: the bound on one transcript line held in memory (Python has none).
 pub const MAX_LINE_BYTES: usize = 32 * 1024 * 1024;
 const WAITING_TOOLS: [&str; 2] = ["AskUserQuestion", "ExitPlanMode"];
+/// FR-105: the fourth attention state, Rust only.
+const YOUR_TURN: &str = "your_turn";
+/// FR-106: the most questions kept of one call, and the most characters kept of one question.
+pub const MAX_QUESTIONS: usize = 4;
+pub const QUESTION_MAX_CHARS: usize = 300;
+/// The JSON levels a live line keeps: the ingest's five (`record.message.content[i].input`) and two more, down to
+/// `input.questions[i]`; `options` and anything deeper are not kept (FR-106).
+const LIVE_KEEP_DEPTH: usize = 7;
 const SECOND: i64 = 1_000_000;
 
 // `os.O_NOFOLLOW | os.O_NONBLOCK`: the one per-arch table of the crate (`report_files::sys`); a target it does not list
@@ -206,6 +217,60 @@ pub fn call_label(name: &str, input: &Value) -> Option<Label> {
     }
 }
 
+// ---- question text (FR-106, DDR-0005) -------------------------------------------------------------------------------
+
+/// FR-092's control and hidden characters: C0, U+007F, C1, the line and paragraph separators, zero-width and bidi marks.
+fn hidden(c: char) -> bool {
+    c.is_control()
+        || matches!(c, '\u{2028}' | '\u{2029}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}'
+                       | '\u{2066}'..='\u{2069}' | '\u{FEFF}')
+}
+
+/// One `question` value: a string, its hidden characters (and lone surrogates) removed, cut to
+/// [`QUESTION_MAX_CHARS`] characters; `None` when empty or when the core's secret check matches the raw or the cleaned
+/// text (a secret past the cut, or one split by a zero-width mark, drops the question too).
+fn clean_question(value: &Value) -> Option<String> {
+    let raw = value.as_str()?;
+    if is_secret(raw) {
+        return None;
+    }
+    let text: String = json::code_points(raw)
+        .filter_map(char::from_u32)
+        .filter(|&c| !hidden(c))
+        .collect();
+    if text.is_empty() || is_secret(text.as_bytes()) {
+        return None;
+    }
+    Some(text.chars().take(QUESTION_MAX_CHARS).collect())
+}
+
+/// FR-106: the `questions[].question` strings of an `AskUserQuestion` call's input, at most [`MAX_QUESTIONS`]. The only
+/// place that field is read; no other field of the input or of a question (`header`, `options`, `multiSelect`) is.
+pub fn call_questions(name: &str, input: &Value) -> Option<Vec<String>> {
+    if name != "AskUserQuestion" {
+        return None;
+    }
+    let Value::Array(items) = input.get("questions") else {
+        return None;
+    };
+    let kept: Vec<String> = items
+        .iter()
+        .filter_map(|q| clean_question(q.get("question")))
+        .take(MAX_QUESTIONS)
+        .collect();
+    (!kept.is_empty()).then_some(kept)
+}
+
+/// Question text held on an open call. Its `Debug` gives the count only, so no `{:?}` line ever holds the text.
+#[derive(Clone, PartialEq)]
+struct Questions(Vec<String>);
+
+impl fmt::Debug for Questions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Questions({})", self.0.len())
+    }
+}
+
 // ---- items ----------------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -232,6 +297,7 @@ struct ItemEvent {
     is_error: bool,
     block_id: Option<String>,
     label: Option<Label>,
+    questions: Option<Questions>,
 }
 
 #[derive(Debug, Clone)]
@@ -252,6 +318,10 @@ pub struct Item {
     message_id: Option<String>,
     events: Vec<ItemEvent>,
     usage: Option<Usage>,
+    /// FR-105: `Some` for an `assistant` or `user` record: whether it is an `assistant` record whose
+    /// `message.stop_reason` is the string `end_turn` (only that bit is kept, never the word).
+    turn: Option<bool>,
+    entrypoint: Option<String>,
 }
 
 /// `Path(path).name or path`.
@@ -287,6 +357,7 @@ fn item(record: &Value, p: &Event, project_of: &mut dyn FnMut(&str) -> String) -
                     events.push(ItemEvent {
                         kind: Kind::ToolUse,
                         label: call_label(&name, block.get("input")),
+                        questions: call_questions(&name, block.get("input")).map(Questions),
                         tool: Some(name),
                         is_error: false,
                         block_id: label(block.get("id")),
@@ -299,6 +370,7 @@ fn item(record: &Value, p: &Event, project_of: &mut dyn FnMut(&str) -> String) -
                     is_error: block.get("is_error").is_true(),
                     block_id: label(block.get("tool_use_id")),
                     label: None,
+                    questions: None,
                 });
             }
         }
@@ -328,6 +400,14 @@ fn item(record: &Value, p: &Event, project_of: &mut dyn FnMut(&str) -> String) -
         message_id: p.message_id.clone(),
         events,
         usage,
+        turn: match rtype {
+            Some("assistant") => {
+                Some(record.get("message").get("stop_reason").as_str() == Some(b"end_turn"))
+            }
+            Some("user") => Some(false),
+            _ => None,
+        },
+        entrypoint: p.entrypoint.clone(),
     })
 }
 
@@ -359,7 +439,7 @@ impl Item {
 /// One line (with its newline) to its item: `json.loads`, a dict, `parse_record`, `_item`. `project_of` resolves a
 /// `cwd` (the tail passes `discovery.resolve_project`, cached).
 pub fn line_item(line: &[u8], project_of: &mut dyn FnMut(&str) -> String) -> Option<Item> {
-    let record = json::loads(line)?;
+    let record = json::loads_keeping(line, LIVE_KEEP_DEPTH)?;
     if !record.is_dict() {
         return None;
     }
@@ -645,6 +725,8 @@ struct Call {
     tool: String,
     message_id: Option<String>,
     ts: String,
+    /// FR-106: an `AskUserQuestion` call's question text, dropped with the call.
+    questions: Option<Questions>,
 }
 
 #[derive(Debug, Default)]
@@ -657,6 +739,8 @@ struct Stream {
     streak: i64,
     streak_tool: Option<String>,
     streak_since: String,
+    /// FR-105: the time of the main thread's newest `assistant`/`user` record when that record ended the turn.
+    turn_ended: Option<String>,
 }
 
 type Figures = ([i64; 4], Option<f64>);
@@ -668,10 +752,15 @@ struct Attention {
     count: i64,
     is_sidechain: bool,
     since: String,
+    /// FR-106: a `waiting` state's question text (of its oldest open `AskUserQuestion` call). Never in
+    /// [`attention_json`]; only [`LiveTail::waiting_questions`] gives it out. Compared with the rest, so a change of the
+    /// text alone moves `state_version` and the stream sends a new snapshot.
+    questions: Option<Questions>,
 }
 
 #[derive(Debug)]
 struct Session {
+    entrypoint: Option<String>,
     account: Option<String>,
     project: Option<String>,
     last_ts: String,
@@ -687,6 +776,13 @@ struct Session {
 impl Session {
     fn has_open_call(&self) -> bool {
         self.streams.values().any(|s| !s.open.is_empty())
+    }
+
+    /// FR-105: *typed work* only: an entrypoint is known and does not start with `sdk`.
+    fn is_typed(&self) -> bool {
+        self.entrypoint
+            .as_deref()
+            .is_some_and(|e| !e.starts_with("sdk"))
     }
 }
 
@@ -793,12 +889,14 @@ impl LiveTail {
     }
 
     /// Active sessions with running totals and the `last_id` they include. A session with an open call is listed
-    /// even when it wrote nothing for 5 minutes (FR-044).
+    /// even when it wrote nothing for 5 minutes (FR-044); so is a session in *your turn* (FR-105: until the one-hour
+    /// rule drops it). Never holds question text (FR-106: see [`LiveTail::waiting_questions`]).
     pub fn snapshot(&self, now: i64) -> Json {
         let cutoff = format_stored(now - ACTIVE_WINDOW_S * SECOND);
         let mut sessions: Vec<(&String, Json)> = Vec::new();
         for (id, s) in self.sessions.iter() {
-            if s.last_ts < cutoff && !s.has_open_call() {
+            let your_turn = s.attention.iter().any(|a| a.state == YOUR_TURN);
+            if s.last_ts < cutoff && !s.has_open_call() && !your_turn {
                 continue;
             }
             let figures: Vec<&Figures> = s.messages.values().collect();
@@ -830,6 +928,25 @@ impl LiveTail {
             "open_call_minutes": OPEN_CALL_MINUTES,
             "sessions": sessions.into_iter().map(|(_, s)| s).collect::<Vec<_>>(),
         })
+    }
+
+    /// FR-106, DDR-0005: the question text the `GET /api/live` stream adds beside [`LiveTail::snapshot`], and only it
+    /// (the tray and the alert engine read the snapshot alone). Session id -> `(place of the state in that session's
+    /// `attention` list, its questions)`, for each `waiting` state that has question text; the places match a snapshot
+    /// taken under the same borrow.
+    pub fn waiting_questions(&self) -> HashMap<String, Vec<(usize, Vec<String>)>> {
+        self.sessions
+            .iter()
+            .filter_map(|(id, s)| {
+                let held: Vec<(usize, Vec<String>)> = s
+                    .attention
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, a)| a.questions.as_ref().map(|q| (i, q.0.clone())))
+                    .collect();
+                (!held.is_empty()).then(|| (id.clone(), held))
+            })
+            .collect()
     }
 
     // -- polling ------------------------------------------------------------------------------------------------------
@@ -1042,6 +1159,7 @@ impl LiveTail {
         for item in items {
             let mut appended: Vec<Pending> = Vec::new();
             let session = self.sessions.entry(&item.session_id, || Session {
+                entrypoint: None,
                 account: account.map(str::to_owned),
                 project: None,
                 last_ts: String::new(),
@@ -1059,9 +1177,18 @@ impl LiveTail {
             if item.project.as_deref().is_some_and(|p| !p.is_empty()) {
                 session.project = item.project.clone();
             }
+            if item.entrypoint.is_some() {
+                session.entrypoint = item.entrypoint.clone();
+            }
             let stream = session.streams.entry(path, Stream::default);
             stream.sub_agent = sub_agent;
             stream.is_sidechain = item.is_sidechain || sub_agent;
+            if let Some(ended) = item.turn
+                && !sub_agent
+                && !item.is_sidechain
+            {
+                stream.turn_ended = ended.then(|| item.ts.clone()); // FR-105: the main thread's newest record decides
+            }
             let agent = agent_of(stream, path, &mut tried, now);
             if let Some(mid) = &item.message_id {
                 // A later assistant message: the results of earlier ones were read (or skipped by the ingest).
@@ -1202,6 +1329,7 @@ fn pair(stream: &mut Stream, item: &Item, event: &ItemEvent) -> Option<String> {
                 tool,
                 message_id: item.message_id.clone(),
                 ts: item.ts.clone(),
+                questions: event.questions.clone(),
             },
         );
         return event.tool.clone();
@@ -1223,6 +1351,7 @@ fn pair(stream: &mut Stream, item: &Item, event: &ItemEvent) -> Option<String> {
 
 fn attention(session: &Session, quiet_cutoff: &str) -> Vec<Attention> {
     let (mut failing, mut waiting, mut others) = (Vec::new(), Vec::new(), Vec::new());
+    let mut your_turn = Vec::new();
     for stream in session.streams.values() {
         if stream.streak >= FAILING_STREAK.max(1) {
             failing.push(Attention {
@@ -1231,6 +1360,21 @@ fn attention(session: &Session, quiet_cutoff: &str) -> Vec<Attention> {
                 count: stream.streak,
                 is_sidechain: stream.is_sidechain,
                 since: stream.streak_since.clone(),
+                questions: None,
+            });
+        }
+        if let Some(since) = &stream.turn_ended
+            && !stream.sub_agent
+            && stream.open.is_empty()
+            && session.is_typed()
+        {
+            your_turn.push(Attention {
+                state: YOUR_TURN,
+                tool: None,
+                count: 1,
+                is_sidechain: false,
+                since: since.clone(),
+                questions: None,
             });
         }
         let mut calls: Vec<&Call> = stream.open.values().collect();
@@ -1246,6 +1390,10 @@ fn attention(session: &Session, quiet_cutoff: &str) -> Vec<Attention> {
                 count: asking.len() as i64,
                 is_sidechain: stream.is_sidechain,
                 since: first.ts.clone(),
+                questions: asking
+                    .iter()
+                    .find(|c| c.tool == "AskUserQuestion")
+                    .and_then(|c| c.questions.clone()),
             });
         }
         others.extend(
@@ -1259,6 +1407,7 @@ fn attention(session: &Session, quiet_cutoff: &str) -> Vec<Attention> {
     waiting.sort_by(|a, b| a.since.cmp(&b.since));
     let mut states = failing;
     states.extend(waiting);
+    states.extend(your_turn); // FR-105: after *waiting for you*, before *needs attention*
     if !others.is_empty() && session.last_ts.as_str() <= quiet_cutoff {
         let (oldest, is_sidechain) = others
             .iter()
@@ -1273,6 +1422,7 @@ fn attention(session: &Session, quiet_cutoff: &str) -> Vec<Attention> {
             count: others.len() as i64,
             is_sidechain: *is_sidechain,
             since: oldest.ts.clone(),
+            questions: None,
         });
     }
     states

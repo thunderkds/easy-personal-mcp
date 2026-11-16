@@ -84,8 +84,19 @@ impl Value {
 
 /// `json.loads(line)`; `None` where Python raises `ValueError` (or, past [`MAX_DEPTH`], `RecursionError`).
 pub fn loads(line: &[u8]) -> Option<Value> {
+    loads_keeping(line, KEEP_DEPTH)
+}
+
+/// [`loads`] keeping containers to `keep_depth` levels instead of [`KEEP_DEPTH`] (the live tail reads
+/// `input.questions[i].question`, FR-106, two levels below `input`). Accepts and refuses the same lines.
+pub fn loads_keeping(line: &[u8], keep_depth: usize) -> Option<Value> {
     let text = decode(line)?;
-    Parser { s: &text, i: 0 }.document()
+    Parser {
+        s: &text,
+        i: 0,
+        keep_depth,
+    }
+    .document()
 }
 
 // ---- decoding: `s.decode(detect_encoding(s), 'surrogatepass')` ----
@@ -298,6 +309,7 @@ impl Frame {
 struct Parser<'a> {
     s: &'a [u8],
     i: usize,
+    keep_depth: usize,
 }
 
 impl Parser<'_> {
@@ -334,7 +346,7 @@ impl Parser<'_> {
                     }
                     self.i += 1;
                     self.ws();
-                    let inner = stack.len() < KEEP_DEPTH;
+                    let inner = stack.len() < self.keep_depth;
                     let close = if c == b'{' { b'}' } else { b']' };
                     if self.at(self.i) == close {
                         self.i += 1;

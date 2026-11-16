@@ -23,6 +23,7 @@ Mode: auto
 Checks: <filled at Stage 4/5>
 Memory: <filled before the run ends>
 Not done: merge (admin: after the auto verify pass); auto verify: <not started>
+Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); no test run in memory/event-trace/T094.jsonl — write /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID with the task ID (minimal-track step 1): `mkdir -p /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d && printf '%s\n%s\n' "T094" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID`, then rerun the task's tests so the trace records them under the task, then stop; 2 `DEBATED` line(s) need ≥6 Advocate `Agent` calls (description `Advocate <n>:` and a prompt starting `Using the repo, answer alone:`); the trace has 5; extended track, but the trace has no `code-review` Skill call (Stage 4 runs in auto mode); Risk High, but the trace has no `security-review` Skill call [report 23df33cea2c8]
 
 
 
@@ -50,8 +51,16 @@ Not done: merge (admin: after the auto verify pass); auto verify: <not started>
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (branch `T094` at `4142ce8`, no implementation commit yet; binary built from it with `cargo build`):
+```
+$ python3 <scratchpad>/demo_t094.py rust <scratchpad>    # temp HOME: store-v11 copy + one confirmed account; serve --no-ingest
+$ date -u: 2026-11-16T08:41:45+00:00
+first snapshot of GET /api/live, sessions:
+{"session_id": "demo-ask-0002", "attention": [{"count": 1, "is_sidechain": false, "since": "2026-11-16T08:41:14.000000Z", "state": "waiting", "tool": "AskUserQuestion"}]}
+{"session_id": "demo-turn-0001", "attention": []}
+your_turn present: False | questions key present: False
+```
+(`turn.jsonl`: a `cli` session whose last record is an `assistant` record with `stop_reason: "end_turn"`; `ask.jsonl`: an open `AskUserQuestion` whose one question is `DEMO-MARKER which colour?`, with a `header` and an option.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

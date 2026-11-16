@@ -361,6 +361,54 @@ fn a_new_transcript_line_arrives_as_a_live_event_within_2_s() {
     assert_eq!(header.status(), 200);
 }
 
+/// T094 (FR-105, FR-106): a typed-work turn that ended gives `your_turn`, and an open `AskUserQuestion` gives its
+/// questions in the `waiting` state, on `GET /api/live` of the real binary; its planted `header` and option do not.
+#[test]
+fn your_turn_and_the_question_text_arrive_on_the_live_route() {
+    let serve = Serve::start();
+    let mut stream = serve.live(&[]);
+    stream.until(Duration::from_secs(5), |m| !m.is_empty());
+    std::thread::sleep(Duration::from_millis(300));
+    let rec = |sid: &str, message: serde_json::Value| {
+        let r = serde_json::json!({"type": "assistant", "sessionId": sid, "timestamp": stamp_now(),
+                                   "cwd": "/tmp", "entrypoint": "cli", "message": message});
+        format!("{r}\n")
+    };
+    serve.append(&rec(
+        "turn",
+        serde_json::json!({"id": "m1", "model": "x", "stop_reason": "end_turn", "content": []}),
+    ));
+    serve.append(&rec(
+        "ask",
+        serde_json::json!({"id": "m2", "model": "x", "content": [{"type": "tool_use", "id": "b1",
+            "name": "AskUserQuestion", "input": {"questions": [{"question": "Which colour?",
+            "header": "CANARY-T094-HEADER", "options": [{"label": "CANARY-T094-LABEL"}]}]}}]}),
+    ));
+    let state = |m: &Msg, sid: &str| {
+        m.data["sessions"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|s| s["session_id"] == sid)
+            .map(|s| s["attention"].clone())
+    };
+    let msgs = stream.until(Duration::from_secs(3), |msgs| {
+        msgs.iter()
+            .any(|m| state(m, "turn").is_some() && state(m, "ask").is_some())
+    });
+    let last = msgs
+        .iter()
+        .rev()
+        .find(|m| state(m, "turn").is_some() && state(m, "ask").is_some())
+        .unwrap();
+    assert_eq!(state(last, "turn").unwrap()[0]["state"], "your_turn");
+    assert_eq!(
+        state(last, "ask").unwrap()[0]["questions"],
+        serde_json::json!(["Which colour?"])
+    );
+    assert!(!format!("{msgs:?}").contains("CANARY"));
+}
+
 #[test]
 fn the_guard_refuses_the_live_route_without_the_token_and_the_query_token_elsewhere() {
     let serve = Serve::start();
