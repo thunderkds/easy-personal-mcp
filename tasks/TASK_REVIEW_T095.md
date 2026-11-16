@@ -42,8 +42,7 @@ Not done: merge (admin: after the auto verify pass); auto verify: <not started>
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-16T17:54:28+07:00, main code at 7f3aaef built, before any implementation commit): `tasks/evidence-T095/before-1280.png`, the Live view fed by `tasks/evidence-T095/fixture_server.py full` (a `your_turn` session `cccccccc3`, a `waiting` session `bbbbbbbb2` with 2 `questions`). Real measure output: `{"scrollW":1280,"innerW":1280,"view":"Live","pills":["waiting for you: question"],"questions":[],"open":[],"head":"1 session needs you"}`. It shows one pill (`waiting for you: question`) with no question text, and the `your_turn` session is drawn as idle (`idle · 30 min age`) with no badge.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
