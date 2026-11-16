@@ -126,7 +126,7 @@ The ACs above, each as an automated test (AC 9 is the one manual run), plus the 
 
 ## Questions Log
 - 2026-11-16 DEBATE where does the owner turn agent runs on: a dashboard switch, the CLI only, or both? → the CLI only (Advocate 1: CLI only, dashboard read-only plus Run; Advocate 2: CLI only, an off-only browser switch may come later; Advocate 3: CLI only, `agent-run on|off|status`) ⚠ decided for you — please review
-- 2026-11-16 DEBATE should an agent run keep its Claude Code session on disk? → not decided: the Advocates disagree and no written rule picks one; sent to the owner (Advocate 1: keep; Advocate 2: `--no-session-persistence`; Advocate 3: keep)
+- 2026-11-16 DEBATE should an agent run keep its Claude Code session on disk? → keep, decided by the owner 2026-11-16 ("keep the run's claude session") after the Advocates disagreed (Advocate 1: keep; Advocate 2: `--no-session-persistence`; Advocate 3: keep)
 
 ## Completion Checklist
 - [ ] Step 0 result and every AC with pasted output in `tasks/TASK_REVIEW_T090.md`
