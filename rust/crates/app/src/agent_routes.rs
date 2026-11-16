@@ -8,7 +8,10 @@ mod tests {
 
     #[tokio::test]
     async fn get_agent_run_exists() {
-        let api = Api::new(|| Ok(std::env::temp_dir().join("t091-none/store.sqlite")), || 0);
+        let api = Api::new(
+            || Ok(std::env::temp_dir().join("t091-none/store.sqlite")),
+            || 0,
+        );
         let app = router("tok".into(), 4242, api);
         let request = Request::builder()
             .uri("/api/agent-run")
