@@ -653,3 +653,10 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - `connector_cli_parity` `*_no_launcher` cases fail on a machine where the `.deb` is installed: `/usr/bin/easy-personal-launch` is on `PATH`. Same failure without any change; the test should not see the system `PATH`.
 - A hook's `Paused:` line can land in a sub-agent's worktree review file while the Supervisor waits for that agent; the agent removed it. Expect it and check the review file after a hand-back.
 
+## 2026-11-16 — T095 Live view: a wanted session from the address, and review habits
+- The dashboard has no router and the address fragment is the whole sign-in token (`web/src/api.js` `readToken`). A deep link goes in the query: `/?live=<session id>#<token>`. `App.jsx` reads it once, opens Live, strips it with `history.replaceState(state, '', pathname + hash)` and hands the id to `LiveView` as a wish.
+- A wish needs four rules or it surprises the user: its time limit runs from the first snapshot (not from page mount), a user toggle ends it, leaving the view ends it, and only the wish scrolls the page.
+- A frontend agent may skip the startup reads and say so in its `Startup reads:` line. Read that line at Stage 4 and send the agent back to the glossary and the DDR before the review.
+- easy-verifier `score` counts an evidence fixture (`tasks/evidence-*/fixture_server.py`) as new code without a test: T095 scored overall 63 with that one failed rule.
+- An independent read-only reviewer with a list of concrete things to hunt found the two selection races that the tests and the screenshots missed.
+**Files**: `web/src/App.jsx`, `web/src/LiveView.jsx`, `web/src/StatusChips.jsx`, `tasks/TASK_REVIEW_T095.md`
