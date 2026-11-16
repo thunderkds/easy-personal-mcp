@@ -24,7 +24,7 @@ It reads these files and never changes them. Everything goes into one SQLite sto
 Build the `.deb` package and install it. The first build takes several minutes. There are two ways to build it:
 
 - **Container build (installs on Ubuntu 22.04, 24.04 and 26.04).** You need Docker, Rust stable and Node.js. It builds inside an Ubuntu 22.04 container.
-- **Host build (installs on the Ubuntu version of the build computer, or newer).** You need Rust stable, Node.js and `dpkg-dev`. A package built on Ubuntu 26.04 does not install on 22.04 or 24.04: `apt` reports `Depends: libc6 (>= 2.39) but ... is to be installed`. Use the container build when the package must run on an older Ubuntu.
+- **Host build (installs on the Ubuntu version of the build computer, or newer).** You need Rust stable, Node.js and `dpkg-dev`. A package built on Ubuntu 26.04 does not install on 22.04: `apt` reports `Depends: libc6 (>= 2.39) but ... is to be installed`. Use the container build when the package must run on an older Ubuntu.
 
 ```bash
 git clone https://github.com/thunderkds/easy-personal-mcp.git

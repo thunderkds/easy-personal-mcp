@@ -61,7 +61,9 @@ Mode: auto
 12. Changelog date passed in as `EP_DEB_STAMP` from the host — FACT: in a worktree `.git` is a file that points outside the container mount, so `git log` would fail there and the date would be the build time
 13. One extra install proof on `ubuntu:26.04` (one more image pulled) — SAFER OPTION: the README claims 26.04; the script default stays 22.04 and 24.04
 Checks: tests `rust/packaging/build-deb.sh --docker && DEB=<deb> EP_DEB_EXPECT_BASE=jammy rust/packaging/test_deb.sh && rust/packaging/test_deb_install.sh` — exit 0; `shellcheck rust/packaging/*.sh` — exit 0; reviews code-review and security-review are left to the Supervisor (Stage 4, Risk Low); real run — apt install in ubuntu:22.04, 24.04 and 26.04 containers printed `easy-personal-rs 0.3.0` (auto-checked, not /verify)
-Not done: merge (admin: after the auto verify pass); auto verify: not started
+14. Review fix: `README.md` said a 26.04 host build does not install on 24.04; it does (`libc6 (>= 2.39)` and the `t64` names exist on 24.04), so the line now names 22.04 only — FACT: `test_deb_install.sh` output "os: Ubuntu 24.04.5 LTS (glibc 2.39)"
+Memory: nothing new
+Not done: merge (admin: after the auto verify pass); auto verify: running (T182)
 
 ## Evidence
 
@@ -137,3 +139,8 @@ ok: ubuntu:26.04 printed 'easy-personal-rs 0.3.0'
 **DELTA**: A user on Ubuntu 22.04 can now install the package with `apt install ./easy-personal-rs_<version>_amd64.deb` (the same file also installs on 24.04 and 26.04). The host-built package stopped with `Depends: libc6 (>= 2.39) but 2.35-... is to be installed`.
 
 **WITNESS**: run by the common-infrastructure agent in this worktree, 2026-11-16 07:19Z to 07:52Z. The trace file `memory/event-trace/T093.jsonl` is the independent record (Supervisor to confirm).
+
+## Stage 4 (Supervisor, 2026-11-16)
+- code-review (inline, scope: `rust/packaging/*`, `README.md` install part; `lane: C2, 6 files, 238 lines, FITS`): 0 P0, 0 P1. P2 fixed: `README.md` wrongly said a 26.04 host build does not install on 24.04. P3, not fixed: the image takes Rust `stable` at image build time through `rustup` (`curl | sh`), not a pinned version; the `Dockerfile` installs a few dev packages the build may not need. Entry point `rust/packaging/build-deb.sh` exists. Startup reads: all three Permanent-Rule reads named (`rust/PROJECT_SPEC.md` and the T087 guide read in part).
+- Supervisor's own run in the worktree (auto-checked, not /verify): `EP_DEB_EXPECT_BASE=jammy rust/packaging/test_deb.sh` exit 0 (`PASS`, steps 1, 1b, 2-6 `ok:`); `rust/packaging/test_deb_install.sh` exit 0 (`ok: ubuntu:22.04 printed 'easy-personal-rs 0.3.0'`, `ok: ubuntu:24.04 printed 'easy-personal-rs 0.3.0'`); `shellcheck rust/packaging/*.sh` exit 0; `find rust web src -user root` printed nothing.
+- security-review: not required (Risk Low). No secret, no maintainer script, the package content is unchanged; install checks run only in `docker run --rm` containers with the package folder mounted read-only.
