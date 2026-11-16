@@ -650,6 +650,6 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - **Files**: `rust/crates/app/src/agent_run.rs`, `rust/crates/app/src/claude_cli.rs`
 - `PR_SET_PDEATHSIG` follows the *thread* that started the child, not the process. Start a long child from a thread that lives until the child ends (T091: not a short tokio worker), or the child is killed when that thread exits.
 - `flock` belongs to the open file description, and std uses `fork` when `pre_exec` is set. A child that another test thread forks holds the lock until its `exec`, so lock tests fail at random unless they run one at a time (a static mutex in `agent_run::tests`).
-- `connector_cli_parity` `*_no_launcher` cases fail on a machine where the `.deb` is installed: `/usr/bin/easy-personal-launch` is on `PATH`. Same failure without any change; the test should not see the system `PATH`.
+- `connector_cli_parity` `*_no_launcher` cases fail on a machine where the `.deb` is installed: `/usr/bin/easy-personal-launch` is on `PATH`. Same failure without any change; the test should not see the system `PATH`. Fixed by T097 (2026-11-16): a no-launcher case now gets its own `PATH` (the fake `claude` folder plus links to `sh tr sed mkdir rm`).
 - A hook's `Paused:` line can land in a sub-agent's worktree review file while the Supervisor waits for that agent; the agent removed it. Expect it and check the review file after a hand-back.
 

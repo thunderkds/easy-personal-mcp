@@ -44,6 +44,21 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Auto decisions
+
+Mode: auto
+1. Scope: notification icon, window icon, `StartupWMClass`, the `connector_cli_parity` isolation and one smoke script, as one task — RULE: `docs/claude-md/tracks.md` `### Session tags` (the loop runs each request Stage 0 to 5); the owner asked for the icon and for "automate all" in one session
+2. Track extended, not minimal: the change is visible on the desktop (notification, window, dock icon) — RULE: `AGENTS.md` § Tracks ("a UI component")
+3. `StartupWMClass=easy-personal-rs` (the program name), not a renamed app id — FACT: `rust/crates/app/src/window.rs` window class read from the real window: `WM_CLASS(STRING) = "easy-personal-rs", "Easy-personal-rs"` and Wayland `set_app_id("easy-personal-rs")` (agent report, pasted under AC 3)
+4. Window icon from `icons/128x128.png`, not `icons/icon.png` — FACT: smoke step d with `icon.png` (512 px) printed `_NET_WM_ICON not found`, with `128x128.png` `Icon (128 x 128)` (agent report, AC 2)
+5. `connector_cli_parity` fixed in the test (own `PATH`), not in the launcher lookup — FACT: `rust/crates/app/src/claude_cli.rs` looks beside the binary, then `PATH`; the test inherited `/usr/bin:/bin`
+6. Code review: 0 P0, 0 P1 code, 0 P2 code; P1 process: the agent did not read the root `PROJECT_SPEC.md` (its report says so; `agents/backend.md` reached it as its system prompt); P2: lane check `EXCEEDS (lines 568 > 500)`, 315 of them the new script, accepted; P2: `rust/packaging/test_deb.sh` is also changed on the unmerged branch `T093` (its section 5), so whichever merges second needs a small merge of that file — RULE: `skills/code-review/SKILL.md` Phase 0 / Phase 0.5
+7. Security review not run — RULE: `AGENTS.md` § Permanent Rules (mandatory for Medium/High risk only; T097 is Low)
+8. One more real `claude` run through the script (`--only claude --claude hung2`), at the owner's request "make sure the claude invoke work ... let do automate" — FACT: it printed `PASS claude: investigate: ok, started 2026-11-16T12:17:17Z, ended 2026-11-16T12:17:59Z, report 7 (setting back to off)`
+Checks: tests `rust/scripts/smoke_real.sh` (agent, 2026-11-16T12:02Z) — `PASS build`, `PASS tests: 1039 passed, 0 failed`, `PASS notification`, `PASS window`, `SKIP claude`, exit 0; Supervisor rerun `rust/scripts/smoke_real.sh --only build,notification,window` — `PASS notification: Notify call carried app icon easy-personal and desktop-entry easy-personal`, `PASS window: _NET_WM_ICON set; WM_CLASS(STRING) = "easy-personal-rs", "Easy-personal-rs" equals StartupWMClass easy-personal-rs`, exit 0; reviews code-review — 0 P0/P1 code findings; real run `rust/scripts/smoke_real.sh --only claude --claude hung2` — printed `PASS claude: investigate: ok ... report 7 (setting back to off)` (auto-checked, not /verify)
+Memory: `memory/learnings.md` — T090 entry: the `connector_cli_parity` note marked fixed by T097; `memory/MEMORY.md` — its index line
+Not done: merge (admin: after the auto verify pass); auto verify: running (T182); push of `main` (yours: the remote is `github`, the `[admin]` gate pushes to `origin` only); the default account's expired login (`~/.claude`, yours: `claude` then `/login`)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
@@ -54,7 +69,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | reviewed: the 8 changed files (alerts.rs `send`/`notify_args`, window.rs `open_window`, 2 `.desktop`, test_deb.sh, connector_cli_parity.rs, smoke_real.sh, README part). Skipped: `build-deb.sh`, `agent_run.rs`, icons (must-not-touch) |
 | Full smoke suite still green (no regression) | ☑ pass | `cargo test --workspace --no-fail-fast` inside smoke_real.sh: `PASS tests: 1039 passed, 0 failed` (2026-11-16T12:02Z to 12:08Z) |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **Companion score (easy-verifier)** | ☑ N/A | not run: Risk Low, no companion score asked for this task |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ pass | the artwork is the existing `icons/128x128.png`; proof is smoke c and d: Notify app icon `easy-personal`, `_NET_WM_ICON(CARDINAL) = Icon (128 x 128)` (no screenshot required by the guide) |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no CSS, token or font change |
 | **UI: Responsiveness at target viewports** | ☑ N/A | no page change |
