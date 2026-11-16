@@ -3,6 +3,7 @@ use easy_personal_core::store::{read_info, store_path};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+mod agent_routes;
 mod agent_run;
 mod alerts;
 mod api;

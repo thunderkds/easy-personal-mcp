@@ -61,8 +61,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-16T10:17:57Z-10:19:21Z UTC, branch `T091` at `137ce1f`, no implementation commit yet; a route test that calls the real router with a good Host and token):
+```
+$ cd rust && cargo test -p easy-personal-rs --bin easy-personal-rs agent_routes
+---- agent_routes::tests::get_agent_run_exists stdout ----
+thread 'agent_routes::tests::get_agent_run_exists' panicked at crates/app/src/agent_routes.rs:20:9:
+assertion `left == right` failed: GET /api/agent-run
+  left: 404
+ right: 200
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 202 filtered out
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
