@@ -42,6 +42,19 @@ Paused: auto-mode check failed — no `Memory:` line in the report — run the m
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no page change |
 | **UI: Responsiveness at target viewports** | ☑ N/A | no page change |
 
+### Stage 4 fix round
+
+Commits `cd3937d` (fixes 1-5), `76447ec` (fix 6). Each test was run red before its code.
+
+1. Format characters cannot split a secret: `live_waiting::an_invisible_format_character_does_not_split_a_secret` (28 characters, both ends of each range, in `sk-`, `AKIA` and a 32-character run; harmless question keeps its text). Red: `left: Some(["use sk\u{ad}-ABCDEFGH please"])` / `right: None`. Green: `test an_invisible_format_character_does_not_split_a_secret ... ok`.
+2. Deeper parse only for an `AskUserQuestion` line: `live::tests::only_a_line_with_an_ask_user_question_call_is_parsed_deeper` (test seam: `#[cfg(test)]` thread-local counter `DEEP_PARSES`, as `PANIC_IN_REPLAY`; a `MultiEdit` + `TodoWrite` line gives 0 deep parses and the same item (`Debug`) as `json::loads`; the `AskUserQuestion` line gives 1 and its question). Red (counter wired on the old always-deep path): `left: 1` / `right: 0`. Green: `test live::tests::only_a_line_with_an_ask_user_question_call_is_parsed_deeper ... ok`; `the_ingest_parser_still_keeps_five_levels ... ok`.
+3. Blank question dropped: `live_waiting::a_blank_question_is_dropped`. Red: `left: Some(["   "])` / `right: None`. Green: `test a_blank_question_is_dropped ... ok`.
+4. Questions of a later open call: `live_waiting::a_later_open_call_gives_the_questions_when_the_first_has_none`. Red: `left: "None"` / `right: "Some([(0, [\"second?\"])])"`. Green: `... ok`.
+5. A skipped main-thread record: it could happen (`parse_record` abstains on `usage` without `message.id`, no `timestamp`/`sessionId`, non-string `cwd`; `live::item` then returns `None`, so `turn_ended` stayed). Now `parse_line` returns `Parsed::Turn` for a non-sidechain `assistant`/`user` record without an item, and `publish` clears `turn_ended` on that path's stream. Test `live_waiting::a_skipped_main_thread_record_still_ends_the_turn` (4 skipped kinds end it; a skipped sidechain and a skipped `system` record do not). Red: `left: ["your_turn"]` / `right: []`. Green: `... ok`.
+6. Leak gate: (a) the marker question is allowed only on `LIVE_ANSWER_LABELS` (the three exact main `/api/live` labels) and the alerts live answer; (b) `live_only_scan` scans the alerts live answer for all 42 main canaries after cutting out only the planted strings of `ALERTS_LIVE_EXPECTED` (`api_key` folder/tool, `claude_json_env_secret` session id, `"P"*64 + message_text` folder). Run: 103 check lines; `check alerts live answer, every canary  ok (42 canaries, 3 planted names cut out, 1 answers)`; last line `leak check: 0 hits over 42 canaries, 831 surfaces, 2028812 bytes`; `exit=0`. Mutant (b): waiting-cut folder changed to `"/work/" + message_text` (no `P` prefix): `HIT canary message_text as raw in [alerts api GET /api/live (first message)]: t":"[message_text]","s` / `FAILED: check alerts live answer, every canary  FAILED` / `exit=1`; file restored with `git checkout`.
+
+After the round (at `76447ec`): `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo clippy -p easy-personal-rs --features window --all-targets -- -D warnings`: `Finished` exit=0. `cargo test --workspace --no-fail-fast`: one failure only, `every_connector_and_doctor_step_equals_the_python_cli ... FAILED` (`connector_cli_parity`, environmental: `/usr/bin/easy-personal-launch` installed; fails on `main` too); every other target `test result: ok`, e.g. `live_waiting` `14 passed`, core lib `65 passed`. `git status --short rust/parity/golden*`: empty.
+
 ---
 
 ## Demonstration
