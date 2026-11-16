@@ -48,16 +48,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/src/alerts.rs` `the_notify_call_names_the_app_icon_and_the_desktop_entry` (RED then green: `left: "" right: "easy-personal"`); `rust/crates/app/tests/connector_cli_parity.rs` (RED before, green after, see Demonstration BEFORE); `rust/packaging/test_deb.sh` checks 2 and 6 (StartupWMClass; RED on the 0.3.0 package: `FAIL: easy-personal.desktop has no StartupWMClass=easy-personal-rs line`); `rust/scripts/smoke_real.sh` steps c and d (RED against the pre-change binary: `FAIL notification: Notify call carried icon= hint=`, `FAIL window: _NET_WM_ICON not set`) |
+| Verification command run | ☑ pass | `cargo test -p easy-personal-rs --test connector_cli_parity`: 2 passed. `cargo fmt --check`: exit 0. `cargo clippy --workspace --all-targets --features window -- -D warnings`: `Finished`, no warning. `shellcheck` on smoke_real.sh and test_deb.sh: exit 0. `./scripts/smoke_real.sh`: output under AFTER |
+| Negative cases hold | ☑ pass | RED runs before each fix (BEFORE and AFTER blocks); `test_deb.sh` rejects a package without the line (section 6); smoke c and d FAIL on the pre-change binary; the claude step FAILs on a failing fake and the setting is restored |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | reviewed: the 8 changed files (alerts.rs `send`/`notify_args`, window.rs `open_window`, 2 `.desktop`, test_deb.sh, connector_cli_parity.rs, smoke_real.sh, README part). Skipped: `build-deb.sh`, `agent_run.rs`, icons (must-not-touch) |
+| Full smoke suite still green (no regression) | ☑ pass | `cargo test --workspace --no-fail-fast` inside smoke_real.sh: `PASS tests: 1039 passed, 0 failed` (2026-11-16T12:02Z to 12:08Z) |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | the artwork is the existing `icons/128x128.png`; proof is smoke c and d: Notify app icon `easy-personal`, `_NET_WM_ICON(CARDINAL) = Icon (128 x 128)` (no screenshot required by the guide) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no CSS, token or font change |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no page change |
 
 ---
 
@@ -122,9 +122,109 @@ test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; 
 error: test failed, to rerun pass `-p easy-personal-rs --test connector_cli_parity`
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same probes; plus the full smoke script, 2026-11-16T12:02:38Z to 12:08:43Z, branch T097 at e22826a, `EP_STATIC_DIR` pointed at the main checkout's built page because the worktree has none):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+2026-11-16T12:02:38Z
+PASS build: cargo build --locked -p easy-personal-rs --features window
+PASS tests: 1039 passed, 0 failed
+PASS notification: Notify call carried app icon easy-personal and desktop-entry easy-personal
+PASS window: _NET_WM_ICON set; WM_CLASS(STRING) = "easy-personal-rs", "Easy-personal-rs" equals StartupWMClass easy-personal-rs
+SKIP claude (spends plan limits; pass --claude <account>)
+smoke_real: no FAIL
+exit=0
+2026-11-16T12:08:43Z
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+Package built by `packaging/build-deb.sh` (host, offline npm) and checked by `packaging/test_deb.sh` (tail):
+
+```
+built: /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T097/rust/target/deb/easy-personal-rs_0.3.0_amd64.deb
+== test_deb
+== package: /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T097/rust/target/deb/easy-personal-rs_0.3.0_amd64.deb
+== 1. file list, modes, owner, control
+ok: file list, modes, owner, control
+== 2. both .desktop files
+ok: desktop-file-validate passed on both files
+== 3. extracted program
+ok: --version printed 'easy-personal-rs 0.3.0'
+ok: doctor: ok launcher: /tmp/t087-test-oYyuBT/extract/usr/bin/easy-personal-launch
+== 4. dashboard serves the page from the package
+ok: GET http://127.0.0.1:42823/ gave 200
+ok: server 1984708 stopped
+== 5. the check fails when a listed file is missing
+ok: rejected, and it names the file:
+    FAIL: file list differs from the listed files:
+    3d2
+    < usr/share/applications/easy-personal-tray.desktop
+    FAIL: easy-personal-tray.desktop has no StartupWMClass=easy-personal-rs line
+== 6. the check fails when a .desktop file has no StartupWMClass line
+ok: rejected, and it names StartupWMClass:
+    FAIL: easy-personal.desktop has no StartupWMClass=easy-personal-rs line
+PASS: /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T097/rust/target/deb/easy-personal-rs_0.3.0_amd64.deb
+exit=0
+```
+
+**DELTA**: a desktop notification, the app window and the dock (once the new `.deb` is installed) now show the Easy Personal icon, and the owner can run one command, `rust/scripts/smoke_real.sh`, to check build, tests, notification, window (and with `--claude <account>` one real agent run) on the real machine.
+
+**WITNESS**: backend-developer agent session, T097 worktree, 2026-11-16 (output pasted above); the Supervisor's own run of `rust/scripts/smoke_real.sh` and the one real `--claude hung2` run are still to come (not run by this agent).
+
+### Per-AC evidence
+
+AC 1: the unit test above (RED `left: ""`, `right: "easy-personal"`, then `alerts:: 21 passed`); smoke step c: `PASS notification: Notify call carried app icon easy-personal and desktop-entry easy-personal`.
+
+AC 2: RED against the pre-change binary (main checkout `rust/target/debug/easy-personal-rs`, run through `EP_SMOKE_BIN`): `FAIL window: _NET_WM_ICON not set; WM_CLASS(STRING) = "easy-personal-rs", "Easy-personal-rs"`. GREEN: `PASS window: _NET_WM_ICON set; WM_CLASS(STRING) = "easy-personal-rs", "Easy-personal-rs" equals StartupWMClass easy-personal-rs`. Finding: `icons/icon.png` (512 px) is NOT accepted (`_NET_WM_ICON:  not found.`: the X property is too large), so the window uses `icons/128x128.png` (`xprop` then prints `Icon (128 x 128)`).
+
+AC 3: the Wayland app id was read with `WAYLAND_DEBUG=client`: `xdg_toplevel#36.set_app_id("easy-personal-rs")`; X11 `WM_CLASS = "easy-personal-rs", "Easy-personal-rs"`. One value, `StartupWMClass=easy-personal-rs`, in both `.desktop` files (`app` and `tray` open the same window through `open_window`, so they share the class; the tray's click path was not run here). `test_deb.sh`: RED on the 0.3.0 package of the main checkout (`FAIL: easy-personal.desktop has no StartupWMClass=easy-personal-rs line`, `FAIL: easy-personal-tray.desktop ...`, `the package check failed`); GREEN on the new build; section 6 is the negative case (in AFTER).
+
+AC 4: RED in BEFORE (5 problems, `doctor_no_launcher ... ok launcher: /usr/bin/easy-personal-launch`); GREEN: `test every_connector_and_doctor_step_equals_the_python_cli ... ok`, `test result: ok. 2 passed`. The lookup in `claude_cli.rs` is right (beside the program, else `PATH`); the test's `PATH` ended in `/usr/bin:/bin`, so the fix is in the test: a no-launcher case gets a `PATH` of the fake `claude`'s folder plus links to `sh tr sed mkdir rm` only.
+
+AC 5: the AFTER block above (exit=0; build, tests, notification, window PASS; claude SKIP). `cargo test` rebuilds `target/debug/easy-personal-rs` without the window feature, so the script rebuilds quietly after the tests when notification or window follow in the same run.
+
+AC 6 and 7 (fake `claude` first on `PATH`, throw-away `EASY_PERSONAL_HOME`; `agent-run status` before and after):
+```
+--- failing fake claude, setting was off: setting before: off
+FAIL claude: exit 1: investigate: failed, started 2026-11-16T12:08:52Z, ended 2026-11-16T12:08:52Z, report none (setting back to off)
+smoke_real: 1 FAIL
+    exit=1  setting after: off
+--- failing fake claude, setting was on: setting before: on
+FAIL claude: exit 1: investigate: failed, started 2026-11-16T12:08:52Z, ended 2026-11-16T12:08:52Z, report none (setting back to on)
+smoke_real: 1 FAIL
+    exit=1  setting after: on
+--- silent fake claude (exit 0), setting was off: setting before: off
+PASS claude: investigate: ok, started 2026-11-16T12:08:52Z, ended 2026-11-16T12:08:52Z, report none (setting back to off)
+smoke_real: no FAIL
+    exit=0  setting after: off
+--- silent fake claude (exit 0), setting was on: setting before: on
+PASS claude: investigate: ok, started 2026-11-16T12:08:53Z, ended 2026-11-16T12:08:53Z, report none (setting back to on)
+smoke_real: no FAIL
+    exit=0  setting after: on
+--- no --claude flag
+SKIP claude (spends plan limits; pass --claude <account>)
+smoke_real: no FAIL
+    exit=0
+--- unknown account
+FAIL claude: exit 1: easy-personal-rs: unknown account; valid labels: smoke (setting back to on)
+smoke_real: 1 FAIL
+    exit=1 setting after: on
+
+```
+Signal mid-run (a fake `claude` that sleeps; SIGTERM to the process group, because a background job of a non-interactive shell ignores SIGINT; Ctrl-C from a terminal takes the same trap):
+```
+--- signal (TERM, to the whole group) mid-run (a fake claude that sleeps), setting was off
+    setting while running: on
+    script exit=130  setting after: off
+interrupted
+```
+Missing tools:
+```
+SKIP notification (dbus-monitor is not installed)
+smoke_real: no FAIL
+    (dbus-monitor removed from PATH) exit=0
+SKIP notification (no session bus)
+smoke_real: no FAIL
+    exit=0
+SKIP window (no display (DISPLAY is not set))
+smoke_real: no FAIL
+    exit=0
+```
