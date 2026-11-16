@@ -637,3 +637,11 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - `dpkg-shlibdeps` prints a "diversions involved" warning on usr-merged Ubuntu; it is benign, the Depends line is still right.
 - Overriding `HOME` for `cargo test` needs `CARGO_HOME` and `RUSTUP_HOME` set to the real ones, or rustup downloads a fresh toolchain into the fake home.
 - `live.rs ten_streams_get_the_events_while_one_client_never_reads` failed once under load (8/8 alone): a T081-style load flake candidate.
+
+## 2026-11-16 — T090 agent run: child process gotchas
+- **Files**: `rust/crates/app/src/agent_run.rs`, `rust/crates/app/src/claude_cli.rs`
+- `PR_SET_PDEATHSIG` follows the *thread* that started the child, not the process. Start a long child from a thread that lives until the child ends (T091: not a short tokio worker), or the child is killed when that thread exits.
+- `flock` belongs to the open file description, and std uses `fork` when `pre_exec` is set. A child that another test thread forks holds the lock until its `exec`, so lock tests fail at random unless they run one at a time (a static mutex in `agent_run::tests`).
+- `connector_cli_parity` `*_no_launcher` cases fail on a machine where the `.deb` is installed: `/usr/bin/easy-personal-launch` is on `PATH`. Same failure without any change; the test should not see the system `PATH`.
+- A hook's `Paused:` line can land in a sub-agent's worktree review file while the Supervisor waits for that agent; the agent removed it. Expect it and check the review file after a hand-back.
+

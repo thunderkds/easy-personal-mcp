@@ -15,6 +15,7 @@
 Mode: auto
 1. Track extended, Risk High — RULE: `AGENTS.md` § Tracks
 2. The setting is changed only by the CLI; the dashboard shows it — DEBATED: CLI only (Advocate 1: CLI only, dashboard read-only plus Run; Advocate 2: CLI only, an off-only browser switch may come later; Advocate 3: CLI only, `agent-run on|off|status`) ⚠ decided for you — please review
+Memory: `memory/learnings.md` — "2026-11-16 — T090 agent run: child process gotchas" (PDEATHSIG thread rule, flock and fork in tests, `connector_cli_parity` with the .deb installed, hook `Paused:` lines); `memory/MEMORY.md` — its index line
 
 ## Step 0 — Spike input (Supervisor, 2026-11-16, from `claude --help` only; no model run)
 
