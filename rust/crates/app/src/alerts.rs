@@ -1037,7 +1037,7 @@ mod tests {
             secs % 60
         );
         let line = format!(
-            "{{\"type\":\"assistant\",\"sessionId\":\"0123abcd-ffff-4000-8000-000000000001\",\"cwd\":\"/home/x/shop-front\",\"timestamp\":\"{ts}\",\"message\":{{\"id\":\"m1\",\"model\":\"x\",\"content\":[{{\"type\":\"text\",\"text\":\"my password is hunter2-planted\"}},{{\"type\":\"tool_use\",\"id\":\"b1\",\"name\":\"AskUserQuestion\",\"input\":{{\"question\":\"planted question text\"}}}}]}}}}\n"
+            "{{\"type\":\"assistant\",\"sessionId\":\"0123abcd-ffff-4000-8000-000000000001\",\"cwd\":\"/home/x/shop-front\",\"entrypoint\":\"cli\",\"timestamp\":\"{ts}\",\"message\":{{\"id\":\"m1\",\"model\":\"x\",\"content\":[{{\"type\":\"text\",\"text\":\"my password is hunter2-planted\"}},{{\"type\":\"tool_use\",\"id\":\"b1\",\"name\":\"AskUserQuestion\",\"input\":{{\"questions\":[{{\"question\":\"planted question text\",\"header\":\"planted header\",\"options\":[{{\"label\":\"planted label\",\"description\":\"planted description\"}}]}}]}}}}]}}}}\n"
         );
         std::fs::write(dir.join("p/s.jsonl"), line).unwrap();
         let fake = Fake::default();
@@ -1081,6 +1081,9 @@ mod tests {
             !all.contains("hunter2") && !all.contains("planted"),
             "{all}"
         );
+        // T094 positive control: the tail does hold the question text (for the stream only, FR-106).
+        let held = format!("{:?}", feed.tail().lock().unwrap().waiting_questions());
+        assert!(held.contains("planted question text"), "{held}");
         thread.0.stop();
         feed.stop();
         let _ = std::fs::remove_dir_all(&dir);

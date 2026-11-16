@@ -291,13 +291,23 @@ tool with error paths, an unknown tool and method, a parse error, an invalid req
 `sqlite3 .dump`; the data folder listing. `RUST_LOG=trace` is set, so any log line would be scanned too.
 
 **Alerts (T085)**: `serve --alerts` runs once over transcripts planted for it (`plant_alerts`: a folder of its own, never ingested, because
-a canary in a project path would be stored by design): three sessions waiting for you (a secret-looking canary as the project folder,
-one as the session id, one as a 64-character folder name followed by a canary, past the cut) and one failing (a canary as the tool
+a canary in a project path would be stored by design): four sessions waiting for you (a secret-looking canary as the project folder,
+one as the session id, one as a 64-character folder name followed by a canary, past the cut, and T094's question session) and one failing (a canary as the tool
 name). The server has its own store with one confirmed Claude account that names that folder (the live tail reads confirmed accounts'
 folders), and the gate waits for the first alert tick (about 5 s) and scans `GET /api/alerts` (label `api GET /api/alerts (serve
---alerts, N alerts)`), the server's stdout and stderr. Anti-vacuity: exactly 3 `session_waiting` and 1 `session_failing` are listed.
+--alerts, N alerts)`), the server's stdout and stderr, and the bytes of its store. Anti-vacuity: exactly 4 `session_waiting` and 1
+`session_failing` are listed.
 No popup reaches the desktop: `DBUS_SESSION_BUS_ADDRESS` leads nowhere, the env has no `XDG_RUNTIME_DIR`, and the run fails unless the
 server's stderr says desktop notifications are not available. Mutant that must fail the gate: make `alerts::clean` return its input.
+
+**Question text (T094, FR-106, DDR-0005)**: seven more random strings (`QUESTION_PATTERNS`) sit in one typed-work record with an open
+`AskUserQuestion` (a plain marker question and a secret-shaped one, each with a planted `header`, `multiSelect`, option `label` and
+`description`) and an open `ExitPlanMode` (a planted `plan`). The record is planted twice: in the ingested projects tree
+(`-work-question`, so the store, every route, CLI command and MCP tool are scanned) and in `plant_alerts` (the alerts server's live tail
+reads it). After the alert tick the gate reads the alerts server's first `GET /api/live` message (kept apart from the canary scan:
+it names the canary project folders on purpose). Positive control: the marker question is in that answer. It may be in no other
+surface; the six other strings may be in none, that answer included. Mutant that fails the gate (run 2026-11-16): drop the two
+`is_secret` checks of `live::clean_question` -> `HIT T094 question_secret ... [alerts api GET /api/live (first message)]`, exit 1.
 
 **Files beside the store (T085)**: the four `store-check` forms may make or change no file at all. The `serve` that answers
 `/api/store/health` may add only `store.sqlite-shm` and an empty `store.sqlite-wal` (every other file keeps its size and mtime). The
@@ -470,3 +480,10 @@ made under `rust/target/` and removed; `EASY_PERSONAL_HOME` and `EASY_PERSONAL_C
 rust/parity/.venv/bin/python rust/parity/gen_live.py            # rewrites rust/parity/golden-live/ (a re-run changes nothing)
 cd rust && cargo test -p easy-personal-core --test live_parity  # replays all of it; asserts exactly 28 items, 100 + 3 labels, 72 + 39 steps
 ```
+
+**Two Rust-only differences (T094, owner 2026-11-16, DDR-0005)**: Python gets neither, and no golden holds either (no golden
+transcript has an `end_turn` record or an `AskUserQuestion` with `questions`), so every live golden stays equal. (1) The attention
+state `your_turn` (FR-105): a typed-work main thread whose newest `assistant`/`user` record ended its turn (`stop_reason`
+`end_turn`) with no open call; such a session stays listed until the one-hour rule drops it. (2) The question text (FR-106): the
+`questions` key of a `waiting` state, sent only on the `GET /api/live` stream (`live_feed::stream_data`), never in
+`LiveTail::snapshot()`. Proved in `crates/core/tests/live_waiting.rs`, the `live_feed.rs` tests and the leak gate.

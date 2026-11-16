@@ -27,6 +27,7 @@ import http.client
 import json
 import os
 import re
+import secrets
 import select
 import shutil
 import signal
@@ -63,7 +64,25 @@ DATA_FILES = {
     "ingest.lock",
 }  # all the data folder may hold
 CHILD_TIMEOUT = 60
-ALERTS_WANT = {"session_waiting": 3, "session_failing": 1}  # the alerts `plant_alerts` leaves (T085)
+ALERTS_WANT = {"session_waiting": 4, "session_failing": 1}  # the alerts `plant_alerts` leaves (T085; T094 adds one waiting)
+# T094 (FR-106, DDR-0005): strings planted in an open `AskUserQuestion` / `ExitPlanMode` call. The marker question may reach
+# `GET /api/live` and nothing else (positive control: it must be there); every other string must reach nothing at all.
+QUESTION_PATTERNS = {
+    "question_marker": "LEAKMARKER question {t} ship it?",
+    "question_secret": "Use sk-QCANARY{t} here?",
+    "question_header": "LEAKCANARY q-header {t}",
+    "option_label": "LEAKCANARY q-label {t}",
+    "option_description": "LEAKCANARY q-description {t}",
+    "multi_select": "LEAKCANARY q-multi {t}",
+    "plan_text": "LEAKCANARY plan {t}",
+}
+# T094 fix round: the only surfaces where the marker question may be (the main server's live answers; the alerts server's
+# is in `run.live_only`), by exact label, never by a part of it.
+LIVE_ANSWER_LABELS = frozenset(f"api GET /api/live ({label}, first message)" for label in ("query token", "header token", "resume"))
+# T094 fix round: the main canaries the alerts server's `GET /api/live` answer names on purpose (`plant_alerts`, DDR-0004): a
+# project folder and a tool name (`api_key`), a session id (`claude_json_env_secret`), the 64-character project folder that ends
+# in `message_text`. Only these planted strings are cut out of that answer before every main canary is looked for in it.
+ALERTS_LIVE_EXPECTED = ("api_key", "claude_json_env_secret", "message_text")
 NO_BUS = "unix:path=/nonexistent/leak-rs-no-bus"  # a session bus address that leads nowhere
 SIDECARS = {"store.sqlite-shm", "store.sqlite-wal"}
 SERVER_TIMEOUT = 300
@@ -341,8 +360,62 @@ def digest_skips_only_the_fakes_log(work: Path) -> bool:
 # -- planting (as tests/leak/conftest.py::leak_run) ------------------------------------------------------------
 
 
-def plant(canaries: Canaries, root: Path) -> dict[str, Path]:
+def question_line(q: Canaries, cwd: str, session: str, when: str) -> str:
+    """T094: one typed-work assistant record with an open `AskUserQuestion` (the marker and a secret-shaped question, each
+    with a planted `header`, `multiSelect` and option) and an open `ExitPlanMode` whose `plan` is planted."""
+    v = q.values
+    ask = {"questions": [{"question": text, "header": v["question_header"], "multiSelect": v["multi_select"],
+                          "options": [{"label": v["option_label"], "description": v["option_description"]}]}
+                         for text in (v["question_marker"], v["question_secret"])]}  # fmt: skip
+    content = [{"type": "tool_use", "id": "toolu_question_1", "name": "AskUserQuestion", "input": ask},
+               {"type": "tool_use", "id": "toolu_question_2", "name": "ExitPlanMode", "input": {"plan": v["plan_text"]}}]  # fmt: skip
+    message = {"role": "assistant", "id": f"msg_question_{session[-4:]}", "model": "claude-fixture-model-1", "content": content,
+               "usage": {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}  # fmt: skip
+    return json.dumps({"isSidechain": False, "entrypoint": "cli", "cwd": cwd, "sessionId": session, "version": "2.1.295",
+                       "timestamp": when, "type": "assistant", "message": message}) + "\n"  # fmt: skip
+
+
+def question_scan(run: "Run") -> tuple[list[str], list[str]]:
+    """T094: the marker question is in a `GET /api/live` answer of the alerts server (positive control) and in no other
+    surface; no other planted question string is anywhere, the live answers included. Returns (hits, check lines)."""
+    q, marker = run.q, run.q.values["question_marker"]
+    found = [label for label, blob in run.live_only.items() if Canaries({"question_marker": marker}).find(as_text(blob))]
+    checks = [f"check question marker in GET /api/live (positive control)  {'ok' if found else 'FAILED'} ({len(found)} of {len(run.live_only)} live answers)"]
+    hits = []
+    for surfaces, live in ((run.out, False), (run.live_only, True)):
+        for label, blob in surfaces.items():
+            text = as_text(blob)
+            for name, value in q.values.items():
+                if name == "question_marker" and (live or label in LIVE_ANSWER_LABELS):
+                    continue
+                for _, form in Canaries({name: value}).find(text):
+                    hits.append(f"HIT T094 {name} as {form} in [{label}]: {excerpt(text, name, value, form)}")
+    checks.append(f"check T094 question strings scanned       ok ({len(q.values)} strings, {len(run.out) + len(run.live_only)} surfaces)")
+    return hits, checks
+
+
+def live_only_scan(canaries: Canaries, live_only: dict[str, object]) -> list[tuple[str, str, str, str]]:
+    """T094 fix round: the alerts server's `GET /api/live` answer, scanned for every main canary once the planted strings it
+    names on purpose (`ALERTS_LIVE_EXPECTED`, as `plant_alerts` writes them, raw and JSON forms) are cut out. A message text,
+    token or any other canary there is a hit."""
+    v = canaries.values
+    planted = {"api_key": v["api_key"], "claude_json_env_secret": v["claude_json_env_secret"], "message_text": "P" * 64 + v["message_text"]}
+    cut = {}
+    for label, blob in live_only.items():
+        text = as_text(blob)
+        for name in ALERTS_LIVE_EXPECTED:
+            for form in ("raw", "json"):
+                for needle in forms_of(planted[name])[form]:
+                    text = text.replace(needle, "")
+        cut[label] = text
+    return scan(canaries, cut)[0]
+
+
+def plant(canaries: Canaries, root: Path, q: Canaries) -> dict[str, Path]:
     projects = canaries.render_fixture(root / "projects")
+    (projects / "-work-question").mkdir()  # T094: ingested, so the store, CLI and MCP are scanned for the question strings
+    (projects / "-work-question" / "question.jsonl").write_text(
+        question_line(q, "/work/question", "00000000-0000-4000-8000-0000000000dd", "2026-02-01T09:05:00.000Z"))
     repo = canaries.render_kit_trace(root / "repo")
     canaries.render_verifier_report(repo)
     (projects / "-repo").mkdir()
@@ -380,13 +453,14 @@ def plant(canaries: Canaries, root: Path) -> dict[str, Path]:
             "easy_memory": root / "easy-memory", "verifier": root / "no-verifier-container"}  # fmt: skip
 
 
-def plant_alerts(canaries: Canaries, agent: Path) -> Path:
+def plant_alerts(canaries: Canaries, agent: Path, q: Canaries) -> Path:
     """T085: an agent folder of its own (never read by ingest: a canary in a project path would be stored by design) whose
     transcripts leave four sessions that need you, every free piece of the alert text a canary or too long: a waiting
     session whose project folder is a secret-looking canary, one whose session id is, one whose project folder is 64
     characters and then a canary (past the cut), and a failing one whose tool name is. Their times are now minus 2 minutes:
     a session with no open call (the failing one) leaves the live list 5 minutes after its last record, so the tree is
-    planted right before the `serve` that reads it. The live tail reads a file with no store cursor from its first line."""
+    planted right before the `serve` that reads it. The live tail reads a file with no store cursor from its first line.
+    T094: a fifth session waits on planted question strings (`question_line`); its `GET /api/live` answer is the positive control."""
     v = canaries.values
     projects = agent / "projects" / "-work-alerts"
     projects.mkdir(parents=True)
@@ -407,6 +481,7 @@ def plant_alerts(canaries: Canaries, agent: Path) -> Path:
     (projects / "waiting-project.jsonl").write_text(line(f"/work/{v['api_key']}", plain + "1", "assistant", [use(1, "AskUserQuestion")]))
     (projects / "waiting-session.jsonl").write_text(line("/work/plain-alert", v["claude_json_env_secret"], "assistant", [use(2, "ExitPlanMode")]))
     (projects / "waiting-cut.jsonl").write_text(line("/work/" + "P" * 64 + v["message_text"], plain + "3", "assistant", [use(3, "AskUserQuestion")]))
+    (projects / "waiting-question.jsonl").write_text(question_line(q, "/work/plain-question", plain + "5", when))
     tool = v["api_key"]
     (projects / "failing-tool.jsonl").write_text(
         line("/work/plain-failing", plain + "4", "assistant", [use(n, tool) for n in (4, 5, 6)])
@@ -676,7 +751,7 @@ def alerts(run: Run, checks: list[str], canaries: Canaries) -> None:
     a canary in the list is a hit. The server has a data folder of its own: a store with one confirmed Claude account whose folder
     is the planted one (the live tail reads the confirmed accounts' folders). No popup reaches the owner's desktop: the session bus
     address leads nowhere (and the env has no `XDG_RUNTIME_DIR`), and the run fails unless the server says it could not notify."""
-    agent = plant_alerts(canaries, run.logs / "alert-agent")
+    agent = plant_alerts(canaries, run.logs / "alert-agent", run.q)
     digest = tree_digest(agent)
     home, empty = run.logs / "alerts-home", run.logs / "alerts-empty"
     empty.mkdir()
@@ -709,6 +784,8 @@ def alerts(run: Run, checks: list[str], canaries: Canaries) -> None:
                 listed = json.loads(body.split(b"\n\n", 1)[1]).get("alerts", []) if status == 200 else []
                 time.sleep(0.25)
             run.add(f"api GET /api/alerts (serve --alerts, {len(listed)} alerts)", body)
+            # T094: kept apart from `run.out`: this answer names the canary project folders on purpose (DDR-0004)
+            run.live_only["alerts api GET /api/live (first message)"] = live_first(port, "/api/live", base)
             run.add("alerts serve stdout (first line, token inside)", first + lines.buf)
         finally:
             rc = run.stop("alerts serve", proc, kids, signal.SIGINT)
@@ -716,6 +793,8 @@ def alerts(run: Run, checks: list[str], canaries: Canaries) -> None:
             run.add("alerts serve stdout (after stop)", proc.stdout.read() if proc.stdout else b"")
             err = (run.logs / "alerts-serve.stderr").read_bytes()
             run.add("alerts serve stderr", err)
+        for path in sorted(home.glob("store.sqlite*")):  # T094: the alerts server's store, which its live tail only reads
+            run.add(f"alerts store: {path.name}", path.read_bytes())
     finally:
         for name, value in saved.items():
             if value is None:
@@ -1553,10 +1632,12 @@ def main() -> int:
         if not binary.is_file():
             sys.exit(f"no binary at {binary.relative_to(REPO)}: run `cargo build` in rust/ first")
     plant_root = root / "plant"
-    planted = plant(canaries, plant_root)
+    q = Canaries({n: pat.format(t=secrets.token_hex(8)) for n, pat in QUESTION_PATTERNS.items()})
+    planted = plant(canaries, plant_root, q)
     where = planted_where(canaries, plant_root)
     before = tree_digest(plant_root)
     run = Run(BINARY, root, planted)
+    run.q, run.live_only = q, {}
     checks, failure = [], None
     try:
         drive(run, canaries, checks)
@@ -1567,6 +1648,12 @@ def main() -> int:
         f"check planted sources unchanged      {'ok' if untouched else 'FAILED'} (sha256 of the tree)"
     )
     hits, scanned = scan(canaries, run.out)
+    q_hits, q_checks = question_scan(run)
+    checks.extend(q_checks)
+    live_hits = live_only_scan(canaries, run.live_only)
+    hits += live_hits
+    checks.append(f"check alerts live answer, every canary  {'ok' if not live_hits else 'FAILED'} ({len(canaries.values)} canaries, "
+                  f"{len(ALERTS_LIVE_EXPECTED)} planted names cut out, {len(run.live_only)} answers)")  # fmt: skip
     surfaces = len(run.out)
     total = sum(size(b) for b in run.out.values())
     fingerprint = hashlib.sha256("\0".join(sorted(canaries.values.values())).encode()).hexdigest()[
@@ -1595,10 +1682,11 @@ def main() -> int:
         problems.append("the canary set differs from PATTERNS")
     if failure:
         problems.append(failure)
+    problems += q_hits
     for name, form, label, cut in hits:
         report.append(f"HIT canary {name} as {form} in [{label}]: {cut}")
     text = "\n".join(report)
-    if canaries.find(text):  # the report must not become a leak
+    if canaries.find(text) or q.find(text):  # the report must not become a leak
         print("leak check: the report itself would hold a canary; it was withheld")
         print(f"temp folder kept: {root}")
         return 1

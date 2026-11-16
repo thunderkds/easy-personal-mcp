@@ -856,6 +856,42 @@ mod tests {
         );
     }
 
+    /// T094 (FR-106, NFR-002): a real live tail with an open `AskUserQuestion` whose question, header and option are
+    /// planted: the tail holds the question for the stream (positive control), and no menu row holds any of it.
+    #[test]
+    fn no_question_text_reaches_a_row_from_a_real_live_tail() {
+        use easy_personal_core::live::{LiveTail, Root};
+        use easy_personal_core::prices::PriceTable;
+        let dir =
+            std::env::temp_dir().join(format!("easy-personal-rs-t094-tray-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("p")).unwrap();
+        let roots = [Root {
+            account: None,
+            projects: dir.clone(),
+        }];
+        let now = 1_768_867_210 * 1_000_000; // 2026-01-20T00:00:10Z
+        let mut tail = LiveTail::new(PriceTable::shipped().unwrap());
+        tail.poll_once(&roots, now, None);
+        let line = json!({"type": "assistant", "sessionId": "s1", "timestamp": "2026-01-20T00:00:05Z",
+            "cwd": "/work/shop", "entrypoint": "cli", "message": {"id": "m1", "model": "x", "content": [
+                {"type": "tool_use", "id": "b1", "name": "AskUserQuestion", "input": {"questions": [
+                    {"question": "planted question text", "header": "planted header",
+                     "options": [{"label": "planted label", "description": "planted description"}]}]}}]}});
+        std::fs::write(dir.join("p/s.jsonl"), format!("{line}\n")).unwrap();
+        tail.poll_once(&roots, now, None);
+        let held = format!("{:?}", tail.waiting_questions());
+        let v = view(&tail.snapshot(now), None, None, false);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(held.contains("planted question text"), "{held}");
+        assert_eq!(
+            v.rows[3],
+            Row::Action(WAITING, "1 waiting for you · shop".into())
+        );
+        let text = format!("{:?}", v.rows);
+        assert!(!text.contains("planted"), "{text}");
+    }
+
     #[test]
     fn the_theme_is_light_only_when_the_desktop_says_light() {
         assert_eq!(theme_of(Some(2)), Theme::Light);

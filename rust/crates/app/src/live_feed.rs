@@ -10,7 +10,9 @@
 //! prints one fixed line, once per process, never the panic's text (it could name a path).
 //!
 //! [`LiveStream`] turns the tail into the Server-Sent Events of Python's `live_stream` (`surfaces/api.py`): the same
-//! messages in the same order, the JSON keys of `_SESSION_KEYS`, `_EVENT_KEYS` and `_snapshot_data` and nothing else.
+//! messages in the same order, the JSON keys of `_SESSION_KEYS`, `_EVENT_KEYS` and `_snapshot_data` and nothing else,
+//! but for two Rust-only differences (T094): the `your_turn` attention state (FR-105) and the `questions` key of a
+//! `waiting` state ([`stream_data`], FR-106, DDR-0005).
 
 use crate::api::Clock;
 use axum::body::Bytes;
@@ -221,7 +223,7 @@ impl LiveStream {
             (None, _) => {
                 let snapshot = tail.map_or_else(empty_snapshot, |t| t.snapshot(now));
                 self.take(&snapshot);
-                out.extend(sse("snapshot", &snapshot_data(&snapshot), None));
+                out.extend(sse("snapshot", &stream_data(&snapshot, tail), None));
             }
             (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) => {
                 let snapshot = t.snapshot(now); // attention changed: events up to its `last_id` first
@@ -234,7 +236,7 @@ impl LiveStream {
                     out.extend(sse("live", &event_data(&event), Some(id)));
                 }
                 self.take(&snapshot);
-                out.extend(sse("snapshot", &snapshot_data(&snapshot), None));
+                out.extend(sse("snapshot", &stream_data(&snapshot, Some(t)), None));
             }
             _ => {}
         }
@@ -377,6 +379,29 @@ fn snapshot_data(snapshot: &Value) -> Value {
         "active_window_s": snapshot["active_window_s"], "last_id": snapshot["last_id"],
         "open_call_minutes": snapshot["open_call_minutes"], "sessions": sessions,
     })
+}
+
+/// What a stream sends as `snapshot`: [`snapshot_data`], and the question text of the tail
+/// ([`LiveTail::waiting_questions`], FR-106, DDR-0005) as the key `questions` of each `waiting` state that has some.
+/// Rust only (Python has no question text); the one place the text joins anything the page gets.
+fn stream_data(snapshot: &Value, tail: Option<&LiveTail>) -> Value {
+    let mut data = snapshot_data(snapshot);
+    let Some(held) = tail.map(LiveTail::waiting_questions) else {
+        return data;
+    };
+    for session in data["sessions"].as_array_mut().into_iter().flatten() {
+        let Some(states) = session["session_id"].as_str().and_then(|id| held.get(id)) else {
+            continue;
+        };
+        for (i, questions) in states {
+            if let Some(state) = session["attention"].get_mut(*i)
+                && state["state"] == "waiting"
+            {
+                state["questions"] = json!(questions);
+            }
+        }
+    }
+    data
 }
 
 fn event_data(event: &Value) -> Value {
@@ -1110,6 +1135,112 @@ mod tests {
             assert_eq!(kinds, [("snapshot", None)], "{resume:?}");
             assert_eq!(sent[0].2["last_id"], 1);
         }
+    }
+
+    // ---- T094: the question text (FR-106, DDR-0005) ------------------------------------------------------------
+
+    fn ask_line(mid: &str, block: &str, questions: &[&str]) -> String {
+        let questions: Vec<Value> = questions
+            .iter()
+            .map(|q| json!({"question": q, "header": "PLANTED-HEADER", "multiSelect": "PLANTED-MULTI",
+                           "options": [{"label": "PLANTED-LABEL", "description": "PLANTED-DESCRIPTION"}]}))
+            .collect();
+        let line = json!({"type": "assistant", "sessionId": "s1", "timestamp": "2026-01-20T00:00:05Z",
+                          "entrypoint": "cli", "message": {"id": mid, "model": "x", "content": [
+                              {"type": "tool_use", "id": block, "name": "AskUserQuestion",
+                               "input": {"questions": questions}},
+                              {"type": "tool_use", "id": format!("{block}-plan"), "name": "ExitPlanMode",
+                               "input": {"plan": "PLANTED-PLAN"}}]}});
+        format!("{line}\n")
+    }
+
+    /// AC 5 (stream half) and AC 7: `questions` in the `waiting` state of the stream's snapshot, never in the tail's
+    /// own snapshot; gone on the first snapshot after the result; no planted `header`, option, `multiSelect` or plan
+    /// in any message.
+    #[test]
+    fn the_stream_adds_the_question_text_to_the_waiting_state_only() {
+        let tmp = Temp::new("questions");
+        let (mut tail, roots) = primed(&tmp);
+        let mut stream = LiveStream::new(None, true);
+        stream.step(Some(&tail), NOW);
+        append(
+            &tmp,
+            &ask_line("m1", "b1", &["Which colour?", "Ship it now?"]),
+        );
+        tail.poll_once(&roots, NOW, None);
+        assert!(
+            !tail.snapshot(NOW).to_string().contains("questions"),
+            "the tray's and the alerts' snapshot holds no text"
+        );
+        let bytes = stream.step(Some(&tail), NOW);
+        let text = String::from_utf8_lossy(&bytes).into_owned();
+        assert!(!text.contains("PLANTED"), "{text}");
+        let sent = messages(&bytes);
+        let snapshot = &sent.last().unwrap().2;
+        assert_eq!(sent.last().unwrap().0, "snapshot");
+        let attention = &snapshot["sessions"][0]["attention"];
+        assert_eq!(attention[0]["state"], "waiting");
+        assert_eq!(
+            attention[0]["questions"],
+            json!(["Which colour?", "Ship it now?"])
+        );
+        let keys: Vec<&String> = attention[0].as_object().unwrap().keys().collect();
+        assert_eq!(
+            keys,
+            [
+                "count",
+                "is_sidechain",
+                "questions",
+                "since",
+                "state",
+                "tool"
+            ]
+        );
+        // A fresh stream's first snapshot has them too; the live events never do.
+        let fresh = LiveStream::new(None, true).step(Some(&tail), NOW);
+        assert!(String::from_utf8_lossy(&fresh).contains("Ship it now?"));
+        for (event, _, data) in &sent {
+            if event == "live" {
+                assert!(!data.to_string().contains("colour"), "{data}");
+            }
+        }
+        // The result arrives: the next snapshot has no `questions` key.
+        append(
+            &tmp,
+            &result_line("s1", "b1", false, "2026-01-20T00:00:06Z"),
+        );
+        tail.poll_once(&roots, NOW, None);
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        let snapshot = &sent.last().unwrap().2;
+        assert_eq!(sent.last().unwrap().0, "snapshot");
+        assert!(!snapshot.to_string().contains("questions"), "{snapshot}");
+        assert_eq!(
+            snapshot["sessions"][0]["attention"][0]["tool"],
+            "ExitPlanMode"
+        );
+    }
+
+    /// Edge case: a change of the question text alone sends a new snapshot; no change sends nothing.
+    #[test]
+    fn a_change_of_the_question_text_alone_sends_a_snapshot() {
+        let tmp = Temp::new("questions-change");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &ask_line("m1", "b1", &["first?"]));
+        tail.poll_once(&roots, NOW, None);
+        let mut stream = LiveStream::new(None, true);
+        stream.step(Some(&tail), NOW);
+        assert!(stream.step(Some(&tail), NOW).is_empty(), "nothing changed");
+        // A new message closes the earlier calls (FR-049) and opens the same calls at the same time: the state JSON is
+        // the same, only the text differs.
+        append(&tmp, &ask_line("m2", "b2", &["second?"]));
+        tail.poll_once(&roots, NOW, None);
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        let snapshot = &sent.last().unwrap().2;
+        assert_eq!(
+            snapshot["sessions"][0]["attention"][0]["questions"],
+            json!(["second?"])
+        );
+        assert!(stream.step(Some(&tail), NOW).is_empty());
     }
 
     #[test]
