@@ -31,16 +31,16 @@ Paused: auto-mode check failed — no `Memory:` line in the report — run the m
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/live_waiting.rs` (AC 1-7 + parser depth: `live_waiting: test result: ok. 10 passed; 0 failed`), `rust/crates/app/src/live_feed.rs` (`the_stream_adds_the_question_text_to_the_waiting_state_only ... ok`, `a_change_of_the_question_text_alone_sends_a_snapshot ... ok`), `rust/crates/app/tests/live.rs` (`your_turn_and_the_question_text_arrive_on_the_live_route ... ok`; `app live.rs: test result: ok. 9 passed`), AC 9: `tray::tests::no_question_text_reaches_a_row_from_a_real_live_tail ... ok`, `alerts::tests::a_waiting_session_in_a_real_live_tail_raises_one_alert ... ok` (planted real question + positive control); AC 8: `rust/parity/leak_rust.py` (`question_scan`, `question_line`). Run 2026-11-16T09:06Z at `38bf4b1`. |
+| Verification command run | ☐ pass / ☑ fail (1 environmental test, see Notes) | 2026-11-16T08:55Z, worktree. `cargo test --workspace`: stops at `connector_cli_parity`: `every_connector_and_doctor_step_equals_the_python_cli` FAILED, `5 problems` all in `sync_no_launcher` / `doctor_no_launcher` (`exit 0, Python 1`; `ok launcher: /usr/bin/easy-personal-launch`): the oracle expects no launcher on PATH, and this machine has `/usr/bin/easy-personal-launch` installed (`present: yes`). T094 touches no connector code. Leak gate: `check alerts listed, one per planted session  ok (5 alerts: {'session_waiting': 4, 'session_failing': 1})` / `check question marker in GET /api/live (positive control)  ok (1 of 1 live answers)` / `check T094 question strings scanned       ok (7 strings, 832 surfaces)` / `leak check: 0 hits over 42 canaries, 831 surfaces, 2028224 bytes` / `exit=0`; checks 100 before (committed script: `leak check: 0 hits over 42 canaries, 828 surfaces, 1797673 bytes exit=0`) -> 102 after. Full `--no-fail-fast` run at `38bf4b1`: `passed 1020, failed 1, ignored 28` (the same test). AC 11: `cargo fmt --check` exit=0; `cargo clippy --workspace --all-targets -- -D warnings` exit=0; same with `--features window` exit=0; `cargo build --features window` exit=0. AC 10: `git status --short parity/golden*` printed nothing; `live_parity: test result: ok. 15 passed`; `the_stream_equals_python_live_stream_for_every_oracle_case ... ok`; `rust/parity/README.md` names the two differences. |
+| Negative cases hold | ☑ pass | Red runs before the code (stubs): `test result: FAILED. 1 passed; 8 failed` (e.g. `left: ["failing", "waiting", "needs_attention"]` / `right: ["failing", "waiting", "your_turn", "needs_attention"]`; `left: "None"` / `right: "Some([(0, [\"Which colour?\", \"Ship it now?\"])])"`); stream: `left: Null` / `right: Array [String("Which colour?"), String("Ship it now?")]`. AC 2 negative table: 15 rows, all hold. Leak-gate mutant (both `is_secret` checks removed from `live::clean_question`, `diff` non-empty: `234,236d233 <     if is_secret(raw) {` ...): `FAILED: HIT T094 question_secret as raw in [alerts api GET /api/live (first message)]: ?","[question_secret]"],"` / `exit=1`; restored and rebuilt. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Full smoke suite still green (no regression) | ☐ pass / ☑ fail (environmental) | `passed 1020, failed 1, ignored 28`: the one failure is `connector_cli_parity` `*_no_launcher` (machine has `/usr/bin/easy-personal-launch`); no `#[ignore]` test was run |
+| **Companion score (easy-verifier)** | ☑ N/A | not run by the implementer |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no page change (T095 changes the page) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no page change |
+| **UI: Responsiveness at target viewports** | ☑ N/A | no page change |
 
 ---
 
@@ -62,9 +62,17 @@ your_turn present: False | questions key present: False
 ```
 (`turn.jsonl`: a `cli` session whose last record is an `assistant` record with `stop_reason: "end_turn"`; `ask.jsonl`: an open `AskUserQuestion` whose one question is `DEMO-MARKER which colour?`, with a `header` and an option.)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same script, binary built at `38bf4b1`):
+```
+$ date -u: 2026-11-16T09:10:47+00:00
+first snapshot of GET /api/live, sessions:
+{"session_id": "demo-ask-0002", "attention": [{"count": 1, "is_sidechain": false, "questions": ["DEMO-MARKER which colour?"], "since": "2026-11-16T09:10:16.000000Z", "state": "waiting", "tool": "AskUserQuestion"}]}
+{"session_id": "demo-turn-0001", "attention": [{"count": 1, "is_sidechain": false, "since": "2026-11-16T09:10:16.000000Z", "state": "your_turn", "tool": null}]}
+your_turn present: True | questions key present: True
+```
+(The planted `header` `HDR` and option `Red` / `warm` are not in the answer.)
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The Live view stream now marks a typed session that ended its turn as `your_turn`, and carries the question of a waiting `AskUserQuestion` call (`questions`) on `GET /api/live` only.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
