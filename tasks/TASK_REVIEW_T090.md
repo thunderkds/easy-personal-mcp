@@ -30,6 +30,16 @@ Claude Code `2.1.325`. Flags the help lists (the agent confirms each against the
 - `--output-format` (only with `--print`): text, json, stream-json
 - Not used: `--bare` ("OAuth and keychain are never read"), `--dangerously-skip-permissions`, `bypassPermissions`
 
+### Step 0 — confirmed by the agent (backend-developer, 2026-11-16, `claude --version` and `claude --help` only; no model run)
+
+`claude --version` → `2.1.325 (Claude Code)`. Every flag above is listed. Choices for the runner:
+- MCP: `--mcp-config <one inline JSON string>` + `--strict-mcp-config`.
+- Allow-list: `--allowedTools <one comma-separated argument of the five mcp__easy-personal__* names>`.
+- No built-in tool: `--tools ""` (help: `Use "" to disable all tools`).
+- Refuse, never ask: `--permission-mode dontAsk` plus `--permission-prompts none` (help: `"none" (nobody: anything that would prompt is denied automatically; the permission mode still decides everything else)`). A listed flag gives "refuse, never ask", so this is not blocked.
+- Settings files: **not** `--setting-sources`. The help gives no documented value for "no source" (unlike `--tools ""`); an empty value could be read as "not given" and load the user file, whose `env` or `apiKeyHelper` could bill an API key. The help lists `--restricted`: "ignores user, project and local settings files (managed settings and --settings still apply; add --strict-mcp-config to skip MCP servers too)" and removes the code-running built-in tools. The runner uses `--restricted`. It does not name OAuth (`--bare` is the flag that "never reads OAuth credentials"), so the `/login` subscription is expected to stay; only AC 9 (the one real run) proves it.
+- Not used: `--no-session-persistence` (the run's session is kept, so the next ingest counts it like any other session), `--output-format` (the output is dropped), `--setting-sources`, `--bare`, `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions`.
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
@@ -54,8 +64,19 @@ Claude Code `2.1.325`. Flags the help lists (the agent confirms each against the
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (backend-developer, worktree `T090` at `1cfb16a`, before any implementation commit; `-p easy-personal-rs` alone
+is refused by cargo because the package has two binaries, so `--bin easy-personal-rs` is added):
+
+```
+$ cd rust && date -u; cargo run -q -p easy-personal-rs --bin easy-personal-rs -- agent-run status; echo "exit=$?"
+Mon Nov 16 07:20:45 AM UTC 2026
+error: unrecognized subcommand 'agent-run'
+
+Usage: easy-personal-rs <COMMAND>
+
+For more information, try '--help'.
+exit=2
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
