@@ -69,7 +69,7 @@ enum Command {
         #[command(subcommand)]
         action: schedule_cmd::Action,
     },
-    /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C; `dashboard` is Python's name for it
+    /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C; `dashboard` is Python's name for it. Not read-only for one feature: the agent run routes (`/api/agent-run`) can start your own `claude` for the fixed `investigate` job once you choose an agent run account; Ctrl-C ends a run that is going
     #[command(alias = "dashboard")]
     Serve {
         /// Also serve the built dashboard's files from this folder, from the same origin (no token for the page)
