@@ -10,13 +10,15 @@
 
 ---
 
+> **Not started.** Paused before its start (2026-11-16, `[admin]`): unsure — how does a click on a tray row or a popup tell the page which session to show?; options: a query on the window address (`/?live=<id>#<token>`, an open window reloads) / the address fragment (`#<token>&live=<id>`, no reload, the token read changes) / a fixed script run in the window (no reload, no address change). The owner's answer is awaited; the block below becomes the report when the task starts.
+
+<!-- held until the task starts (a task that has not started is not marked as an auto-mode run)
 ## Auto decisions
 
 Mode: auto
 Paused: unsure — how does a click on a tray row or a popup tell the page which session to show?; options: a query on the window address (`/?live=<id>#<token>`, an open window reloads) / the address fragment (`#<token>&live=<id>`, no reload, the token read changes) / a fixed script run in the window (no reload, no address change)
 Not done: merge (admin: after the auto verify pass); auto verify: not started (the task waits for the answer)
-
-
+-->
 
 ## Evidence
 

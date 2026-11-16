@@ -10,14 +10,16 @@
 
 ---
 
+> **Not started.** It waits for T095's open question (the click mechanism). The block below becomes the report when the task starts.
+
+<!-- held until the task starts (a task that has not started is not marked as an auto-mode run)
 ## Auto decisions
 
 Mode: auto
 1. The *your turn* popup waits until the state has held 60 s on the engine's monotonic clock — DEBATED: hold 60 s, monotonic first-seen time (Advocate 1: hold 60 s, monotonic first-seen time; Advocate 2: hold 60 s, monotonic first-seen time) ⚠ decided for you — please review
 2. At most 5 session rows, as the menu's alert block shows 5 — FACT: rust/crates/app/src/tray.rs:220 "pub(crate) const ALERTS_SHOWN: usize = 5;"
 Not done: merge (admin: after the auto verify pass); auto verify: not started (the task waits for T095's answer)
-
-
+-->
 
 ## Evidence
 
