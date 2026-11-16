@@ -37,6 +37,8 @@ getrandom.workspace = true
 rmcp.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
+# T090: the agent run's start and end times (the workspace's jiff, already in Cargo.lock through the core; no new package).
+jiff.workspace = true
 # T088: `localtime_r` for the local time of an alert in the tray menu (the workspace's libc, already in Cargo.lock; no new package).
 libc.workspace = true
 futures-core = "=0.3.34"

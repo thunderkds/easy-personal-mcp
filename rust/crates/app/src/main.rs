@@ -3,6 +3,7 @@ use easy_personal_core::store::{read_info, store_path};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+mod agent_run;
 mod alerts;
 mod api;
 mod claude_cli;
@@ -121,6 +122,11 @@ enum Command {
     Doctor,
     /// Serve the MCP tools over stdio (JSON-RPC on stdout, nothing else) or over loopback HTTP (`--transport http`)
     Mcp(mcp::Args),
+    /// Agent run: turn on or off, show the state, or run the fixed `investigate` job now with your own Claude Code (off by default)
+    AgentRun {
+        #[command(subcommand)]
+        action: agent_run::Action,
+    },
     /// Open the dashboard in a window (needs a build with `--features window` and a display)
     App {
         /// Serve the built dashboard's files from this folder, from the same origin as the API
@@ -215,5 +221,6 @@ fn main() -> ExitCode {
         Command::Account { action } => cli_cmds::account(action),
         Command::Connector { action } => connector_cmd::run(action),
         Command::Doctor => doctor_cmd::run(),
+        Command::AgentRun { action } => agent_run::main(action),
     }
 }

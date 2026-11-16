@@ -10,7 +10,7 @@
 //! Neither is ever shown, logged or sent.
 
 use easy_personal_core::sync::{Claude, LAUNCHER, Ran};
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::{CommandExt, ExitStatusExt};
@@ -47,16 +47,29 @@ impl SystemClaude {
     }
 
     fn which(&self, name: &str) -> Option<PathBuf> {
-        // `shutil.which` with no PATH uses `os.defpath`
-        let search = self
-            .search
-            .clone()
-            .unwrap_or_else(|| "/bin:/usr/bin".into());
-        std::env::split_paths(&search)
-            .filter(|dir| !dir.as_os_str().is_empty())
-            .map(|dir| dir.join(name))
-            .find(|path| is_executable(path))
+        which(self.search.as_deref(), name)
     }
+}
+
+/// `shutil.which` over `search` (a `PATH` value): the first executable regular file `name` in its folders.
+pub(crate) fn which(search: Option<&OsStr>, name: &str) -> Option<PathBuf> {
+    // `shutil.which` with no PATH uses `os.defpath`
+    let search = search.unwrap_or(OsStr::new("/bin:/usr/bin"));
+    std::env::split_paths(search)
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .map(|dir| dir.join(name))
+        .find(|path| is_executable(path))
+}
+
+/// Kills the process group `child` leads (it was started with `process_group(0)`), then reaps `child`. The child is not
+/// reaped before the signal, so the group's id is still its pid.
+pub(crate) fn kill_group(child: &mut Child) {
+    if let Ok(group) = i32::try_from(child.id()) {
+        // SAFETY: a signal to the process group this program started
+        unsafe { kill(-group, SIGKILL) };
+    }
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 fn is_executable(path: &Path) -> bool {
@@ -131,13 +144,7 @@ fn finish(mut child: Child, timeout: Duration) -> Ran {
         }
     };
     let Some(status) = status else {
-        // the group's id is the child's pid (`process_group(0)`); the child is not reaped yet, so the id is still its
-        if let Ok(group) = i32::try_from(child.id()) {
-            // SAFETY: a signal to the process group this function started
-            unsafe { kill(-group, SIGKILL) };
-        }
-        let _ = child.kill();
-        let _ = child.wait();
+        kill_group(&mut child);
         return Ran {
             code: NOT_RUN,
             stdout: String::new(),

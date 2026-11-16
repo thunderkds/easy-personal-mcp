@@ -78,9 +78,54 @@ For more information, try '--help'.
 exit=2
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (backend-developer, same command on branch `T090`; `EASY_PERSONAL_HOME` set to a temp folder so `~/.easy-personal` is not opened):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ cd rust && export EASY_PERSONAL_HOME=$(mktemp -d)/data; date -u; cargo run -q -p easy-personal-rs --bin easy-personal-rs -- agent-run status; echo "exit=$?"; cargo run -q -p easy-personal-rs --bin easy-personal-rs -- agent-run now; echo "exit=$?"
+Mon Nov 16 07:51:39 AM UTC 2026
+agent run: off
+claude: found
+run going: no
+exit=0
+easy-personal-rs: agent runs are off; turn them on with `easy-personal-rs agent-run on`
+exit=1
+```
+
+**DELTA**: The owner can turn agent runs on with `easy-personal-rs agent-run on` and start the `investigate` job with `agent-run now`, with no prompt typed in a Claude session. The real model run is AC 9, not done here.
+
+### Agent notes (backend-developer)
+
+**The app is killed during a run** (checked with the built binary and a fake `claude` that starts `sleep 30 &`; no model run):
+
+```
+Mon Nov 16 07:48:43 AM UTC 2026
+Agent runs use the Claude subscription login of Claude Code on this machine and count against your plan limits.
+agent run: on
+status while the run goes:
+agent run: on
+claude: found
+run going: yes
+kill -9 the app (pid 3782916)
+pid 3782918: gone
+grandchild 3782919: still runs
+status after the kill:
+agent run: on
+claude: found
+run going: no
+a new run takes the lock (fake ends at once this time):
+investigate: ok, started 2026-11-16T07:48:44Z, ended 2026-11-16T07:48:44Z, report none
+exit=0
+agent run: off
+```
+
+- `claude` itself dies with the app: the child is started with `PR_SET_PDEATHSIG = SIGKILL`. This also covers Ctrl-C on `agent-run now`, because the child is in its own process group and gets no SIGINT from the terminal.
+- A process that `claude` started lives on after a `kill -9` of the app (the fake's `sleep 30`). In a real run that is the `easy-personal-rs mcp` server; it is expected to exit when its stdin closes, but no real run proved this.
+- The lock is `flock`: the kernel frees it when the app dies, so no stale lock blocks the next run.
+- `PR_SET_PDEATHSIG` follows the thread that started the child. T091 must start a run from a thread that lives until the run ends.
+
+**The output is dropped** by giving the child `/dev/null` for stdout and stderr, not pipes that are read and dropped. Nothing reaches this process, and a full pipe cannot block the child.
+
+**Pre-existing failure, not from T090**: `cargo test -p easy-personal-rs --test connector_cli_parity` fails on this machine with 5 problems in the `*_no_launcher` cases. The `easy-personal-rs` .deb installed `/usr/bin/easy-personal-launch`, so the launcher is found on `PATH`. The same test fails the same way with the T090 changes stashed.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

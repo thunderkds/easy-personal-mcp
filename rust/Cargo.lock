@@ -1135,6 +1135,7 @@ dependencies = [
  "futures-core",
  "getrandom 0.4.3",
  "http-body-util",
+ "jiff",
  "keyring",
  "libc",
  "rmcp",
