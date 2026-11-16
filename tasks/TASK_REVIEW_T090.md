@@ -136,3 +136,16 @@ agent run: off
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
+
+**Leak gate fix (follow-up, backend-developer, 2026-11-16)**: `rust/parity/leak_rust.py` `CLI_CALLS` now lists `agent-run status` (0), `agent-run on` (0), `agent-run status` (0), `agent-run off` (0), then `agent-run now --workspace <key>` (1: the setting is off, nothing starts) and `agent-run nope` (2). The calls run in list order with the gate's own environment (`EASY_PERSONAL_HOME` = its temp `data` folder), so `on` writes no flag in the owner's folder. `agent-run now` with the setting on is never listed. An unknown subcommand uses a fixed name: clap echoes the name in its error, and `{key}` there was a canary hit (3 hits in the first try).
+
+```
+$ cd rust && env -u CLAUDE_CONFIG_DIR /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/rust/parity/.venv/bin/python parity/leak_rust.py; echo "exit=$?"
+Mon Nov 16 08:30:36 AM UTC 2026
+check cli commands all registered   ok (23 commands)
+check cli exit codes as expected    ok (103 calls, one process each)
+check cli connector/doctor exit codes as expected      ok (29 calls, one process each)
+check planted sources unchanged      ok (sha256 of the tree)
+leak check: 0 hits over 42 canaries, 840 surfaces, 1798257 bytes
+exit=0
+```
