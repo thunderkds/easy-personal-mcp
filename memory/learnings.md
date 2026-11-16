@@ -637,3 +637,11 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - `dpkg-shlibdeps` prints a "diversions involved" warning on usr-merged Ubuntu; it is benign, the Depends line is still right.
 - Overriding `HOME` for `cargo test` needs `CARGO_HOME` and `RUSTUP_HOME` set to the real ones, or rustup downloads a fresh toolchain into the fake home.
 - `live.rs ten_streams_get_the_events_while_one_client_never_reads` failed once under load (8/8 alone): a T081-style load flake candidate.
+
+## 2026-11-16 — T094 waiting sessions: parser depth, the companion score on inline Rust tests, a step-limit resume
+- The transcript parser (`rust/crates/core/src/ingest/json.rs`) keeps containers to 5 levels, so `input.questions[i]` of a tool call is `Value::Deep`. A field below `message.content[i].input` needs `loads_keeping`, and only for the lines that hold that call (`live::parse_line`), so other tools' nested inputs are never kept.
+- Removing only the FR-092 hidden characters is not enough before a secret check: U+2060, U+00AD, U+061C and the other default-ignorable characters split a secret and a browser joins it again. `live::hidden` holds the full list.
+- easy-verifier `score` on a Rust branch: `new_code_without_test_share` does not see `#[cfg(test)] mod tests` inside the source file, and `redaction_hits_observed` counts the planted fake secrets of leak tests. T094 scored overall 56 with a failed `change_risk` rule; the row is `fail` and the merge gate blocks on it. Findings need `path:start-end` refs that exist in the verifier's own evidence pack, and `confidence` as `low|medium|high`.
+- An agent stopped by the step limit keeps its context: `SendMessage` to it goes on with the same counter (reset at the block). A second block of the same agent is a stop that stays, so start a fresh agent for a fix round.
+- The Stop hook's auto-mode check blocks a stop while a background agent still runs; the second fire lets it pass and writes a `Paused:` line in the worktree's review file. A review file of a task that has not started must hold its `Mode: auto` block in an HTML comment.
+**Files**: `rust/crates/core/src/live.rs`, `rust/crates/core/src/ingest/json.rs`, `rust/crates/app/src/live_feed.rs`, `rust/parity/leak_rust.py`, `tasks/TASK_REVIEW_T094.md`
