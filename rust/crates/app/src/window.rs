@@ -99,7 +99,7 @@ mod shell {
     use super::{blocked_target, navigation_allowed};
     use crate::live_feed::LiveFeed;
     use crate::server::{self, Running};
-    use crate::tray::{self, Row, State, Theme};
+    use crate::tray::{self, Row, State, Target, Theme};
     use crate::{display, static_files};
     use std::io::{self, Write};
     use std::panic::{self, AssertUnwindSafe};
@@ -222,7 +222,7 @@ mod shell {
         let started = Arc::new(AtomicBool::new(false));
         watch_startup(&started);
         let app = build_app()?;
-        open_window(&app, running.port, &running.token)?;
+        open_window(&app, running.port, &running.token, &Target::Dashboard)?;
         started.store(true, Ordering::Relaxed);
         eprintln!(
             "easy-personal-rs: window open on http://127.0.0.1:{}/",
@@ -253,11 +253,22 @@ mod shell {
         }
     }
 
-    /// The dashboard window `main` on `http://127.0.0.1:<port>/#<token>`, locked to the server's origin.
-    fn open_window<M: Manager<Wry>>(manager: &M, port: u16, token: &str) -> Result<(), Failure> {
-        let url: Url = format!("http://127.0.0.1:{port}/#{token}")
+    /// The window address of `target` (`tray::address`) as a URL. The failure names no part of the address: it holds the token.
+    fn url_of(port: u16, token: &str, target: &Target) -> Result<Url, Failure> {
+        tray::address(port, token, target)
             .parse()
-            .map_err(|_| Failure(1, "cannot form the window address".into()))?;
+            .map_err(|_| Failure(1, "cannot form the window address".into()))
+    }
+
+    /// The dashboard window `main` on the address of `target` (`http://127.0.0.1:<port>/#<token>` for the plain open),
+    /// locked to the server's origin.
+    fn open_window<M: Manager<Wry>>(
+        manager: &M,
+        port: u16,
+        token: &str,
+        target: &Target,
+    ) -> Result<(), Failure> {
+        let url = url_of(port, token, target)?;
         // Both `app` and the window the tray opens come through here, so one icon call covers both. Compiled in (no file read).
         WebviewWindowBuilder::new(manager, "main", WebviewUrl::External(url))
             .icon(tauri::include_image!("icons/128x128.png"))
@@ -406,6 +417,13 @@ mod shell {
                 Row::Action(id, text) => {
                     Item::Plain(MenuItem::with_id(handle, *id, text, true, None::<&str>)?)
                 }
+                Row::Session(session, text) => Item::Plain(MenuItem::with_id(
+                    handle,
+                    tray::session_item_id(session),
+                    text,
+                    true,
+                    None::<&str>,
+                )?),
                 Row::Check(id, text, checked) => Item::Check(CheckMenuItem::with_id(
                     handle,
                     *id,
@@ -430,13 +448,25 @@ mod shell {
         Ok((menu, items))
     }
 
-    /// "Open dashboard", "All alerts in dashboard…" and the waiting / failing rows: focus the window when it is open, else open it.
-    fn show_dashboard(handle: &AppHandle, port: u16, token: &str) {
+    /// A click: open the window on the address of `target`, or when it is open bring it to the front. "Open dashboard"
+    /// and "All alerts in dashboard…" ([`Target::Dashboard`]) leave an open window as it is; a session row, "+N more" and
+    /// a popup ([`Target::Live`]) navigate it to the Live view first (the page reloads and reads the address once, T095).
+    /// Runs on the main thread: the menu event does, a popup click is sent there (`run_on_main_thread`). With the window
+    /// still loading its first page the navigation lands on the wanted address; there is never a second window.
+    fn show_dashboard(handle: &AppHandle, port: u16, token: &str, target: &Target) {
         if let Some(window) = handle.get_webview_window("main") {
+            if *target != Target::Dashboard {
+                match url_of(port, token, target) {
+                    Ok(url) => {
+                        let _ = window.navigate(url);
+                    }
+                    Err(failure) => eprintln!("easy-personal-rs: {}", failure.1),
+                }
+            }
             let _ = window.unminimize();
             let _ = window.show();
             let _ = window.set_focus();
-        } else if let Err(failure) = open_window(handle, port, token) {
+        } else if let Err(failure) = open_window(handle, port, token, target) {
             eprintln!("easy-personal-rs: {}", failure.1);
         }
     }
@@ -473,13 +503,21 @@ mod shell {
             .temp_dir_path(&icons)
             .icon(icon(theme, view.state))
             .menu(&menu)
-            .on_menu_event(move |handle, event| match event.id().as_ref() {
-                tray::OPEN | tray::ALERTS | tray::WAITING | tray::FAILING => {
-                    show_dashboard(handle, port, &token)
+            .on_menu_event(move |handle, event| {
+                let id = event.id().as_ref();
+                if let Some(session) = tray::session_of(id) {
+                    let target = Target::Live(Some(session.to_string()));
+                    return show_dashboard(handle, port, &token, &target);
                 }
-                tray::PAUSE => shared.set_paused(!shared.paused()),
-                tray::QUIT => handle.exit(0),
-                _ => {}
+                match id {
+                    tray::OPEN | tray::ALERTS => {
+                        show_dashboard(handle, port, &token, &Target::Dashboard)
+                    }
+                    tray::MORE => show_dashboard(handle, port, &token, &Target::Live(None)),
+                    tray::PAUSE => shared.set_paused(!shared.paused()),
+                    tray::QUIT => handle.exit(0),
+                    _ => {}
+                }
             })
             .build(&app)
             .map_err(|e| Failure(1, format!("cannot make the tray icon: {e}")))?;
@@ -530,9 +568,10 @@ mod shell {
                             continue;
                         }
                         let done = match (new, item) {
-                            (Row::Info(text) | Row::Action(_, text), Item::Plain(i)) => {
-                                i.set_text(text)
-                            }
+                            (
+                                Row::Info(text) | Row::Action(_, text) | Row::Session(_, text),
+                                Item::Plain(i),
+                            ) => i.set_text(text),
                             (Row::Check(_, text, checked), Item::Check(i)) => {
                                 i.set_text(text).and_then(|()| i.set_checked(*checked))
                             }
@@ -639,6 +678,22 @@ mod tests {
             "http://127.0.0.1:41234#only-a-fragment",
         ] {
             assert!(navigation_allowed(url, PORT), "{url}");
+        }
+    }
+
+    /// T096 AC 9: the three shapes of the address a click opens are inside the origin, and nothing else changed.
+    #[test]
+    fn the_address_of_a_click_is_allowed() {
+        use crate::tray::{Target, address};
+        for target in [
+            Target::Dashboard,
+            Target::Live(None),
+            Target::Live(Some("0123abcd-4567".into())),
+            Target::Live(Some("<script>".into())),
+        ] {
+            let url = address(PORT, "TOK", &target);
+            assert!(navigation_allowed(&url, PORT), "{url}");
+            assert!(!navigation_allowed(&url, PORT + 1), "{url}");
         }
     }
 

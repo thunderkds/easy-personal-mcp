@@ -169,7 +169,7 @@ fn safe(text: &str) -> Option<String> {
 }
 
 /// The first [`SHORT_ID`] characters of a session id that is a safe label; `None` otherwise.
-fn short_id(id: &str) -> Option<String> {
+pub(crate) fn short_id(id: &str) -> Option<String> {
     safe(id).map(|s| s.chars().take(SHORT_ID).collect())
 }
 

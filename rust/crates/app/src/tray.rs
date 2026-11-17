@@ -1,8 +1,13 @@
 //! Watch 5 (T076, FR-099): what the `tray` command shows and the files it owns, with no Tauri code (every `tauri` use
 //! stays in `window.rs`). The tray's state is the most urgent of: *problem* (a session failing, or machine pressure:
 //! disk or RAM at or above 90 % used, a battery at or below 15 % and not charging), *attention* (a session waiting for
-//! you, or a plan limit at or above 90 %), *active* (any active session), *idle*. The thresholds are T074's
-//! (`alerts.rs`); the icon follows the current values, with no re-arm band (the popups keep theirs).
+//! you or at *your turn* (T096), or a plan limit at or above 90 %), *active* (any active session), *idle*. The thresholds
+//! are T074's (`alerts.rs`); the icon follows the current values, with no re-arm band (the popups keep theirs).
+//!
+//! Waiting sessions (T096, FR-107): the menu has one clickable row per *waiting session* (a session whose states hold
+//! `failing`, `waiting` or `your_turn`), newest state first, at most [`SESSIONS_SHOWN`], then `+N more in dashboard…`. A
+//! row holds the kind in fixed words, the project folder name and the short session id, never question text. A click
+//! opens the Live view on that session: [`address`] builds the window address.
 //!
 //! The menu rows (owner, 2026-11-15, `tasks/TASK_REVIEW_T076.md` `## Menu proposal`) are built here as plain [`Row`]s.
 //! A piece of free text (a project folder, an account label) passes the alert engine's `clean` (no control or markup
@@ -62,8 +67,8 @@ pub(crate) fn theme_of(color_scheme: Option<u32>) -> Theme {
 
 /// Menu item ids of the actions.
 pub(crate) const OPEN: &str = "open";
-pub(crate) const WAITING: &str = "waiting";
-pub(crate) const FAILING: &str = "failing";
+/// "+N more in dashboard…" (T096): the Live view with no session selected.
+pub(crate) const MORE: &str = "more";
 /// "All alerts in dashboard…" (T088): the same handler as [`OPEN`].
 pub(crate) const ALERTS: &str = "alerts";
 pub(crate) const PAUSE: &str = "pause";
@@ -76,6 +81,9 @@ pub(crate) enum Row {
     Info(String),
     /// A clickable row with its id.
     Action(&'static str, String),
+    /// A clickable row of one waiting session (T096): the full session id and the text. Its menu item id is
+    /// [`session_item_id`].
+    Session(String, String),
     /// A check item with its id and whether it is ticked.
     Check(&'static str, String, bool),
     Separator,
@@ -90,8 +98,46 @@ pub(crate) fn same_shape(a: &[Row], b: &[Row]) -> bool {
             (Row::Action(x, _), Row::Action(y, _)) | (Row::Check(x, _, _), Row::Check(y, _, _)) => {
                 x == y
             }
+            (Row::Session(x, _), Row::Session(y, _)) => x == y,
             _ => false,
         })
+}
+
+const SESSION_PREFIX: &str = "session:";
+
+/// The menu item id of a session row: `session:<session id>`.
+pub(crate) fn session_item_id(session: &str) -> String {
+    format!("{SESSION_PREFIX}{session}")
+}
+
+/// The session id of a menu item id made by [`session_item_id`]; `None` for any other id.
+pub(crate) fn session_of(item: &str) -> Option<&str> {
+    item.strip_prefix(SESSION_PREFIX)
+}
+
+/// What a click asks the window for.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Target {
+    /// "Open dashboard", "All alerts in dashboard…": the page as it starts.
+    Dashboard,
+    /// The Live view, with this session selected when it is given (a popup that sums several alerts, "+N more": none).
+    Live(Option<String>),
+}
+
+/// A session id the address may carry: hex digits and `-`, 1 to 64 characters (the page checks the same).
+fn is_session_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
+}
+
+/// The window address of a click: `http://127.0.0.1:<port>/#<token>`, `/?live#<token>` or `/?live=<session id>#<token>`
+/// (T095 reads the query once). The token stays in the fragment; an id that is not a session id is left out.
+pub(crate) fn address(port: u16, token: &str, target: &Target) -> String {
+    let origin = format!("http://127.0.0.1:{port}/");
+    match target {
+        Target::Dashboard => format!("{origin}#{token}"),
+        Target::Live(Some(id)) if is_session_id(id) => format!("{origin}?live={id}#{token}"),
+        Target::Live(_) => format!("{origin}?live#{token}"),
+    }
 }
 
 /// What the tray shows at one look.
@@ -133,7 +179,11 @@ pub(crate) fn pick(live: &Value, machine: Option<&Sample>, limits: Option<&Round
     let all = sessions(live);
     if all.iter().any(|s| has_state(s, "failing")) || machine.is_some_and(pressure) {
         State::Problem
-    } else if all.iter().any(|s| has_state(s, "waiting")) || limits.is_some_and(limit_high) {
+    } else if all
+        .iter()
+        .any(|s| has_state(s, "waiting") || has_state(s, "your_turn"))
+        || limits.is_some_and(limit_high)
+    {
         State::Attention
     } else if !all.is_empty() {
         State::Active
@@ -150,28 +200,57 @@ fn live_line(n: usize) -> String {
     }
 }
 
-/// `<n> <what> · <first project> +<k>` for the sessions in `state`, or `None` when there are none.
-fn state_line(all: &[Value], state: &str, what: &str) -> Option<String> {
-    let mine: Vec<&Value> = all.iter().filter(|s| has_state(s, state)).collect();
-    if mine.is_empty() {
-        return None;
+/// The menu shows this many session rows; one more session adds the `+N more in dashboard…` row.
+pub(crate) const SESSIONS_SHOWN: usize = 5;
+
+/// What names a waiting session: the kind in fixed words and the `since` of the state that gives it, from the first of
+/// `failing`, `waiting`, `your_turn` the session holds; `None` for a session with none of them.
+fn named_state(session: &Value) -> Option<(&'static str, &str)> {
+    let all = session["attention"].as_array()?;
+    let hold = |state: &str| all.iter().find(|a| a["state"] == state);
+    let (kind, a) = if let Some(a) = hold("failing") {
+        ("failing", a)
+    } else if let Some(a) = hold("waiting") {
+        let kind = if a["tool"] == "ExitPlanMode" {
+            "plan to approve"
+        } else {
+            "question"
+        };
+        (kind, a)
+    } else {
+        ("your turn", hold("your_turn")?)
+    };
+    Some((kind, a["since"].as_str().unwrap_or("")))
+}
+
+/// One row per waiting session, newest state first, at most [`SESSIONS_SHOWN`], then the row for the rest. A row is
+/// `<kind> · <project> · <short id>`; a piece the session lacks (or that fails the checks of `alerts.rs`) is left out.
+/// A session with no id has no row: a click could not name it.
+fn session_rows(all: &[Value]) -> Vec<Row> {
+    let mut waiting: Vec<(&str, &str, &Value, &str)> = all
+        .iter()
+        .filter_map(|s| {
+            let id = s["session_id"].as_str()?;
+            let (kind, since) = named_state(s)?;
+            Some((since, kind, s, id))
+        })
+        .collect();
+    waiting.sort_by(|a, b| b.0.cmp(a.0)); // newest first; a tie keeps the live order
+    let mut rows: Vec<Row> = waiting
+        .iter()
+        .take(SESSIONS_SHOWN)
+        .map(|&(_, kind, s, id)| {
+            let mut parts = vec![kind.to_string()];
+            parts.extend(s["project"].as_str().and_then(alerts::clean));
+            parts.extend(alerts::short_id(id));
+            Row::Session(id.to_string(), parts.join(" · "))
+        })
+        .collect();
+    if waiting.len() > SESSIONS_SHOWN {
+        let more = waiting.len() - SESSIONS_SHOWN;
+        rows.push(Row::Action(MORE, format!("+{more} more in dashboard…")));
     }
-    let mut projects: Vec<String> = Vec::new();
-    for s in &mine {
-        if let Some(p) = s["project"].as_str().and_then(alerts::clean)
-            && !projects.contains(&p)
-        {
-            projects.push(p);
-        }
-    }
-    let mut line = format!("{} {what}", mine.len());
-    if let Some(first) = projects.first() {
-        line.push_str(&format!(" · {first}"));
-        if projects.len() > 1 {
-            line.push_str(&format!(" +{}", projects.len() - 1));
-        }
-    }
-    Some(line)
+    rows
 }
 
 fn percent(v: Option<f64>) -> String {
@@ -290,12 +369,7 @@ pub(crate) fn view(
         Row::Separator,
         Row::Info(live.clone()),
     ];
-    if let Some(line) = state_line(all, "waiting", "waiting for you") {
-        rows.push(Row::Action(WAITING, line));
-    }
-    if let Some(line) = state_line(all, "failing", "failing") {
-        rows.push(Row::Action(FAILING, line));
-    }
+    rows.extend(session_rows(all));
     rows.extend(limit_rows(limits).into_iter().map(Row::Info));
     rows.push(Row::Info(machine_line(machine)));
     if !alerts.is_empty() {
@@ -612,6 +686,20 @@ mod tests {
     fn live(sessions: Vec<Value>) -> Value {
         json!({ "sessions": sessions })
     }
+    /// A session whose states are `(state, tool, since)`.
+    fn session_at(id: &str, project: &str, states: &[(&str, Option<&str>, &str)]) -> Value {
+        let attention: Vec<Value> = states
+            .iter()
+            .map(|(s, tool, since)| json!({ "state": s, "tool": tool, "count": 1, "is_sidechain": false, "since": since }))
+            .collect();
+        json!({ "session_id": id, "project": project, "account": 1, "attention": attention })
+    }
+    /// The rows that name a session or the `+N more` row.
+    fn session_rows_of(rows: &[Row]) -> Vec<&Row> {
+        rows.iter()
+            .filter(|r| matches!(r, Row::Session(..) | Row::Action(MORE, _)))
+            .collect()
+    }
 
     /// AC 1: the state rule, input by input, and the order problem > attention > active > idle.
     #[test]
@@ -740,7 +828,7 @@ mod tests {
                 Row::Info("Easy Personal · attention".into()),
                 Row::Separator,
                 Row::Info("2 sessions active".into()),
-                Row::Action(WAITING, "1 waiting for you · easy-memory".into()),
+                Row::Session("a".into(), "question · easy-memory · a".into()),
                 Row::Info("5h limit · 78 % · 7d · 41 %".into()),
                 Row::Info("CPU 12 % · RAM 64 % · disk 71 % · battery 80 %".into()),
                 Row::Separator,
@@ -798,8 +886,9 @@ mod tests {
         );
     }
 
+    /// T096 AC 1: the two count rows are gone: one row per waiting session, a session with several states gets one row.
     #[test]
-    fn several_projects_and_accounts_and_failing_rows() {
+    fn several_sessions_and_accounts_and_failing_rows() {
         let l = live(vec![
             session("a", "easy-memory", &["waiting"]),
             session("b", "easy-memory", &["waiting", "failing"]),
@@ -813,23 +902,282 @@ mod tests {
         let v = view(&l, None, Some(&r), false);
         assert_eq!(v.state, State::Problem);
         assert_eq!(v.rows[0], Row::Info("Easy Personal · problem".into()));
+        let text = format!("{:?}", v.rows);
+        assert!(
+            !text.contains("waiting for you") && !text.contains("1 failing"),
+            "{text}"
+        );
+        // the "x" since of every session ties: live order stays; `b` has failing first
         assert_eq!(
-            v.rows[3],
-            Row::Action(WAITING, "4 waiting for you · easy-memory +2".into())
+            v.rows[3..7],
+            [
+                Row::Session("a".into(), "question · easy-memory · a".into()),
+                Row::Session("b".into(), "failing · easy-memory · b".into()),
+                Row::Session("c".into(), "question · kit · c".into()),
+                Row::Session("d".into(), "question · web · d".into()),
+            ]
         );
         assert_eq!(
-            v.rows[4],
-            Row::Action(FAILING, "1 failing · easy-memory".into())
-        );
-        assert_eq!(
-            v.rows[5],
+            v.rows[7],
             Row::Info("work: 5h limit · 10 % · 7d · 20 %".into())
         );
         assert_eq!(
-            v.rows[6],
+            v.rows[8],
             Row::Info("account 2: 5h limit · 91 % · 7d · no data".into()),
             "an empty label"
         );
+    }
+
+    /// T096 AC 1: each of the four kinds, in fixed words, with the project folder and the 8-character session id.
+    #[test]
+    fn a_row_names_its_kind_the_project_and_the_short_id() {
+        let l = live(vec![
+            session_at(
+                "0123abcd-0000-4000-8000-000000000001",
+                "shop",
+                &[("waiting", Some("AskUserQuestion"), "2026-01-20T00:00:01Z")],
+            ),
+            session_at(
+                "4567ef01-0000-4000-8000-000000000002",
+                "blog",
+                &[("waiting", Some("ExitPlanMode"), "2026-01-20T00:00:02Z")],
+            ),
+            session_at(
+                "89abcdef-0000-4000-8000-000000000003",
+                "docs",
+                &[("your_turn", None, "2026-01-20T00:00:03Z")],
+            ),
+            session_at(
+                "deadbeef-0000-4000-8000-000000000004",
+                "api",
+                &[("failing", Some("Bash"), "2026-01-20T00:00:04Z")],
+            ),
+        ]);
+        let rows = view(&l, None, None, false).rows;
+        let texts: Vec<&str> = session_rows_of(&rows)
+            .into_iter()
+            .map(|r| match r {
+                Row::Session(_, t) => t.as_str(),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            texts,
+            [
+                "failing · api · deadbeef",
+                "your turn · docs · 89abcdef",
+                "plan to approve · blog · 4567ef01",
+                "question · shop · 0123abcd",
+            ],
+            "newest state first"
+        );
+        let ids: Vec<&str> = session_rows_of(&rows)
+            .into_iter()
+            .filter_map(|r| match r {
+                Row::Session(id, _) => Some(id.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            ids[0], "deadbeef-0000-4000-8000-000000000004",
+            "the row keeps the full id"
+        );
+    }
+
+    /// T096 AC 1: at most 5 rows, then one clickable row for the rest.
+    #[test]
+    fn five_session_rows_at_most_and_a_row_for_the_rest() {
+        let many = |n: usize| {
+            live(
+                (0..n)
+                    .map(|i| {
+                        session_at(
+                            &format!("0000000{i}"),
+                            "p",
+                            &[("your_turn", None, &format!("2026-01-20T00:00:0{i}Z"))],
+                        )
+                    })
+                    .collect(),
+            )
+        };
+        for (n, shown, more) in [(0, 0, None), (5, 5, None), (6, 5, Some(1)), (9, 5, Some(4))] {
+            let rows = view(&many(n), None, None, false).rows;
+            let found = session_rows_of(&rows);
+            let sessions = found
+                .iter()
+                .filter(|r| matches!(r, Row::Session(..)))
+                .count();
+            assert_eq!(sessions, shown, "{n} sessions");
+            match more {
+                None => assert_eq!(found.len(), shown, "{n}: no more row"),
+                Some(k) => assert_eq!(
+                    found.last(),
+                    Some(&&Row::Action(MORE, format!("+{k} more in dashboard…"))),
+                    "{n}"
+                ),
+            }
+        }
+        // newest first: the 6th (oldest) session is the one left out
+        let rows = view(&many(6), None, None, false).rows;
+        assert_eq!(
+            rows.iter()
+                .filter_map(|r| match r {
+                    Row::Session(id, _) => Some(id.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>(),
+            ["00000005", "00000004", "00000003", "00000002", "00000001"]
+        );
+    }
+
+    /// T096 AC 1: one row per session, named by the first of failing, waiting, your_turn; a session with only another
+    /// state (needs_attention) has no row; a calm machine's menu has no session row.
+    #[test]
+    fn a_session_with_several_states_gets_one_row_by_its_first_state() {
+        let l = live(vec![
+            session_at(
+                "aaaaaaaa",
+                "p",
+                &[
+                    ("your_turn", None, "2026-01-20T00:00:09Z"),
+                    ("waiting", Some("AskUserQuestion"), "2026-01-20T00:00:05Z"),
+                    ("failing", Some("Bash"), "2026-01-20T00:00:01Z"),
+                ],
+            ),
+            session_at(
+                "bbbbbbbb",
+                "p",
+                &[
+                    ("your_turn", None, "2026-01-20T00:00:02Z"),
+                    ("waiting", Some("ExitPlanMode"), "2026-01-20T00:00:03Z"),
+                ],
+            ),
+            session_at(
+                "cccccccc",
+                "p",
+                &[("needs_attention", Some("Bash"), "2026-01-20T00:00:04Z")],
+            ),
+            session("dddddddd", "p", &[]),
+        ]);
+        let rows = view(&l, None, None, false).rows;
+        assert_eq!(
+            session_rows_of(&rows),
+            [
+                &Row::Session("bbbbbbbb".into(), "plan to approve · p · bbbbbbbb".into()),
+                &Row::Session("aaaaaaaa".into(), "failing · p · aaaaaaaa".into()),
+            ],
+            "sorted by the named state's own `since`: waiting 03 is newer than failing 01"
+        );
+        let calm = view(&live(vec![session("a", "p", &[])]), None, None, false).rows;
+        assert!(session_rows_of(&calm).is_empty());
+    }
+
+    /// T096 edge cases: a short id, an empty or secret project, a missing id leave a piece out and never panic.
+    #[test]
+    fn a_row_leaves_out_a_piece_it_does_not_have() {
+        let secret = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let l = live(vec![
+            session_at("abc", "shop", &[("your_turn", None, "5")]),
+            session_at("12345678", "", &[("your_turn", None, "4")]),
+            session_at("87654321", secret, &[("your_turn", None, "3")]),
+            session_at("a b<c>", "p", &[("your_turn", None, "2")]),
+            json!({ "project": "p", "attention": [{"state": "your_turn", "since": "1"}] }),
+            json!({ "session_id": 7, "project": "p", "attention": [{"state": "your_turn", "since": "1"}] }),
+            json!({ "session_id": "11111111", "project": "p", "attention": "nope" }),
+        ]);
+        let rows = view(&l, None, None, false).rows;
+        let texts: Vec<String> = session_rows_of(&rows)
+            .into_iter()
+            .map(|r| match r {
+                Row::Session(_, t) => t.clone(),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            texts,
+            [
+                "your turn · shop · abc",
+                "your turn · 12345678",
+                "your turn · 87654321",
+                "your turn · p",
+            ],
+            "a short id as it is; no project; a secret project and an id with a space or markup each left out"
+        );
+        let text = format!("{rows:?}");
+        assert!(!text.contains("sk-ant"), "{text}");
+    }
+
+    /// T096 AC 3: a your-turn session alone makes the icon *attention*; a failing session beats it.
+    #[test]
+    fn a_your_turn_session_is_attention_and_failing_stays_more_urgent() {
+        let turn = live(vec![session("a", "p", &["your_turn"])]);
+        assert_eq!(pick(&turn, None, None), State::Attention);
+        assert_eq!(view(&turn, None, None, false).state, State::Attention);
+        let both = live(vec![
+            session("a", "p", &["your_turn"]),
+            session("b", "p", &["failing"]),
+        ]);
+        assert_eq!(pick(&both, None, None), State::Problem);
+    }
+
+    /// T096 AC 2, 9: the row id carries the session; the same text goes back to the session.
+    #[test]
+    fn a_menu_item_id_carries_the_session() {
+        assert_eq!(session_item_id("0123-abcd"), "session:0123-abcd");
+        assert_eq!(session_of("session:0123-abcd"), Some("0123-abcd"));
+        assert_eq!(session_of("session:"), Some(""));
+        for other in [
+            OPEN,
+            ALERTS,
+            MORE,
+            PAUSE,
+            QUIT,
+            "",
+            "sessions:x",
+            "Session:x",
+        ] {
+            assert_eq!(session_of(other), None, "{other}");
+        }
+    }
+
+    /// T096 AC 2: the menu is rebuilt when the set of sessions changes, updated in place when only a text does.
+    #[test]
+    fn the_session_rows_decide_update_or_rebuild() {
+        let one = |id: &str, project: &str| {
+            view(
+                &live(vec![session(id, project, &["your_turn"])]),
+                None,
+                None,
+                false,
+            )
+            .rows
+        };
+        assert!(same_shape(&one("a", "p"), &one("a", "q")), "a text only");
+        assert!(
+            !same_shape(&one("a", "p"), &one("b", "p")),
+            "another session in the same place"
+        );
+        let calm = view(&Value::Null, None, None, false).rows;
+        assert!(!same_shape(&calm, &one("a", "p")), "a row comes");
+        let two = view(
+            &live(vec![
+                session("a", "p", &["your_turn"]),
+                session("b", "p", &["your_turn"]),
+            ]),
+            None,
+            None,
+            false,
+        )
+        .rows;
+        assert!(!same_shape(&one("a", "p"), &two), "a second row");
+        assert!(!same_shape(
+            &[Row::Session("a".into(), "x".into())],
+            &[Row::Action(MORE, "x".into())]
+        ));
+        assert!(!same_shape(
+            &[Row::Info("x".into())],
+            &[Row::Session("a".into(), "x".into())]
+        ));
     }
 
     /// NFR-002: a project folder or label that looks like a secret, or holds markup or a newline, never reaches a row.
@@ -848,8 +1196,11 @@ mod tests {
             !text.contains('<') && !text.contains('&') && !text.contains('\n'),
             "{text}"
         );
-        assert_eq!(v.rows[3], Row::Action(WAITING, "1 waiting for you".into()));
-        assert_eq!(v.rows[4], Row::Action(FAILING, "1 failing · abc".into()));
+        assert_eq!(v.rows[3], Row::Session("a".into(), "question · a".into()));
+        assert_eq!(
+            v.rows[4],
+            Row::Session("b".into(), "failing · abc · b".into())
+        );
         assert_eq!(
             v.rows[5],
             Row::Info("account 1: 5h limit · 1 % · 7d · no data".into())
@@ -886,7 +1237,7 @@ mod tests {
         assert!(held.contains("planted question text"), "{held}");
         assert_eq!(
             v.rows[3],
-            Row::Action(WAITING, "1 waiting for you · shop".into())
+            Row::Session("s1".into(), "question · shop · s1".into())
         );
         let text = format!("{:?}", v.rows);
         assert!(!text.contains("planted"), "{text}");
@@ -1001,7 +1352,7 @@ mod tests {
         assert!(same_shape(&calm, &busy), "a text");
         assert!(same_shape(&calm, &cpu), "the machine line");
         let waiting = view(&l(vec![session("a", "p", &["waiting"])]), None, None, false).rows;
-        assert!(!same_shape(&calm, &waiting), "a waiting row comes");
+        assert!(!same_shape(&calm, &waiting), "a session row comes");
         let two = round(&[(1, "a", None, None), (2, "b", None, None)]);
         assert!(
             !same_shape(&calm, &view(&l(vec![]), None, Some(&two), false).rows),
@@ -1165,6 +1516,94 @@ mod tests {
             assert!(desktop_entry(ok, Path::new(bad)).is_err(), "{bad:?}");
             assert!(desktop_entry(Path::new(bad), ok).is_err(), "{bad:?}");
         }
+    }
+
+    /// T096 AC 9: the address of a click, for a session, for the Live view alone and for the plain open.
+    #[test]
+    fn the_address_names_the_session_and_keeps_the_token_in_the_fragment() {
+        let id = "0123abcd-4567-4000-8000-0123456789ab";
+        assert_eq!(
+            address(41234, "TOK", &Target::Live(Some(id.into()))),
+            format!("http://127.0.0.1:41234/?live={id}#TOK")
+        );
+        assert_eq!(
+            address(41234, "TOK", &Target::Live(None)),
+            "http://127.0.0.1:41234/?live#TOK"
+        );
+        assert_eq!(
+            address(41234, "TOK", &Target::Dashboard),
+            "http://127.0.0.1:41234/#TOK"
+        );
+        // 64 characters are the most; the upper and lower case of hex digits both pass
+        let longest = "aB-".repeat(21) + "c";
+        assert_eq!(longest.len(), 64);
+        assert_eq!(
+            address(1, "T", &Target::Live(Some(longest.clone()))),
+            format!("http://127.0.0.1:1/?live={longest}#T")
+        );
+    }
+
+    /// T096 AC 9: an id that is not a session id never reaches the address (no markup, no second parameter, no
+    /// escape): the Live view with no session is what the click gets.
+    #[test]
+    fn an_id_that_is_not_a_session_id_is_left_out() {
+        let too_long = "a".repeat(65);
+        for bad in [
+            "a b",
+            "x&y=1",
+            "%0a",
+            "<script>",
+            "",
+            "g1",
+            "ab\n",
+            "ab#cd",
+            "ab?cd",
+            "ab/cd",
+            "é1",
+            too_long.as_str(),
+        ] {
+            let got = address(41234, "TOK", &Target::Live(Some(bad.into())));
+            assert_eq!(got, "http://127.0.0.1:41234/?live#TOK", "{bad:?}");
+        }
+    }
+
+    /// T096 AC 9: the token comes after the `#` and nowhere else, in all three shapes.
+    #[test]
+    fn the_token_is_only_ever_in_the_fragment() {
+        for target in [
+            Target::Dashboard,
+            Target::Live(None),
+            Target::Live(Some("abc-123".into())),
+            Target::Live(Some("x&token=y".into())),
+        ] {
+            let got = address(5, "SECRETTOKEN", &target);
+            let (before, after) = got.split_once('#').unwrap();
+            assert_eq!(after, "SECRETTOKEN", "{got}");
+            assert!(!before.contains("SECRETTOKEN"), "{got}");
+        }
+    }
+
+    /// T096 AC 9: a menu row and a popup reach the same function: the row's item id and the popup's stored id give
+    /// the same address.
+    #[test]
+    fn a_row_and_a_popup_give_the_same_address() {
+        let l = live(vec![session_at(
+            "0123abcd-0000-4000-8000-000000000001",
+            "shop",
+            &[("your_turn", None, "1")],
+        )]);
+        let rows = view(&l, None, None, false).rows;
+        let Some(Row::Session(id, _)) = rows.iter().find(|r| matches!(r, Row::Session(..))) else {
+            panic!("{rows:?}")
+        };
+        let item = session_item_id(id);
+        let from_row = address(9, "T", &Target::Live(session_of(&item).map(str::to_string)));
+        let from_popup = address(9, "T", &Target::Live(Some(id.clone())));
+        assert_eq!(from_row, from_popup);
+        assert_eq!(
+            from_row,
+            "http://127.0.0.1:9/?live=0123abcd-0000-4000-8000-000000000001#T"
+        );
     }
 
     // -- T088: the "Recent alerts" block ------------------------------------------------------------------------------
