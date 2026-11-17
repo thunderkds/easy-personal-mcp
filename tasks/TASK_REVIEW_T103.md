@@ -2,6 +2,17 @@
 
 > Sibling of `tasks/TASK_GUIDE_T103.md`. Stage 3 parts only (the Supervisor fills Stage 4/5).
 
+## Auto decisions
+
+Mode: auto
+1. A pending prompt in an app session ends without the owner's answer only on the MCP `notifications/cancelled` of its call, on the result of the turn the owner interrupted, or at session or app end; never on another turn's result or a timer. DEBATED: option (a), the event-only rule (Advocate 1: (a), a deny the owner never chose would be the app answering by itself; Advocate 2: (a), no call can hang forever and nothing is answered for the owner; Advocate 3: (a), the smallest change is none, FR-111 says exactly this) ⚠ decided for you — please review
+2. A tool card carries the full tool input (raw Bash command, pretty JSON otherwise; layout kept; hidden characters escaped), capped at 16,000 characters; an allow (or plan approve) of a cut card is a 409. RULE: `PRD.md:212` FR-115 "a cut prompt is marked `complete: false` and can only be denied or handed to the terminal"
+3. The permission prompt tool is served on a loopback HTTP MCP route of the dashboard process, with a per-session bearer and `MCP_TOOL_TIMEOUT` set high. RULE: `PRD.md:208` FR-111 "served on a loopback HTTP MCP route of the dashboard process itself"
+4. No `--allowedTools`, `--disallowedTools` or `--strict-mcp-config`: the owner's settings and MCP servers apply; the live probe on claude 2.1.326 confirmed the non-strict config connects. RULE: `PRD.md` § Functional Requirements FR-109 "No tool narrowing"
+Checks: tests `cargo test -p easy-personal-rs --bin easy-personal-rs app_session` — 51 passed, 0 failed; full workspace 1159 passed, 2 load-timing failures that pass alone (`live_parity` 15/15, `memgraph_parity` 27/27); fmt and clippy clean; leak gate 0 hits over 42 canaries, 1019 surfaces; reviews code-review (independent, 0 P0/P1, 1 P2 + 6 P3 — all fixed in `3e6e6ea`), security-review (independent, 0 P0, 1 P1 fixed by decision 2, 1 P3 + 2 leads fixed); real run: one live `claude` probe by the reviewer (permission route reached without strict config, Bash allowed) — the full app session run needs the owner (T104 AC 7)
+Memory: memory/decisions.md — 2026-11-17 write sessions and T106 card entries cover these rules
+Not done: merge (admin: after the auto verify pass) — merge before T104; auto verify: running (T182); owner real run
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
