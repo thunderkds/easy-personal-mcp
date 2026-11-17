@@ -4,6 +4,18 @@
 
 ---
 
+## Auto decisions
+
+Mode: auto
+1. Permission card shows the full tool input (raw Bash command, pretty JSON otherwise; line breaks and spaces kept; hidden characters as visible escapes; no redaction), capped at 16,000 characters; a cut card is `complete:false` and the server refuses an allow with 409. DEBATED: full input + fail-closed cap (Advocate 1: option A with a deny-only valve for oversize input; Advocate 2: "A+" full input, 16 KB cap, allow refused server-side when incomplete; Advocate 3: bounded A, full input, marked cut, no per-tool match) ⚠ decided for you — please review
+2. A hook is handed back at once when no Live view stream is open, and after at most 1 s when its session is not in the live list (the tail polls every 100 ms; an instant hand-back would miss real prompts). SAFER OPTION: a terminal never waits 120 s on a page nobody is watching (code review P2 #1) ⚠ decided for you — please review
+3. Only a single `sh_quote`-shaped absolute path to `easy-personal-rs` followed by ` hook ask` counts as the app's entry; a wrapped command is the owner's (*changed by hand*, kept); an exact entry pointing at another existing copy is *other copy* and is replaced on install. RULE: `tasks/TASK_GUIDE_T106.md` § Acceptance Criteria AC 2 ("a hand-edited entry is kept")
+4. The answer socket opens only while a hook is on for some account. RULE: `PRD.md` FR-113 "Off by default"
+5. `settings.json` is re-written with sorted keys (no order-keeping JSON crate); it is re-read and compared just before the rename and the edit retried once if another writer changed it. SAFER OPTION: no new crate; a concurrent Claude Code write is not lost ⚠ decided for you — please review
+Checks: tests `cd rust && cargo test --workspace --no-fail-fast` — 97 targets, passed 1164 failed 0 ignored 28; fmt and both clippy runs clean; leak gate `parity/leak_rust.py` — 0 hits over 42 canaries, 1030 surfaces; reviews code-review (independent, 0 P0/P1, 3 P2 + 6 P3 — all fixed or documented in `b1562cc`), security-review (independent, 0 P0, 1 P1 fixed by decision 1, 1 P2 fixed by decision 3, 4 P3 fixed); real run: not done — the terminal session answered from the app needs the owner (T107 AC 5)
+Memory: memory/decisions.md — 2026-11-17 write sessions entry (T106 decisions 1-2 recorded there by the Supervisor)
+Not done: merge (admin: after the auto verify pass); auto verify: running (T182); real terminal smoke run (owner)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
