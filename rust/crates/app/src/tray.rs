@@ -14,8 +14,9 @@
 //! characters, the secret check of the core); a row never holds a message, a tool input or an output (NFR-002).
 //!
 //! Files: one lock per user, `$XDG_RUNTIME_DIR/easy-personal-tray.lock` (else `~/.easy-personal/`), held with
-//! `flock` while the tray runs; and the autostart entry `$XDG_CONFIG_HOME/autostart/easy-personal-tray.desktop` (else
-//! `~/.config/autostart/`), written or removed by `tray --autostart on|off`. Nothing else is written.
+//! `flock` while the tray runs (it holds the tray's pid as decimal text, T101: a second `tray --show` reads it to hand
+//! over); and the autostart entry `$XDG_CONFIG_HOME/autostart/easy-personal-tray.desktop` (else `~/.config/autostart/`),
+//! written or removed by `tray --autostart on|off`. Nothing else is written (the lock file holds only the pid).
 #![cfg_attr(not(feature = "window"), allow(dead_code))]
 
 use crate::alerts::{self, Alert, HIGH, LOW_BATTERY};
@@ -24,8 +25,9 @@ use easy_personal_core::machine::Sample;
 use serde_json::Value;
 use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions, TryLockError};
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 /// The icon state, most urgent last.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -491,9 +493,89 @@ pub(crate) fn try_lock(path: &Path) -> Result<Option<File>, String> {
         .open(path)
         .map_err(|e| format!("cannot open the tray lock: {}", e.kind()))?;
     match file.try_lock() {
-        Ok(()) => Ok(Some(file)),
+        Ok(()) => {
+            let _ = file.set_len(0); // whatever pid an earlier tray left is stale: an asker waits for ours (T101)
+            Ok(Some(file))
+        }
         Err(TryLockError::WouldBlock) => Ok(None),
         Err(TryLockError::Error(e)) => Err(format!("cannot take the tray lock: {}", e.kind())),
+    }
+}
+
+// -- hand-over (T101) --------------------------------------------------------------------------------------------------
+
+/// How long an asker waits for the running tray's pid to appear in its lock file.
+const PID_WAIT: Duration = Duration::from_secs(2);
+const PID_POLL: Duration = Duration::from_millis(50);
+
+/// Writes the pid of this tray into the lock file it holds: through the held `file` (truncate, then the decimal text),
+/// never by reopening the path, so the lock stays.
+pub(crate) fn write_pid(file: &File, pid: u32) -> Result<(), String> {
+    let mut file = file;
+    file.set_len(0)
+        .and_then(|()| file.seek(SeekFrom::Start(0)))
+        .and_then(|_| file.write_all(pid.to_string().as_bytes()))
+        .map_err(|e| format!("cannot write the tray pid: {}", e.kind()))
+}
+
+/// The pid in the lock file at `path`, waiting up to `limit` for it to appear. `None` for no file, an empty or
+/// non-numeric one (a tray of an older version writes none), or zero.
+pub(crate) fn read_pid(path: &Path, limit: Duration) -> Option<u32> {
+    let deadline = Instant::now() + limit;
+    loop {
+        let pid = fs::read_to_string(path)
+            .ok()
+            .and_then(|text| text.trim().parse::<u32>().ok())
+            .filter(|pid| *pid > 0);
+        if pid.is_some() || Instant::now() >= deadline {
+            return pid;
+        }
+        std::thread::sleep(PID_POLL);
+    }
+}
+
+/// True when a command line (`/proc/<pid>/cmdline`: arguments split by NUL) is `easy-personal-rs tray ...`, from any
+/// folder.
+fn cmdline_is_tray(cmdline: &[u8]) -> bool {
+    let mut args = cmdline.split(|b| *b == 0);
+    let program = args.next().unwrap_or_default();
+    let name = program.rsplit(|b| *b == b'/').next().unwrap_or_default();
+    name == b"easy-personal-rs" && args.next() == Some(b"tray")
+}
+
+/// True when `/proc/<pid>/cmdline` is an `easy-personal-rs` running `tray`; false for any other program, a gone pid or
+/// where /proc has no such file. A pid is reused, so the lock file's pid alone is never signalled.
+pub(crate) fn is_tray(pid: u32) -> bool {
+    fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|cmdline| cmdline_is_tray(&cmdline))
+}
+
+/// Asks the tray in the lock file at `lock` to show its window: its pid (waits up to 2 s), the command-line check, then
+/// `SIGUSR1`. The error is one line.
+pub(crate) fn hand_over(lock: &Path) -> Result<(), String> {
+    hand_over_to(read_pid(lock, PID_WAIT), is_tray, send_usr1)
+}
+
+/// The decision of [`hand_over`], with the check and the signal given: no pid (an older tray has no handler and `SIGUSR1`
+/// would end it) or a refused check sends nothing.
+fn hand_over_to(
+    pid: Option<u32>,
+    check: impl FnOnce(u32) -> bool,
+    send: impl FnOnce(u32) -> std::io::Result<()>,
+) -> Result<(), String> {
+    let pid =
+        pid.ok_or("the running tray has no pid (an older version: quit it once and start again)")?;
+    if !check(pid) {
+        return Err("the process named in the tray lock is not a tray".into());
+    }
+    send(pid).map_err(|e| format!("could not signal the running tray: {}", e.kind()))
+}
+
+fn send_usr1(pid: u32) -> std::io::Result<()> {
+    let pid = i32::try_from(pid).map_err(|_| std::io::Error::from(ErrorKind::InvalidInput))?;
+    // SAFETY: `kill` with a plain pid and signal number touches no memory.
+    match unsafe { libc::kill(pid, libc::SIGUSR1) } {
+        0 => Ok(()),
+        _ => Err(std::io::Error::last_os_error()),
     }
 }
 
@@ -1279,6 +1361,121 @@ mod tests {
             "free again once the first ends"
         );
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn lock_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("ep-tray-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        dir
+    }
+
+    /// T101 AC 3: after the lock is taken, `write_pid` leaves exactly the pid text in the file, an older longer text is
+    /// gone, and the lock is still held by the same open file.
+    #[test]
+    fn write_pid_leaves_the_pid_and_keeps_the_lock() {
+        let dir = lock_dir("pid");
+        let path = lock_path(Some(dir.clone().into_os_string()), None).unwrap();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(&path, "99999999999 an older longer text").unwrap();
+        let held = try_lock(&path).unwrap().unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "", "stale text cleared");
+        write_pid(&held, 4242).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "4242");
+        write_pid(&held, 7).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "7", "truncated first");
+        assert!(try_lock(&path).unwrap().is_none(), "the lock is kept");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// T101 AC 3: `read_pid` is `None` for an empty or non-numeric file and for none, and it waits (up to its limit) for
+    /// the pid to appear.
+    #[test]
+    fn read_pid_gives_none_without_a_number_and_waits_for_one() {
+        let dir = lock_dir("read");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("lock");
+        let short = Duration::from_millis(120);
+        assert_eq!(read_pid(&path, short), None, "no file");
+        fs::write(&path, "").unwrap();
+        let began = Instant::now();
+        assert_eq!(read_pid(&path, short), None, "empty");
+        assert!(began.elapsed() >= short, "it retried until its limit");
+        for text in ["abc", "12x", "-5", "0", "1 2"] {
+            fs::write(&path, text).unwrap();
+            assert_eq!(read_pid(&path, Duration::ZERO), None, "{text:?}");
+        }
+        fs::write(&path, "321\n").unwrap();
+        assert_eq!(read_pid(&path, Duration::ZERO), Some(321));
+        // the pid appears while it waits
+        fs::write(&path, "").unwrap();
+        let later = path.clone();
+        let writer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            fs::write(&later, "555").unwrap();
+        });
+        assert_eq!(read_pid(&path, Duration::from_secs(5)), Some(555));
+        writer.join().unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// T101 AC 4: only an `easy-personal-rs` running `tray` passes the command-line check.
+    #[test]
+    fn only_an_easy_personal_tray_passes_the_cmdline_check() {
+        let yes = |c: &[u8]| cmdline_is_tray(c);
+        assert!(yes(b"easy-personal-rs\0tray\0--static-dir\0/x\0"));
+        assert!(yes(
+            b"/usr/bin/easy-personal-rs\0tray\0--static-dir\0/x\0--show\0"
+        ));
+        assert!(yes(b"/home/u/some folder/easy-personal-rs\0tray\0"));
+        assert!(!yes(b"easy-personal-rs\0app\0--static-dir\0/x\0"));
+        assert!(!yes(b"easy-personal-rs\0serve\0"));
+        assert!(!yes(b"easy-personal-rs\0"));
+        assert!(!yes(b"sleep\0tray\0"));
+        assert!(!yes(b"/bin/easy-personal-rs-other\0tray\0"));
+        assert!(!yes(b"not-easy-personal-rs\0tray\0"));
+        assert!(!yes(b"tray\0easy-personal-rs\0"));
+        assert!(!yes(b""));
+    }
+
+    /// T101 AC 4: a gone pid and a live process that is not a tray are refused (the check reads /proc).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_gone_pid_and_this_test_process_are_not_trays() {
+        assert!(!is_tray(std::process::id()), "the test binary is no tray");
+        let mut child = std::process::Command::new("sleep")
+            .arg("5")
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        assert!(!is_tray(pid), "sleep is no tray");
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(!is_tray(pid), "a gone pid");
+        assert!(!is_tray(0));
+    }
+
+    /// T101 AC 4: no signal when there is no pid or the check refuses; one signal to the pid when it passes.
+    #[test]
+    fn hand_over_signals_only_a_pid_that_is_a_tray() {
+        use std::cell::RefCell;
+        let sent = RefCell::new(Vec::new());
+        let send = |pid: u32| {
+            sent.borrow_mut().push(pid);
+            Ok(())
+        };
+        let err = hand_over_to(None, |_| true, send).unwrap_err();
+        assert!(err.contains("no pid") && !err.contains('\n'), "{err}");
+        let err = hand_over_to(Some(77), |_| false, send).unwrap_err();
+        assert!(err.contains("not a tray") && !err.contains('\n'), "{err}");
+        assert!(sent.borrow().is_empty(), "no signal was sent");
+        hand_over_to(Some(77), |_| true, send).unwrap();
+        assert_eq!(*sent.borrow(), vec![77]);
+        let err =
+            hand_over_to(Some(77), |_| true, |_| Err(std::io::Error::other("boom"))).unwrap_err();
+        assert!(
+            err.contains("could not signal") && !err.contains('\n'),
+            "{err}"
+        );
     }
 
     /// Security fix round (Stage 4): the icon folder follows the lock's rule and is never the shared temp folder.

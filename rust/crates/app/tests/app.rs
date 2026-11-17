@@ -79,6 +79,12 @@ fn app_help_names_static_dir_and_hides_the_self_test() {
     let help = text(&out.stdout);
     assert!(help.contains("--static-dir"), "{help}");
     assert!(!help.contains("self-test"), "{help}");
+    assert!(help.contains("--no-tray"), "{help}");
+    let (out, _) = run(&home, &["tray", "--help"], &[]);
+    assert!(
+        text(&out.stdout).contains("--show"),
+        "tray --help lists --show"
+    );
     let (out, _) = run(&home, &["--help"], &[]);
     let help = text(&out.stdout);
     assert!(
@@ -131,7 +137,7 @@ mod with_the_window_feature {
         let file = home.0.join("a-file");
         fs::write(&file, "x").unwrap();
         for bad in ["/this/folder/does/not/exist", file.to_str().unwrap()] {
-            let (out, _) = run(&home, &["app", "--static-dir", bad], &[]);
+            let (out, _) = run(&home, &["app", "--no-ingest", "--static-dir", bad], &[]);
             assert_eq!(out.status.code(), Some(1), "{bad}");
             assert!(out.stdout.is_empty());
             assert_eq!(
@@ -145,7 +151,7 @@ mod with_the_window_feature {
     fn no_display_variable_at_all_exits_5_within_a_second_with_one_line() {
         let home = TempDir::new();
         let dir = static_dir(&home);
-        let (out, took) = run(&home, &["app", "--static-dir", &dir], &[]);
+        let (out, took) = run(&home, &["app", "--no-ingest", "--static-dir", &dir], &[]);
         assert_eq!(out.status.code(), Some(5), "{}", text(&out.stderr));
         assert!(took < Duration::from_secs(1), "{took:?}");
         assert!(out.stdout.is_empty());
@@ -159,7 +165,7 @@ mod with_the_window_feature {
         // An empty value counts as unset.
         let (out, _) = run(
             &home,
-            &["app", "--static-dir", &dir],
+            &["app", "--no-ingest", "--static-dir", &dir],
             &[("DISPLAY", ""), ("WAYLAND_DISPLAY", "")],
         );
         assert_eq!(out.status.code(), Some(5));
@@ -171,7 +177,7 @@ mod with_the_window_feature {
         let dir = static_dir(&home);
         let (out, took) = run(
             &home,
-            &["app", "--static-dir", &dir],
+            &["app", "--no-ingest", "--static-dir", &dir],
             &[("DISPLAY", ":4242"), ("WAYLAND_DISPLAY", "")],
         );
         assert_eq!(out.status.code(), Some(5), "{}", text(&out.stderr));
@@ -195,7 +201,7 @@ mod with_the_window_feature {
         let dir = static_dir(&home);
         let (out, took) = run(
             &home,
-            &["app", "--static-dir", &dir],
+            &["app", "--no-ingest", "--static-dir", &dir],
             &[
                 ("DISPLAY", "127.0.0.1:99"),
                 ("WAYLAND_DISPLAY", ""),
@@ -214,7 +220,7 @@ mod with_the_window_feature {
         let runtime = home.0.to_str().unwrap();
         let (out, _) = run(
             &home,
-            &["app", "--static-dir", &dir],
+            &["app", "--no-ingest", "--static-dir", &dir],
             &[
                 ("WAYLAND_DISPLAY", "wayland-none"),
                 ("XDG_RUNTIME_DIR", runtime),

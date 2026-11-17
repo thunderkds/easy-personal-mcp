@@ -142,6 +142,9 @@ enum Command {
         /// Raise desktop alerts (a session waiting or failing, a plan limit, disk, RAM or battery) over the session D-Bus; they are listed at `GET /api/alerts`
         #[arg(long)]
         alerts: bool,
+        /// Open this process's own window and start no tray (by default `app` starts the tray, which owns the one dashboard window, and exits)
+        #[arg(long)]
+        no_tray: bool,
     },
     /// Show a tray icon with the live state and raise desktop alerts, in one process per user (needs a build with `--features window`)
     Tray {
@@ -151,6 +154,9 @@ enum Command {
         /// Write (on) or remove (off) the login entry `$XDG_CONFIG_HOME/autostart/easy-personal-tray.desktop`, then exit
         #[arg(long, value_parser = ["on", "off"])]
         autostart: Option<String>,
+        /// Show the dashboard window: open it at start, or when a tray already runs ask that tray to show its window and exit
+        #[arg(long)]
+        show: bool,
     },
 }
 
@@ -198,16 +204,18 @@ fn main() -> ExitCode {
             self_test,
             no_ingest,
             alerts,
+            no_tray,
         } => {
             if !no_ingest && cfg!(feature = "window") {
                 ingest_cmd::startup(); // a build with no window starts nothing, so it ingests nothing
             }
-            window::run(&static_dir, self_test, alerts)
+            window::run(&static_dir, self_test, alerts, no_tray)
         }
         Command::Tray {
             static_dir,
             autostart,
-        } => window::tray(static_dir.as_deref(), autostart.as_deref()),
+            show,
+        } => window::tray(static_dir.as_deref(), autostart.as_deref(), show),
         Command::Mcp(args) => mcp::main(args),
         Command::Machine { json } => cli_cmds::machine(json),
         Command::Ping => cli_cmds::ping(),

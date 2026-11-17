@@ -22,8 +22,15 @@
 //! `snapshot` with the snapshot keys. Then it prints `self-test: live snapshot ok` and `self-test: ok` and exits 0,
 //! else exits 3.
 //!
+//! A plain `app` (T101: no `--self-test`, no `--no-tray`) opens no window of its own: after the folder and display
+//! checks it starts `tray --show` as a process of its own (same exe, same folder, own process group, stdio on /dev/null)
+//! and exits 0, so the tray owns the only dashboard window; a tray that cannot start is one stderr line, and `app`
+//! then opens its own window as before.
+//!
 //! The `tray` subcommand (T076) lives here too: one lock per user, the same server with the alert engine on, a tray
-//! icon and native menu (`tray.rs` builds the rows), and the same window opened from "Open dashboard".
+//! icon and native menu (`tray.rs` builds the rows), and the same window opened from "Open dashboard". With `--show`
+//! (T101) it opens the window at start, or, when a tray already runs, asks that tray to show its window and exits: the
+//! running tray puts its pid in its lock file and shows the window on `SIGUSR1` (`tray::hand_over`).
 //!
 //! Not done here: macOS and Windows. They need no display preflight (a window server is always there; `display.rs` is
 //! Unix-only) and use other webviews (WKWebView, WebView2), the signal watch uses Unix signals, and the icon is a PNG
@@ -35,14 +42,14 @@ use std::path::Path;
 use std::process::ExitCode;
 
 #[cfg(not(feature = "window"))]
-pub fn run(_static_dir: &Path, _self_test: bool, _alerts: bool) -> ExitCode {
+pub fn run(_static_dir: &Path, _self_test: bool, _alerts: bool, _no_tray: bool) -> ExitCode {
     eprintln!("this build has no window: rebuild with --features window");
     ExitCode::from(EXIT_NO_WINDOW_BUILD)
 }
 
 /// The `tray` subcommand (T076) needs the window build too.
 #[cfg(not(feature = "window"))]
-pub fn tray(_static_dir: Option<&Path>, _autostart: Option<&str>) -> ExitCode {
+pub fn tray(_static_dir: Option<&Path>, _autostart: Option<&str>, _show: bool) -> ExitCode {
     eprintln!("this build has no window: rebuild with --features window");
     ExitCode::from(EXIT_NO_WINDOW_BUILD)
 }
@@ -91,16 +98,110 @@ fn blocked_target(url: &str) -> String {
     }
 }
 
+/// `app` starts a tray unless it is the self-test or the owner passed `--no-tray` (T101).
+#[cfg(any(feature = "window", test))]
+fn wants_tray(self_test: bool, no_tray: bool) -> bool {
+    !self_test && !no_tray
+}
+
+/// The program and arguments of the tray `app` starts (T101): this same executable, the same canonical folder, and
+/// `--show` (open the window at start, or ask the running tray to show its own).
+#[cfg(any(feature = "window", test))]
+fn tray_command(
+    exe: &std::path::Path,
+    root: &std::path::Path,
+) -> (std::path::PathBuf, Vec<std::ffi::OsString>) {
+    (
+        exe.to_path_buf(),
+        vec![
+            "tray".into(),
+            "--static-dir".into(),
+            root.into(),
+            "--show".into(),
+        ],
+    )
+}
+
+/// The one stderr line for a tray that did not start (T101).
+#[cfg(any(feature = "window", test))]
+fn tray_not_started(reason: &str) -> String {
+    format!("easy-personal-rs: tray not started: {reason}")
+}
+
+/// What `app` saw of the tray it started (T101).
+#[cfg(any(feature = "window", test))]
+enum Tray {
+    /// Still running after the wait: it is the new tray.
+    Running,
+    /// It ended within the wait: `ok` for exit 0 (it handed over to the running tray), `status` as text.
+    Exited { ok: bool, status: String },
+}
+
+/// Polls `child` for up to `limit`.
+#[cfg(any(feature = "window", test))]
+fn observe(child: &mut std::process::Child, limit: std::time::Duration) -> Result<Tray, String> {
+    let deadline = std::time::Instant::now() + limit;
+    loop {
+        match child.try_wait().map_err(|e| e.to_string())? {
+            Some(status) => {
+                return Ok(Tray::Exited {
+                    ok: status.success(),
+                    status: status.to_string(),
+                });
+            }
+            None if std::time::Instant::now() >= deadline => return Ok(Tray::Running),
+            None => std::thread::sleep(std::time::Duration::from_millis(25)),
+        }
+    }
+}
+
+/// What `app` does after it tried to start the tray (T101): `None` when the tray runs or handed over (`app` opens no
+/// window and exits 0), else the stderr line (no start, or a failed exit such as a hand-over to a tray that cannot be
+/// asked), and `app` opens its own window as today.
+#[cfg(any(feature = "window", test))]
+fn after_spawn(spawned: Result<Tray, String>) -> Option<String> {
+    match spawned {
+        Ok(Tray::Running | Tray::Exited { ok: true, .. }) => None,
+        Ok(Tray::Exited { status, .. }) => {
+            Some(tray_not_started(&format!("the tray exited with {status}")))
+        }
+        Err(reason) => Some(tray_not_started(&reason)),
+    }
+}
+
+/// Starts `program` in a process group of its own with stdin, stdout and stderr on /dev/null, so Ctrl-C or a SIGTERM
+/// to `app`'s group never reaches it and it outlives `app`.
+#[cfg(any(feature = "window", test))]
+fn spawn_detached(
+    program: &std::path::Path,
+    args: &[std::ffi::OsString],
+) -> std::io::Result<std::process::Child> {
+    use std::process::{Command, Stdio};
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
+    command.spawn()
+}
+
 #[cfg(feature = "window")]
 pub use shell::{run, tray};
 
 #[cfg(feature = "window")]
 mod shell {
-    use super::{blocked_target, navigation_allowed};
+    use super::{
+        after_spawn, blocked_target, navigation_allowed, observe, spawn_detached, tray_command,
+        wants_tray,
+    };
     use crate::live_feed::LiveFeed;
     use crate::server::{self, Running};
     use crate::tray::{self, Row, State, Target, Theme};
     use crate::{display, static_files};
+    use std::fs::File;
     use std::io::{self, Write};
     use std::panic::{self, AssertUnwindSafe};
     use std::path::Path;
@@ -116,6 +217,8 @@ mod shell {
     use tauri::webview::NewWindowResponse;
     use tauri::{App, AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, Wry};
 
+    /// How long `app` watches the tray it started: the hand-over itself waits up to 2 s for the running tray's pid.
+    const HAND_OVER_WAIT: Duration = Duration::from_secs(3);
     const EXIT_SELF_TEST_TIMEOUT: i32 = 3;
     const EXIT_NO_DISPLAY: u8 = 5;
     /// The self-test gives the page this long to make an authenticated request.
@@ -143,7 +246,14 @@ mod shell {
     /// A failure before the window ran: its exit code and one line for stderr.
     struct Failure(u8, String);
 
-    pub fn run(static_dir: &Path, self_test: bool, alerts: bool) -> ExitCode {
+    pub fn run(static_dir: &Path, self_test: bool, alerts: bool, no_tray: bool) -> ExitCode {
+        if wants_tray(self_test, no_tray) {
+            match hand_over_to_tray(static_dir) {
+                Ok(None) => return ExitCode::SUCCESS,
+                Ok(Some(line)) => eprintln!("{line}"),
+                Err(failure) => return fail(&failure),
+            }
+        }
         let running = match start(static_dir, alerts, None) {
             Ok(running) => running,
             Err(failure) => return fail(&failure),
@@ -181,10 +291,7 @@ mod shell {
         clicks: Option<crate::alerts::Clicks>,
     ) -> Result<Running, Failure> {
         let root = static_files::canonical_root(static_dir).map_err(|e| Failure(1, e))?;
-        if let Err(e) = display::preflight() {
-            let hint = "serve, mcp and store-info need no display";
-            return Err(Failure(EXIT_NO_DISPLAY, format!("{e} ({hint})")));
-        }
+        check_display()?;
         let feed = LiveFeed::system().map_err(|e| Failure(1, e))?;
         let machine = crate::sampler::machine().map_err(|e| Failure(1, e))?;
         let limits = crate::sampler::limits().map_err(|e| Failure(1, e))?;
@@ -203,6 +310,32 @@ mod shell {
             notifier,
         )
         .map_err(|e| Failure(1, e))
+    }
+
+    /// The display preflight (`display.rs`, no Tauri code yet): exit 5 when there is none.
+    fn check_display() -> Result<(), Failure> {
+        display::preflight().map_err(|e| {
+            let hint = "serve, mcp and store-info need no display";
+            Failure(EXIT_NO_DISPLAY, format!("{e} ({hint})"))
+        })
+    }
+
+    /// A plain `app` (T101): the folder and display checks as `start` makes them, then `<this exe> tray --static-dir
+    /// <folder> --show` as a detached process, watched for up to [`HAND_OVER_WAIT`]. `Ok(None)` when it runs or handed
+    /// over (`app` exits 0 and opens no window), `Ok(Some(line))` when it did not start or exited non-zero (a tray that
+    /// cannot be asked, such as an older one: the stderr line; `app` opens its own window), `Err` for a bad folder or
+    /// display.
+    fn hand_over_to_tray(static_dir: &Path) -> Result<Option<String>, Failure> {
+        let root = static_files::canonical_root(static_dir).map_err(|e| Failure(1, e))?;
+        check_display()?;
+        let spawned = std::env::current_exe()
+            .map_err(|_| "cannot find this program's path".to_string())
+            .and_then(|exe| {
+                let (program, args) = tray_command(&exe, &root);
+                let mut child = spawn_detached(&program, &args).map_err(|e| e.to_string())?;
+                observe(&mut child, HAND_OVER_WAIT)
+            });
+        Ok(after_spawn(spawned))
     }
 
     /// `--self-test`, second half (T057): `GET /api/live?token=<token>` must give a first `snapshot` from a running
@@ -317,11 +450,12 @@ mod shell {
     const TRAY_TICK: Duration = Duration::from_secs(5);
 
     /// `tray`: `--autostart on|off` writes or removes the autostart entry and exits; else the tray runs (one per user).
-    pub fn tray(static_dir: Option<&Path>, autostart: Option<&str>) -> ExitCode {
+    /// `show` (T101): open the window at start, or hand over to the running tray.
+    pub fn tray(static_dir: Option<&Path>, autostart: Option<&str>, show: bool) -> ExitCode {
         match autostart {
             Some(toggle) => set_autostart(static_dir, toggle == "on"),
             None => match static_dir {
-                Some(dir) => run_tray(dir),
+                Some(dir) => run_tray(dir, show),
                 None => {
                     eprintln!("easy-personal-rs: tray needs --static-dir <DIR>");
                     ExitCode::from(2)
@@ -372,12 +506,21 @@ mod shell {
         }
     }
 
-    fn run_tray(static_dir: &Path) -> ExitCode {
+    fn run_tray(static_dir: &Path, show: bool) -> ExitCode {
         let store = easy_personal_core::store::store_path().ok();
-        let lock = tray::lock_path(std::env::var_os("XDG_RUNTIME_DIR"), store)
-            .and_then(|path| tray::try_lock(&path));
-        let _held = match lock {
+        let path = match tray::lock_path(std::env::var_os("XDG_RUNTIME_DIR"), store) {
+            Ok(path) => path,
+            Err(e) => return fail(&Failure(1, e)),
+        };
+        let held = match tray::try_lock(&path) {
             Ok(Some(file)) => file,
+            Ok(None) if show => {
+                // T101: another tray owns the window: ask it to show it (a failed hand-over is one line, exit 1)
+                return match tray::hand_over(&path) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => fail(&Failure(1, e)),
+                };
+            }
             Ok(None) => {
                 println!("easy-personal-rs: a tray already runs for this user");
                 return ExitCode::SUCCESS;
@@ -390,7 +533,7 @@ mod shell {
             Err(failure) => return fail(&failure),
         };
         let signalled = Arc::new(AtomicBool::new(false));
-        let outcome = tray_loop(&running, &signalled, clicked);
+        let outcome = tray_loop(&running, &signalled, clicked, &held, show);
         running.stop();
         match outcome {
             Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
@@ -489,6 +632,8 @@ mod shell {
         running: &Running,
         signalled: &Arc<AtomicBool>,
         clicked: Receiver<Option<String>>,
+        lock: &File,
+        show: bool,
     ) -> Result<i32, Failure> {
         let started = Arc::new(AtomicBool::new(false));
         watch_startup(&started);
@@ -540,6 +685,18 @@ mod shell {
         drop(shown); // the manager keeps it; a clone held here would outlive the exit and leave the icon file behind
         watch_tray(inputs, view, items, theme, app.handle().clone());
         watch_signals(running, app.handle().clone(), Arc::clone(signalled));
+        // T101: the pid goes into the lock file only once the handler is there (`SIGUSR1` ends a process with none)
+        if watch_show(running, app.handle().clone())
+            && let Err(e) = tray::write_pid(lock, std::process::id())
+        {
+            eprintln!("easy-personal-rs: {e}");
+        }
+        if show
+            && let Err(failure) =
+                open_window(&app, running.port, &running.token, &Target::Dashboard)
+        {
+            eprintln!("easy-personal-rs: {}", failure.1);
+        }
         eprintln!(
             "easy-personal-rs: tray running, dashboard on http://127.0.0.1:{}/",
             running.port
@@ -553,6 +710,31 @@ mod shell {
                 api.prevent_exit();
             }
         }))
+    }
+
+    /// `SIGUSR1` (T101, the hand-over of a second `tray --show`) shows the dashboard window as a menu click on "Open
+    /// dashboard" does: an open one is unminimized and focused as it is, with none one is opened. The window work runs on
+    /// the main thread. False when the handler could not be installed (the pid must not be published then).
+    fn watch_show(running: &Running, handle: AppHandle) -> bool {
+        use tokio::signal::unix::{SignalKind, signal};
+        let runtime = running.handle();
+        let _in_runtime = runtime.enter();
+        let Ok(mut usr1) = signal(SignalKind::user_defined1()) else {
+            return false;
+        };
+        let (port, token) = (running.port, running.token.clone());
+        runtime.spawn(async move {
+            while usr1.recv().await.is_some() {
+                let (window, token) = (handle.clone(), token.clone());
+                let shown = handle.run_on_main_thread(move || {
+                    show_dashboard(&window, port, &token, &Target::Dashboard);
+                });
+                if shown.is_err() {
+                    return;
+                }
+            }
+        });
+        true
     }
 
     /// A click on a popup (`alerts::DBusNotifier`) opens the Live view, with its session when it has one. The click arrives
@@ -702,6 +884,7 @@ mod shell {
 mod tests {
     use super::*;
     use std::path::Path;
+    use std::time::Duration;
 
     const PORT: u16 = 41234;
 
@@ -901,6 +1084,121 @@ mod tests {
             serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/capabilities.json")))
                 .unwrap();
         assert_eq!(compiled, serde_json::json!({}));
+    }
+
+    #[test]
+    fn only_a_plain_window_run_wants_a_tray() {
+        assert!(wants_tray(false, false));
+        assert!(!wants_tray(true, false), "--self-test starts no tray");
+        assert!(!wants_tray(false, true), "--no-tray starts no tray");
+        assert!(!wants_tray(true, true));
+    }
+
+    #[test]
+    fn the_tray_runs_this_exe_with_the_same_folder() {
+        let (program, args) = tray_command(
+            Path::new("/usr/bin/easy-personal-rs"),
+            Path::new("/usr/share/easy-personal/dashboard"),
+        );
+        assert_eq!(program, Path::new("/usr/bin/easy-personal-rs"));
+        assert_eq!(
+            args,
+            [
+                "tray",
+                "--static-dir",
+                "/usr/share/easy-personal/dashboard",
+                "--show"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_failed_tray_start_is_one_line_and_app_opens_its_own_window() {
+        assert_eq!(
+            tray_not_started("cannot find this program's path"),
+            "easy-personal-rs: tray not started: cannot find this program's path"
+        );
+        // A program that is not there: the error is the one line, and `app` falls back to its own window.
+        let spawned = spawn_detached(Path::new("/this/program/does/not/exist"), &["tray".into()])
+            .map_err(|e| e.to_string());
+        let line = after_spawn(spawned.map(|mut c| observe(&mut c, Duration::ZERO).unwrap()))
+            .expect("a spawn error means an own window");
+        assert!(
+            line.starts_with("easy-personal-rs: tray not started: "),
+            "{line}"
+        );
+        assert_eq!(line.lines().count(), 1, "{line}");
+    }
+
+    /// What `app` does with what it saw of the tray it started: still running after the wait (the new tray) and a clean
+    /// exit (it handed over) are done; a failed exit is the one line and an own window.
+    #[test]
+    fn app_exits_for_a_running_or_a_clean_tray_and_falls_back_for_a_failed_one() {
+        let exited = |ok: bool, status: &str| {
+            Ok(Tray::Exited {
+                ok,
+                status: status.into(),
+            })
+        };
+        assert_eq!(after_spawn(Ok(Tray::Running)), None);
+        assert_eq!(after_spawn(exited(true, "exit status: 0")), None);
+        assert_eq!(
+            after_spawn(exited(false, "exit status: 1")).as_deref(),
+            Some("easy-personal-rs: tray not started: the tray exited with exit status: 1")
+        );
+        assert_eq!(
+            after_spawn(Err("boom".into())).as_deref(),
+            Some("easy-personal-rs: tray not started: boom")
+        );
+    }
+
+    /// The real child: `exit 1` is seen as a failed exit (the fallback line), `exit 0` as a clean one, a process still
+    /// running after the limit as the new tray (the test then ends it: it is its own child).
+    #[test]
+    fn observe_sees_a_failed_exit_a_clean_exit_and_a_running_child() {
+        let sh = |script: &str| spawn_detached(Path::new("/bin/sh"), &["-c".into(), script.into()]);
+        let limit = Duration::from_secs(5);
+        let line = after_spawn(observe(&mut sh("exit 1").unwrap(), limit));
+        assert!(
+            line.as_deref().is_some_and(|l| l.starts_with(
+                "easy-personal-rs: tray not started: the tray exited with exit status: 1"
+            )),
+            "{line:?}"
+        );
+        assert_eq!(
+            after_spawn(observe(&mut sh("exit 0").unwrap(), limit)),
+            None
+        );
+        let mut running = sh("sleep 30").unwrap();
+        let seen = observe(&mut running, Duration::from_millis(150));
+        running.kill().unwrap();
+        running.wait().unwrap();
+        assert_eq!(after_spawn(seen), None);
+    }
+
+    /// The child is its own process group leader with stdin, stdout and stderr on /dev/null.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_tray_child_has_its_own_group_and_null_stdio() {
+        let out =
+            std::env::temp_dir().join(format!("easy-personal-rs-t101-{}", std::process::id()));
+        let script = format!(
+            "echo \"$(readlink /proc/$$/fd/0) $(readlink /proc/$$/fd/1) $(readlink /proc/$$/fd/2) $(cut -d' ' -f5 /proc/$$/stat) $$\" > {}",
+            out.display()
+        );
+        let mut child =
+            spawn_detached(Path::new("/bin/sh"), &["-c".into(), script.into()]).unwrap();
+        child.wait().unwrap();
+        let seen = std::fs::read_to_string(&out).unwrap();
+        let _ = std::fs::remove_file(&out);
+        let f: Vec<&str> = seen.split_whitespace().collect();
+        assert_eq!(&f[..3], ["/dev/null"; 3], "{seen}");
+        assert_eq!(f[3], f[4], "pgid is the child's own pid: {seen}");
+        assert_ne!(
+            f[3].parse::<u32>().unwrap(),
+            unsafe { libc::getpgrp() } as u32,
+            "not the test's group"
+        );
     }
 
     #[cfg(not(feature = "window"))]
