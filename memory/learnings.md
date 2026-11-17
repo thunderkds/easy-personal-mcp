@@ -666,5 +666,6 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - `stop_auto_verify.py --start <ID>` reads only the root `PROJECT_KANBAN.md` `### Ready for Review`. For a Rust task, add a temporary uncommitted row there, start the run, and remove the row after (the root board is the Linear cache).
 - The `[admin]` push of `main` is impossible here: the gate allows `origin` only, and the one remote is `github`. The owner pushes.
 - A merged stacked branch (T099 on T091) brings its base task in: the T099 run verified the combined tip.
+- Commit nothing on a task branch while its auto verify run is going: T092's run started at `cb501c7`, a review-file commit (`385a112`) made the Stop hook start a second run, and the pass row it wrote for `385a112` had no run record the merge gate accepts, so the `[admin]` merge was refused (T099, whose run this session started with `--start` and left alone, merged). Reset a non-template `verify` row before `--start`, not during the run.
 - The stop hook reads a hook-written `Paused: ... ⚠ ...` line in a review file as an open decision; after fixing its causes, delete the stale line.
 **Files**: `.claude/hooks/pre_bash_block_unsafe_merge.py`, `.claude/hooks/stop_auto_verify.py`, `.claude/hooks/lib/verify_record.py`, `rust/PROJECT_KANBAN.md`
