@@ -252,6 +252,47 @@ fn clean_question(value: &Value) -> Option<String> {
     Some(text.chars().take(QUESTION_MAX_CHARS).collect())
 }
 
+/// What the answer card shows in place of a question the core's secret check matches (T106, FR-114, FR-106).
+pub const HIDDEN_TEXT: &str = "[hidden: looks like a secret]";
+
+/// T106 (FR-114, FR-115): a one-line text of the answer card (a header, an option label or description, a permission
+/// summary): line breaks and tabs become one space, the other hidden characters are removed, then cut to `max` characters.
+pub fn clean_line(raw: &str, max: usize) -> String {
+    raw.chars()
+        .map(|c| {
+            if matches!(c, '\n' | '\r' | '\t') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .filter(|&c| !hidden(c))
+        .take(max)
+        .collect()
+}
+
+/// [`clean_line`] of a question (FR-106 cleaning): a question the secret check matches, raw or cleaned, is
+/// [`HIDDEN_TEXT`] (the answer still goes out by the position of the question and the raw text the hook sent).
+pub fn clean_ask(raw: &str, max: usize) -> String {
+    let text = clean_line(raw, usize::MAX);
+    if is_secret(raw.as_bytes()) || is_secret(text.as_bytes()) {
+        return HIDDEN_TEXT.into();
+    }
+    text.chars().take(max).collect()
+}
+
+/// T106 (FR-114): the owner's own typed answer (the "Other" text, a deny message): hidden characters removed except
+/// line breaks and tabs, cut to `max` characters, trimmed. No secret check: it is the owner's own text and goes to
+/// the owner's own session.
+pub fn clean_typed(raw: &str, max: usize) -> String {
+    let text: String = raw
+        .chars()
+        .filter(|&c| matches!(c, '\n' | '\t') || !hidden(c))
+        .take(max)
+        .collect();
+    text.trim().to_string()
+}
+
 /// FR-106: the `questions[].question` strings of an `AskUserQuestion` call's input, at most [`MAX_QUESTIONS`]. The only
 /// place that field is read; no other field of the input or of a question (`header`, `options`, `multiSelect`) is.
 pub fn call_questions(name: &str, input: &Value) -> Option<Vec<String>> {
@@ -1559,6 +1600,52 @@ mod tests {
         assert_eq!(
             got.events[0].questions,
             Some(Questions(vec!["kept?".to_owned()]))
+        );
+    }
+
+    /// T106: a one-line answer-card text loses its hidden characters, turns line breaks into one space and is cut.
+    #[test]
+    fn clean_line_makes_one_capped_line_without_hidden_characters() {
+        assert_eq!(clean_line("ls\nrm -rf x", 300), "ls rm -rf x");
+        assert_eq!(clean_line("a\u{200b}b\u{202e}c\u{7f}d\te", 300), "abcd e");
+        assert_eq!(clean_line(&"é".repeat(400), 300).chars().count(), 300);
+        assert_eq!(clean_line("", 5), "");
+    }
+
+    /// T106: a question the secret check matches (raw, or once a zero-width mark is taken out) is hidden whole.
+    #[test]
+    fn clean_ask_hides_a_secret_shaped_question_and_cuts_the_rest() {
+        assert_eq!(clean_ask("Which colour?", 300), "Which colour?");
+        assert_eq!(
+            clean_ask(&"q".repeat(31), 300),
+            "q".repeat(31),
+            "31 characters are no secret"
+        );
+        let secret = format!("use sk-{} here", "A1".repeat(20));
+        assert_eq!(clean_ask(&secret, 300), HIDDEN_TEXT);
+        let split = format!("use sk-{}\u{200b}{}", "A1".repeat(8), "B2".repeat(8));
+        assert_eq!(
+            clean_ask(&split, 300),
+            HIDDEN_TEXT,
+            "a hidden mark cannot split a secret"
+        );
+        assert_eq!(clean_ask(&"é".repeat(400), 300).chars().count(), 300);
+    }
+
+    /// T106: the owner's typed text keeps line breaks and tabs, loses the other hidden characters, is trimmed and cut.
+    #[test]
+    fn clean_typed_keeps_line_breaks_and_cuts_to_the_limit() {
+        assert_eq!(
+            clean_typed("  one\ntwo\u{200b}\tthree \u{7f}", 2000),
+            "one\ntwo\tthree"
+        );
+        assert_eq!(clean_typed(&"z".repeat(3000), 2000).chars().count(), 2000);
+        assert_eq!(clean_typed(" \u{200b} ", 2000), "");
+        let key = format!("my key sk-{}", "A1".repeat(20));
+        assert_eq!(
+            clean_typed(&key, 2000),
+            key,
+            "the owner's own text is not secret-checked"
         );
     }
 

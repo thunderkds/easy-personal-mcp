@@ -32,8 +32,9 @@
 
 use crate::agent_routes::{self, Agent};
 use crate::alerts::Shared as Alerts;
+use crate::answer_bridge::{self, Bridge, SocketCell};
 use crate::live_feed::{LIVE_PATH, SharedTail, SseBody, resume_id};
-use crate::{connector_writes, legacy, sync_apply, writes};
+use crate::{connector_writes, hooks_cmd, legacy, sync_apply, writes};
 use axum::Router;
 use axum::body::Body;
 use axum::extract::State;
@@ -108,6 +109,10 @@ pub struct Api {
     alerts: Arc<Alerts>,
     /// The agent run routes' runner and record (T091, `agent_routes.rs`).
     pub(crate) agent: Arc<Agent>,
+    /// The hooks that wait for the owner's answer (T106, `answer_bridge.rs`); empty with no answer socket.
+    pub(crate) answers: Arc<Bridge>,
+    /// The answer socket, once opened (T106): `serve` and the window open it at start when a hook is on; `PUT /api/hooks` opens it.
+    pub(crate) socket: SocketCell,
 }
 
 impl Api {
@@ -125,6 +130,8 @@ impl Api {
             machine: None,
             alerts: Arc::default(),
             agent: Arc::new(Agent::system()),
+            answers: Arc::default(),
+            socket: Arc::default(),
         }
     }
 
@@ -256,6 +263,9 @@ pub fn routes() -> Router<Api> {
         )
         .route("/api/agent-run/setting", put(agent_routes::setting))
         .route("/api/agent-run/stop", post(agent_routes::stop))
+        .route("/api/hooks", get(hooks_cmd::get).put(hooks_cmd::put))
+        .route("/api/answer", post(answer_bridge::answer))
+        .route("/api/answer/release", post(answer_bridge::release))
 }
 
 /// `GET /api/alerts` (T074, FR-097): `{alerts, paused}`, the last 50 alerts newest first. It reads no store and writes nothing.
@@ -312,7 +322,7 @@ async fn live(State(api): State<Api>, headers: HeaderMap) -> Response {
                 .into_response();
         }
     };
-    let body = SseBody::new(resume, api.live, api.stopping, api.clock);
+    let body = SseBody::new(resume, api.live, api.stopping, api.clock).with_answers(api.answers);
     (
         [
             (CONTENT_TYPE, "text/event-stream; charset=utf-8"),

@@ -1195,6 +1195,29 @@ The app can start Claude Code on this machine for you, for one fixed job: *inves
 - **The app never reads your login.** It starts `claude` with that account's folder and reads nothing from its credentials.
 - **Linux and the Rust app only.** The Python dashboard shows no Settings block and no Run block.
 
+## Answer terminal sessions from the app (T106, optional, off by default)
+
+A Claude Code session that is open in a terminal can ask you a question (`AskUserQuestion`) or ask permission for a tool. With the bridge on, the app shows that prompt in the **Live view** and your answer goes back to that terminal session. With the bridge off, or the app not running, nothing changes: the terminal asks as usual.
+
+- **Turn it on, per account.** `easy-personal-rs hooks install [--account <id or label>]` (the default account when omitted) prints the exact text it will add, asks, and adds it. The dashboard does the same through `GET`/`PUT /api/hooks` (it shows the text, then needs a confirm). `hooks status` says `on`, `off`, `changed by hand` or `binary moved`. `hooks remove` takes the entries out again.
+- **What it writes.** Only `<account folder>/settings.json` (for the default account `~/.claude/settings.json`; never `~/.claude.json`, never a project's settings), and only two entries: `hooks.PreToolUse` with matcher `AskUserQuestion`, and `hooks.PermissionRequest`. Each is one command hook `<absolute path of easy-personal-rs> hook ask` with timeout 130 s. Every other key and hook of the file is kept (the keys come back in alphabetical order and the indent is two spaces). The file is written to a temp file and renamed (a symlinked `settings.json` is written through, its link stays); a copy of the old file is first put in `~/.easy-personal/backups/` (owner-only). A file that is not a JSON object is refused and left as it is. A second `install` writes nothing. `remove` drops only entries equal to the ones it added (and ones that are ours but name a program that is gone); an entry you edited stays.
+- **Sessions that were already running are not covered**: Claude Code reads hook settings when a session starts. Start a new one.
+- **How an answer travels.** `hook ask` is run by Claude Code; it hands the prompt to the running app over `~/.easy-personal/answer.sock` (mode 0600 in a 0700 folder, the peer's user checked on both ends) and waits at most 120 s. Your answer (`POST /api/answer`, only with `confirmed: true`) comes back as the hook's documented JSON. **Any other case exits 0 with no output** and the terminal asks: no app, a stale or foreign socket, a release (`POST /api/answer/release`), the 120 s running out, the app closing, bad input. With no app that takes a few milliseconds.
+- **Text shown, never stored (FR-115, DDR-0006).** The question, header, option labels and descriptions (capped), and a permission's tool and one line (the command of `Bash`, the path of an edit tool) are held in memory and shown only in the `pending_answer` of a session in the `GET /api/live` stream. They are never in the store, a log, `GET /api/alerts`, the tray, a popup, MCP or the CLI. `hook ask` prints only the documented hook JSON.
+
+### Decided for you (T106, for the owner's review)
+
+1. **Key order.** The settings file is rewritten from a parsed copy, so object keys come back sorted and the indent is two spaces. Values, arrays (hook order) and unknown keys are kept. Keeping your exact layout would need an order-preserving JSON writer (a new crate or about 150 lines); cut.
+2. **`install` over a moved entry replaces it; over a hand-edited one it refuses** (exit 2 / HTTP 409). `remove` also drops a moved entry (ours, its program gone). Only one of the two entries present reads `changed by hand`; `install` adds the missing one.
+3. **`install` without `--account`** uses the account whose folder is the agent root's `.claude`; with none, it is refused.
+4. **The data folder is tightened to 0700** when the app opens the socket (it holds your store).
+5. **The answer by position.** The page sends `selected` option positions and `other` text, never label text, so a secret-shaped label or question that the card hides (`[hidden: looks like a secret]`) still answers correctly. A multi-select joins its labels, in position order, then the Other text, with `, `. The permission summary is not secret-checked (it is what you must read to decide).
+6. **A session that the live tail does not list shows no card**; its hook ends after the 120 s. The tail lists a session with an open call, so a prompt of a running session shows.
+7. **A permission request of `AskUserQuestion` itself is handed back**: the PreToolUse entry answers that tool.
+8. **Ubuntu first**: the peer check uses Linux `SO_PEERCRED`; elsewhere the bridge is not offered.
+9. **From the T102 spike** (`tasks/evidence-T102/SPIKE.md`): the two hook outputs work as written. A PermissionRequest input has no `tool_use_id`, so that prompt is keyed by session, tool name and a hash of its input (and a random id); the same call asked again replaces the older item. A multi-select answer is joined with `, ` as documented; Claude Code's reading of it was **not tested**. For a permission the terminal's own dialog stays on screen while the hook waits and the app's answer closes it; for a question the terminal shows only a spinner. If you answer in the terminal, `hook ask` notices only when Claude Code closes the hook (it then ends within 0.2 s); that was **not tested**, and the 120 s cap bounds it.
+10. **Not built (cut list):** a card for a session that is not in the live list, `ExitPlanMode` text, a settings editor in the page (T107 is the page), macOS peer check.
+
 ## Test
 
 ```bash

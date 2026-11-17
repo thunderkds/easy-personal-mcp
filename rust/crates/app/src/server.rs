@@ -8,6 +8,7 @@
 
 use crate::agent_routes::AgentGuard;
 use crate::alerts::{self, Notifier};
+use crate::answer_bridge::{self, Bridge, SocketCell};
 use crate::api::{self, Api};
 use crate::live_feed::{LIVE_PATH, LiveFeed};
 use crate::sampler::{self, Sampler};
@@ -195,6 +196,10 @@ pub struct Running {
     limits: Option<Sampler<Round>>,
     /// The alert engine (`serve` and `app` with `--alerts`, T074); stopped and joined by `stop` (and by drop).
     alerts: Option<Sampler<()>>,
+    /// The hooks waiting for an answer (T106); the routes and the live stream read it.
+    answers: Arc<Bridge>,
+    /// The answer socket (T106), once [`Running::listen_for_answers`] opened it; closed first by `stop` (and by drop).
+    socket: SocketCell,
     /// The alert list and pause flag that `/api/alerts` serves (the tray's "Pause alerts" sets the same flag, T076).
     #[cfg_attr(not(feature = "window"), allow(dead_code))]
     shared: Arc<alerts::Shared>,
@@ -222,6 +227,16 @@ impl Running {
         crate::live_feed::read_first_snapshot(self.port, &self.token).map(|_| ())
     }
 
+    /// T106 (FR-114): opens `answer.sock` in the data folder when a hook of the answer bridge is on for some account
+    /// (`hooks_cmd::any_on`); with the bridge off nothing is created. Only `serve` and the window call it (a test server
+    /// never does, so no test touches a real home). `PUT /api/hooks` opens it later when the owner turns the bridge on.
+    pub(crate) fn listen_for_answers(&mut self) {
+        let path = easy_personal_core::store::store_path();
+        if path.is_ok_and(|p| crate::hooks_cmd::any_on(&p)) {
+            answer_bridge::open_socket(&self.socket, &self.answers);
+        }
+    }
+
     /// What the tray reads (T076): the live tail, the two samplers' histories and the alerts' pause flag.
     #[cfg(feature = "window")]
     pub(crate) fn tray_inputs(&self) -> crate::tray::Inputs {
@@ -236,7 +251,11 @@ impl Running {
     /// Ends the open live streams, stops accepting, gives requests in flight `STOP_GRACE` to finish, drops whatever
     /// is left, then stops and joins the live feed (at most 10 s, `LiveFeed::stop`).
     pub fn stop(mut self) {
-        self.agent.0.shutdown(); // first: the run's `claude` dies, and its thread is joined
+        *self
+            .socket
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = None; // first: every hook that waits is handed back to its terminal, the socket file goes
+        self.agent.0.shutdown(); // then: the run's `claude` dies, and its thread is joined
         self.stopping.store(true, Ordering::Relaxed);
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
@@ -300,6 +319,8 @@ pub(crate) fn start_with_alerts(
         .with_machine(machine.as_ref().map(Sampler::history))
         .with_limits(limits.as_ref().map(Sampler::history));
     let agent = AgentGuard(Arc::clone(&api.agent));
+    let answers = Arc::clone(&api.answers);
+    let socket = Arc::clone(&api.socket);
     let app = router_with_static(
         token.clone(),
         port,
@@ -343,6 +364,8 @@ pub(crate) fn start_with_alerts(
         machine,
         limits,
         alerts,
+        answers,
+        socket,
         shared,
         agent,
     })
@@ -359,6 +382,7 @@ pub fn run(static_dir: Option<&Path>, alerts: bool) -> Result<(), String> {
         Some(sampler::limits()?),
         notifier,
     )?;
+    running.listen_for_answers();
     let mut out = io::stdout();
     write!(
         out,
