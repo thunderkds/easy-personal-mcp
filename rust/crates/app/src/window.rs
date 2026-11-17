@@ -99,7 +99,7 @@ mod shell {
     use super::{blocked_target, navigation_allowed};
     use crate::live_feed::LiveFeed;
     use crate::server::{self, Running};
-    use crate::tray::{self, Row, State, Theme};
+    use crate::tray::{self, Row, State, Target, Theme};
     use crate::{display, static_files};
     use std::io::{self, Write};
     use std::panic::{self, AssertUnwindSafe};
@@ -107,6 +107,7 @@ mod shell {
     use std::process::ExitCode;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::mpsc::Receiver;
     use std::thread;
     use std::time::{Duration, Instant};
     use tauri::image::Image;
@@ -143,7 +144,7 @@ mod shell {
     struct Failure(u8, String);
 
     pub fn run(static_dir: &Path, self_test: bool, alerts: bool) -> ExitCode {
-        let running = match start(static_dir, alerts) {
+        let running = match start(static_dir, alerts, None) {
             Ok(running) => running,
             Err(failure) => return fail(&failure),
         };
@@ -172,8 +173,13 @@ mod shell {
     }
 
     /// The folder check, the display preflight, the live feed, the two samplers and the server (with the alert
-    /// engine when `alerts`): what `app` and `tray` both run before any Tauri code.
-    fn start(static_dir: &Path, alerts: bool) -> Result<Running, Failure> {
+    /// engine when `alerts`): what `app` and `tray` both run before any Tauri code. With `clicks` (the `tray` only) a
+    /// click on a popup is sent there; without, a popup carries no action.
+    fn start(
+        static_dir: &Path,
+        alerts: bool,
+        clicks: Option<crate::alerts::Clicks>,
+    ) -> Result<Running, Failure> {
         let root = static_files::canonical_root(static_dir).map_err(|e| Failure(1, e))?;
         if let Err(e) = display::preflight() {
             let hint = "serve, mcp and store-info need no display";
@@ -183,7 +189,11 @@ mod shell {
         let machine = crate::sampler::machine().map_err(|e| Failure(1, e))?;
         let limits = crate::sampler::limits().map_err(|e| Failure(1, e))?;
         let notifier = alerts.then(|| {
-            Box::new(crate::alerts::DBusNotifier::new()) as Box<dyn crate::alerts::Notifier>
+            let notifier = crate::alerts::DBusNotifier::new();
+            Box::new(match clicks {
+                Some(clicks) => notifier.with_clicks(clicks),
+                None => notifier,
+            }) as Box<dyn crate::alerts::Notifier>
         });
         server::start_with_alerts(
             Some(&root),
@@ -222,7 +232,7 @@ mod shell {
         let started = Arc::new(AtomicBool::new(false));
         watch_startup(&started);
         let app = build_app()?;
-        open_window(&app, running.port, &running.token)?;
+        open_window(&app, running.port, &running.token, &Target::Dashboard)?;
         started.store(true, Ordering::Relaxed);
         eprintln!(
             "easy-personal-rs: window open on http://127.0.0.1:{}/",
@@ -253,11 +263,22 @@ mod shell {
         }
     }
 
-    /// The dashboard window `main` on `http://127.0.0.1:<port>/#<token>`, locked to the server's origin.
-    fn open_window<M: Manager<Wry>>(manager: &M, port: u16, token: &str) -> Result<(), Failure> {
-        let url: Url = format!("http://127.0.0.1:{port}/#{token}")
+    /// The window address of `target` (`tray::address`) as a URL. The failure names no part of the address: it holds the token.
+    fn url_of(port: u16, token: &str, target: &Target) -> Result<Url, Failure> {
+        tray::address(port, token, target)
             .parse()
-            .map_err(|_| Failure(1, "cannot form the window address".into()))?;
+            .map_err(|_| Failure(1, "cannot form the window address".into()))
+    }
+
+    /// The dashboard window `main` on the address of `target` (`http://127.0.0.1:<port>/#<token>` for the plain open),
+    /// locked to the server's origin.
+    fn open_window<M: Manager<Wry>>(
+        manager: &M,
+        port: u16,
+        token: &str,
+        target: &Target,
+    ) -> Result<(), Failure> {
+        let url = url_of(port, token, target)?;
         // Both `app` and the window the tray opens come through here, so one icon call covers both. Compiled in (no file read).
         WebviewWindowBuilder::new(manager, "main", WebviewUrl::External(url))
             .icon(tauri::include_image!("icons/128x128.png"))
@@ -363,12 +384,13 @@ mod shell {
             }
             Err(e) => return fail(&Failure(1, e)),
         };
-        let running = match start(static_dir, true) {
+        let (clicks, clicked) = std::sync::mpsc::channel();
+        let running = match start(static_dir, true, Some(clicks)) {
             Ok(running) => running,
             Err(failure) => return fail(&failure),
         };
         let signalled = Arc::new(AtomicBool::new(false));
-        let outcome = tray_loop(&running, &signalled);
+        let outcome = tray_loop(&running, &signalled, clicked);
         running.stop();
         match outcome {
             Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
@@ -406,6 +428,13 @@ mod shell {
                 Row::Action(id, text) => {
                     Item::Plain(MenuItem::with_id(handle, *id, text, true, None::<&str>)?)
                 }
+                Row::Session(session, text) => Item::Plain(MenuItem::with_id(
+                    handle,
+                    tray::session_item_id(session),
+                    text,
+                    true,
+                    None::<&str>,
+                )?),
                 Row::Check(id, text, checked) => Item::Check(CheckMenuItem::with_id(
                     handle,
                     *id,
@@ -430,13 +459,25 @@ mod shell {
         Ok((menu, items))
     }
 
-    /// "Open dashboard", "All alerts in dashboard…" and the waiting / failing rows: focus the window when it is open, else open it.
-    fn show_dashboard(handle: &AppHandle, port: u16, token: &str) {
+    /// A click: open the window on the address of `target`, or when it is open bring it to the front. "Open dashboard"
+    /// and "All alerts in dashboard…" ([`Target::Dashboard`]) leave an open window as it is; a session row, "+N more" and
+    /// a popup ([`Target::Live`]) navigate it to the Live view first (the page reloads and reads the address once, T095).
+    /// Runs on the main thread: the menu event does, a popup click is sent there (`run_on_main_thread`). With the window
+    /// still loading its first page the navigation lands on the wanted address; there is never a second window.
+    fn show_dashboard(handle: &AppHandle, port: u16, token: &str, target: &Target) {
         if let Some(window) = handle.get_webview_window("main") {
+            if *target != Target::Dashboard {
+                match url_of(port, token, target) {
+                    Ok(url) => {
+                        let _ = window.navigate(url);
+                    }
+                    Err(failure) => eprintln!("easy-personal-rs: {}", failure.1),
+                }
+            }
             let _ = window.unminimize();
             let _ = window.show();
             let _ = window.set_focus();
-        } else if let Err(failure) = open_window(handle, port, token) {
+        } else if let Err(failure) = open_window(handle, port, token, target) {
             eprintln!("easy-personal-rs: {}", failure.1);
         }
     }
@@ -444,7 +485,11 @@ mod shell {
     /// The tray's event loop: the icon and the menu, refreshed every [`TRAY_TICK`]; a closed dashboard window does not
     /// end it, Quit or a signal does. The icon is always made: without a StatusNotifier host now, one line says so, and
     /// the tray library registers the icon when a host appears later (an extension turned on after login).
-    fn tray_loop(running: &Running, signalled: &Arc<AtomicBool>) -> Result<i32, Failure> {
+    fn tray_loop(
+        running: &Running,
+        signalled: &Arc<AtomicBool>,
+        clicked: Receiver<Option<String>>,
+    ) -> Result<i32, Failure> {
         let started = Arc::new(AtomicBool::new(false));
         watch_startup(&started);
         let app = build_app()?;
@@ -469,17 +514,26 @@ mod shell {
             running.token.clone(),
             Arc::clone(&inputs.alerts),
         );
+        watch_clicks(clicked, app.handle().clone(), port, token.clone());
         let shown = TrayIconBuilder::with_id(TRAY_ID)
             .temp_dir_path(&icons)
             .icon(icon(theme, view.state))
             .menu(&menu)
-            .on_menu_event(move |handle, event| match event.id().as_ref() {
-                tray::OPEN | tray::ALERTS | tray::WAITING | tray::FAILING => {
-                    show_dashboard(handle, port, &token)
+            .on_menu_event(move |handle, event| {
+                let id = event.id().as_ref();
+                if let Some(session) = tray::session_of(id) {
+                    let target = Target::Live(Some(session.to_string()));
+                    return show_dashboard(handle, port, &token, &target);
                 }
-                tray::PAUSE => shared.set_paused(!shared.paused()),
-                tray::QUIT => handle.exit(0),
-                _ => {}
+                match id {
+                    tray::OPEN | tray::ALERTS => {
+                        show_dashboard(handle, port, &token, &Target::Dashboard)
+                    }
+                    tray::MORE => show_dashboard(handle, port, &token, &Target::Live(None)),
+                    tray::PAUSE => shared.set_paused(!shared.paused()),
+                    tray::QUIT => handle.exit(0),
+                    _ => {}
+                }
             })
             .build(&app)
             .map_err(|e| Failure(1, format!("cannot make the tray icon: {e}")))?;
@@ -499,6 +553,28 @@ mod shell {
                 api.prevent_exit();
             }
         }))
+    }
+
+    /// A click on a popup (`alerts::DBusNotifier`) opens the Live view, with its session when it has one. The click arrives
+    /// on the notifier's thread and the window work runs on the main thread (`run_on_main_thread`). Ends when the notifier
+    /// is gone or the event loop is.
+    fn watch_clicks(
+        clicked: Receiver<Option<String>>,
+        handle: AppHandle,
+        port: u16,
+        token: String,
+    ) {
+        thread::spawn(move || {
+            while let Ok(session) = clicked.recv() {
+                let (window, token) = (handle.clone(), token.clone());
+                let shown = handle.run_on_main_thread(move || {
+                    show_dashboard(&window, port, &token, &Target::Live(session));
+                });
+                if shown.is_err() {
+                    return;
+                }
+            }
+        });
     }
 
     /// Every [`TRAY_TICK`]: a new view. The icon is set only when the state changed. When the rows keep their places
@@ -530,9 +606,10 @@ mod shell {
                             continue;
                         }
                         let done = match (new, item) {
-                            (Row::Info(text) | Row::Action(_, text), Item::Plain(i)) => {
-                                i.set_text(text)
-                            }
+                            (
+                                Row::Info(text) | Row::Action(_, text) | Row::Session(_, text),
+                                Item::Plain(i),
+                            ) => i.set_text(text),
                             (Row::Check(_, text, checked), Item::Check(i)) => {
                                 i.set_text(text).and_then(|()| i.set_checked(*checked))
                             }
@@ -639,6 +716,22 @@ mod tests {
             "http://127.0.0.1:41234#only-a-fragment",
         ] {
             assert!(navigation_allowed(url, PORT), "{url}");
+        }
+    }
+
+    /// T096 AC 9: the three shapes of the address a click opens are inside the origin, and nothing else changed.
+    #[test]
+    fn the_address_of_a_click_is_allowed() {
+        use crate::tray::{Target, address};
+        for target in [
+            Target::Dashboard,
+            Target::Live(None),
+            Target::Live(Some("0123abcd-4567".into())),
+            Target::Live(Some("<script>".into())),
+        ] {
+            let url = address(PORT, "TOK", &target);
+            assert!(navigation_allowed(&url, PORT), "{url}");
+            assert!(!navigation_allowed(&url, PORT + 1), "{url}");
         }
     }
 

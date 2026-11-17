@@ -1200,7 +1200,7 @@ async fn paused_through_the_route_stops_the_popup_but_the_list_still_has_the_ale
     use crate::alerts::{Engine, Notifier};
     struct Count(Arc<AtomicUsize>);
     impl Notifier for Count {
-        fn notify(&mut self, _: &str, _: &str) {
+        fn notify(&mut self, _: &str, _: &str, _: Option<&str>) {
             self.0.fetch_add(1, Ordering::SeqCst);
         }
     }

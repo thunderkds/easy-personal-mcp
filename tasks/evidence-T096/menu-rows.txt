@@ -1,0 +1,21 @@
+ 35 item off 'Easy Personal · problem'
+ 36 sep on  None
+ 37 item off '4 sessions active'
+ 38 item on  'failing · api · deadbeef'
+ 39 item on  'your turn · docs · 89abcdef'
+ 40 item on  'plan to approve · blog · 4567ef01'
+ 41 item on  'question · shop · 0123abcd'
+ 42 item off '5h limit · no data · 7d · no data'
+ 43 item off 'CPU 7 % · RAM 37 % · disk 3 %'
+ 44 sep on  None
+ 45 item off 'Recent alerts'
+ 46 item off '09:58 · Your turn, project docs, session 89abcdef'
+ 47 item off '09:57 · Waiting for you, AskUserQuestion, project shop, session 012…'
+ 48 item off '09:57 · Waiting for you, ExitPlanMode, project blog, session 4567ef…'
+ 49 item off '09:57 · Failing, Bash, project api, session deadbeef'
+ 50 sep on  None
+ 51 item on  'Open dashboard'
+ 52 item on  'Pause alerts'
+ 53 sep on  None
+ 54 item off '127.0.0.1 · local only'
+ 55 item on  'Quit'

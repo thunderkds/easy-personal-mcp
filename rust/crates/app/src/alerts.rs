@@ -1,6 +1,8 @@
 //! Watch 3 (T074, FR-097): the alert engine. Every [`TICK`] one thread (a [`Sampler`], `sampler.rs`; the first look is the first tick, never part of the start) reads the live tail's
 //! snapshot, the newest machine sample and the newest plan-limit round, and raises an *alert* once per state change:
-//! a session *waiting for you* or *failing* (re-armed when the session leaves the state), a plan limit at or above 90 %
+//! a session *waiting for you* or *failing* (re-armed when the session leaves the state), a session at *your turn* (T096:
+//! only once the state held [`YOUR_TURN_HOLD`] on the monotonic clock, counted from the first look that saw it; re-armed
+//! when the session leaves the state), a plan limit at or above 90 %
 //! per account and window, disk or RAM at or above 90 % used (each re-armed below 85 %), a battery at or below 15 % and
 //! not charging (re-armed at 20 % or more, or charging). A measure with no data changes nothing.
 //!
@@ -14,14 +16,13 @@
 //! an output, and every free piece passes the secret check of the core (`ingest::secret::is_secret`). The real notifier
 //! calls `org.freedesktop.Notifications.Notify` on the session D-Bus (NFR-001) and fails soft.
 
-use crate::keychain::off_runtime;
 use crate::sampler::{History, Sampler};
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::ingest::secret::is_secret;
 use easy_personal_core::limits_watch::Round;
 use easy_personal_core::machine::Sample;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
@@ -32,6 +33,8 @@ pub(crate) const KEEP: usize = 50;
 const TICK: Duration = Duration::from_secs(5);
 /// The least time between two popups.
 const POPUP_GAP: Duration = Duration::from_secs(10);
+/// A session in the state *your turn* raises its alert only after this long (T096): an owner who answers at once sees no popup.
+const YOUR_TURN_HOLD: Duration = Duration::from_secs(60);
 /// A measure at or above this percent raises an alert.
 pub(crate) const HIGH: f64 = 90.0;
 /// A measure below this percent re-arms it.
@@ -48,12 +51,15 @@ const PIECE_MAX: usize = 64;
 pub(crate) struct Alert {
     /// Seconds since the epoch (UTC).
     pub t: i64,
-    /// `session_waiting`, `session_failing`, `plan_limit`, `disk`, `ram` or `battery`.
+    /// `session_waiting`, `session_failing`, `session_your_turn`, `plan_limit`, `disk`, `ram` or `battery`.
     pub kind: &'static str,
     pub text: String,
     pub account: Option<i64>,
     /// The short session id.
     pub session: Option<String>,
+    /// The full session id a click on this alert's popup opens (T096). Kept in memory for the popup only: never in
+    /// [`Alert::json`], a row or a log.
+    pub open: Option<String>,
 }
 
 impl Alert {
@@ -103,9 +109,10 @@ impl Shared {
     }
 }
 
-/// Shows a desktop popup. It never fails the caller.
+/// Shows a desktop popup. It never fails the caller. `open` is the session a click on the popup opens: the full id of
+/// the one session a popup for a single alert is about, `None` for a popup that sums several alerts or names no session.
 pub(crate) trait Notifier: Send {
-    fn notify(&mut self, summary: &str, body: &str);
+    fn notify(&mut self, summary: &str, body: &str, open: Option<&str>);
 }
 
 /// The engine's state: which alerts are tripped (so they raise once), and the popups that wait.
@@ -116,6 +123,9 @@ pub(crate) struct Engine {
     tripped: HashSet<String>,
     /// The (session id, state) pairs seen on the last tick.
     sessions_on: HashSet<(String, &'static str)>,
+    /// The sessions in the state *your turn* on the last tick: when the first look saw it (monotonic) and whether its
+    /// alert was raised. A session that leaves the state is dropped, so its timer starts again.
+    turns: HashMap<String, (Instant, bool)>,
     waiting: Vec<Alert>,
     last_popup: Option<Instant>,
 }
@@ -169,7 +179,7 @@ fn safe(text: &str) -> Option<String> {
 }
 
 /// The first [`SHORT_ID`] characters of a session id that is a safe label; `None` otherwise.
-fn short_id(id: &str) -> Option<String> {
+pub(crate) fn short_id(id: &str) -> Option<String> {
     safe(id).map(|s| s.chars().take(SHORT_ID).collect())
 }
 
@@ -184,6 +194,7 @@ impl Engine {
             notifier,
             tripped: HashSet::new(),
             sessions_on: HashSet::new(),
+            turns: HashMap::new(),
             waiting: Vec::new(),
             last_popup: None,
         }
@@ -201,7 +212,7 @@ impl Engine {
     ) {
         let mut raised = Vec::new();
         if let Some(live) = live {
-            self.sessions(now, live, &mut raised);
+            self.sessions(now, at, live, &mut raised);
         }
         if let Some(sample) = machine {
             self.machine(now, sample, &mut raised);
@@ -224,14 +235,19 @@ impl Engine {
                 .is_none_or(|last| at.saturating_duration_since(last) >= POPUP_GAP)
         {
             let (summary, body) = popup(&self.waiting);
+            let open = match self.waiting.as_slice() {
+                [one] => one.open.clone(),
+                _ => None,
+            };
             self.waiting.clear();
             self.last_popup = Some(at);
-            self.notifier.notify(summary, &body);
+            self.notifier.notify(summary, &body, open.as_deref());
         }
     }
 
-    fn sessions(&mut self, now: i64, live: &Value, raised: &mut Vec<Alert>) {
+    fn sessions(&mut self, now: i64, at: Instant, live: &Value, raised: &mut Vec<Alert>) {
         let mut on = HashSet::new();
+        let mut turns = HashMap::new();
         let mut found = Vec::new();
         for s in live["sessions"].as_array().into_iter().flatten() {
             // the full id keys the state; only a safe short form is ever shown
@@ -244,6 +260,31 @@ impl Engine {
                 let (state, kind, head) = match a["state"].as_str() {
                     Some("waiting") => ("waiting", "session_waiting", "Waiting for you"),
                     Some("failing") => ("failing", "session_failing", "Failing"),
+                    Some("your_turn") => {
+                        // told once the state held YOUR_TURN_HOLD on the monotonic clock, counted from the first look
+                        // that saw it (never from the record time of the state)
+                        let (first, mut told) = turns
+                            .get(full)
+                            .or_else(|| self.turns.get(full))
+                            .copied()
+                            .unwrap_or((at, false));
+                        if !told && at.saturating_duration_since(first) >= YOUR_TURN_HOLD {
+                            told = true;
+                            let mut parts = vec!["Your turn".to_string()];
+                            parts.extend(project.as_ref().map(|p| format!("project {p}")));
+                            parts.extend(id.as_ref().map(|id| format!("session {id}")));
+                            found.push(Alert {
+                                t: now,
+                                kind: "session_your_turn",
+                                text: parts.join(", "),
+                                account: None,
+                                session: id.clone(),
+                                open: Some(full.to_string()),
+                            });
+                        }
+                        turns.insert(full.to_string(), (first, told));
+                        continue;
+                    }
                     _ => continue,
                 };
                 let key = (full.to_string(), state);
@@ -258,12 +299,14 @@ impl Engine {
                         text: parts.join(", "),
                         account: None,
                         session: id.clone(),
+                        open: Some(full.to_string()),
                     });
                 }
                 on.insert(key);
             }
         }
         self.sessions_on = on;
+        self.turns = turns;
         raised.extend(found);
     }
 
@@ -275,6 +318,7 @@ impl Engine {
                 text,
                 account: None,
                 session: None,
+                open: None,
             });
         };
         for (kind, label, value) in [
@@ -317,6 +361,7 @@ impl Engine {
                         text: format!("Plan limit {label} at {v:.0} % (account {})", row.id),
                         account: Some(row.id),
                         session: None,
+                        open: None,
                     });
                 }
             }
@@ -335,8 +380,9 @@ fn popup(waiting: &[Alert]) -> (&'static str, String) {
         let group = match a.kind {
             "session_waiting" => 0,
             "session_failing" => 1,
-            "plan_limit" => 2,
-            _ => 3,
+            "session_your_turn" => 2,
+            "plan_limit" => 3,
+            _ => 4,
         };
         *counts.entry(group).or_default() += 1;
     }
@@ -345,19 +391,31 @@ fn popup(waiting: &[Alert]) -> (&'static str, String) {
         .map(|(group, n)| match group {
             0 => format!("{} waiting", plural(n, "session", "sessions")),
             1 => format!("{} failing", plural(n, "session", "sessions")),
-            2 => plural(n, "plan limit alert", "plan limit alerts"),
+            2 => format!("{} for your turn", plural(n, "session", "sessions")),
+            3 => plural(n, "plan limit alert", "plan limit alerts"),
             _ => plural(n, "machine alert", "machine alerts"),
         })
         .collect();
     (TITLE, parts.join(", "))
 }
 
+/// Where a click on a popup goes: the session to open, or `None` for the Live view alone.
+pub(crate) type Clicks = std::sync::mpsc::Sender<Option<String>>;
+
 /// The real notifier: `org.freedesktop.Notifications.Notify` on the session D-Bus. A failure (no session bus, no
 /// notification service, a service that does not answer) costs one log line, the first time; later ones are silent.
+///
+/// The calls are made by one thread of its own (`easy-personal-notify`, started by the first popup), which keeps one
+/// connection: a service sends `ActionInvoked` to the process that called `Notify`, so a connection dropped after each
+/// call could never hear a click. With [`DBusNotifier::with_clicks`] and a service that lists the capability `actions`,
+/// each popup carries one default action (`["default", "Open"]`) and a click on a popup this process sent is passed to
+/// `clicks`. Without clicks (`serve`, `app`) no action is offered and no signal is listened for.
 pub(crate) struct DBusNotifier {
     warned: bool,
-    /// A bus address to use instead of the session bus (a test points it at a socket that is not there).
+    /// A bus address to use instead of the session bus (a test points it at a private bus or at a socket that is not there).
     address: Option<String>,
+    clicks: Option<Clicks>,
+    worker: Option<tokio::sync::mpsc::UnboundedSender<Command>>,
 }
 
 impl DBusNotifier {
@@ -365,7 +423,16 @@ impl DBusNotifier {
         DBusNotifier {
             warned: false,
             address: None,
+            clicks: None,
+            worker: None,
         }
+    }
+
+    /// The `tray` command's notifier: a click on a popup is sent to `clicks`.
+    #[cfg_attr(not(feature = "window"), allow(dead_code))]
+    pub(crate) fn with_clicks(mut self, clicks: Clicks) -> DBusNotifier {
+        self.clicks = Some(clicks);
+        self
     }
 }
 
@@ -385,15 +452,15 @@ type NotifyArgs<'a> = (
 );
 
 /// The `Notify` call's arguments. The app icon is the theme name the package installs; the `desktop-entry` hint lets the
-/// shell tie the popup to `easy-personal.desktop`.
-fn notify_args<'a>(summary: &'a str, body: &'a str) -> NotifyArgs<'a> {
+/// shell tie the popup to `easy-personal.desktop`. `actions` is `["default", "Open"]` when clicks are heard, else empty.
+fn notify_args<'a>(summary: &'a str, body: &'a str, actions: Vec<&'a str>) -> NotifyArgs<'a> {
     (
         "easy-personal",
         0,
         "easy-personal",
         summary,
         body,
-        Vec::new(),
+        actions,
         std::collections::HashMap::from([(
             "desktop-entry",
             zbus::zvariant::Value::from("easy-personal"),
@@ -402,41 +469,268 @@ fn notify_args<'a>(summary: &'a str, body: &'a str) -> NotifyArgs<'a> {
     )
 }
 
-fn send(address: Option<&str>, summary: &str, body: &str) -> Result<(), String> {
-    off_runtime(|| {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
+const SERVICE: &str = "org.freedesktop.Notifications";
+const OBJECT: &str = "/org/freedesktop/Notifications";
+
+/// One popup for the notifier thread, and where it answers.
+struct Command {
+    summary: String,
+    body: String,
+    open: Option<String>,
+    reply: std::sync::mpsc::SyncSender<Result<(), String>>,
+}
+
+/// The popups this process sent, the last [`KEEP`]: (notification id, the service's bus name, the session its click
+/// opens). The bus name is the service that answered `Notify`: a signal from any other sender is not a click.
+#[derive(Default)]
+struct Sent(VecDeque<(u32, String, Option<String>)>);
+
+impl Sent {
+    fn add(&mut self, id: u32, from: &str, open: Option<String>) {
+        self.0.retain(|(i, f, _)| !(*i == id && f == from)); // an id the service reuses
+        if self.0.len() == KEEP {
+            self.0.pop_front();
+        }
+        self.0.push_back((id, from.to_string(), open));
+    }
+
+    /// For `ActionInvoked(id, key)` from `from`: `Some(session to open)` when it is the default action of a popup this
+    /// process sent; `None` for another key, another id or another sender.
+    fn clicked(&self, id: u32, from: &str, key: &str) -> Option<Option<String>> {
+        if key != "default" {
+            return None;
+        }
+        self.0
+            .iter()
+            .find(|(i, f, _)| *i == id && f == from)
+            .map(|(_, _, open)| open.clone())
+    }
+
+    /// `NotificationClosed(id)`: the popup is gone, so is what is kept of it.
+    fn closed(&mut self, id: u32, from: &str) {
+        self.0.retain(|(i, f, _)| !(*i == id && f == from));
+    }
+}
+
+/// An open connection to the service, and the signals it sends (`None` when no action is offered).
+struct Link {
+    connection: zbus::Connection,
+    signals: Option<zbus::MessageStream>,
+}
+
+async fn connect(address: Option<&str>, listen: bool) -> Result<Link, String> {
+    let connection = match address {
+        Some(address) => zbus::connection::Builder::address(address)
+            .map_err(|_| "no session bus")?
             .build()
-            .map_err(|_| "no runtime".to_string())?;
-        runtime.block_on(async {
-            let call = async {
-                let connection = match address {
-                    Some(address) => zbus::connection::Builder::address(address)?.build().await?,
-                    None => zbus::Connection::session().await?,
-                };
-                connection
-                    .call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "Notify",
-                        &notify_args(summary, body),
-                    )
+            .await
+            .map_err(|_| "no session bus")?,
+        None => zbus::Connection::session()
+            .await
+            .map_err(|_| "no session bus")?,
+    };
+    let mut signals = None;
+    if listen {
+        let capabilities = connection
+            .call_method(Some(SERVICE), OBJECT, Some(SERVICE), "GetCapabilities", &())
+            .await
+            .ok()
+            .and_then(|reply| reply.body().deserialize::<Vec<String>>().ok())
+            .unwrap_or_default();
+        if capabilities.iter().any(|c| c == "actions") {
+            let rule = zbus::MatchRule::builder()
+                .msg_type(zbus::message::Type::Signal)
+                .interface(SERVICE)
+                .and_then(|b| b.path(OBJECT))
+                .map(|b| b.build());
+            if let Ok(rule) = rule {
+                signals = zbus::MessageStream::for_match_rule(rule, &connection, None)
                     .await
-                    .map(|_| ())
-            };
-            match tokio::time::timeout(NOTIFY_WAIT, call).await {
-                Ok(Ok(())) => Ok(()),
-                Ok(Err(_)) => Err("the notification service did not take it".to_string()),
-                Err(_) => Err("the notification service did not answer".to_string()),
+                    .ok();
             }
-        })
+        }
+    }
+    Ok(Link {
+        connection,
+        signals,
     })
 }
 
+/// `Notify` on `link` (made first when there is none), with the default action when the link listens for clicks.
+async fn deliver(
+    address: Option<&str>,
+    listen: bool,
+    link: &mut Option<Link>,
+    sent: &mut Sent,
+    command: &Command,
+) -> Result<(), String> {
+    if link.is_none() {
+        *link = Some(connect(address, listen).await?);
+    }
+    let Some(open) = link.as_ref() else {
+        return Err("no session bus".into());
+    };
+    let actions: Vec<&str> = if open.signals.is_some() {
+        vec!["default", "Open"]
+    } else {
+        Vec::new()
+    };
+    let reply = open
+        .connection
+        .call_method(
+            Some(SERVICE),
+            OBJECT,
+            Some(SERVICE),
+            "Notify",
+            &notify_args(command.summary.as_str(), command.body.as_str(), actions),
+        )
+        .await;
+    match reply {
+        Ok(reply) => {
+            if open.signals.is_some()
+                && let Ok(id) = reply.body().deserialize::<u32>()
+            {
+                let from = reply.header().sender().map(|s| s.to_string());
+                sent.add(id, from.as_deref().unwrap_or(""), command.open.clone());
+            }
+            Ok(())
+        }
+        Err(_) => {
+            *link = None; // the service went away: the next popup connects again
+            Err("the notification service did not take it".into())
+        }
+    }
+}
+
+/// The next signal of the link; never ready when there is none to listen to. `None` when the connection ended.
+async fn heard(link: &mut Option<Link>) -> Option<zbus::Message> {
+    use zbus::export::futures_util::StreamExt;
+    match link.as_mut().and_then(|l| l.signals.as_mut()) {
+        None => std::future::pending().await,
+        Some(signals) => loop {
+            match signals.next().await {
+                Some(Ok(message)) => return Some(message),
+                Some(Err(_)) => {}
+                None => return None,
+            }
+        },
+    }
+}
+
+/// A click: `ActionInvoked(id, "default")` for a popup this process sent goes to `clicks`; `NotificationClosed` forgets it.
+fn on_signal(message: &zbus::Message, sent: &mut Sent, clicks: &Clicks) {
+    let header = message.header();
+    let from = header.sender().map(|s| s.to_string()).unwrap_or_default();
+    match header.member().map(|m| m.as_str()) {
+        Some("ActionInvoked") => {
+            if let Ok((id, key)) = message.body().deserialize::<(u32, String)>()
+                && let Some(open) = sent.clicked(id, &from, &key)
+            {
+                let _ = clicks.send(open);
+            }
+        }
+        Some("NotificationClosed") => {
+            if let Ok((id, _reason)) = message.body().deserialize::<(u32, u32)>() {
+                sent.closed(id, &from);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The notifier thread: one connection, the popups it is given one at a time (each bounded by [`NOTIFY_WAIT`]), and the
+/// clicks it hears between them. Ends when the notifier is dropped.
+fn work(
+    address: Option<String>,
+    clicks: Option<Clicks>,
+    mut commands: tokio::sync::mpsc::UnboundedReceiver<Command>,
+) {
+    let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return; // the commands are dropped: each popup is told "no answer"
+    };
+    runtime.block_on(async {
+        let (mut link, mut sent) = (None, Sent::default());
+        loop {
+            // the futures end with this statement, so the arms below may use `link` again
+            let event = tokio::select! {
+                command = commands.recv() => Event::Popup(command),
+                message = heard(&mut link) => Event::Signal(message),
+            };
+            match event {
+                Event::Popup(None) => return,
+                Event::Popup(Some(command)) => {
+                    let call = deliver(
+                        address.as_deref(),
+                        clicks.is_some(),
+                        &mut link,
+                        &mut sent,
+                        &command,
+                    );
+                    let result = match tokio::time::timeout(NOTIFY_WAIT, call).await {
+                        Ok(result) => result,
+                        Err(_) => {
+                            link = None;
+                            Err("the notification service did not answer".to_string())
+                        }
+                    };
+                    let _ = command.reply.send(result);
+                }
+                Event::Signal(Some(message)) => {
+                    if let Some(clicks) = &clicks {
+                        on_signal(&message, &mut sent, clicks);
+                    }
+                }
+                Event::Signal(None) => link = None, // the connection ended: connect again at the next popup
+            }
+        }
+    });
+}
+
+enum Event {
+    Popup(Option<Command>),
+    Signal(Option<zbus::Message>),
+}
+
+impl DBusNotifier {
+    /// Hands the popup to the notifier thread (started here, the first time) and waits for its answer.
+    fn send(&mut self, summary: &str, body: &str, open: Option<&str>) -> Result<(), String> {
+        let worker = match &self.worker {
+            Some(worker) => worker.clone(),
+            None => {
+                let (worker, commands) = tokio::sync::mpsc::unbounded_channel();
+                let (address, clicks) = (self.address.clone(), self.clicks.clone());
+                std::thread::Builder::new()
+                    .name("easy-personal-notify".into())
+                    .spawn(move || work(address, clicks, commands))
+                    .map_err(|_| "no notifier thread".to_string())?;
+                self.worker = Some(worker.clone());
+                worker
+            }
+        };
+        let (reply, answer) = std::sync::mpsc::sync_channel(1);
+        let command = Command {
+            summary: summary.to_string(),
+            body: body.to_string(),
+            open: open.map(str::to_string),
+            reply,
+        };
+        if worker.send(command).is_err() {
+            self.worker = None; // the thread ended: the next popup starts another
+            return Err("no notifier thread".into());
+        }
+        match answer.recv_timeout(NOTIFY_WAIT + Duration::from_secs(1)) {
+            Ok(result) => result,
+            Err(_) => Err("the notification service did not answer".into()),
+        }
+    }
+}
+
 impl Notifier for DBusNotifier {
-    fn notify(&mut self, summary: &str, body: &str) {
-        if let Err(why) = send(self.address.as_deref(), summary, body)
+    fn notify(&mut self, summary: &str, body: &str, open: Option<&str>) {
+        if let Err(why) = self.send(summary, body, open)
             && !self.warned
         {
             self.warned = true;
@@ -511,12 +805,17 @@ mod tests {
 
     const T0: i64 = 1_800_000_000;
 
-    /// Records every popup; never touches D-Bus.
+    /// Records every popup (summary, body, the session a click opens); never touches D-Bus.
     #[derive(Clone, Default)]
-    struct Fake(Arc<Mutex<Vec<(String, String)>>>);
+    struct Fake(Arc<Mutex<Vec<Popup>>>);
+    /// (summary, body, the session a click opens)
+    type Popup = (String, String, Option<String>);
     impl Notifier for Fake {
-        fn notify(&mut self, summary: &str, body: &str) {
-            self.0.lock().unwrap().push((summary.into(), body.into()));
+        fn notify(&mut self, summary: &str, body: &str, open: Option<&str>) {
+            self.0
+                .lock()
+                .unwrap()
+                .push((summary.into(), body.into(), open.map(str::to_string)));
         }
     }
     impl Fake {
@@ -525,7 +824,15 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
-                .map(|(_, b)| b.clone())
+                .map(|(_, b, _)| b.clone())
+                .collect()
+        }
+        fn opens(&self) -> Vec<Option<String>> {
+            self.0
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(_, _, o)| o.clone())
                 .collect()
         }
     }
@@ -826,6 +1133,183 @@ mod tests {
         assert_eq!(rig.count(), 3);
     }
 
+    // -- T096: the your-turn alert ------------------------------------------------------------------------------------
+
+    const TURN_ID: &str = "0123456789abcdef";
+    fn turn(id: &str) -> Value {
+        json!({ "session_id": id, "project": "shop", "account": 1,
+                "attention": [{ "state": "your_turn", "tool": null, "count": 1, "is_sidechain": false, "since": "x" }] })
+    }
+    fn turns(ids: &[&str]) -> Value {
+        live(Value::Array(ids.iter().map(|i| turn(i)).collect()))
+    }
+    fn kinds_of(rig: &Rig, kind: &str) -> usize {
+        rig.kinds().iter().filter(|k| **k == kind).count()
+    }
+
+    /// T096 AC 4: one `session_your_turn` per stay, once the state held 60 s from the first look that saw it; none at 59 s.
+    #[test]
+    fn your_turn_alerts_once_after_sixty_seconds() {
+        let mut rig = Rig::new();
+        let on = turns(&[TURN_ID]);
+        rig.look(1, Some(&on), None, None); // first seen
+        rig.look(58, Some(&on), None, None); // 58 s held
+        rig.look(1, Some(&on), None, None); // 59 s
+        assert_eq!(rig.count(), 0, "59 s: nothing");
+        assert!(rig.fake.bodies().is_empty());
+        rig.look(1, Some(&on), None, None); // 60 s
+        assert_eq!(rig.kinds(), ["session_your_turn"]);
+        assert_eq!(
+            rig.shared.json()["alerts"][0]["text"],
+            "Your turn, project shop, session 01234567"
+        );
+        assert_eq!(rig.shared.json()["alerts"][0]["session"], "01234567");
+        assert_eq!(
+            rig.fake.bodies(),
+            ["Your turn, project shop, session 01234567"]
+        );
+        assert_eq!(rig.fake.opens(), [Some(TURN_ID.to_string())]);
+        rig.look(5, Some(&on), None, None);
+        rig.look(600, Some(&on), None, None);
+        assert_eq!(rig.count(), 1, "still in the state: no second");
+        // leaves and returns: one more, after another 60 s
+        rig.look(5, Some(&live(json!([]))), None, None);
+        rig.look(5, Some(&on), None, None);
+        rig.look(59, Some(&on), None, None);
+        assert_eq!(rig.count(), 1, "back for 59 s: nothing yet");
+        rig.look(1, Some(&on), None, None);
+        assert_eq!(rig.count(), 2, "back for 60 s: one more");
+        assert_eq!(kinds_of(&rig, "session_your_turn"), 2);
+    }
+
+    /// T096 AC 4: a session that leaves the state at 30 s raises nothing then or later: its timer is cleared.
+    #[test]
+    fn a_state_that_ends_before_sixty_seconds_raises_nothing() {
+        let mut rig = Rig::new();
+        rig.look(1, Some(&turns(&[TURN_ID])), None, None);
+        rig.look(29, Some(&turns(&[TURN_ID])), None, None);
+        rig.look(1, Some(&live(json!([]))), None, None); // left at 30 s
+        rig.look(120, Some(&live(json!([]))), None, None);
+        assert_eq!(rig.count(), 0);
+        // it comes back: the clock starts again, not from the first stay
+        rig.look(1, Some(&turns(&[TURN_ID])), None, None);
+        rig.look(40, Some(&turns(&[TURN_ID])), None, None);
+        assert_eq!(rig.count(), 0, "40 s into the second stay");
+        rig.look(20, Some(&turns(&[TURN_ID])), None, None);
+        assert_eq!(rig.count(), 1, "60 s into the second stay");
+        assert!(rig.fake.bodies().len() == 1);
+    }
+
+    /// T096 AC 4: the 60 s is the engine's monotonic time: a wall clock that jumps (and the record time in `since`) fires
+    /// nothing early and delays nothing.
+    #[test]
+    fn a_wall_clock_jump_changes_nothing_about_the_sixty_seconds() {
+        let shared = Arc::new(Shared::default());
+        let fake = Fake::default();
+        let mut engine = Engine::new(Arc::clone(&shared), Box::new(fake.clone()));
+        let base = Instant::now();
+        let at = |s: u64| base + Duration::from_secs(s);
+        let mut old = turns(&[TURN_ID]);
+        old["sessions"][0]["attention"][0]["since"] = json!("2001-01-01T00:00:00Z"); // an old idle session
+        engine.tick(T0, at(0), Some(&old), None, None);
+        engine.tick(T0 + 86_400 * 30, at(10), Some(&old), None, None); // a month ahead after 10 s
+        engine.tick(T0 - 86_400, at(59), Some(&old), None, None); // a day back at 59 s
+        assert!(fake.bodies().is_empty(), "no early alert");
+        assert_eq!(shared.recent(5).len(), 0);
+        engine.tick(T0 - 86_400 * 400, at(60), Some(&old), None, None); // a year back at 60 s
+        assert_eq!(fake.bodies().len(), 1, "no late alert");
+        assert_eq!(shared.recent(5).len(), 1);
+    }
+
+    /// T096 AC 4, edge: paused still tracks the 60 s (the alert is listed, no popup), so un-pausing raises no burst.
+    #[test]
+    fn paused_tracks_the_sixty_seconds_and_unpausing_shows_nothing() {
+        let mut rig = Rig::new();
+        rig.shared.set_paused(true);
+        let on = turns(&[TURN_ID]);
+        rig.look(1, Some(&on), None, None);
+        rig.look(60, Some(&on), None, None);
+        assert_eq!(rig.kinds(), ["session_your_turn"], "listed while paused");
+        rig.shared.set_paused(false);
+        rig.look(60, Some(&on), None, None);
+        assert!(rig.fake.bodies().is_empty(), "no popup after un-pausing");
+        assert_eq!(rig.count(), 1);
+    }
+
+    /// T096 AC 5: 2 waiting, 1 your-turn and 1 failing in one gap: one popup, each group in fixed words.
+    #[test]
+    fn a_summed_popup_counts_your_turn_in_fixed_words() {
+        let mut rig = Rig::new();
+        rig.look(1, Some(&turns(&["aaaaaaaa"])), None, None); // first seen
+        let busy = live(json!([
+            turn("aaaaaaaa"),
+            session("bbbbbbbb", "p", "waiting", "AskUserQuestion"),
+            session("cccccccc", "p", "waiting", "ExitPlanMode"),
+            session("dddddddd", "p", "failing", "Bash"),
+        ]));
+        rig.look(60, Some(&busy), None, None); // held 60 s: your turn is due; the others are new
+        assert_eq!(rig.fake.bodies().len(), 1, "one popup for the gap");
+        assert_eq!(
+            rig.fake.bodies()[0],
+            "2 sessions waiting, 1 session failing, 1 session for your turn"
+        );
+        assert_eq!(rig.fake.opens(), [None], "a summed popup opens no session");
+        assert_eq!(rig.count(), 4);
+        let (_, body) = popup(&[alert("session_your_turn"), alert("session_your_turn")]);
+        assert_eq!(body, "2 sessions for your turn");
+    }
+
+    /// T096 AC 5: an app start with three sessions already in the state: nothing for 60 s, then one summed popup.
+    #[test]
+    fn an_app_start_with_several_your_turn_sessions_shows_one_popup_after_sixty_seconds() {
+        let mut rig = Rig::new();
+        let on = turns(&["aaaaaaaa", "bbbbbbbb", "cccccccc"]);
+        rig.look(1, Some(&on), None, None);
+        rig.look(30, Some(&on), None, None);
+        rig.look(29, Some(&on), None, None);
+        assert!(rig.fake.bodies().is_empty(), "59 s: nothing");
+        assert_eq!(rig.count(), 0);
+        rig.look(1, Some(&on), None, None);
+        assert_eq!(rig.fake.bodies(), ["3 sessions for your turn"]);
+        assert_eq!(rig.fake.opens(), [None]);
+        assert_eq!(rig.count(), 3, "each is listed");
+        rig.look(300, Some(&on), None, None);
+        assert_eq!(rig.fake.bodies().len(), 1);
+    }
+
+    /// T096 AC 6: a planted question, input and message on a your-turn session, and a project that holds markup: no
+    /// alert, list or popup holds the planted text; the project passes `clean`; the full session id is not listed.
+    #[test]
+    fn no_question_or_markup_reaches_a_your_turn_alert() {
+        let planted = "planted question: wire the invoice to my-iban-DE89370400440532013000";
+        let mut s = turn("deadbeef-1111-2222-3333-444455556666");
+        s["project"] = json!("a<b>&c\nd");
+        s["questions"] = json!([{ "question": planted, "header": planted }]);
+        s["attention"][0]["questions"] = json!([{ "question": planted }]);
+        s["attention"][0]["input"] = json!(planted);
+        let mut rig = Rig::new();
+        let on = live(json!([s]));
+        rig.look(1, Some(&on), None, None);
+        rig.look(60, Some(&on), None, None);
+        let everything = format!("{}\n{}", rig.fake.bodies().join("\n"), rig.shared.json());
+        for needle in ["planted", "my-iban", "DE8937", "invoice", "deadbeef-1111"] {
+            assert!(
+                !everything.contains(needle),
+                "{needle} leaked: {everything}"
+            );
+        }
+        assert!(
+            everything.contains("Your turn, project abcd, session deadbeef"),
+            "{everything}"
+        );
+        assert!(!everything.contains(['<', '>', '&']), "{everything}");
+        // the click gets the full id, from the engine's memory only
+        assert_eq!(
+            rig.fake.opens(),
+            [Some("deadbeef-1111-2222-3333-444455556666".to_string())]
+        );
+    }
+
     /// AC 3.
     #[test]
     fn no_secret_or_message_text_reaches_the_popup_or_the_list() {
@@ -956,6 +1440,7 @@ mod tests {
             text: "x".into(),
             account: None,
             session: None,
+            open: None,
         }
     }
 
@@ -1004,7 +1489,7 @@ mod tests {
     fn the_notify_call_names_the_app_icon_and_the_desktop_entry() {
         use zbus::zvariant::Value as Variant;
         let (app, replaces, icon, summary, body, actions, hints, expire) =
-            notify_args("Easy Personal", "Disk 95 % used");
+            notify_args("Easy Personal", "Disk 95 % used", Vec::new());
         assert_eq!(app, "easy-personal");
         assert_eq!(replaces, 0);
         assert_eq!(icon, "easy-personal");
@@ -1024,9 +1509,9 @@ mod tests {
         let mut n = DBusNotifier::new();
         n.address = Some("unix:path=/nonexistent-easy-personal-test/bus".into());
         assert!(!n.warned);
-        n.notify("Easy Personal", "one");
+        n.notify("Easy Personal", "one", None);
         assert!(n.warned, "the first failure is logged");
-        n.notify("Easy Personal", "two"); // no panic, no second line (nothing to assert on stderr; `warned` guards it)
+        n.notify("Easy Personal", "two", None); // no panic, no second line (nothing to assert on stderr; `warned` guards it)
         assert!(n.warned);
     }
 
@@ -1134,7 +1619,7 @@ mod tests {
         }
     }
 
-    fn hot_machine() -> History<Sample> {
+    pub(super) fn hot_machine() -> History<Sample> {
         let machine: History<Sample> =
             Arc::new(Mutex::new(easy_personal_core::machine::Ring::new(4)));
         machine.lock().unwrap().push(disk(97));
@@ -1170,7 +1655,7 @@ mod tests {
         use std::sync::mpsc;
         struct Hung(mpsc::Receiver<()>, Arc<AtomicBool>);
         impl Notifier for Hung {
-            fn notify(&mut self, _: &str, _: &str) {
+            fn notify(&mut self, _: &str, _: &str, _: Option<&str>) {
                 self.1.store(true, Ordering::SeqCst);
                 let _ = self.0.recv(); // returns when the sender is dropped
             }
@@ -1194,7 +1679,12 @@ mod tests {
         );
         wait_until(|| entered.load(Ordering::SeqCst)); // the popup is still sent, from the thread
         drop(release);
+        let stopping = Instant::now();
         thread.stop();
+        assert!(
+            stopping.elapsed() < Duration::from_secs(2),
+            "stop is bounded"
+        );
     }
 
     /// T084: `stop` right after the start, before the first tick, hangs on nothing and no popup goes out.
@@ -1265,3 +1755,7 @@ mod tests {
         shared.push(alert("ram")); // the lock was let go
     }
 }
+
+#[cfg(test)]
+#[path = "notify_tests.rs"]
+mod notify_tests;
