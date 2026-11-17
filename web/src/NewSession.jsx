@@ -7,7 +7,9 @@ import { startAppSession } from './api.js'
 export const MODELS = ['default', 'opus', 'sonnet', 'haiku']
 export const MODES = ['default', 'acceptEdits', 'auto', 'plan', 'dontAsk', 'bypassPermissions']
 export const BYPASS = 'bypassPermissions'
-const MAX_PROMPT = 100_000
+export const MAX_BYTES = 100_000 // the server's limit for a prompt or message: bytes of UTF-8, not characters
+export const SIZE_HINT = 'The size limit is 100,000 bytes (about 100 KB). English letters take 1 byte each, most other scripts 2 to 4.'
+export const byteLength = (text) => new TextEncoder().encode(text).length
 export const NOTE =
   "This starts Claude Code on this machine with this account's subscription. It can run tools and change files in this folder as your Claude Code settings allow, and it counts against the account's plan limits. Permission requests come to you in the session panel."
 export const BYPASS_NOTE = 'Bypass permissions runs every tool without asking you. No request will wait for your Allow, and nothing in this session can be refused from here except by Stop. It can change or delete files in this folder.'
@@ -51,7 +53,8 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
 
   const picked = repos[fields.repo]
   const account = accountOptions.find((o) => o.value === fields.account)
-  const ready = Boolean(picked) && Boolean(account) && fields.prompt.trim() !== '' && fields.prompt.length <= MAX_PROMPT
+  const ready = Boolean(picked) && Boolean(account) && fields.prompt.trim() !== '' && byteLength(fields.prompt) <= MAX_BYTES
+  const tooBig = byteLength(fields.prompt) > MAX_BYTES
   const start = async () => {
     if (open.current) return
     open.current = true
@@ -191,8 +194,14 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
         </label>
         <label className="field new-session-prompt" htmlFor={`${id}-prompt`}>
           First prompt
-          <textarea id={`${id}-prompt`} rows={4} maxLength={MAX_PROMPT} value={fields.prompt} onChange={set('prompt')} />
+          <textarea id={`${id}-prompt`} rows={4} value={fields.prompt} onChange={set('prompt')} />
         </label>
+        <p className="muted">{SIZE_HINT}</p>
+        {tooBig && (
+          <p role="alert" className="field-error">
+            Too long to start with. Shorten the prompt.
+          </p>
+        )}
         <div className="actions">
           <button type="submit" className="primary" disabled={!ready}>
             Review

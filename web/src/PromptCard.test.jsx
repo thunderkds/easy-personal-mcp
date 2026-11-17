@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import PromptCard, { APP_NO_DETAIL, APP_TOO_LONG, TOO_LONG, readPrompt } from './PromptCard.jsx'
+import PromptCard, { APP_NO_DETAIL, APP_TOO_LONG, PLAN_NO_DETAIL, PLAN_TOO_LONG, TOO_LONG, readPrompt } from './PromptCard.jsx'
 
 // The app session's card, as the server sends it (T103 fix round): a permission card carries `input` and `complete`.
 const toolCard = (over = {}) => ({ kind: 'prompt', prompt_id: 'p1', status: 'pending', type: 'tool', tool: 'Bash', input: 'rm -rf /tmp/x', complete: true, ...over })
@@ -11,7 +11,7 @@ const questionCard = (over = {}) => ({
   questions: [{ question: 'Which colour?', header: 'Colour', multiSelect: false, options: [{ label: 'Red', description: 'warm' }, { label: 'Blue', description: 'cold' }] }],
   ...over,
 })
-const planCard = (over = {}) => ({ kind: 'prompt', prompt_id: 'p3', status: 'pending', type: 'plan', tool: 'ExitPlanMode', plan: '1. do it\n2. test it', ...over })
+const planCard = (over = {}) => ({ kind: 'prompt', prompt_id: 'p3', status: 'pending', type: 'plan', tool: 'ExitPlanMode', plan: '1. do it\n2. test it', complete: true, ...over })
 // The bridge's `pending_answer` (T106): the shapes the Live view reads.
 const terminalPermission = (over = {}) => ({ id: 'a1', kind: 'permission', tool: 'Bash', input: 'ls -la', complete: true, ...over })
 const terminalQuestion = { id: 'a2', kind: 'question', questions: [{ question: 'Pick', header: 'H', multi_select: true, options: [{ label: 'One', description: '' }, { label: 'Two', description: '' }] }] }
@@ -40,7 +40,9 @@ describe('readPrompt: one internal shape for both sources', () => {
       questions: [{ question: 'Which colour?', header: 'Colour', multi: false, options: [{ label: 'Red', description: 'warm' }, { label: 'Blue', description: 'cold' }] }],
     })
     expect(readPrompt(terminalQuestion).questions[0].multi).toBe(true)
-    expect(readPrompt(planCard())).toEqual({ id: 'p3', kind: 'plan', plan: '1. do it\n2. test it' })
+    expect(readPrompt(planCard())).toEqual({ id: 'p3', kind: 'plan', plan: '1. do it\n2. test it', complete: true })
+    expect(readPrompt(planCard({ complete: undefined })).complete).toBe(false)
+    expect(readPrompt(planCard({ complete: 'true' })).complete).toBe(false)
   })
 
   it('gives null for anything it cannot draw: no id, an unknown type, a question without options', () => {
@@ -182,9 +184,28 @@ describe('plan card', () => {
     expect(screen.getByRole('region', { name: 'Plan from the session' })).toBeInTheDocument()
   })
 
-  it('a plan with no text says so and can still be decided', () => {
-    render(<PromptCard prompt={readPrompt(planCard({ plan: '' }))} onAnswer={() => {}} />)
+  it('a plan with no text says so; Approve is not offered (nothing to approve), Keep planning still is', () => {
+    const onAnswer = vi.fn()
+    render(<PromptCard prompt={readPrompt(planCard({ plan: '' }))} onAnswer={onAnswer} />)
     expect(screen.getByText('No plan text came with this request.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()
+    expect(screen.getByRole('note')).toHaveTextContent(PLAN_NO_DETAIL)
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Keep planning' }))
+    expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'deny' })
+  })
+
+  it('a plan cut at the server (no `complete`, or false) has no Approve and says why; Keep planning is the primary button', () => {
+    for (const complete of [undefined, false, 'true']) {
+      const { unmount } = render(<PromptCard prompt={readPrompt(planCard({ complete }))} onAnswer={() => {}} />)
+      expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+      expect(screen.getByRole('note')).toHaveTextContent(PLAN_TOO_LONG)
+      expect(screen.getByRole('button', { name: 'Keep planning' })).toHaveClass('primary')
+      unmount()
+    }
+  })
+
+  it('the card itself fails closed when it is handed a plan that is not complete', () => {
+    render(<PromptCard prompt={{ id: 'p3', kind: 'plan', plan: 'a plan' }} onAnswer={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
   })
 })

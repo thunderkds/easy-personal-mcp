@@ -15,6 +15,9 @@ export const TOO_LONG = 'Too long to show in full \u2014 answer in the terminal,
 // of the earlier T103 shape carries only a cut `summary` and no `complete`: it is shown, and counts as incomplete (no Allow).
 export const APP_TOO_LONG = 'Too long to show in full \u2014 deny it, or stop the session and start one in a mode that does not ask'
 export const APP_NO_DETAIL = 'The app shows no detail for this call \u2014 deny it, or stop the session and start one in a mode that does not ask'
+// A plan card is gated like a permission card: Approve only for a plan shown in full (`complete: true`, non-empty). Keep planning is always offered.
+export const PLAN_TOO_LONG = 'Too long to show in full \u2014 keep planning, or stop the session'
+export const PLAN_NO_DETAIL = 'No plan text came with this request \u2014 keep planning, or stop the session'
 
 const text = (v) => (typeof v === 'string' ? v : '')
 
@@ -29,7 +32,7 @@ function readQuestions(list, multiOf) {
 function readAppPrompt(raw) {
   if (typeof raw.prompt_id !== 'string' || raw.prompt_id === '') return null
   const id = raw.prompt_id
-  if (raw.type === 'plan') return { id, kind: 'plan', plan: text(raw.plan) }
+  if (raw.type === 'plan') return { id, kind: 'plan', plan: text(raw.plan), complete: raw.complete === true }
   if (raw.type === 'question') {
     const questions = readQuestions(raw.questions, (q) => q?.multiSelect === true)
     return questions ? { id, kind: 'question', questions } : null
@@ -41,7 +44,7 @@ function readAppPrompt(raw) {
 
 /**
  * The prompt of a `pending_answer` or of an app session's card, checked: `{id, kind: 'question', questions: [{question, header, multi,
- * options: [{label, description}]}]}`, `{id, kind: 'permission', tool, input, complete}` or `{id, kind: 'plan', plan}`. Anything else
+ * options: [{label, description}]}]}`, `{id, kind: 'permission', tool, input, complete}` or `{id, kind: 'plan', plan, complete}`. Anything else
  * gives null, and no card is drawn.
  */
 export function readPrompt(raw) {
@@ -55,6 +58,7 @@ export function readPrompt(raw) {
 }
 
 const canAllow = (prompt) => prompt.complete === true && typeof prompt.input === 'string' && prompt.input !== ''
+const canApprove = (prompt) => prompt.complete === true && typeof prompt.plan === 'string' && prompt.plan !== ''
 
 const EMPTY_CHOICE = { picked: [], otherOn: false, other: '' }
 const done = (c) => c.picked.length > 0 || (c.otherOn && c.other.trim() !== '')
@@ -137,6 +141,7 @@ export default function PromptCard({ prompt, busy = false, error = '', onAnswer,
     </button>
   )
   const allow = prompt.kind === 'permission' && canAllow(prompt)
+  const approve = prompt.kind === 'plan' && canApprove(prompt)
   const label = { question: `Question from ${where}`, permission: `Permission request from ${where}`, plan: `Plan from ${where}` }[prompt.kind]
   return (
     <section className="prompt-card" aria-label={label}>
@@ -180,12 +185,19 @@ export default function PromptCard({ prompt, busy = false, error = '', onAnswer,
         <>
           <p className="prompt-text">Claude has a plan and asks to leave plan mode</p>
           {prompt.plan ? <pre className="prompt-summary">{prompt.plan}</pre> : <p className="muted">No plan text came with this request.</p>}
+          {!approve && (
+            <p role="note" className="prompt-cut">
+              {prompt.plan ? PLAN_TOO_LONG : PLAN_NO_DETAIL}
+            </p>
+          )}
           {noteField('Note to Claude (sent with Keep planning)')}
           <div className="actions">
-            <button type="button" className="primary" disabled={busy} onClick={() => decide('allow')}>
-              Approve
-            </button>
-            <button type="button" disabled={busy} onClick={() => decide('deny')}>
+            {approve && (
+              <button type="button" className="primary" disabled={busy} onClick={() => decide('allow')}>
+                Approve
+              </button>
+            )}
+            <button type="button" className={approve ? undefined : 'primary'} disabled={busy} onClick={() => decide('deny')}>
               Keep planning
             </button>
           </div>

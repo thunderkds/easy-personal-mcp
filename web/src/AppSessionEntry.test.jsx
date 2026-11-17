@@ -41,6 +41,7 @@ beforeEach(() => {
   vi.stubGlobal('EventSource', FakeEventSource)
 })
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -96,6 +97,46 @@ describe('Live: Open in app', () => {
     expect(within(other).queryByRole('button', { name: 'Open in app' })).toBeNull()
     fireEvent.click(button)
     expect(onOpen).toHaveBeenCalledWith('a1')
+  })
+
+  it('a row whose app session got its Claude session id later gets Open in app on a later read (at most one read per 5 s)', async () => {
+    vi.useFakeTimers()
+    const server = appServer({ sessions: [appSession({ id: 'a1', session_id: null })] })
+    vi.stubGlobal('fetch', server)
+    render(<LiveView onOpenAppSession={() => {}} />)
+    stream().emit('snapshot', snapshot([row('abcdef1234567890')]))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    const reads = () => server.calls.filter((c) => c.path === '/api/app-sessions').length
+    const first = reads() // the empty list, then the snapshot's set of rows: one read each
+    expect(screen.queryByRole('button', { name: 'Open in app' })).toBeNull()
+    server.state.sessions = [appSession({ id: 'a1', session_id: 'abcdef1234567890' })]
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_900)
+    })
+    expect(reads()).toBe(first) // not before 5 s
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+    expect(reads()).toBe(first + 1)
+    expect(screen.getByRole('button', { name: 'Open in app' })).toBeInTheDocument()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(reads()).toBe(first + 1) // every live row is known: no more reads
+  })
+
+  it('a terminal row that is no app session costs at most one read per 5 s', async () => {
+    vi.useFakeTimers()
+    const server = appServer({ sessions: [] })
+    vi.stubGlobal('fetch', server)
+    render(<LiveView onOpenAppSession={() => {}} />)
+    stream().emit('snapshot', snapshot([row('99999999-terminal')]))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000)
+    })
+    expect(server.calls.filter((c) => c.path === '/api/app-sessions').length).toBeLessThanOrEqual(2 + 4) // the two reads of the row set changing, then one per 5 s
   })
 
   it('a click on Open in app does not open the row (it is above the row\'s click area)', async () => {

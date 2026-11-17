@@ -25,6 +25,22 @@ const open = async (props = {}) => {
 }
 const panel = () => screen.getByRole('region', { name: /^Session in / })
 const log = () => screen.getByRole('log', { name: 'Conversation' })
+/** `server` with one kind of call held: the answer is computed now (the server's state at that moment) and handed back on `release()`. */
+const hold = (server, match) => {
+  const held = { release: () => {}, on: false }
+  const fn = (url, init = {}) => {
+    const call = { method: init.method ?? 'GET', path: new URL(String(url), 'http://127.0.0.1').pathname }
+    if (!held.on || !match(call)) return server(url, init)
+    held.on = false
+    const answer = server(url, init)
+    return new Promise((resolve) => {
+      held.release = () => resolve(answer)
+    })
+  }
+  Object.assign(fn, { calls: server.calls, state: server.state, posts: server.posts })
+  vi.stubGlobal('fetch', fn)
+  return held
+}
 
 describe('availability', () => {
   it('says so, and offers nothing, when the server has no app session route (the Python server)', async () => {
@@ -211,6 +227,48 @@ describe('the message box (AC 2)', () => {
     expect(server.posts('/message')).toHaveLength(0)
   })
 
+  it('Safari ends a composition with keyCode 229 and isComposing false: that Enter does not send either', async () => {
+    const server = install({ sessions: [appSession()] })
+    await open()
+    fireEvent.change(box(), { target: { value: 'ni' } })
+    fireEvent.keyDown(box(), { key: 'Enter', keyCode: 229 })
+    expect(server.posts('/message')).toHaveLength(0)
+  })
+
+  it('text typed while a message is on its way is kept; only the text that was sent is cleared', async () => {
+    vi.useFakeTimers()
+    const server = install({ sessions: [appSession()], routes: { 'POST /api/app-sessions/a1/message': () => appSession({ state: 'working' }) } })
+    const held = hold(server, (c) => c.method === 'POST' && c.path.endsWith('/message'))
+    render(<AppSessions />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    held.on = true
+    fireEvent.change(box(), { target: { value: 'first' } })
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    fireEvent.change(box(), { target: { value: 'first and the next thought' } })
+    await act(async () => {
+      held.release()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(server.posts('/message')[0].body.text).toBe('first')
+    expect(box()).toHaveValue(' and the next thought')
+  })
+
+  it('the size limit is in bytes: a message of 2-byte characters over 100,000 bytes is not sent, one at the limit is', async () => {
+    const server = install({ sessions: [appSession()], routes: { 'POST /api/app-sessions/a1/message': () => appSession({ state: 'working' }) } })
+    await open()
+    fireEvent.change(box(), { target: { value: '\u00e9'.repeat(50_001) } }) // 50,001 characters, 100,002 bytes
+    expect(screen.getByRole('alert')).toHaveTextContent('100,000 bytes')
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(server.posts('/message')).toHaveLength(0)
+    fireEvent.change(box(), { target: { value: '\u00e9'.repeat(50_000) } }) // exactly 100,000 bytes
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(server.posts('/message')).toHaveLength(1))
+  })
+
   it('the Send button sends too', async () => {
     const server = install({ sessions: [appSession()], routes: { 'POST /api/app-sessions/a1/message': () => appSession({ state: 'working' }) } })
     await open()
@@ -289,7 +347,7 @@ describe('prompt cards (AC 3)', () => {
     let view = appSession({ state: 'waiting', items: [user('x'), toolPrompt()] })
     const server = install({ sessions: [view], routes: { 'POST /api/app-sessions/a1/answer': () => view } })
     await open()
-    expect(within(log()).getByText('ls -la')).toBeInTheDocument()
+    expect(within(panel()).getByText('ls -la')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Permission request from the session' })).toBeInTheDocument()
     view = appSession({ state: 'working', items: [user('x'), toolPrompt({ status: 'answered' })] })
     fireEvent.click(screen.getByRole('button', { name: 'Allow' }))
@@ -348,7 +406,7 @@ describe('prompt cards (AC 3)', () => {
   it('a plan: Approve allows, Keep planning denies with the note', async () => {
     const server = install({ sessions: [appSession({ state: 'waiting', items: [planPrompt()] })], routes: { 'POST /api/app-sessions/a1/answer': () => appSession({ state: 'waiting', items: [planPrompt()] }) } })
     await open()
-    expect(within(log()).getByText('1. do it')).toBeInTheDocument()
+    expect(within(panel()).getByText('1. do it')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
     await waitFor(() => expect(answered(server)).toHaveLength(1))
     expect(answered(server)[0].body).toEqual({ behavior: 'allow', prompt_id: 'p3', confirmed: true })
@@ -388,7 +446,7 @@ describe('prompt cards (AC 3)', () => {
   it('a pending prompt the page cannot read is said, not hidden', async () => {
     install({ sessions: [appSession({ state: 'waiting', items: [{ kind: 'prompt', status: 'pending', type: 'weird' }] })] })
     await open()
-    expect(within(log()).getByText(/prompt this page cannot show is waiting/)).toBeInTheDocument()
+    expect(within(panel()).getByText(/prompt this page cannot show is waiting/)).toBeInTheDocument()
   })
 
   it('a new prompt starts with a clean note; the old one\'s note does not carry over (keyed by prompt id)', async () => {
@@ -403,8 +461,60 @@ describe('prompt cards (AC 3)', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(POLL_MS)
     })
-    expect(within(log()).getByText('pwd')).toBeInTheDocument()
+    expect(within(panel()).getByText('pwd')).toBeInTheDocument()
     expect(screen.getByLabelText(/Note to Claude/)).toHaveValue('')
+  })
+
+  it('a pending card is in page flow below the conversation log, not inside the scroll box; the log keeps a one-line entry', async () => {
+    install({ sessions: [appSession({ state: 'waiting', items: [user('x'), toolPrompt({ input: 'a long command '.repeat(40) })] })] })
+    await open()
+    const card = screen.getByRole('region', { name: 'Permission request from the session' })
+    expect(panel().contains(card)).toBe(true)
+    expect(log().contains(card)).toBe(false)
+    expect(log().contains(screen.getByRole('button', { name: 'Allow' }))).toBe(false)
+    expect(within(log()).getByText('Permission request \u00b7 waiting for you, below the conversation')).toBeInTheDocument()
+  })
+
+  it('an unreadable pending prompt is also said outside the log', async () => {
+    install({ sessions: [appSession({ state: 'waiting', items: [{ kind: 'prompt', status: 'pending', type: 'weird' }] })] })
+    await open()
+    expect(log().contains(screen.getByText(/prompt this page cannot show is waiting/))).toBe(false)
+  })
+
+  it('a plan with no `complete` has no Approve; Keep planning is still offered', async () => {
+    install({ sessions: [appSession({ state: 'waiting', items: [planPrompt({ complete: undefined })] })] })
+    await open()
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Keep planning' })).toBeEnabled()
+  })
+
+  it('a poll that was out when an answer came back does not bring the answered card back', async () => {
+    vi.useFakeTimers()
+    const pending = appSession({ state: 'waiting', items: [toolPrompt()] })
+    const server = install({
+      sessions: [pending],
+      routes: { 'POST /api/app-sessions/a1/answer': () => appSession({ state: 'working', items: [toolPrompt({ status: 'answered' })] }) },
+    })
+    const held = hold(server, (c) => c.method === 'GET' && c.path === '/api/app-sessions')
+    render(<AppSessions />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    held.on = true // the next read is slow, and it saw the prompt still pending
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS)
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull()
+    await act(async () => {
+      held.release()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull()
+    expect(within(log()).getByText('Permission request \u00b7 answered')).toBeInTheDocument()
   })
 })
 

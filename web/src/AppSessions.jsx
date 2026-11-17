@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { answerAppPrompt, closeAppSession, getAgentRun, getAppSessions, getJson, interruptAppSession, sendAppMessage, stopAppSession } from './api.js'
 import Loading from './Loading.jsx'
-import NewSession from './NewSession.jsx'
+import NewSession, { MAX_BYTES, SIZE_HINT, byteLength } from './NewSession.jsx'
 import PromptCard, { readPrompt } from './PromptCard.jsx'
 import { useLoad } from './useLoad.js'
 
@@ -20,7 +20,7 @@ const STATES = {
   stopping: 'Stopping',
   ended: 'Ended',
 }
-const SETTLED = { answered: 'answered', cancelled: 'closed (the turn or the session ended)' }
+const SETTLED = { answered: 'answered', cancelled: 'closed (the turn or the session ended)', pending: 'waiting for you, below the conversation' }
 const NEAR_BOTTOM = 48 // px: a log scrolled further up than this is not pulled down by a new item
 
 const folderName = (folder) => String(folder ?? '').split('/').filter(Boolean).pop() ?? String(folder ?? '')
@@ -68,8 +68,14 @@ function AppPrompt({ sessionId, prompt, onChange }) {
   return <PromptCard prompt={prompt} busy={busy} error={error} onAnswer={send} />
 }
 
-/** One item of the conversation. */
-function Turn({ item, sessionId, onChange }) {
+/** A pending prompt of the conversation, drawn below the log in normal page flow (the log is a scroll box: the whole input must be in view). */
+function PendingPrompt({ item, sessionId, onChange }) {
+  const prompt = readPrompt(item)
+  return prompt ? <AppPrompt key={prompt.id} sessionId={sessionId} prompt={prompt} onChange={onChange} /> : <p className="prompt-cut">A prompt this page cannot show is waiting. Stop the session to end it.</p>
+}
+
+/** One item of the conversation. A pending prompt is one line here; its card is below the log. */
+function Turn({ item }) {
   if (item.kind === 'user' || item.kind === 'assistant')
     return (
       <li className={`turn turn-${item.kind}`}>
@@ -89,14 +95,6 @@ function Turn({ item, sessionId, onChange }) {
     )
   }
   if (item.kind !== 'prompt') return null
-  if (item.status === 'pending') {
-    const prompt = readPrompt(item)
-    return (
-      <li className="turn turn-prompt">
-        {prompt ? <AppPrompt key={prompt.id} sessionId={sessionId} prompt={prompt} onChange={onChange} /> : <p className="prompt-cut">A prompt this page cannot show is waiting. Stop the session to end it.</p>}
-      </li>
-    )
-  }
   const what = { question: 'Question', plan: 'Plan', tool: 'Permission request' }[item.type] ?? 'Prompt'
   return (
     <li className="turn turn-tool">
@@ -112,14 +110,17 @@ function MessageBox({ session, onChange }) {
   const [busy, setBusy] = useState(false)
   const open = useRef(false)
   const off = isEnded(session) || session.state === 'stopping'
+  const tooBig = byteLength(text) > MAX_BYTES // the server's limit is in bytes (UTF-8), not characters
   const send = async () => {
-    if (open.current || off || text.trim() === '') return
+    if (open.current || off || tooBig || text.trim() === '') return
+    const sent = text
     open.current = true
     setBusy(true)
     setError('')
     try {
-      onChange(await sendAppMessage(session.id, text))
-      setText('')
+      onChange(await sendAppMessage(session.id, sent))
+      // Clear only what was sent: text typed while the request was out stays.
+      setText((now) => (now === sent ? '' : now.startsWith(sent) ? now.slice(sent.length) : now))
     } catch (e) {
       setError(why(e, 'Could not send the message. Try again.'))
     } finally {
@@ -138,7 +139,7 @@ function MessageBox({ session, onChange }) {
           disabled={off}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) { // 229: Safari ends a composition with keyCode 229 and isComposing false
               e.preventDefault()
               send()
             }
@@ -146,13 +147,18 @@ function MessageBox({ session, onChange }) {
         />
       </label>
       <p className="muted">Enter sends, Shift+Enter adds a line. Text that starts with / is sent as typed, so slash commands work.</p>
+      {tooBig && (
+        <p role="alert" className="field-error">
+          {`Too long to send. ${SIZE_HINT}`}
+        </p>
+      )}
       {error && (
         <p role="alert" className="field-error">
           {error}
         </p>
       )}
       <div className="actions">
-        <button type="button" className="primary" disabled={off || busy || text.trim() === ''} onClick={send}>
+        <button type="button" className="primary" disabled={off || busy || tooBig || text.trim() === ''} onClick={send}>
           Send
         </button>
       </div>
@@ -168,6 +174,7 @@ function SessionPanel({ session: s, onChange, onClosed }) {
   const log = useRef(null)
   const stick = useRef(true) // a log that is at the bottom follows new items; one scrolled up stays where the owner left it
   const ended = isEnded(s)
+  const pending = s.items.filter((item) => item.kind === 'prompt' && item.status === 'pending')
   useEffect(() => {
     const el = log.current
     if (el && stick.current) el.scrollTop = el.scrollHeight
@@ -255,9 +262,16 @@ function SessionPanel({ session: s, onChange, onClosed }) {
       >
         {s.items.length === 0 && <li className="muted">Nothing yet.</li>}
         {s.items.map((item, i) => (
-          <Turn key={item.kind === 'prompt' && item.prompt_id ? `p-${item.prompt_id}` : i} item={item} sessionId={s.id} onChange={onChange} />
+          <Turn key={item.kind === 'prompt' && item.prompt_id ? `p-${item.prompt_id}` : i} item={item} />
         ))}
       </ol>
+      {pending.length > 0 && (
+        <div className="session-prompts">
+          {pending.map((item, i) => (
+            <PendingPrompt key={item.prompt_id ?? `x-${i}`} item={item} sessionId={s.id} onChange={onChange} />
+          ))}
+        </div>
+      )}
       {ended && <p className="muted">The session has ended. Close it to drop its text from this page.</p>}
       <MessageBox session={s} onChange={onChange} />
     </section>
@@ -269,6 +283,7 @@ function usePolled(initial) {
   const [data, setData] = useState(initial)
   const [stale, setStale] = useState(false)
   const last = useRef(JSON.stringify(initial))
+  const generation = useRef(0) // bumped by every answer of our own: a read that started before it is older than the state and is dropped
   useEffect(() => {
     let current = true
     let out = false
@@ -276,8 +291,9 @@ function usePolled(initial) {
       if (out) return
       out = true
       try {
+        const seen = generation.current
         const next = await getAppSessions()
-        if (!current || !next) return
+        if (!current || !next || seen !== generation.current) return
         setStale(false)
         const text = JSON.stringify(next)
         if (text !== last.current) {
@@ -298,10 +314,12 @@ function usePolled(initial) {
   }, [])
   // An answer to our own request: take that session now, and let the next read replace the list.
   const replace = useCallback((view) => {
+    generation.current += 1
     last.current = null
     setData((d) => (d.sessions.some((s) => s.id === view.id) ? { ...d, sessions: d.sessions.map((s) => (s.id === view.id ? view : s)) } : { ...d, sessions: [...d.sessions, view] }))
   }, [])
   const remove = useCallback((id) => {
+    generation.current += 1
     last.current = null
     setData((d) => ({ ...d, sessions: d.sessions.filter((s) => s.id !== id) }))
   }, [])

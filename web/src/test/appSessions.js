@@ -24,7 +24,7 @@ export const questionPrompt = (over = {}) => ({
   questions: [{ question: 'Which colour?', header: 'Colour', multiSelect: false, options: [{ label: 'Red', description: 'warm' }, { label: 'Blue', description: 'cold' }] }],
   ...over,
 })
-export const planPrompt = (over = {}) => ({ kind: 'prompt', prompt_id: 'p3', status: 'pending', type: 'plan', tool: 'ExitPlanMode', plan: '1. do it', ...over })
+export const planPrompt = (over = {}) => ({ kind: 'prompt', prompt_id: 'p3', status: 'pending', type: 'plan', tool: 'ExitPlanMode', plan: '1. do it', complete: true, ...over })
 
 const reply = (status, body) => ({ ok: status < 400, status, json: async () => body })
 

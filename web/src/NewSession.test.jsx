@@ -75,6 +75,26 @@ describe('the form (AC 1)', () => {
     expect(review).toBeEnabled()
   })
 
+  it('the size limit is in bytes, not characters: 2- and 3-byte characters count in full', () => {
+    setup()
+    const review = screen.getByRole('button', { name: 'Review' })
+    fill('\u00e9'.repeat(50_000)) // 50,000 characters, exactly 100,000 bytes
+    expect(review).toBeEnabled()
+    expect(screen.queryByRole('alert')).toBeNull()
+    fill('\u00e9'.repeat(50_001)) // 100,002 bytes
+    expect(review).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Too long')
+    fill('\u3042'.repeat(33_334)) // 33,334 characters, 100,002 bytes
+    expect(review).toBeDisabled()
+    fill('\u3042'.repeat(33_333)) // 99,999 bytes
+    expect(review).toBeEnabled()
+  })
+
+  it('the hint words the limit as a size', () => {
+    setup()
+    expect(screen.getByText(/size limit is 100,000 bytes/)).toBeInTheDocument()
+  })
+
   it('says what to do when no repo is stored', () => {
     const { onCancel } = setup({ workspaces: [workspaces.workspaces[0], workspaces.workspaces[2]] })
     expect(screen.getByText(/No repo is stored yet/)).toBeInTheDocument()

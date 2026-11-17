@@ -404,18 +404,38 @@ export default function LiveView({ wantedId = null, onWantedUsed, onOpenAppSessi
   return shared ? <Live {...shared} wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} /> : <OwnStream wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} />
 }
 
-/** Live session id -> app session id, for the rows that are app sessions (T104). Read when the set of live sessions changes; nothing is asked unless the page can open one. */
-function useAppSessionIds(enabled, key) {
+const APP_IDS_REREAD_MS = 5000 // at most one more read per this long while a live row is not in the map
+
+/**
+ * Live session id -> app session id, for the rows that are app sessions (T104). Read when the set of live sessions changes, and again (at most
+ * once per 5 s) while a live row is unknown to the map: an app session gets its Claude session id after its first init, which can be after its
+ * row appeared. Nothing is asked unless the page can open one.
+ */
+function useAppSessionIds(enabled, liveIds) {
+  const key = liveIds.join(',')
   const [ids, setIds] = useState({})
+  const known = useRef(ids)
+  const live = useRef(liveIds)
+  live.current = liveIds
   useEffect(() => {
     if (!enabled) return undefined
     let current = true
-    getAppSessions().then(
-      (list) => current && list && setIds(Object.fromEntries(list.sessions.filter((a) => typeof a.session_id === 'string').map((a) => [a.session_id, a.id]))),
-      () => {},
-    )
+    const read = () =>
+      getAppSessions().then(
+        (list) => {
+          if (!current || !list) return
+          known.current = Object.fromEntries(list.sessions.filter((a) => typeof a.session_id === 'string').map((a) => [a.session_id, a.id]))
+          setIds(known.current)
+        },
+        () => {},
+      )
+    read()
+    const timer = setInterval(() => {
+      if (live.current.some((id) => !Object.hasOwn(known.current, id))) read()
+    }, APP_IDS_REREAD_MS)
     return () => {
       current = false
+      clearInterval(timer)
     }
   }, [enabled, key])
   return ids
@@ -457,7 +477,7 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed, onOpenAppSession
   }, [wantedId, state.sessions, onWantedUsed])
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
   const groups = useMemo(() => group(sessions), [sessions])
-  const appIds = useAppSessionIds(Boolean(onOpenAppSession), Object.keys(state.sessions).sort().join(','))
+  const appIds = useAppSessionIds(Boolean(onOpenAppSession), Object.keys(state.sessions).sort())
   const needing = sessions.filter(needsYou).length
   const maxTokens = Math.max(0, ...sessions.map((s) => s.tokens_in + s.tokens_out))
   const maxCost = Math.max(0, ...sessions.map((s) => s.cost))
