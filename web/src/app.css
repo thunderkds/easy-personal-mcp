@@ -529,20 +529,21 @@ main .board-column { padding: var(--space-3); border: 1px solid var(--color-bord
 .board-kind { text-transform: lowercase; }
 main .board-toggle { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 
-/* Workflow view (T108, FR-118): one lane per stage, stacked; each lane's rows sit side by side from 40rem. Layout only, existing tokens */
-.workflow-lanes { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.workflow-lanes > li { min-width: 0; }
-.workflow-gate, .workflow-board { padding-left: var(--space-3); border-left: 2px solid var(--color-accent-line); font-size: var(--fs-note); overflow-wrap: anywhere; }
+/* Workflow view (T108, FR-118): the chosen flow is one horizontal line; only the line scrolls, never the page. Layout only, existing tokens */
+main.workflow { min-width: 0; }
+.workflow-line { display: flex; flex-direction: row; align-items: stretch; gap: var(--space-3); max-width: 100%; overflow-x: auto; padding-bottom: var(--space-2); }
+.workflow-line > li { flex: 0 0 auto; min-width: 0; }
+.workflow-step-item { width: 16rem; }
+.workflow-link { align-self: center; color: var(--color-muted); font-family: var(--font-mono); }
+.workflow-gate, .workflow-board { align-self: center; max-width: 11rem; padding-left: var(--space-3); border-left: 2px solid var(--color-accent-line); font-size: var(--fs-note); overflow-wrap: anywhere; }
 .workflow-gate { font-family: var(--font-mono); color: var(--color-secondary); }
+.workflow-unknown { max-width: 24rem; }
+.workflow-parts { margin: 0 0 var(--space-2); }
 .workflow-rows { display: flex; flex-direction: column; gap: var(--space-2); }
 .workflow-rows > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .workflow-rows dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .workflow-chips { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
 .workflow-chips > li { min-width: 0; overflow-wrap: anywhere; }
-@media (min-width: 40rem) {
-  .workflow-rows > div { flex-direction: row; align-items: baseline; gap: var(--space-3); }
-  .workflow-rows dt { flex: none; width: 6rem; }
-}
 
 /* Memory view (HUN-164): rings graph and side panel, one rule per line */
 main.memory { max-width: none; }

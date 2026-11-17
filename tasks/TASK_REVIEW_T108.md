@@ -20,6 +20,7 @@ Mode: auto
 5. The live layer reads the existing stream only (no backend change for it) — FACT: `rust/crates/core/src/live.rs:968` "\"attention\": attention, \"stage\": s.stage, \"stage_skill\": s.stage_skill,"
 6. Stage ids are exactly those of `stage_of` (no plain "0"; 0.5 is named Stage 0 · Define) so the two-way table test holds — FACT: `rust/crates/core/src/live.rs:85` "\"brainstorming\" | \"ideate\" => \"0.5\","
 7. A Rust-board task edits `web/` (the page is shared) — FACT: `tasks/TASK_GUIDE_T104.md:16` "Read `web/src/LiveView.jsx`, the Settings view and the Workspaces page from T092"
+Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); Risk Medium: decision 4 (`FACT`) is a choice — its FACT has no Citation (`path:line "quoted text"`) — so it must be `DEBATED` with exactly 2 Advocates named; Risk Medium: decision 5 (`FACT`) is a choice — its FACT has no Citation (`path:line "quoted text"`) — so it must be `DEBATED` with exactly 2 Advocates named; Risk Medium: decision 6 (`FACT`) is a choice — its FACT has no Citation (`path:line "quoted text"`) — so it must be `DEBATED` with exactly 2 Advocates named; Risk Medium: decision 7 (`FACT`) is a choice — its FACT has no Citation (`path:line "quoted text"`) — so it must be `DEBATED` with exactly 2 Advocates named [report c4d9bcb89ad9]
 
 
 ## Evidence
@@ -72,6 +73,22 @@ AssertionError: expected [ 'Kit' ] to deeply equal [ 'Kit', 'Workflow' ]
 TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Workflow"
 ```
 (The `// kit` group has only the Kit tab today. Baseline before the change: 29 files, 1043 tests passed, 2026-11-17T11:29:28Z.)
+
+**Redo BEFORE** (step A, backend redo; `date -u` 2026-11-17T15:04:12Z, worktree `T108` at `c424b63`, no redo implementation commit yet; the five flow tests in `workflow.rs` were written first and run against the old `{"stages", "gates"}` code):
+```
+$ cd rust && cargo test -p easy-personal-core workflow 2>&1 | tail -3
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p easy-personal-core --lib`
+```
+
+**Redo BEFORE (web)** (step B, frontend redo; `date -u` 2026-11-17T15:10:53Z, worktree `T108`, no redo implementation commit yet; the flows fixture and the new `WorkflowView.test.jsx` were written first and run against the old vertical-lane view):
+```
+$ cd web && npx vitest run src/WorkflowView.test.jsx 2>&1 | tail -4
+ Test Files  1 failed (1)
+      Tests  36 failed | 2 passed (38)
+```
+(The old view reads `map.stages`, the new route sends `flows`; `placeSession` is not exported yet.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
