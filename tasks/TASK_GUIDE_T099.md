@@ -50,7 +50,7 @@ No new crate.
 | # | Criterion (testable) | Traces to |
 |---|---|---|
 | 1 | After a successful `account ignore` of the account the flag names, the flag file is gone and `agent-run status` says off: a test against a throw-away home (RED pasted before the change) | intent |
-| 2 | The id passed to `forget` comes from the row the ignore returned (the numeric id, as the route uses it), not the raw CLI argument, so `account ignore <label>` and `account ignore <id>` both work: a test for each | intent |
+| 2 | The id passed to `forget` comes from the row the ignore returned (the numeric id, as the route uses it), not the raw CLI argument, so `account ignore <id>` and `account ignore <folder path>` both work (the command takes no label): a test for each | intent |
 | 3 | Another account's flag stays; no flag stays no flag; a failed ignore (unknown account) leaves the flag: one test each | intent |
 | 4 | A run already going stops at its next poll after the terminal ignore: a test with the fake `claude` already used by the T091 tests (`agent_run::tests::Fake`), no real `claude` | intent |
 | 5 | `cd rust && cargo test --workspace`, `cargo clippy --workspace --all-targets --features window -- -D warnings`, `cargo fmt --check` pass; leak gate unchanged at 0 hits | all |
