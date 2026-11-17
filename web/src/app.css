@@ -529,24 +529,20 @@ main .board-column { padding: var(--space-3); border: 1px solid var(--color-bord
 .board-kind { text-transform: lowercase; }
 main .board-toggle { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 
-/* Workflow view (T108, FR-118): the chosen flow is one horizontal line. Steps share the column width; each gate and board count sits under the step it follows, its accent edge on the boundary to the next step. Only the strip scrolls, when the column is narrower than the steps' minimum. Layout only, existing tokens */
+/* Workflow view (T108, FR-118): the chosen flow is one line of nodes joined by arrows; a node with an agent working is highlighted; hover, focus or a tap opens its panel under the line. Nodes share the column width; only the strip scrolls, when the column is narrower than the nodes' minimum. Layout only, existing tokens */
 main.workflow { min-width: 0; max-width: none; }
-.workflow-line { display: flex; flex-direction: row; align-items: flex-start; gap: var(--space-3); max-width: 100%; overflow-x: auto; padding-bottom: var(--space-2); }
-.workflow-step-item { position: relative; flex: 1 1 0; min-width: 6.5rem; display: flex; flex-direction: column; gap: var(--space-2); }
-.workflow-step-item:not(:last-child)::after { content: '→' / ''; position: absolute; top: var(--space-3); right: calc(-1 * var(--space-3)); width: var(--space-3); text-align: center; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--fs-label); }
-.workflow-step .feed-icon { display: none; }
-.workflow-step .feed-head { padding: var(--space-2) var(--space-1); }
-.workflow-step .feed-body { padding: var(--space-2) var(--space-1); }
-.workflow-step .chip { padding: 0 2px; font-size: 0.625rem; }
-.workflow-gate, .workflow-board { margin: 0; padding-right: var(--space-2); border-right: 2px solid var(--color-accent-line); text-align: right; font-size: var(--fs-label); overflow-wrap: break-word; }
-.workflow-gate { font-family: var(--font-mono); color: var(--color-secondary); }
-.workflow-unknown { max-width: 24rem; }
-.workflow-parts { margin: 0 0 var(--space-2); }
-.workflow-rows { display: flex; flex-direction: column; gap: var(--space-2); }
-.workflow-rows > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
-.workflow-rows dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
-.workflow-chips { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
-.workflow-chips > li { min-width: 0; overflow-wrap: anywhere; }
+.workflow-stage { position: relative; min-width: 0; }
+.workflow-line { display: flex; flex-direction: row; align-items: center; max-width: 100%; overflow-x: auto; padding-bottom: var(--space-2); }
+.workflow-line > li { min-width: 0; }
+.workflow-line > .workflow-node-item { flex: 1 1 0; min-width: 4.5rem; }
+.workflow-line .workflow-node { width: 100%; min-height: 3rem; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius); background: none; color: var(--color-secondary); font-size: var(--fs-cell); font-weight: 400; line-height: 1.3; text-align: center; overflow-wrap: anywhere; cursor: pointer; }
+.workflow-line .workflow-node:hover { background: var(--color-raised); }
+.workflow-line .workflow-node.working { background: var(--color-accent-soft); color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent-line); font-weight: 500; }
+.workflow-arrow { flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 1.75rem; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--fs-label); }
+.workflow-line .workflow-gate { width: 1.25rem; min-height: 1.25rem; padding: 0; border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); background: none; color: var(--color-accent); font-size: var(--fs-label); line-height: 1; cursor: pointer; }
+.workflow-panel { position: absolute; z-index: 2; top: 100%; width: max-content; max-width: min(22rem, 100%); padding: var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius); background: var(--color-raised); color: var(--color-text); font-size: var(--fs-note); overflow-wrap: anywhere; }
+.workflow-panel p, .workflow-panel ul { margin: 0; }
+.workflow-panel ul { display: flex; flex-direction: column; gap: var(--space-1); font-family: var(--font-mono); }
 
 /* Memory view (HUN-164): rings graph and side panel, one rule per line */
 main.memory { max-width: none; }

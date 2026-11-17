@@ -237,7 +237,7 @@ it('shows the active view title in the top bar', async () => {
   expect(await screen.findByRole('heading', { name: /^Kit by project/ })).toBeInTheDocument()
 })
 
-it('opens the Workflow tab from the kit group and reads the map and the scoped board (T108, FR-118)', async () => {
+it('opens the Workflow tab from the kit group and reads the map, not the board (T108, FR-118)', async () => {
   window.localStorage.setItem('easy-personal-scope', JSON.stringify({ workspace: 'work', account: '' }))
   const f = fakeFetch({ workflow, board: { projects: [] }, workspaces: { workspaces: [{ id: 'w1', name: 'work', is_orphan: false, repos: [] }] }, accounts: { accounts: [] } })
   vi.stubGlobal('fetch', f)
@@ -247,7 +247,7 @@ it('opens the Workflow tab from the kit group and reads the map and the scoped b
   expect(within(nav()).getByRole('button', { name: 'Workflow' })).toHaveAttribute('aria-current', 'page')
   expect(await screen.findByText('Stage 3 · Execute')).toBeInTheDocument()
   expect(f.calls.some((c) => c.url === '/api/kit/workflow')).toBe(true)
-  await waitFor(() => expect(f.calls.some((c) => c.url === '/api/board?workspace=work')).toBe(true))
+  expect(f.calls.some((c) => c.url.startsWith('/api/board'))).toBe(false) // the view draws the flow only (redo 2)
 })
 
 it('has a menu button that toggles aria-expanded and closes after choosing a view', () => {
