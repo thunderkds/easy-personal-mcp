@@ -7,6 +7,19 @@ description: How to build, launch and drive easy-personal-mcp for runtime verifi
 
 Run from the task's worktree. Isolate everything in a temp dir so the owner's real install and data stay untouched.
 
+## Report (the last line decides the result)
+
+End the report with one verdict line, alone on its line, exactly in this shape, with one word:
+
+- `**Verdict:** PASS` — every step you ran for the changed surface gave the expected result.
+- `**Verdict:** FAIL` — a step gave a wrong result. Name the step and paste its output above the line.
+- `**Verdict:** SKIP` — the task changes docs only, so there is nothing to run. The hook checks this in git and records a wrong SKIP as `blocked`. A skill, recipe, hook, script or config file is not docs: for a change to this recipe, run the first block (`--version`, `ping`) and the MCP stdio handshake, and report PASS or FAIL.
+- `**Verdict:** BLOCKED` — you could not run a step that the change needs (say which, and why).
+
+Write the line once, and never list two verdict words on it. The auto verify hook
+(`.claude/hooks/stop_auto_verify.py`) reads only this line: a report without it is recorded as
+`blocked (no single verdict line)`, even when every step passed (T090, T093, T094 and T095 on 2026-11-16).
+
 ```bash
 T=$(mktemp -d)
 export EASY_PERSONAL_HOME=$T/home UV_TOOL_DIR=$T/tools UV_TOOL_BIN_DIR=$T/bin
@@ -121,4 +134,5 @@ macOS and Windows are not covered yet (the window and signal handling are Ubuntu
 - Rust: a cold `target/` makes `cargo build` (and the first `--features window` build) slow; give the Bash call a long timeout. `rust/target/` is the only thing the recipe writes inside the repo, and it is git-ignored.
 - `serverInfo.version` in `initialize` is the MCP SDK version, not the package version.
 - The MCP server logs `Processing request of type …` to stderr on every request; stdout carries protocol only.
+- Rust: inside a Claude Code session `CLAUDE_CONFIG_DIR` is set, and the leak gate then stops with `refusing to run: CLAUDE_CONFIG_DIR points at a real data folder`. Run it as `env -u CLAUDE_CONFIG_DIR parity/.venv/bin/python parity/leak_rust.py`.
 - Never point verification at the owner's real `~/.claude/projects/` with content-printing commands; use the fixtures under `tests/fixtures/`.
