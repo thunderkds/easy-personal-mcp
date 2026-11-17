@@ -38,7 +38,7 @@ function fromSnapshot(s, old) {
   return same ? old : next
 }
 
-const STATE_ORDER = ['failing', 'waiting', 'needs_attention'] // the first one of a session names its border
+const STATE_ORDER = ['failing', 'waiting', 'your_turn', 'needs_attention'] // the first one of a session names its border
 
 /** A session's states, failing first. Unknown state names are left out. */
 export const statesOf = (s) => STATE_ORDER.flatMap((state) => s.attention.filter((a) => a.state === state))
@@ -51,7 +51,34 @@ function pillText(a) {
   const agent = a.is_sidechain ? ' · agent' : ''
   if (a.state === 'failing') return a.tool ? `failing: ${a.tool} ×${a.count}${agent}` : `failing: ${a.count} in a row${agent}`
   if (a.state === 'waiting') return `waiting for you: question${agent}`
+  if (a.state === 'your_turn') return `your turn${agent}`
   return `needs attention: ${a.tool ?? 'unknown tool'}${agent} · hung or waiting for permission`
+}
+
+/** The questions a waiting state carries (T094), as plain text: at most 4, each cut to 300 characters, blank ones dropped. Another state, or anything but a list of strings, gives none. */
+const MAX_QUESTIONS = 4
+const MAX_QUESTION_CHARS = 300
+const questionsOf = (a) =>
+  a.state === 'waiting' && Array.isArray(a.questions) && a.questions.every((q) => typeof q === 'string')
+    ? a.questions
+        .slice(0, MAX_QUESTIONS)
+        .filter((q) => q.trim() !== '')
+        .map((q) => [...q].slice(0, MAX_QUESTION_CHARS).join(''))
+    : []
+
+/** The question text of a session's states: React text under the badge, never HTML (DDR-0005). */
+function Questions({ states }) {
+  const list = states.flatMap(questionsOf)
+  if (list.length === 0) return null
+  return (
+    <div className="live-questions">
+      {list.map((q, i) => (
+        <p key={i} className="live-question">
+          {q}
+        </p>
+      ))}
+    </div>
+  )
 }
 
 const isName = (v) => typeof v === 'string' && v !== ''
@@ -226,19 +253,24 @@ function Bar({ label, text, ratio }) {
 
 /** One session: a button (arrow, id, project, states, time) with its three bars; open, its feed is drawn under the row in the same card.
  * Memoized: it draws again only when its own figures (or its open state) change. */
-const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, tokensPct, costPct, callsPct }) {
+const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onToggle, tokensPct, costPct, callsPct }) {
   const button = useRef(null)
   const states = statesOf(s)
   const idle = isIdle(s, now, windowS)
   const tokens = s.tokens_in + s.tokens_out
   const unknown = s.unpriced && s.cost === 0
   const regionId = `live-feed-${s.session_id}`
+  const card = useRef(null)
+  useEffect(() => {
+    if (open && reveal) card.current?.scrollIntoView?.({ block: 'nearest' }) // only a session picked from the address is brought into view
+  }, [open, reveal])
   const collapse = () => {
     button.current?.focus() // the keyboard stays on the row
     onToggle(s.session_id)
   }
   return (
     <li
+      ref={card}
       className="live-session"
       data-idle={idle || undefined}
       data-state={states[0]?.state}
@@ -247,7 +279,7 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, t
         if (open && e.key === 'Escape') collapse()
       }}
     >
-      <button ref={button} type="button" id={`live-row-${s.session_id}`} className="live-row" aria-expanded={open} aria-controls={regionId} onClick={() => onToggle(s.session_id)}>
+      <button ref={button} type="button" id={`live-row-${s.session_id}`} className="live-row" aria-expanded={open} aria-current={open ? 'true' : undefined} aria-controls={regionId} onClick={() => onToggle(s.session_id)}>
         <span className="live-arrow" aria-hidden="true">
           {open ? '▾' : '▸'}
         </span>
@@ -267,6 +299,7 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, t
         ))}
         <span className="count">{`${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`}</span>
       </button>
+      {!open && <Questions states={states} />}
       <span className="live-bars">
         <Bar label="tokens" text={noSpace(tokens)} ratio={tokensPct} />
         <Bar
@@ -281,6 +314,7 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, onToggle, t
           <button type="button" className="live-close" onClick={collapse}>
             Close
           </button>
+          <Questions states={states} />
           <Feed items={s.feed} />
         </div>
       )}
@@ -360,29 +394,45 @@ export function LiveProvider({ children }) {
 
 /** `// work` › Live: active Claude Code sessions as rows with three bars; one open session shows its tool feed under its row. Metadata only.
  * Inside a LiveProvider it shows the page's stream; alone it opens its own. */
-export default function LiveView() {
+export default function LiveView({ wantedId = null, onWantedUsed }) {
   const shared = useContext(LiveContext)
-  return shared ? <Live {...shared} /> : <OwnStream />
+  return shared ? <Live {...shared} wantedId={wantedId} onWantedUsed={onWantedUsed} /> : <OwnStream wantedId={wantedId} onWantedUsed={onWantedUsed} />
 }
 
-function OwnStream() {
+function OwnStream({ wantedId, onWantedUsed }) {
   const [attempt, setAttempt] = useState(0)
   const [state, link] = useLive(attempt)
   const reconnect = useCallback(() => setAttempt((n) => n + 1), [])
-  return <Live state={state} link={link} reconnect={reconnect} />
+  return <Live state={state} link={link} reconnect={reconnect} wantedId={wantedId} onWantedUsed={onWantedUsed} />
 }
 
-function Live({ state, link, reconnect }) {
+function Live({ state, link, reconnect, wantedId, onWantedUsed }) {
   const [now, setNow] = useState(Date.now())
   const [openId, setOpenId] = useState(null) // not kept across a reload
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS)
     return () => clearInterval(timer)
   }, [])
-  const onToggle = useCallback((id) => setOpenId((current) => (current === id ? null : id)), [])
+  const [revealId, setRevealId] = useState(null) // the session picked from the address: the one row that scrolls into view
+  const onToggle = useCallback(
+    (id) => {
+      setOpenId((current) => (current === id ? null : id))
+      setRevealId(null)
+      onWantedUsed?.() // the owner's own choice ends the wish: a wanted session listed later does not take the selection
+    },
+    [onWantedUsed],
+  )
   useEffect(() => {
     if (openId !== null && !state.sessions[openId]) setOpenId(null) // the open session left the list: nothing is drawn for it
   }, [openId, state.sessions])
+  useEffect(() => {
+    // The session the app asked for (the page's start address): select it once, as soon as it is in the list. The page gives up after 10 s.
+    if (wantedId && state.sessions[wantedId]) {
+      setOpenId(wantedId)
+      setRevealId(wantedId)
+      onWantedUsed?.()
+    }
+  }, [wantedId, state.sessions, onWantedUsed])
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
   const groups = useMemo(() => group(sessions), [sessions])
   const needing = sessions.filter(needsYou).length
@@ -411,7 +461,7 @@ function Live({ state, link, reconnect }) {
         <h2 id="h-live-all">All sessions</h2>
         <Totals total={sum(sessions)} />
         <p className="footnote">
-          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, never message or tool content.
+          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; never other message or tool content.
         </p>
       </section>
       {sessions.length === 0 && (
@@ -430,6 +480,7 @@ function Live({ state, link, reconnect }) {
                     now={now}
                     windowS={state.windowS}
                     open={s.session_id === openId}
+                    reveal={s.session_id === revealId}
                     onToggle={onToggle}
                     tokensPct={share(s.tokens_in + s.tokens_out, maxTokens)}
                     costPct={share(s.cost, maxCost)}

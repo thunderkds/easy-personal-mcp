@@ -70,6 +70,13 @@ describe('status chips (T068)', () => {
     expect(chip('1 waiting')).toBeInTheDocument()
   })
 
+  it('T095: a session whose only state is your_turn is counted in the chip, and is never idle', () => {
+    const turn = { state: 'your_turn', tool: null, count: 1, is_sidechain: false }
+    show({ context: live([session('a', [turn], 60), session('b', [], 60)]) })
+    expect(chip('1 active')).toBeInTheDocument()
+    expect(chip('1 waiting')).toBeInTheDocument()
+  })
+
   it('shows a grey 0 active and no waiting chip when no session is live', () => {
     show({ context: live([]) })
     expect(chip('0 active')).toHaveAttribute('data-on', 'false')
