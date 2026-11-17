@@ -810,4 +810,5 @@ main.settings { max-width: 48rem; }
 .agent-run .link-button:hover, .settings .link-button:hover { background: none; }
 @media (max-width: 39.999rem) {
   .settings button:not(.link-button), .agent-run button:not(.link-button), .agent-dialog button { min-height: 44px; }
+  .agent-run .link-button, .settings .link-button { display: inline-block; padding: 13px 0; margin: -13px 0; } /* a 44 px tap area for an inline link, the line does not grow */
 }

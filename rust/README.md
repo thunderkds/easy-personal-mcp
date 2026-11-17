@@ -1171,6 +1171,16 @@ could echo it, a canary on `claude`'s stderr and in an account path: 0 hits.
     Python's does, on the owner's own terminal; the leak check does not type the canary there. Every other refusal is a fixed text.
 12. **Usage errors** print clap's text on stderr (Python's is argparse's); stdout is empty and the exit code is 2 in both.
 
+## Agent runs (optional, off by default)
+
+The app can start Claude Code on this machine for you, for one fixed job: *investigate*. Claude reads your usage and warnings through the MCP tools and saves a report, which shows first in *Saved reports* on the Warnings & plan page.
+
+- **It is off until you turn it on.** Open **Settings** in the dashboard, choose one of your confirmed Claude accounts, and confirm. The same choice is offered once, the first time you open the app. **Turn off** in Settings ends it.
+- **Run investigate** (Warnings & plan) starts a run for the page's workspace; **Stop** ends it. A run is stopped after 10 minutes.
+- **It uses an account you already logged in to Claude Code**, through Claude Code on this machine. A run counts against that account's plan limits.
+- **The app never reads your login.** It starts `claude` with that account's folder and reads nothing from its credentials.
+- **Linux and the Rust app only.** The Python dashboard shows no Settings block and no Run block.
+
 ## Test
 
 ```bash
