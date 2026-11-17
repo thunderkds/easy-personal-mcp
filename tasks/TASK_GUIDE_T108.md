@@ -60,7 +60,7 @@ No new crate, no new npm package.
 | 6 | Step B: board counts per lane match `/api/board` for the page's workspace/account scope; no board → the counts are hidden with one muted line | intent 3 |
 | 7 | No message text, tool input or path reaches the view (only the FR-081 labels, project names and ids); the leak gate stays at 0 hits | NFR-002 |
 | 8 | `ux-evaluate` at 375 px and 1280 px: lanes stack on narrow screens, no horizontal page scroll | — |
-| 9 | `cd rust && cargo test --workspace`, clippy (with and without `--features window`) `-D warnings`, `cargo fmt --check`, leak gate 0 hits; `cd web && npm run lint && npm test && npm run build`; `python3 scripts/check_static.py` ok | all |
+| 9 | `cd rust && cargo test --workspace`, clippy (with and without `--features window`) `-D warnings`, `cargo fmt --check`, leak gate 0 hits; `cd web && npm test && npm run build` (web has no lint script); `python3 scripts/check_static.py` ok | all |
 
 ## UI / Design Acceptance Criteria
 - Uses the page's existing tokens and classes (`app.css`: chips, `count`, `muted`, cards); no new colour values
@@ -73,7 +73,7 @@ No new crate, no new npm package.
 
 ### Verification Command
 ```bash
-cd rust && cargo test -p easy-personal-rs workflow && cargo test -p easy-personal-core live && cd ../web && npm run lint && npx vitest run 2>&1 | tail -5 && npm run build && cd .. && python3 scripts/check_static.py
+cd rust && cargo test -p easy-personal-rs workflow && cargo test -p easy-personal-core live && cd ../web && npx vitest run 2>&1 | tail -5 && npm run build && cd .. && python3 scripts/check_static.py
 ```
 
 ### Evidence (filled by reviewer at Stage 4/5)
