@@ -30,12 +30,12 @@ Owner 2026-11-17: "you can input the text to the ask question in the app and sen
 
 ## Verification Command
 ```bash
-cd web && npm run lint && npx vitest run 2>&1 | tail -5
+cd web && npx vitest run 2>&1 | tail -5   # web/ has no lint script (T107 finding)
 ```
 
 ## Completion checklist
 - [ ] Implementation done
-- [ ] Lint passes
+- [ ] Lint passes (n/a: web/ has no linter)
 - [ ] Tests pass
 - [ ] Smoke test confirmed
 - [ ] `docs/` updated
