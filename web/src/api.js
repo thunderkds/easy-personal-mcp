@@ -51,11 +51,16 @@ export const startAgentRun = (workspace) => sendJson('POST', '/api/agent-run', w
 export const stopAgentRun = () => sendJson('POST', '/api/agent-run/stop', {})
 
 /** Answer bridge (FR-113). The accounts with their bridge state and the exact entry text, or null when the server has no such route (404: the Python server). */
-export const getHooks = () =>
-  getJson('/api/hooks').catch((error) => {
-    if (error.status === 404) return null
-    throw error
-  })
+export async function getHooks() {
+  const response = await fetch('/api/hooks', { headers: { 'X-Dashboard-Token': readToken() } })
+  if (response.status === 404) return null
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) // 503 carries the server's reason in `error`
+    const said = typeof data.error === 'string' && data.error ? data.error : response.status === 503 ? 'the app cannot answer terminal sessions now' : `/api/hooks failed with status ${response.status}`
+    throw failure(said, response.status)
+  }
+  return response.json()
+}
 /** Turn the bridge on or off for one account (the caller has shown the entries and been confirmed). Answers that account's row. */
 export const setHooks = (account, on) => sendJson('PUT', '/api/hooks', { account: String(account), on, confirmed: true })
 

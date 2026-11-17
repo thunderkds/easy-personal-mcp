@@ -1131,7 +1131,7 @@ describe('kit stage chip and call labels (FR-084)', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     expect(screen.getByText(/tokens times the API price table/).textContent).toContain(
-      'Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question\'s header and options, and a permission\'s tool name and one line (the command or the path); never other message or tool content.',
+      'Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question\'s header and options, and a permission\'s tool name and its full tool input (the whole command, path or plan); never other message or tool content.',
     )
   })
 

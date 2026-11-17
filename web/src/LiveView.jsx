@@ -303,7 +303,7 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onT
         ))}
         <span className="count">{`${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`}</span>
       </button>
-      {s.pending && <PendingAnswer sessionId={s.session_id} prompt={s.pending} onEnd={onEnd} />}
+      {s.pending && <PendingAnswer key={s.pending.id} sessionId={s.session_id} prompt={s.pending} onEnd={onEnd} />}
       {notice && (
         <p role="status" className="live-notice">
           {notice}
@@ -472,7 +472,7 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed }) {
         <h2 id="h-live-all">All sessions</h2>
         <Totals total={sum(sessions)} />
         <p className="footnote">
-          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question's header and options, and a permission's tool name and one line (the command or the path); never other message or tool content.
+          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question's header and options, and a permission's tool name and its full tool input (the whole command, path or plan); never other message or tool content.
         </p>
       </section>
       {sessions.length === 0 && (

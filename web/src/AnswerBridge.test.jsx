@@ -62,6 +62,13 @@ describe('AC1: the block', () => {
     expect(within(row('Third')).getByText(/changed by hand/)).toBeInTheDocument()
   })
 
+  it('shows another copy of the app as such: Turn on replaces it, Turn off removes it', async () => {
+    await open({ get: { ...state('on'), accounts: [{ id: 1, label: 'Claude default', status: 'other_copy' }, { id: 2, label: 'Claude personal', status: 'off' }] } })
+    expect(within(row('Claude default')).getByText('Another copy of the app')).toBeInTheDocument()
+    expect(within(row('Claude default')).getByText(/another copy of this app.*Turn on replaces them.*Turn off removes them/)).toBeInTheDocument()
+    expect(within(row('Claude default')).queryAllByRole('button').map((b) => b.textContent)).toEqual(['Turn on', 'Turn off'])
+  })
+
   it('offers Turn on for off, Turn off for on, and both for a changed or moved account', async () => {
     await open({ get: { ...state('on'), accounts: [{ id: 1, label: 'A', status: 'on' }, { id: 2, label: 'B', status: 'off' }, { id: 3, label: 'C', status: 'changed_by_hand' }, { id: 4, label: 'D', status: 'binary_moved' }, { id: 5, label: 'E', status: 'unreadable' }] } })
     const buttons = (label) => within(row(label)).queryAllByRole('button').map((b) => b.textContent)
@@ -153,6 +160,22 @@ describe('AC1: the block', () => {
     stub({ get: 500 })
     render(<AnswerBridge accounts={accounts} />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the answer bridge')
+  })
+
+  it('a 503 on load shows the server\'s reason, not "/api/hooks failed with status 503"', async () => {
+    stub({ get: 503 })
+    render(<AnswerBridge accounts={accounts} />)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load the answer bridge: no data folder')
+    expect(alert).not.toHaveTextContent('failed with status')
+  })
+
+  it('a 503 without a reason in its body still gets fixed wording', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503, json: async () => { throw new Error('not json') } })))
+    render(<AnswerBridge accounts={accounts} />)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('the app cannot answer terminal sessions now')
+    expect(alert).not.toHaveTextContent('failed with status')
   })
 
   it('says to confirm an account first when none is listed', async () => {

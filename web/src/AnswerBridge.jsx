@@ -10,11 +10,13 @@ const STATUS = {
   off: 'Off',
   changed_by_hand: 'Changed by hand',
   binary_moved: 'Binary moved',
+  other_copy: 'Another copy of the app',
   unreadable: 'Settings file cannot be read',
 }
 const EXPLAIN = {
   changed_by_hand: 'An entry of ours in this account’s settings.json was changed by hand, or only one of the two is there. Turn on adds what is missing; Turn off removes only the entries the app added.',
   binary_moved: 'The entries name a copy of this app that has moved. Turn on points them at this copy; Turn off removes them.',
+  other_copy: 'The entries name another copy of this app that is still there. Turn on replaces them with this copy; Turn off removes them.',
   unreadable: 'The account’s settings.json is not a JSON object or cannot be read, so the app leaves it as it is.',
 }
 export const NOT_LISTENING = 'Turned on, but not listening: restart the app'

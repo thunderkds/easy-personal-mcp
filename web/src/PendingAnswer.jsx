@@ -9,7 +9,7 @@ export const SENT = 'Answer sent to the terminal session.'
 export const HANDED_BACK = 'Handed back: the terminal asks now.'
 export const ALREADY = 'Already answered.'
 export const EXPIRED = 'The terminal asks now.'
-const ALREADY_SERVER = 'already answered' // the server's 409 text for a second answer; any other 409 (an allow of a cut input) keeps its own words in the card
+const ALREADY_SERVER = 'already answered' // T106's exact 409 text for a second answer; the other 409 (an allow of an input that was cut) keeps the server's words in the card
 const FAILED = 'Could not send the answer. Try again.'
 const FAILED_RELEASE = 'Could not hand the prompt back. Try again.'
 
@@ -76,7 +76,6 @@ export function PendingAnswer({ sessionId, prompt, onEnd }) {
   }
   return (
     <PromptCard
-      key={prompt.id}
       prompt={prompt}
       busy={busy}
       error={error}

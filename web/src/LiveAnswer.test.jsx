@@ -24,6 +24,8 @@ class FakeEventSource {
 }
 const stream = () => FakeEventSource.instances.at(-1)
 
+// T106's exact 409 texts (rust/crates/app/src/answer_bridge.rs)
+const INCOMPLETE = 'the tool input is too long to show whole, so it cannot be allowed from here; deny it or hand it back to the terminal'
 const SECRET = '[hidden: looks like a secret]'
 const question = (over = {}) => ({
   id: 'p1',
@@ -77,9 +79,10 @@ describe('readPrompt', () => {
       expect(readPrompt(bad)).toBeNull()
     }
   })
-  it('reads complete: false of a permission, and takes anything but false as complete', () => {
-    expect(readPrompt(permission({ complete: false }))).toMatchObject({ complete: false })
-    expect(readPrompt({ id: 'p', kind: 'permission', tool: 'Bash', input: 'x' })).toMatchObject({ complete: true })
+  it('fails closed: only complete: true is complete; a missing, false or non-boolean complete is not', () => {
+    expect(readPrompt(permission())).toMatchObject({ complete: true })
+    for (const complete of [false, undefined, 'true', 1, null]) expect(readPrompt(permission({ complete }))).toMatchObject({ complete: false })
+    expect(readPrompt({ id: 'p', kind: 'permission', tool: 'Bash', input: 'x' })).toMatchObject({ complete: false })
   })
 })
 
@@ -143,7 +146,7 @@ describe('AC2: the card on a session with pending_answer', () => {
     expect(calls[0].body.answers).toEqual([{ selected: [1] }])
   })
 
-  it('a permission shows the tool and its one line, and Allow / Deny send the decision; Deny carries the note', async () => {
+  it('a permission shows the tool and its whole input, and Allow / Deny send the decision; Deny carries the note', async () => {
     const calls = stubFetch()
     show([session('aaaaaaaa-1', permission({ input: 'rm -rf build' }))])
     const card = screen.getByRole('region', { name: 'Permission request from a terminal session' })
@@ -189,10 +192,10 @@ describe('AC2: the card on a session with pending_answer', () => {
   })
 
   it('a 409 that is not "already answered" (an allow the server refuses) keeps the card and shows the server\'s note', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: 'too long to allow from here: answer in the terminal or deny' }) })))
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: INCOMPLETE }) })))
     show([session('aaaaaaaa-1', permission())])
     click(screen.getByRole('button', { name: 'Allow' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('too long to allow from here: answer in the terminal or deny')
+    expect(await screen.findByRole('alert')).toHaveTextContent(INCOMPLETE)
     expect(screen.queryByText(ALREADY)).toBeNull()
   })
 
@@ -255,11 +258,17 @@ describe('AC2: the card on a session with pending_answer', () => {
 })
 
 describe('the permission card shows what is allowed (T106 security review)', () => {
-  const css = () => readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+  const css = () => readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
   const card = (over) => render(<PromptCard prompt={readPrompt(permission(over))} onAnswer={() => {}} onRelease={() => {}} />)
 
-  it('puts the summary in a monospace pre-wrap block so no space is squeezed', () => {
-    expect(css()).toMatch(/\.prompt-summary \{[^}]*font-family: var\(--font-mono\)[^}]*white-space: pre-wrap[^}]*max-height: 60vh/)
+  it('puts the summary in a monospace pre-wrap block in the page flow: no max-height and no inner scroll, in any CSS file', () => {
+    const rule = css().match(/\.prompt-summary \{[^}]*\}/)[0]
+    expect(rule).toMatch(/font-family: var\(--font-mono\)[^}]*white-space: pre-wrap/)
+    for (const file of ['appsession.css', 'app.css', 'watch.css']) {
+      const all = readFileSync(resolve(process.cwd(), 'src', file), 'utf8')
+      const own = all.split('\n').filter((l) => /\.prompt-(summary|card|question|options|option|text)\b/.test(l)).join('\n')
+      expect(own, file).not.toMatch(/max-height|overflow-y|overflow: (auto|scroll)/)
+    }
     card({ input: 'echo a      b' })
     expect(document.querySelector('pre.prompt-summary').textContent).toBe('echo a      b') // every space reaches the block
   })
@@ -284,6 +293,15 @@ describe('the permission card shows what is allowed (T106 security review)', () 
     expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Answer in terminal' })).toBeInTheDocument()
   })
+
+  it('fails closed: no Allow when complete is missing, or the input is empty, even with complete: true', () => {
+    for (const over of [{ complete: undefined }, { input: '' }, { input: undefined }]) {
+      const { unmount } = card(over)
+      expect(screen.queryByRole('button', { name: 'Allow' }), JSON.stringify(over)).toBeNull()
+      expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument()
+      unmount()
+    }
+  })
 })
 
 describe('sorting and the rest of the row', () => {
@@ -298,5 +316,18 @@ describe('sorting and the rest of the row', () => {
     act(() => stream().emit('snapshot', snapshot([waiting])))
     expect(document.querySelectorAll('.live-question')).toHaveLength(0)
     expect(screen.getAllByText('Which database?')).toHaveLength(1)
+  })
+})
+
+describe('a new prompt starts clean (key by prompt id)', () => {
+  it('an error on prompt A is gone when prompt B arrives in the same session', async () => {
+    stubFetch({ answer: 400 })
+    show([session('aaaaaaaa-1', permission({ id: 'pA' }))])
+    click(screen.getByRole('button', { name: 'Allow' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('choose an option or type an answer for every question')
+    act(() => stream().emit('snapshot', snapshot([session('aaaaaaaa-1', permission({ id: 'pB', input: 'ls' }))])))
+    expect(screen.getByText('ls')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Allow' })).toBeEnabled())
   })
 })

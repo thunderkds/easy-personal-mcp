@@ -817,26 +817,9 @@ main.settings { max-width: 48rem; }
   .agent-run .link-button, .settings .link-button { display: inline-block; padding: 13px 0; margin: -13px 0; } /* a 44 px tap area for an inline link, the line does not grow */
 }
 
-/* Prompt card (T107, FR-111, FR-114): a waiting prompt of a terminal session, drawn inside its Live row (above the row's click overlay) */
-.prompt-card, .live-notice { position: relative; z-index: 1; }
-.prompt-card { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-3); border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); background: var(--color-input); }
-.prompt-question { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.prompt-header { align-self: flex-start; padding: 0 var(--space-2); border: 1px solid var(--color-control); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); overflow-wrap: anywhere; }
-.prompt-text { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-body); color: var(--color-heading); }
-.prompt-options { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.prompt-option { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); cursor: pointer; }
-.prompt-option:has(input:checked) { border-color: var(--color-accent-line); background: var(--color-accent-soft); }
-.prompt-option input { flex: none; margin-top: 2px; accent-color: var(--color-accent); }
-.prompt-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-cell); }
-.prompt-option-text strong { font-weight: 500; color: var(--color-heading); }
-.prompt-other { width: 100%; box-sizing: border-box; resize: vertical; }
-/* The command or path the owner would allow: monospace, every space kept (pre-wrap), long words wrap, never squeezed or clipped */
-.prompt-summary { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-bg); font-family: var(--font-mono); font-size: var(--fs-cell); color: var(--color-text); white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-height: 60vh; overflow-y: auto; }
-.prompt-cut { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-amber); border-radius: var(--radius-sm); font-size: var(--fs-note); font-weight: 500; color: var(--color-amber); overflow-wrap: anywhere; }
+/* Bridge warning (T107). The prompt card rules are in appsession.css (T104's file, carried here unchanged). */
 .bridge-warn { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-amber); }
-.prompt-note input { width: 100%; box-sizing: border-box; }
-.live-notice { margin: 0; font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-accent); overflow-wrap: anywhere; }
-@media (max-width: 39.999rem) { .prompt-card button { min-height: 44px; } .bridge-row .account-text { flex-basis: 100%; } .bridge-row .bridge-status { margin-right: auto; } }
+@media (max-width: 39.999rem) { .bridge-row .account-text { flex-basis: 100%; } .bridge-row .bridge-status { margin-right: auto; } }
 
 /* Answer bridge block in Settings (T107, FR-113) */
 .bridge-accounts { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
@@ -846,7 +829,7 @@ main.settings { max-width: 48rem; }
 .bridge-row .account-text { flex: 1 1 10rem; }
 .bridge-status { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-secondary); }
 .bridge-status[data-status='on'] { color: var(--color-accent); }
-.bridge-status[data-status='changed_by_hand'], .bridge-status[data-status='binary_moved'], .bridge-status[data-status='unreadable'] { color: var(--color-amber); }
+.bridge-status[data-status='changed_by_hand'], .bridge-status[data-status='binary_moved'], .bridge-status[data-status='other_copy'], .bridge-status[data-status='unreadable'] { color: var(--color-amber); }
 .bridge-note { font-weight: 500; color: var(--color-heading); }
 .bridge-confirm { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .bridge-confirm h3 { margin: 0; }
