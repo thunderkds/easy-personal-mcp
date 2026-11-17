@@ -5,15 +5,13 @@
 ## Auto decisions
 
 Mode: auto
-1. The folder of a resumed session is the project folder of its **first** stored record (`events.project_path`), never a page-given path; the page sends no `repo`, `workspace` or `worktree` with `resume` (400). RULE: `PRD.md` FR-112 / FR-116 "the page sends only the form fields"; TASK_GUIDE AC 1 "never a page-given path"
-2. "Active" is the newer of the store's last record and the live tail's last record of the session, under 120 s old (`live::RESUME_QUIET_S`, `live::is_recent`, `LiveTail::last_record`): the store lags the tail by one ingest, and a store-only check would let a plain resume into a window that is open. RULE: `PRD.md` FR-112 "a record in the last 2 minutes"; question 41
-3. An app session's own Claude session cannot be resumed **or forked** while it is going (409, own fixed message); a plain resume counts as running from its start (its `claude_id` is set at the plan, so two quick clicks cannot start it twice; the check is made under the registry lock in `Sessions::start`). RULE: TASK_GUIDE scope "an app session's own session cannot be resumed while it is still going (409)"
-4. `resume` needs the same `prompt` as a new session (the form is unchanged); `account` is the same optional field (default: the agent run account). The page half passes the session's account. A `resume` of an id that exists under another account is a `claude` "no conversation found" end of the app session, not a refusal here
-5. `continue: true` with `worktree: true` is 400 (a new worktree has no conversation to continue); `continue` with `resume` or `fork`, and `fork` without `resume`, are 400; `continue: false` and `fork: false` are the same as absent
-6. The session id must start with a hex digit (the guide's "hex digits and `-` only" would let `--` through; it is in the guide's own reject list)
-Checks: tests `cargo test -p easy-personal-rs --bin easy-personal-rs app_session` 61 passed, 0 failed; workspace 1172 passed, 0 failed over 96 targets; fmt and clippy clean; leak gate 0 hits over 42 canaries, 1017 surfaces; no run with the real `claude` (stand-in only)
-Not done: the page buttons (AC 3, second step); merge
-Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); Risk Medium: decision 1 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 2 Advocates named; Risk Medium: decision 2 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 2 Advocates named; Risk Medium: decision 3 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 2 Advocates named [report 622826bb8a05]
+1. A resumed session runs in the session's own folder: its transcript's start `cwd` when that resolves to the session's project, else the project folder (from the store, else the live tail); the page never names a folder (`repo`, `workspace`, `worktree` with `resume` → 400). RULE: `PRD.md:209` FR-112 "an app session with `--resume <id>` in the session's folder"
+2. A session with a record in the last 2 minutes (store or live tail, whichever is newer) is only resumed as a fork; a plain resume answers 409 and the page switches to Fork with the fixed note. RULE: `PRD.md:209` FR-112 "A session with a record in the last 2 minutes offers it only with *fork* (`--fork-session`)"
+3. `continue` answers 409 while the repo has a record under 2 minutes old (store or live tail) or a going app session, since `--continue` would attach to an open conversation. RULE: `PRD.md:209` FR-112 "Claude Code: two writers to one transcript lose messages"
+4. The request carries only a checked session id (hex digits and `-`, first a hex digit, ≤ 64), flags and the fixed form fields; the argv is fixed words plus that id. RULE: `PRD.md:213` FR-116 "No route lets the page name the program or free arguments"
+Checks: tests `cargo test -p easy-personal-rs --bin easy-personal-rs app_session` — 66 passed, 0 failed; `cargo test --workspace --no-fail-fast` — 1177 passed, 0 failed (96 targets); `cd web && npm test` — 1166 passed; fmt and clippy clean; leak gate 0 hits over 42 canaries, 1017 surfaces; reviews code-review + security (independent, 0 P0, 1 P1 + 1 P2 + 3 P3 — fixed in `2b46ad7`, the index note documented); real run: a real `serve` with a stand-in `claude` (Demonstration AFTER) — a real resume needs the owner
+Memory: nothing new (the 2-minute rule and the store lag are recorded in memory/learnings.md and rust/README.md)
+Not done: merge (admin: after the auto verify pass) — merge after T103 and T104 (this branch already holds both); auto verify: running (T182); owner real run
 
 ## Evidence
 
@@ -32,7 +30,9 @@ Paused: auto-mode check failed — no `Memory:` line in the report — run the m
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pending | Supervisor, Stage 4. Blast radius: `start` in `app_session_routes.rs` (every start), `Plan` / `argv` / `Sessions::start` in `app_session.rs`, two additive methods on `Api` (`api.rs`), two additive items in `core/src/live.rs` |
 | Full smoke suite still green (no regression) | ☑ pass | workspace 1172 passed, 0 failed |
 | **Companion score (easy-verifier)** | ☑ N/A | not run in Stage 3 |
-| **UI: Visual regression / Design-system / Responsiveness** | ☑ N/A | no UI in this half |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | `ux-evaluate` by the page half: shots at 375 and 1280 for Live (Resume / Fork in app), the resume, fork and continue forms and confirm steps, the 409 switch, the 404 and Workspaces — all baseline checks pass (table in this file) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | only `tokens.css` variables in `appsession.css` (same rule set as T104) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280: no sideways scroll; Continue in app buttons set to 44 px at 375 after the first shot |
 
 ### ux-evaluate (second half: baseline checks only)
 
