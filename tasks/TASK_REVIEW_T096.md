@@ -45,8 +45,27 @@ Not done: merge (admin: after the auto verify pass); auto verify: not started (t
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (2026-11-17T02:43:20Z, branch `T096` at `f5f839f`, no implementation commit yet): a throwaway test (not committed) printed `tray::view` for a snapshot with one `waiting` session (`shop`), one `your_turn` session (`blog`) and one `failing` session (`api`): one count row for waiting, one for failing, and no row at all for the your-turn session or for any single session. The alert engine has no `your_turn` kind and `Notifier::notify(summary, body)` has no action.
+
+```
+$ cd rust && cargo test -p easy-personal-rs --bin easy-personal-rs -- tray::tests::before_t096_print_rows --nocapture
+running 1 test
+state: problem
+Info("Easy Personal · problem")
+Separator
+Info("3 sessions active")
+Action("waiting", "1 waiting for you · shop")
+Action("failing", "1 failing · api")
+Info("5h limit · no data · 7d · no data")
+Info("Machine · no data")
+Separator
+Action("open", "Open dashboard")
+Check("pause", "Pause alerts", false)
+Separator
+Info("127.0.0.1 · local only")
+Action("quit", "Quit")
+test tray::tests::before_t096_print_rows ... ok
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
