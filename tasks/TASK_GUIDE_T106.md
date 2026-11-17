@@ -47,6 +47,11 @@ Owner 2026-11-17: "you can input the text to the ask question in the app and sen
 | `LiveTail::snapshot()` content read by tray/alerts | DDR-0005 split stays |
 | `src/easy_personal/**` | Python app |
 
+## Verification Command
+```bash
+cd rust && cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo clippy -p easy-personal-rs --features window --all-targets -- -D warnings && cargo test --workspace 2>&1 | tail -5 && python3 parity/leak_rust.py
+```
+
 ## Completion checklist
 - [ ] Implementation done
 - [ ] Lint passes

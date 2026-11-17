@@ -62,6 +62,11 @@ Child exits at once (no `claude`, bad login) → state `ended` with a fixed reas
 ## Test plan
 Unit + route tests with the fake `claude`; a real run on the owner's machine is T104's AC.
 
+## Verification Command
+```bash
+cd rust && cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace 2>&1 | tail -5 && python3 parity/leak_rust.py
+```
+
 ## Completion checklist
 - [ ] Implementation done
 - [ ] Lint passes

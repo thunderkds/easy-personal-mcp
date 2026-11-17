@@ -52,6 +52,11 @@ Throwaway scripts under `rust/spikes/write-sessions/` (Python or shell is fine f
 ## Test plan
 The spike is its own evidence: each AC has a command and its output sample in `SPIKE.md`.
 
+## Verification Command
+```bash
+test -s tasks/evidence-T102/SPIKE.md && grep -cE '^\| *[0-9]+ ' tasks/evidence-T102/SPIKE.md && ls rust/spikes/write-sessions/
+```
+
 ## Completion checklist
 - [ ] Implementation done
 - [ ] Lint passes (n/a for spike scripts)

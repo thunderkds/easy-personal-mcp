@@ -28,6 +28,11 @@ Owner 2026-11-17: "you can input the text to the ask question in the app and sen
 | 4 | Vitest per state; `ux-evaluate` 375 / 1280 | — |
 | 5 | Real run (owner gate): a terminal session's `AskUserQuestion` answered from the app; a `Bash` permission allowed from the app | FR-114 |
 
+## Verification Command
+```bash
+cd web && npm run lint && npx vitest run 2>&1 | tail -5
+```
+
 ## Completion checklist
 - [ ] Implementation done
 - [ ] Lint passes

@@ -37,6 +37,11 @@ Owner 2026-11-17: "what we can do with the claude CLI, we can do with our applic
 ## Files must NOT touch
 `src/easy_personal/**`, Rust routes (T103 owns them), any text in `localStorage`.
 
+## Verification Command
+```bash
+cd web && npm run lint && npx vitest run 2>&1 | tail -5
+```
+
 ## Completion checklist
 - [ ] Implementation done
 - [ ] Lint passes

@@ -29,6 +29,11 @@ Owner 2026-11-17: CLI parity; `claude --resume` / `--continue` are CLI features.
 ## Files must NOT touch
 `~/.claude/projects/**` (never written by the app), `src/easy_personal/**`.
 
+## Verification Command
+```bash
+cd rust && cargo test --workspace 2>&1 | tail -5 && cd ../web && npx vitest run 2>&1 | tail -5
+```
+
 ## Completion checklist
 - [ ] Implementation done
 - [ ] Lint passes
