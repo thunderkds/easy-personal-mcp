@@ -1,0 +1,40 @@
+method call time=1794884241.344587 sender=:1.336 -> destination=org.freedesktop.Notifications serial=6 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=GetCapabilities
+method call time=1794884241.346647 sender=:1.336 -> destination=org.freedesktop.Notifications serial=8 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=Notify
+   string "easy-personal"
+   uint32 0
+   string ""
+   string "Easy Personal"
+   string "2 sessions waiting, 1 session failing"
+   array [
+      string "default"
+      string "Open"
+   ]
+   array [
+   ]
+   int32 10000
+signal time=1794884244.013235 sender=:1.33 -> destination=:1.336 serial=174 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=ActionInvoked
+   uint32 10
+   string "default"
+signal time=1794884244.013377 sender=:1.33 -> destination=:1.336 serial=175 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=NotificationClosed
+   uint32 10
+   uint32 2
+method call time=1794884301.360378 sender=:1.336 -> destination=org.freedesktop.Notifications serial=9 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=Notify
+   string "easy-personal"
+   uint32 0
+   string ""
+   string "Easy Personal"
+   string "Your turn, project docs, session 89abcdef"
+   array [
+      string "default"
+      string "Open"
+   ]
+   array [
+   ]
+   int32 10000
+signal time=1794884301.785347 sender=:1.33 -> destination=:1.336 serial=180 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=ActionInvoked
+   uint32 11
+   string "default"
+signal time=1794884301.785448 sender=:1.33 -> destination=:1.336 serial=181 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=NotificationClosed
+   uint32 11
+   uint32 2
+
