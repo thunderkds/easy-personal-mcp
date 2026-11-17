@@ -151,7 +151,7 @@ async fn guard_layer(State(guard): State<Arc<Guard>>, req: Request, next: Next) 
 }
 
 /// Compares every byte once a length matches (the length of the token is not secret).
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |diff, (x, y)| diff | (x ^ y)) == 0
 }
 

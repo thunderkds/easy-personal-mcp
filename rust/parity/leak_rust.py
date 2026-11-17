@@ -83,8 +83,8 @@ SESSION_PATTERNS = {
     "session_prompt": "LEAKCANARY owner prompt {t}",
     "session_message": "LEAKCANARY owner message {t}",
     "session_assistant": "LEAKCANARY assistant text {t}",
-    "session_tool_secret": "sk-ant-SCANARY{t}",  # in a tool call's input: no label, no output
-    "session_card_command": "LEAKCANARY-card-command-{t}",
+    "session_tool_secret": "sk-ant-SCANARY{t}",  # in a tool call's input (not a prompt): no label, no output
+    "session_card_command": "LEAKCANARY-card-command-{t}",  # in a permission prompt's input: the card's `input` shows it whole (T103 fix round)
     "session_question": "LEAKCANARY session question {t}?",
     "session_header": "LEAKCANARY s-header {t}",
     "session_option": "LEAKCANARY s-option {t}",
@@ -516,7 +516,7 @@ for line in sys.stdin:
     emit({{"type": "assistant", "message": {{"content": [{{"type": "text", "text": P["assistant"] + " | " + text}},
          {{"type": "tool_use", "id": "tu1", "name": "Bash", "input": {{"command": "ls " + P["tool_secret"]}}}}]}}}})
     if text == P["prompt"]:
-        r1 = call("Bash", {{"command": "touch " + P["card_command"], "description": "d"}}, "toolu_b")
+        r1 = call("Bash", {{"command": "touch " + P["card_command"] + "\\necho tail-" + P["card_command"], "description": "d"}}, "toolu_b")
         ask = {{"questions": [{{"question": P["question"], "header": P["header"], "multiSelect": False,
                               "options": [{{"label": P["option"], "description": P["option"]}}]}}]}}
         r2 = call("AskUserQuestion", ask, "toolu_q")
@@ -531,7 +531,8 @@ for line in sys.stdin:
 def app_sessions(run: "Run", checks: list[str], canaries: Canaries) -> None:
     """T103 (FR-115): an app session over real HTTP with a stand-in `claude` that streams planted text and asks for three
     permissions (a command, a question, a plan). The owner's prompt and message, the assistant text, the cards, the answers and
-    a secret in a tool input are on the guarded `/api/app-sessions` answers (positive control) and on no other surface: the
+    the whole input of a permission card (`input`, T103 fix round) are on the guarded `/api/app-sessions` answers (positive
+    control; a secret in a running tool call's input is not) and on no other surface: the
     server's stdout and stderr, `GET /api/alerts`, `GET /api/live`, the store files and `.dump`, the CLI, MCP over stdio, the data
     folder (no temp config is left). The session ends, its panel closes, and its text is gone from the next answer; a second
     session is left running and the server's stop must end its child. A data folder of its own, with the setting on."""
@@ -583,11 +584,14 @@ def app_sessions(run: "Run", checks: list[str], canaries: Canaries) -> None:
             sid = started.get("id", "")
             if status != 202 or not sid:
                 raise Fatal(f"app sessions: start answered {status}")
-            answered, deadline, view = 0, time.monotonic() + 60, {}
+            answered, deadline, view, card_ok = 0, time.monotonic() + 60, {}, False
             while time.monotonic() < deadline:
                 _, view = call("get", "GET", f"/api/app-sessions/{sid}")
                 for item in view.get("items", []):
                     if item.get("kind") == "prompt" and item.get("status") == "pending":
+                        if item.get("type") == "tool":  # the card shows the whole input, with its line break, and no summary
+                            cmd = s.values["session_card_command"]
+                            card_ok = item.get("input") == f"touch {cmd}\necho tail-{cmd}" and item.get("complete") is True and "summary" not in item
                         body = {"prompt_id": item["prompt_id"], "confirmed": True}
                         if item["type"] == "question":
                             body |= {"behavior": "allow", "updatedInput": {"answers": {item["questions"][0]["question"]: s.values["session_answer"]}}}
@@ -601,6 +605,7 @@ def app_sessions(run: "Run", checks: list[str], canaries: Canaries) -> None:
                     break
                 time.sleep(0.2)
             checks.append(f"check app session answered 3 prompts, idle  {'ok' if answered == 3 and view.get('state') == 'idle' else 'FAILED'} ({answered} answered, state {view.get('state')})")
+            checks.append(f"check app session tool card shows input    {'ok' if card_ok else 'FAILED'}")
             call("message", "POST", f"/api/app-sessions/{sid}/message", {"text": s.values["session_message"], "confirmed": True})
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:

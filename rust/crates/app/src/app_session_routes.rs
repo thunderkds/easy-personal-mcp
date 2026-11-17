@@ -37,6 +37,8 @@ const OFF: &str = "app sessions are off: choose an agent run account in Settings
 const NO_SESSION: &str = "no such session";
 const ENDED: &str = "the session has ended";
 const UNREADABLE: &str = "the store cannot be read right now; try again in a moment";
+const INCOMPLETE: &str =
+    "the tool input is too long to show whole, so it cannot be allowed from here; deny it";
 const MAX_PROMPT: usize = 100_000;
 const MAX_NOTE: usize = 10_000;
 /// The largest body of the permission tool's route.
@@ -472,6 +474,7 @@ async fn answer(State(api): State<Api>, Path(id): Path<String>, req: Request) ->
                 "that prompt was answered or closed already",
             ),
             Err(AnswerError::Bad(text)) => fail(StatusCode::BAD_REQUEST, text),
+            Err(AnswerError::Incomplete) => fail(StatusCode::CONFLICT, INCOMPLETE),
         }
     })
     .await
@@ -550,7 +553,13 @@ async fn mcp_post(State(api): State<Api>, Path(id): Path<String>, req: Request) 
         return rpc_error(&Value::Null, -32700, "Parse error");
     };
     let Some(request_id) = message.get("id").cloned() else {
-        // a notification (`notifications/initialized`, `notifications/cancelled`): no answer body
+        // a notification: no answer body. `notifications/cancelled` is Claude Code giving up a `tools/call`: its prompt
+        // (when that call was the last one waiting for it) is settled with a deny (FR-111); `initialized` changes nothing
+        if message.get("method").and_then(Value::as_str) == Some("notifications/cancelled")
+            && let Some(call) = message.get("params").and_then(|p| p.get("requestId"))
+        {
+            session.cancel_call(call);
+        }
         let mut response = Response::new(Body::empty());
         *response.status_mut() = StatusCode::ACCEPTED;
         return response;
@@ -586,7 +595,8 @@ async fn mcp_post(State(api): State<Api>, Path(id): Path<String>, req: Request) 
             let meta = params["_meta"]["claudecode/toolUseId"]
                 .as_str()
                 .map(str::to_string);
-            let text = prompt_result(&session, &params["arguments"], meta.as_deref()).await;
+            let text =
+                prompt_result(&session, &params["arguments"], meta.as_deref(), &request_id).await;
             rpc_reply(
                 &request_id,
                 json!({"content": [{"type": "text", "text": text}]}),
@@ -597,10 +607,15 @@ async fn mcp_post(State(api): State<Api>, Path(id): Path<String>, req: Request) 
     }
 }
 
-/// Opens (or re-joins) the prompt and waits for its result text: the owner's answer, or a deny when the turn or the
-/// session ended. Nothing answers it by itself.
-async fn prompt_result(session: &Session, arguments: &Value, meta_id: Option<&str>) -> String {
-    let Some(mut rx) = session.open_prompt(arguments, meta_id) else {
+/// Opens (or re-joins) the prompt and waits for its result text: the owner's answer, or a deny when the call was
+/// cancelled, the owner's interrupt took effect or the session ended. Nothing answers it by itself.
+async fn prompt_result(
+    session: &Session,
+    arguments: &Value,
+    meta_id: Option<&str>,
+    call: &Value,
+) -> String {
+    let Some(mut rx) = session.open_prompt(arguments, meta_id, call) else {
         return json!({"behavior": "deny", "message": "The session is not taking prompts."})
             .to_string();
     };
@@ -1274,8 +1289,12 @@ mod tests {
                 .unwrap()
                 .clone();
             assert_eq!(
-                (card["status"].as_str(), card["summary"].as_str()),
-                (Some("pending"), Some("touch x"))
+                (
+                    card["status"].as_str(),
+                    card["input"].as_str(),
+                    card["complete"].as_bool()
+                ),
+                (Some("pending"), Some("touch x"), Some(true))
             );
             let prompt_id = card["prompt_id"].as_str().unwrap().to_string();
 
@@ -1386,6 +1405,120 @@ mod tests {
                 ask["updatedInput"]["answers"],
                 json!({"Which colour?": "Green"})
             );
+        });
+    }
+
+    #[test]
+    fn a_tool_card_shows_the_whole_input_and_an_allow_of_a_cut_input_is_409_while_a_deny_is_200() {
+        let _serial = serial();
+        block(async {
+            let w = world("overcap", KEEP);
+            let id = w.begin(json!({})).await;
+            let bearer = w.config(&id);
+            let long = format!("echo {}", "x".repeat(16_000));
+            let multi = w.tool_call(
+                &id,
+                &bearer,
+                json!({"tool_name": "Bash", "tool_use_id": "toolu_m",
+                       "input": {"command": "git status\nrm -rf x\u{202e}", "description": "d"}}),
+            );
+            let over = w.tool_call(
+                &id,
+                &bearer,
+                json!({"tool_name": "Bash", "tool_use_id": "toolu_o", "input": {"command": long}}),
+            );
+            let owner = async {
+                let mut cards = Vec::new();
+                while cards.len() < 2 {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    cards = w.session(&id).await["items"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .filter(|i| i["kind"] == "prompt")
+                        .cloned()
+                        .collect();
+                }
+                let find = |text: &str| {
+                    cards
+                        .iter()
+                        .find(|c| c["input"].as_str().unwrap().starts_with(text))
+                        .unwrap()
+                        .clone()
+                };
+                let (multi, over) = (find("git status"), find("echo"));
+                assert_eq!(multi["input"], "git status\nrm -rf x\\u{202e}");
+                assert_eq!(multi["complete"], true);
+                assert_eq!(multi["tool"], "Bash");
+                assert!(multi.get("summary").is_none());
+                assert_eq!(over["complete"], false);
+                let path = format!("/api/app-sessions/{id}/answer");
+                let allow =
+                    json!({"prompt_id": over["prompt_id"], "behavior": "allow", "confirmed": true});
+                let (status, body) = w.post(&path, &allow).await;
+                assert_eq!(status, 409, "{body}");
+                assert!(
+                    body["error"]
+                        .as_str()
+                        .unwrap()
+                        .contains("too long to show whole")
+                );
+                assert_eq!(w.session(&id).await["state"], "waiting", "the card stays");
+                let deny =
+                    json!({"prompt_id": over["prompt_id"], "behavior": "deny", "confirmed": true});
+                assert_eq!(w.post(&path, &deny).await.0, 200);
+                let allow = json!({"prompt_id": multi["prompt_id"], "behavior": "allow", "confirmed": true});
+                assert_eq!(w.post(&path, &allow).await.0, 200);
+            };
+            let (multi, over, ()) = tokio::join!(multi, over, owner);
+            assert_eq!(multi["behavior"], "allow");
+            assert_eq!(over["behavior"], "deny");
+        });
+    }
+
+    #[test]
+    fn a_cancelled_notification_settles_the_prompt_of_that_call_and_no_other() {
+        let _serial = serial();
+        block(async {
+            let w = world("cancel", KEEP);
+            let id = w.begin(json!({})).await;
+            let bearer = w.config(&id);
+            let body = json!({"jsonrpc": "2.0", "id": 41, "method": "tools/call",
+                              "params": {"name": TOOL, "arguments": bash_call("toolu_c")}});
+            let call = w.mcp(&id, Some(&bearer), &body);
+            let cancelling = async {
+                w.until_state(&id, "waiting").await;
+                let cancel = |request_id: i64| {
+                    json!({"jsonrpc": "2.0", "method": "notifications/cancelled",
+                           "params": {"requestId": request_id, "reason": "timeout"}})
+                };
+                let (status, _) = w.mcp(&id, Some(&bearer), &cancel(99)).await;
+                assert_eq!(status, 202);
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                assert_eq!(
+                    w.session(&id).await["state"],
+                    "waiting",
+                    "another call's id changes nothing"
+                );
+                let (status, _) = w.mcp(&id, Some(&bearer), &cancel(41)).await;
+                assert_eq!(status, 202);
+            };
+            let ((status, answer), ()) = tokio::join!(call, cancelling);
+            assert_eq!(status, 200);
+            let text = answer["result"]["content"][0]["text"].as_str().unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(text).unwrap()["behavior"],
+                "deny"
+            );
+            let view = w.session(&id).await;
+            let card = view["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|i| i["kind"] == "prompt")
+                .unwrap();
+            assert_eq!(card["status"], "cancelled");
+            assert_eq!(view["state"], "working", "the session itself goes on");
         });
     }
 
@@ -1620,6 +1753,28 @@ mod tests {
             assert_eq!(ended["reason"], "account turned off");
             let (status, _) = w.post("/api/app-sessions", &w.form(json!({}))).await;
             assert_eq!(status, 403, "a new session needs the setting on");
+        });
+    }
+
+    #[test]
+    fn an_account_that_is_no_longer_confirmed_ends_a_going_session() {
+        let _serial = serial();
+        block(async {
+            let w = world("gone", KEEP);
+            let id = w.begin(json!({"account": "home"})).await;
+            w.until_state(&id, "working").await;
+            w._conn
+                .execute(
+                    "UPDATE agent_accounts SET status = 'ignored' WHERE id = 1",
+                    [],
+                )
+                .unwrap();
+            let ended = w.until_state(&id, "ended").await;
+            assert_eq!(ended["reason"], "account turned off");
+            let (status, _) = w
+                .post("/api/app-sessions", &w.form(json!({"account": "home"})))
+                .await;
+            assert_eq!(status, 400, "the account is not a confirmed one any more");
         });
     }
 
