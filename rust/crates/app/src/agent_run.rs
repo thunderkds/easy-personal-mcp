@@ -370,6 +370,14 @@ impl Runner {
         let Some(flag) = self.flag() else {
             return Ok(outcome(Ended::Off, None));
         };
+        // a flag that names no confirmed Claude account counts as off, whatever account is asked for
+        let stored = match flag.as_str() {
+            "" => None,
+            id => match self.lookup(id) {
+                Some(chosen) => Some(chosen),
+                None => return Ok(outcome(Ended::Off, None)),
+            },
+        };
         let (account, config_dir) = match account {
             Some(account) => {
                 let conn =
@@ -379,11 +387,9 @@ impl Runner {
                 (Some(account), dir)
             }
             // no account given: the stored one (an empty flag is the default account)
-            None if flag.is_empty() => (None, None),
-            None => match self.lookup(&flag) {
+            None => match stored {
                 Some(chosen) => (Some(flag.as_str()), chosen.config_dir_env),
-                // names no confirmed Claude account: counts as off
-                None => return Ok(outcome(Ended::Off, None)),
+                None => (None, None),
             },
         };
         self.make_dir().map_err(|e| Refused::Io(e.kind()))?;
@@ -1386,6 +1392,12 @@ pub(crate) mod tests {
         for id in ["99", "4"] {
             r.choose(id).unwrap();
             assert_eq!(r.run(None, None).unwrap().ended, Ended::Off, "{id}");
+            // an explicit account does not revive a setting that reads off
+            assert_eq!(
+                r.run(None, Some("home")).unwrap().ended,
+                Ended::Off,
+                "{id} with --account"
+            );
         }
         assert!(!fake.root.join("log/pid").exists());
     }
