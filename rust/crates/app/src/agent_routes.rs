@@ -37,7 +37,7 @@ const OFF: &str = "agent runs are off: choose an agent run account in Settings";
 const FOREIGN: &str = "a run of another process is going; stop it there";
 const NOT_CLAUDE: &str = "the account is not a confirmed Claude account";
 const UNREADABLE: &str = "the store cannot be read right now; try again in a moment";
-/// How long `stop` and `{account: null}` wait for this server's run to end (it polls every 50 ms).
+/// How long `stop` and `{account: null}` wait for this server's run to end (it polls every 20 ms).
 const WAIT_STOPPED: Duration = Duration::from_secs(3);
 
 #[derive(Default)]
@@ -263,10 +263,7 @@ pub(crate) async fn setting(State(api): State<Api>, req: Request) -> Response {
         let agent = &api.agent;
         let runner = agent.runner(&dir);
         match account {
-            Some(reference) => match runner
-                .resolve(&reference)
-                .map_err(|e| matches!(e, Refused::Scope(_)))
-            {
+            Some(reference) => match runner.resolve(&reference) {
                 Ok(id) => {
                     if runner.choose(&id).is_err() {
                         return fail(StatusCode::INTERNAL_SERVER_ERROR, INTERNAL);
