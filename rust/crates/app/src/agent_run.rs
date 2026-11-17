@@ -61,7 +61,7 @@ const TOOLS: [&str; 5] = [
 ];
 /// Removed from the child's environment besides every `ANTHROPIC_*` variable and `CLAUDE_CONFIG_DIR`: each one makes
 /// `claude` bill an API key, a token or another provider instead of the subscription login.
-const DROPPED: [&str; 5] = [
+pub(crate) const DROPPED: [&str; 5] = [
     "AWS_BEARER_TOKEN_BEDROCK",
     "CLAUDE_CODE_OAUTH_TOKEN",
     "CLAUDE_CODE_USE_BEDROCK",
@@ -147,7 +147,7 @@ pub struct Chosen {
     pub id: String,
     pub label: String,
     /// `CLAUDE_CONFIG_DIR` of its runs; `None` for the default account (the variable is removed).
-    config_dir_env: Option<String>,
+    pub(crate) config_dir_env: Option<String>,
     /// Its folder is gone from the disk: a run of it ends `failed`, never hangs.
     pub missing: bool,
 }

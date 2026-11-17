@@ -7,6 +7,8 @@ mod agent_routes;
 mod agent_run;
 mod alerts;
 mod api;
+mod app_session;
+mod app_session_routes;
 mod claude_cli;
 mod cli_cmds;
 mod connector_cmd;

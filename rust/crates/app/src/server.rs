@@ -9,6 +9,7 @@
 use crate::agent_routes::AgentGuard;
 use crate::alerts::{self, Notifier};
 use crate::api::{self, Api};
+use crate::app_session_routes;
 use crate::live_feed::{LIVE_PATH, LiveFeed};
 use crate::sampler::{self, Sampler};
 use crate::static_files;
@@ -68,7 +69,8 @@ pub(crate) fn router_with_static(
     });
     let app = Router::new()
         .route("/api/version", get(version))
-        .merge(api::routes().with_state(api));
+        .merge(api::routes().with_state(api.clone()))
+        .merge(app_session_routes::routes().with_state(api));
     let app = match static_root {
         Some(root) => {
             let root = Arc::new(root);
