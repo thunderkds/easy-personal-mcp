@@ -160,6 +160,20 @@ impl Api {
         self
     }
 
+    /// The time of the newest record the live tail has read of a session (T105: the resume check; the store lags the
+    /// tail by one ingest). `None`: no feed runs, or the tail does not know the session.
+    pub(crate) fn live_last_record(&self, session_id: &str) -> Option<String> {
+        let tail = self.live.as_ref()?;
+        tail.lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .last_record(session_id)
+    }
+
+    /// The injected clock: microseconds since the epoch.
+    pub(crate) fn now(&self) -> i64 {
+        (self.clock)()
+    }
+
     /// The time a store check is reused (a test sets it to 0 to see a second check run).
     #[cfg(test)]
     pub(crate) fn with_health_ttl(mut self, ttl: Duration) -> Self {

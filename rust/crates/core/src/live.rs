@@ -74,6 +74,8 @@ pub const QUESTION_MAX_CHARS: usize = 300;
 /// `input.questions[i]`; `options` and anything deeper are not kept (FR-106).
 const LIVE_KEEP_DEPTH: usize = 7;
 const SECOND: i64 = 1_000_000;
+/// FR-112: a session with a record newer than this many seconds is still open somewhere (T105).
+pub const RESUME_QUIET_S: i64 = 120;
 
 // `os.O_NOFOLLOW | os.O_NONBLOCK`: the one per-arch table of the crate (`report_files::sys`); a target it does not list
 // fails to compile here instead of opening with a wrong flag.
@@ -900,6 +902,12 @@ impl Session {
     }
 }
 
+/// True when `ts` (the stored form, or a record's own) is within [`RESUME_QUIET_S`] of `now` (microseconds since the
+/// epoch): the session it belongs to is not quiet (FR-112). A time in the future counts as recent.
+pub fn is_recent(ts: &str, now: i64) -> bool {
+    ts >= format_stored(now - RESUME_QUIET_S * SECOND).as_str()
+}
+
 /// One buffered event (`_append`'s dict).
 #[derive(Debug, Clone)]
 struct Buffered {
@@ -1000,6 +1008,16 @@ impl LiveTail {
         self.buffer
             .front()
             .is_some_and(|e| last_id.saturating_add(1) < e.id)
+    }
+
+    /// The time of the newest record the tail has read of the session (the stored form, `None`: the tail does not know
+    /// it, which is also the case for a session quiet for [`FORGET_AFTER_S`]). Fresher than the store, which ingest fills
+    /// by its schedule; the resume check of T105 reads it beside the store's.
+    pub fn last_record(&self, session_id: &str) -> Option<String> {
+        self.sessions
+            .get(session_id)
+            .map(|s| s.last_ts.clone())
+            .filter(|ts| !ts.is_empty())
     }
 
     /// Active sessions with running totals and the `last_id` they include. A session with an open call is listed
@@ -1759,6 +1777,23 @@ mod tests {
         assert!(
             !ids.is_empty(),
             "the line after the cursor is published after the caught panic"
+        );
+    }
+
+    /// T105 (FR-112): a record 119 s old is recent, one 121 s old is quiet, a time in the future is recent.
+    #[test]
+    fn a_record_is_recent_for_two_minutes() {
+        let now = 1_800_000_000 * SECOND;
+        let at = |secs_ago: i64| format_stored(now - secs_ago * SECOND);
+        assert!(is_recent(&at(0), now));
+        assert!(is_recent(&at(119), now));
+        assert!(!is_recent(&at(121), now));
+        assert!(!is_recent(&at(3600), now));
+        assert!(is_recent(&at(-30), now));
+        assert!(!is_recent("", now));
+        assert!(
+            is_recent("2027-01-15T08:00:00.123Z", now),
+            "a record's own millisecond form"
         );
     }
 }
