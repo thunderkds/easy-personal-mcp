@@ -79,6 +79,8 @@ QUESTION_PATTERNS = {
 # T106 (FR-114, FR-115, DDR-0006): strings of an answer-bridge conversation (a `hook ask` that waits for the owner). Each may be on
 # `GET /api/live` while its hook waits (the typed ones never are) and on `hook ask`'s stdout when the owner picked or typed it
 # (`BRIDGE_LIVE`, `BRIDGE_HOOK`); on every other surface (the other routes, the store, logs, alerts, CLI output) none may be.
+# A permission card shows the tool and its whole `input` (a `Bash` command is the raw `command`; the Bash `description` is not shown):
+# `input` is allowed on `GET /api/live` and nowhere else, and `hook ask` prints no tool input for a permission.
 BRIDGE_PATTERNS = {
     "bridge_question": "BRIDGEMARKER question {t} which one?",
     "bridge_header": "BRIDGECANARY header {t}",
@@ -87,6 +89,7 @@ BRIDGE_PATTERNS = {
     "bridge_description": "BRIDGECANARY description {t}",
     "bridge_other_text": "BRIDGECANARY typed {t}",
     "bridge_command": "BRIDGECANARY command {t}",
+    "bridge_tool_description": "BRIDGECANARY tooldesc {t}",
     "bridge_deny_message": "BRIDGECANARY deny {t}",
 }
 BRIDGE_LIVE = {"bridge_question", "bridge_header", "bridge_label_picked", "bridge_label_other", "bridge_description", "bridge_command"}
@@ -841,14 +844,15 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                                                      "options": [{"label": v["bridge_label_picked"], "description": v["bridge_description"]},
                                                                  {"label": v["bridge_label_other"], "description": "plain"}]}]}},  # fmt: skip
         "bridge-bash": {"hook_event_name": "PermissionRequest", "tool_name": "Bash", "session_id": "bridge-bash",
-                        "tool_input": {"command": v["bridge_command"], "description": "plain"}},
+                        "tool_input": {"command": v["bridge_command"], "description": v["bridge_tool_description"]}},
     }  # fmt: skip
     saved = {name: run.env.get(name) for name in ("EASY_PERSONAL_HOME", "EASY_PERSONAL_AGENT_ROOT")}
     run.env["EASY_PERSONAL_HOME"] = str(home)
     run.env["EASY_PERSONAL_AGENT_ROOT"] = str(run.logs / "bridge-no-agent-root")
     live: dict[str, object] = {}
     hook: dict[str, object] = {}
-    state = {"private": False, "gone": False, "seen": False, "json_only": True, "exits": True, "second": 0}
+    state = {"private": False, "gone": False, "seen": False, "json_only": True, "exits": True, "second": 0, "card": False}
+    streams: list[socket.socket] = []
     hooks_procs: dict[str, subprocess.Popen] = {}
     try:
         run.run("bridge ingest (an empty source: creates the store)", "ingest", "--source", str(empty))
@@ -874,6 +878,25 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
             while not sock.exists() and time.monotonic() < deadline:
                 time.sleep(0.05)
             state["private"] = sock.exists() and (sock.stat().st_mode & 0o777) == 0o600 and (home.stat().st_mode & 0o777) == 0o700
+            # a page is connected (a `GET /api/live` stream stays open): only then does the bridge hold a hook (T106 fix round)
+            stream = socket.create_connection(("127.0.0.1", port), timeout=15)
+            streams.append(stream)
+            stream.sendall((f"GET /api/live HTTP/1.1\r\n" + "".join(f"{k}: {x}\r\n" for k, x in base.items()) + "\r\n").encode())
+            stream.settimeout(0.3)
+            watched = b""
+
+            def drain() -> bytes:
+                nonlocal watched
+                try:
+                    chunk = stream.recv(65536)
+                    watched += chunk
+                except (socket.timeout, TimeoutError):
+                    pass
+                return watched
+
+            deadline = time.monotonic() + 15
+            while b"\n\n" not in drain().split(b"\r\n\r\n", 1)[-1] and time.monotonic() < deadline:
+                pass
             for sid, payload in hook_input.items():
                 argv = [run.timeout, "-k", "5", "130", str(run.binary), "hook", "ask"]
                 hooks_procs[sid] = subprocess.Popen(argv, env=run.env, cwd=run.nowhere, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -883,11 +906,19 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
             ids: dict[str, str] = {}
             deadline = time.monotonic() + 30
             while len(ids) < len(sessions) and time.monotonic() < deadline:
-                blob = live_first(port, "/api/live", base)
+                blob = drain()
                 ids = pending_ids(blob)
                 live["bridge live GET /api/live (both hooks waiting)"] = blob
-                time.sleep(0.3)
             state["seen"] = set(ids) == set(sessions)
+            cards = {}
+            for part in as_text(drain()).split("\n"):
+                if part.startswith("data: "):
+                    with contextlib.suppress(ValueError):
+                        for x in json.loads(part[6:]).get("sessions") or []:
+                            if isinstance(x.get("pending_answer"), dict):
+                                cards[x["session_id"]] = x["pending_answer"]
+            bash = cards.get("bridge-bash", {})
+            state["card"] = bash.get("input") == v["bridge_command"] and bash.get("complete") is True and "summary" not in bash
             if not state["seen"]:
                 raise Fatal("bridge: the two waiting hooks did not show as pending_answer on GET /api/live")
             for route, queries in API_CALLS.items():  # every GET route, asked while both hooks wait
@@ -912,6 +943,8 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
             run.run("bridge hooks status (while serving)", "hooks", "status")
             run.add("bridge serve stdout (first line, token inside)", first + lines.buf)
         finally:
+            for stream in streams:
+                stream.close()
             for proc_hook in hooks_procs.values():
                 if proc_hook.poll() is None:
                     proc_hook.kill()
@@ -940,6 +973,7 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
     ok = lambda flag: "ok" if flag else "FAILED"  # noqa: E731
     checks.append(f"check bridge socket is 0600 in a 0700 folder   {ok(state['private'])}")
     checks.append(f"check bridge pending_answer on GET /api/live    {ok(state['seen'])} ({len(sessions)} hooks)")
+    checks.append(f"check bridge permission card input + complete   {ok(state['card'])}")
     checks.append(f"check bridge hook ask: exit 0, documented JSON  {ok(state['json_only'] and state['exits'])}")
     checks.append(f"check bridge second answer is a 409             {ok(state['second'] == 409)} (status {state['second']})")
     checks.append(f"check bridge socket removed at SIGINT           {ok(state['gone'])} (exit {rc})")

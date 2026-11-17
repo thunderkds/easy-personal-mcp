@@ -293,6 +293,30 @@ pub fn clean_typed(raw: &str, max: usize) -> String {
     text.trim().to_string()
 }
 
+/// T106 (FR-114, FR-115): a tool input the owner must read before allowing it: the permission card's text. Line breaks,
+/// tabs and runs of spaces are kept; each hidden, control or bidi character (the FR-092 / FR-106 list, [`hidden`]) shows
+/// as a visible escape such as `\u{202e}` (never dropped, so the owner sees what is there). Cut at `max` characters of
+/// that output; the flag is `false` when the cut removed anything, so a caller can refuse an allow it cannot show whole.
+/// No secret check: the owner must see what they allow.
+pub fn clean_block(raw: &str, max: usize) -> (String, bool) {
+    let mut out = String::new();
+    let mut count = 0usize;
+    for c in raw.chars() {
+        let piece = if matches!(c, '\n' | '\t') || !hidden(c) {
+            c.to_string()
+        } else {
+            format!("\\u{{{:x}}}", u32::from(c))
+        };
+        let width = piece.chars().count();
+        if count + width > max {
+            return (out, false); // an escape is never cut in half
+        }
+        count += width;
+        out.push_str(&piece);
+    }
+    (out, true)
+}
+
 /// FR-106: the `questions[].question` strings of an `AskUserQuestion` call's input, at most [`MAX_QUESTIONS`]. The only
 /// place that field is read; no other field of the input or of a question (`header`, `options`, `multiSelect`) is.
 pub fn call_questions(name: &str, input: &Value) -> Option<Vec<String>> {
@@ -1647,6 +1671,28 @@ mod tests {
             key,
             "the owner's own text is not secret-checked"
         );
+    }
+
+    /// T106: the permission card's text keeps line breaks, tabs and runs of spaces, shows each hidden character as an
+    /// escape (none dropped) and says when the cap cut anything.
+    #[test]
+    fn clean_block_keeps_layout_escapes_hidden_characters_and_reports_a_cut() {
+        assert_eq!(
+            clean_block("a\n  b\tc", 100),
+            ("a\n  b\tc".to_string(), true)
+        );
+        assert_eq!(
+            clean_block("x\u{202e}y\u{200b}z\u{7f}\r", 100),
+            ("x\\u{202e}y\\u{200b}z\\u{7f}\\u{d}".to_string(), true)
+        );
+        let spaced = format!("ls{}&& tail-here", " ".repeat(300));
+        let (shown, complete) = clean_block(&spaced, 16_000);
+        assert!(complete && shown == spaced, "a run of spaces is kept");
+        assert_eq!(clean_block("abcdef", 6), ("abcdef".to_string(), true));
+        assert_eq!(clean_block("abcdefg", 6), ("abcdef".to_string(), false));
+        // an escape that does not fit whole is not shown in part
+        assert_eq!(clean_block("ab\u{202e}", 5), ("ab".to_string(), false));
+        assert_eq!(clean_block("", 5), (String::new(), true));
     }
 
     fn line(block: &str) -> String {

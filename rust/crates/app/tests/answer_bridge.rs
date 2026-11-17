@@ -388,8 +388,9 @@ impl Serve {
         (status, serde_json::from_str(body).unwrap_or(Value::Null))
     }
 
-    /// Reads `GET /api/live` until `ready(text so far)`; returns the SSE text read, or fails after 15 s.
-    fn live_until(&self, ready: impl Fn(&str) -> bool) -> String {
+    /// Opens `GET /api/live` and keeps it open: the bridge holds a hook only while a stream is open. Returns once the
+    /// first message arrived (the server has counted the stream by then).
+    fn watch(&self) -> Live {
         let mut tcp = TcpStream::connect(("127.0.0.1", self.port)).unwrap();
         tcp.write_all(
             format!(
@@ -401,23 +402,12 @@ impl Serve {
         .unwrap();
         tcp.set_read_timeout(Some(Duration::from_millis(100)))
             .unwrap();
-        let (mut got, deadline) = (Vec::new(), Instant::now() + Duration::from_secs(15));
-        while Instant::now() < deadline {
-            let mut chunk = [0u8; 65536];
-            if let Ok(n) = tcp.read(&mut chunk) {
-                got.extend_from_slice(&chunk[..n]);
-            }
-            if ready(&text(&got)) {
-                return text(&got);
-            }
-        }
-        panic!("the live stream never got there: {}", text(&got));
-    }
-
-    /// The first snapshot of a stream whose sessions have `n` `pending_answer`s.
-    fn snapshot_with_pending(&self, n: usize) -> Value {
-        let seen = self.live_until(|text| snapshot_of(text, n).is_some());
-        snapshot_of(&seen, n).unwrap()
+        let mut live = Live {
+            tcp,
+            buffer: String::new(),
+        };
+        live.next_snapshot(|_| true);
+        live
     }
 
     fn sigint(&mut self) -> (Option<i32>, String, String) {
@@ -452,21 +442,54 @@ impl Drop for Serve {
     }
 }
 
-/// The last snapshot in the SSE `text` whose sessions hold exactly `n` `pending_answer`s.
-fn snapshot_of(text: &str, n: usize) -> Option<Value> {
-    text.lines()
-        .filter_map(|l| l.strip_prefix("data: "))
-        .filter_map(|d| serde_json::from_str::<Value>(d).ok())
-        .filter(|d| d["sessions"].is_array())
-        .rfind(|d| {
-            d["sessions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter(|s| s["pending_answer"].is_object())
-                .count()
-                == n
-        })
+/// An open `GET /api/live` stream, read message by message.
+struct Live {
+    tcp: TcpStream,
+    buffer: String,
+}
+
+impl Live {
+    /// The next snapshot (in the order the server sent them, from where the last call stopped) that `ready` accepts;
+    /// the ones before it are passed over. Fails after 15 s.
+    fn next_snapshot(&mut self, ready: impl Fn(&Value) -> bool) -> Value {
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            while let Some(end) = self.buffer.find("\n\n") {
+                let message: String = self.buffer.drain(..end + 2).collect();
+                let found = message
+                    .lines()
+                    .filter_map(|l| l.strip_prefix("data: "))
+                    .filter_map(|d| serde_json::from_str::<Value>(d).ok())
+                    .find(|d| d["sessions"].is_array() && ready(d));
+                if let Some(found) = found {
+                    return found;
+                }
+            }
+            assert!(
+                Instant::now() < deadline,
+                "the live stream never got there: {}",
+                self.buffer
+            );
+            let mut chunk = [0u8; 65536];
+            if let Ok(n) = self.tcp.read(&mut chunk) {
+                self.buffer.push_str(&text(&chunk[..n]));
+            }
+        }
+    }
+
+    /// The next snapshot whose sessions hold exactly `n` `pending_answer`s.
+    fn pending(&mut self, n: usize) -> Value {
+        self.next_snapshot(|d| pending_count(d) == n)
+    }
+}
+
+fn pending_count(snapshot: &Value) -> usize {
+    snapshot["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|s| s["pending_answer"].is_object())
+        .count()
 }
 
 /// An open `Bash` call of session `sid`, written just now: the live tail lists the session with the call open.
@@ -514,6 +537,7 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
         Some(0)
     );
     let mut serve = Serve::start(&home);
+    let mut live = serve.watch(); // a stream is open: only then does the bridge hold a hook
 
     // AC 8: the socket is 0600 in a 0700 folder
     let sock = home.0.join("answer.sock");
@@ -524,7 +548,7 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
     // two hooks wait, one per session
     let hook_a = spawn_hook(&home, &hook_input("sess-a"));
     let hook_b = spawn_hook(&home, &hook_input("sess-b"));
-    let last = serve.snapshot_with_pending(2);
+    let last = live.pending(2);
     let pending = |sid: &str| -> Value {
         last["sessions"]
             .as_array()
@@ -539,7 +563,13 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
         (pa["kind"].as_str(), pa["tool"].as_str()),
         (Some("permission"), Some("Bash"))
     );
-    assert_eq!(pa["summary"], "PLANTED-CMD echo hi");
+    assert_eq!(pa["input"], "PLANTED-CMD echo hi");
+    assert_eq!(pa["complete"], true);
+    assert_eq!(
+        pa.as_object().unwrap().keys().collect::<Vec<_>>().len(),
+        5,
+        "id, kind, tool, input, complete: {pa}"
+    );
     let (ida, idb) = (pa["id"].as_str().unwrap(), pb["id"].as_str().unwrap());
     assert_ne!(ida, idb);
 
@@ -622,7 +652,13 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
 
     // release: the hook exits 0 with nothing
     let mut hook_c = spawn_hook(&home, &hook_input("sess-a"));
-    let snapshot = serve.snapshot_with_pending(1);
+    let snapshot = live.next_snapshot(|d| {
+        d["sessions"].as_array().unwrap().iter().any(|s| {
+            s["pending_answer"]["id"]
+                .as_str()
+                .is_some_and(|id| id != ida && id != idb)
+        })
+    });
     let id = snapshot["sessions"]
         .as_array()
         .unwrap()
@@ -659,6 +695,54 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
     };
     assert!(out_c.is_empty());
 
+    // F1, fails closed: a command over the cap is cut (`complete: false`), its allow is a 409 (the item stays), its deny a 200
+    let big = format!("PLANTED-BIG {}", "x".repeat(20_000));
+    let big_input =
+        json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash", "session_id": "sess-a",
+                           "tool_input": {"command": big}})
+        .to_string();
+    let hook_d = spawn_hook(&home, &big_input);
+    let snapshot = live.next_snapshot(|d| {
+        d["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["pending_answer"]["complete"] == false)
+    });
+    let card = snapshot["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|s| {
+            s["pending_answer"]
+                .as_object()
+                .filter(|p| p["complete"] == false)
+        })
+        .unwrap();
+    assert_eq!(card["input"].as_str().unwrap().chars().count(), 16_000);
+    let big_id = card["id"].as_str().unwrap().to_string();
+    let allow_big = json!({"id": big_id, "confirmed": true, "decision": "allow"});
+    assert_eq!(
+        serve
+            .request("POST", "/api/answer", Some(&allow_big), true)
+            .0,
+        409,
+        "an input that was not shown whole is never allowed"
+    );
+    let deny_big = json!({"id": big_id, "confirmed": true, "decision": "deny"});
+    assert_eq!(
+        serve
+            .request("POST", "/api/answer", Some(&deny_big), true)
+            .0,
+        200,
+        "deny still works"
+    );
+    let out_d = hook_d.wait_with_output().unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&out_d.stdout).unwrap()["hookSpecificOutput"]["decision"]["behavior"],
+        "deny"
+    );
+
     // AC 3: the routes (GET shows the entry text; PUT writes only after `confirmed`)
     let (status, body) = serve.request("GET", "/api/hooks", None, true);
     assert_eq!(status, 200);
@@ -666,6 +750,7 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
         body["accounts"],
         json!([{"id": "1", "label": "Work", "status": "on"}])
     );
+    assert_eq!(body["listening"], true, "the socket is open");
     assert_eq!(body["command"], format!("{BIN} hook ask"));
     assert!(
         body["entries_text"]
@@ -693,6 +778,7 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
     assert_eq!(serve.request("PUT", "/api/hooks", Some(&off), false).0, 403);
     let (status, body) = serve.request("PUT", "/api/hooks", Some(&off), true);
     assert_eq!((status, body["status"].as_str()), (200, Some("off")));
+    assert_eq!(body["listening"], true);
     assert_eq!(home_status(&home), "off");
     let on = json!({"account": "1", "on": true, "confirmed": true});
     let (status, body) = serve.request("PUT", "/api/hooks", Some(&on), true);
@@ -735,9 +821,10 @@ fn the_app_exiting_mid_wait_hands_the_hook_back_to_the_terminal() {
         Some(0)
     );
     let mut serve = Serve::start(&home);
+    let mut live = serve.watch();
     wait_for("the socket", || home.0.join("answer.sock").exists());
     let hook = spawn_hook(&home, &hook_input("sess-x"));
-    serve.snapshot_with_pending(1);
+    live.pending(1);
     let (code, _, _) = serve.sigint();
     assert_eq!(code, Some(0));
     let out = hook.wait_with_output().unwrap();
@@ -765,4 +852,121 @@ fn with_the_bridge_off_serve_makes_no_socket_and_turning_it_on_opens_one() {
     let (code, _, err) = serve.sigint();
     assert_eq!(code, Some(0), "{err}");
     assert!(!sock.exists());
+}
+
+/// F3: an entry of exactly our shape naming another existing copy reads *other copy*; `install` replaces it and prints one
+/// fixed notice; `remove` removes it.
+#[test]
+fn an_entry_of_another_copy_reads_other_copy_and_install_replaces_it_with_one_notice() {
+    let home = Home::new("othercopy");
+    let other = home.0.join("other/easy-personal-rs");
+    std::fs::create_dir_all(other.parent().unwrap()).unwrap();
+    std::fs::write(&other, "").unwrap();
+    let entry = |matcher: bool| {
+        let hook = json!({"type": "command", "command": format!("{} hook ask", other.display()), "timeout": 130});
+        if matcher {
+            json!([{"matcher": "AskUserQuestion", "hooks": [hook]}])
+        } else {
+            json!([{"hooks": [hook]}])
+        }
+    };
+    let planted = json!({"model": "opus", "hooks": {"PreToolUse": entry(true), "PermissionRequest": entry(false)}});
+    std::fs::write(home.settings(), planted.to_string()).unwrap();
+    assert_eq!(
+        text(&home.run(&["hooks", "status"], "").stdout),
+        "1 \"Work\": other copy\n"
+    );
+    let out = home.run(&["hooks", "install", "--yes"], "");
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    let shown = text(&out.stdout);
+    assert_eq!(
+        shown
+            .matches(
+                "Replaced the entries that named another copy of easy-personal-rs with this copy.\n"
+            )
+            .count(),
+        1,
+        "{shown}"
+    );
+    assert!(shown.ends_with("done: on\n"), "{shown}");
+    let after = std::fs::read_to_string(home.settings()).unwrap();
+    assert!(!after.contains("other/easy-personal-rs"), "{after}");
+    assert_eq!(json_of(&home.settings())["model"], "opus");
+
+    std::fs::write(home.settings(), planted.to_string()).unwrap();
+    let out = home.run(&["hooks", "remove", "--yes"], "");
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert_eq!(json_of(&home.settings()), json!({"model": "opus"}));
+    assert!(!text(&out.stdout).contains("Replaced"));
+}
+
+/// F2: with the app running and the bridge on but no page connected (no `GET /api/live` stream), a hook is handed back at
+/// once: exit 0, empty stdout, no waiting; and a hook of a session the live list does not show is the same (after a
+/// one-second grace for the tail to read a line written just before the hook ran).
+#[test]
+fn a_hook_is_handed_back_when_no_page_is_connected_or_its_session_is_not_listed() {
+    let home = Home::new("nopage");
+    open_call(&home, "sess-a");
+    assert_eq!(
+        home.run(&["hooks", "install", "--yes"], "").status.code(),
+        Some(0)
+    );
+    let mut serve = Serve::start(&home);
+    wait_for("the socket", || home.0.join("answer.sock").exists());
+    let began = Instant::now();
+    let out = home.run(&["hook", "ask"], &hook_input("sess-a"));
+    assert_eq!((out.status.code(), out.stdout.len()), (Some(0), 0));
+    assert!(
+        began.elapsed() < Duration::from_secs(5),
+        "not held: {:?}",
+        began.elapsed()
+    );
+
+    let mut live = serve.watch();
+    let began = Instant::now();
+    let out = home.run(&["hook", "ask"], &hook_input("sess-not-listed"));
+    assert_eq!((out.status.code(), out.stdout.len()), (Some(0), 0));
+    assert!(
+        began.elapsed() < Duration::from_secs(5),
+        "{:?}",
+        began.elapsed()
+    );
+    // and a listed session is still held while the page is connected
+    let hook = spawn_hook(&home, &hook_input("sess-a"));
+    live.pending(1);
+    let (code, _, _) = serve.sigint();
+    assert_eq!(code, Some(0));
+    assert_eq!(hook.wait_with_output().unwrap().stdout.len(), 0);
+}
+
+/// F4 (d), F4 (c): `PUT /api/hooks` over a settings file that is not JSON is a 409 and the file is byte-identical (no backup
+/// either); `GET` and `PUT` say whether the answer socket is open.
+#[test]
+fn put_hooks_over_a_non_json_settings_file_is_a_409_and_leaves_it_byte_identical() {
+    let home = Home::new("putbad");
+    let broken = "{\"hooks\": {\"PreToolUse\": [ oops";
+    std::fs::write(home.settings(), broken).unwrap();
+    let mut serve = Serve::start(&home);
+    let (status, body) = serve.request("GET", "/api/hooks", None, true);
+    assert_eq!(status, 200);
+    assert_eq!(body["listening"], false, "off: no socket");
+    assert_eq!(body["accounts"][0]["status"], "unreadable");
+    for on in [true, false] {
+        let put = json!({"account": "1", "on": on, "confirmed": true});
+        let (status, body) = serve.request("PUT", "/api/hooks", Some(&put), true);
+        assert_eq!(status, 409, "on={on}: {body}");
+        assert!(
+            body.to_string().contains("not a JSON object"),
+            "a fixed message: {body}"
+        );
+        assert!(!body.to_string().contains(home.0.to_str().unwrap()));
+        assert_eq!(std::fs::read_to_string(home.settings()).unwrap(), broken);
+        assert!(!home.0.join("backups").exists());
+    }
+    assert!(
+        !home.0.join("answer.sock").exists(),
+        "a refused turn-on opens no socket"
+    );
+    let (code, _, err) = serve.sigint();
+    assert_eq!(code, Some(0), "{err}");
 }

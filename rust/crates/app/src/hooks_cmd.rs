@@ -11,10 +11,15 @@
 //! `<data folder>/backups/` first (owner-only). Nothing is written when nothing changes, so a second `install` adds nothing.
 //! Object keys come back in alphabetical order and the indent is two spaces: the parser here keeps no key order.
 //!
+//! **What is ours.** A command is ours only when its program part is one `sh_quote`-shaped absolute path to a file named
+//! `easy-personal-rs`, then ` hook ask` (no wrapper such as `nice ...` or `/opt/audit-wrap ...`), in an entry of exactly
+//! our shape. An entry that merely looks like ours (`... easy-personal-rs hook ask`) and is not that is *changed by hand*:
+//! kept by `remove`, refused by `install`.
+//!
 //! `status` is *on*, *off*, *changed by hand* (an entry that looks like ours differs from ours, or only one of the two is
-//! there) or *binary moved* (our entries name a program that is gone). `remove` drops equal entries and entries that are ours
-//! but name a gone program; a hand-edited entry is kept. `install` over a moved entry replaces it; over a changed one it
-//! refuses. No answer or message names a path (NFR-002); the command text, which holds this program's path, is the one
+//! there), *binary moved* (our entries name a program that is gone) or *other copy* (our entries name another existing
+//! copy of this program). `remove` drops equal, moved and other-copy entries; a hand-edited entry is kept. `install` over a
+//! moved or other-copy entry replaces it (the CLI says so in one fixed line); over a changed one it refuses. No answer or message names a path (NFR-002); the command text, which holds this program's path, is the one
 //! thing shown on purpose (the confirm step needs it).
 
 #![allow(clippy::result_large_err)] // a route's early answer is a `Response`, as in `agent_routes.rs`
@@ -80,18 +85,30 @@ pub(crate) fn block_text(command: &str) -> String {
     serde_json::to_string_pretty(&block).unwrap_or_default()
 }
 
-/// The program of an entry that looks like ours (`<program> hook ask`, the program named `easy-personal-rs`).
+/// The program of a command that looks like ours: it ends in ` hook ask` and its program part ends in `easy-personal-rs`.
+/// Wrapped (`nice /x/easy-personal-rs hook ask`) or odd forms look like ours too; [`program_of`] tells which are.
+fn looks_like_ours(command: &str) -> bool {
+    command
+        .strip_suffix(SUFFIX)
+        .and_then(|program| program.trim_end_matches(['\'', '"']).strip_suffix(PROGRAM))
+        .is_some_and(|rest| rest.is_empty() || rest.ends_with(['/', ' ', '\'', '"']))
+}
+
+/// The program of a command that **is** ours in shape: a single `sh_quote`-shaped absolute path to a file named
+/// `easy-personal-rs`, then ` hook ask`. A wrapper, a relative path, an odd quoting: `None`.
 fn program_of(command: &str) -> Option<PathBuf> {
     let program = command.strip_suffix(SUFFIX)?;
-    let program = match program
-        .strip_prefix('\'')
-        .and_then(|p| p.strip_suffix('\''))
-    {
-        Some(quoted) => quoted.replace("'\"'\"'", "'"),
-        None => program.to_string(),
-    };
-    let path = PathBuf::from(program);
-    (path.file_name()? == PROGRAM).then_some(path)
+    let path = PathBuf::from(
+        match program
+            .strip_prefix('\'')
+            .and_then(|p| p.strip_suffix('\''))
+        {
+            Some(quoted) => quoted.replace("'\"'\"'", "'"),
+            None => program.to_string(),
+        },
+    );
+    (path.is_absolute() && path.file_name()? == PROGRAM && sh_quote(path.to_str()?) == program)
+        .then_some(path)
 }
 
 /// The command of the first hook of `entry` that looks like ours.
@@ -101,7 +118,7 @@ fn ours_command(entry: &Value) -> Option<&str> {
         .as_array()?
         .iter()
         .filter_map(|hook| hook.get("command")?.as_str())
-        .find(|command| program_of(command).is_some())
+        .find(|command| looks_like_ours(command))
 }
 
 /// How one entry stands to ours. Ordered by how much it needs the owner's eyes.
@@ -110,20 +127,22 @@ enum Kind {
     Absent,
     Equal,
     Moved,
+    /// Exactly our shape, but it names another copy of this program that exists.
+    Other,
     Changed,
 }
 
 /// `None`: the entry does not look like ours (the owner's own hook; never touched).
 fn classify(entry_value: &Value, event: &str, command: &str) -> Option<Kind> {
     let found = ours_command(entry_value)?;
-    Some(if *entry_value != entry(event, found) {
-        Kind::Changed
-    } else if !program_of(found).is_some_and(|p| p.exists()) {
-        Kind::Moved
-    } else if found == command {
-        Kind::Equal
-    } else {
-        Kind::Changed
+    let program = (*entry_value == entry(event, found))
+        .then(|| program_of(found))
+        .flatten();
+    Some(match program {
+        None => Kind::Changed,
+        Some(path) if !path.is_file() => Kind::Moved,
+        Some(_) if found == command => Kind::Equal,
+        Some(_) => Kind::Other,
     })
 }
 
@@ -160,6 +179,8 @@ pub(crate) enum Status {
     Off,
     ChangedByHand,
     BinaryMoved,
+    /// Our entries, exactly, naming another copy of this program that exists.
+    OtherCopy,
     /// The settings file is not a readable JSON object: nothing can be said about the entries.
     Unreadable,
 }
@@ -172,6 +193,7 @@ impl Status {
             Status::Off => "off",
             Status::ChangedByHand => "changed by hand",
             Status::BinaryMoved => "binary moved",
+            Status::OtherCopy => "other copy",
             Status::Unreadable => "unreadable",
         }
     }
@@ -181,6 +203,7 @@ impl Status {
         match self {
             Status::ChangedByHand => "changed_by_hand",
             Status::BinaryMoved => "binary_moved",
+            Status::OtherCopy => "other_copy",
             other => other.word(),
         }
     }
@@ -191,6 +214,7 @@ pub(crate) fn status_of(settings: &Value, command: &str) -> Status {
         None => Status::ChangedByHand,
         Some([Kind::Absent, Kind::Absent]) => Status::Off,
         Some(k) if k.contains(&Kind::Changed) || k.contains(&Kind::Absent) => Status::ChangedByHand,
+        Some(k) if k.contains(&Kind::Other) => Status::OtherCopy,
         Some(k) if k.contains(&Kind::Moved) => Status::BinaryMoved,
         Some(_) => Status::On,
     }
@@ -203,6 +227,8 @@ pub(crate) enum Refused {
     Shape,
     ChangedByHand,
     Io,
+    /// The file changed under us twice while it was being edited.
+    Raced,
 }
 
 impl Refused {
@@ -218,6 +244,9 @@ impl Refused {
                 "an entry of ours was changed by hand; fix or remove it yourself, then try again"
             }
             Refused::Io => "the account's settings.json cannot be read or written right now",
+            Refused::Raced => {
+                "the account's settings.json changed while it was being edited; it was left as it is, try again"
+            }
         }
     }
 }
@@ -247,13 +276,13 @@ fn install_into(settings: &mut Value, command: &str) -> Result<bool, Refused> {
             .or_insert_with(|| json!([]))
             .as_array_mut()
             .ok_or(Refused::Shape)?;
-        list.retain(|e| classify(e, event, command) != Some(Kind::Moved));
+        list.retain(|e| !matches!(classify(e, event, command), Some(Kind::Moved | Kind::Other)));
         list.push(entry(event, command));
     }
     Ok(true)
 }
 
-/// Drops entries that are ours and equal or moved. `true` when something went.
+/// Drops entries that are ours and equal, moved or another copy's. `true` when something went.
 fn remove_from(settings: &mut Value, command: &str) -> bool {
     let mut removed = false;
     let Some(hooks) = settings.get_mut("hooks").and_then(Value::as_object_mut) else {
@@ -264,7 +293,12 @@ fn remove_from(settings: &mut Value, command: &str) -> bool {
             continue;
         };
         let before = list.len();
-        list.retain(|e| !matches!(classify(e, event, command), Some(Kind::Equal | Kind::Moved)));
+        list.retain(|e| {
+            !matches!(
+                classify(e, event, command),
+                Some(Kind::Equal | Kind::Moved | Kind::Other)
+            )
+        });
         let went = list.len() != before;
         let empty = list.is_empty();
         removed |= went;
@@ -331,6 +365,16 @@ fn backup(backups: &Path, tag: &str, old: &[u8]) -> Result<(), Refused> {
         .mode(0o700)
         .create(backups)
         .map_err(|_| Refused::Io)?;
+    // a folder that already existed wider than 0700 is tightened (it holds copies of the owner's settings)
+    if fs::metadata(backups)
+        .map_err(|_| Refused::Io)?
+        .permissions()
+        .mode()
+        & 0o077
+        != 0
+    {
+        fs::set_permissions(backups, fs::Permissions::from_mode(0o700)).map_err(|_| Refused::Io)?;
+    }
     let now = now_micros();
     let stamp = jiff::Timestamp::from_microsecond(now)
         .map_err(|_| Refused::Io)?
@@ -350,8 +394,10 @@ fn backup(backups: &Path, tag: &str, old: &[u8]) -> Result<(), Refused> {
         .map_err(|_| Refused::Io)
 }
 
-/// A temp file beside `path` with `bytes`, renamed over it; the old file's permissions are kept (else 0600).
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Refused> {
+/// A temp file beside `path` with `bytes`, renamed over it; the old file's permissions are kept (else 0600). Just before
+/// the rename the file is read again: if it is not `expected` (what the edit was made from; `None`: no file) the temp
+/// file goes and nothing is renamed ([`Refused::Raced`]).
+fn write_atomic(path: &Path, bytes: &[u8], expected: Option<&[u8]>) -> Result<(), Refused> {
     let mode = fs::metadata(path).map_or(0o600, |m| m.permissions().mode() & 0o777);
     let tmp = path.with_file_name(format!("{SETTINGS}.easy-personal.tmp"));
     let _ = fs::remove_file(&tmp);
@@ -361,10 +407,20 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Refused> {
         .mode(mode)
         .open(&tmp)
         .and_then(|mut f| f.write_all(bytes).and_then(|()| f.sync_all()))
-        .and_then(|()| fs::rename(&tmp, path));
-    written.map_err(|_| {
+        .map_err(|_| Refused::Io)
+        .and_then(|()| {
+            let now = match fs::read(path) {
+                Ok(now) => Some(now),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(_) => return Err(Refused::Io),
+            };
+            if now.as_deref() != expected {
+                return Err(Refused::Raced);
+            }
+            fs::rename(&tmp, path).map_err(|_| Refused::Io)
+        });
+    written.inspect_err(|_| {
         let _ = fs::remove_file(&tmp);
-        Refused::Io
     })
 }
 
@@ -376,23 +432,42 @@ pub(crate) fn apply(
     backups: &Path,
     tag: &str,
 ) -> Result<bool, Refused> {
-    let loaded = load(dir)?;
-    let mut value = loaded.value.clone();
-    let changed = if on {
-        install_into(&mut value, command)?
-    } else {
-        remove_from(&mut value, command)
-    };
-    if !changed {
-        return Ok(false);
+    apply_with(dir, command, on, backups, tag, &mut |_| {})
+}
+
+/// [`apply`], with `between(attempt)` called after the file is read and before it is written (a test changes the file there).
+/// If the file changed in between, the edit is made once more from the new bytes; if it changes again, it is refused.
+fn apply_with(
+    dir: &Path,
+    command: &str,
+    on: bool,
+    backups: &Path,
+    tag: &str,
+    between: &mut dyn FnMut(usize),
+) -> Result<bool, Refused> {
+    for attempt in 0..2 {
+        let loaded = load(dir)?;
+        let mut value = loaded.value.clone();
+        let changed = if on {
+            install_into(&mut value, command)?
+        } else {
+            remove_from(&mut value, command)
+        };
+        if !changed {
+            return Ok(false);
+        }
+        let mut text = serde_json::to_string_pretty(&value).map_err(|_| Refused::Io)?;
+        text.push('\n');
+        if let Some(old) = &loaded.old {
+            backup(backups, tag, old)?;
+        }
+        between(attempt);
+        match write_atomic(&loaded.path, text.as_bytes(), loaded.old.as_deref()) {
+            Err(Refused::Raced) if attempt == 0 => {}
+            done => return done.map(|()| true),
+        }
     }
-    let mut text = serde_json::to_string_pretty(&value).map_err(|_| Refused::Io)?;
-    text.push('\n');
-    if let Some(old) = &loaded.old {
-        backup(backups, tag, old)?;
-    }
-    write_atomic(&loaded.path, text.as_bytes())?;
-    Ok(true)
+    Err(Refused::Raced)
 }
 
 // ---- the accounts ----
@@ -432,13 +507,24 @@ fn accounts(conn: &Connection, reference: Option<&str>) -> Result<Vec<Account>, 
     Ok(rows)
 }
 
-/// The folder `backups/` lives in: the store's folder.
-fn backups_dir() -> Result<PathBuf, &'static str> {
-    store::store_path()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join("backups")))
+/// The folder `backups/` lives in: beside the store at `store`.
+fn backups_beside(store: &Path) -> Result<PathBuf, &'static str> {
+    store
+        .parent()
+        .map(|d| d.join("backups"))
         .ok_or("no data folder")
 }
+
+/// The folder `backups/` lives in for the CLI: the store's folder.
+fn backups_dir() -> Result<PathBuf, &'static str> {
+    store::store_path()
+        .map_err(|_| "no data folder")
+        .and_then(|p| backups_beside(&p))
+}
+
+/// Printed when `install` replaces entries that named another copy of this program.
+const OTHER_COPY_NOTE: &str =
+    "Replaced the entries that named another copy of easy-personal-rs with this copy.\n";
 
 // ---- the CLI ----
 
@@ -526,8 +612,12 @@ fn change(conn: &Connection, exe: &str, on: bool, t: Target) -> Run {
         return Err(Stop::silent(1));
     }
     let backups = backups_dir().map_err(|e| Stop::failed(1, e))?;
+    let was = status_in(&dir, exe);
     let changed =
         apply(&dir, exe, on, &backups, &account.id).map_err(|e| Stop::refused(e.text()))?;
+    if on && changed && was == Status::OtherCopy {
+        cli_cmds::put(OTHER_COPY_NOTE)?;
+    }
     cli_cmds::put(&format!(
         "{}: {}\n",
         if changed { "done" } else { "nothing to change" },
@@ -570,8 +660,8 @@ fn account_json(a: &Account, command: &str) -> Value {
     json!({"id": a.id, "label": a.label, "status": status_in(&a.folder, command).code()})
 }
 
-/// `GET /api/hooks` -> `{command, entries_text, accounts: [{id, label, status}]}`. `entries_text` is the exact block that
-/// *Turn on* merges in, for the confirm step.
+/// `GET /api/hooks` -> `{command, entries_text, listening, accounts: [{id, label, status}]}`. `entries_text` is the exact
+/// block that *Turn on* merges in, for the confirm step. `listening`: the answer socket is open (hooks reach the app).
 pub(crate) async fn get(State(api): State<Api>) -> Response {
     blocking(move || {
         let Some(command) = own_command() else {
@@ -586,11 +676,19 @@ pub(crate) async fn get(State(api): State<Api>) -> Response {
             &json!({
                 "command": command,
                 "entries_text": block_text(&command),
+                "listening": listening(&api),
                 "accounts": rows.iter().map(|a| account_json(a, &command)).collect::<Vec<_>>(),
             }),
         )
     })
     .await
+}
+
+fn listening(api: &Api) -> bool {
+    api.socket
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .is_some()
 }
 
 fn open_accounts(api: &Api, reference: Option<&str>) -> Result<Vec<Account>, Response> {
@@ -618,7 +716,7 @@ async fn blocking(work: impl FnOnce() -> Response + Send + 'static) -> Response 
         .unwrap_or_else(|_| fail(StatusCode::INTERNAL_SERVER_ERROR, api::INTERNAL))
 }
 
-/// `PUT /api/hooks` `{account, on, confirmed: true}` -> 200 the account's row after the change; 400 a bad body; 409 the
+/// `PUT /api/hooks` `{account, on, confirmed: true}` -> 200 the account's row after the change (and `listening`); 400 a bad body; 409 the
 /// file was refused (not JSON, odd shape, an entry changed by hand), left as it was.
 pub(crate) async fn put(State(api): State<Api>, req: Request) -> Response {
     let (_, raw) = match raw_body(req).await {
@@ -657,15 +755,20 @@ pub(crate) async fn put(State(api): State<Api>, req: Request) -> Response {
             Ok(mut rows) => rows.remove(0),
             Err(answer) => return answer,
         };
-        let Ok(backups) = backups_dir() else {
+        let Ok(store) = (api.store_path)() else {
+            return fail(StatusCode::SERVICE_UNAVAILABLE, "no data folder");
+        };
+        let Ok(backups) = backups_beside(&store) else {
             return fail(StatusCode::SERVICE_UNAVAILABLE, "no data folder");
         };
         match apply(&found.folder, &command, on, &backups, &found.id) {
             Ok(_) => {
                 if on {
-                    crate::answer_bridge::open_socket(&api.socket, &api.answers);
+                    crate::answer_bridge::open_socket(&api.socket, &api.answers, &store);
                 }
-                api::respond(StatusCode::OK, &account_json(&found, &command))
+                let mut row = account_json(&found, &command);
+                row["listening"] = json!(listening(&api));
+                api::respond(StatusCode::OK, &row)
             }
             Err(Refused::Io) => fail(StatusCode::SERVICE_UNAVAILABLE, Refused::Io.text()),
             Err(refused) => fail(StatusCode::CONFLICT, refused.text()),
@@ -995,5 +1098,187 @@ mod tests {
         }
         assert_eq!(program_of("/opt/x/other hook ask"), None);
         assert_eq!(program_of("/opt/x/easy-personal-rs mcp"), None);
+    }
+
+    /// F3: only a single `sh_quote`-shaped absolute path to a file named `easy-personal-rs` is ours. A wrapper, a relative
+    /// path or an odd quoting is *changed by hand*: `remove` keeps it, `install` refuses it, and nothing is rewritten.
+    #[test]
+    fn a_wrapped_or_odd_command_is_the_owners_and_stays() {
+        let t = Temp::new("wrap");
+        let command = t.command();
+        let program = command.strip_suffix(SUFFIX).unwrap().to_string();
+        for (tag, wrapped) in [
+            ("nice", format!("nice {program} hook ask")),
+            ("audit", format!("/opt/audit-wrap {program} hook ask")),
+            (
+                "quoted wrap",
+                format!("/opt/audit-wrap '{}' hook ask", program.trim_matches('\'')),
+            ),
+            ("relative", "easy-personal-rs hook ask".to_string()),
+            (
+                "double quoted",
+                format!("\"{}\" hook ask", program.trim_matches('\'')),
+            ),
+        ] {
+            let text = json!({"hooks": {
+                "PreToolUse": [{"matcher": "AskUserQuestion", "hooks": [{"type": "command", "command": wrapped, "timeout": 130}]}],
+                "PermissionRequest": [{"hooks": [{"type": "command", "command": wrapped, "timeout": 130}]}]}})
+            .to_string();
+            fs::write(t.settings(), &text).unwrap();
+            assert_eq!(
+                status_in(&t.acc(), &command),
+                Status::ChangedByHand,
+                "{tag}: {wrapped}"
+            );
+            assert_eq!(
+                apply(&t.acc(), &command, false, &t.backups(), "1"),
+                Ok(false),
+                "{tag}: remove keeps it"
+            );
+            assert_eq!(
+                apply(&t.acc(), &command, true, &t.backups(), "1"),
+                Err(Refused::ChangedByHand),
+                "{tag}: install refuses it"
+            );
+            assert_eq!(
+                fs::read_to_string(t.settings()).unwrap(),
+                text,
+                "{tag}: byte for byte"
+            );
+        }
+        // the owner's own program that merely ends in the name is not ours at all
+        fs::write(
+            t.settings(),
+            r#"{"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "/x/not-easy-personal-rs hook ask"}]}]}}"#,
+        )
+        .unwrap();
+        assert_eq!(status_in(&t.acc(), &command), Status::Off);
+    }
+
+    /// F3: an entry of exactly our shape that names another existing copy is *other copy*; `install` replaces it (and the
+    /// CLI says so), `remove` removes it.
+    #[test]
+    fn an_entry_of_another_existing_copy_is_other_copy_and_install_and_remove_take_it() {
+        let t = Temp::new("other");
+        let command = t.command();
+        let other = t.0.join("elsewhere").join(PROGRAM);
+        fs::create_dir_all(other.parent().unwrap()).unwrap();
+        fs::write(&other, "").unwrap();
+        let other_command = command_text(&other);
+        assert_ne!(other_command, command);
+        let block: Value = serde_json::from_str(&block_text(&other_command)).unwrap();
+        let mut owner: Value = serde_json::from_str(OWNER).unwrap();
+        owner["hooks"]["PermissionRequest"] = block["hooks"]["PermissionRequest"].clone();
+        owner["hooks"]["PreToolUse"]
+            .as_array_mut()
+            .unwrap()
+            .push(block["hooks"]["PreToolUse"][0].clone());
+        let text = owner.to_string();
+
+        fs::write(t.settings(), &text).unwrap();
+        assert_eq!(status_in(&t.acc(), &command), Status::OtherCopy);
+        assert_eq!(Status::OtherCopy.word(), "other copy");
+        assert_eq!(Status::OtherCopy.code(), "other_copy");
+        assert_eq!(apply(&t.acc(), &command, true, &t.backups(), "1"), Ok(true));
+        assert_eq!(status_in(&t.acc(), &command), Status::On);
+        let after = fs::read_to_string(t.settings()).unwrap();
+        assert!(!after.contains("elsewhere"), "replaced, not added beside");
+        let value = read(&t.settings());
+        assert_eq!(value["hooks"]["PreToolUse"].as_array().unwrap().len(), 3);
+        assert_eq!(value["hooks"]["PostToolUse"], owner["hooks"]["PostToolUse"]);
+
+        fs::write(t.settings(), &text).unwrap();
+        assert_eq!(
+            apply(&t.acc(), &command, false, &t.backups(), "1"),
+            Ok(true)
+        );
+        assert_eq!(status_in(&t.acc(), &command), Status::Off);
+        assert!(
+            !fs::read_to_string(t.settings())
+                .unwrap()
+                .contains("elsewhere")
+        );
+        assert_eq!(
+            read(&t.settings())["hooks"]["PreToolUse"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2,
+            "the owner's two hooks stay"
+        );
+        // the notice is one fixed line that names no path
+        assert!(!OTHER_COPY_NOTE.contains('/') && OTHER_COPY_NOTE.ends_with('\n'));
+    }
+
+    /// F4 (f): a `backups/` folder that already exists wider than 0700 is tightened.
+    #[test]
+    fn an_existing_wide_backups_folder_is_tightened() {
+        let t = Temp::new("tighten");
+        let command = t.command();
+        fs::write(t.settings(), OWNER).unwrap();
+        fs::create_dir_all(t.backups()).unwrap();
+        fs::set_permissions(t.backups(), fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(apply(&t.acc(), &command, true, &t.backups(), "1"), Ok(true));
+        assert_eq!(
+            fs::metadata(t.backups()).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+    }
+
+    /// F4 (g): a change to the file between reading it and the rename is not overwritten: the edit is made again from the
+    /// new bytes once; if the file changes again, it is refused and left as the other writer wrote it.
+    #[test]
+    fn a_file_that_changes_before_the_rename_is_edited_again_once_then_refused() {
+        let t = Temp::new("race");
+        let command = t.command();
+        fs::write(t.settings(), OWNER).unwrap();
+        let touch = |n: usize| {
+            let mut value = read(&t.settings());
+            value[format!("late{n}")] = json!(n);
+            fs::write(t.settings(), serde_json::to_string(&value).unwrap()).unwrap();
+        };
+        // changed once: the retry keeps the other writer's key and adds ours
+        let mut seen = Vec::new();
+        let done = apply_with(
+            &t.acc(),
+            &command,
+            true,
+            &t.backups(),
+            "1",
+            &mut |attempt| {
+                seen.push(attempt);
+                if attempt == 0 {
+                    touch(0);
+                }
+            },
+        );
+        assert_eq!((done, seen), (Ok(true), vec![0, 1]));
+        let value = read(&t.settings());
+        assert_eq!(value["late0"], 0, "the other writer's change is kept");
+        assert_eq!(status_in(&t.acc(), &command), Status::On);
+        assert!(!t.acc().join("settings.json.easy-personal.tmp").exists());
+
+        // changed twice: refused, the second writer's bytes stay
+        fs::write(t.settings(), OWNER).unwrap();
+        let done = apply_with(
+            &t.acc(),
+            &command,
+            true,
+            &t.backups(),
+            "1",
+            &mut |attempt| {
+                touch(10 + attempt);
+            },
+        );
+        assert_eq!(done, Err(Refused::Raced));
+        let value = read(&t.settings());
+        assert_eq!(value["late11"], 11);
+        assert_eq!(
+            status_in(&t.acc(), &command),
+            Status::Off,
+            "nothing of ours written"
+        );
+        assert!(!t.acc().join("settings.json.easy-personal.tmp").exists());
+        assert!(Refused::Raced.text().contains("changed while"));
     }
 }

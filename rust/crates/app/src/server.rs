@@ -200,6 +200,8 @@ pub struct Running {
     answers: Arc<Bridge>,
     /// The answer socket (T106), once [`Running::listen_for_answers`] opened it; closed first by `stop` (and by drop).
     socket: SocketCell,
+    /// Where the server's store is (the injected one of its `Api`): the answer socket opens in its folder.
+    store_path: api::StorePath,
     /// The alert list and pause flag that `/api/alerts` serves (the tray's "Pause alerts" sets the same flag, T076).
     #[cfg_attr(not(feature = "window"), allow(dead_code))]
     shared: Arc<alerts::Shared>,
@@ -231,9 +233,10 @@ impl Running {
     /// (`hooks_cmd::any_on`); with the bridge off nothing is created. Only `serve` and the window call it (a test server
     /// never does, so no test touches a real home). `PUT /api/hooks` opens it later when the owner turns the bridge on.
     pub(crate) fn listen_for_answers(&mut self) {
-        let path = easy_personal_core::store::store_path();
-        if path.is_ok_and(|p| crate::hooks_cmd::any_on(&p)) {
-            answer_bridge::open_socket(&self.socket, &self.answers);
+        if let Ok(path) = (self.store_path)()
+            && crate::hooks_cmd::any_on(&path)
+        {
+            answer_bridge::open_socket(&self.socket, &self.answers, &path);
         }
     }
 
@@ -321,6 +324,7 @@ pub(crate) fn start_with_alerts(
     let agent = AgentGuard(Arc::clone(&api.agent));
     let answers = Arc::clone(&api.answers);
     let socket = Arc::clone(&api.socket);
+    let store_path = Arc::clone(&api.store_path);
     let app = router_with_static(
         token.clone(),
         port,
@@ -366,6 +370,7 @@ pub(crate) fn start_with_alerts(
         alerts,
         answers,
         socket,
+        store_path,
         shared,
         agent,
     })

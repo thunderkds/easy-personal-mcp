@@ -82,7 +82,7 @@ pub(crate) const INTERNAL: &str = "internal error";
 const TIMELINE_DETAIL_SESSIONS: usize = 50;
 
 pub(crate) type Failure = (StatusCode, String);
-type StorePath = Arc<dyn Fn() -> Result<PathBuf, StoreError> + Send + Sync>;
+pub(crate) type StorePath = Arc<dyn Fn() -> Result<PathBuf, StoreError> + Send + Sync>;
 pub(crate) type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 /// The history of the machine status sampler (`sampler.rs`).
 pub(crate) type MachineHistory = crate::sampler::History<Sample>;
@@ -162,6 +162,7 @@ impl Api {
 
     /// The live feed's tail for `GET /api/live`, and the flag that ends the open streams.
     pub(crate) fn with_live(mut self, live: Option<SharedTail>, stopping: Arc<AtomicBool>) -> Self {
+        self.answers.set_live(live.clone(), Arc::clone(&self.clock)); // T106: cards only for the sessions the tail lists
         self.live = live;
         self.stopping = stopping;
         self
