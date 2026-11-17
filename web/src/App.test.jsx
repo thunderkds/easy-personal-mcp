@@ -245,7 +245,7 @@ it('opens the Workflow tab from the kit group and reads the map and the scoped b
   fireEvent.click(within(nav()).getByRole('button', { name: 'Workflow' }))
   expect(await screen.findByRole('heading', { name: 'Workflow' })).toBeInTheDocument()
   expect(within(nav()).getByRole('button', { name: 'Workflow' })).toHaveAttribute('aria-current', 'page')
-  expect(await screen.findByText('Stage 3 · Build')).toBeInTheDocument()
+  expect(await screen.findByText('Stage 3 · Execute')).toBeInTheDocument()
   expect(f.calls.some((c) => c.url === '/api/kit/workflow')).toBe(true)
   await waitFor(() => expect(f.calls.some((c) => c.url === '/api/board?workspace=work')).toBe(true))
 })

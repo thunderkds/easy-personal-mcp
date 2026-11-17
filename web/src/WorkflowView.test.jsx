@@ -79,21 +79,21 @@ afterEach(() => {
 describe('the map (AC4)', () => {
   it('draws one lane per stage in the order the route sends them, with skills and agents', async () => {
     await renderView()
-    expect(await screen.findByText('Stage 3 · Build')).toBeInTheDocument()
+    expect(await screen.findByText('Stage 3 · Execute')).toBeInTheDocument()
     expect(lanes()).toEqual(workflow.stages.map((s) => s.name))
-    const build = lane('Stage 3 · Build')
+    const build = lane('Stage 3 · Execute')
     expect(chips(within(build).getByRole('list', { name: 'Skills' }))).toEqual(['tdd', 'bugfix', 'diagnose', 'craft-spawn-prompt', 'migration-safety'])
     expect(chips(within(build).getByRole('list', { name: 'Agents' }))).toEqual(['common-infrastructure', 'backend-developer', 'frontend-developer'])
   })
 
   it('draws the gates between the lanes, the last one after Stage 5 (before: null)', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     const gates = [...document.querySelectorAll('.workflow-gate')].map((g) => g.textContent)
     expect(gates).toEqual(workflow.gates.map((g) => expect.stringContaining(g.text)))
     const plan = lane('Stage 2 · Plan').closest('li')
     expect(plan.nextElementSibling).toHaveTextContent('No TASK_GUIDE, no Stage 3')
-    expect(lane('Stage 5 · Verify').closest('li').nextElementSibling).toHaveTextContent('Verify passes before merge')
+    expect(lane('Stage 5 · Integrate').closest('li').nextElementSibling).toHaveTextContent('Verify passes before merge')
   })
 
   it('follows the route: another order, an extra field and a missing gate list change nothing else', async () => {
@@ -115,16 +115,16 @@ describe('the map (AC4)', () => {
 describe('the live layer (AC5)', () => {
   it('puts a session on the lane of its stage, with project name and skill', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { project: 'alpha', stage: '4', stage_skill: 'code-review' }))
     const review = lane('Stage 4 · Review')
     expect(await within(review).findByText('alpha · code-review')).toBeInTheDocument()
-    expect(within(lane('Stage 3 · Build')).queryByText(/alpha/)).toBeNull()
+    expect(within(lane('Stage 3 · Execute')).queryByText(/alpha/)).toBeNull()
   })
 
   it('lists a session with stage null under "stage not known yet", not on any lane', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     expect(screen.queryByText(/stage not known yet/i)).toBeNull() // nothing to list: no empty group
     snapshot(session('s1', { project: 'beta' }))
     const group = await screen.findByRole('article', { name: /stage not known yet/i })
@@ -134,15 +134,15 @@ describe('the live layer (AC5)', () => {
 
   it('keeps two sessions of one project on their own lanes', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }), session('s2', { stage: '5', stage_skill: 'verify' }))
-    expect(await within(lane('Stage 3 · Build')).findByText('alpha · tdd')).toBeInTheDocument()
-    expect(within(lane('Stage 5 · Verify')).getByText('alpha · verify')).toBeInTheDocument()
+    expect(await within(lane('Stage 3 · Execute')).findByText('alpha · tdd')).toBeInTheDocument()
+    expect(within(lane('Stage 5 · Integrate')).getByText('alpha · verify')).toBeInTheDocument()
   })
 
   it('gives a stage id the route lacks its own lane at the end', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { stage: '6', stage_skill: 'future-skill' }))
     expect(await screen.findByRole('article', { name: 'Stage 6' })).toBeInTheDocument()
     expect(lanes().at(-1)).toBe('Stage 6')
@@ -151,18 +151,18 @@ describe('the live layer (AC5)', () => {
 
   it('shows a sub-agent seen in the last 5 minutes on every lane that lists it, spelling aside', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { stage: '3' }))
     await send(call('s1', { agent: 'Backend-Implementer' }), call('s1', { agent: 'qa-expert' }))
-    expect(within(lane('Stage 3 · Build')).getByText('agent · Backend-Implementer')).toBeInTheDocument()
+    expect(within(lane('Stage 3 · Execute')).getByText('agent · Backend-Implementer')).toBeInTheDocument()
     expect(within(lane('Stage 4 · Review')).getByText('agent · qa-expert')).toBeInTheDocument()
-    expect(within(lane('Stage 5 · Verify')).getByText('agent · qa-expert')).toBeInTheDocument()
+    expect(within(lane('Stage 5 · Integrate')).getByText('agent · qa-expert')).toBeInTheDocument()
     expect(within(lane('Stage 2 · Plan')).queryByText(/agent ·/)).toBeNull()
   })
 
   it('ignores a sub-agent older than 5 minutes, a main-thread call and a sub-agent with no type', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { stage: '3' }))
     await send(
       call('s1', { agent: 'backend-developer', ts: ago(6 * 60_000) }),
@@ -174,7 +174,7 @@ describe('the live layer (AC5)', () => {
 
   it('does not place an agent type that no lane lists', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { stage: '3' }))
     await send(call('s1', { agent: 'Explore' }))
     expect(agentChips()).toEqual([SENTINEL])
@@ -182,33 +182,33 @@ describe('the live layer (AC5)', () => {
 
   it('shows at most 5 live chips on a lane, then "+N more"', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(...Array.from({ length: 8 }, (_, i) => session(`s${i}`, { project: `proj${i}`, stage: '3', stage_skill: 'tdd' })))
-    const build = lane('Stage 3 · Build')
+    const build = lane('Stage 3 · Execute')
     expect(await within(build).findByText('+3 more')).toBeInTheDocument()
     expect(within(build).getAllByText(/^proj\d · tdd$/)).toHaveLength(5)
   })
 
   it('shows only labels: no tool, no call label, no path or message text', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }))
     await send(call('s1', { agent: 'backend-developer', tool: 'Read', label: 'SECRET-LABEL', file_path: '/home/me/SECRET-PATH', message: 'SECRET-MESSAGE' }))
-    expect(within(lane('Stage 3 · Build')).getByText('agent · backend-developer')).toBeInTheDocument()
+    expect(within(lane('Stage 3 · Execute')).getByText('agent · backend-developer')).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/SECRET/)
   })
 
   it('says in one muted line that there is no live layer outside a stream provider', async () => {
     await renderView({ live: false })
-    expect(await screen.findByText('Stage 3 · Build')).toBeInTheDocument()
+    expect(await screen.findByText('Stage 3 · Execute')).toBeInTheDocument()
     expect(screen.getAllByText(/no live stream/i)).toHaveLength(1)
   })
 
   it('keeps the map and says in one muted line that the stream dropped', async () => {
     await renderView()
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }))
-    await within(lane('Stage 3 · Build')).findByText('alpha · tdd')
+    await within(lane('Stage 3 · Execute')).findByText('alpha · tdd')
     act(() => {
       stream().readyState = 0
       stream().emit('error')
@@ -223,7 +223,7 @@ describe('the board layer (AC6)', () => {
   it('counts the page scope by status: Todo before Stage 3, In Progress at 3, Ready for Review at 4-5, Done last', async () => {
     const f = await renderView({ board: SOME_BOARD, scope: { workspace: 'personal', account: '' } })
     expect(await screen.findByText('2 waiting for Stage 3')).toBeInTheDocument()
-    expect(within(lane('Stage 3 · Build')).getByText('In Progress 1')).toBeInTheDocument()
+    expect(within(lane('Stage 3 · Execute')).getByText('In Progress 1')).toBeInTheDocument()
     expect(within(lane('Stage 4 · Review')).getByText('Ready for Review 3 · Stage 4–5')).toBeInTheDocument()
     expect(screen.getByText('1 done')).toBeInTheDocument()
     expect(screen.queryByText(/blocked|closed/i)).toBeNull() // other statuses are not counted
@@ -231,8 +231,8 @@ describe('the board layer (AC6)', () => {
     // order on the page: waiting just before Stage 3, done after Stage 5
     const items = [...document.querySelectorAll('.workflow-lanes > li')].map((li) => li.textContent)
     const at = (needle) => items.findIndex((t) => t.includes(needle))
-    expect(at('2 waiting for Stage 3')).toBe(at('Stage 3 · Build') - 1)
-    expect(at('1 done')).toBeGreaterThan(at('Stage 5 · Verify'))
+    expect(at('2 waiting for Stage 3')).toBe(at('Stage 3 · Execute') - 1)
+    expect(at('1 done')).toBeGreaterThan(at('Stage 5 · Integrate'))
   })
 
   it('counts every project the board answers for', async () => {
@@ -252,7 +252,7 @@ describe('the board layer (AC6)', () => {
   it('hides the counts with one muted line when the board fails, and still draws the map', async () => {
     await renderView() // no board given: the fake answers 404
     expect(await screen.findByText(/board counts are not available/i)).toBeInTheDocument()
-    expect(screen.getByText('Stage 3 · Build')).toBeInTheDocument()
+    expect(screen.getByText('Stage 3 · Execute')).toBeInTheDocument()
     expect(screen.queryByText(/waiting for Stage 3/)).toBeNull()
   })
 
@@ -269,7 +269,7 @@ describe('the board layer (AC6)', () => {
 describe('keyboard and structure (UI criteria)', () => {
   it('has no button or hover-only control: lanes and chips are plain text', async () => {
     await renderView({ board: SOME_BOARD })
-    await screen.findByText('Stage 3 · Build')
+    await screen.findByText('Stage 3 · Execute')
     expect(screen.queryAllByRole('button')).toHaveLength(0)
     expect(document.querySelectorAll('[title]')).toHaveLength(0)
     fireEvent.keyDown(document.body, { key: 'Tab' })
