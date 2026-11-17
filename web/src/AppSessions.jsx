@@ -348,7 +348,7 @@ function Loaded({ initial, agentRun, workspaces, accounts, target, onTargetUsed,
       {!off && noClaude && <p role="alert" className="error">{NO_CLAUDE}</p>}
       {stale && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
       <div className="actions">
-        <button type="button" className="primary" disabled={off || noClaude || full || form !== null} onClick={() => setForm({ workspace: undefined })}>
+        <button type="button" className={sessions.length === 0 ? 'primary' : undefined} disabled={off || noClaude || full || form !== null} onClick={() => setForm({ workspace: undefined })}>
           New session
         </button>
         {full && <span className="muted">{`${data.max} sessions are going; stop one first.`}</span>}
