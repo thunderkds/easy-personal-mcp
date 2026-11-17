@@ -4,17 +4,28 @@
 
 ---
 
+## Auto decisions
+
+Mode: auto
+1. Allow (tool) and Approve (plan) are offered only when `complete === true` and the shown text is non-empty; otherwise only Deny / Keep planning. RULE: `PRD.md:212` FR-115 "a cut prompt is marked `complete: false` and can only be denied or handed to the terminal"
+2. A pending prompt card is drawn in page flow below the conversation log, never inside its scroll box. RULE: `PRD.md:212` FR-115 "a cut or one-line summary let the owner allow a command whose tail they never saw"
+3. `bypassPermissions` needs a second, explicit confirm step after the Review step. RULE: `tasks/TASK_GUIDE_T104.md` § Acceptance Criteria AC 1 "*bypass permissions* mode needs a second, explicit confirm"
+4. Every write sends only the form fields (checked against fixed lists and stored repos) plus `confirmed: true`; the token is only in a header. RULE: `PRD.md` § Functional Requirements FR-116 "No route lets the page name the program or free arguments"
+Checks: tests `cd web && npx vitest run` — Test Files 33 passed (33), Tests 1141 passed (1141); reviews code-review + security (independent, 0 P0/P1/P2, 4 P3 + 5 minor, all fixed in `f686d9f`; 2 backend items handed to T103 F7/F8); real run: not done — a real app session needs the owner (AC 7)
+Memory: nothing new (card rules recorded in memory/decisions.md, T106 entry)
+Not done: merge (admin: after the auto verify pass) — merge after T103 and T107, taking T104's `web/src/PromptCard.jsx`; auto verify: running (T182); owner real run (AC 7)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
 | **New test(s) cover Acceptance Criteria** | pass (AC 1-6; AC 7 is the owner's real run) | `web/src/NewSession.test.jsx` (AC 1: fixed model and mode lists, stored repos only, confirm names account and mode, bypass needs a second step, one POST; Stage 4 fix: size limit counted in UTF-8 bytes); `web/src/AppSessions.test.jsx` (AC 2-4: header, stream, Enter / Shift+Enter, Interrupt / Stop / Close, Allow / Deny + note, question, plan, 409, no token in a URL, no localStorage; Stage 4 fixes: a slow poll cannot bring back an answered card, a pending card is outside the log, Safari keyCode 229, text typed during a send kept, byte limit on a message, plan without `complete` has no Approve); `web/src/PromptCard.test.jsx` (AC 3: both sources to one shape, Allow only when `complete === true` and a non-empty input, Approve gated the same way); `web/src/AppSessionEntry.test.jsx` (Workspaces New session, Live Open in app, Stage 4 fix: a later read gives Open in app to a row whose session id arrived late, at most one read per 5 s) |
 | Verification command run | pass (lint: no script) | `npm run lint` -> `Missing script: "lint"`; `cd web && npx vitest run` after the Stage 4 fix round: `Test Files  33 passed (33)`, `Tests  1141 passed (1141)` (Stage 3: 1128 tests). The stale-poll test was run with its guard removed and fails, with it passes |
-| verify | leave | the auto verify hook writes this row |
+| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row] |
 | Review scope | Stage 4 | |
-| **UI: Visual regression** | pass (see table) | scratch harness outside the repo (Vite dev server, `fakeFetch` + app session stub), headless Chrome; shots in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/fbba027f-5d7f-408e-ba27-4a16ceab8c1f/scratchpad/h104/shots/` (`panel`, `question`, `plan`, `cut`, `ended`, `form`, `confirm`, `bypass`, `live`, `off`, `workspaces`, each -375 and -1280) |
-| **UI: Design-system compliance** | pass | `appsession.css` uses `tokens.css` variables only; existing `.card`, `.actions`, `.field`, `button.primary`, `.danger`, `.muted`, `.mono`; no new colour, font or dependency |
-| **UI: Responsiveness** | pass (375, 1280) | no sideways scroll; long command wraps in page flow; 44 px targets by CSS under 40rem (not probe-measured) |
+| **UI: Visual regression** | ☑ pass (see table) | scratch harness outside the repo (Vite dev server, `fakeFetch` + app session stub), headless Chrome; shots in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/fbba027f-5d7f-408e-ba27-4a16ceab8c1f/scratchpad/h104/shots/` (`panel`, `question`, `plan`, `cut`, `ended`, `form`, `confirm`, `bypass`, `live`, `off`, `workspaces`, each -375 and -1280) |
+| **UI: Design-system compliance** | ☑ pass | `appsession.css` uses `tokens.css` variables only; existing `.card`, `.actions`, `.field`, `button.primary`, `.danger`, `.muted`, `.mono`; no new colour, font or dependency |
+| **UI: Responsiveness** | ☑ pass (375, 1280) | no sideways scroll; long command wraps in page flow; 44 px targets by CSS under 40rem (not probe-measured) |
 
 ### ux-evaluate (no UX rows in the guide: baseline checks only)
 
