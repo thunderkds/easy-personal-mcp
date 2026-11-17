@@ -669,3 +669,8 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - Commit nothing on a task branch while its auto verify run is going: T092's run started at `cb501c7`, a review-file commit (`385a112`) made the Stop hook start a second run, and the pass row it wrote for `385a112` had no run record the merge gate accepts, so the `[admin]` merge was refused (T099, whose run this session started with `--start` and left alone, merged). Reset a non-template `verify` row before `--start`, not during the run.
 - The stop hook reads a hook-written `Paused: ... ⚠ ...` line in a review file as an open decision; after fixing its causes, delete the stale line.
 **Files**: `.claude/hooks/pre_bash_block_unsafe_merge.py`, `.claude/hooks/stop_auto_verify.py`, `.claude/hooks/lib/verify_record.py`, `rust/PROJECT_KANBAN.md`
+
+### 2026-11-17 — Merge gate: only certain test runners count, and worktree build caches fill the disk
+- `pre_bash_block_unsafe_merge.py` counts a task as tested only when its trace (`memory/event-trace/<id>.jsonl`) holds a Bash call that *starts* with a known runner (`npm test`, `cargo test`, `pytest`, …). `npx vitest run` does not match: run `npm test` in `web/` instead. The call is attributed by the active-task state file, which must be written in an **earlier** tool call than the test run.
+- Every In Progress / Ready for Review task without that trace blocks every merge and rebase on the machine, even into another task branch.
+- Each worktree's `rust/target` is 5-13 GB; ~15 worktrees filled the 455 GB disk (linker `Bus error`). `cargo clean` in idle worktrees is the safe fix (caches rebuild).
