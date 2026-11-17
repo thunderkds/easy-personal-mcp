@@ -529,6 +529,21 @@ main .board-column { padding: var(--space-3); border: 1px solid var(--color-bord
 .board-kind { text-transform: lowercase; }
 main .board-toggle { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 
+/* Workflow view (T108, FR-118): one lane per stage, stacked; each lane's rows sit side by side from 40rem. Layout only, existing tokens */
+.workflow-lanes { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.workflow-lanes > li { min-width: 0; }
+.workflow-gate, .workflow-board { padding-left: var(--space-3); border-left: 2px solid var(--color-accent-line); font-size: var(--fs-note); overflow-wrap: anywhere; }
+.workflow-gate { font-family: var(--font-mono); color: var(--color-secondary); }
+.workflow-rows { display: flex; flex-direction: column; gap: var(--space-2); }
+.workflow-rows > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.workflow-rows dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
+.workflow-chips { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.workflow-chips > li { min-width: 0; overflow-wrap: anywhere; }
+@media (min-width: 40rem) {
+  .workflow-rows > div { flex-direction: row; align-items: baseline; gap: var(--space-3); }
+  .workflow-rows dt { flex: none; width: 6rem; }
+}
+
 /* Memory view (HUN-164): rings graph and side panel, one rule per line */
 main.memory { max-width: none; }
 .memory-picker { max-width: 20rem; }

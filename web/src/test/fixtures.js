@@ -472,6 +472,25 @@ export const kitReportFiles = {
 }
 
 // T092: GET /api/agent-run, as `rust/crates/app/src/agent_routes.rs` answers it; `last` is the outcome record of the run before.
+// The route's map (PRD FR-117): the page holds no copy of it, so tests feed it from here.
+export const workflow = {
+  stages: [
+    { id: '0.5', name: 'Stage 0 · Define', skills: ['brainstorming', 'ideate'], agents: ['Supervisor'] },
+    { id: '1', name: 'Stage 1 · Environment', skills: ['git-guardrails-claude-code', 'map-codebase'], agents: ['Supervisor', 'common-infrastructure'] },
+    { id: '1.5', name: 'Stage 1.5 · Team', skills: ['craft-agent'], agents: ['Supervisor'] },
+    { id: '2', name: 'Stage 2 · Plan', skills: ['grill-with-docs', 'to-issues'], agents: ['Supervisor'] },
+    { id: '3', name: 'Stage 3 · Build', skills: ['tdd', 'bugfix', 'diagnose', 'craft-spawn-prompt', 'migration-safety'], agents: ['common-infrastructure', 'backend-developer', 'frontend-developer'] },
+    { id: '4', name: 'Stage 4 · Review', skills: ['code-review', 'security-review', 'blast-radius', 'html-report'], agents: ['Supervisor', 'qa-expert'] },
+    { id: '5', name: 'Stage 5 · Verify', skills: ['verify', 'ship', 'delivery-report'], agents: ['qa-expert', 'Supervisor'] },
+  ],
+  gates: [
+    { after: '2', before: '3', text: 'No TASK_GUIDE, no Stage 3' },
+    { after: '3', before: '4', text: 'Ready for Review starts the reviews' },
+    { after: '4', before: '5', text: 'Reviews before verify' },
+    { after: '5', before: null, text: 'Verify passes before merge' },
+  ],
+}
+
 export const agentRunOff = { enabled: false, account: null, claude_found: true, running: false, last: null }
 export const agentRunOn = (over = {}) => ({
   enabled: true, account: { id: '2', label: 'Claude personal', status: 'confirmed' }, claude_found: true, running: false, last: null, ...over,
@@ -503,6 +522,8 @@ export function fakeFetch(overrides = {}) {
       body = found
     } else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
+    else if (path === '/api/kit/workflow') body = overrides.workflow ?? workflow
+    else if (path === '/api/board') body = overrides.board // no board given: 404, as before
     else if (path === '/api/kit/workspaces') body = overrides.workspaceKit ?? workspaceKit
     else if (path === '/api/kit/report-files') {
       const given = overrides.kitReportFiles
