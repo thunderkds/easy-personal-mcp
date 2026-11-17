@@ -32,7 +32,7 @@ Owner 2026-11-17: "what we can do with the claude CLI, we can do with our applic
 | 1 | `POST /api/app-sessions` `{repo, workspace, account?, model, mode, worktree, prompt, confirmed:true}` → 202 `{id}`; the argument list is built only from fixed lists and stored repos (a test feeds `;`, `--`, `$(…)`, an unknown model/mode, a path not in the store → 400 each, nothing started) | FR-109, FR-116 |
 | 2 | No `--allowedTools` / `--disallowedTools` narrowing; `--permission-prompt-tool` always set; `--dangerously-skip-permissions` only when the owner picked that mode; the FR-102 variables removed from the child's environment (test reads the fake child's env) | FR-109, FR-111 |
 | 3 | `worktree: true` → `git worktree add` under `~/.easy-personal/worktrees/` on branch `easy/<yyyymmdd-hhmm>-<4 hex>`; not a git repo / branch taken / folder exists → 400 fixed message | FR-109 |
-| 4 | `POST /api/app-sessions/{id}/message` writes one stdin line; `/interrupt` sends SIGINT; `/stop` SIGTERM then SIGKILL after 5 s to the process group; a 5th concurrent session → 409 | FR-110, question 41 |
+| 4 | `POST /api/app-sessions/{id}/message` writes one stdin line; `/interrupt` sends the stdin `control_request` interrupt (T102 AC 3; never SIGINT); `/stop` SIGTERM then SIGKILL after 5 s to the process group; a 5th concurrent session → 409 | FR-110, question 41 |
 | 5 | `GET /api/app-sessions` and `/{id}` give state, account, model, mode, folder name, branch, changed file names, and the conversation items (owner text, assistant text, tool labels + outcome, pending prompt card) — no tool input or output | FR-110, FR-115 |
 | 6 | A permission prompt from the child becomes a pending card; `POST /api/app-sessions/{id}/answer` `{prompt_id, behavior, updatedInput?|message?}` returns it to the child; no answer → the child waits (no auto-allow, test with a 2 s fake wait) | FR-111 |
 | 7 | Every route: NFR-008 guard + `confirmed:true` on writes; token never in a URL | FR-116 |
@@ -46,7 +46,7 @@ Owner 2026-11-17: "what we can do with the claude CLI, we can do with our applic
 | `rust/crates/app/src/app_session.rs` (new) | runner, stream parse, prompt bridge |
 | `rust/crates/app/src/app_session_routes.rs` (new) | routes |
 | `rust/crates/app/src/server.rs`, `api.rs` | mount routes |
-| `rust/crates/app/src/mcp_http.rs` or `mcp.rs` | the permission prompt tool (per T102) — **not** listed by `tools/list` to other clients |
+| `rust/crates/app/src/server.rs` (new loopback route in the dashboard process) | the permission prompt tool as a minimal HTTP MCP endpoint (per T102 AC 5 option (a)), per-session bearer secret, `MCP_TOOL_TIMEOUT` in the child env, one answer per prompt even when Claude retries the call — **not** part of the shared MCP surface |
 | `rust/parity/leak_rust.py` | new planted texts |
 
 ## Files must NOT touch
