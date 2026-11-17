@@ -9,6 +9,7 @@
 ## Board
 
 ### Todo
+- [ ] **T108** — Kit workflow: `GET /api/kit/workflow` (the one stage table, also read by `stage_of`) and a `// kit` › Workflow tab (Stage 0–5 lanes with skills, agents and gates; live sessions on their stage; board counts per lane) | Backend-Developer, Frontend-Developer | C2 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T108.md` (2026-11-17); owner 2026-11-17 "show the workflow of the kit, the position of the agents" + "go, [admin]"; PRD FR-117, FR-118
 - [ ] **T103** — Write sessions 1: app session runner and routes (start, talk, interrupt, stop, permission prompts) | Backend-Developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T103.md` (2026-11-17); Depends on T102; PRD FR-109..FR-111, FR-115, FR-116
 - [ ] **T104** — Write sessions 2: app session page (New session form, session panel, prompt cards) | Frontend-Developer | C3 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T104.md` (2026-11-17); Depends on T103
 - [ ] **T105** — Write sessions 3: Resume in app, fork, Continue | Backend-Developer | C2 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T105.md` (2026-11-17); Depends on T103, T104; PRD FR-112
