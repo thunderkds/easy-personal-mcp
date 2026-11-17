@@ -1,4 +1,4 @@
-# TASK_GUIDE — T108: Kit workflow — the kit's Stage 0–5 pipeline, the agents at each stage, and where live sessions and board tasks are now
+# TASK_GUIDE — T108: Kit workflow — flows drawn as one horizontal line (the kit's latest Stage 0–5 and a plain-prompt flow), the agents at each step, and where live sessions and board tasks are now
 **Date**: 2026-11-17
 **Complexity Level**: C2
 **Risk Level**: Medium
@@ -24,18 +24,17 @@
 
 **Original request** (owner, 2026-11-17): "compose the plan to update the Kit section to the feature that can show the workflow of the kit, the position of the agents in the strict workflow", then "go, [admin]" on the plan.
 
-**Restated intent**:
-> 1. The Kit section gets a **Workflow** view: the kit's fixed pipeline, Stage 0 to Stage 5, one lane per stage, each with its skills, the agents that work there, and the checks between stages (no TASK_GUIDE → no Stage 3; review before verify; verify before merge).
-> 2. **Live layer**: each live session sits on the lane of its current kit stage (FR-083); a sub-agent seen working in the last few minutes sits on the lane of its type. Read from the page's one `/api/live` stream; nothing new stored or read.
-> 3. **Board layer**: per lane, the count of board tasks of the page's scope by board status (Todo → waiting for Stage 3; In Progress → Stage 3; Ready for Review → Stage 4–5; Done last), from `GET /api/board`.
-> 4. The map comes from one place: a fixed table in the Rust core served by `GET /api/kit/workflow`. The live stage map (`stage_of`) and the route read the same table, so the page never holds its own copy.
+**Owner redo (2026-11-17, after checking the first build)**: "the workflow should be line in the horizontal, no need to add skill, refer to this for the latest kit, but how can we adapt any kit, flow, and maybe just the pure propmt, not kit, ... let cover them all", then "we should add to the app also" (own flows: file **and** in-app editor; that part is T109).
 
-**Out of scope (cut list)**: a workflow read from each project's own `CLAUDE.md` or `AGENTS.md`; the agent named on each board row (the board route is a Python parity golden, `rust/PROJECT_SPEC.md:62`); a history of stage changes (stages are never stored, FR-083); links from a stage to a skill's text; the Python app; any MCP tool or CLI command.
-
+**Restated intent** (redo; `PRD.md` FR-117, FR-118):
+> 1. The route answers **flows**, not one stage list: `{"flows": [easy-kit, plain], "projects": {}}`; each flow `{id, name, steps, gates}`, each step `{id, name, parts, agents, signals}`; `signals` = `{stages, skills, agents, tools, commands}`.
+> 2. **easy-kit** = the kit's latest pipeline (`docs/claude-md/pipeline-stages.md`), six steps: Stage 0 Define (parts Requirements · Grilling · Direction; signals.stages ["0.5"]), Stage 1 Set up (Environment · Agent team; ["1","1.5"]), Stage 2 Plan, Stage 3 Execute, Stage 4 Review, Stage 5 Integrate; agents and gates as before. FR-083's ids and `stage_of` output stay exactly the same (Python parity); the skills move into `signals.skills`.
+> 3. **plain** = a session with no kit: Understand → Plan → Change → Check → Ship, signals from tool names, sub-agent types and Bash first words (FR-117 lists them).
+> 4. The view: a flow picker, the chosen flow as **one horizontal line** of steps (name, parts, agents; **no skills shown**), gates as markers between steps; the line scrolls inside its own strip on narrow screens. Each live session is put on one flow (repo assignment from `projects` → else easy-kit when `stage` is known → else plain) and on a step (easy-kit: its `stage`; others: its newest matching feed event). Board counts on the easy-kit line only.
 ### Requirement Fidelity Gate
 - [x] Restated intent confirmed: auto (Supervisor), 2026-11-17, `[admin]`
 - [x] Every Acceptance Criterion traces to the Requirement
-- [x] Requirement Refs: `PRD.md` FR-117, FR-118; FR-083
+- [x] Requirement Refs: `PRD.md` FR-117, FR-118 (redo 2026-11-17, decision 44); FR-083
 
 ---
 
@@ -52,15 +51,16 @@ No new crate, no new npm package.
 
 | # | Criterion (testable) | Traces to |
 |---|---|---|
-| 1 | Step A: `GET /api/kit/workflow` answers 200 with `{"stages": [...], "gates": [...]}`; each stage has `id` (exactly the ids of `stage_of`: "0.5", "1", "1.5", "2", "3", "4", "5"; 0.5 is named as Stage 0 · Define), `name`, `skills`, `agents`; behind the NFR-008 guard like the other `/api/kit*` routes (no token → 401/403 as they answer) | intent 1, 4 |
-| 2 | Step A: one table in `live.rs` (or a new `workflow.rs` in core) feeds both `stage_of` and the route; a test proves every skill of `stage_of` is in the route's stage of the same id and the reverse; all `golden-live*` tests still pass unchanged | intent 4 |
-| 3 | Step B: the `// kit` group has a second tab **Workflow**; the Kit tab is unchanged (its tests unchanged and passing) | intent 1 |
-| 4 | Step B: the view draws one lane per stage from the route, with skills, agents and the gates between lanes; with the route failing it shows an error line, not a blank page | intent 1 |
-| 5 | Step B: a live session with `stage: "4"`, `stage_skill: "code-review"` shows on the Stage 4 lane (project name and skill); a session with `stage: null` shows under "stage not known yet"; a sub-agent event (`agent: "backend-developer"`) from the last 5 minutes shows on each lane that lists that agent | intent 2 |
-| 6 | Step B: board counts per lane match `/api/board` for the page's workspace/account scope; no board → the counts are hidden with one muted line | intent 3 |
-| 7 | No message text, tool input or path reaches the view (only the FR-081 labels, project names and ids); the leak gate stays at 0 hits | NFR-002 |
-| 8 | `ux-evaluate` at 375 px and 1280 px: lanes stack on narrow screens, no horizontal page scroll | — |
-| 9 | `cd rust && cargo test --workspace`, clippy (with and without `--features window`) `-D warnings`, `cargo fmt --check`, leak gate 0 hits; `cd web && npm run lint && npm test && npm run build`; `python3 scripts/check_static.py` ok | all |
+| 1 | Step A: `GET /api/kit/workflow` answers 200 `{"flows": [...], "projects": {}}`; flows in order `easy-kit`, `plain`; every flow `{id, name, steps, gates}`, every step `{id, name, parts, agents, signals}` with `signals` holding all five keys `stages`, `skills`, `agents`, `tools`, `commands` (arrays, may be empty); NFR-008 guard (403 with no token), 405 on POST/PUT/PATCH/DELETE, no store opened | intent 1 |
+| 2 | Step A: easy-kit has six steps ids "0".."5" with the names and parts of intent 2; the union of its `signals.stages` is exactly the FR-083 ids; a test proves `stage_of(skill) == Some(id)` ⇔ `skill` is in `signals.skills` of the step whose `signals.stages` holds `id` (both ways); all `golden-live*` tests pass unchanged | intent 2 |
+| 3 | Step A: plain has steps understand, plan, change, check, ship with the FR-117 signals; no signal value fails the FR-081 label pattern; no value sits in two steps of one flow | intent 3 |
+| 4 | Step B: the `// kit` group keeps Kit unchanged and has **Workflow**; the view shows a flow picker (one button per flow, `aria-pressed`), easy-kit chosen first; the steps render in one row (a test asserts the row container and step order); no skill name from the route is rendered (test: a fixture skill text is absent) | intent 4 |
+| 5 | Step B: a live session with `stage: "1.5"` shows on easy-kit's Stage 1 step; `stage: null` with a newest feed event `tool: "Edit"` shows on plain's Change step; `label: "cargo"` (a Bash event) on plain's Check; no matching event → "step not known yet"; a session whose project is in `projects` goes to that flow; a sub-agent type seen in the last 5 minutes shows on every step of the chosen flow that lists it | intent 4 |
+| 6 | Step B: easy-kit's line shows the board counts of `/api/board` in the page's scope; other flows show none; no board → one muted line; route failing → an error line | intent 4 |
+| 7 | Gates render between steps as markers with their text (not hover-only); a flow with no gates shows none | intent 4 |
+| 8 | No message text, tool input or path reaches the view (FR-081 labels, project names, ids only); leak gate 0 hits | NFR-002 |
+| 9 | `ux-evaluate` at 375 px and 1280 px: the line is one row at 1280 px; at 375 px the strip scrolls inside itself and the page has no horizontal scroll | — |
+| 10 | `cd rust && cargo test --workspace`, clippy (with and without `--features window`) `-D warnings`, `cargo fmt --check`, leak gate 0 hits; `cd web && npx vitest run && npm run build`; `python3 scripts/check_static.py` ok | all |
 
 ## UI / Design Acceptance Criteria
 - Uses the page's existing tokens and classes (`app.css`: chips, `count`, `muted`, cards); no new colour values
@@ -73,24 +73,23 @@ No new crate, no new npm package.
 
 ### Verification Command
 ```bash
-cd rust && cargo test -p easy-personal-rs workflow && cargo test -p easy-personal-core live && cd ../web && npm run lint && npx vitest run 2>&1 | tail -5 && npm run build && cd .. && python3 scripts/check_static.py
+cd rust && cargo test -p easy-personal-rs workflow && cargo test -p easy-personal-core live && cd ../web && npx vitest run 2>&1 | tail -5 && npm run build && cd .. && python3 scripts/check_static.py
 ```
 
 ### Evidence (filled by reviewer at Stage 4/5)
 > In `tasks/TASK_REVIEW_T108.md`.
 
 ## Demonstration
-BEFORE: `GET /api/kit/workflow` answers 404 on a real `serve`; the `// kit` group has only the Kit tab. AFTER: the route answers the map, and the Workflow tab shows the lanes with a live session on its stage.
+BEFORE (redo): the first T108 build answers `{"stages": [...7], "gates": [...]}` and draws vertical lanes that list skills. AFTER: the route answers two flows, and the Workflow tab draws the chosen flow as one horizontal line, no skills, with live sessions on their step on easy-kit or plain.
 
 ## Approach
-Path B of `BRAINSTORMING_LOG_KITWORKFLOW.md` (both Debates agreed).
-- **Step A (backend)**: in `rust/crates/core/src/live.rs` (or a new `workflow.rs` re-exported by `lib.rs`), one `pub const` table: per stage `id`, `name`, `skills`, `agents`; plus the `gates`. `stage_of` becomes a lookup in that table (same output for every skill: the `golden-live*` tests prove it). Agents per stage come from the kit's pipeline (`AGENTS.md` `## Stage 0–5 Agentic Pipeline`, the base team): 0.5 Supervisor; 1 Supervisor, common-infrastructure; 1.5 Supervisor (craft-agent roles); 2 Supervisor; 3 common-infrastructure, backend-developer, frontend-developer; 4 Supervisor, qa-expert; 5 qa-expert, Supervisor. Gates: after 2 before 3 "No TASK_GUIDE, no Stage 3"; after 3 before 4 "Ready for Review starts the reviews"; after 4 before 5 "Reviews before verify"; after 5 "Verify passes before merge". `GET /api/kit/workflow` in `api.rs` returns the table through the same guarded `serve` helper as `kit_reports` (no store read is needed; if `serve` needs a conn, ignore it). Do not change the Python `live.py`: its map is unchanged, so parity holds.
-- **Step B (frontend)**: `web/src/WorkflowView.jsx` + a `{ id: 'workflow', label: 'Workflow', View: WorkflowView, scoped: true }` tab in the `// kit` group of `App.jsx`. Read `/api/kit/workflow` and `scopedPath('/api/board', scope)` with `useLoad`; read live sessions and events from `useContext(LiveContext)` (null outside a provider: then no live layer). Lanes as a list of cards (`FeedCard`-like classes from `app.css`), stacked on narrow screens. Existing tokens only; no owner design was supplied (decision 2 of the review file).
-
+Redo on the `T108` branch (not merged; worktree `easy-personal-mcp-wt/T108`).
+- **Step A (backend)**: `rust/crates/core/src/workflow.rs`: replace `STAGES` with the two built-in flows (consts). `stage_of` stays a lookup: the skill → the FR-083 id held by the step's `signals.stages` (for easy-kit Stage 0 that is "0.5"; Stage 1 holds both "1" (git-guardrails-claude-code, map-codebase) and "1.5" (craft-agent), so keep a per-skill FR-083 id: e.g. a step signal list of `(skill, id)` pairs internally, serialised as `signals.skills` + `signals.stages`). Output of `stage_of` byte-for-byte as now. `json()` answers `{"flows": [...], "projects": {}}` (`projects` filled by T109). Update `api_tests.rs`. Do not touch `live.py`, `board.rs`, `rust/parity/**` beyond what already exists.
+- **Step B (frontend)**: rewrite `web/src/WorkflowView.jsx` for the flows shape: picker, horizontal line (`display: flex`, `overflow-x: auto` on the strip only, steps `flex: 0 0 auto`), connectors and gate markers; placement rules of AC 5 (one exported pure function `placeSession(session, events, flows, projects)` so tests hit it directly); keep the 5-chip cap and "+N more"; keep the muted lines. Existing tokens only.
 ## Files to change (predicted)
 | File | Change |
 |------|--------|
-| `rust/crates/core/src/live.rs` (or new `rust/crates/core/src/workflow.rs` + `lib.rs`) | the one stage table; `stage_of` reads it |
+| `rust/crates/core/src/workflow.rs` | the two built-in flows; `stage_of` reads them |
 | `rust/crates/app/src/api.rs`, `rust/crates/app/src/api_tests.rs` | `GET /api/kit/workflow` + tests |
 | `web/src/App.jsx` | the Workflow tab in the `// kit` group |
 | `web/src/WorkflowView.jsx`, `web/src/WorkflowView.test.jsx` (new) | the view + tests |
@@ -108,13 +107,18 @@ Path B of `BRAINSTORMING_LOG_KITWORKFLOW.md` (both Debates agreed).
 ## Edge Case Checklist
 - A session on a skill not in the map keeps its last stage (FR-083) — the view only shows what the stream sends
 - Two sessions of the same project on different lanes: both shown
-- Many sessions on one lane: at most 5 chips, then "+N more"
+- Many sessions on one step: at most 5 chips, then "+N more"
+- A Bash event with no label (label dropped by FR-081): matches no `commands` signal
+- A sub-agent event (`is_sidechain`) on plain: its tool still places the parent session
+- A session's project assigned to a flow id that is not in `flows`: falls back to the auto rule
 - The stream disconnected: the map and board layer still show; the live layer says so in one muted line
-- A stage id the page does not know: shown as its own lane at the end, never dropped
+- A stage id the page does not know: shown as an extra step at the end of easy-kit, never dropped
 
 ## Questions Log
 - 2026-11-17 DEBATE where the stage/skill/agent map comes from → one table in the Rust core + `GET /api/kit/workflow` (Advocate 1: B; Advocate 2: B) ⚠ decided for you — please review
 - 2026-11-17 DEBATE where the view goes and with what design → a second `// kit` tab Workflow from existing `app.css` tokens (Advocate 1: A; Advocate 2: A) ⚠ decided for you — please review
+
+- 2026-11-17 Owner redo: flows, horizontal line, no skills, latest kit names; own flows file + editor → T109 (PRD decision 44)
 
 ## Completion checklist
 - [ ] Implementation done
