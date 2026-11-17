@@ -305,11 +305,21 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
         };
         let pinned = account.as_ref().map(|a| a.id.clone());
         let allowed_runner = agent.runner(&dir);
+        // the setting is the flag file (removed by `off` and when the agent run account is ignored); a named account
+        // that cannot be found three checks in a row (one a second) counts as gone: a busy store is not "gone"
+        let misses = std::sync::atomic::AtomicU8::new(0);
         let allowed = Box::new(move || {
-            allowed_runner.setting() != Setting::Off
-                && pinned
-                    .as_deref()
-                    .is_none_or(|id| allowed_runner.resolve(id).is_ok())
+            if !allowed_runner.enabled() {
+                return false;
+            }
+            let Some(id) = pinned.as_deref() else {
+                return true;
+            };
+            if allowed_runner.resolve(id).is_ok() {
+                misses.store(0, std::sync::atomic::Ordering::Relaxed);
+                return true;
+            }
+            misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1 < 3
         });
         let plan = Plan {
             repo,
@@ -1595,6 +1605,21 @@ mod tests {
             assert_eq!(status, 405);
             // the token is in no answer
             assert!(!w.seen.borrow().contains(TOKEN));
+        });
+    }
+
+    #[test]
+    fn turning_the_setting_off_ends_a_going_session() {
+        let _serial = serial();
+        block(async {
+            let w = world("off", KEEP);
+            let id = w.begin(json!({})).await;
+            w.until_state(&id, "working").await;
+            w.api.agent.runner(&w.fake.dir()).turn(false).unwrap();
+            let ended = w.until_state(&id, "ended").await;
+            assert_eq!(ended["reason"], "account turned off");
+            let (status, _) = w.post("/api/app-sessions", &w.form(json!({}))).await;
+            assert_eq!(status, 403, "a new session needs the setting on");
         });
     }
 

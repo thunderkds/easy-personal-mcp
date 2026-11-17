@@ -1195,6 +1195,17 @@ The app can start Claude Code on this machine for you, for one fixed job: *inves
 - **The app never reads your login.** It starts `claude` with that account's folder and reads nothing from its credentials.
 - **Linux and the Rust app only.** The Python dashboard shows no Settings block and no Run block.
 
+## App sessions (T103, backend only; the page is T104)
+
+`serve` can start the owner's own `claude` as a **session you talk to** (FR-109..FR-111, DDR-0006). Off until an agent run account is chosen (the setting of *Agent runs* above). One source of truth: `crates/app/src/app_session.rs` (runner) and `app_session_routes.rs` (routes).
+
+- **Routes** (guard + `confirmed: true` on every write, token never in a URL): `GET /api/app-sessions`, `GET /api/app-sessions/{id}`, `POST /api/app-sessions` `{repo, workspace, account?, model, mode, worktree, prompt, confirmed}` (202 `{id}`), and `POST /api/app-sessions/{id}/message|interrupt|stop|answer|close`. The page names no program and no argument: `repo` must be a stored repo of the `workspace`, `model` is `default|opus|sonnet|haiku`, `mode` is `default|acceptEdits|auto|plan|dontAsk|bypassPermissions`. At most 4 sessions at once (409).
+- **The child**: `claude -p --input-format stream-json --output-format stream-json --verbose [--model M] [--permission-mode X | --dangerously-skip-permissions] --permission-prompt-tool mcp__easy-personal-app__permission_prompt --mcp-config <0600 temp file>`. No tool narrowing, no `--strict-mcp-config`: the owner's own settings, MCP servers, hooks and skills apply. The prompt goes in on stdin, never in the argument list. The FR-102 environment scrub applies, plus `CLAUDECODE` and every `CLAUDE_CODE_*`; `MCP_TOOL_TIMEOUT` is set to one hour.
+- **Interrupt** is the stdin `control_request` (SIGINT would end the process, T102). **Stop** is SIGTERM to the process group, then SIGKILL after 5 s. The setting turned off, or the session's account no longer confirmed, stops every session. Server stop ends all children.
+- **Prompts**: the child calls `permission_prompt` on `POST /app-session-mcp/{id}`, a minimal HTTP MCP route of this process outside `/api/` (per-session bearer secret in the temp config; Host and Origin checks stay). It is not on `mcp` / `mcp --transport http` and is not in the MCP tool list. The call waits until the owner answers (`POST .../answer`), the turn ends, or the session ends; a retried call for the same `tool_use_id` gets the same one answer.
+- **Worktree**: `worktree: true` runs `git worktree add -b easy/<yyyymmdd-hhmm>-<4 hex>` under `<data dir>/worktrees/` (UTC stamp). The app never commits, merges, pushes or deletes.
+- **FR-115**: the owner's text, the assistant text, cards and answers are kept in memory only, shown only on the guarded routes (control and bidi characters removed on display), dropped when an ended session's panel is closed (`/close`) and at exit. `parity/leak_rust.py` runs a session with a stand-in `claude` and scans every other surface.
+
 ## Test
 
 ```bash
