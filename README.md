@@ -182,11 +182,12 @@ The tab shows:
 - A feed of tool calls for one session at a time. Click a row, or press Enter or Space on it, to open the feed in place under the row. Click the row again, use its Close control or press Escape to close it. The feed lists the newest call first, the last 50, one line each: the time, who made the call (`main` or the sub-agent type) and the call with its label. A label is the skill name, the sub-agent type, the first word of a Bash command, or the MCP server and tool. Nothing else of a call's input is shown.
 - Running totals of tokens and API-equivalent cost. An unknown model price is named, never counted as $0.
 
-Each session can carry an **attention state**. The tail works it out, and the page only shows it as a badge that names the tool, a border and a count in the Live header. Active sessions with a state sort first. There are three states:
+Each session can carry an **attention state**. The tail works it out, and the page only shows it as a badge that names the tool, a border and a count in the Live header. Active sessions with a state sort first. There are three states in the Python app and four in the Rust app (`rust/`, the fourth is **your turn** below):
 
 - **failing**: one stream of the session ended its last 3 tool results in a row with an error. The next successful result in that stream clears it. A denied permission counts as an error. A stream is the main thread or one subagent.
 - **waiting for you**: the session has an open `AskUserQuestion` or `ExitPlanMode` call. It shows at once. An open call is a tool call whose result has not arrived yet.
 - **needs attention**: another open call is older than 10 minutes and the whole session (main thread and subagents) wrote nothing in that time. It means the call is hung or waits for a permission. A long subagent that keeps writing is not flagged.
+- **your turn** (Rust app only): the main thread of a typed-work session ended its turn (`stop_reason` `end_turn`) and no later record came. A session started by the SDK or of unknown origin, and a subagent, never has it.
 
 Two settings change the limits. Put them under `thresholds:` in `~/.easy-personal/config.yaml`:
 
@@ -196,7 +197,9 @@ thresholds:
   live_open_call_minutes: 10
 ```
 
-`live_failing_streak` is the number of failed results in a row (default 3). `live_open_call_minutes` is the age of an open call in minutes (default 10). Only the Live view shows attention states. The MCP tools, the CLI and notifications do not.
+`live_failing_streak` is the number of failed results in a row (default 3). `live_open_call_minutes` is the age of an open call in minutes (default 10). Only the Live view shows attention states. The MCP tools and the CLI do not. The Python app sends no notification.
+
+The Rust app adds two things for a waiting session. The Live view shows the question the session asks as plain text under its badge (the question only: never an option, a header or a plan; it is held in memory, never stored). And its `tray` command lists each session that is waiting for you, at your turn or failing as one clickable row in the tray menu (`question · <project> · <short session id>`, `plan to approve`, `your turn`, `failing`; at most 5, then `+N more in dashboard…`; the rows never hold question text). A click opens the dashboard on the Live view with that session selected. The tray's alerts add a desktop notification for *your turn*, raised only after the state has held for 60 s; a click on a notification does what a click on that row does, and a click on a notification that sums several alerts opens the Live view. A notification service without the capability `actions` gets the notification with no click.
 
 The tail pairs a call with its result in memory only. It stores and sends no call id. An open call is dropped after 24 hours.
 

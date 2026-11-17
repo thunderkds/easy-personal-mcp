@@ -238,6 +238,18 @@ SIGINT or SIGTERM stops the server and exits 0, and no WebKit process is left be
   The real-window tests are ignored by default; run them with a display:
   `cargo test --features window --test window -- --ignored --test-threads=1`.
 - Packaging and the tray are done: the Ubuntu `.deb` is in `packaging/README.md`, and the tray runs with `easy-personal-rs tray`.
+- Tray rows and alerts for waiting sessions (T096, FR-107): the tray menu lists one clickable row per session whose states hold
+  `failing`, `waiting` or `your_turn` (`<kind> · <project> · <short id>`, kinds `question`, `plan to approve`, `your turn`,
+  `failing`; newest state first, at most 5, then `+N more in dashboard…`; the two count rows are gone and no row holds question
+  text). The icon state *attention* covers `your_turn`; *problem* (failing) stays more urgent. A click on a row opens the window on
+  `/?live=<session id>#<token>` (the page reads the query once, T095; an id that is not hex digits and `-`, at most 64 characters,
+  is left out and the Live view opens with nothing selected). With the window open it is navigated there (the page reloads on
+  WebKitGTK) and focused; "Open dashboard" still only focuses it. The alert engine raises `session_your_turn` once the state has held
+  60 s on its monotonic clock, counted from the first look that saw it (never from the record time). Each popup carries the default
+  action when the notification service lists `actions`; the `tray` command keeps one D-Bus connection (the service sends
+  `ActionInvoked` to the process that called `Notify`), and a click on a popup it sent, from the service that answered, opens the
+  popup's session, or the Live view for a popup that sums several alerts. `serve` and `app` offer no action. Nothing new is
+  written to disk, and no token or session text reaches a log.
 - Not done: macOS and Windows (other webviews, no display check, Unix signals only), embedding the
   dashboard in the binary, and focusing the first window when `app` runs twice (each run gets its own port and token). The real
   dashboard is not built here (`web/` needs `npm ci`).
