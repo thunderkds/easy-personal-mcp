@@ -14,8 +14,9 @@
 //! characters, the secret check of the core); a row never holds a message, a tool input or an output (NFR-002).
 //!
 //! Files: one lock per user, `$XDG_RUNTIME_DIR/easy-personal-tray.lock` (else `~/.easy-personal/`), held with
-//! `flock` while the tray runs (it holds the tray's pid as decimal text, T101: a second `tray --show` reads it to hand over); and the autostart entry `$XDG_CONFIG_HOME/autostart/easy-personal-tray.desktop` (else
-//! `~/.config/autostart/`), written or removed by `tray --autostart on|off`. Nothing else is written (the lock file holds only the pid).
+//! `flock` while the tray runs (it holds the tray's pid as decimal text, T101: a second `tray --show` reads it to hand
+//! over); and the autostart entry `$XDG_CONFIG_HOME/autostart/easy-personal-tray.desktop` (else `~/.config/autostart/`),
+//! written or removed by `tray --autostart on|off`. Nothing else is written (the lock file holds only the pid).
 #![cfg_attr(not(feature = "window"), allow(dead_code))]
 
 use crate::alerts::{self, Alert, HIGH, LOW_BATTERY};

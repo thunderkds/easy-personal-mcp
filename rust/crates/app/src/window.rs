@@ -128,11 +128,45 @@ fn tray_not_started(reason: &str) -> String {
     format!("easy-personal-rs: tray not started: {reason}")
 }
 
-/// What `app` does after it tried to start the tray (T101): `None` when it started (`app` opens no window and exits 0),
-/// else the stderr line, and `app` opens its own window as today.
+/// What `app` saw of the tray it started (T101).
 #[cfg(any(feature = "window", test))]
-fn own_window_line<T>(spawned: Result<T, String>) -> Option<String> {
-    spawned.err().map(|reason| tray_not_started(&reason))
+enum Tray {
+    /// Still running after the wait: it is the new tray.
+    Running,
+    /// It ended within the wait: `ok` for exit 0 (it handed over to the running tray), `status` as text.
+    Exited { ok: bool, status: String },
+}
+
+/// Polls `child` for up to `limit`.
+#[cfg(any(feature = "window", test))]
+fn observe(child: &mut std::process::Child, limit: std::time::Duration) -> Result<Tray, String> {
+    let deadline = std::time::Instant::now() + limit;
+    loop {
+        match child.try_wait().map_err(|e| e.to_string())? {
+            Some(status) => {
+                return Ok(Tray::Exited {
+                    ok: status.success(),
+                    status: status.to_string(),
+                });
+            }
+            None if std::time::Instant::now() >= deadline => return Ok(Tray::Running),
+            None => std::thread::sleep(std::time::Duration::from_millis(25)),
+        }
+    }
+}
+
+/// What `app` does after it tried to start the tray (T101): `None` when the tray runs or handed over (`app` opens no
+/// window and exits 0), else the stderr line (no start, or a failed exit such as a hand-over to a tray that cannot be
+/// asked), and `app` opens its own window as today.
+#[cfg(any(feature = "window", test))]
+fn after_spawn(spawned: Result<Tray, String>) -> Option<String> {
+    match spawned {
+        Ok(Tray::Running | Tray::Exited { ok: true, .. }) => None,
+        Ok(Tray::Exited { status, .. }) => {
+            Some(tray_not_started(&format!("the tray exited with {status}")))
+        }
+        Err(reason) => Some(tray_not_started(&reason)),
+    }
 }
 
 /// Starts `program` in a process group of its own with stdin, stdout and stderr on /dev/null, so Ctrl-C or a SIGTERM
@@ -160,7 +194,7 @@ pub use shell::{run, tray};
 #[cfg(feature = "window")]
 mod shell {
     use super::{
-        blocked_target, navigation_allowed, own_window_line, spawn_detached, tray_command,
+        after_spawn, blocked_target, navigation_allowed, observe, spawn_detached, tray_command,
         wants_tray,
     };
     use crate::live_feed::LiveFeed;
@@ -183,6 +217,8 @@ mod shell {
     use tauri::webview::NewWindowResponse;
     use tauri::{App, AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder, Wry};
 
+    /// How long `app` watches the tray it started: the hand-over itself waits up to 2 s for the running tray's pid.
+    const HAND_OVER_WAIT: Duration = Duration::from_secs(3);
     const EXIT_SELF_TEST_TIMEOUT: i32 = 3;
     const EXIT_NO_DISPLAY: u8 = 5;
     /// The self-test gives the page this long to make an authenticated request.
@@ -285,8 +321,10 @@ mod shell {
     }
 
     /// A plain `app` (T101): the folder and display checks as `start` makes them, then `<this exe> tray --static-dir
-    /// <folder> --show` as a detached process. `Ok(None)` when it started (`app` exits 0 and opens no window),
-    /// `Ok(Some(line))` when it did not (the stderr line; `app` opens its own window), `Err` for a bad folder or display.
+    /// <folder> --show` as a detached process, watched for up to [`HAND_OVER_WAIT`]. `Ok(None)` when it runs or handed
+    /// over (`app` exits 0 and opens no window), `Ok(Some(line))` when it did not start or exited non-zero (a tray that
+    /// cannot be asked, such as an older one: the stderr line; `app` opens its own window), `Err` for a bad folder or
+    /// display.
     fn hand_over_to_tray(static_dir: &Path) -> Result<Option<String>, Failure> {
         let root = static_files::canonical_root(static_dir).map_err(|e| Failure(1, e))?;
         check_display()?;
@@ -294,9 +332,10 @@ mod shell {
             .map_err(|_| "cannot find this program's path".to_string())
             .and_then(|exe| {
                 let (program, args) = tray_command(&exe, &root);
-                spawn_detached(&program, &args).map_err(|e| e.to_string())
+                let mut child = spawn_detached(&program, &args).map_err(|e| e.to_string())?;
+                observe(&mut child, HAND_OVER_WAIT)
             });
-        Ok(own_window_line(spawned))
+        Ok(after_spawn(spawned))
     }
 
     /// `--self-test`, second half (T057): `GET /api/live?token=<token>` must give a first `snapshot` from a running
@@ -845,6 +884,7 @@ mod shell {
 mod tests {
     use super::*;
     use std::path::Path;
+    use std::time::Duration;
 
     const PORT: u16 = 41234;
 
@@ -1081,14 +1121,59 @@ mod tests {
         // A program that is not there: the error is the one line, and `app` falls back to its own window.
         let spawned = spawn_detached(Path::new("/this/program/does/not/exist"), &["tray".into()])
             .map_err(|e| e.to_string());
-        let line = own_window_line(spawned).expect("a spawn error means an own window");
+        let line = after_spawn(spawned.map(|mut c| observe(&mut c, Duration::ZERO).unwrap()))
+            .expect("a spawn error means an own window");
         assert!(
             line.starts_with("easy-personal-rs: tray not started: "),
             "{line}"
         );
         assert_eq!(line.lines().count(), 1, "{line}");
-        // A started tray means `app` opens no window and exits 0.
-        assert_eq!(own_window_line(Ok::<(), String>(())), None);
+    }
+
+    /// What `app` does with what it saw of the tray it started: still running after the wait (the new tray) and a clean
+    /// exit (it handed over) are done; a failed exit is the one line and an own window.
+    #[test]
+    fn app_exits_for_a_running_or_a_clean_tray_and_falls_back_for_a_failed_one() {
+        let exited = |ok: bool, status: &str| {
+            Ok(Tray::Exited {
+                ok,
+                status: status.into(),
+            })
+        };
+        assert_eq!(after_spawn(Ok(Tray::Running)), None);
+        assert_eq!(after_spawn(exited(true, "exit status: 0")), None);
+        assert_eq!(
+            after_spawn(exited(false, "exit status: 1")).as_deref(),
+            Some("easy-personal-rs: tray not started: the tray exited with exit status: 1")
+        );
+        assert_eq!(
+            after_spawn(Err("boom".into())).as_deref(),
+            Some("easy-personal-rs: tray not started: boom")
+        );
+    }
+
+    /// The real child: `exit 1` is seen as a failed exit (the fallback line), `exit 0` as a clean one, a process still
+    /// running after the limit as the new tray (the test then ends it: it is its own child).
+    #[test]
+    fn observe_sees_a_failed_exit_a_clean_exit_and_a_running_child() {
+        let sh = |script: &str| spawn_detached(Path::new("/bin/sh"), &["-c".into(), script.into()]);
+        let limit = Duration::from_secs(5);
+        let line = after_spawn(observe(&mut sh("exit 1").unwrap(), limit));
+        assert!(
+            line.as_deref().is_some_and(|l| l.starts_with(
+                "easy-personal-rs: tray not started: the tray exited with exit status: 1"
+            )),
+            "{line:?}"
+        );
+        assert_eq!(
+            after_spawn(observe(&mut sh("exit 0").unwrap(), limit)),
+            None
+        );
+        let mut running = sh("sleep 30").unwrap();
+        let seen = observe(&mut running, Duration::from_millis(150));
+        running.kill().unwrap();
+        running.wait().unwrap();
+        assert_eq!(after_spawn(seen), None);
     }
 
     /// The child is its own process group leader with stdin, stdout and stderr on /dev/null.
