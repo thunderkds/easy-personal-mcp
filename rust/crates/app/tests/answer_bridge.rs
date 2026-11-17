@@ -133,6 +133,12 @@ fn hooks_install_status_and_remove_keep_every_other_key() {
     );
     assert!(shown.contains(&format!("{BIN} hook ask")), "{shown}");
     assert!(shown.contains("already running are not covered"), "{shown}");
+    assert!(
+        shown.contains(
+            "A running app picks this up after a restart or when Settings turns the bridge on.\n"
+        ),
+        "{shown}"
+    );
     assert_eq!(json_of(&home.settings()), before);
     assert!(!home.0.join("backups").exists());
 

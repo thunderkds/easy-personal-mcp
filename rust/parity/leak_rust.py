@@ -90,7 +90,9 @@ BRIDGE_PATTERNS = {
     "bridge_deny_message": "BRIDGECANARY deny {t}",
 }
 BRIDGE_LIVE = {"bridge_question", "bridge_header", "bridge_label_picked", "bridge_label_other", "bridge_description", "bridge_command"}
-BRIDGE_HOOK = {"bridge_question", "bridge_label_picked", "bridge_other_text", "bridge_deny_message"}
+# The documented PreToolUse output returns the tool's own input (`updatedInput`: the whole `questions` array, with header, labels and
+# descriptions) plus `answers`, so those come back on `hook ask`'s stdout (to Claude Code only); the permission command is not echoed.
+BRIDGE_HOOK = (BRIDGE_LIVE - {"bridge_command"}) | {"bridge_other_text", "bridge_deny_message"}
 # T094 fix round: the only surfaces where the marker question may be (the main server's live answers; the alerts server's
 # is in `run.live_only`), by exact label, never by a part of it.
 LIVE_ANSWER_LABELS = frozenset(f"api GET /api/live ({label}, first message)" for label in ("query token", "header token", "resume"))
@@ -877,6 +879,7 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                 hooks_procs[sid] = subprocess.Popen(argv, env=run.env, cwd=run.nowhere, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 hooks_procs[sid].stdin.write(json.dumps(payload).encode())
                 hooks_procs[sid].stdin.close()
+                hooks_procs[sid].stdin = None  # `communicate` flushes an open-looking stdin, and a closed one raises
             ids: dict[str, str] = {}
             deadline = time.monotonic() + 30
             while len(ids) < len(sessions) and time.monotonic() < deadline:
@@ -1466,7 +1469,7 @@ CLI_CALLS: list[tuple[int, list[str]]] = [
     (1, ["agent-run", "now", "--workspace", "{key}"]), (2, ["agent-run", "nope"]),  # clap echoes an unknown subcommand's name
 ]
 # Subcommands that are not in CLI_CALLS and are driven elsewhere in this file (or by their own task's check).
-CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "tray", "help", "connector", "doctor"}  # T060: `connector_cli`; T076: `tray` is window-only like `app`
+CLI_ELSEWHERE = {"ingest", "schedule", "store-info", "store-check", "serve", "mcp", "app", "tray", "help", "connector", "doctor", "hook", "hooks"}  # T106: `bridge` drives `hook` and `hooks`; T060: `connector_cli`; T076: `tray` is window-only like `app`
 
 
 def cli(run: Run, checks: list[str], canaries: Canaries) -> None:

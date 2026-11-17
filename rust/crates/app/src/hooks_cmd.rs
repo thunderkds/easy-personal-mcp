@@ -47,6 +47,9 @@ const SETTINGS: &str = "settings.json";
 /// The program's name in our commands: what tells an entry that looks like ours from the owner's own hooks.
 const PROGRAM: &str = "easy-personal-rs";
 const SUFFIX: &str = " hook ask";
+/// Printed by `hooks install`: the app opens its answer socket only at start or when Settings turns the bridge on.
+const RESTART_NOTE: &str =
+    "A running app picks this up after a restart or when Settings turns the bridge on.\n";
 const MAX_SETTINGS_BYTES: u64 = 8 << 20;
 
 // ---- the entries ----
@@ -511,6 +514,7 @@ fn change(conn: &Connection, exe: &str, on: bool, t: Target) -> Run {
             block_text(exe)
         ))?;
         cli_cmds::put("Sessions that were already running are not covered; start a new one.\n")?;
+        cli_cmds::put(RESTART_NOTE)?;
     } else {
         cli_cmds::put(&format!(
             "Removes only the entries equal to the ones `install` adds, from {SETTINGS} of account {} {:?}.\n",
@@ -534,6 +538,17 @@ fn change(conn: &Connection, exe: &str, on: bool, t: Target) -> Run {
 /// Is the bridge on (or changed, or moved: entries are there) for any confirmed Claude account of the store at `store`?
 /// `serve` opens the answer socket only then. Reads the store read-only and each account's settings file; writes nothing.
 pub(crate) fn any_on(store: &Path) -> bool {
+    // A `-wal` with no `-shm` (a store nobody has open): a read-only open would create the `-shm`, and `serve` must leave
+    // the data folder as it finds it (`store_health_route::the_route_writes_nothing_and_names_no_folder`). Read as off;
+    // `PUT /api/hooks` opens the socket later, and until then every hook is handed back to its terminal (fail open).
+    let side = |suffix: &str| {
+        let mut name = store.as_os_str().to_os_string();
+        name.push(suffix);
+        PathBuf::from(name).exists()
+    };
+    if side("-wal") && !side("-shm") {
+        return false;
+    }
     let (Some(command), Ok(conn)) = (own_command(), open_checked(store)) else {
         return false;
     };
