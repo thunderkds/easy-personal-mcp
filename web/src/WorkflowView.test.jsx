@@ -183,6 +183,7 @@ describe('the flow picker and the line (AC4)', () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
     expect(line().closest('.workflow-line')).not.toBeNull()
+    expect(line()).toHaveAttribute('tabindex', '0') // a keyboard user can scroll the strip when the column is narrow
     expect(stepNames()).toEqual(KIT.steps.map((x) => x.name))
     expect(within(stepArticle('Stage 0 · Define')).getByText('Requirements · Grilling · Direction')).toBeInTheDocument()
     expect(within(stepArticle('Stage 1 · Set up')).getByText('Environment · Agent team')).toBeInTheDocument()
@@ -267,6 +268,15 @@ describe('the live layer (AC5)', () => {
     expect(within(stepArticle('Change')).getByText('alpha')).toBeInTheDocument()
     expect(within(stepArticle('Check')).getByText('beta')).toBeInTheDocument()
     expect(within(stepArticle('Understand')).queryByText(/alpha|beta/)).toBeNull()
+  })
+
+  it('places a session on plain\'s Change by a sub-agent Edit call that names no agent type', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    snapshot(session('s1', { project: 'alpha' }))
+    pick('Plain prompts (no kit)')
+    await send(call('s1', { tool: 'Edit', is_sidechain: true, agent: undefined }))
+    expect(within(stepArticle('Change')).getByText('alpha')).toBeInTheDocument()
   })
 
   it('moves a plain session to the step of its newest event', async () => {

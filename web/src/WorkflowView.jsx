@@ -168,7 +168,7 @@ function Line({ flow, placed, agents, board }) {
     <p key={`${g.after}-${g.text}`} className="workflow-gate">{`Gate · ${g.text}`}</p>
   )
   return (
-    <ol className="workflow-line" aria-label="Steps">
+    <ol className="workflow-line" aria-label="Steps" tabIndex={0}>
       {steps.map((step, i) => {
         const mine = placed.filter((p) => p.flow.id === flow.id && p.step?.id === step.id).map((p) => p.session).sort(bySession)
         const boardText = !showBoard ? null : step.id === STAGE_3 ? `In Progress ${board.progress}` : step.id === STAGE_4 ? `Ready for Review ${board.review} · Stage 4–5` : null
