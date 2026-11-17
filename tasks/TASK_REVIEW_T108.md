@@ -24,10 +24,10 @@ Mode: auto
 9. Redo scope: two built-in flows on one horizontal line, no skills shown, the kit's latest stage names; own flows and the editor split to T109 — FACT: PRD.md:334 "| 44 | Decided by the owner 2026-11-17"
 10. AC 3 narrowed: an agent may sit on several steps (common-infrastructure on Stages 1 and 3, qa-expert on 4 and 5, as the guide's own agent list says); stages, skills, tools and commands stay unique per flow — FACT: tasks/TASK_GUIDE_T108.md:56 "no `stages`, `skills`, `tools` or `commands` value sits in two steps of one flow (an agent may work in several steps)"
 11. The 0.625rem chip literal is out: every size comes from the tokens — FACT: web/src/tokens.css:1 "every color, font, size and space in the page comes from here."
-Paused: unsure — how the six-step line fits at 1280 px with token-sized chips; options: B hide the right rail on the Workflow tab (Advocate 1: B) / C keep the rail and let the line scroll inside its strip at 1280 px (Advocate 2: C)
+12. Redo 2 (owner): the flow only — nodes highlighted where an agent works, a hover/focus/tap panel with project, agent and time taken; the right rail stays (settles the B/C Debate) — FACT: PRD.md:215 "you can show the flow only, with the node that got the agent are working, let highlight this node"
 Checks: tests `cd rust && cargo test --workspace` — green (redo step A; `live_parity` 15/15); `cd web && npx vitest run` — 30 files, 1083 passed; `npm run build` ok; `python3 scripts/check_static.py` — ok; clippy (± window) and fmt ok; leak gate 0 hits over 42 canaries; reviews code-review (independent reviewer) — 0 P0/P1, 2 P2 fixed (README, evidence), P3 fixed; security-review — no findings; real run `easy-personal-rs serve --no-ingest` then `GET /api/kit/workflow` — printed `easy-kit ['Stage 0 · Define', … 'Stage 5 · Integrate']` and `plain ['Understand', 'Plan', 'Change', 'Check', 'Ship']` (auto-checked, not /verify)
 Memory: owner-workflow-view-shape.md (auto memory) — workflow views are one horizontal line, no skill detail; own flows via file + in-app editor
-Not done: merge (admin: after the auto verify pass); auto verify: not started (paused on the question above); companion-setup skipped (auto mode); readiness incomplete: root PROJECT_SPEC.md has no ## Readiness (yours); push to github (yours)
+Not done: merge (admin: after the auto verify pass); auto verify: not started (redo 2 in progress); companion-setup skipped (auto mode); readiness incomplete: root PROJECT_SPEC.md has no ## Readiness (yours); push to github (yours)
 
 
 ## Evidence
