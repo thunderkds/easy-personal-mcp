@@ -346,3 +346,8 @@ Open P3s: raw `12.5px`/`13.5px` in First run CSS (`--fs-note`/`--fs-control`); e
 - SAFER OPTION (gate fixed, app unchanged). The owner may ask for an app task that opens the store so these files are never created.
 **Why**: T085 probe (66 ms → 1 file, 91/323 ms → 3 files); the flake failed 3 of 3 gate runs at load 21-40 before the fix.
 **Files**: `rust/parity/leak_rust.py`, `rust/parity/README.md`, `rust/crates/app/src/live_feed.rs`
+
+### 2026-11-17 — T101: the tray owns the only dashboard window; `app` hands over
+**Decision**: a plain `easy-personal-rs app` (the launcher) starts `tray --show` detached and exits; a running tray is asked to show its window by `SIGUSR1` to the pid in its lock file (sent only after `/proc/<pid>/cmdline` is `easy-personal-rs tray`). `app --no-tray` and `--self-test` keep an own window; a failed hand-over (an older tray with no pid) makes `app` open its own window after ≤3 s.
+**Why**: owner 2026-11-17: no tray after installing, and a popup click must reuse the open window, not open a second one (the tray could only reuse its own window). Options A (app + tray, two windows) and C (tray drives the app window) rejected.
+**Files**: `rust/crates/app/src/window.rs`, `rust/crates/app/src/tray.rs`, `rust/crates/app/src/main.rs`
