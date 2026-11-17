@@ -62,6 +62,9 @@ pub fn run_step(
         case,
         &std::env::var("TZ").unwrap_or_else(|_| "UTC".into()),
     );
+    if case["launcher"] != true {
+        cmd.env("PATH", path_without_launcher(world));
+    }
     cmd.args(args.iter().map(|a| a.replace("@W@", &world.work)))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -87,6 +90,28 @@ pub fn run_step(
         String::from_utf8_lossy(&out.stdout).into_owned(),
         String::from_utf8_lossy(&out.stderr).into_owned(),
     )
+}
+
+/// The `PATH` of a case that has no launcher (T097). `World::env` ends it with `/usr/bin:/bin`, and a machine with the
+/// `.deb` installed has `/usr/bin/easy-personal-launch` there, so the lookup would find one. Here it is the fake
+/// `claude`'s folder and a folder of links to the only tools that fake runs, so the result does not depend on what the
+/// machine has installed.
+fn path_without_launcher(world: &World) -> String {
+    let tools = world.dir.join("tools");
+    std::fs::create_dir_all(&tools).unwrap();
+    for name in ["sh", "tr", "sed", "mkdir", "rm"] {
+        let link = tools.join(name);
+        if link.exists() {
+            continue;
+        }
+        let real = ["/usr/bin", "/bin"]
+            .iter()
+            .map(|d| PathBuf::from(d).join(name))
+            .find(|p| p.is_file())
+            .unwrap_or_else(|| panic!("no {name} in /usr/bin or /bin"));
+        std::os::unix::fs::symlink(real, link).unwrap();
+    }
+    format!("{}:{}", world.dir.join("bin").display(), tools.display())
 }
 
 /// The binary a case runs: the build's own, or (no launcher) a copy in a folder where no `easy-personal-launch` is beside it.

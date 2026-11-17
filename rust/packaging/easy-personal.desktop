@@ -4,5 +4,6 @@ Name=easy-personal
 Comment=Usage and kit dashboard for Claude Code
 Exec=/usr/bin/easy-personal-rs app --static-dir /usr/share/easy-personal-rs/static
 Icon=easy-personal
+StartupWMClass=easy-personal-rs
 Terminal=false
 Categories=Development;

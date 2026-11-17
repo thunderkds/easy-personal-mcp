@@ -372,9 +372,37 @@ impl DBusNotifier {
 /// How long one `Notify` call may take (it also bounds how long `Running::stop` can wait for this thread).
 const NOTIFY_WAIT: Duration = Duration::from_secs(3);
 
+/// The `Notify` arguments: app name, replaces id, app icon, summary, body, actions, hints, expire (ms).
+type NotifyArgs<'a> = (
+    &'static str,
+    u32,
+    &'static str,
+    &'a str,
+    &'a str,
+    Vec<&'a str>,
+    std::collections::HashMap<&'static str, zbus::zvariant::Value<'a>>,
+    i32,
+);
+
+/// The `Notify` call's arguments. The app icon is the theme name the package installs; the `desktop-entry` hint lets the
+/// shell tie the popup to `easy-personal.desktop`.
+fn notify_args<'a>(summary: &'a str, body: &'a str) -> NotifyArgs<'a> {
+    (
+        "easy-personal",
+        0,
+        "easy-personal",
+        summary,
+        body,
+        Vec::new(),
+        std::collections::HashMap::from([(
+            "desktop-entry",
+            zbus::zvariant::Value::from("easy-personal"),
+        )]),
+        10_000,
+    )
+}
+
 fn send(address: Option<&str>, summary: &str, body: &str) -> Result<(), String> {
-    use std::collections::HashMap;
-    use zbus::zvariant::Value as Variant;
     off_runtime(|| {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -392,17 +420,7 @@ fn send(address: Option<&str>, summary: &str, body: &str) -> Result<(), String> 
                         "/org/freedesktop/Notifications",
                         Some("org.freedesktop.Notifications"),
                         "Notify",
-                        // app name, replaces id, icon, summary, body, actions, hints, expire (ms)
-                        &(
-                            "easy-personal",
-                            0u32,
-                            "",
-                            summary,
-                            body,
-                            Vec::<&str>::new(),
-                            HashMap::<&str, Variant>::new(),
-                            10_000i32,
-                        ),
+                        &notify_args(summary, body),
                     )
                     .await
                     .map(|_| ())
@@ -979,6 +997,25 @@ mod tests {
         assert_eq!(list[0]["t"], 59);
         assert_eq!(list[49]["t"], 10);
         assert_eq!(json["paused"], false);
+    }
+
+    /// T097 AC 1: every popup names the app icon and the desktop entry; nothing else in the call changes.
+    #[test]
+    fn the_notify_call_names_the_app_icon_and_the_desktop_entry() {
+        use zbus::zvariant::Value as Variant;
+        let (app, replaces, icon, summary, body, actions, hints, expire) =
+            notify_args("Easy Personal", "Disk 95 % used");
+        assert_eq!(app, "easy-personal");
+        assert_eq!(replaces, 0);
+        assert_eq!(icon, "easy-personal");
+        assert_eq!((summary, body), ("Easy Personal", "Disk 95 % used"));
+        assert!(actions.is_empty());
+        assert_eq!(expire, 10_000);
+        assert_eq!(hints.len(), 1);
+        assert_eq!(
+            hints.get("desktop-entry"),
+            Some(&Variant::from("easy-personal"))
+        );
     }
 
     /// AC 5, the soft half: a bus that is not there costs no panic and one log line (`warned`), not one per popup.

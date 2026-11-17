@@ -258,7 +258,10 @@ mod shell {
         let url: Url = format!("http://127.0.0.1:{port}/#{token}")
             .parse()
             .map_err(|_| Failure(1, "cannot form the window address".into()))?;
+        // Both `app` and the window the tray opens come through here, so one icon call covers both. Compiled in (no file read).
         WebviewWindowBuilder::new(manager, "main", WebviewUrl::External(url))
+            .icon(tauri::include_image!("icons/128x128.png"))
+            .map_err(|e| Failure(1, format!("cannot set the window icon: {e}")))?
             .title("easy-personal")
             .inner_size(1280.0, 800.0)
             .resizable(true)
