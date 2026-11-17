@@ -153,56 +153,82 @@ function usePanel() {
   return { open, bind, close }
 }
 
-// The drawing (owner reference 2026-11-17): fixed node sizes in one left-to-right row; every position is computed here so the edges meet the ports.
+// The drawing (owner reference 2026-11-17): fixed node sizes, positions computed here so the edges meet the ports. The row wraps to the canvas width so the whole flow shows.
 const PAD = 16
-const GAP = 24
-const ROW = 104 // the height of the graph
-const START = { w: 124, h: 76 }
-const CARD = { w: 172, h: 52 }
-const PILL = { w: 124, h: 28 }
-const PILL_CHARS = 13
+const GAP = 76 // between two cards of a row; a gate label sits on the edge in it
+const ROW = 112 // the height of one row
+const CARD = { w: 168, h: 52 }
+const START = { w: CARD.w, h: 64 }
+const END = { w: 8, h: 8 } // the end of the trailing edge a last gate sits on
+const PILL = { w: 60, h: 22 }
+const PILL_CHARS = 6
+const FALLBACK_WIDTH = 700 // the canvas width when it cannot be measured (tests, no layout)
+
+/** How many nodes fit in one row of a canvas `width` px wide (at least one). */
+export const columnsFor = (width) => Math.max(1, Math.floor((width - 2 * PAD + GAP) / (CARD.w + GAP)))
 
 const shortText = (text) => (text.length > PILL_CHARS ? `${text.slice(0, PILL_CHARS).trimEnd()}…` : text)
 /** The icon tile of a step card: its id when short ("3", "1.5"), else the first letter of its name. */
 const monogram = (step) => (step.id.length <= 3 ? step.id : step.name.charAt(0).toUpperCase())
 
-/** One cubic bezier from the right port of one node to the left port of the next. */
+/** One cubic bezier from the right port of one node to the left port of the next; going down to the next row it is a smooth S. */
 function curve(a, b) {
-  const dx = (b.x - (a.x + a.w)) / 2
   const x1 = a.x + a.w
-  const y1 = a.port
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${b.x - dx} ${b.port}, ${b.x} ${b.port}`
+  const down = b.row !== a.row
+  const dx = down ? 34 : (b.x - x1) / 2
+  return `M ${x1} ${a.cy} C ${x1 + dx} ${a.cy}, ${b.x - dx} ${b.cy}, ${b.x} ${b.cy}`
+}
+
+/** The canvas width, kept up to date; `FALLBACK_WIDTH` when it has none. */
+function useWidth(ref) {
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const read = () => setWidth(el.clientWidth)
+    read()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const watch = new ResizeObserver(read)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [ref])
+  return width || FALLBACK_WIDTH
 }
 
 function Line({ flow, placed, working, live, panel, panelId }) {
+  const canvas = useRef(null)
+  const width = useWidth(canvas)
   const steps = [...stepsOf(flow), ...(flow.id === KIT ? extraSteps(flow, placed) : [])]
   const gates = list(flow.gates).map((g, n) => ({ ...g, key: `gate:${n}` }))
   const unplaced = gates.filter((g) => !steps.some((s) => s.id === g.after))
   const here = working.filter((r) => r.flow.id === flow.id)
-  const mid = ROW / 2
   const count = (step) => here.filter((r) => r.step?.id === step.id).length
   const sessions = placed.filter((p) => p.flow.id === flow.id).length
-  // The row, left to right: the start card, then each step card followed by the gates that sit after it.
-  const nodes = [{ kind: 'start', key: 'start', ...START, port: mid + 14, active: false }]
+  // The nodes: the start card, then the step cards. Gates are labels on the edge after their step; the gates after the last step sit on a short edge to an end mark.
+  const after = (step, i) => gates.filter((g) => g.after === step.id).concat(i === steps.length - 1 ? unplaced : [])
+  const nodes = [{ kind: 'start', key: 'start', ...START, active: false, gates: [] }]
   steps.forEach((step, i) => {
     const n = count(step)
-    nodes.push({ kind: 'step', key: `node:${step.id}`, step, n, ...CARD, port: mid, active: n > 0 })
-    for (const g of gates.filter((g) => g.after === step.id).concat(i === steps.length - 1 ? unplaced : [])) {
-      nodes.push({ kind: 'gate', key: g.key, gate: g, ...PILL, port: mid, active: false })
-    }
+    nodes.push({ kind: 'step', key: `node:${step.id}`, step, n, ...CARD, active: n > 0, gates: [] })
+    const g = after(step, i)
+    if (i < steps.length - 1) nodes.at(-1).gatesAfter = g
+    else if (g.length > 0) nodes.push({ kind: 'end', key: 'end', ...END, active: false, gates: g })
   })
-  let x = PAD
-  for (const node of nodes) {
-    node.x = x
-    node.y = mid - node.h / 2
-    x += node.w + GAP
-  }
-  const width = x - GAP + PAD
+  for (let i = 0; i < nodes.length - 1; i++) nodes[i + 1].gates = nodes[i].gatesAfter ?? nodes[i + 1].gates
+  const cols = Math.min(columnsFor(width), nodes.length)
+  nodes.forEach((node, i) => {
+    node.row = Math.floor(i / cols)
+    node.x = PAD + (i % cols) * (CARD.w + GAP)
+    node.cy = node.row * ROW + ROW / 2
+    node.y = node.cy - node.h / 2
+  })
+  const graphW = 2 * PAD + cols * CARD.w + (cols - 1) * GAP
+  const graphH = (nodes.at(-1).row + 1) * ROW
   const edges = nodes.slice(1).map((node, i) => ({ from: nodes[i], to: node, active: i === 0 ? here.length > 0 : node.active }))
   return (
-    <div className="workflow-canvas">
-      <div className="workflow-graph" style={{ width, height: ROW }}>
-        <svg className="workflow-edges" width={width} height={ROW} aria-hidden="true" focusable="false">
+    <div className="workflow-canvas" ref={canvas}>
+      <div className="workflow-graph" style={{ width: graphW, height: graphH }}>
+        <svg className="workflow-edges" width={graphW} height={graphH} aria-hidden="true" focusable="false">
           {edges.map((e) => (
             <path key={e.to.key} className={`workflow-edge ${e.active ? 'active' : 'idle'}`} data-to={e.to.key} d={curve(e.from, e.to)} />
           ))}
@@ -215,29 +241,11 @@ function Line({ flow, placed, working, live, panel, panelId }) {
                 <li key={node.key} className="workflow-start" style={box}>
                   <span className="workflow-start-title">Live sessions</span>
                   <span className="workflow-sub">{live ? `${sessions} live` : 'no live stream'}</span>
-                  <span className="workflow-port right" style={{ top: node.port - node.y }} aria-hidden="true" />
+                  <span className="workflow-port right" aria-hidden="true" />
                 </li>
               )
             }
-            if (node.kind === 'gate') {
-              const g = node.gate
-              return (
-                <li key={node.key} style={box}>
-                  <button
-                    type="button"
-                    className="workflow-gate"
-                    aria-label={`Gate · ${g.text}`}
-                    aria-expanded={panel.open === g.key}
-                    aria-controls={panel.open === g.key ? panelId : undefined}
-                    {...panel.bind(g.key)}
-                  >
-                    <span className="workflow-port left" aria-hidden="true" />
-                    <span aria-hidden="true">{shortText(g.text)}</span>
-                    <span className="workflow-port right" aria-hidden="true" />
-                  </button>
-                </li>
-              )
-            }
+            if (node.kind === 'end') return <li key={node.key} className="workflow-end" style={box} aria-hidden="true" />
             const { step, n } = node
             return (
               <li key={node.key} className="workflow-node-item" style={box}>
@@ -261,6 +269,26 @@ function Line({ flow, placed, working, live, panel, panelId }) {
             )
           })}
         </ol>
+        {edges.flatMap((e) =>
+          e.to.gates.map((g, i) => {
+            const mx = (e.from.x + e.from.w + e.to.x) / 2
+            const my = (e.from.cy + e.to.cy) / 2 + (i - (e.to.gates.length - 1) / 2) * (PILL.h + 4)
+            return (
+              <button
+                key={g.key}
+                type="button"
+                className={`workflow-gate ${e.active ? 'active' : 'idle'}`}
+                style={{ left: mx - PILL.w / 2, top: my - PILL.h / 2, width: PILL.w, height: PILL.h }}
+                aria-label={`Gate · ${g.text}`}
+                aria-expanded={panel.open === g.key}
+                aria-controls={panel.open === g.key ? panelId : undefined}
+                {...panel.bind(g.key)}
+              >
+                <span aria-hidden="true">{shortText(g.text)}</span>
+              </button>
+            )
+          }),
+        )}
       </div>
     </div>
   )

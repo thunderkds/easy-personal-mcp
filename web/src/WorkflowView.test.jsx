@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LiveProvider } from './LiveView.jsx'
-import WorkflowView, { placeSession, takenText, workingAgents } from './WorkflowView.jsx'
+import WorkflowView, { columnsFor, placeSession, takenText, workingAgents } from './WorkflowView.jsx'
 import { fakeFetch, workflow } from './test/fixtures.js'
 
 // A hand-driven EventSource: the test decides what the "server" sends (the page's one /api/live stream).
@@ -62,6 +62,9 @@ async function renderView({ live = true, ...overrides } = {}) {
 }
 const [KIT, PLAIN] = workflow.flows
 const line = () => screen.getByRole('list', { name: 'Steps' })
+const graph = () => document.querySelector('.workflow-graph')
+const at = (li) => ({ left: parseFloat(li.style.left), top: parseFloat(li.style.top), width: parseFloat(li.style.width), height: parseFloat(li.style.height) })
+const gate = (text) => within(graph()).getByRole('button', { name: `Gate · ${text}` })
 const nodes = () => [...line().querySelectorAll('.workflow-node')]
 const nodeNames = () => nodes().map((n) => n.querySelector('.workflow-title')?.textContent ?? n.textContent)
 const node = (name) => within(line()).getByRole('button', { name: new RegExp(`^${name}( ·|$)`) })
@@ -348,10 +351,51 @@ describe('the drawing (owner reference)', () => {
     expect(edge('node:0')).toHaveClass('active')
   })
 
+  it('takes the state of its edge: a gate on the edge into a working node is accent, the others idle', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    expect(gate('No TASK_GUIDE, no Stage 3')).toHaveClass('idle')
+    snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }))
+    await send(own('s1'))
+    expect(gate('No TASK_GUIDE, no Stage 3')).toHaveClass('active')
+    expect(gate('Reviews before verify')).toHaveClass('idle')
+  })
+
+  it('wraps the row to the canvas width: 700 px gives three columns, the next row starts under the first', async () => {
+    expect(columnsFor(700)).toBe(3)
+    expect(columnsFor(339)).toBe(1)
+    expect(columnsFor(0)).toBe(1)
+    expect(columnsFor(1280)).toBe(5)
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    const boxes = [...line().querySelectorAll(':scope > li')].map(at)
+    const lefts = [...new Set(boxes.map((b) => b.left))]
+    expect(lefts).toHaveLength(3)
+    expect(boxes[3].left).toBe(boxes[0].left)
+    expect(boxes[3].top).toBeGreaterThan(boxes[0].top)
+    expect(parseFloat(graph().style.height)).toBeGreaterThanOrEqual(boxes.at(-1).top + boxes.at(-1).height)
+    expect(parseFloat(graph().style.width)).toBeLessThanOrEqual(700)
+  })
+
+  it('puts every node in one column on a narrow canvas', async () => {
+    const was = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return this.classList?.contains('workflow-canvas') ? 339 : 0 } })
+    try {
+      await renderView()
+      await screen.findByText('Stage 3 · Execute')
+      const boxes = [...line().querySelectorAll(':scope > li')].map(at)
+      expect(new Set(boxes.map((b) => b.left)).size).toBe(1)
+      expect(boxes.every((b, i) => i === 0 || b.top > boxes[i - 1].top)).toBe(true)
+    } finally {
+      if (was) Object.defineProperty(HTMLElement.prototype, 'clientWidth', was)
+      else delete HTMLElement.prototype.clientWidth
+    }
+  })
+
   it('shortens a gate to a pill and keeps its full text for assistive tech and the panel', async () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
-    const pill = within(line()).getByRole('button', { name: 'Gate · Ready for Review starts the reviews' })
+    const pill = within(graph()).getByRole('button', { name: 'Gate · Ready for Review starts the reviews' })
     expect(pill.textContent.length).toBeLessThan('Ready for Review starts the reviews'.length)
     fireEvent.click(pill)
     expect(panel()).toHaveTextContent('Ready for Review starts the reviews')
@@ -359,17 +403,21 @@ describe('the drawing (owner reference)', () => {
 })
 
 describe('gates (AC7)', () => {
-  const gate = (text) => within(line()).getByRole('button', { name: `Gate · ${text}` })
-
-  it('puts each gate on the arrow after its step as a focusable marker, the last one after Stage 5', async () => {
+  it('puts each gate as a focusable label on the edge after its step, not in the row, the last one on a short edge after Stage 5', async () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
-    const marks = [...line().querySelectorAll('.workflow-gate')]
+    expect(line().querySelectorAll('.workflow-gate')).toHaveLength(0) // a gate is no row node
+    const marks = [...graph().querySelectorAll('.workflow-gate')]
     expect(marks.map((m) => m.getAttribute('aria-label'))).toEqual(KIT.gates.map((g) => `Gate · ${g.text}`))
     expect(marks.every((m) => m.tagName === 'BUTTON')).toBe(true)
-    expect(node('Stage 2 · Plan').closest('li').nextElementSibling).toContainElement(gate('No TASK_GUIDE, no Stage 3'))
-    expect(node('Stage 3 · Execute').closest('li').previousElementSibling).toContainElement(gate('No TASK_GUIDE, no Stage 3'))
-    expect(line().lastElementChild).toContainElement(gate('Verify passes before merge'))
+    // The label sits on the middle of the edge between the two cards it sits between.
+    const a = at(node('Stage 2 · Plan').closest('li'))
+    const b = at(node('Stage 3 · Execute').closest('li'))
+    const m = at(gate('No TASK_GUIDE, no Stage 3'))
+    expect(m.left + m.width / 2).toBeCloseTo((a.left + a.width + b.left) / 2)
+    expect(m.top + m.height / 2).toBeCloseTo((a.top + a.height / 2 + b.top + b.height / 2) / 2)
+    const last = at(node('Stage 5 · Integrate').closest('li'))
+    expect(at(gate('Verify passes before merge')).left).toBeGreaterThanOrEqual(last.left) // on the trailing edge, at the end
   })
 
   it('shows the gate text on hover, on focus and on a tap, and closes it on Escape', async () => {
@@ -392,7 +440,7 @@ describe('gates (AC7)', () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
     pick('Plain prompts (no kit)')
-    expect(line().querySelectorAll('.workflow-gate')).toHaveLength(0)
+    expect(graph().querySelectorAll('.workflow-gate')).toHaveLength(0)
   })
 })
 
