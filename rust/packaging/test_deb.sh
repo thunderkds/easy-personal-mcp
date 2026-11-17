@@ -4,6 +4,9 @@
 #   rust/packaging/test_deb.sh            use rust/target/deb/easy-personal-rs_<version>_amd64.deb; build it first if absent
 #   DEB=/path/x.deb rust/packaging/test_deb.sh   check that file instead
 #
+#   EP_DEB_EXPECT_BASE=jammy rust/packaging/test_deb.sh   also require the Ubuntu 22.04 `Depends` (T093): `libc6 (>= V)` with
+#                                         V <= 2.35 and no `t64` package name, so the package installs on 22.04, 24.04 and 26.04
+#
 # It also proves the check can fail: it unpacks the package, deletes one listed file, packs it again and expects
 # the same check to reject the copy.
 #
@@ -126,12 +129,44 @@ check_package() {
     [ "$failures" -eq 0 ]
 }
 
+# check_base_jammy <deb>: `Depends` must be installable on Ubuntu 22.04 (glibc 2.35, no `t64` package names).
+# Prints FAIL lines; returns 1 on any.
+check_base_jammy() {
+    local pkg=$1 depends libc bad=0
+    depends=$(dpkg-deb -f "$pkg" Depends)
+    libc=$(echo "$depends" | sed -n 's/.*\(^\|, \)libc6 (>= \([0-9.]*\)).*/\2/p')
+    if [ -z "$libc" ]; then
+        echo "FAIL: Depends has no 'libc6 (>= V)': $depends" >&2
+        bad=1
+    elif [ "$(printf '%s\n2.35\n' "$libc" | LC_ALL=C sort -V | tail -n1)" != 2.35 ]; then
+        echo "FAIL: Depends has libc6 (>= $libc), newer than 2.35 (Ubuntu 22.04): $depends" >&2
+        bad=1
+    fi
+    if echo "$depends" | grep -Eq '[A-Za-z0-9.+-]+t64( |,|$)'; then
+        echo "FAIL: Depends has a t64 package name (not installable on Ubuntu 22.04): $depends" >&2
+        bad=1
+    fi
+    for lib in libwebkit2gtk-4.1-0 libgtk-3-0 libglib2.0-0 libayatana-appindicator3-1; do
+        echo "$depends" | grep -Eq "(^|, )$lib( |,|\$)" || { echo "FAIL: Depends lacks $lib: $depends" >&2; bad=1; }
+    done
+    [ "$bad" -eq 0 ]
+}
+
 echo "== package: $deb"
 echo "== 1. file list, modes, owner, control"
 if check_package "$deb"; then
     echo "ok: file list, modes, owner, control"
 else
     echo "the package check failed" >&2
+    exit 1
+fi
+
+if [ "${EP_DEB_EXPECT_BASE:-}" = jammy ]; then
+    echo "== 1b. Depends installable on Ubuntu 22.04 (EP_DEB_EXPECT_BASE=jammy)"
+    check_base_jammy "$deb" || { echo "the Ubuntu 22.04 Depends check failed" >&2; exit 1; }
+    echo "ok: Depends: $(dpkg-deb -f "$deb" Depends)"
+elif [ -n "${EP_DEB_EXPECT_BASE:-}" ]; then
+    echo "FAIL: EP_DEB_EXPECT_BASE is '$EP_DEB_EXPECT_BASE'; the only value is jammy" >&2
     exit 1
 fi
 
@@ -223,5 +258,23 @@ fi
 grep -q 'StartupWMClass' "$neg2/err" || { echo "FAIL: the rejection does not name StartupWMClass" >&2; cat "$neg2/err" >&2; exit 1; }
 echo "ok: rejected, and it names StartupWMClass:"
 sed 's/^/    /' "$neg2/err"
+
+echo "== 7. the jammy check fails on a host-style Depends (libc6 >= 2.39, t64 names)"
+mkdir -p "$neg/host"
+dpkg-deb -R "$deb" "$neg/host/tree"
+sed -i -E '/^Depends:/ { s/libc6 \(>= [0-9.]+\)/libc6 (>= 2.39)/; s/libgtk-3-0( |,|$)/libgtk-3-0t64\1/; s/libglib2\.0-0( |,|$)/libglib2.0-0t64\1/ }' \
+    "$neg/host/tree/DEBIAN/control"
+dpkg-deb --build --root-owner-group "$neg/host/tree" "$neg/host.deb" >/dev/null
+if check_base_jammy "$neg/host.deb" 2>"$neg/host.err"; then
+    echo "FAIL: the jammy check accepted a Depends with libc6 (>= 2.39) and t64 names" >&2
+    exit 1
+fi
+if ! grep -q 'libc6 (>= 2.39)' "$neg/host.err" || ! grep -q 't64' "$neg/host.err"; then
+    echo "FAIL: the rejection does not name libc6 and t64" >&2
+    cat "$neg/host.err" >&2
+    exit 1
+fi
+echo "ok: rejected, and it names libc6 and t64:"
+sed 's/^/    /' "$neg/host.err"
 
 echo "PASS: $deb"

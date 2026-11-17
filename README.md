@@ -21,14 +21,19 @@ It reads these files and never changes them. Everything goes into one SQLite sto
 
 ### Ubuntu package (Rust app)
 
-On Ubuntu 24.04 or newer, build the `.deb` package and install it. You need Rust stable, Node.js and `dpkg-dev`. The first build takes several minutes.
+Build the `.deb` package and install it. The first build takes several minutes. There are two ways to build it:
+
+- **Container build (installs on Ubuntu 22.04, 24.04 and 26.04).** You need Docker, Rust stable and Node.js. It builds inside an Ubuntu 22.04 container.
+- **Host build (installs on the Ubuntu version of the build computer, or newer).** You need Rust stable, Node.js and `dpkg-dev`. A package built on Ubuntu 26.04 does not install on 22.04: `apt` reports `Depends: libc6 (>= 2.39) but ... is to be installed`. Use the container build when the package must run on an older Ubuntu.
 
 ```bash
 git clone https://github.com/thunderkds/easy-personal-mcp.git
 cd easy-personal-mcp
-rust/packaging/build-deb.sh
+rust/packaging/build-deb.sh --docker     # container build; or: rust/packaging/build-deb.sh   (host build)
 sudo apt install ./rust/target/deb/easy-personal-rs_*_amd64.deb
 ```
+
+Both commands write the same file name, so the one that ran last is the file in `rust/target/deb/`.
 
 The package holds files only. It changes nothing in your home folder. Run these steps as your own user:
 
