@@ -110,9 +110,10 @@ impl Service {
         hints: HashMap<String, OwnedValue>,
         _expire: i32,
     ) -> u32 {
-        let entry = hints
-            .get("desktop-entry")
-            .and_then(|v| String::try_from(v.clone()).ok());
+        let entry = match hints.get("desktop-entry").map(|v| &**v) {
+            Some(zbus::zvariant::Value::Str(s)) => Some(s.to_string()),
+            _ => None,
+        };
         self.looks.lock().unwrap().push((icon, entry));
         self.seen.lock().unwrap().push((summary, body, actions));
         tokio::time::sleep(self.delay).await;
@@ -370,7 +371,10 @@ fn a_popup_with_the_action_also_names_the_app_icon_and_the_desktop_entry() {
     );
     assert_eq!(
         *fake.looks.lock().unwrap(),
-        [("easy-personal".to_string(), Some("easy-personal".to_string()))]
+        [(
+            "easy-personal".to_string(),
+            Some("easy-personal".to_string())
+        )]
     );
 }
 
