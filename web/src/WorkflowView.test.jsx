@@ -63,7 +63,7 @@ async function renderView({ live = true, ...overrides } = {}) {
 const [KIT, PLAIN] = workflow.flows
 const line = () => screen.getByRole('list', { name: 'Steps' })
 const nodes = () => [...line().querySelectorAll('.workflow-node')]
-const nodeNames = () => nodes().map((n) => n.textContent)
+const nodeNames = () => nodes().map((n) => n.querySelector('.workflow-title')?.textContent ?? n.textContent)
 const node = (name) => within(line()).getByRole('button', { name: new RegExp(`^${name}( ·|$)`) })
 const pick = (name) => fireEvent.click(screen.getByRole('button', { name }))
 const panel = () => screen.queryByRole('region')
@@ -302,6 +302,62 @@ describe('the flow picker and the line (AC4)', () => {
   })
 })
 
+describe('the drawing (owner reference)', () => {
+  const edge = (to) => document.querySelector(`.workflow-edge[data-to="${to}"]`)
+
+  it('draws the start card with the count of live sessions placed on the flow, or "no live stream"', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    const start = line().querySelector('.workflow-start')
+    expect(start).toHaveTextContent('Live sessions')
+    expect(start).toHaveTextContent('0 live')
+    snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }), session('s2', { stage: '1' }), session('s3'))
+    expect(line().querySelector('.workflow-start')).toHaveTextContent('2 live') // s3 has no stage: it is on plain
+    pick('Plain prompts (no kit)')
+    expect(line().querySelector('.workflow-start')).toHaveTextContent('1 live')
+  })
+
+  it('says "no live stream" on the start card outside a stream provider', async () => {
+    await renderView({ live: false })
+    await screen.findByText('Stage 3 · Execute')
+    expect(line().querySelector('.workflow-start')).toHaveTextContent('no live stream')
+  })
+
+  it('gives the edge into a working node the active class and the edge into an idle node the idle class', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    expect(document.querySelectorAll('.workflow-edge.active')).toHaveLength(0)
+    snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }))
+    await send(own('s1'))
+    expect(edge('node:3')).toHaveClass('workflow-edge', 'active')
+    expect(edge('node:2')).toHaveClass('workflow-edge', 'idle')
+    expect(edge('node:2')).not.toHaveClass('active')
+    expect(node('Stage 3 · Execute').closest('li')).toHaveTextContent('1 working')
+    expect(node('Stage 2 · Plan').closest('li')).toHaveTextContent('idle')
+  })
+
+  it('draws one edge between neighbours, hidden from assistive tech, and the start edge active once any agent works on the flow', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    const edges = () => [...document.querySelectorAll('.workflow-edge')]
+    expect(edges()).toHaveLength(line().querySelectorAll(':scope > li').length - 1)
+    expect(edges().every((p) => p.closest('svg').getAttribute('aria-hidden') === 'true')).toBe(true)
+    expect(edge('node:0')).toHaveClass('idle')
+    snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }))
+    await send(own('s1'))
+    expect(edge('node:0')).toHaveClass('active')
+  })
+
+  it('shortens a gate to a pill and keeps its full text for assistive tech and the panel', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    const pill = within(line()).getByRole('button', { name: 'Gate · Ready for Review starts the reviews' })
+    expect(pill.textContent.length).toBeLessThan('Ready for Review starts the reviews'.length)
+    fireEvent.click(pill)
+    expect(panel()).toHaveTextContent('Ready for Review starts the reviews')
+  })
+})
+
 describe('gates (AC7)', () => {
   const gate = (text) => within(line()).getByRole('button', { name: `Gate · ${text}` })
 
@@ -484,7 +540,7 @@ describe('working nodes and the panel (AC5-AC7)', () => {
   it('says in one muted line that there is no live layer outside a stream provider', async () => {
     await renderView({ live: false })
     expect(await screen.findByText('Stage 3 · Execute')).toBeInTheDocument()
-    expect(screen.getAllByText(/no live stream/i)).toHaveLength(1)
+    expect(screen.getAllByText(/no live stream on this page/i)).toHaveLength(1) // the start card says it too, shorter
   })
 
   it('keeps the line and says in one muted line that the stream dropped', async () => {

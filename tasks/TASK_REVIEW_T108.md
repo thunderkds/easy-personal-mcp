@@ -105,6 +105,18 @@ $ cd web && npx vitest run src/WorkflowView.test.jsx src/App.test.jsx 2>&1 | gre
 ```
 (`workingAgents` and `takenText` are not exported yet; the line still draws parts, agent lists and chips and the page still reads `/api/board`.)
 
+**Redo 3 BEFORE (web)** (step B, frontend redo 3; `date -u` 2026-11-17T16:19:23Z, worktree `T108` at `6509f9d`, no redo 3 implementation commit yet; the new "the drawing (owner reference)" tests (start card count, edge active/idle classes, edge count, pill) were written first and run against the redo-2 line of buttons):
+```
+$ cd web && npx vitest run src/WorkflowView.test.jsx src/App.test.jsx 2>&1 | grep -aE "Test Files|Tests  |FAIL"
+ FAIL  src/WorkflowView.test.jsx > the drawing (owner reference) > draws the start card with the count of live sessions placed on the flow, or "no live stream"
+ FAIL  src/WorkflowView.test.jsx > the drawing (owner reference) > says "no live stream" on the start card outside a stream provider
+ FAIL  src/WorkflowView.test.jsx > the drawing (owner reference) > gives the edge into a working node the active class and the edge into an idle node the idle class
+ FAIL  src/WorkflowView.test.jsx > the drawing (owner reference) > draws one edge between neighbours, hidden from assistive tech, and the start edge active once any agent works on the flow
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 116 passed (120)
+```
+(There is no start card and no SVG edge yet.)
+
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
 **DELTA**: [one sentence — what a user can now do that they could not before]

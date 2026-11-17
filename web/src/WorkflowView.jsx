@@ -1,4 +1,4 @@
-import { Fragment, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { getJson } from './api.js'
 import { duration } from './format.js'
 import { LiveContext } from './LiveView.jsx'
@@ -153,46 +153,116 @@ function usePanel() {
   return { open, bind, close }
 }
 
-function Line({ flow, placed, working, panel, panelId }) {
+// The drawing (owner reference 2026-11-17): fixed node sizes in one left-to-right row; every position is computed here so the edges meet the ports.
+const PAD = 16
+const GAP = 24
+const ROW = 104 // the height of the graph
+const START = { w: 124, h: 76 }
+const CARD = { w: 172, h: 52 }
+const PILL = { w: 124, h: 28 }
+const PILL_CHARS = 13
+
+const shortText = (text) => (text.length > PILL_CHARS ? `${text.slice(0, PILL_CHARS).trimEnd()}…` : text)
+/** The icon tile of a step card: its id when short ("3", "1.5"), else the first letter of its name. */
+const monogram = (step) => (step.id.length <= 3 ? step.id : step.name.charAt(0).toUpperCase())
+
+/** One cubic bezier from the right port of one node to the left port of the next. */
+function curve(a, b) {
+  const dx = (b.x - (a.x + a.w)) / 2
+  const x1 = a.x + a.w
+  const y1 = a.port
+  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${b.x - dx} ${b.port}, ${b.x} ${b.port}`
+}
+
+function Line({ flow, placed, working, live, panel, panelId }) {
   const steps = [...stepsOf(flow), ...(flow.id === KIT ? extraSteps(flow, placed) : [])]
   const gates = list(flow.gates).map((g, n) => ({ ...g, key: `gate:${n}` }))
   const unplaced = gates.filter((g) => !steps.some((s) => s.id === g.after))
-  const marker = (g) => (
-    <button key={g.key} type="button" className="workflow-gate" aria-label={`Gate · ${g.text}`} aria-expanded={panel.open === g.key} aria-controls={panel.open === g.key ? panelId : undefined} {...panel.bind(g.key)}>
-      <span aria-hidden="true">◆</span>
-    </button>
-  )
+  const here = working.filter((r) => r.flow.id === flow.id)
+  const mid = ROW / 2
+  const count = (step) => here.filter((r) => r.step?.id === step.id).length
+  const sessions = placed.filter((p) => p.flow.id === flow.id).length
+  // The row, left to right: the start card, then each step card followed by the gates that sit after it.
+  const nodes = [{ kind: 'start', key: 'start', ...START, port: mid + 14, active: false }]
+  steps.forEach((step, i) => {
+    const n = count(step)
+    nodes.push({ kind: 'step', key: `node:${step.id}`, step, n, ...CARD, port: mid, active: n > 0 })
+    for (const g of gates.filter((g) => g.after === step.id).concat(i === steps.length - 1 ? unplaced : [])) {
+      nodes.push({ kind: 'gate', key: g.key, gate: g, ...PILL, port: mid, active: false })
+    }
+  })
+  let x = PAD
+  for (const node of nodes) {
+    node.x = x
+    node.y = mid - node.h / 2
+    x += node.w + GAP
+  }
+  const width = x - GAP + PAD
+  const edges = nodes.slice(1).map((node, i) => ({ from: nodes[i], to: node, active: i === 0 ? here.length > 0 : node.active }))
   return (
-    <ol className="workflow-line" aria-label="Steps">
-      {steps.map((step, i) => {
-        const key = `node:${step.id}`
-        const n = working.filter((r) => r.flow.id === flow.id && r.step?.id === step.id).length
-        const last = i === steps.length - 1
-        const after = gates.filter((g) => g.after === step.id).concat(last ? unplaced : [])
-        return (
-          <Fragment key={step.id}>
-            <li className="workflow-node-item">
-              <button
-                type="button"
-                className={`workflow-node${n > 0 ? ' working' : ''}`}
-                aria-label={n > 0 ? `${step.name} · ${n} working` : undefined}
-                aria-expanded={panel.open === key}
-                aria-controls={panel.open === key ? panelId : undefined}
-                {...panel.bind(key)}
-              >
-                {step.name}
-              </button>
-            </li>
-            {(!last || after.length > 0) && (
-              <li className="workflow-arrow">
-                {!last && <span aria-hidden="true">→</span>}
-                {after.map(marker)}
+    <div className="workflow-canvas">
+      <div className="workflow-graph" style={{ width, height: ROW }}>
+        <svg className="workflow-edges" width={width} height={ROW} aria-hidden="true" focusable="false">
+          {edges.map((e) => (
+            <path key={e.to.key} className={`workflow-edge ${e.active ? 'active' : 'idle'}`} data-to={e.to.key} d={curve(e.from, e.to)} />
+          ))}
+        </svg>
+        <ol className="workflow-line" aria-label="Steps">
+          {nodes.map((node) => {
+            const box = { left: node.x, top: node.y, width: node.w, height: node.h }
+            if (node.kind === 'start') {
+              return (
+                <li key={node.key} className="workflow-start" style={box}>
+                  <span className="workflow-start-title">Live sessions</span>
+                  <span className="workflow-sub">{live ? `${sessions} live` : 'no live stream'}</span>
+                  <span className="workflow-port right" style={{ top: node.port - node.y }} aria-hidden="true" />
+                </li>
+              )
+            }
+            if (node.kind === 'gate') {
+              const g = node.gate
+              return (
+                <li key={node.key} style={box}>
+                  <button
+                    type="button"
+                    className="workflow-gate"
+                    aria-label={`Gate · ${g.text}`}
+                    aria-expanded={panel.open === g.key}
+                    aria-controls={panel.open === g.key ? panelId : undefined}
+                    {...panel.bind(g.key)}
+                  >
+                    <span className="workflow-port left" aria-hidden="true" />
+                    <span aria-hidden="true">{shortText(g.text)}</span>
+                    <span className="workflow-port right" aria-hidden="true" />
+                  </button>
+                </li>
+              )
+            }
+            const { step, n } = node
+            return (
+              <li key={node.key} className="workflow-node-item" style={box}>
+                <button
+                  type="button"
+                  className={`workflow-node${n > 0 ? ' working' : ''}`}
+                  aria-label={n > 0 ? `${step.name} · ${n} working` : step.name}
+                  aria-expanded={panel.open === node.key}
+                  aria-controls={panel.open === node.key ? panelId : undefined}
+                  {...panel.bind(node.key)}
+                >
+                  <span className="workflow-port left" aria-hidden="true" />
+                  <span className="workflow-tile" aria-hidden="true">{monogram(step)}</span>
+                  <span className="workflow-text" aria-hidden="true">
+                    <span className="workflow-title">{step.name}</span>
+                    <span className="workflow-sub">{n > 0 ? `${n} working` : 'idle'}</span>
+                  </span>
+                  <span className="workflow-port right" aria-hidden="true" />
+                </button>
               </li>
-            )}
-          </Fragment>
-        )
-      })}
-    </ol>
+            )
+          })}
+        </ol>
+      </div>
+    </div>
   )
 }
 
@@ -256,7 +326,7 @@ function Workflow({ map, live, now }) {
       </div>
       <h2>{flow.name}</h2>
       <div className="workflow-stage" ref={wrap} onKeyDown={(e) => e.key === 'Escape' && panel.close()}>
-        <Line flow={flow} placed={placed} working={working} panel={panel} panelId={panelId} />
+        <Line flow={flow} placed={placed} working={working} live={live} panel={panel} panelId={panelId} />
         <Panel id={panelId} open={panel.open} flow={flow} steps={steps} gates={list(flow.gates)} working={working} wrap={wrap} />
       </div>
       {lost.length > 0 && <p className="muted workflow-unknown">{`step not known yet: ${lost.join(', ')}`}</p>}
