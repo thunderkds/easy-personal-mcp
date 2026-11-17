@@ -564,7 +564,7 @@ function WorkspaceForm({ workspace, data, act, onBack }) {
   )
 }
 
-function WorkspaceCard({ workspace: w, data, act, onOpen }) {
+function WorkspaceCard({ workspace: w, data, act, onOpen, onNewSession }) {
   const mine = data.connectors.filter((c) => c.workspace === w.name)
   const users = data.accounts.filter((a) => a.provider === 'claude' && a.workspaces?.includes(w.name)).map(accountName)
   return (
@@ -614,6 +614,11 @@ function WorkspaceCard({ workspace: w, data, act, onOpen }) {
             <button type="button" onClick={onOpen} disabled={act.locked}>
               Open
             </button>
+            {onNewSession && w.repos.length > 0 && (
+              <button type="button" onClick={() => onNewSession(w.name)}>
+                New session
+              </button>
+            )}
           </div>
         </>
       )}
@@ -656,7 +661,7 @@ function LegacyBanner({ legacy, act }) {
   )
 }
 
-export default function WorkspacesView() {
+export default function WorkspacesView({ onNewSession }) {
   const unassigned = useUnassigned() // its own read, started with the page's reads; the page never waits for it
   const [state, reload] = useWorkspaceData()
   const [mode, setMode] = useState(null) // null = cards; 'new'; or { id }
@@ -722,6 +727,7 @@ export default function WorkspacesView() {
                 workspace={w}
                 data={data}
                 act={act}
+                onNewSession={onNewSession}
                 onOpen={() => {
                   act.reset()
                   setMode({ id: w.id })
