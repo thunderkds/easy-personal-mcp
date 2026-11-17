@@ -10,16 +10,18 @@
 
 ---
 
-> **Not started.** It waits for T095's open question (the click mechanism). The block below becomes the report when the task starts.
-
-<!-- held until the task starts (a task that has not started is not marked as an auto-mode run)
 ## Auto decisions
 
 Mode: auto
 1. The *your turn* popup waits until the state has held 60 s on the engine's monotonic clock — DEBATED: hold 60 s, monotonic first-seen time (Advocate 1: hold 60 s, monotonic first-seen time; Advocate 2: hold 60 s, monotonic first-seen time) ⚠ decided for you — please review
 2. At most 5 session rows, as the menu's alert block shows 5 — FACT: rust/crates/app/src/tray.rs:220 "pub(crate) const ALERTS_SHOWN: usize = 5;"
-Not done: merge (admin: after the auto verify pass); auto verify: not started (the task waits for T095's answer)
--->
+3. Built on a branch stacked on `T095` (T095 had passed auto verify; its merge waits for the owner), by two agents: the first hit its step limit after the code, the second ran the closing checks — RULE: `docs/claude-md/tracks.md` `### Admin tag`
+4. Code review (`code-review` skill, 2026-11-17, `T095...T096`): 0 P0. P1 (confidence 100, not fixable on this branch): `deliver` in `rust/crates/app/src/alerts.rs` sends `Notify` with an empty app icon and no hints, and branch `T097` rewrites the same call to carry the app icon and the `desktop-entry` hint (`notify_args`). The two merges conflict, and a resolution toward T096 drops T097's icon. Fix round after T097 is on `main`: `deliver` uses T097's arguments plus the action list, with T097's test kept. P1 process: neither agent read the root `PROJECT_SPEC.md` in full (first: "glossary lines only"; second: "not opened, only counted"). Lane check: `lane: C3, 12 files, 1847 lines, FITS`; unpredicted: `api_tests.rs` and `server.rs` (one line each, the `Notifier` trait's new argument). Reachability: the menu handler, `watch_clicks` and `DBusNotifier::with_clicks` are wired in `window.rs` — RULE: `docs/claude-md/pipeline-stages.md` § Stage 4: Review
+5. Security review (independent read-only pass over `git diff T095...T096 -- rust/`, 2026-11-17): no finding. Sound: every click goes through `tray::address`, which adds a session id only when it is hex digits and `-` (`tray.rs:128`), so no other origin, no second parameter and no fragment break; the token stays after the one `#` and reaches no log; a click counts only for a popup this process sent, from the bus name that answered `Notify`, and the signal body is never used as data; rows and popups carry fixed words, `clean(project)` and the 8-character id only; `Alert.open` is not in `Alert::json`. Two notes, no vulnerability: an absent sender on both sides would compare equal (a bus always stamps it); the menu item id holds the raw session id (never a URL without the check) — RULE: `CLAUDE.md` § Stage 4: Review (security review at Risk Medium)
+6. Four choices of the first agent that the guide does not settle, kept as built: `+N more in dashboard…` opens the Live view with no session selected; the summed popup says `N sessions for your turn`; a click counts only from the bus name that answered `Notify`; a `waiting` state with a tool other than `ExitPlanMode` shows as `question` — SAFER OPTION: each is the smaller change and can be changed in one line ⚠ decided for you — please review
+Checks: tests (second agent, 2026-11-17, commit `2c066cb`) `cargo test --workspace --no-fail-fast` — 93 targets, 1064 passed, 1 failed: `connector_cli_parity every_connector_and_doctor_step_equals_the_python_cli` (the installed `.deb` puts `easy-personal-launch` on `PATH`; fixed by T097, not merged yet); the guide's command — `90 passed; 0 failed`; leak gate — `leak check: 0 hits over 42 canaries, 843 surfaces, 2015853 bytes`, exit 0; `cargo fmt --check` and both clippy runs clean (first agent); reviews code-review — 0 P0, 1 P1 open (the T097 collision), security-review — no finding; real run (first agent, temp home, four planted sessions): four session rows in the tray menu, the *your turn* popup about 60 s later, a row click (a dbusmenu `Event`) opens the Live view on that session, a second one navigates the open window (auto-checked, not /verify). No mouse click by a person on a row or a popup
+Memory: nothing new
+Not done: merge (yours, after T097 and the fix round); auto verify: not started (it runs after the fix round, so it is not run twice); the fix round for the T097 collision; a mouse click by the owner on a tray row and on a popup (AC 12); `html-report` pages and the companion score not made
 
 ## Evidence
 
