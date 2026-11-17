@@ -107,6 +107,7 @@ mod shell {
     use std::process::ExitCode;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::mpsc::Receiver;
     use std::thread;
     use std::time::{Duration, Instant};
     use tauri::image::Image;
@@ -143,7 +144,7 @@ mod shell {
     struct Failure(u8, String);
 
     pub fn run(static_dir: &Path, self_test: bool, alerts: bool) -> ExitCode {
-        let running = match start(static_dir, alerts) {
+        let running = match start(static_dir, alerts, None) {
             Ok(running) => running,
             Err(failure) => return fail(&failure),
         };
@@ -172,8 +173,13 @@ mod shell {
     }
 
     /// The folder check, the display preflight, the live feed, the two samplers and the server (with the alert
-    /// engine when `alerts`): what `app` and `tray` both run before any Tauri code.
-    fn start(static_dir: &Path, alerts: bool) -> Result<Running, Failure> {
+    /// engine when `alerts`): what `app` and `tray` both run before any Tauri code. With `clicks` (the `tray` only) a
+    /// click on a popup is sent there; without, a popup carries no action.
+    fn start(
+        static_dir: &Path,
+        alerts: bool,
+        clicks: Option<crate::alerts::Clicks>,
+    ) -> Result<Running, Failure> {
         let root = static_files::canonical_root(static_dir).map_err(|e| Failure(1, e))?;
         if let Err(e) = display::preflight() {
             let hint = "serve, mcp and store-info need no display";
@@ -183,7 +189,11 @@ mod shell {
         let machine = crate::sampler::machine().map_err(|e| Failure(1, e))?;
         let limits = crate::sampler::limits().map_err(|e| Failure(1, e))?;
         let notifier = alerts.then(|| {
-            Box::new(crate::alerts::DBusNotifier::new()) as Box<dyn crate::alerts::Notifier>
+            let notifier = crate::alerts::DBusNotifier::new();
+            Box::new(match clicks {
+                Some(clicks) => notifier.with_clicks(clicks),
+                None => notifier,
+            }) as Box<dyn crate::alerts::Notifier>
         });
         server::start_with_alerts(
             Some(&root),
@@ -374,12 +384,13 @@ mod shell {
             }
             Err(e) => return fail(&Failure(1, e)),
         };
-        let running = match start(static_dir, true) {
+        let (clicks, clicked) = std::sync::mpsc::channel();
+        let running = match start(static_dir, true, Some(clicks)) {
             Ok(running) => running,
             Err(failure) => return fail(&failure),
         };
         let signalled = Arc::new(AtomicBool::new(false));
-        let outcome = tray_loop(&running, &signalled);
+        let outcome = tray_loop(&running, &signalled, clicked);
         running.stop();
         match outcome {
             Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
@@ -474,7 +485,11 @@ mod shell {
     /// The tray's event loop: the icon and the menu, refreshed every [`TRAY_TICK`]; a closed dashboard window does not
     /// end it, Quit or a signal does. The icon is always made: without a StatusNotifier host now, one line says so, and
     /// the tray library registers the icon when a host appears later (an extension turned on after login).
-    fn tray_loop(running: &Running, signalled: &Arc<AtomicBool>) -> Result<i32, Failure> {
+    fn tray_loop(
+        running: &Running,
+        signalled: &Arc<AtomicBool>,
+        clicked: Receiver<Option<String>>,
+    ) -> Result<i32, Failure> {
         let started = Arc::new(AtomicBool::new(false));
         watch_startup(&started);
         let app = build_app()?;
@@ -499,6 +514,7 @@ mod shell {
             running.token.clone(),
             Arc::clone(&inputs.alerts),
         );
+        watch_clicks(clicked, app.handle().clone(), port, token.clone());
         let shown = TrayIconBuilder::with_id(TRAY_ID)
             .temp_dir_path(&icons)
             .icon(icon(theme, view.state))
@@ -537,6 +553,28 @@ mod shell {
                 api.prevent_exit();
             }
         }))
+    }
+
+    /// A click on a popup (`alerts::DBusNotifier`) opens the Live view, with its session when it has one. The click arrives
+    /// on the notifier's thread and the window work runs on the main thread (`run_on_main_thread`). Ends when the notifier
+    /// is gone or the event loop is.
+    fn watch_clicks(
+        clicked: Receiver<Option<String>>,
+        handle: AppHandle,
+        port: u16,
+        token: String,
+    ) {
+        thread::spawn(move || {
+            while let Ok(session) = clicked.recv() {
+                let (window, token) = (handle.clone(), token.clone());
+                let shown = handle.run_on_main_thread(move || {
+                    show_dashboard(&window, port, &token, &Target::Live(session));
+                });
+                if shown.is_err() {
+                    return;
+                }
+            }
+        });
     }
 
     /// Every [`TRAY_TICK`]: a new view. The icon is set only when the state changed. When the rows keep their places

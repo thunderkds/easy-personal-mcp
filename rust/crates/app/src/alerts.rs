@@ -16,7 +16,6 @@
 //! an output, and every free piece passes the secret check of the core (`ingest::secret::is_secret`). The real notifier
 //! calls `org.freedesktop.Notifications.Notify` on the session D-Bus (NFR-001) and fails soft.
 
-use crate::keychain::off_runtime;
 use crate::sampler::{History, Sampler};
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::ingest::secret::is_secret;
@@ -400,12 +399,23 @@ fn popup(waiting: &[Alert]) -> (&'static str, String) {
     (TITLE, parts.join(", "))
 }
 
+/// Where a click on a popup goes: the session to open, or `None` for the Live view alone.
+pub(crate) type Clicks = std::sync::mpsc::Sender<Option<String>>;
+
 /// The real notifier: `org.freedesktop.Notifications.Notify` on the session D-Bus. A failure (no session bus, no
 /// notification service, a service that does not answer) costs one log line, the first time; later ones are silent.
+///
+/// The calls are made by one thread of its own (`easy-personal-notify`, started by the first popup), which keeps one
+/// connection: a service sends `ActionInvoked` to the process that called `Notify`, so a connection dropped after each
+/// call could never hear a click. With [`DBusNotifier::with_clicks`] and a service that lists the capability `actions`,
+/// each popup carries one default action (`["default", "Open"]`) and a click on a popup this process sent is passed to
+/// `clicks`. Without clicks (`serve`, `app`) no action is offered and no signal is listened for.
 pub(crate) struct DBusNotifier {
     warned: bool,
-    /// A bus address to use instead of the session bus (a test points it at a socket that is not there).
+    /// A bus address to use instead of the session bus (a test points it at a private bus or at a socket that is not there).
     address: Option<String>,
+    clicks: Option<Clicks>,
+    worker: Option<tokio::sync::mpsc::UnboundedSender<Command>>,
 }
 
 impl DBusNotifier {
@@ -413,7 +423,16 @@ impl DBusNotifier {
         DBusNotifier {
             warned: false,
             address: None,
+            clicks: None,
+            worker: None,
         }
+    }
+
+    /// The `tray` command's notifier: a click on a popup is sent to `clicks`.
+    #[cfg_attr(not(feature = "window"), allow(dead_code))]
+    pub(crate) fn with_clicks(mut self, clicks: Clicks) -> DBusNotifier {
+        self.clicks = Some(clicks);
+        self
     }
 }
 
@@ -433,15 +452,15 @@ type NotifyArgs<'a> = (
 );
 
 /// The `Notify` call's arguments. The app icon is the theme name the package installs; the `desktop-entry` hint lets the
-/// shell tie the popup to `easy-personal.desktop`.
-fn notify_args<'a>(summary: &'a str, body: &'a str) -> NotifyArgs<'a> {
+/// shell tie the popup to `easy-personal.desktop`. `actions` is `["default", "Open"]` when clicks are heard, else empty.
+fn notify_args<'a>(summary: &'a str, body: &'a str, actions: Vec<&'a str>) -> NotifyArgs<'a> {
     (
         "easy-personal",
         0,
         "easy-personal",
         summary,
         body,
-        Vec::new(),
+        actions,
         std::collections::HashMap::from([(
             "desktop-entry",
             zbus::zvariant::Value::from("easy-personal"),
@@ -450,41 +469,268 @@ fn notify_args<'a>(summary: &'a str, body: &'a str) -> NotifyArgs<'a> {
     )
 }
 
-fn send(address: Option<&str>, summary: &str, body: &str) -> Result<(), String> {
-    off_runtime(|| {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
+const SERVICE: &str = "org.freedesktop.Notifications";
+const OBJECT: &str = "/org/freedesktop/Notifications";
+
+/// One popup for the notifier thread, and where it answers.
+struct Command {
+    summary: String,
+    body: String,
+    open: Option<String>,
+    reply: std::sync::mpsc::SyncSender<Result<(), String>>,
+}
+
+/// The popups this process sent, the last [`KEEP`]: (notification id, the service's bus name, the session its click
+/// opens). The bus name is the service that answered `Notify`: a signal from any other sender is not a click.
+#[derive(Default)]
+struct Sent(VecDeque<(u32, String, Option<String>)>);
+
+impl Sent {
+    fn add(&mut self, id: u32, from: &str, open: Option<String>) {
+        self.0.retain(|(i, f, _)| !(*i == id && f == from)); // an id the service reuses
+        if self.0.len() == KEEP {
+            self.0.pop_front();
+        }
+        self.0.push_back((id, from.to_string(), open));
+    }
+
+    /// For `ActionInvoked(id, key)` from `from`: `Some(session to open)` when it is the default action of a popup this
+    /// process sent; `None` for another key, another id or another sender.
+    fn clicked(&self, id: u32, from: &str, key: &str) -> Option<Option<String>> {
+        if key != "default" {
+            return None;
+        }
+        self.0
+            .iter()
+            .find(|(i, f, _)| *i == id && f == from)
+            .map(|(_, _, open)| open.clone())
+    }
+
+    /// `NotificationClosed(id)`: the popup is gone, so is what is kept of it.
+    fn closed(&mut self, id: u32, from: &str) {
+        self.0.retain(|(i, f, _)| !(*i == id && f == from));
+    }
+}
+
+/// An open connection to the service, and the signals it sends (`None` when no action is offered).
+struct Link {
+    connection: zbus::Connection,
+    signals: Option<zbus::MessageStream>,
+}
+
+async fn connect(address: Option<&str>, listen: bool) -> Result<Link, String> {
+    let connection = match address {
+        Some(address) => zbus::connection::Builder::address(address)
+            .map_err(|_| "no session bus")?
             .build()
-            .map_err(|_| "no runtime".to_string())?;
-        runtime.block_on(async {
-            let call = async {
-                let connection = match address {
-                    Some(address) => zbus::connection::Builder::address(address)?.build().await?,
-                    None => zbus::Connection::session().await?,
-                };
-                connection
-                    .call_method(
-                        Some("org.freedesktop.Notifications"),
-                        "/org/freedesktop/Notifications",
-                        Some("org.freedesktop.Notifications"),
-                        "Notify",
-                        &notify_args(summary, body),
-                    )
+            .await
+            .map_err(|_| "no session bus")?,
+        None => zbus::Connection::session()
+            .await
+            .map_err(|_| "no session bus")?,
+    };
+    let mut signals = None;
+    if listen {
+        let capabilities = connection
+            .call_method(Some(SERVICE), OBJECT, Some(SERVICE), "GetCapabilities", &())
+            .await
+            .ok()
+            .and_then(|reply| reply.body().deserialize::<Vec<String>>().ok())
+            .unwrap_or_default();
+        if capabilities.iter().any(|c| c == "actions") {
+            let rule = zbus::MatchRule::builder()
+                .msg_type(zbus::message::Type::Signal)
+                .interface(SERVICE)
+                .and_then(|b| b.path(OBJECT))
+                .map(|b| b.build());
+            if let Ok(rule) = rule {
+                signals = zbus::MessageStream::for_match_rule(rule, &connection, None)
                     .await
-                    .map(|_| ())
-            };
-            match tokio::time::timeout(NOTIFY_WAIT, call).await {
-                Ok(Ok(())) => Ok(()),
-                Ok(Err(_)) => Err("the notification service did not take it".to_string()),
-                Err(_) => Err("the notification service did not answer".to_string()),
+                    .ok();
             }
-        })
+        }
+    }
+    Ok(Link {
+        connection,
+        signals,
     })
 }
 
+/// `Notify` on `link` (made first when there is none), with the default action when the link listens for clicks.
+async fn deliver(
+    address: Option<&str>,
+    listen: bool,
+    link: &mut Option<Link>,
+    sent: &mut Sent,
+    command: &Command,
+) -> Result<(), String> {
+    if link.is_none() {
+        *link = Some(connect(address, listen).await?);
+    }
+    let Some(open) = link.as_ref() else {
+        return Err("no session bus".into());
+    };
+    let actions: Vec<&str> = if open.signals.is_some() {
+        vec!["default", "Open"]
+    } else {
+        Vec::new()
+    };
+    let reply = open
+        .connection
+        .call_method(
+            Some(SERVICE),
+            OBJECT,
+            Some(SERVICE),
+            "Notify",
+            &notify_args(command.summary.as_str(), command.body.as_str(), actions),
+        )
+        .await;
+    match reply {
+        Ok(reply) => {
+            if open.signals.is_some()
+                && let Ok(id) = reply.body().deserialize::<u32>()
+            {
+                let from = reply.header().sender().map(|s| s.to_string());
+                sent.add(id, from.as_deref().unwrap_or(""), command.open.clone());
+            }
+            Ok(())
+        }
+        Err(_) => {
+            *link = None; // the service went away: the next popup connects again
+            Err("the notification service did not take it".into())
+        }
+    }
+}
+
+/// The next signal of the link; never ready when there is none to listen to. `None` when the connection ended.
+async fn heard(link: &mut Option<Link>) -> Option<zbus::Message> {
+    use zbus::export::futures_util::StreamExt;
+    match link.as_mut().and_then(|l| l.signals.as_mut()) {
+        None => std::future::pending().await,
+        Some(signals) => loop {
+            match signals.next().await {
+                Some(Ok(message)) => return Some(message),
+                Some(Err(_)) => {}
+                None => return None,
+            }
+        },
+    }
+}
+
+/// A click: `ActionInvoked(id, "default")` for a popup this process sent goes to `clicks`; `NotificationClosed` forgets it.
+fn on_signal(message: &zbus::Message, sent: &mut Sent, clicks: &Clicks) {
+    let header = message.header();
+    let from = header.sender().map(|s| s.to_string()).unwrap_or_default();
+    match header.member().map(|m| m.as_str()) {
+        Some("ActionInvoked") => {
+            if let Ok((id, key)) = message.body().deserialize::<(u32, String)>()
+                && let Some(open) = sent.clicked(id, &from, &key)
+            {
+                let _ = clicks.send(open);
+            }
+        }
+        Some("NotificationClosed") => {
+            if let Ok((id, _reason)) = message.body().deserialize::<(u32, u32)>() {
+                sent.closed(id, &from);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The notifier thread: one connection, the popups it is given one at a time (each bounded by [`NOTIFY_WAIT`]), and the
+/// clicks it hears between them. Ends when the notifier is dropped.
+fn work(
+    address: Option<String>,
+    clicks: Option<Clicks>,
+    mut commands: tokio::sync::mpsc::UnboundedReceiver<Command>,
+) {
+    let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return; // the commands are dropped: each popup is told "no answer"
+    };
+    runtime.block_on(async {
+        let (mut link, mut sent) = (None, Sent::default());
+        loop {
+            // the futures end with this statement, so the arms below may use `link` again
+            let event = tokio::select! {
+                command = commands.recv() => Event::Popup(command),
+                message = heard(&mut link) => Event::Signal(message),
+            };
+            match event {
+                Event::Popup(None) => return,
+                Event::Popup(Some(command)) => {
+                    let call = deliver(
+                        address.as_deref(),
+                        clicks.is_some(),
+                        &mut link,
+                        &mut sent,
+                        &command,
+                    );
+                    let result = match tokio::time::timeout(NOTIFY_WAIT, call).await {
+                        Ok(result) => result,
+                        Err(_) => {
+                            link = None;
+                            Err("the notification service did not answer".to_string())
+                        }
+                    };
+                    let _ = command.reply.send(result);
+                }
+                Event::Signal(Some(message)) => {
+                    if let Some(clicks) = &clicks {
+                        on_signal(&message, &mut sent, clicks);
+                    }
+                }
+                Event::Signal(None) => link = None, // the connection ended: connect again at the next popup
+            }
+        }
+    });
+}
+
+enum Event {
+    Popup(Option<Command>),
+    Signal(Option<zbus::Message>),
+}
+
+impl DBusNotifier {
+    /// Hands the popup to the notifier thread (started here, the first time) and waits for its answer.
+    fn send(&mut self, summary: &str, body: &str, open: Option<&str>) -> Result<(), String> {
+        let worker = match &self.worker {
+            Some(worker) => worker.clone(),
+            None => {
+                let (worker, commands) = tokio::sync::mpsc::unbounded_channel();
+                let (address, clicks) = (self.address.clone(), self.clicks.clone());
+                std::thread::Builder::new()
+                    .name("easy-personal-notify".into())
+                    .spawn(move || work(address, clicks, commands))
+                    .map_err(|_| "no notifier thread".to_string())?;
+                self.worker = Some(worker.clone());
+                worker
+            }
+        };
+        let (reply, answer) = std::sync::mpsc::sync_channel(1);
+        let command = Command {
+            summary: summary.to_string(),
+            body: body.to_string(),
+            open: open.map(str::to_string),
+            reply,
+        };
+        if worker.send(command).is_err() {
+            self.worker = None; // the thread ended: the next popup starts another
+            return Err("no notifier thread".into());
+        }
+        match answer.recv_timeout(NOTIFY_WAIT + Duration::from_secs(1)) {
+            Ok(result) => result,
+            Err(_) => Err("the notification service did not answer".into()),
+        }
+    }
+}
+
 impl Notifier for DBusNotifier {
-    fn notify(&mut self, summary: &str, body: &str, _open: Option<&str>) {
-        if let Err(why) = send(self.address.as_deref(), summary, body)
+    fn notify(&mut self, summary: &str, body: &str, open: Option<&str>) {
+        if let Err(why) = self.send(summary, body, open)
             && !self.warned
         {
             self.warned = true;
@@ -561,7 +807,9 @@ mod tests {
 
     /// Records every popup (summary, body, the session a click opens); never touches D-Bus.
     #[derive(Clone, Default)]
-    struct Fake(Arc<Mutex<Vec<(String, String, Option<String>)>>>);
+    struct Fake(Arc<Mutex<Vec<Popup>>>);
+    /// (summary, body, the session a click opens)
+    type Popup = (String, String, Option<String>);
     impl Notifier for Fake {
         fn notify(&mut self, summary: &str, body: &str, open: Option<&str>) {
             self.0
@@ -1241,7 +1489,7 @@ mod tests {
     fn the_notify_call_names_the_app_icon_and_the_desktop_entry() {
         use zbus::zvariant::Value as Variant;
         let (app, replaces, icon, summary, body, actions, hints, expire) =
-            notify_args("Easy Personal", "Disk 95 % used");
+            notify_args("Easy Personal", "Disk 95 % used", Vec::new());
         assert_eq!(app, "easy-personal");
         assert_eq!(replaces, 0);
         assert_eq!(icon, "easy-personal");
@@ -1371,7 +1619,7 @@ mod tests {
         }
     }
 
-    fn hot_machine() -> History<Sample> {
+    pub(super) fn hot_machine() -> History<Sample> {
         let machine: History<Sample> =
             Arc::new(Mutex::new(easy_personal_core::machine::Ring::new(4)));
         machine.lock().unwrap().push(disk(97));
@@ -1431,7 +1679,12 @@ mod tests {
         );
         wait_until(|| entered.load(Ordering::SeqCst)); // the popup is still sent, from the thread
         drop(release);
+        let stopping = Instant::now();
         thread.stop();
+        assert!(
+            stopping.elapsed() < Duration::from_secs(2),
+            "stop is bounded"
+        );
     }
 
     /// T084: `stop` right after the start, before the first tick, hangs on nothing and no popup goes out.
@@ -1502,3 +1755,7 @@ mod tests {
         shared.push(alert("ram")); // the lock was let go
     }
 }
+
+#[cfg(test)]
+#[path = "notify_tests.rs"]
+mod notify_tests;
