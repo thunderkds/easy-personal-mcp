@@ -2,7 +2,7 @@ import { act, render, screen, within, waitFor, fireEvent } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WarningsPlanView from './WarningsPlanView.jsx'
 import { ToastProvider } from './Toast.jsx'
-import { fakeFetch, jumpHit, reportList, reportOld, reportOne, warnings } from './test/fixtures.js'
+import { agentLast, agentRunOff, agentRunOn, fakeFetch, jumpHit, reportList, reportOld, reportOne, warnings } from './test/fixtures.js'
 
 // The copy button notifies through the toast host App provides.
 const withToasts = (ui) => <ToastProvider>{ui}</ToastProvider>
@@ -139,7 +139,7 @@ describe('errors and token', () => {
 describe('scope (HUN-118)', () => {
   it('sends no params without a scope (the header names the scope, see App.test.jsx)', async () => {
     const f = await renderView()
-    expect(f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/reports'))).toEqual(['/api/warnings'])
+    expect(f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/reports') && !u.startsWith('/api/agent-run'))).toEqual(['/api/warnings'])
   })
 
   it('sends workspace= and account= to warnings and plan, and refetches on change', async () => {
@@ -147,7 +147,7 @@ describe('scope (HUN-118)', () => {
     vi.stubGlobal('fetch', f)
     const view = render(withToasts(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '' }} />))
     await screen.findByTestId('headline')
-    const warningCalls = () => f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/reports')).sort()
+    const warningCalls = () => f.calls.map((c) => c.url).filter((u) => !u.startsWith('/api/reports') && !u.startsWith('/api/agent-run')).sort()
     expect(warningCalls()).toEqual(['/api/warnings?workspace=Acme%20Co'])
     f.calls.length = 0
     view.rerender(withToasts(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '2' }} />))
@@ -834,5 +834,63 @@ describe('saved reports loading indicator (HUN-229)', () => {
     render(withToasts(<WarningsPlanView />))
     await screen.findByText(/Could not load/i)
     await waitFor(() => expect(pills().map((p) => p.textContent.startsWith('Loading saved reports'))).toEqual([true]))
+  })
+})
+
+describe('the Run block (T092, FR-104 part 3)', () => {
+  const section = () => screen.getByRole('region', { name: 'Agent run' })
+
+  it('sits above Saved reports, below the warnings, and shows nothing on a server without the route', async () => {
+    await renderView({ agentRun: agentRunOn(), reports: reportList })
+    const block = await screen.findByRole('region', { name: 'Agent run' })
+    const saved = screen.getByRole('region', { name: 'Saved reports' })
+    expect(block.compareDocumentPosition(saved) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('investigate-hint').compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('has no Agent run section when GET /api/agent-run answers 404', async () => {
+    await renderView({ reports: reportList })
+    await screen.findByRole('region', { name: 'Saved reports' })
+    expect(screen.queryByRole('region', { name: 'Agent run' })).toBeNull()
+  })
+
+  it('off: the Open Settings link goes to the Settings view through the callback', async () => {
+    const f = fakeFetch({ agentRun: agentRunOff })
+    vi.stubGlobal('fetch', f)
+    const onOpenSettings = vi.fn()
+    render(withToasts(<WarningsPlanView onOpenSettings={onOpenSettings} />))
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('the Run button sends the page workspace as the run scope', async () => {
+    const f = fakeFetch({ agentRun: (method) => (method === 'GET' ? agentRunOn() : agentRunOn({ running: true })) })
+    vi.stubGlobal('fetch', f)
+    render(withToasts(<WarningsPlanView scope={{ workspace: 'Acme Co', account: '' }} />))
+    fireEvent.click(await screen.findByRole('button', { name: 'Run investigate' }))
+    await within(section()).findByText('Claude is investigating…')
+    const post = f.calls.find((c) => c.init.method === 'POST')
+    expect(JSON.parse(post.init.body)).toEqual({ job: 'investigate', workspace: 'Acme Co' })
+  })
+
+  it('a run that ends ok with a report reloads Saved reports once', async () => {
+    vi.useFakeTimers()
+    try {
+      let answer = agentRunOn({ running: true })
+      const f = fakeFetch({ agentRun: () => answer, reports: reportList })
+      vi.stubGlobal('fetch', f)
+      render(withToasts(<WarningsPlanView />))
+      const settle = () => act(async () => void (await vi.advanceTimersByTimeAsync(0)))
+      await settle()
+      const listCalls = () => f.calls.filter((c) => c.url === '/api/reports').length
+      expect(listCalls()).toBe(1)
+      answer = agentRunOn({ last: agentLast('ok', 3) })
+      await act(async () => void (await vi.advanceTimersByTimeAsync(5000)))
+      expect(listCalls()).toBe(2)
+      await act(async () => void (await vi.advanceTimersByTimeAsync(30000)))
+      expect(listCalls()).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -176,7 +176,7 @@ main section.notice { flex-direction: row; flex-wrap: wrap; align-items: center;
 .field textarea { height: auto; padding: var(--space-2) 10px; }
 .scope select { width: 100%; }
 .repo-row input { flex: 1; min-width: 0; }
-main button {
+main button, .agent-dialog button {
   min-height: 32px;
   padding: 0 14px;
   border: 1px solid var(--color-control);
@@ -186,8 +186,8 @@ main button {
   font-size: var(--fs-cell);
   cursor: pointer;
 }
-main button:hover { background: var(--color-raised); }
-main button:disabled { color: var(--color-faint); cursor: not-allowed; background: none; }
+main button:hover, .agent-dialog button:hover { background: var(--color-raised); }
+main button:disabled, .agent-dialog button:disabled { color: var(--color-faint); cursor: not-allowed; background: none; }
 .periods { display: inline-flex; flex-wrap: wrap; align-self: flex-start; gap: 2px; padding: 3px; border: 1px solid var(--color-control); border-radius: var(--radius); }
 .periods button { min-height: 32px; padding: 0 14px; border: 0; background: none; color: var(--color-secondary); font-weight: 400; }
 .periods button[aria-pressed='true'] { background: var(--color-accent-soft); color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent-line); font-weight: 500; }
@@ -728,9 +728,9 @@ main button.live-row:focus-visible { outline: none; }
 main .folder-list button { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); width: 100%; border: 0; border-radius: 0; text-align: left; font-family: var(--font-mono); }
 .folder-name { min-width: 0; overflow-wrap: anywhere; }
 .folder-picker-actions { justify-content: flex-end; }
-main button.primary { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); font-weight: 500; }
-main button.primary:hover { background: var(--color-accent-bar); }
-main button.primary:disabled { border-color: var(--color-control); background: none; color: var(--color-faint); }
+main button.primary, .agent-dialog button.primary { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); font-weight: 500; }
+main button.primary:hover, .agent-dialog button.primary:hover { background: var(--color-accent-bar); }
+main button.primary:disabled, .agent-dialog button.primary:disabled { border-color: var(--color-control); background: none; color: var(--color-faint); }
 
 /* Scratch group in By project + repos not in a workspace (HUN-207, FR-069, FR-070) */
 main button.bar-row-toggle { display: flex; flex-direction: column; gap: 6px; width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; text-align: left; color: inherit; font-size: inherit; cursor: pointer; }
@@ -795,3 +795,24 @@ button.status-chip:hover { background: var(--color-selected); }
 }
 .copy-command input { width: 100%; font-family: var(--font-mono); }
 .copy-command [aria-live] { min-height: 1lh; }
+
+/* Agent run (T092, FR-104): the Settings block, the first-open prompt and the Run block on Warnings & plan. Same buttons and dialog as the folder browser. */
+main.settings { max-width: 48rem; }
+.agent-dialog { overflow-y: auto; }
+.account-choice { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.account-options { display: flex; flex-direction: column; gap: var(--space-2); }
+.account-option { display: flex; align-items: center; gap: var(--space-3); min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); cursor: pointer; }
+.account-option:has(input:checked) { border-color: var(--color-accent-line); background: var(--color-accent-soft); }
+.account-option input { flex: none; accent-color: var(--color-accent); }
+.account-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); min-width: 0; overflow-wrap: anywhere; }
+.account-text strong { font-weight: 500; color: var(--color-heading); }
+.account-text .folder { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-secondary); }
+.agent-run [role='status'] { overflow-wrap: anywhere; }
+.agent-run [role='status']:empty { margin-top: calc(-1 * var(--space-3)); } /* an empty live region stays in the page but takes no row */
+.agent-run p, .settings p { overflow-wrap: anywhere; }
+.agent-run .link-button, .settings .link-button { display: inline; min-height: 0; padding: 0; font-size: inherit; }
+.agent-run .link-button:hover, .settings .link-button:hover { background: none; }
+@media (max-width: 39.999rem) {
+  .settings button:not(.link-button), .agent-run button:not(.link-button), .agent-dialog button { min-height: 44px; }
+  .agent-run .link-button, .settings .link-button { display: inline-block; padding: 13px 0; margin: -13px 0; } /* a 44 px tap area for an inline link, the line does not grow */
+}

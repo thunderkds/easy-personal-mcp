@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { getJson } from './api.js'
+import AgentRun from './AgentRun.jsx'
 import FeedCard from './FeedCard.jsx'
 import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
@@ -146,8 +148,9 @@ function InvestigateHint() {
   )
 }
 
-export default function WarningsPlanView({ scope = NO_SCOPE, onOpenAgents }) {
+export default function WarningsPlanView({ scope = NO_SCOPE, onOpenAgents, onOpenSettings }) {
   const state = useLoad(() => load(scope), [scope.workspace, scope.account])
+  const [savedVersion, setSavedVersion] = useState(0) // a run saved a report: Saved reports asks again
   return (
     <main className="warnings">
       <h1>Warnings and plan</h1>
@@ -173,7 +176,8 @@ export default function WarningsPlanView({ scope = NO_SCOPE, onOpenAgents }) {
           <InvestigateHint />
         </>
       )}
-      <SavedReports command={INVESTIGATE} waiting={state.status === 'loading'} />
+      <AgentRun scope={scope} onOpenSettings={onOpenSettings} onReportSaved={() => setSavedVersion((v) => v + 1)} />
+      <SavedReports command={INVESTIGATE} waiting={state.status === 'loading'} reloadKey={savedVersion} />
     </main>
   )
 }

@@ -5,9 +5,12 @@ export function readToken() {
   return token
 }
 
+/** An Error that also carries the HTTP `status`, so a caller can tell 404 (no such route) from the rest without reading the message. */
+const failure = (message, status) => Object.assign(new Error(message), { status })
+
 export async function getJson(path) {
   const response = await fetch(path, { headers: { 'X-Dashboard-Token': readToken() } })
-  if (!response.ok) throw new Error(`${path} failed with status ${response.status}`)
+  if (!response.ok) throw failure(`${path} failed with status ${response.status}`, response.status)
   return response.json()
 }
 
@@ -26,10 +29,23 @@ export async function sendJson(method, path, body) {
     body: JSON.stringify(body),
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.error || `${path} failed with status ${response.status}`)
+  if (!response.ok) throw failure(data.error || `${path} failed with status ${response.status}`, response.status)
   return data
 }
 
 /** Saved investigate reports (FR-078): the list, newest first, and one report with its before / now per rule. */
 export const getReports = () => getJson('/api/reports')
 export const getReport = (id) => getJson(`/api/reports/${id}`)
+
+/** Agent run (FR-103). The state, or null when the server has no such route (404: the Python server). */
+export const getAgentRun = () =>
+  getJson('/api/agent-run').catch((error) => {
+    if (error.status === 404) return null
+    throw error
+  })
+/** Choose the agent run account (the caller has shown the note and been confirmed), or turn the feature off with null. Answers the new state. */
+export const setAgentRunAccount = (id) =>
+  sendJson('PUT', '/api/agent-run/setting', id === null ? { account: null } : { account: String(id), confirmed: true })
+/** Start the one job for the workspace (none = all). Answers the state, running. */
+export const startAgentRun = (workspace) => sendJson('POST', '/api/agent-run', workspace ? { job: 'investigate', workspace } : { job: 'investigate' })
+export const stopAgentRun = () => sendJson('POST', '/api/agent-run/stop', {})

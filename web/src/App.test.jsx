@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 import { act } from '@testing-library/react'
 import { readToken } from './api.js'
-import { fakeFetch, firstRun, workspaceOverrides } from './test/fixtures.js'
+import { agentRunOff, agentRunOn, fakeFetch, firstRun, workspaceOverrides } from './test/fixtures.js'
 
 beforeEach(() => {
   window.location.hash = '#secret-token'
@@ -49,7 +49,7 @@ it('the Usage period is app-wide: the rail card follows it, and it survives a vi
 it('lists the 7 views in the sidebar and marks only the active one', () => {
   render(<App />)
   const buttons = within(nav()).getAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'))
-  expect(buttons.map((b) => b.textContent)).toEqual(['Live', 'Watch', 'Board', 'Scheduled', 'Memory', 'Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run'])
+  expect(buttons.map((b) => b.textContent)).toEqual(['Live', 'Watch', 'Board', 'Scheduled', 'Memory', 'Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run', 'Settings'])
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(within(nav()).getByRole('button', { name: 'Kit' })).toHaveAttribute('aria-current', 'page')
   expect(within(nav()).getByRole('button', { name: 'Usage' })).not.toHaveAttribute('aria-current')
@@ -104,7 +104,7 @@ describe('rail groups and First run (HUN-160)', () => {
     expect(inGroup('usage')).toEqual(['Usage', 'Warnings & plan'])
     expect(inGroup('kit')).toEqual(['Kit'])
     expect(inGroup('connect')).toEqual(['Workspaces', 'Agents'])
-    expect(inGroup('system')).toEqual(['First run'])
+    expect(inGroup('system')).toEqual(['First run', 'Settings'])
   })
 
   it('opens the Memory view from the work group', async () => {
@@ -750,5 +750,68 @@ describe('the session the page is asked for (T095, FR-108)', () => {
     viewIs('Usage')
     expect(window.location.search).toBe('?other=1')
     expect(readToken()).toBe('tok')
+  })
+})
+
+describe('Settings and the first-open prompt (T092)', () => {
+  const MARK = 'easy-personal-agent-run-asked'
+  beforeEach(() => {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.setAttribute('open', '')
+    }
+    HTMLDialogElement.prototype.close = function () {
+      this.removeAttribute('open')
+    }
+  })
+
+  it('opens Settings from the nav, under // system', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ agentRun: agentRunOn() }))
+    window.localStorage.setItem(MARK, '1')
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Settings' }))
+    expect(within(nav()).getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { name: 'Agent run account' })).toBeInTheDocument()
+    expect(screen.getByText('The app uses this account for every agent run.')).toBeInTheDocument()
+  })
+
+  it('offers the choice once on load when the setting is off and the browser holds no mark', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ agentRun: agentRunOff }))
+    render(<App />)
+    const dialog = await screen.findByRole('dialog', { name: 'Choose an account for agent runs' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Not now' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(window.localStorage.getItem(MARK)).toBe('1')
+  })
+
+  it('does not offer it while the Settings tab is open, so that view never goes stale under it', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ agentRun: agentRunOff }))
+    render(<App />)
+    await screen.findByRole('dialog', { name: 'Choose an account for agent runs' })
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Settings' }))
+    expect(await screen.findByRole('heading', { name: 'Agent run account' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(window.localStorage.getItem(MARK)).toBeNull() // not answered: it may come back on another tab
+  })
+
+  it('does not offer it with the mark set, with the setting on, or on a server without the route', async () => {
+    for (const [mark, given] of [[true, agentRunOff], [false, agentRunOn()], [false, undefined]]) {
+      window.localStorage.clear()
+      if (mark) window.localStorage.setItem(MARK, '1')
+      vi.stubGlobal('fetch', fakeFetch({ agentRun: given }))
+      const { unmount } = render(<App />)
+      await screen.findByRole('heading', { name: 'Totals' })
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      unmount()
+    }
+  })
+
+  it('the Warnings & plan page links to Settings when the setting is off', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ agentRun: agentRunOff }))
+    window.localStorage.setItem(MARK, '1')
+    render(<App />)
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Warnings & plan' }))
+    await screen.findByRole('heading', { name: 'Warnings and plan' })
+    fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: 'Settings' }))
+    expect(await screen.findByRole('heading', { name: 'Agent run account' })).toBeInTheDocument()
   })
 })
