@@ -660,3 +660,11 @@ Merged 2026-11-05 (FR-079). Owner question answered: saved reports are a permane
 - easy-verifier `score` counts an evidence fixture (`tasks/evidence-*/fixture_server.py`) as new code without a test: T095 scored overall 63 with that one failed rule.
 - An independent read-only reviewer with a list of concrete things to hunt found the two selection races that the tests and the screenshots missed.
 **Files**: `web/src/App.jsx`, `web/src/LiveView.jsx`, `web/src/StatusChips.jsx`, `tasks/TASK_REVIEW_T095.md`
+
+## 2026-11-17 — `[admin]` merge: pass rows from earlier sessions are not enough; Rust tasks and the root board
+- The merge gate needs the hook's run record (`~/.claude/harness-anchors/<repo slug>/verify-runs/<task>-<commit>.json`) for the commit in the pass row. T097, T095, T091 and T093 carried `auto-run by hook` pass rows from 2026-11-16/17 sessions, but their run logs were not in the main checkout's `.claude/verify-runs/` and the gate refused each merge ("no passed auto verify committed"). A filled pass row cannot be rerun (`--start` refuses) or edited, so those merges go to the owner by hand. Run the auto verify from the main checkout in the session that will merge.
+- `stop_auto_verify.py --start <ID>` reads only the root `PROJECT_KANBAN.md` `### Ready for Review`. For a Rust task, add a temporary uncommitted row there, start the run, and remove the row after (the root board is the Linear cache).
+- The `[admin]` push of `main` is impossible here: the gate allows `origin` only, and the one remote is `github`. The owner pushes.
+- A merged stacked branch (T099 on T091) brings its base task in: the T099 run verified the combined tip.
+- The stop hook reads a hook-written `Paused: ... ⚠ ...` line in a review file as an open decision; after fixing its causes, delete the stale line.
+**Files**: `.claude/hooks/pre_bash_block_unsafe_merge.py`, `.claude/hooks/stop_auto_verify.py`, `.claude/hooks/lib/verify_record.py`, `rust/PROJECT_KANBAN.md`
