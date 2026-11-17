@@ -1,6 +1,8 @@
 //! Watch 3 (T074, FR-097): the alert engine. Every [`TICK`] one thread (a [`Sampler`], `sampler.rs`; the first look is the first tick, never part of the start) reads the live tail's
 //! snapshot, the newest machine sample and the newest plan-limit round, and raises an *alert* once per state change:
-//! a session *waiting for you* or *failing* (re-armed when the session leaves the state), a plan limit at or above 90 %
+//! a session *waiting for you* or *failing* (re-armed when the session leaves the state), a session at *your turn* (T096:
+//! only once the state held [`YOUR_TURN_HOLD`] on the monotonic clock, counted from the first look that saw it; re-armed
+//! when the session leaves the state), a plan limit at or above 90 %
 //! per account and window, disk or RAM at or above 90 % used (each re-armed below 85 %), a battery at or below 15 % and
 //! not charging (re-armed at 20 % or more, or charging). A measure with no data changes nothing.
 //!
@@ -21,7 +23,7 @@ use easy_personal_core::ingest::secret::is_secret;
 use easy_personal_core::limits_watch::Round;
 use easy_personal_core::machine::Sample;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
@@ -32,6 +34,8 @@ pub(crate) const KEEP: usize = 50;
 const TICK: Duration = Duration::from_secs(5);
 /// The least time between two popups.
 const POPUP_GAP: Duration = Duration::from_secs(10);
+/// A session in the state *your turn* raises its alert only after this long (T096): an owner who answers at once sees no popup.
+const YOUR_TURN_HOLD: Duration = Duration::from_secs(60);
 /// A measure at or above this percent raises an alert.
 pub(crate) const HIGH: f64 = 90.0;
 /// A measure below this percent re-arms it.
@@ -48,12 +52,15 @@ const PIECE_MAX: usize = 64;
 pub(crate) struct Alert {
     /// Seconds since the epoch (UTC).
     pub t: i64,
-    /// `session_waiting`, `session_failing`, `plan_limit`, `disk`, `ram` or `battery`.
+    /// `session_waiting`, `session_failing`, `session_your_turn`, `plan_limit`, `disk`, `ram` or `battery`.
     pub kind: &'static str,
     pub text: String,
     pub account: Option<i64>,
     /// The short session id.
     pub session: Option<String>,
+    /// The full session id a click on this alert's popup opens (T096). Kept in memory for the popup only: never in
+    /// [`Alert::json`], a row or a log.
+    pub open: Option<String>,
 }
 
 impl Alert {
@@ -103,9 +110,10 @@ impl Shared {
     }
 }
 
-/// Shows a desktop popup. It never fails the caller.
+/// Shows a desktop popup. It never fails the caller. `open` is the session a click on the popup opens: the full id of
+/// the one session a popup for a single alert is about, `None` for a popup that sums several alerts or names no session.
 pub(crate) trait Notifier: Send {
-    fn notify(&mut self, summary: &str, body: &str);
+    fn notify(&mut self, summary: &str, body: &str, open: Option<&str>);
 }
 
 /// The engine's state: which alerts are tripped (so they raise once), and the popups that wait.
@@ -116,6 +124,9 @@ pub(crate) struct Engine {
     tripped: HashSet<String>,
     /// The (session id, state) pairs seen on the last tick.
     sessions_on: HashSet<(String, &'static str)>,
+    /// The sessions in the state *your turn* on the last tick: when the first look saw it (monotonic) and whether its
+    /// alert was raised. A session that leaves the state is dropped, so its timer starts again.
+    turns: HashMap<String, (Instant, bool)>,
     waiting: Vec<Alert>,
     last_popup: Option<Instant>,
 }
@@ -184,6 +195,7 @@ impl Engine {
             notifier,
             tripped: HashSet::new(),
             sessions_on: HashSet::new(),
+            turns: HashMap::new(),
             waiting: Vec::new(),
             last_popup: None,
         }
@@ -201,7 +213,7 @@ impl Engine {
     ) {
         let mut raised = Vec::new();
         if let Some(live) = live {
-            self.sessions(now, live, &mut raised);
+            self.sessions(now, at, live, &mut raised);
         }
         if let Some(sample) = machine {
             self.machine(now, sample, &mut raised);
@@ -224,14 +236,19 @@ impl Engine {
                 .is_none_or(|last| at.saturating_duration_since(last) >= POPUP_GAP)
         {
             let (summary, body) = popup(&self.waiting);
+            let open = match self.waiting.as_slice() {
+                [one] => one.open.clone(),
+                _ => None,
+            };
             self.waiting.clear();
             self.last_popup = Some(at);
-            self.notifier.notify(summary, &body);
+            self.notifier.notify(summary, &body, open.as_deref());
         }
     }
 
-    fn sessions(&mut self, now: i64, live: &Value, raised: &mut Vec<Alert>) {
+    fn sessions(&mut self, now: i64, at: Instant, live: &Value, raised: &mut Vec<Alert>) {
         let mut on = HashSet::new();
+        let mut turns = HashMap::new();
         let mut found = Vec::new();
         for s in live["sessions"].as_array().into_iter().flatten() {
             // the full id keys the state; only a safe short form is ever shown
@@ -244,6 +261,31 @@ impl Engine {
                 let (state, kind, head) = match a["state"].as_str() {
                     Some("waiting") => ("waiting", "session_waiting", "Waiting for you"),
                     Some("failing") => ("failing", "session_failing", "Failing"),
+                    Some("your_turn") => {
+                        // told once the state held YOUR_TURN_HOLD on the monotonic clock, counted from the first look
+                        // that saw it (never from the record time of the state)
+                        let (first, mut told) = turns
+                            .get(full)
+                            .or_else(|| self.turns.get(full))
+                            .copied()
+                            .unwrap_or((at, false));
+                        if !told && at.saturating_duration_since(first) >= YOUR_TURN_HOLD {
+                            told = true;
+                            let mut parts = vec!["Your turn".to_string()];
+                            parts.extend(project.as_ref().map(|p| format!("project {p}")));
+                            parts.extend(id.as_ref().map(|id| format!("session {id}")));
+                            found.push(Alert {
+                                t: now,
+                                kind: "session_your_turn",
+                                text: parts.join(", "),
+                                account: None,
+                                session: id.clone(),
+                                open: Some(full.to_string()),
+                            });
+                        }
+                        turns.insert(full.to_string(), (first, told));
+                        continue;
+                    }
                     _ => continue,
                 };
                 let key = (full.to_string(), state);
@@ -258,12 +300,14 @@ impl Engine {
                         text: parts.join(", "),
                         account: None,
                         session: id.clone(),
+                        open: Some(full.to_string()),
                     });
                 }
                 on.insert(key);
             }
         }
         self.sessions_on = on;
+        self.turns = turns;
         raised.extend(found);
     }
 
@@ -275,6 +319,7 @@ impl Engine {
                 text,
                 account: None,
                 session: None,
+                open: None,
             });
         };
         for (kind, label, value) in [
@@ -317,6 +362,7 @@ impl Engine {
                         text: format!("Plan limit {label} at {v:.0} % (account {})", row.id),
                         account: Some(row.id),
                         session: None,
+                        open: None,
                     });
                 }
             }
@@ -335,8 +381,9 @@ fn popup(waiting: &[Alert]) -> (&'static str, String) {
         let group = match a.kind {
             "session_waiting" => 0,
             "session_failing" => 1,
-            "plan_limit" => 2,
-            _ => 3,
+            "session_your_turn" => 2,
+            "plan_limit" => 3,
+            _ => 4,
         };
         *counts.entry(group).or_default() += 1;
     }
@@ -345,7 +392,8 @@ fn popup(waiting: &[Alert]) -> (&'static str, String) {
         .map(|(group, n)| match group {
             0 => format!("{} waiting", plural(n, "session", "sessions")),
             1 => format!("{} failing", plural(n, "session", "sessions")),
-            2 => plural(n, "plan limit alert", "plan limit alerts"),
+            2 => format!("{} for your turn", plural(n, "session", "sessions")),
+            3 => plural(n, "plan limit alert", "plan limit alerts"),
             _ => plural(n, "machine alert", "machine alerts"),
         })
         .collect();
@@ -435,7 +483,7 @@ fn send(address: Option<&str>, summary: &str, body: &str) -> Result<(), String> 
 }
 
 impl Notifier for DBusNotifier {
-    fn notify(&mut self, summary: &str, body: &str) {
+    fn notify(&mut self, summary: &str, body: &str, _open: Option<&str>) {
         if let Err(why) = send(self.address.as_deref(), summary, body)
             && !self.warned
         {
@@ -511,12 +559,15 @@ mod tests {
 
     const T0: i64 = 1_800_000_000;
 
-    /// Records every popup; never touches D-Bus.
+    /// Records every popup (summary, body, the session a click opens); never touches D-Bus.
     #[derive(Clone, Default)]
-    struct Fake(Arc<Mutex<Vec<(String, String)>>>);
+    struct Fake(Arc<Mutex<Vec<(String, String, Option<String>)>>>);
     impl Notifier for Fake {
-        fn notify(&mut self, summary: &str, body: &str) {
-            self.0.lock().unwrap().push((summary.into(), body.into()));
+        fn notify(&mut self, summary: &str, body: &str, open: Option<&str>) {
+            self.0
+                .lock()
+                .unwrap()
+                .push((summary.into(), body.into(), open.map(str::to_string)));
         }
     }
     impl Fake {
@@ -525,7 +576,15 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
-                .map(|(_, b)| b.clone())
+                .map(|(_, b, _)| b.clone())
+                .collect()
+        }
+        fn opens(&self) -> Vec<Option<String>> {
+            self.0
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(_, _, o)| o.clone())
                 .collect()
         }
     }
@@ -826,6 +885,183 @@ mod tests {
         assert_eq!(rig.count(), 3);
     }
 
+    // -- T096: the your-turn alert ------------------------------------------------------------------------------------
+
+    const TURN_ID: &str = "0123456789abcdef";
+    fn turn(id: &str) -> Value {
+        json!({ "session_id": id, "project": "shop", "account": 1,
+                "attention": [{ "state": "your_turn", "tool": null, "count": 1, "is_sidechain": false, "since": "x" }] })
+    }
+    fn turns(ids: &[&str]) -> Value {
+        live(Value::Array(ids.iter().map(|i| turn(i)).collect()))
+    }
+    fn kinds_of(rig: &Rig, kind: &str) -> usize {
+        rig.kinds().iter().filter(|k| **k == kind).count()
+    }
+
+    /// T096 AC 4: one `session_your_turn` per stay, once the state held 60 s from the first look that saw it; none at 59 s.
+    #[test]
+    fn your_turn_alerts_once_after_sixty_seconds() {
+        let mut rig = Rig::new();
+        let on = turns(&[TURN_ID]);
+        rig.look(1, Some(&on), None, None); // first seen
+        rig.look(58, Some(&on), None, None); // 58 s held
+        rig.look(1, Some(&on), None, None); // 59 s
+        assert_eq!(rig.count(), 0, "59 s: nothing");
+        assert!(rig.fake.bodies().is_empty());
+        rig.look(1, Some(&on), None, None); // 60 s
+        assert_eq!(rig.kinds(), ["session_your_turn"]);
+        assert_eq!(
+            rig.shared.json()["alerts"][0]["text"],
+            "Your turn, project shop, session 01234567"
+        );
+        assert_eq!(rig.shared.json()["alerts"][0]["session"], "01234567");
+        assert_eq!(
+            rig.fake.bodies(),
+            ["Your turn, project shop, session 01234567"]
+        );
+        assert_eq!(rig.fake.opens(), [Some(TURN_ID.to_string())]);
+        rig.look(5, Some(&on), None, None);
+        rig.look(600, Some(&on), None, None);
+        assert_eq!(rig.count(), 1, "still in the state: no second");
+        // leaves and returns: one more, after another 60 s
+        rig.look(5, Some(&live(json!([]))), None, None);
+        rig.look(5, Some(&on), None, None);
+        rig.look(59, Some(&on), None, None);
+        assert_eq!(rig.count(), 1, "back for 59 s: nothing yet");
+        rig.look(1, Some(&on), None, None);
+        assert_eq!(rig.count(), 2, "back for 60 s: one more");
+        assert_eq!(kinds_of(&rig, "session_your_turn"), 2);
+    }
+
+    /// T096 AC 4: a session that leaves the state at 30 s raises nothing then or later: its timer is cleared.
+    #[test]
+    fn a_state_that_ends_before_sixty_seconds_raises_nothing() {
+        let mut rig = Rig::new();
+        rig.look(1, Some(&turns(&[TURN_ID])), None, None);
+        rig.look(29, Some(&turns(&[TURN_ID])), None, None);
+        rig.look(1, Some(&live(json!([]))), None, None); // left at 30 s
+        rig.look(120, Some(&live(json!([]))), None, None);
+        assert_eq!(rig.count(), 0);
+        // it comes back: the clock starts again, not from the first stay
+        rig.look(1, Some(&turns(&[TURN_ID])), None, None);
+        rig.look(40, Some(&turns(&[TURN_ID])), None, None);
+        assert_eq!(rig.count(), 0, "40 s into the second stay");
+        rig.look(20, Some(&turns(&[TURN_ID])), None, None);
+        assert_eq!(rig.count(), 1, "60 s into the second stay");
+        assert!(rig.fake.bodies().len() == 1);
+    }
+
+    /// T096 AC 4: the 60 s is the engine's monotonic time: a wall clock that jumps (and the record time in `since`) fires
+    /// nothing early and delays nothing.
+    #[test]
+    fn a_wall_clock_jump_changes_nothing_about_the_sixty_seconds() {
+        let shared = Arc::new(Shared::default());
+        let fake = Fake::default();
+        let mut engine = Engine::new(Arc::clone(&shared), Box::new(fake.clone()));
+        let base = Instant::now();
+        let at = |s: u64| base + Duration::from_secs(s);
+        let mut old = turns(&[TURN_ID]);
+        old["sessions"][0]["attention"][0]["since"] = json!("2001-01-01T00:00:00Z"); // an old idle session
+        engine.tick(T0, at(0), Some(&old), None, None);
+        engine.tick(T0 + 86_400 * 30, at(10), Some(&old), None, None); // a month ahead after 10 s
+        engine.tick(T0 - 86_400, at(59), Some(&old), None, None); // a day back at 59 s
+        assert!(fake.bodies().is_empty(), "no early alert");
+        assert_eq!(shared.recent(5).len(), 0);
+        engine.tick(T0 - 86_400 * 400, at(60), Some(&old), None, None); // a year back at 60 s
+        assert_eq!(fake.bodies().len(), 1, "no late alert");
+        assert_eq!(shared.recent(5).len(), 1);
+    }
+
+    /// T096 AC 4, edge: paused still tracks the 60 s (the alert is listed, no popup), so un-pausing raises no burst.
+    #[test]
+    fn paused_tracks_the_sixty_seconds_and_unpausing_shows_nothing() {
+        let mut rig = Rig::new();
+        rig.shared.set_paused(true);
+        let on = turns(&[TURN_ID]);
+        rig.look(1, Some(&on), None, None);
+        rig.look(60, Some(&on), None, None);
+        assert_eq!(rig.kinds(), ["session_your_turn"], "listed while paused");
+        rig.shared.set_paused(false);
+        rig.look(60, Some(&on), None, None);
+        assert!(rig.fake.bodies().is_empty(), "no popup after un-pausing");
+        assert_eq!(rig.count(), 1);
+    }
+
+    /// T096 AC 5: 2 waiting, 1 your-turn and 1 failing in one gap: one popup, each group in fixed words.
+    #[test]
+    fn a_summed_popup_counts_your_turn_in_fixed_words() {
+        let mut rig = Rig::new();
+        rig.look(1, Some(&turns(&["aaaaaaaa"])), None, None); // first seen
+        let busy = live(json!([
+            turn("aaaaaaaa"),
+            session("bbbbbbbb", "p", "waiting", "AskUserQuestion"),
+            session("cccccccc", "p", "waiting", "ExitPlanMode"),
+            session("dddddddd", "p", "failing", "Bash"),
+        ]));
+        rig.look(60, Some(&busy), None, None); // held 60 s: your turn is due; the others are new
+        assert_eq!(rig.fake.bodies().len(), 1, "one popup for the gap");
+        assert_eq!(
+            rig.fake.bodies()[0],
+            "2 sessions waiting, 1 session failing, 1 session for your turn"
+        );
+        assert_eq!(rig.fake.opens(), [None], "a summed popup opens no session");
+        assert_eq!(rig.count(), 4);
+        let (_, body) = popup(&[alert("session_your_turn"), alert("session_your_turn")]);
+        assert_eq!(body, "2 sessions for your turn");
+    }
+
+    /// T096 AC 5: an app start with three sessions already in the state: nothing for 60 s, then one summed popup.
+    #[test]
+    fn an_app_start_with_several_your_turn_sessions_shows_one_popup_after_sixty_seconds() {
+        let mut rig = Rig::new();
+        let on = turns(&["aaaaaaaa", "bbbbbbbb", "cccccccc"]);
+        rig.look(1, Some(&on), None, None);
+        rig.look(30, Some(&on), None, None);
+        rig.look(29, Some(&on), None, None);
+        assert!(rig.fake.bodies().is_empty(), "59 s: nothing");
+        assert_eq!(rig.count(), 0);
+        rig.look(1, Some(&on), None, None);
+        assert_eq!(rig.fake.bodies(), ["3 sessions for your turn"]);
+        assert_eq!(rig.fake.opens(), [None]);
+        assert_eq!(rig.count(), 3, "each is listed");
+        rig.look(300, Some(&on), None, None);
+        assert_eq!(rig.fake.bodies().len(), 1);
+    }
+
+    /// T096 AC 6: a planted question, input and message on a your-turn session, and a project that holds markup: no
+    /// alert, list or popup holds the planted text; the project passes `clean`; the full session id is not listed.
+    #[test]
+    fn no_question_or_markup_reaches_a_your_turn_alert() {
+        let planted = "planted question: wire the invoice to my-iban-DE89370400440532013000";
+        let mut s = turn("deadbeef-1111-2222-3333-444455556666");
+        s["project"] = json!("a<b>&c\nd");
+        s["questions"] = json!([{ "question": planted, "header": planted }]);
+        s["attention"][0]["questions"] = json!([{ "question": planted }]);
+        s["attention"][0]["input"] = json!(planted);
+        let mut rig = Rig::new();
+        let on = live(json!([s]));
+        rig.look(1, Some(&on), None, None);
+        rig.look(60, Some(&on), None, None);
+        let everything = format!("{}\n{}", rig.fake.bodies().join("\n"), rig.shared.json());
+        for needle in ["planted", "my-iban", "DE8937", "invoice", "deadbeef-1111"] {
+            assert!(
+                !everything.contains(needle),
+                "{needle} leaked: {everything}"
+            );
+        }
+        assert!(
+            everything.contains("Your turn, project abcd, session deadbeef"),
+            "{everything}"
+        );
+        assert!(!everything.contains(['<', '>', '&']), "{everything}");
+        // the click gets the full id, from the engine's memory only
+        assert_eq!(
+            rig.fake.opens(),
+            [Some("deadbeef-1111-2222-3333-444455556666".to_string())]
+        );
+    }
+
     /// AC 3.
     #[test]
     fn no_secret_or_message_text_reaches_the_popup_or_the_list() {
@@ -956,6 +1192,7 @@ mod tests {
             text: "x".into(),
             account: None,
             session: None,
+            open: None,
         }
     }
 
@@ -1024,9 +1261,9 @@ mod tests {
         let mut n = DBusNotifier::new();
         n.address = Some("unix:path=/nonexistent-easy-personal-test/bus".into());
         assert!(!n.warned);
-        n.notify("Easy Personal", "one");
+        n.notify("Easy Personal", "one", None);
         assert!(n.warned, "the first failure is logged");
-        n.notify("Easy Personal", "two"); // no panic, no second line (nothing to assert on stderr; `warned` guards it)
+        n.notify("Easy Personal", "two", None); // no panic, no second line (nothing to assert on stderr; `warned` guards it)
         assert!(n.warned);
     }
 
@@ -1170,7 +1407,7 @@ mod tests {
         use std::sync::mpsc;
         struct Hung(mpsc::Receiver<()>, Arc<AtomicBool>);
         impl Notifier for Hung {
-            fn notify(&mut self, _: &str, _: &str) {
+            fn notify(&mut self, _: &str, _: &str, _: Option<&str>) {
                 self.1.store(true, Ordering::SeqCst);
                 let _ = self.0.recv(); // returns when the sender is dropped
             }

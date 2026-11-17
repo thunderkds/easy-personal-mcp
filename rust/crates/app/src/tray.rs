@@ -1618,6 +1618,7 @@ mod tests {
             text: text.into(),
             account: None,
             session: None,
+            open: None,
         }
     }
     /// `n` alerts newest first, one minute apart, the newest at `NOW`; texts `a0` (newest), `a1`, ...

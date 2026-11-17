@@ -619,7 +619,7 @@ mod tests {
         use std::sync::Mutex;
         struct Fake(Arc<Mutex<Vec<String>>>);
         impl Notifier for Fake {
-            fn notify(&mut self, _: &str, body: &str) {
+            fn notify(&mut self, _: &str, body: &str, _: Option<&str>) {
                 self.0.lock().unwrap().push(body.into());
             }
         }
