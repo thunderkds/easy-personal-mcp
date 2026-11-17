@@ -4,6 +4,17 @@
 
 ---
 
+## Auto decisions
+
+Mode: auto
+1. Allow is offered only when `complete === true` and the input is a non-empty string; any other card can only be denied or handed to the terminal. RULE: `PRD.md:212` FR-115 "a cut prompt is marked `complete: false` and can only be denied or handed to the terminal"
+2. Turn on shows the server's exact `entries_text`, the target file and the backups note, and sends `confirmed: true` only after **Add these entries**. RULE: `PRD.md:210` FR-113 "shows the exact entries it will add … and adds them only after the owner confirms"
+3. Question, label, header and input text are React text only, held in component state, never in `localStorage`. RULE: `PRD.md:212` FR-115 "Held in memory only"
+4. The permission input block is in the page flow (no inner scroll), so its tail cannot sit below a scroll edge. FACT: `tasks/TASK_REVIEW_T107.md` § Stage 4 fix round, P2 finding 3 of the independent review ("a long command's tail sits inside an inner scroll area")
+Checks: tests `cd web && npx vitest run` — Test Files 31 passed (31), Tests 1086 passed (1086); reviews code-review + security (independent, 0 P0, 1 P1 + 2 P2 + 2 P3, all fixed in `2c68f40`), security-review — T106 skill run covered the bridge; real run: not done — answering a real terminal session from the app needs the owner (AC 5)
+Memory: nothing new (the card decision is in memory/decisions.md, T106 entry)
+Not done: merge (admin: after the auto verify pass); auto verify: running (T182); owner real run (AC 5)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
