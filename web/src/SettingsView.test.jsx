@@ -348,9 +348,35 @@ describe('first-open prompt (AC2, AC6)', () => {
     expect(window.localStorage.getItem(MARK)).toBeNull()
   })
 
+  it('Cancel in the confirm step keeps the last chosen account selected and puts the focus on Choose', async () => {
+    stub()
+    prompt()
+    const dialog = await screen.findByRole('dialog')
+    click(within(dialog).getByRole('radio', { name: /Claude personal/ }))
+    click(within(dialog).getByRole('button', { name: 'Choose' }))
+    click(await screen.findByRole('button', { name: 'Cancel' }))
+    const back = await screen.findByRole('dialog', { name: 'Choose an account for agent runs' })
+    expect(within(back).getByRole('radio', { name: /Claude personal/ })).toBeChecked()
+    expect(within(back).getByRole('button', { name: 'Choose' })).toBeEnabled()
+    expect(document.activeElement).toBe(within(back).getByRole('button', { name: 'Choose' }))
+  })
+
+  it('Escape in the confirm step does the same: the picker with the choice kept, the focus on Choose', async () => {
+    stub()
+    prompt()
+    const dialog = await screen.findByRole('dialog')
+    click(within(dialog).getByRole('radio', { name: /Claude personal/ }))
+    click(within(dialog).getByRole('button', { name: 'Choose' }))
+    fireEvent(await screen.findByRole('dialog', { name: /^Use Claude personal/ }), new Event('cancel', { cancelable: true }))
+    const back = await screen.findByRole('dialog', { name: 'Choose an account for agent runs' })
+    expect(within(back).getByRole('radio', { name: /Claude personal/ })).toBeChecked()
+    expect(document.activeElement).toBe(within(back).getByRole('button', { name: 'Choose' }))
+  })
+
   it.each([
     ['the setting is on', () => stub({ get: agentRunOn() }), {}],
     ['the First run view is open', () => stub(), { suppressed: true }],
+    ['the Settings tab is open', () => stub(), { suppressed: true }],
     ['the route answers 404', () => vi.stubGlobal('fetch', fakeFetch()), {}],
     ['the read fails', () => stub({ get: agentRunError(500) }), {}],
     ['there is no confirmed Claude account', () => stub(), { accounts: [] }],

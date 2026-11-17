@@ -30,9 +30,9 @@ Not done: merge (yours); code-review, security-review and auto verify (Superviso
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/SettingsView.test.jsx` (28 tests: AC 1, 2, 6), `web/src/AgentRun.test.jsx` (25 tests: AC 3, 4, 5, 6), additions in `web/src/App.test.jsx` (nav tab, prompt mount, First run suppression) and `web/src/WarningsPlanView.test.jsx` (block above Saved reports, reload hook) |
-| Verification command run | ☑ pass | `cd web && npm test` → `Test Files  29 passed (29)`, `Tests  1001 passed (1001)`; `npm run build` → `index-DPeOsCNz.css 55.24 kB`, `index-BtSkIMqx.js 368.26 kB`, `✓ built in 197ms` (output goes to `src/easy_personal/dashboard/static/`, the folder `serve --static-dir` reads; AC 7). The project has no lint script. |
-| Negative cases hold | ☑ pass | tests: a Codex or ignored account is not listed; Cancel sends nothing; 403, 409, 400 each show their fixed line; a `<script>` body is never rendered; a double click sends one POST; `localStorage` that throws does not break the page; a 404 draws nothing; polling stops on unmount |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/SettingsView.test.jsx` (40 tests: AC 1, 2, 6), `web/src/AgentRun.test.jsx` (36 tests: AC 3, 4, 5, 6), additions in `web/src/App.test.jsx` (nav tab, prompt mount, First run and Settings suppression) and `web/src/WarningsPlanView.test.jsx` (block above Saved reports, reload hook) |
+| Verification command run | ☑ pass | `cd web && npm test` → `Test Files  29 passed (29)`, `Tests  1006 passed (1006)` (Stage 4 fix round; was 1001); `npm run build` → `index-DPeOsCNz.css 55.24 kB`, `index-tyGOC3WT.js 368.51 kB`, `✓ built in 434ms` (output goes to `src/easy_personal/dashboard/static/`, the folder `serve --static-dir` reads; AC 7). The project has no lint script. |
+| Negative cases hold | ☑ pass | tests: a Codex or ignored account is not listed; Cancel sends nothing; 403, 409, 400 each show their fixed line; a `<script>` body is never rendered; a double click sends one POST; `localStorage` that throws does not break the page; a 404 draws nothing; polling stops on unmount; a Stop that answers 409 shows its own fixed line; Cancel in the prompt's confirm step keeps the choice and refocuses Choose |
 | verify | ☐ N/A | Supervisor runs auto verify; not run here |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ N/A | Stage 4 is the Supervisor's. Blast radius for the reviewer: `App.jsx` (nav, prompt mount), `WarningsPlanView.jsx` and `SavedReports.jsx` (reload key), `api.js` (every caller of `getJson`/`sendJson` now gets an error with `.status`; messages unchanged), `app.css` |
 | Full smoke suite still green (no regression) | ☑ pass | the same 1001 tests include every existing file; `App.test.jsx` passed in the full run |
@@ -63,6 +63,21 @@ Rows are the guide's UX Acceptance Criteria (US-039); states from the real `serv
 | B-i | baseline | default | 375 / 1280 | pass | `after-settings-confirm-1024.png`, `after-run-idle-1440.png` | one mint accent for the primary action, one button style, one radius |
 
 ux-evaluate: 11 pass, 2 fail (B-e older; B-a new, by the guide's placement), 0 not checked, 0 not checkable. Overall: fail. Reported to the Supervisor: B-a needs a decision (move the block above the warning cards, or accept the guide's placement). Open and reported to the Supervisor: the 404 line (Settings view when the server has no route) and the loading state have no screenshot of their own (covered by Vitest), the dialogs were judged at 1024/1440 and 375 but a modal in the full-page captures sits mid-page (capture artefact); the elapsed-time wording differs from the guide (decision 15).
+
+### Stage 4 fix round
+
+Red first, then green (`cd web && npx vitest run`): the four new tests failed (1002 passed, 4 failed of 1006) before the fixes, and all 1006 passed after. Build after the fixes: `index-tyGOC3WT.js 368.51 kB`, `✓ built in 434ms`.
+
+| # | Finding | Test (name) | Red → green | Fix |
+|---|---|---|---|---|
+| 1 | P2: a Stop answering 409 (run of another process) read "Could not stop the run" | `AgentRun.test.jsx` › "a Stop that answers 409 says the run belongs to another process, with a fixed line and no server text" | red (line not found, timed out) → green | `web/src/AgentRun.jsx`: the Stop failure map has `409 → "This run was started outside the app. Stop it there."`; other statuses keep "Could not stop the run. Try again."; never the body |
+| 2 | P3: the first-open prompt could open over the Settings tab | `App.test.jsx` › "does not offer it while the Settings tab is open, so that view never goes stale under it"; one more row in the `it.each` of `SettingsView.test.jsx` ("the Settings tab is open", at the component level it is the same `suppressed: true` as First run, so it was green at once; the App test is the red one) | red → green | `web/src/App.jsx`: `suppressed={active === 'first-run' \|\| active === 'settings'}`; no mark is set, so it may come back on another tab |
+| 3 | P3: fixture sent the account id as a number | all `agentRunOn` users, `AgentRun.test.jsx` (two inline accounts) | green before and after (the page compares ids as strings; no red expected) | `web/src/test/fixtures.js` `agentRunOn`: `id: '2'`; the two inline accounts in `AgentRun.test.jsx` too |
+| 4 | Decision 14 (debate result): Cancel from the confirm step returns to the picker with the last choice selected and the focus on Choose | `SettingsView.test.jsx` › "Cancel in the confirm step keeps the last chosen account selected and puts the focus on Choose" and "Escape in the confirm step does the same: the picker with the choice kept, the focus on Choose" | both red → green | `web/src/SettingsView.jsx` `FirstOpenPrompt`: `last` state passed as `Picker`'s `initial`; `chooseRef` on the prompt's Choose button; a `backs` counter effect focuses it after the dialog's own focus move |
+
+Decision 14's "cut list" wording (the picker forgets the choice) is superseded by fix 4; the Supervisor rewrites the Auto decisions block. Settings view's own confirm step already returned the focus to Choose and is unchanged.
+
+Memory: nothing new
 
 ---
 

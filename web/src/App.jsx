@@ -282,7 +282,7 @@ function Shell() {
           {options !== undefined && <Rail scope={scope} period={period} refresh={options} onOpenPlan={() => setActive('warnings')} />}
         </div>
       </div>
-      <FirstOpenPrompt accounts={options?.accounts} suppressed={active === 'first-run'} />
+      <FirstOpenPrompt accounts={options?.accounts} suppressed={active === 'first-run' || active === 'settings'} />
     </div>
   )
 }

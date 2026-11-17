@@ -474,7 +474,7 @@ export const kitReportFiles = {
 // T092: GET /api/agent-run, as `rust/crates/app/src/agent_routes.rs` answers it; `last` is the outcome record of the run before.
 export const agentRunOff = { enabled: false, account: null, claude_found: true, running: false, last: null }
 export const agentRunOn = (over = {}) => ({
-  enabled: true, account: { id: 2, label: 'Claude personal', status: 'confirmed' }, claude_found: true, running: false, last: null, ...over,
+  enabled: true, account: { id: '2', label: 'Claude personal', status: 'confirmed' }, claude_found: true, running: false, last: null, ...over,
 })
 export const agentLast = (outcome, report_id = null) => ({
   job: 'investigate', started: '2026-11-17T03:00:00Z', ended: '2026-11-17T03:04:10Z', outcome, report_id,

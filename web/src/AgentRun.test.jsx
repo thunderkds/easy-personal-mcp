@@ -76,7 +76,7 @@ describe('states from fixtures (AC3)', () => {
   })
 
   it('an account whose folder is gone: a line that sends to Settings, no button', async () => {
-    stub(agentRunOn({ account: { id: 2, label: 'Claude personal', status: 'missing' } }))
+    stub(agentRunOn({ account: { id: '2', label: 'Claude personal', status: 'missing' } }))
     open()
     await ready()
     expect(screen.getByText(/^The agent run account's folder is gone\./)).toBeInTheDocument()
@@ -232,8 +232,16 @@ describe('Run and Stop (AC4)', () => {
     expect(screen.getByRole('button', { name: STOP })).toBeEnabled()
   })
 
+  it('a Stop that answers 409 says the run belongs to another process, with a fixed line and no server text', async () => {
+    stub(agentRunOn({ running: true }), { stop: agentRunError(409) })
+    open()
+    fireEvent.click(await screen.findByRole('button', { name: STOP }))
+    expect(await screen.findByText('This run was started outside the app. Stop it there.')).toBeInTheDocument()
+    expect(screen.queryByText('Could not stop the run. Try again.')).toBeNull()
+  })
+
   it('markup in the account label and the scope is drawn as text', async () => {
-    stub(agentRunOn({ account: { id: 2, label: '<img src=x onerror="window.__pwned=1">', status: 'confirmed' } }))
+    stub(agentRunOn({ account: { id: '2', label: '<img src=x onerror="window.__pwned=1">', status: 'confirmed' } }))
     const { container } = open({ scope: { workspace: '<b>w</b>', account: '' } })
     await ready()
     expect(container.querySelector('img, b')).toBeNull()

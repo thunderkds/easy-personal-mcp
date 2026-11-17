@@ -277,9 +277,16 @@ export function FirstOpenPrompt({ accounts, suppressed }) {
   const [asked, setAsked] = useState(readMark)
   const [off, setOff] = useState(false)
   const [pending, setPending] = useState(null)
+  const [last, setLast] = useState(null) // the account chosen last: the picker keeps it selected after Cancel
+  const [backs, setBacks] = useState(0)
   const [error, setError] = useState('')
   const [saving, run] = useSaving()
+  const chooseRef = useRef(null)
   const labelId = useId()
+
+  useEffect(() => {
+    if (backs > 0) chooseRef.current?.focus() // after the dialog's own focus move: back on the button that opened the confirm step
+  }, [backs])
 
   useEffect(() => {
     if (asked) return undefined // marked: no request at all
@@ -303,6 +310,11 @@ export function FirstOpenPrompt({ accounts, suppressed }) {
   const back = () => {
     setPending(null)
     setError('')
+    setBacks((n) => n + 1)
+  }
+  const choose = (account) => {
+    setLast(account)
+    setPending(account)
   }
   const use = () =>
     run(async () => {
@@ -324,7 +336,7 @@ export function FirstOpenPrompt({ accounts, suppressed }) {
         <>
           <h3 id={labelId}>Choose an account for agent runs</h3>
           <p>The app can start Claude Code for you to write an investigate report. It is off until you choose an account. You can change this later in Settings.</p>
-          <Picker accounts={choices} onChoose={setPending}>
+          <Picker accounts={choices} initial={last ? String(last.id) : ''} chooseRef={chooseRef} onChoose={choose}>
             <button type="button" onClick={answer}>
               Not now
             </button>

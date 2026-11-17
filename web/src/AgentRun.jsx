@@ -123,7 +123,8 @@ export default function AgentRun({ scope, onOpenSettings, onReportSaved }) {
     }
   }
   const run = () => act(() => startAgentRun(scope.workspace), new Map([...START_ERRORS, ['other', 'Could not start the run. Try again.']]), true)
-  const stop = () => act(stopAgentRun, new Map([['other', 'Could not stop the run. Try again.']]), false)
+  const stop = () =>
+    act(stopAgentRun, new Map([[409, 'This run was started outside the app. Stop it there.'], ['other', 'Could not stop the run. Try again.']]), false)
 
   if (state.status === 'loading' || state.status === 'none') return null
   const { data } = state

@@ -590,6 +590,16 @@ describe('Settings and the first-open prompt (T092)', () => {
     expect(window.localStorage.getItem(MARK)).toBe('1')
   })
 
+  it('does not offer it while the Settings tab is open, so that view never goes stale under it', async () => {
+    vi.stubGlobal('fetch', fakeFetch({ agentRun: agentRunOff }))
+    render(<App />)
+    await screen.findByRole('dialog', { name: 'Choose an account for agent runs' })
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Settings' }))
+    expect(await screen.findByRole('heading', { name: 'Agent run account' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(window.localStorage.getItem(MARK)).toBeNull() // not answered: it may come back on another tab
+  })
+
   it('does not offer it with the mark set, with the setting on, or on a server without the route', async () => {
     for (const [mark, given] of [[true, agentRunOff], [false, agentRunOn()], [false, undefined]]) {
       window.localStorage.clear()
