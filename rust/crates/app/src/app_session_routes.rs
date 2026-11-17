@@ -30,6 +30,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use axum::routing::{get, post};
 use easy_personal_core::live::is_recent;
+use easy_personal_core::memgraph::transcript_start_folder;
 use easy_personal_core::store::open_checked;
 use serde_json::{Map, Value, json};
 use std::path::{Path as FsPath, PathBuf};
@@ -48,6 +49,8 @@ const FOLDER_GONE: &str = "the folder of this session no longer exists";
 const ACTIVE: &str = "this session is still active in another window; fork it instead";
 const RUNNING_HERE: &str = "this session is running in an app session; stop that one first";
 const BAD_ID: &str = "resume must be a session id: hex digits and - only, at most 64 characters";
+const ACTIVE_FOLDER: &str =
+    "a session in this folder is still active in another window; resume it with Fork instead";
 const MAX_PROMPT: usize = 100_000;
 const MAX_NOTE: usize = 10_000;
 /// The largest body of the permission tool's route.
@@ -288,21 +291,30 @@ fn resume_folder(api: &Api, dir: &FsPath, id: &ResumeId, fork: bool) -> Result<P
     }
     let conn = open_checked(&dir.join("store.sqlite"))
         .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
-    // the folder of the session's first record: `claude` keeps a session under the folder it was started in
-    let (stored_last, folder) = conn
+    // the first record of the session: `claude` keeps a session under the folder it was started in
+    let (stored_last, stored_folder, transcript) = conn
         .query_row(
-            "SELECT MAX(ts_utc), (SELECT project_path FROM events WHERE session_id = ?1 \
-             AND project_path IS NOT NULL AND project_path <> '' ORDER BY ts_utc LIMIT 1) \
+            "SELECT MAX(ts_utc), \
+             (SELECT project_path FROM events WHERE session_id = ?1 \
+              AND project_path IS NOT NULL AND project_path <> '' ORDER BY ts_utc LIMIT 1), \
+             (SELECT source_path FROM events WHERE session_id = ?1 AND source = 'claude_code' \
+              ORDER BY ts_utc LIMIT 1) \
              FROM events WHERE session_id = ?1",
             [id.as_str()],
             |r| {
                 Ok((
                     r.get::<_, Option<String>>(0)?,
                     r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
                 ))
             },
         )
         .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
+    // The real start folder is the first `cwd` of the transcript (a git worktree or a subfolder stays itself); the
+    // stored project folder is the repo it belongs to, used when the transcript cannot be read.
+    let folder = transcript
+        .and_then(|path| transcript_start_folder(&path))
+        .or(stored_folder);
     let last = [stored_last, api.live_last_record(id.as_str())]
         .into_iter()
         .flatten()
@@ -321,6 +333,24 @@ fn resume_folder(api: &Api, dir: &FsPath, id: &ResumeId, fork: bool) -> Result<P
         return Err(fail(StatusCode::BAD_REQUEST, FOLDER_GONE));
     }
     Ok(path)
+}
+
+/// A `continue` is refused while any record of the repo's project is under two minutes old: `--continue` takes the
+/// newest conversation of the folder, which may be one that is open in another window (T105).
+fn repo_quiet(api: &Api, dir: &FsPath, repo: &str) -> Result<(), Response> {
+    let conn = open_checked(&dir.join("store.sqlite"))
+        .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
+    let last: Option<String> = conn
+        .query_row(
+            "SELECT MAX(ts_utc) FROM events WHERE project_path = ?1",
+            [repo],
+            |r| r.get(0),
+        )
+        .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
+    if last.is_some_and(|ts| is_recent(&ts, api.now())) {
+        return Err(fail(StatusCode::CONFLICT, ACTIVE_FOLDER));
+    }
+    Ok(())
 }
 
 /// The account the session uses: the one asked for, else the agent run account (`None`: the default account).
@@ -413,7 +443,12 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
                 worktree,
                 cont,
             } => match stored_repo(&dir, &workspace, &repo) {
-                Ok(repo) => (repo, cont.then_some(Resume::Continue), worktree),
+                Ok(path) => {
+                    if cont && let Err(answer) = repo_quiet(&api, &dir, &repo) {
+                        return answer;
+                    }
+                    (path, cont.then_some(Resume::Continue), worktree)
+                }
                 Err(answer) => return answer,
             },
             Target::Resume { id, fork } => match resume_folder(&api, &dir, &id, fork) {
@@ -2146,6 +2181,151 @@ mod tests {
                 .begin_resume(&w.resume_form(SID, json!({"fork": true})))
                 .await;
             let _ = std::fs::remove_dir_all(&tree);
+        });
+    }
+
+    #[test]
+    fn a_session_resumes_in_the_first_cwd_of_its_transcript_not_in_its_repo_and_falls_back_to_the_stored_folder()
+     {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-cwd", CHAT, NOW, None);
+            let repo = w.old_folder();
+            // started inside a subfolder of the repo, and in a git worktree: the stored project is the repo for both
+            let sub = repo.join("src/deep");
+            std::fs::create_dir_all(&sub).unwrap();
+            let tree = w.fake.root.join("old-project-wt");
+            std::fs::create_dir_all(&tree).unwrap();
+            let transcripts = w.fake.root.join("transcripts");
+            std::fs::create_dir_all(&transcripts).unwrap();
+            let lines = |cwd: &std::path::Path| {
+                format!(
+                    "{{\"type\":\"summary\"}}\n{{\"type\":\"user\",\"cwd\":{}}}\n{{\"type\":\"user\",\"cwd\":\"/elsewhere\"}}\n",
+                    json!(cwd.display().to_string())
+                )
+            };
+            let cases = [
+                ("5e55c0de-0000-4000-8000-0000000000c1", sub.clone()),
+                ("5e55c0de-0000-4000-8000-0000000000c2", tree.clone()),
+            ];
+            for (id, cwd) in &cases {
+                let file = transcripts.join(format!("{id}.jsonl"));
+                std::fs::write(&file, lines(cwd)).unwrap();
+                w.record(id, 600, &repo.display().to_string());
+                w._conn
+                    .execute(
+                        "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                        rusqlite::params![file.display().to_string(), id],
+                    )
+                    .unwrap();
+                let started = w.begin_resume(&w.resume_form(id, json!({}))).await;
+                w.until_state(&started, "idle").await;
+                w.post(
+                    &format!("/api/app-sessions/{started}/stop"),
+                    &json!({"confirmed": true}),
+                )
+                .await;
+                w.until_state(&started, "ended").await;
+                assert_eq!(
+                    w.fake.log("cwd").lines().last().unwrap(),
+                    cwd.canonicalize().unwrap().display().to_string(),
+                    "the child runs where the session was started"
+                );
+            }
+            // a transcript that is gone, a symlink and one with no cwd: the stored project folder
+            let none = "5e55c0de-0000-4000-8000-0000000000c3";
+            let linked = "5e55c0de-0000-4000-8000-0000000000c4";
+            let bare = "5e55c0de-0000-4000-8000-0000000000c5";
+            let real = transcripts.join("real.jsonl");
+            std::fs::write(&real, lines(&tree)).unwrap();
+            std::os::unix::fs::symlink(&real, transcripts.join("link.jsonl")).unwrap();
+            std::fs::write(transcripts.join("bare.jsonl"), "{\"type\":\"summary\"}\n").unwrap();
+            for (id, file) in [
+                (none, "missing.jsonl"),
+                (linked, "link.jsonl"),
+                (bare, "bare.jsonl"),
+            ] {
+                w.record(id, 600, &repo.display().to_string());
+                w._conn
+                    .execute(
+                        "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                        rusqlite::params![transcripts.join(file).display().to_string(), id],
+                    )
+                    .unwrap();
+                let started = w.begin_resume(&w.resume_form(id, json!({}))).await;
+                w.until_state(&started, "idle").await;
+                w.post(
+                    &format!("/api/app-sessions/{started}/stop"),
+                    &json!({"confirmed": true}),
+                )
+                .await;
+                w.until_state(&started, "ended").await;
+                assert_eq!(
+                    w.fake.log("cwd").lines().last().unwrap(),
+                    repo.canonicalize().unwrap().display().to_string(),
+                    "{file}: no readable cwd, the stored folder"
+                );
+            }
+            // a start folder that no longer exists is 400, not a resume somewhere else
+            let gone = "5e55c0de-0000-4000-8000-0000000000c6";
+            let file = transcripts.join("gone.jsonl");
+            std::fs::write(&file, lines(&w.fake.root.join("deleted-worktree"))).unwrap();
+            w.record(gone, 600, &repo.display().to_string());
+            w._conn
+                .execute(
+                    "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                    rusqlite::params![file.display().to_string(), gone],
+                )
+                .unwrap();
+            let before = w.fake.log("argv");
+            let (status, body) = w
+                .post("/api/app-sessions", &w.resume_form(gone, json!({})))
+                .await;
+            assert_eq!(status, 400, "{body}");
+            assert_eq!(body["error"], "the folder of this session no longer exists");
+            assert_eq!(w.fake.log("argv"), before);
+        });
+    }
+
+    #[test]
+    fn continue_is_409_while_any_record_of_the_repo_is_under_two_minutes_old_and_starts_when_quiet()
+    {
+        let _serial = serial();
+        block(async {
+            let w = world_full("continue-active", CHAT, NOW, None);
+            let repo = w.repo.display().to_string();
+            // a record of another folder does not count
+            w.record(
+                "5e55c0de-0000-4000-8000-0000000000d0",
+                5,
+                "/some/other/project",
+            );
+            w.record("5e55c0de-0000-4000-8000-0000000000d1", 119, &repo);
+            let (status, body) = w
+                .post("/api/app-sessions", &w.form(json!({"continue": true})))
+                .await;
+            assert_eq!(status, 409, "{body}");
+            assert_eq!(
+                body["error"],
+                "a session in this folder is still active in another window; resume it with Fork instead"
+            );
+            assert!(!w.started(), "a refused continue starts nothing");
+            // a new session in the same folder is not a continue: the guard is for --continue only
+            let fresh = w.begin(json!({})).await;
+            w.until_state(&fresh, "idle").await;
+            assert!(!w.fake.argv().contains(&"--continue".to_string()));
+            let cont = |w: &World| w.fake.argv().iter().filter(|a| *a == "--continue").count();
+            assert_eq!(cont(&w), 0);
+            // 121 s is quiet
+            w._conn
+                .execute(
+                    "UPDATE events SET ts_utc = ?1 WHERE session_id = '5e55c0de-0000-4000-8000-0000000000d1'",
+                    [at(121)],
+                )
+                .unwrap();
+            let id = w.begin(json!({"continue": true})).await;
+            w.until_state(&id, "idle").await;
+            assert_eq!(cont(&w), 1);
         });
     }
 

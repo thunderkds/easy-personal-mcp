@@ -212,6 +212,8 @@ function Shell() {
   }, [])
   const newAppSession = useCallback((workspace) => openApp({ newFor: workspace }), [openApp])
   const openAppSession = useCallback((id) => openApp({ open: id }), [openApp])
+  const resumeInApp = useCallback((resume) => openApp({ resume }), [openApp])
+  const continueInApp = useCallback((workspace, repo) => openApp({ continueIn: { workspace, repo } }), [openApp])
   const scope = options ? validScope(chosen, options) : NO_SCOPE
   const choose = (next) => {
     setChosen(next)
@@ -313,6 +315,8 @@ function Shell() {
                 onOpenUsage={() => setActive('usage')}
                 onNewSession={newAppSession}
                 onOpenAppSession={openAppSession}
+                onResumeInApp={resumeInApp}
+                onContinueInApp={continueInApp}
                 target={appTarget}
                 onTargetUsed={appTargetUsed}
                 onCheckAgain={checkFirstRun}
