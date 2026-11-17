@@ -175,6 +175,23 @@ pub fn account_config_dir_env(conn: &Connection, reference: &str) -> Result<Opti
     found.ok_or_else(|| ScopeError::Unknown("the account is not a Claude account".into()))
 }
 
+/// The id of the confirmed Claude account an id or a label names (T091: the agent run account is stored by id). An
+/// unknown account, or one that is not a Claude account, is [`ScopeError::Unknown`]. Read-only.
+pub fn claude_account_id(conn: &Connection, reference: &str) -> Result<i64> {
+    let (_, id) = account_clause(conn, reference)?;
+    let provider: Option<String> = conn
+        .prepare("SELECT provider FROM agent_accounts WHERE id = ?1")?
+        .query_map([id], |r| r.get(0))?
+        .next()
+        .transpose()?;
+    match provider.as_deref() {
+        Some("claude") => Ok(id),
+        _ => Err(ScopeError::Unknown(
+            "the account is not a Claude account".into(),
+        )),
+    }
+}
+
 /// `path` equals `root`, or lies under it (`workspaces._under`): `/a/b` is never under `/a/bc`.
 pub(crate) fn under(path: &str, root: &str) -> bool {
     path == root

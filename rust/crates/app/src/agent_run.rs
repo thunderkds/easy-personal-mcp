@@ -3,8 +3,10 @@
 //! Claude credential: it only starts the installed program.
 //!
 //! - **Setting**: off by default; on is the flag file `<data dir>/agent-run.on` (mode 0600; the data folder is made 0700
-//!   when missing). No store column. Only the CLI changes it (`agent-run on|off`); `off` also stops a going run, because
-//!   the run checks the flag every [`POLL`].
+//!   when missing). No store column. Its content (one line) is the id of the **agent run account** (T091); an empty flag
+//!   (T090's `agent-run on`) is on with the default account. The setting is changed by the CLI (`agent-run on [--account]`,
+//!   `off`) and by the dashboard (`PUT /api/agent-run/setting`, `agent_routes.rs`); `off` also stops a going run, because
+//!   the run checks the flag every [`POLL`]. A stored id that names no confirmed Claude account counts as off.
 //! - **One run at a time** on the machine: `flock` on `<data dir>/agent-run.lock`, taken without waiting. The kernel lets
 //!   go of it when the holder exits or is killed, so a lock whose process is gone is taken over with no clean-up.
 //! - **The child**: `claude` found on `PATH` (as `claude_cli.rs`), started with an argument list (never a shell), the
@@ -24,16 +26,18 @@
 
 use crate::claude_cli::{kill_group, which};
 use clap::Subcommand;
-use easy_personal_core::scope::account_config_dir_env;
+use easy_personal_core::scope::{account_config_dir_env, claude_account_id};
 use easy_personal_core::store::{open_checked, store_path};
 use serde_json::{Map, Value, json};
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirBuilder, File, OpenOptions, Permissions, TryLockError};
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitCode, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 /// Printed by `agent-run on` before the flag is written (FR-101).
@@ -131,10 +135,31 @@ impl std::fmt::Display for Refused {
     }
 }
 
-fn utc_now() -> String {
+pub(crate) fn utc_now() -> String {
     jiff::Timestamp::now()
         .strftime("%Y-%m-%dT%H:%M:%SZ")
         .to_string()
+}
+
+/// The agent run account the flag names: a confirmed Claude account (T091).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Chosen {
+    pub id: String,
+    pub label: String,
+    /// `CLAUDE_CONFIG_DIR` of its runs; `None` for the default account (the variable is removed).
+    config_dir_env: Option<String>,
+    /// Its folder is gone from the disk: a run of it ends `failed`, never hangs.
+    pub missing: bool,
+}
+
+/// The setting as the flag file and the store give it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Setting {
+    /// No flag, or the flag names no confirmed Claude account (or the store cannot be read to tell).
+    Off,
+    /// An empty flag (T090's `agent-run on`): the default account.
+    Default,
+    Account(Chosen),
 }
 
 /// The setting, the lock and the runner over one data folder.
@@ -146,6 +171,9 @@ pub struct Runner {
     /// This program: the run's only MCP server is its `mcp` command.
     exe: PathBuf,
     limit: Duration,
+    /// Set by the owner of this runner (the server's stop route and its shutdown): a going run is killed at its next
+    /// poll and ends `stopped`.
+    stop: Arc<AtomicBool>,
 }
 
 impl Runner {
@@ -164,7 +192,26 @@ impl Runner {
             env: std::env::vars_os().collect(),
             exe,
             limit: LIMIT,
+            stop: Arc::default(),
         })
+    }
+
+    /// A runner over `dir` (the server asks for one per request: it reads the store path per request) with the
+    /// environment, program, limit and stop flag it was given.
+    pub fn over(
+        dir: PathBuf,
+        env: Vec<(OsString, OsString)>,
+        exe: PathBuf,
+        limit: Duration,
+        stop: Arc<AtomicBool>,
+    ) -> Runner {
+        Runner {
+            dir,
+            env,
+            exe,
+            limit,
+            stop,
+        }
     }
 
     fn store(&self) -> PathBuf {
@@ -175,7 +222,61 @@ impl Runner {
         fs::symlink_metadata(self.dir.join(FLAG)).is_ok_and(|m| m.is_file())
     }
 
-    /// Writes (owner-only) or removes the flag; either again is no error.
+    /// The flag's first line (`Some("")` for an empty flag), or `None` with no flag. At most 64 bytes are read; a
+    /// symlink or content that is not UTF-8 reads as an id no account has.
+    fn flag(&self) -> Option<String> {
+        let flag = self.dir.join(FLAG);
+        if !fs::symlink_metadata(&flag).is_ok_and(|m| m.is_file()) {
+            return None;
+        }
+        let mut raw = Vec::new();
+        let read = owner_only(&flag, true).and_then(|f| f.take(64).read_to_end(&mut raw));
+        Some(match (read, String::from_utf8(raw)) {
+            (Ok(_), Ok(text)) => text.lines().next().unwrap_or("").trim().to_string(),
+            _ => "?".to_string(),
+        })
+    }
+
+    /// The confirmed Claude account with this id; `None` for any other id, or when the store cannot be read.
+    fn lookup(&self, id: &str) -> Option<Chosen> {
+        let conn = open_checked(&self.store()).ok()?;
+        conn.query_row(
+            "SELECT id, label, folder, config_dir_env FROM agent_accounts \
+             WHERE id = ?1 AND provider = 'claude' AND status = 'confirmed'",
+            [id],
+            |r| {
+                let folder: String = r.get(2)?;
+                Ok(Chosen {
+                    id: r.get::<_, i64>(0)?.to_string(),
+                    label: r.get(1)?,
+                    config_dir_env: r.get(3)?,
+                    missing: !std::path::Path::new(&folder).is_dir(),
+                })
+            },
+        )
+        .ok()
+    }
+
+    /// The setting, read now (never cached): the flag, and for an account the store.
+    pub fn setting(&self) -> Setting {
+        match self.flag() {
+            None => Setting::Off,
+            Some(id) if id.is_empty() => Setting::Default,
+            Some(id) => self.lookup(&id).map_or(Setting::Off, Setting::Account),
+        }
+    }
+
+    /// The account `reference` (an id or a label) names, as the flag stores it; `Refused::Scope` when it is not a
+    /// confirmed Claude account.
+    pub fn resolve(&self, reference: &str) -> Result<String, Refused> {
+        let conn = open_checked(&self.store()).map_err(|e| Refused::Scope(e.to_string()))?;
+        claude_account_id(&conn, reference)
+            .map(|id| id.to_string())
+            .map_err(|e| Refused::Scope(e.to_string()))
+    }
+
+    /// Writes (owner-only) or removes the flag; either again is no error. `on` writes an empty flag (the default
+    /// account) and leaves a flag that already exists as it is.
     pub fn turn(&self, on: bool) -> io::Result<()> {
         let flag = self.dir.join(FLAG);
         if !on {
@@ -187,6 +288,36 @@ impl Runner {
         self.make_dir()?;
         let file = owner_only(&flag, false)?;
         file.set_permissions(Permissions::from_mode(0o600))
+    }
+
+    /// Removes the flag when it names this account id (the account was ignored or deleted): the setting turns off, and
+    /// a going run sees the flag gone at its next poll and stops. Another account's flag, and no flag, stay as they are.
+    pub fn forget(&self, id: &str) -> io::Result<()> {
+        match self.flag() {
+            Some(flag) if flag == id => self.turn(false),
+            _ => Ok(()),
+        }
+    }
+
+    /// Writes the flag with this account id as its one line: a new owner-only file renamed over the flag, so a run
+    /// that reads the flag at that moment never sees an empty one (that would mean the default account).
+    pub fn choose(&self, id: &str) -> io::Result<()> {
+        self.make_dir()?;
+        let new = self.dir.join(format!("{FLAG}.new"));
+        let _ = fs::remove_file(&new);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&new)?;
+        let written = writeln!(file, "{id}").and_then(|()| file.sync_all());
+        drop(file);
+        written
+            .and_then(|()| fs::rename(&new, self.dir.join(FLAG)))
+            .inspect_err(|_| {
+                let _ = fs::remove_file(&new);
+            })
     }
 
     /// The data folder, made 0700 (with its parents) when missing; one that exists is used as it is.
@@ -224,6 +355,8 @@ impl Runner {
 
     /// Runs the job once in the foreground: `Ended::Off` when the setting is off (nothing starts), [`Refused`] when the
     /// account is unknown or a run is going. An empty `workspace` or `account` is none, as the MCP prompt reads it.
+    /// With no `account` the run is the stored agent run account's (the default account for an empty flag); that
+    /// account is also the scope of the report, as `--account` is.
     pub fn run(&self, workspace: Option<&str>, account: Option<&str>) -> Result<Outcome, Refused> {
         let start_utc = utc_now();
         let workspace = workspace.filter(|s| !s.is_empty());
@@ -234,16 +367,30 @@ impl Runner {
             ended,
             report,
         };
-        if !self.enabled() {
+        let Some(flag) = self.flag() else {
             return Ok(outcome(Ended::Off, None));
-        }
-        let config_dir = match account {
-            None => None,
+        };
+        // a flag that names no confirmed Claude account counts as off, whatever account is asked for
+        let stored = match flag.as_str() {
+            "" => None,
+            id => match self.lookup(id) {
+                Some(chosen) => Some(chosen),
+                None => return Ok(outcome(Ended::Off, None)),
+            },
+        };
+        let (account, config_dir) = match account {
             Some(account) => {
                 let conn =
                     open_checked(&self.store()).map_err(|e| Refused::Scope(e.to_string()))?;
-                account_config_dir_env(&conn, account).map_err(|e| Refused::Scope(e.to_string()))?
+                let dir = account_config_dir_env(&conn, account)
+                    .map_err(|e| Refused::Scope(e.to_string()))?;
+                (Some(account), dir)
             }
+            // no account given: the stored one (an empty flag is the default account)
+            None => match stored {
+                Some(chosen) => (Some(flag.as_str()), chosen.config_dir_env),
+                None => (None, None),
+            },
         };
         self.make_dir().map_err(|e| Refused::Io(e.kind()))?;
         let lock = owner_only(&self.dir.join(LOCK), false).map_err(|e| Refused::Io(e.kind()))?;
@@ -306,7 +453,7 @@ impl Runner {
                     return Ended::Failed;
                 }
             }
-            if !self.enabled() {
+            if self.stop.load(Ordering::Relaxed) || !self.enabled() {
                 kill_group(child);
                 return Ended::Stopped;
             }
@@ -409,7 +556,11 @@ fn owner_only(path: &std::path::Path, existing: bool) -> io::Result<File> {
 #[derive(Subcommand)]
 pub enum Action {
     /// Turn agent runs on (prints what they use first)
-    On,
+    On {
+        /// The agent run account (id or label of a confirmed Claude account) every run uses; without it, the default account
+        #[arg(long)]
+        account: Option<String>,
+    },
     /// Turn agent runs off, and stop a run that is going
     Off,
     /// Print on or off, whether `claude` is found and whether a run is going
@@ -419,7 +570,7 @@ pub enum Action {
         /// The workspace the report is for
         #[arg(long)]
         workspace: Option<String>,
-        /// The agent account (id or label) whose Claude Code runs it
+        /// The agent account (id or label) whose Claude Code runs it (default: the agent run account that is set)
         #[arg(long)]
         account: Option<String>,
     },
@@ -446,14 +597,26 @@ fn command(r: &Runner, action: Action, out: &mut dyn Write, err: &mut dyn Write)
         1
     };
     let done = match action {
-        Action::On => {
+        Action::On { account } => {
             let _ = writeln!(out, "{NOTICE}");
-            r.turn(true).map(|()| "agent run: on".to_string())
+            match account {
+                None => r.turn(true),
+                Some(reference) => match r.resolve(&reference) {
+                    Ok(id) => r.choose(&id),
+                    Err(e) => return refuse(e.to_string()),
+                },
+            }
+            .map(|()| "agent run: on".to_string())
         }
         Action::Off => r.turn(false).map(|()| "agent run: off".to_string()),
         Action::Status => Ok(format!(
-            "agent run: {}\nclaude: {}\nrun going: {}",
-            if r.enabled() { "on" } else { "off" },
+            "agent run: {}\n{}claude: {}\nrun going: {}",
+            if r.setting() == Setting::Off {
+                "off"
+            } else {
+                "on"
+            },
+            account_line(r),
             if r.claude().is_some() {
                 "found"
             } else {
@@ -485,8 +648,18 @@ fn command(r: &Runner, action: Action, out: &mut dyn Write, err: &mut dyn Write)
     }
 }
 
+/// `account: <id> <label>` for a chosen account, with the label shown escaped (it is the owner's text), and the flag's
+/// own words when it names none; nothing for no flag and for the default account.
+fn account_line(r: &Runner) -> String {
+    match (r.setting(), r.flag()) {
+        (Setting::Account(c), _) => format!("account: {} {:?}\n", c.id, c.label),
+        (Setting::Off, Some(id)) => format!("account: {id:?} is not a confirmed Claude account\n"),
+        _ => String::new(),
+    }
+}
+
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use rusqlite::Connection;
     use serde_json::{Map, Value};
@@ -499,7 +672,7 @@ mod tests {
     /// is a test-only one there; a multi-threaded caller (T091) sees at most a short "a run is going".
     static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-    fn serial() -> std::sync::MutexGuard<'static, ()> {
+    pub(crate) fn serial() -> std::sync::MutexGuard<'static, ()> {
         SERIAL
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -527,12 +700,12 @@ mod tests {
 
     /// A temp root with `bin/claude` (a fake that logs its argv, working folder, folder listing and environment, NUL
     /// separated, to `log/`, then runs `tail`), the data folder `data/` (not made yet) and a runner over them.
-    struct Fake {
-        root: PathBuf,
+    pub(crate) struct Fake {
+        pub(crate) root: PathBuf,
     }
 
     impl Fake {
-        fn new(tag: &str, tail: &str) -> Fake {
+        pub(crate) fn new(tag: &str, tail: &str) -> Fake {
             let root = std::env::temp_dir().join(format!(
                 "easy-personal-rs-t090-{tag}-{}",
                 std::process::id()
@@ -553,11 +726,11 @@ mod tests {
             Fake { root }
         }
 
-        fn dir(&self) -> PathBuf {
+        pub(crate) fn dir(&self) -> PathBuf {
             self.root.join("data")
         }
 
-        fn runner_with(&self, extra: &[(&str, &str)], limit: Duration) -> Runner {
+        pub(crate) fn runner_with(&self, extra: &[(&str, &str)], limit: Duration) -> Runner {
             let mut env: Vec<(OsString, OsString)> = vec![
                 (
                     "PATH".into(),
@@ -579,25 +752,31 @@ mod tests {
                 env,
                 exe: PathBuf::from("/opt/t090/easy-personal-rs"),
                 limit,
+                stop: Arc::default(),
             }
         }
 
-        fn runner(&self) -> Runner {
+        /// The environment of a runner over this fake, with `extra` set.
+        pub(crate) fn env(&self, extra: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
+            self.runner_with(extra, Duration::from_secs(30)).env
+        }
+
+        pub(crate) fn runner(&self) -> Runner {
             self.runner_with(&[], Duration::from_secs(30))
         }
 
-        fn log(&self, name: &str) -> String {
+        pub(crate) fn log(&self, name: &str) -> String {
             std::fs::read_to_string(self.root.join("log").join(name)).unwrap_or_default()
         }
 
-        fn argv(&self) -> Vec<String> {
+        pub(crate) fn argv(&self) -> Vec<String> {
             self.log("argv")
                 .split_terminator('\0')
                 .map(str::to_string)
                 .collect()
         }
 
-        fn child_env(&self) -> Vec<(String, String)> {
+        pub(crate) fn child_env(&self) -> Vec<(String, String)> {
             self.log("env")
                 .split_terminator('\0')
                 .filter_map(|kv| kv.split_once('='))
@@ -605,7 +784,7 @@ mod tests {
                 .collect()
         }
 
-        fn wait_for(&self, name: &str) {
+        pub(crate) fn wait_for(&self, name: &str) {
             let deadline = Instant::now() + Duration::from_secs(20);
             while !self.root.join("log").join(name).exists() {
                 assert!(Instant::now() < deadline, "the fake never wrote {name}");
@@ -615,7 +794,7 @@ mod tests {
 
         /// A fresh v11 store in the data folder with two confirmed Claude accounts: 1 `home` (the default, no
         /// `CLAUDE_CONFIG_DIR`) and 2 `work` (`/acc/.claude-work`), plus `odd` (3) whose label holds shell text.
-        fn store(&self) -> Connection {
+        pub(crate) fn store(&self) -> Connection {
             std::fs::create_dir_all(self.dir()).unwrap();
             drop(
                 easy_personal_core::writer::open_for_write(&self.dir().join("store.sqlite"))
@@ -640,7 +819,7 @@ mod tests {
         }
     }
 
-    fn insert_report(conn: &Connection, workspace: Option<&str>) -> i64 {
+    pub(crate) fn insert_report(conn: &Connection, workspace: Option<&str>) -> i64 {
         conn.execute(
             "INSERT INTO investigate_reports (saved_utc, server_version, workspace, account, summary, fixes_json, \
              snapshot_json) VALUES ('2026-11-16T00:00:00Z', 't', ?1, NULL, 's', '[]', '{}')",
@@ -668,7 +847,7 @@ mod tests {
     }
 
     /// Gone, or a zombie no one has reaped yet: either way it runs no more.
-    fn runs(pid: &str) -> bool {
+    pub(crate) fn runs(pid: &str) -> bool {
         let stat = format!("/proc/{}/stat", pid.trim());
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
@@ -712,7 +891,7 @@ mod tests {
         );
         assert!(!fake.dir().exists(), "status writes nothing");
 
-        let (code, out, err) = cli(&r, Action::On);
+        let (code, out, err) = cli(&r, Action::On { account: None });
         assert_eq!((code, err.as_str()), (0, ""));
         assert_eq!(out, format!("{NOTICE}\nagent run: on\n"));
         assert!(r.enabled());
@@ -720,7 +899,11 @@ mod tests {
         assert_eq!(flag.permissions().mode() & 0o777, 0o600);
         let dir = std::fs::metadata(fake.dir()).unwrap();
         assert_eq!(dir.permissions().mode() & 0o777, 0o700);
-        assert_eq!(cli(&r, Action::On).0, 0, "on twice is no error");
+        assert_eq!(
+            cli(&r, Action::On { account: None }).0,
+            0,
+            "on twice is no error"
+        );
         let (_, out, _) = cli(&r, Action::Status);
         assert_eq!(out, "agent run: on\nclaude: found\nrun going: no\n");
 
@@ -949,7 +1132,7 @@ mod tests {
 
     // ---- AC 6: the limit and the stop ----
 
-    const GROUP: &str = "sleep 30 & echo $! > \"$L/grandchild\"; wait";
+    pub(crate) const GROUP: &str = "sleep 30 & echo $! > \"$L/grandchild\"; wait";
 
     #[test]
     fn a_run_past_the_limit_is_killed_with_its_whole_group() {
@@ -1002,7 +1185,7 @@ mod tests {
         let fake = Fake::new("leak", &tail);
         let r = fake.runner();
         drop(fake.store());
-        assert_eq!(cli(&r, Action::On).0, 0);
+        assert_eq!(cli(&r, Action::On { account: None }).0, 0);
         let (code, out, err) = cli(&r, now(None, Some("work")));
         assert_eq!(code, 1);
         let mut seen = format!("{out}{err}");
@@ -1113,5 +1296,195 @@ mod tests {
             "easy-personal-rs: agent runs are off; turn them on with `easy-personal-rs agent-run on`\n"
         );
         assert!(!fake.root.join("log/pid").exists(), "no process started");
+    }
+
+    // ---- T091 AC 2: the setting holds the agent run account ----
+
+    fn chosen(r: &Runner) -> Option<(String, String)> {
+        match r.setting() {
+            Setting::Account(c) => Some((c.id, c.label)),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn the_flag_holds_the_account_id_an_empty_flag_is_the_default_account() {
+        let _serial = serial();
+        let fake = Fake::new("t091-flag", "exit 0");
+        let r = fake.runner();
+        drop(fake.store());
+        assert_eq!(r.setting(), Setting::Off);
+        r.turn(true).unwrap();
+        assert_eq!(r.setting(), Setting::Default, "T090's empty flag");
+        r.choose("2").unwrap();
+        let flag = fake.dir().join("agent-run.on");
+        assert_eq!(std::fs::read_to_string(&flag).unwrap(), "2\n");
+        assert_eq!(
+            std::fs::metadata(&flag).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert!(!fake.dir().join("agent-run.on.new").exists());
+        assert_eq!(chosen(&r), Some(("2".into(), "work".into())));
+        r.turn(true).unwrap();
+        assert_eq!(chosen(&r), Some(("2".into(), "work".into())), "on keeps it");
+        // an id that names no confirmed Claude account counts as off: gone, a Codex one, an ignored one, not an id
+        for id in ["99", "4", "work", "2 x"] {
+            r.choose(id).unwrap();
+            assert_eq!(r.setting(), Setting::Off, "{id}");
+        }
+        let conn = Connection::open(fake.dir().join("store.sqlite")).unwrap();
+        conn.execute(
+            "UPDATE agent_accounts SET status = 'ignored' WHERE id = 2",
+            [],
+        )
+        .unwrap();
+        r.choose("2").unwrap();
+        assert_eq!(r.setting(), Setting::Off, "ignored");
+        // a symlink as the flag is no flag content
+        std::fs::remove_file(&flag).unwrap();
+        std::os::unix::fs::symlink("/etc/hostname", &flag).unwrap();
+        assert_eq!(r.setting(), Setting::Off);
+    }
+
+    #[test]
+    fn a_run_with_no_account_given_uses_the_stored_one_and_a_dead_id_starts_nothing() {
+        let _serial = serial();
+        let fake = Fake::new("t091-run", "exit 0");
+        let mut planted = vec![("CLAUDE_CONFIG_DIR", "/parent/.claude-x")];
+        planted.push(("ANTHROPIC_API_KEY", "planted"));
+        let r = fake.runner_with(&planted, Duration::from_secs(30));
+        drop(fake.store());
+        for (id, want) in [("", None), ("1", None), ("2", Some("/acc/.claude-work"))] {
+            let _ = std::fs::remove_file(fake.root.join("log/env"));
+            if id.is_empty() {
+                r.turn(true).unwrap();
+            } else {
+                r.choose(id).unwrap();
+            }
+            assert_eq!(r.run(None, None).unwrap().ended, Ended::Ok, "{id:?}");
+            let env = fake.child_env();
+            let ccd = env
+                .iter()
+                .find(|(k, _)| k == "CLAUDE_CONFIG_DIR")
+                .map(|(_, v)| v.as_str());
+            assert_eq!(ccd, want, "{id:?}");
+            assert!(!env.iter().any(|(k, _)| k == "ANTHROPIC_API_KEY"));
+        }
+        // the stored account is the scope of the prompt, as `--account` is
+        let argv = fake.argv();
+        let prompts: Vec<&String> = argv.chunks(14).map(|run| &run[1]).collect();
+        assert!(
+            !prompts[0].contains("account"),
+            "the default account is no scope"
+        );
+        assert!(prompts[2].contains("account"), "{}", prompts[2]);
+        // an explicit account wins over the stored one
+        let _ = std::fs::remove_file(fake.root.join("log/env"));
+        assert_eq!(r.run(None, Some("home")).unwrap().ended, Ended::Ok);
+        assert!(
+            !fake
+                .child_env()
+                .iter()
+                .any(|(k, _)| k == "CLAUDE_CONFIG_DIR")
+        );
+        // a stored id that names no confirmed Claude account: off, nothing starts
+        std::fs::remove_file(fake.root.join("log/pid")).unwrap();
+        for id in ["99", "4"] {
+            r.choose(id).unwrap();
+            assert_eq!(r.run(None, None).unwrap().ended, Ended::Off, "{id}");
+            // an explicit account does not revive a setting that reads off
+            assert_eq!(
+                r.run(None, Some("home")).unwrap().ended,
+                Ended::Off,
+                "{id} with --account"
+            );
+        }
+        assert!(!fake.root.join("log/pid").exists());
+    }
+
+    #[test]
+    fn the_stop_flag_ends_a_going_run_as_stopped_with_the_setting_still_on() {
+        let _serial = serial();
+        let fake = Fake::new("t091-stop", GROUP);
+        let stop = Arc::new(AtomicBool::new(false));
+        let r = Runner::over(
+            fake.dir(),
+            fake.runner().env,
+            PathBuf::from("/opt/t090/easy-personal-rs"),
+            Duration::from_secs(30),
+            Arc::clone(&stop),
+        );
+        r.turn(true).unwrap();
+        std::thread::scope(|s| {
+            let run = s.spawn(|| r.run(None, None));
+            fake.wait_for("grandchild");
+            stop.store(true, Ordering::Relaxed);
+            assert_eq!(run.join().unwrap().unwrap().ended, Ended::Stopped);
+        });
+        assert!(r.enabled(), "the flag stays");
+        for file in ["pid", "grandchild"] {
+            assert!(!runs(&fake.log(file)), "{file} still runs");
+        }
+    }
+
+    #[test]
+    fn on_account_writes_the_id_status_prints_it_and_now_uses_it() {
+        let _serial = serial();
+        let fake = Fake::new("t091-cli", "exit 0");
+        let r = fake.runner();
+        drop(fake.store());
+        let on = |account: &str| {
+            cli(
+                &r,
+                Action::On {
+                    account: Some(account.into()),
+                },
+            )
+        };
+        // by label, case-folded
+        let (code, out, err) = on("WORK");
+        assert_eq!((code, err.as_str()), (0, ""));
+        assert_eq!(out, format!("{NOTICE}\nagent run: on\n"));
+        assert_eq!(
+            std::fs::read_to_string(fake.dir().join("agent-run.on")).unwrap(),
+            "2\n"
+        );
+        assert_eq!(
+            cli(&r, Action::Status).1,
+            "agent run: on\naccount: 2 \"work\"\nclaude: found\nrun going: no\n"
+        );
+        let _ = std::fs::remove_file(fake.root.join("log/env"));
+        let (code, out, _) = cli(&r, now(None, None));
+        assert_eq!(code, 0, "{out}");
+        assert!(
+            fake.child_env()
+                .iter()
+                .any(|(k, v)| k == "CLAUDE_CONFIG_DIR" && v == "/acc/.claude-work"),
+            "now with no --account runs the stored one"
+        );
+        // an id works; an unknown, a Codex and an ignored account change nothing
+        assert_eq!(on("1").0, 0);
+        assert_eq!(
+            std::fs::read_to_string(fake.dir().join("agent-run.on")).unwrap(),
+            "1\n"
+        );
+        for bad in ["nope", "cx", "4"] {
+            let (code, _, err) = on(bad);
+            assert_eq!(code, 1, "{bad}");
+            assert!(err.starts_with("easy-personal-rs: "), "{err}");
+            assert!(!err.contains(bad) || bad == "cx", "{err}"); // the text names no input
+            assert_eq!(
+                std::fs::read_to_string(fake.dir().join("agent-run.on")).unwrap(),
+                "1\n",
+                "{bad}"
+            );
+        }
+        // a flag that names a dead account reads off, and status says why
+        std::fs::write(fake.dir().join("agent-run.on"), "99\n").unwrap();
+        assert_eq!(
+            cli(&r, Action::Status).1,
+            "agent run: off\naccount: \"99\" is not a confirmed Claude account\nclaude: found\nrun going: no\n"
+        );
+        assert_eq!(cli(&r, now(None, None)).0, 1);
     }
 }

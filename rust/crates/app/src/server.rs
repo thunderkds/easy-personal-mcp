@@ -6,6 +6,7 @@
 //! printed URL fragment (or the window's URL, `app`): no response, error or log line carries it.
 //! `start` is the one way a server is made: `run` (the `serve` subcommand) and the window (`window.rs`) both call it.
 
+use crate::agent_routes::AgentGuard;
 use crate::alerts::{self, Notifier};
 use crate::api::{self, Api};
 use crate::live_feed::{LIVE_PATH, LiveFeed};
@@ -197,6 +198,8 @@ pub struct Running {
     /// The alert list and pause flag that `/api/alerts` serves (the tray's "Pause alerts" sets the same flag, T076).
     #[cfg_attr(not(feature = "window"), allow(dead_code))]
     shared: Arc<alerts::Shared>,
+    /// Stops a going agent run when the server stops or is dropped (T091); declared last so it drops last.
+    agent: AgentGuard,
 }
 
 /// How long `stop` waits for requests in flight before it drops them.
@@ -233,6 +236,7 @@ impl Running {
     /// Ends the open live streams, stops accepting, gives requests in flight `STOP_GRACE` to finish, drops whatever
     /// is left, then stops and joins the live feed (at most 10 s, `LiveFeed::stop`).
     pub fn stop(mut self) {
+        self.agent.0.shutdown(); // first: the run's `claude` dies, and its thread is joined
         self.stopping.store(true, Ordering::Relaxed);
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
@@ -295,6 +299,7 @@ pub(crate) fn start_with_alerts(
         .with_live(feed.as_ref().map(LiveFeed::tail), Arc::clone(&stopping))
         .with_machine(machine.as_ref().map(Sampler::history))
         .with_limits(limits.as_ref().map(Sampler::history));
+    let agent = AgentGuard(Arc::clone(&api.agent));
     let app = router_with_static(
         token.clone(),
         port,
@@ -339,6 +344,7 @@ pub(crate) fn start_with_alerts(
         limits,
         alerts,
         shared,
+        agent,
     })
 }
 

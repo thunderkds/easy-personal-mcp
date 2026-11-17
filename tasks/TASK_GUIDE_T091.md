@@ -122,3 +122,4 @@ The ACs above, each as an automated test, plus the verification command's real o
 ## Completion Checklist
 - [ ] Every AC with pasted output in `tasks/TASK_REVIEW_T091.md`
 - [ ] Commits on branch `T091` only; final report with `Status:`
+- 2026-11-17 DEBATE should the terminal `account ignore` also turn the setting off and stop a going run in this task → follow-up T099, same fix (`forget` in `cli_cmds.rs`), no poll check (Advocate 1: fix now in `cli_cmds.rs`; Advocate 2: fix now in `cli_cmds.rs`; Advocate 3: follow-up task) ⚠ decided for you — please review (`tasks/TASK_REVIEW_T091.md` decision 5)

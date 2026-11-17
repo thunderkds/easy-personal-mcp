@@ -424,13 +424,23 @@ pub(crate) async fn account_confirm(State(api): State<Api>, req: Request) -> Res
 
 /// `POST /api/accounts/{id}/ignore`.
 pub(crate) async fn account_ignore(State(api): State<Api>, req: Request) -> Response {
+    // T091: an ignored account that is the agent run account turns the setting off (the flag is removed)
+    let data_dir = (api.store_path)()
+        .ok()
+        .and_then(|path| path.parent().and_then(|dir| std::path::absolute(dir).ok()));
     account_write(
         api,
         req,
         true,
         StatusCode::OK,
         |_| (),
-        |conn, id, _, root, ()| accounts::ignore(conn, id, root),
+        move |conn, id, _, root, ()| {
+            let done = accounts::ignore(conn, id, root)?;
+            if let Some(dir) = &data_dir {
+                crate::agent_routes::account_gone(dir, id);
+            }
+            Ok(done)
+        },
     )
     .await
 }

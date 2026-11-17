@@ -30,6 +30,7 @@
 //! through as a `serde_json::Value`; no body carries a path, SQL or row text (NFR-002): a store problem becomes one of
 //! a few fixed texts.
 
+use crate::agent_routes::{self, Agent};
 use crate::alerts::Shared as Alerts;
 use crate::live_feed::{LIVE_PATH, SharedTail, SseBody, resume_id};
 use crate::{connector_writes, legacy, sync_apply, writes};
@@ -105,6 +106,8 @@ pub struct Api {
     machine: Option<MachineHistory>,
     /// The alert list and the pause flag of `GET /api/alerts` and `POST /api/alerts/pause` (T074); empty when no engine runs.
     alerts: Arc<Alerts>,
+    /// The agent run routes' runner and record (T091, `agent_routes.rs`).
+    pub(crate) agent: Arc<Agent>,
 }
 
 impl Api {
@@ -121,7 +124,15 @@ impl Api {
             limits: None,
             machine: None,
             alerts: Arc::default(),
+            agent: Arc::new(Agent::system()),
         }
+    }
+
+    /// Another runner for the agent run routes (a test gives one with a fake `claude` on its `PATH`).
+    #[cfg(test)]
+    pub(crate) fn with_agent(mut self, agent: Agent) -> Self {
+        self.agent = Arc::new(agent);
+        self
     }
 
     /// The alert list the engine fills (`alerts.rs`); with the default one the list stays empty.
@@ -239,6 +250,12 @@ pub fn routes() -> Router<Api> {
         .route("/api/machine", get(machine))
         .route("/api/alerts", get(alert_list))
         .route("/api/alerts/pause", post(alert_pause))
+        .route(
+            "/api/agent-run",
+            get(agent_routes::get).post(agent_routes::start),
+        )
+        .route("/api/agent-run/setting", put(agent_routes::setting))
+        .route("/api/agent-run/stop", post(agent_routes::stop))
 }
 
 /// `GET /api/alerts` (T074, FR-097): `{alerts, paused}`, the last 50 alerts newest first. It reads no store and writes nothing.

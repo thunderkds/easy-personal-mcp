@@ -133,6 +133,9 @@ API_CALLS: dict[str, list[str]] = {
     "/api/limits/history": [""],  # T073: the in-memory plan-limit history; no store, no path
     "/api/alerts": [""],  # T074: the in-memory alert list; no store, no path
     "/api/alerts/pause": [""],  # T074: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
+    "/api/agent-run": [""],  # T091: the state; the setting is off in this run's data folder, so no `claude` ever starts
+    "/api/agent-run/setting": [""],  # T091: asked literally with GET (the 405); the PUT is in WRITE_CALLS / GUARD_CALLS
+    "/api/agent-run/stop": [""],  # T091: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -174,6 +177,13 @@ GUARD_CALLS = [
     ("static dotfile", "GET", "/.env", {"x-dashboard-token": None}),
     ("static traversal", "GET", "/%2e%2e/%2e%2e/etc/passwd", {"x-dashboard-token": None}),
     ("double slash", "GET", "//api/version", {"x-dashboard-token": None}),
+    ("agent run no token", "GET", "/api/agent-run", {"x-dashboard-token": None}),  # T091
+    ("agent run setting no token", "PUT", "/api/agent-run/setting", {"x-dashboard-token": None}),
+    ("agent run start no token", "POST", "/api/agent-run", {"x-dashboard-token": None}),
+    ("agent run stop no token", "POST", "/api/agent-run/stop", {"x-dashboard-token": None}),
+    ("agent run start foreign origin", "POST", "/api/agent-run", {"Origin": "http://evil.invalid"}),
+    ("agent run write method", "DELETE", "/api/agent-run", {}),
+    ("agent run start without a body", "POST", "/api/agent-run", {}),
 ]
 # The write routes (T048) with a body: (label, method, path, body). `{key}` is the planted API key: a refused write must not
 # echo it, store it or log it. The accepted ones carry harmless text only.
@@ -206,6 +216,21 @@ WRITE_CALLS = [
     ("alert pause key as field", "POST", "/api/alerts/pause", '{"{key}":true}'),
     ("alert pause key not JSON", "POST", "/api/alerts/pause", '{{key}'),
     ("alert pause accepted", "POST", "/api/alerts/pause", '{"paused":false}'),
+    # T091: the setting is off in this run's data folder, and none of these turns it on or starts a run (a run would be
+    # the real Claude Code if one is on `PATH`): a refused call must not echo the key, and the accepted ones only turn it off
+    ("agent setting key as account", "PUT", "/api/agent-run/setting", '{"account":"{key}","confirmed":true}'),
+    ("agent setting key as confirmed", "PUT", "/api/agent-run/setting", '{"account":"1","confirmed":"{key}"}'),
+    ("agent setting key as type", "PUT", "/api/agent-run/setting", '{"account":["{key}"]}'),
+    ("agent setting key as field", "PUT", "/api/agent-run/setting", '{"{key}":true}'),
+    ("agent setting key not JSON", "PUT", "/api/agent-run/setting", '{{key}'),
+    ("agent setting off", "PUT", "/api/agent-run/setting", '{"account":null}'),
+    ("agent start key as job", "POST", "/api/agent-run", '{"job":"{key}"}'),
+    ("agent start key as workspace", "POST", "/api/agent-run", '{"job":"investigate","workspace":"{key}"}'),
+    ("agent start key as account", "POST", "/api/agent-run", '{"job":"investigate","account":"{key}"}'),
+    ("agent start key as type", "POST", "/api/agent-run", '{"job":["{key}"]}'),
+    ("agent start key not JSON", "POST", "/api/agent-run", '{{key}'),
+    ("agent stop key as field", "POST", "/api/agent-run/stop", '{"{key}":1}'),
+    ("agent stop accepted", "POST", "/api/agent-run/stop", '{}'),
 ]
 # MCP tool -> argument variants (the Python suite's MCP_CALLS for these tools, plus error paths).
 MCP_CALLS: dict[str, list[dict]] = {

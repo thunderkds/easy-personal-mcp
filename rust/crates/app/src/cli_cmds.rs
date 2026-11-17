@@ -14,6 +14,7 @@
 //! the account commands detect new agent folders only under `EASY_PERSONAL_AGENT_ROOT`, else `HOME`. No message names a
 //! path or a row; an error text is the core's own fixed text (Python's), which names none of the caller's input (NFR-002).
 
+use crate::agent_run::Runner;
 use crate::claude_cli::SystemClaude;
 use crate::{api, mcp, writes};
 use clap::{Args, Subcommand};
@@ -917,6 +918,10 @@ fn run_account(action: AccountAction) -> Run {
         }
         AccountAction::Ignore { account } => {
             let body = write(true, |conn| accounts::ignore(conn, &account, &root))?;
+            // T099: when the ignored account is the agent run account, the setting turns off (the row's id, as the route uses it)
+            if let (Some(id), Ok(runner)) = (body["id"].as_i64(), Runner::system()) {
+                let _ = runner.forget(&id.to_string());
+            }
             put_json(&body)
         }
         AccountAction::Add { path } => {
