@@ -1,0 +1,61 @@
+/* App sessions page and the prompt card (T104, FR-109..FR-111, FR-115). Tokens only. */
+
+/* Prompt card: a waiting prompt of an app session (in the conversation) or of a terminal session (in its Live row, above the row's click overlay) */
+.prompt-card, .live-notice { position: relative; z-index: 1; }
+.prompt-card { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-3); border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); background: var(--color-input); }
+.prompt-question { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.prompt-header { align-self: flex-start; padding: 0 var(--space-2); border: 1px solid var(--color-control); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); overflow-wrap: anywhere; }
+.prompt-text { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-body); color: var(--color-heading); }
+.prompt-options { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.prompt-option { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); cursor: pointer; }
+.prompt-option:has(input:checked) { border-color: var(--color-accent-line); background: var(--color-accent-soft); }
+.prompt-option input { flex: none; margin-top: 2px; accent-color: var(--color-accent); }
+.prompt-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-cell); }
+.prompt-option-text strong { font-weight: 500; color: var(--color-heading); }
+.prompt-other { width: 100%; box-sizing: border-box; resize: vertical; }
+/* The whole command, path or plan the owner would allow: in normal page flow (no height limit, no inner scroll), monospace, every space and line break kept, long words wrap */
+.prompt-summary { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-bg); font-family: var(--font-mono); font-size: var(--fs-cell); color: var(--color-text); white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.prompt-cut { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-amber); border-radius: var(--radius-sm); font-size: var(--fs-note); font-weight: 500; color: var(--color-amber); overflow-wrap: anywhere; }
+.prompt-note input { width: 100%; box-sizing: border-box; }
+.live-notice { margin: 0; font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-accent); overflow-wrap: anywhere; }
+
+/* Live row: Open in app (above the row's click overlay) */
+main button.live-open-app { position: relative; z-index: 1; align-self: flex-start; min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
+
+/* The page */
+.app-sessions { max-width: 60rem; }
+.session-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+main .session-tabs button { display: flex; align-items: baseline; gap: var(--space-2); max-width: 100%; }
+main .session-tabs button[aria-current='true'] { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); }
+.session-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.session-tab-state { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); }
+.session-tabs button[data-state='waiting'] .session-tab-state { color: var(--color-amber); }
+.session-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-4); margin: 0; }
+.session-facts dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
+.session-facts dd { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-cell); color: var(--color-heading); }
+.changed-files { display: flex; flex-direction: column; gap: 2px; }
+.session-state { margin: 0; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-secondary); }
+.session-state[data-state='waiting'] { color: var(--color-amber); }
+.session-state[data-state='working'] { color: var(--color-accent); }
+.session-log { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; max-height: 65vh; overflow-y: auto; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-input); }
+.turn { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.turn-who { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
+.turn-user .turn-who { color: var(--color-accent); }
+.turn-text { margin: 0; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); color: var(--color-text); }
+.turn-tool { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: var(--space-2); font-family: var(--font-mono); font-size: var(--fs-note); }
+.turn-tool .live-tag[data-outcome='error'] { color: var(--color-red); }
+.message-box { display: flex; flex-direction: column; gap: var(--space-2); }
+.message-box textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+.new-session-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.new-session-form .check { display: flex; align-items: flex-start; gap: var(--space-2); min-height: 44px; font-size: var(--fs-cell); color: var(--color-secondary); }
+.new-session-form .check input { flex: none; margin-top: 2px; accent-color: var(--color-accent); }
+.new-session-form select { width: 100%; }
+.new-session-prompt textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+
+@media (max-width: 39.999rem) {
+  .prompt-card button, .app-sessions button:not(.link-button), .app-sessions .check { min-height: 44px; }
+  .session-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .session-facts dd { margin-bottom: var(--space-2); }
+  .session-log { max-height: 55vh; }
+  main button.live-open-app { min-height: 44px; padding: 0 var(--space-3); }
+}

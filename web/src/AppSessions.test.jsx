@@ -1,0 +1,500 @@
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import AppSessions, { NO_CLAUDE, OFF, POLL_MS, answerBody } from './AppSessions.jsx'
+import { readPrompt } from './PromptCard.jsx'
+import { agentRunOff, agentRunOn } from './test/fixtures.js'
+import { appServer, appSession, assistant, planPrompt, questionPrompt, tool, toolPrompt, user } from './test/appSessions.js'
+
+const install = (opts) => {
+  const server = appServer(opts)
+  vi.stubGlobal('fetch', server)
+  return server
+}
+beforeEach(() => {
+  window.location.hash = '#secret-token'
+  window.localStorage.clear()
+})
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+const open = async (props = {}) => {
+  render(<AppSessions {...props} />)
+  await screen.findByRole('heading', { name: 'App sessions' })
+  await waitFor(() => expect(screen.queryByText('Loading app sessions')).toBeNull())
+}
+const panel = () => screen.getByRole('region', { name: /^Session in / })
+const log = () => screen.getByRole('log', { name: 'Conversation' })
+
+describe('availability', () => {
+  it('says so, and offers nothing, when the server has no app session route (the Python server)', async () => {
+    install({ list: null })
+    await open()
+    expect(screen.getByText('App sessions are not available in this version of the app.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New session' })).toBeNull()
+  })
+
+  it('off until an agent run account is chosen: the reason, a link to Settings, and New session is off', async () => {
+    install({ agentRun: agentRunOff })
+    const onOpenSettings = vi.fn()
+    await open({ onOpenSettings })
+    expect(screen.getByText(OFF, { exact: false })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New session' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }))
+    expect(onOpenSettings).toHaveBeenCalled()
+  })
+
+  it('says when Claude Code is not found', async () => {
+    install({ agentRun: agentRunOn({ claude_found: false }) })
+    await open()
+    expect(screen.getByRole('alert')).toHaveTextContent(NO_CLAUDE)
+    expect(screen.getByRole('button', { name: 'New session' })).toBeDisabled()
+  })
+
+  it('with no session it says how to start one', async () => {
+    install()
+    await open()
+    expect(screen.getByText('No app sessions. Start one with New session.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New session' })).toBeEnabled()
+  })
+
+  it('a load failure is an alert', async () => {
+    vi.stubGlobal('fetch', async () => ({ ok: false, status: 500, json: async () => ({}) }))
+    render(<AppSessions />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load app sessions')
+  })
+
+  it('at the limit New session is off and says why', async () => {
+    install({ max: 2, sessions: [appSession({ id: 'a1' }), appSession({ id: 'a2' }), appSession({ id: 'a3', state: 'ended', reason: 'stopped' })] })
+    await open()
+    expect(screen.getByRole('button', { name: 'New session' })).toBeDisabled()
+    expect(screen.getByText('2 sessions are going; stop one first.')).toBeInTheDocument()
+  })
+})
+
+describe('the panel header (AC 4)', () => {
+  it('shows the session id, account, model, mode and folder', async () => {
+    install({ sessions: [appSession({ model: 'opus', mode: 'acceptEdits' })] })
+    await open()
+    const facts = within(panel())
+    for (const [name, value] of [['Session', 'sess-1111'], ['Account', 'Claude personal'], ['Model', 'opus'], ['Mode', 'acceptEdits'], ['Folder', '/work/company']])
+      expect(facts.getByText(name, { selector: 'dt' }).nextSibling).toHaveTextContent(value)
+    expect(facts.queryByText('Branch')).toBeNull() // not a worktree
+  })
+
+  it('before its first init the session id reads "starting", and no account reads as the default account', async () => {
+    install({ sessions: [appSession({ session_id: null, account: null })] })
+    await open()
+    expect(within(panel()).getByText('Session', { selector: 'dt' }).nextSibling).toHaveTextContent('starting')
+    expect(within(panel()).getByText('Account', { selector: 'dt' }).nextSibling).toHaveTextContent('Default Claude Code account')
+  })
+
+  it('a worktree shows its branch and the changed file names; none yet says so', async () => {
+    const files = ['src/a.rs', 'README.md']
+    install({ sessions: [appSession({ worktree: true, branch: 'easy/20261117-1210-ab12', changed_files: files, folder: '/data/worktrees/x' })] })
+    await open()
+    expect(within(panel()).getByText('Branch', { selector: 'dt' }).nextSibling).toHaveTextContent('easy/20261117-1210-ab12')
+    expect(within(panel()).getAllByRole('listitem').map((li) => li.textContent)).toEqual(expect.arrayContaining(files))
+  })
+
+  it('a worktree with no change shows "none yet"', async () => {
+    install({ sessions: [appSession({ worktree: true, branch: 'easy/b', changed_files: [] })] })
+    await open()
+    expect(within(panel()).getByText('Changed files', { selector: 'dt' }).nextSibling).toHaveTextContent('none yet')
+  })
+
+  it('the state word is a polite status; an ended session gives its reason', async () => {
+    install({ sessions: [appSession({ state: 'ended', reason: 'claude not found' })] })
+    await open()
+    expect(within(panel()).getByRole('status')).toHaveTextContent('Ended: claude not found')
+  })
+})
+
+describe('the conversation (AC 2)', () => {
+  it('shows the owner\'s messages, the assistant text and each tool call as its label with its outcome, all as text', async () => {
+    const hostile = '<img src=x onerror="window.__pwned=1"> **not bold**'
+    install({
+      sessions: [appSession({
+        state: 'working',
+        items: [user('/help'), assistant(hostile), tool('Bash', 'ls', 'running'), tool('mcp__github__list', { server: 'github', tool: 'list' }, 'ok'), tool(null, null, 'error')],
+      })],
+    })
+    await open()
+    expect(within(log()).getByText('/help')).toBeInTheDocument()
+    expect(within(log()).getByText(hostile)).toBeInTheDocument()
+    expect(log().querySelector('img')).toBeNull()
+    expect(window.__pwned).toBeUndefined()
+    expect(within(log()).getByText('Bash · ls').nextSibling).toHaveTextContent('running')
+    expect(within(log()).getByText('mcp__github__list · github · list').nextSibling).toHaveTextContent('ok')
+    expect(within(log()).getByText('a tool').nextSibling).toHaveTextContent('error')
+    expect(within(log()).getAllByText(/^(You|Claude)$/).map((e) => e.textContent)).toEqual(['You', 'Claude'])
+  })
+
+  it('an empty conversation says so', async () => {
+    install({ sessions: [appSession()] })
+    await open()
+    expect(within(log()).getByText('Nothing yet.')).toBeInTheDocument()
+  })
+
+  it('streams: a new item shows up on the next read without a click', async () => {
+    vi.useFakeTimers()
+    const server = install({ sessions: [appSession({ state: 'working', items: [user('hi')] })] })
+    render(<AppSessions />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(within(log()).queryByText('hello back')).toBeNull()
+    server.state.sessions = [appSession({ state: 'idle', items: [user('hi'), assistant('hello back')] })]
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS)
+    })
+    expect(within(log()).getByText('hello back')).toBeInTheDocument()
+    expect(within(panel()).getByRole('status')).toHaveTextContent('Waiting for your message')
+  })
+
+  it('a failed read keeps the last answer and says the app cannot be reached; the next good read clears it', async () => {
+    vi.useFakeTimers()
+    const server = install({ sessions: [appSession({ items: [assistant('still here')] })] })
+    render(<AppSessions />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    server.state.fail = true
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS)
+    })
+    expect(screen.getByText(/Cannot reach the app right now/)).toBeInTheDocument()
+    expect(within(log()).getByText('still here')).toBeInTheDocument()
+    server.state.fail = false
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS)
+    })
+    expect(screen.queryByText(/Cannot reach the app right now/)).toBeNull()
+  })
+})
+
+describe('the message box (AC 2)', () => {
+  const box = () => screen.getByLabelText('Message to Claude')
+
+  it('Enter sends the text as typed, once, and clears the box; the answer updates the conversation', async () => {
+    const server = install({
+      sessions: [appSession()],
+      routes: { 'POST /api/app-sessions/a1/message': (body) => appSession({ state: 'working', items: [user(body.text)] }) },
+    })
+    await open()
+    fireEvent.change(box(), { target: { value: '/help' } })
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    await waitFor(() => expect(box()).toHaveValue(''))
+    const posts = server.posts('/message')
+    expect(posts).toHaveLength(1)
+    expect(posts[0].body).toEqual({ text: '/help', confirmed: true })
+    expect(posts[0].url).toBe('/api/app-sessions/a1/message')
+    expect(await within(log()).findByText('/help')).toBeInTheDocument()
+  })
+
+  it('Shift+Enter is a new line, not a send; an empty box sends nothing', async () => {
+    const server = install({ sessions: [appSession()] })
+    await open()
+    fireEvent.change(box(), { target: { value: 'line one' } })
+    fireEvent.keyDown(box(), { key: 'Enter', shiftKey: true })
+    fireEvent.change(box(), { target: { value: '   ' } })
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+    expect(server.posts('/message')).toHaveLength(0)
+  })
+
+  it('Enter while an input method is composing does not send', async () => {
+    const server = install({ sessions: [appSession()] })
+    await open()
+    fireEvent.change(box(), { target: { value: 'ni' } })
+    fireEvent.keyDown(box(), { key: 'Enter', isComposing: true })
+    expect(server.posts('/message')).toHaveLength(0)
+  })
+
+  it('the Send button sends too', async () => {
+    const server = install({ sessions: [appSession()], routes: { 'POST /api/app-sessions/a1/message': () => appSession({ state: 'working' }) } })
+    await open()
+    fireEvent.change(box(), { target: { value: 'go on' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(server.posts('/message')).toHaveLength(1))
+  })
+
+  it('a refused message keeps the text and shows the server\'s words', async () => {
+    install({ sessions: [appSession()], routes: { 'POST /api/app-sessions/a1/message': () => ({ status: 409, body: { error: 'the session has ended' } }) } })
+    await open()
+    fireEvent.change(box(), { target: { value: 'still typing' } })
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(await screen.findByRole('alert')).toHaveTextContent('the session has ended')
+    expect(box()).toHaveValue('still typing')
+  })
+
+  it('an ended or stopping session takes no message', async () => {
+    install({ sessions: [appSession({ state: 'ended', reason: 'stopped' })] })
+    await open()
+    expect(box()).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+  })
+})
+
+describe('Interrupt, Stop and Close (AC 2)', () => {
+  it('Interrupt and Stop post confirmed: true and take the answer', async () => {
+    const server = install({
+      sessions: [appSession({ state: 'working' })],
+      routes: {
+        'POST /api/app-sessions/a1/interrupt': () => appSession({ state: 'idle' }),
+        'POST /api/app-sessions/a1/stop': () => appSession({ state: 'ended', reason: 'stopped' }),
+      },
+    })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Interrupt' }))
+    await waitFor(() => expect(within(panel()).getByRole('status')).toHaveTextContent('Waiting for your message'))
+    expect(server.posts('/interrupt')[0].body).toEqual({ confirmed: true })
+    expect(screen.getByRole('button', { name: 'Interrupt' })).toBeDisabled() // nothing to interrupt when idle
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    await waitFor(() => expect(within(panel()).getByRole('status')).toHaveTextContent('Ended: stopped'))
+    expect(server.posts('/stop')[0].body).toEqual({ confirmed: true })
+  })
+
+  it('both are off once the session has ended, and Close drops the panel', async () => {
+    const server = install({ sessions: [appSession({ state: 'ended', reason: 'stopped', items: [assistant('secret text')] })], routes: { 'POST /api/app-sessions/a1/close': () => ({ closed: true }) } })
+    await open()
+    expect(screen.getByRole('button', { name: 'Interrupt' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('log')).toBeNull())
+    expect(screen.queryByText('secret text')).toBeNull()
+    expect(server.posts('/close')[0].body).toEqual({ confirmed: true })
+  })
+
+  it('a refused stop shows the server\'s words', async () => {
+    install({ sessions: [appSession({ state: 'working' })], routes: { 'POST /api/app-sessions/a1/stop': () => ({ status: 404, body: { error: 'no such session' } }) } })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('no such session')
+  })
+
+  it('a session id is a path piece: it is encoded', async () => {
+    const server = install({ sessions: [appSession({ id: 'a/../1', state: 'working' })], routes: { 'POST /api/app-sessions/a%2F..%2F1/stop': () => appSession({ id: 'a/../1', state: 'ended' }) } })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    await waitFor(() => expect(server.posts('/stop')).toHaveLength(1))
+    expect(server.posts('/stop')[0].path).toBe('/api/app-sessions/a%2F..%2F1/stop')
+  })
+})
+
+describe('prompt cards (AC 3)', () => {
+  const answered = (server, routeId = 'a1') => server.calls.filter((c) => c.method === 'POST' && c.path === `/api/app-sessions/${routeId}/answer`)
+
+  it('Allow answers the prompt by id with behavior allow; the card stays until the server says answered', async () => {
+    let view = appSession({ state: 'waiting', items: [user('x'), toolPrompt()] })
+    const server = install({ sessions: [view], routes: { 'POST /api/app-sessions/a1/answer': () => view } })
+    await open()
+    expect(within(log()).getByText('ls -la')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Permission request from the session' })).toBeInTheDocument()
+    view = appSession({ state: 'working', items: [user('x'), toolPrompt({ status: 'answered' })] })
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: /Permission request/ })).toBeNull())
+    expect(answered(server)[0].body).toEqual({ behavior: 'allow', prompt_id: 'p1', confirmed: true })
+    expect(within(log()).getByText('Permission request · answered')).toBeInTheDocument()
+  })
+
+  it('the card stays when nothing answered it: a pending item is drawn on every read', async () => {
+    install({ sessions: [appSession({ state: 'waiting', items: [toolPrompt()] })] })
+    await open()
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeEnabled()
+    expect(within(panel()).getByRole('status')).toHaveTextContent('Waiting for you')
+  })
+
+  it('Deny sends the note', async () => {
+    const server = install({ sessions: [appSession({ state: 'waiting', items: [toolPrompt()] })], routes: { 'POST /api/app-sessions/a1/answer': () => appSession() } })
+    await open()
+    fireEvent.change(screen.getByLabelText(/Note to Claude/), { target: { value: 'use the tests instead' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Deny' }))
+    await waitFor(() => expect(answered(server)).toHaveLength(1))
+    expect(answered(server)[0].body).toEqual({ behavior: 'deny', message: 'use the tests instead', prompt_id: 'p1', confirmed: true })
+  })
+
+  it('a cut input (complete false) and a card of the earlier summary shape have no Allow', async () => {
+    install({ sessions: [appSession({ state: 'waiting', items: [toolPrompt({ complete: false, input: 'x'.repeat(30) }), toolPrompt({ prompt_id: 'p7', input: undefined, complete: undefined, summary: 'ls' })] })] })
+    await open()
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Deny' })).toHaveLength(2)
+  })
+
+  it('a question: one choice per option plus Other; the answers go keyed by the question text', async () => {
+    const server = install({ sessions: [appSession({ state: 'waiting', items: [questionPrompt()] })], routes: { 'POST /api/app-sessions/a1/answer': () => appSession() } })
+    await open()
+    fireEvent.click(screen.getByRole('radio', { name: /Blue/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send answer' }))
+    await waitFor(() => expect(answered(server)).toHaveLength(1))
+    expect(answered(server)[0].body).toEqual({ behavior: 'allow', updatedInput: { answers: { 'Which colour?': 'Blue' } }, prompt_id: 'p2', confirmed: true })
+  })
+
+  it('a question answered with Other sends the owner\'s own text', async () => {
+    const server = install({ sessions: [appSession({ state: 'waiting', items: [questionPrompt()] })], routes: { 'POST /api/app-sessions/a1/answer': () => appSession() } })
+    await open()
+    fireEvent.click(screen.getByRole('radio', { name: /Other/ }))
+    fireEvent.change(screen.getByLabelText('Your own answer to question 1'), { target: { value: 'Green' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send answer' }))
+    await waitFor(() => expect(answered(server)).toHaveLength(1))
+    expect(answered(server)[0].body.updatedInput).toEqual({ answers: { 'Which colour?': 'Green' } })
+  })
+
+  it('answerBody joins a multi-select by ", " and puts Other last', () => {
+    const prompt = readPrompt(questionPrompt({ questions: [{ question: 'Pick', header: '', multiSelect: true, options: [{ label: 'A', description: '' }, { label: 'B', description: '' }] }] }))
+    expect(answerBody(prompt, { answers: [{ selected: [0, 1], other: 'C' }] })).toEqual({ behavior: 'allow', updatedInput: { answers: { Pick: 'A, B, C' } } })
+  })
+
+  it('a plan: Approve allows, Keep planning denies with the note', async () => {
+    const server = install({ sessions: [appSession({ state: 'waiting', items: [planPrompt()] })], routes: { 'POST /api/app-sessions/a1/answer': () => appSession({ state: 'waiting', items: [planPrompt()] }) } })
+    await open()
+    expect(within(log()).getByText('1. do it')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    await waitFor(() => expect(answered(server)).toHaveLength(1))
+    expect(answered(server)[0].body).toEqual({ behavior: 'allow', prompt_id: 'p3', confirmed: true })
+    fireEvent.change(screen.getByLabelText(/Note to Claude/), { target: { value: 'smaller steps' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Keep planning' }))
+    await waitFor(() => expect(answered(server)).toHaveLength(2))
+    expect(answered(server)[1].body).toEqual({ behavior: 'deny', message: 'smaller steps', prompt_id: 'p3', confirmed: true })
+  })
+
+  it('a prompt answered elsewhere (409): the card stays with the server\'s words and is not drawn twice', async () => {
+    install({ sessions: [appSession({ state: 'waiting', items: [toolPrompt()] })], routes: { 'POST /api/app-sessions/a1/answer': () => ({ status: 409, body: { error: 'that prompt was answered or closed already' } }) } })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('that prompt was answered or closed already')
+    expect(screen.getAllByRole('region', { name: /Permission request/ })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeEnabled()
+  })
+
+  it('a double click sends one answer', async () => {
+    const server = install({ sessions: [appSession({ state: 'waiting', items: [toolPrompt()] })], routes: { 'POST /api/app-sessions/a1/answer': () => appSession() } })
+    await open()
+    const allow = screen.getByRole('button', { name: 'Allow' })
+    fireEvent.click(allow)
+    fireEvent.click(allow)
+    await waitFor(() => expect(answered(server)).toHaveLength(1))
+  })
+
+  it('a settled card is one line: answered, or closed when the turn ended', async () => {
+    install({ sessions: [appSession({ items: [toolPrompt({ status: 'cancelled' }), questionPrompt({ status: 'answered' }), planPrompt({ prompt_id: 'p4', status: 'answered' })] })] })
+    await open()
+    expect(within(log()).getByText('Permission request · closed (the turn or the session ended)')).toBeInTheDocument()
+    expect(within(log()).getByText('Question · answered')).toBeInTheDocument()
+    expect(within(log()).getByText('Plan · answered')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull()
+  })
+
+  it('a pending prompt the page cannot read is said, not hidden', async () => {
+    install({ sessions: [appSession({ state: 'waiting', items: [{ kind: 'prompt', status: 'pending', type: 'weird' }] })] })
+    await open()
+    expect(within(log()).getByText(/prompt this page cannot show is waiting/)).toBeInTheDocument()
+  })
+
+  it('a new prompt starts with a clean note; the old one\'s note does not carry over (keyed by prompt id)', async () => {
+    vi.useFakeTimers()
+    const server = install({ sessions: [appSession({ state: 'waiting', items: [toolPrompt()] })] })
+    render(<AppSessions />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    fireEvent.change(screen.getByLabelText(/Note to Claude/), { target: { value: 'typed for p1' } })
+    server.state.sessions = [appSession({ state: 'waiting', items: [toolPrompt({ status: 'answered' }), toolPrompt({ prompt_id: 'p5', input: 'pwd' })] })]
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS)
+    })
+    expect(within(log()).getByText('pwd')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Note to Claude/)).toHaveValue('')
+  })
+})
+
+describe('sessions list and starting one (AC 1)', () => {
+  it('several sessions are tabs; picking one shows its panel', async () => {
+    install({ sessions: [appSession({ id: 'a1', folder: '/work/one', items: [assistant('one text')] }), appSession({ id: 'a2', folder: '/work/two', state: 'working', items: [assistant('two text')] })] })
+    await open()
+    const tabs = within(screen.getByRole('navigation', { name: 'App sessions' }))
+    expect(tabs.getByRole('button', { name: /one/ })).toHaveAttribute('aria-current', 'true')
+    fireEvent.click(tabs.getByRole('button', { name: /two/ }))
+    expect(within(log()).getByText('two text')).toBeInTheDocument()
+    expect(within(log()).queryByText('one text')).toBeNull()
+  })
+
+  it('New session -> form -> Review -> Start posts the form and selects the new session', async () => {
+    const fresh = appSession({ id: 'a7', folder: '/work/company', state: 'working', items: [user('fix it')] })
+    const server = install({
+      routes: {
+        'POST /api/app-sessions': (_body, state) => {
+          state.sessions = [fresh]
+          return { status: 202, body: { id: 'a7' } }
+        },
+      },
+    })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }))
+    expect(screen.getByRole('heading', { name: 'New session' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('First prompt'), { target: { value: 'fix it' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await screen.findByRole('log', { name: 'Conversation' })
+    expect(await within(log()).findByText('fix it')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'New session' })).toBeNull()
+    expect(server.posts('/api/app-sessions')[0].body).toMatchObject({ repo: '/work/company', workspace: 'company', account: '2', confirmed: true })
+  })
+
+  it('opened for a workspace (the Workspaces page) the form starts there, and the wish is used once', async () => {
+    install()
+    const used = vi.fn()
+    await open({ target: { newFor: 'home' }, onTargetUsed: used })
+    expect(screen.getByLabelText('Repo')).toHaveDisplayValue('/home/o/notes')
+    expect(used).toHaveBeenCalledTimes(1)
+  })
+
+  it('opened for a session (the Live view) that session is the one shown', async () => {
+    install({ sessions: [appSession({ id: 'a1', folder: '/work/one' }), appSession({ id: 'a2', folder: '/work/two', items: [assistant('the second')] })] })
+    await open({ target: { open: 'a2' } })
+    expect(within(log()).getByText('the second')).toBeInTheDocument()
+  })
+})
+
+describe('what the page never does (AC 5, FR-115, FR-116)', () => {
+  it('no URL it builds carries the token; the token is only in the header', async () => {
+    const server = install({
+      sessions: [appSession({ state: 'waiting', items: [toolPrompt()] })],
+      routes: { 'POST /api/app-sessions/a1/answer': () => appSession(), 'POST /api/app-sessions/a1/message': () => appSession(), 'POST /api/app-sessions/a1/stop': () => appSession() },
+    })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }))
+    await waitFor(() => expect(server.posts('/answer')).toHaveLength(1))
+    fireEvent.change(screen.getByLabelText('Message to Claude'), { target: { value: 'hi' } })
+    fireEvent.keyDown(screen.getByLabelText('Message to Claude'), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    await waitFor(() => expect(server.posts('/stop')).toHaveLength(1))
+    expect(server.calls.length).toBeGreaterThan(5)
+    for (const call of server.calls) {
+      expect(call.url).not.toMatch(/token|secret/i)
+      if (call.path.startsWith('/api/app-sessions')) expect(call.url).not.toContain('?')
+      expect(call.init.headers['X-Dashboard-Token']).toBe('secret-token')
+    }
+    expect(server.calls.filter((c) => c.method === 'POST').every((c) => c.body.confirmed === true)).toBe(true)
+  })
+
+  it('writes no text to localStorage', async () => {
+    const set = vi.spyOn(Storage.prototype, 'setItem')
+    install({ sessions: [appSession({ items: [assistant('kept in memory only')] })], routes: { 'POST /api/app-sessions/a1/message': () => appSession() } })
+    await open()
+    fireEvent.change(screen.getByLabelText('Message to Claude'), { target: { value: 'private words' } })
+    fireEvent.keyDown(screen.getByLabelText('Message to Claude'), { key: 'Enter' })
+    await waitFor(() => expect(screen.getByLabelText('Message to Claude')).toHaveValue(''))
+    expect(set).not.toHaveBeenCalled()
+    expect(window.localStorage.length).toBe(0)
+    set.mockRestore()
+  })
+
+  it('the page names no program and no free argument: every write holds only the documented fields', async () => {
+    const server = install({ sessions: [appSession({ state: 'working' })], routes: { 'POST /api/app-sessions/a1/interrupt': () => appSession() } })
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Interrupt' }))
+    await waitFor(() => expect(server.posts('/interrupt')).toHaveLength(1))
+    expect(Object.keys(server.posts('/interrupt')[0].body)).toEqual(['confirmed'])
+  })
+})
