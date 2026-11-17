@@ -529,13 +529,16 @@ main .board-column { padding: var(--space-3); border: 1px solid var(--color-bord
 .board-kind { text-transform: lowercase; }
 main .board-toggle { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 
-/* Workflow view (T108, FR-118): the chosen flow is one horizontal line; only the line scrolls, never the page. Layout only, existing tokens */
-main.workflow { min-width: 0; }
-.workflow-line { display: flex; flex-direction: row; align-items: stretch; gap: var(--space-3); max-width: 100%; overflow-x: auto; padding-bottom: var(--space-2); }
-.workflow-line > li { flex: 0 0 auto; min-width: 0; }
-.workflow-step-item { width: 16rem; }
-.workflow-link { align-self: center; color: var(--color-muted); font-family: var(--font-mono); }
-.workflow-gate, .workflow-board { align-self: center; max-width: 11rem; padding-left: var(--space-3); border-left: 2px solid var(--color-accent-line); font-size: var(--fs-note); overflow-wrap: anywhere; }
+/* Workflow view (T108, FR-118): the chosen flow is one horizontal line. Steps share the column width; each gate and board count sits under the step it follows, its accent edge on the boundary to the next step. Only the strip scrolls, when the column is narrower than the steps' minimum. Layout only, existing tokens */
+main.workflow { min-width: 0; max-width: none; }
+.workflow-line { display: flex; flex-direction: row; align-items: flex-start; gap: var(--space-3); max-width: 100%; overflow-x: auto; padding-bottom: var(--space-2); }
+.workflow-step-item { position: relative; flex: 1 1 0; min-width: 6.5rem; display: flex; flex-direction: column; gap: var(--space-2); }
+.workflow-step-item:not(:last-child)::after { content: '→'; position: absolute; top: var(--space-3); right: calc(-1 * var(--space-3)); width: var(--space-3); text-align: center; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--fs-label); }
+.workflow-step .feed-icon { display: none; }
+.workflow-step .feed-head { padding: var(--space-2); }
+.workflow-step .feed-body { padding: var(--space-2); }
+.workflow-step .chip { padding: 0 var(--space-1); }
+.workflow-gate, .workflow-board { margin: 0; padding-right: var(--space-2); border-right: 2px solid var(--color-accent-line); text-align: right; font-size: var(--fs-label); overflow-wrap: break-word; }
 .workflow-gate { font-family: var(--font-mono); color: var(--color-secondary); }
 .workflow-unknown { max-width: 24rem; }
 .workflow-parts { margin: 0 0 var(--space-2); }

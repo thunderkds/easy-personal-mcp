@@ -231,9 +231,10 @@ describe('gates (AC7)', () => {
     await screen.findByText('Stage 3 · Execute')
     const gates = [...document.querySelectorAll('.workflow-gate')].map((g) => g.textContent)
     expect(gates).toEqual(KIT.gates.map((g) => expect.stringContaining(g.text)))
-    expect(stepArticle('Stage 2 · Plan').closest('li').nextElementSibling.nextElementSibling).toHaveTextContent('No TASK_GUIDE, no Stage 3')
-    expect(stepArticle('Stage 3 · Execute').closest('li').previousElementSibling).toHaveTextContent('No TASK_GUIDE, no Stage 3')
-    expect(stepArticle('Stage 5 · Integrate').closest('li').nextElementSibling.nextElementSibling).toHaveTextContent('Verify passes before merge')
+    // each gate sits in the column of the step it follows (its edge is the boundary to the next step); the last one after Stage 5
+    expect(stepArticle('Stage 2 · Plan').closest('li')).toHaveTextContent('No TASK_GUIDE, no Stage 3')
+    expect(stepArticle('Stage 3 · Execute').closest('li')).not.toHaveTextContent('No TASK_GUIDE, no Stage 3')
+    expect(stepArticle('Stage 5 · Integrate').closest('li')).toHaveTextContent('Verify passes before merge')
     expect(document.querySelectorAll('.workflow-gate [title], .workflow-gate[title]')).toHaveLength(0)
   })
 
@@ -401,11 +402,10 @@ describe('the board layer (AC6)', () => {
     expect(screen.getByText('1 done')).toBeInTheDocument()
     expect(screen.queryByText(/blocked|closed/i)).toBeNull() // other statuses are not counted
     expect(f.calls.some((c) => c.url === '/api/board?workspace=personal')).toBe(true)
-    const items = [...line().children].map((li) => li.textContent)
-    const at = (needle) => items.findIndex((t) => t.includes(needle))
-    expect(at('2 waiting for Stage 3')).toBeLessThan(at('Stage 3 · Execute'))
-    expect(at('2 waiting for Stage 3')).toBeGreaterThan(at('Stage 2 · Plan'))
-    expect(at('1 done')).toBeGreaterThan(at('Stage 5 · Integrate'))
+    // "waiting" closes the column just before Stage 3, "done" the last column
+    expect(stepArticle('Stage 2 · Plan').closest('li')).toHaveTextContent('2 waiting for Stage 3')
+    expect(stepArticle('Stage 5 · Integrate').closest('li')).toHaveTextContent('1 done')
+    expect([...line().children]).toHaveLength(6) // no extra item on the line: the counts sit in the step columns
   })
 
   it('shows no board count on another flow', async () => {

@@ -1,4 +1,4 @@
-import { Fragment, useContext, useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { getJson } from './api.js'
 import FeedCard from './FeedCard.jsx'
 import { LiveContext } from './LiveView.jsx'
@@ -161,35 +161,28 @@ function Line({ flow, placed, agents, board }) {
   const steps = [...stepsOf(flow), ...(flow.id === KIT ? extraSteps(flow, placed) : [])]
   const gates = list(flow.gates)
   const unplaced = gates.filter((g) => !steps.some((s) => s.id === g.after))
-  const waitBefore = steps.some((s) => s.id === STAGE_3) ? STAGE_3 : steps[0]?.id
   const showBoard = board && flow.id === KIT
-  const gateMarker = (g) => (
-    <li key={`${g.after}-${g.text}`} className="workflow-gate">{`Gate · ${g.text}`}</li>
+  // The board's "waiting" count sits just before Stage 3: at the foot of the column before it (the first column when there is none).
+  const waitAt = Math.max(0, steps.findIndex((s) => s.id === STAGE_3) - 1)
+  const marker = (g) => (
+    <p key={`${g.after}-${g.text}`} className="workflow-gate">{`Gate · ${g.text}`}</p>
   )
   return (
     <ol className="workflow-line" aria-label="Steps">
       {steps.map((step, i) => {
         const mine = placed.filter((p) => p.flow.id === flow.id && p.step?.id === step.id).map((p) => p.session).sort(bySession)
         const boardText = !showBoard ? null : step.id === STAGE_3 ? `In Progress ${board.progress}` : step.id === STAGE_4 ? `Ready for Review ${board.review} · Stage 4–5` : null
-        const after = gates.filter((g) => g.after === step.id)
         const last = i === steps.length - 1
         return (
-          <Fragment key={step.id}>
-            {showBoard && step.id === waitBefore && <li className="workflow-board count">{`${board.todo} waiting for Stage 3`}</li>}
-            <li className="workflow-step-item">
-              <Step flowId={flow.id} step={step} sessions={mine} agents={agents} boardText={boardText} />
-            </li>
-            {(!last || after.length > 0) && (
-              <li className="workflow-link" aria-hidden="true">
-                →
-              </li>
-            )}
-            {after.map(gateMarker)}
-          </Fragment>
+          <li key={step.id} className="workflow-step-item">
+            <Step flowId={flow.id} step={step} sessions={mine} agents={agents} boardText={boardText} />
+            {gates.filter((g) => g.after === step.id).map(marker)}
+            {showBoard && i === waitAt && <p className="workflow-board count">{`${board.todo} waiting for Stage 3`}</p>}
+            {last && unplaced.map(marker)}
+            {showBoard && last && <p className="workflow-board count">{`${board.done} done`}</p>}
+          </li>
         )
       })}
-      {unplaced.map(gateMarker)}
-      {showBoard && <li className="workflow-board count">{`${board.done} done`}</li>}
     </ol>
   )
 }
