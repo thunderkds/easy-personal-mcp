@@ -48,9 +48,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass (AC 1-5, 7; AC 6, 8 are the Supervisor's at Stage 5) | `rust/crates/app/src/window.rs` `mod tests` (AC 1, 2: `only_a_plain_window_run_wants_a_tray`, `the_tray_runs_this_exe_with_the_same_folder`, `a_failed_tray_start_is_one_line_and_app_opens_its_own_window`, `the_tray_child_has_its_own_group_and_null_stdio`); `rust/crates/app/src/tray.rs` `mod tests` (AC 3, 4: `write_pid_leaves_the_pid_and_keeps_the_lock`, `read_pid_gives_none_without_a_number_and_waits_for_one`, `only_an_easy_personal_tray_passes_the_cmdline_check`, `a_gone_pid_and_this_test_process_are_not_trays`, `hand_over_signals_only_a_pid_that_is_a_tray`); `rust/crates/app/tests/tray_show.rs` (AC 5: `a_pid_that_is_not_a_tray_gets_no_signal`, `a_lock_with_no_pid_is_exit_1_after_the_wait`, `without_show_a_held_lock_is_unchanged`, plus `a_running_tray_gets_sigusr1_and_the_ask_exits_0` with a shell named `easy-personal-rs tray` as a stand-in); `rust/crates/app/tests/app.rs` (AC 7: `app --help` lists `--no-tray`, `tray --help` lists `--show`) |
+| Verification command run | ☑ pass | 2026-11-17, in the T101 worktree, `cd rust`: `cargo fmt --check` exit 0; `cargo clippy --workspace --all-targets --features window -- -D warnings` and without the feature: `Finished` with no warning; `cargo test --workspace` (default): 96 targets, 1104 passed, 0 failed; `cargo test --workspace --features window --no-fail-fast`: 96 targets, first run 1108 passed, 6 failed = 5 in `tests/app.rs` (see Negative cases) + `ingest_coexist::a_killed_rust_ingest_leaves_whole_files_and_a_rust_rerun_equals_a_clean_run` (`precreate_store` `NotFound` under load; alone: `test result: ok. 1 passed`, 93 s); after the `tests/app.rs` fix `--test app` is `test result: ok. 8 passed; 0 failed`. App unit tests: `test result: ok. 256 passed; 0 failed` (both builds). `tests/tray_show.rs` `--features window`: `test result: ok. 4 passed; 0 failed`. Leak gate `env -u CLAUDE_CONFIG_DIR <main>/rust/parity/.venv/bin/python parity/leak_rust.py` from `rust/`: `leak check: 0 hits over 42 canaries, 866 surfaces, 2037147 bytes` |
+| Negative cases hold | ☑ pass | RED before the helpers existed (`cargo test -p easy-personal-rs --bin easy-personal-rs tray::tests`): `error[E0425]: cannot find function` `write_pid` x2, `read_pid` x5, `cmdline_is_tray` x1, `is_tray` x4, `hand_over_to` x4, `error[E0433]` `Duration`/`Instant`; `window::tests`: `cannot find function own_window_line` x2, so `the_tray_runs_this_exe_with_the_same_folder` (now expects `--show`) was red too. GREEN after: the 5 tray tests and 4 window tests pass. No signal sent: `a_pid_that_is_not_a_tray_gets_no_signal` keeps a `sleep 30` alive (a `SIGUSR1` would end it) and `hand_over_signals_only_a_pid_that_is_a_tray` records no pid. Pre-existing, found on the window build: 5 `tests/app.rs` cases called `app` without `--no-ingest`, so `main.rs`'s start-up ingest (T051, unchanged here) printed its progress line first and `one_line` / the exit code failed (`assertion left == right failed: ingesting before start (waits if another ingest runs)... left: 2 right: 1`); fixed by adding `--no-ingest` to those 6 invocations |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -68,10 +68,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-17T08:02:46Z on branch T101 at commit 87f0675, before any implementation commit; default-feature build; no tray was started or killed):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```
+2026-11-17T08:02:46Z
+$ grep -n -i tray crates/app/src/window.rs  (lines 146-260: fn run, start, open)
+31:    /// engine when `alerts`): what `app` and `tray` both run before any Tauri code. With `clicks` (the `tray` only) a
+(exit 0 : no spawn of a tray in run/start/open; only a doc comment on line 176 of start)
+$ easy-personal-rs app --help
+Open the dashboard in a window (needs a build with `--features window` and a display)
+
+Usage: easy-personal-rs app [OPTIONS] --static-dir <DIR>
+
+Options:
+      --static-dir <DIR>  Serve the built dashboard's files from this folder, from the same origin as the API
+      --no-ingest         Do not ingest before the start (default: ingest first)
+      --alerts            Raise desktop alerts (a session waiting or failing, a plan limit, disk, RAM or battery) over the session D-Bus; they are listed at `GET /api/alerts`
+  -h, --help              Print help
+```
+
+**AFTER** (code and unit/integration level; AC 6 and 8 on the owner's display are the Supervisor's Stage 5): `app --help` (default build, 2026-11-17) now lists `--no-tray  Open this process's own window and start no tray (by default \`app\` starts the tray, which owns the one dashboard window, and exits)`; `tray --help` lists `--show  Show the dashboard window: open it at start, or when a tray already runs ask that tray to show its window and exit`. `tests/tray_show.rs` (no display, temp `XDG_RUNTIME_DIR`): a held lock whose pid is a stand-in `easy-personal-rs tray` receives `SIGUSR1` and `tray --show` exits 0 with no output; a pid that is not a tray, or no pid, is exit 1 with one stderr line and no signal.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

@@ -61,6 +61,7 @@ impl App {
         let mut child = Command::new(env!("CARGO_BIN_EXE_easy-personal-rs"))
             .arg("app")
             .arg("--no-ingest")
+            .arg("--no-tray")
             .args(args)
             .arg("--static-dir")
             .arg(page)

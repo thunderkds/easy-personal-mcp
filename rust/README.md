@@ -197,6 +197,8 @@ talks D-Bus in pure Rust). `cargo build
 running it needs `libwebkit2gtk-4.1-0` and `libgtk-3-0t64`. A feature build links those libraries dynamically, so it needs them
 installed even for `serve` and `mcp` (GTK is never started for those, and they need no display).
 
+Opening the app (T101: a plain `app --static-dir <DIR>`) opens no window of its own: it starts `<this exe> tray --static-dir <DIR> --show` as a detached process and exits 0, and the tray owns the one dashboard window. `tray --show` opens the window at start, or, when a tray already runs, asks it to show its window (the running tray writes its pid into its lock file and shows the window on `SIGUSR1`) and exits 0, or 1 with one line if that fails. So the launcher, the tray menu and a popup click land in one window; closing it leaves the tray running. `--self-test` and `--no-tray` keep an own window and start no tray; a tray that cannot start is one stderr line, `easy-personal-rs: tray not started: <reason>`, and `app` then opens its own window. After upgrading from an older version, quit the old tray once (it writes no pid, so it cannot be asked).
+
 `app --static-dir <DIR>` (the flag is required) checks `<DIR>` as `serve` does, then checks for a display, then starts the
 `serve` server in the same process and opens one window titled `easy-personal` (1280x800, resizable) on
 `http://127.0.0.1:<port>/#<token>`. The token travels only in the fragment: never a query, an argument, stdout or a log line. stdout
