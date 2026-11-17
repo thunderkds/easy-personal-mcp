@@ -97,6 +97,14 @@ $ cd web && npx vitest run src/WorkflowView.test.jsx 2>&1 | tail -4
 ```
 (The old view reads `map.stages`, the new route sends `flows`; `placeSession` is not exported yet.)
 
+**Redo 2 BEFORE (web)** (step B, frontend redo 2; `date -u` 2026-11-17T15:44:33Z, worktree `T108` at `63571cf`, no redo 2 implementation commit yet; the new `WorkflowView.test.jsx` (nodes only, `workingAgents`, `takenText`, the panel) and the App test (no board read) were written first and run against the redo-1 view):
+```
+$ cd web && npx vitest run src/WorkflowView.test.jsx src/App.test.jsx 2>&1 | grep -aE "Test Files|Tests  "
+ Test Files  2 failed (2)
+      Tests  31 failed | 84 passed (115)
+```
+(`workingAgents` and `takenText` are not exported yet; the line still draws parts, agent lists and chips and the page still reads `/api/board`.)
+
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
