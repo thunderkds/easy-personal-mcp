@@ -22,6 +22,7 @@ Mode: auto
 Checks: tests (second agent, 2026-11-17, commit `2c066cb`) `cargo test --workspace --no-fail-fast` — 93 targets, 1064 passed, 1 failed: `connector_cli_parity every_connector_and_doctor_step_equals_the_python_cli` (the installed `.deb` puts `easy-personal-launch` on `PATH`; fixed by T097, not merged yet); the guide's command — `90 passed; 0 failed`; leak gate — `leak check: 0 hits over 42 canaries, 843 surfaces, 2015853 bytes`, exit 0; `cargo fmt --check` and both clippy runs clean (first agent); reviews code-review — 0 P0, 1 P1 open (the T097 collision), security-review — no finding; real run (first agent, temp home, four planted sessions): four session rows in the tray menu, the *your turn* popup about 60 s later, a row click (a dbusmenu `Event`) opens the Live view on that session, a second one navigates the open window (auto-checked, not /verify). No mouse click by a person on a row or a popup
 Memory: nothing new
 Not done: merge (yours, after T097 and the fix round); auto verify: not started (it runs after the fix round, so it is not run twice); the fix round for the T097 collision; a mouse click by the owner on a tray row and on a popup (AC 12); `html-report` pages and the companion score not made
+Paused: auto-mode check failed — Risk Medium: decision 6 (`SAFER OPTION`) is a choice — it is flagged ⚠ — so it must be `DEBATED` with exactly 2 Advocates named [report 49e784a4f509]
 
 ## Evidence
 
