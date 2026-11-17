@@ -1224,9 +1224,9 @@ async fn paused_through_the_route_stops_the_popup_but_the_list_still_has_the_ale
 
 // ---- GET /api/kit/workflow (T108, FR-117) -----------------------------------------------------------------------------
 
-/// T108 AC 1: the kit's fixed pipeline, guarded like the other `/api/kit*` routes, read-only, and no store is opened.
+/// T108 AC 1: the two built-in flows, guarded like the other `/api/kit*` routes, read-only, and no store is opened.
 #[tokio::test]
-async fn kit_workflow_is_the_fixed_pipeline_guarded_read_only_and_reads_no_store() {
+async fn kit_workflow_is_the_built_in_flows_guarded_read_only_and_reads_no_store() {
     let calls = Arc::new(AtomicUsize::new(0));
     let counted = calls.clone();
     let app = router(
@@ -1248,23 +1248,55 @@ async fn kit_workflow_is_the_fixed_pipeline_guarded_read_only_and_reads_no_store
     assert_eq!(status, 200, "{body}");
     assert_eq!(
         body.as_object().unwrap().keys().collect::<Vec<_>>(),
-        ["gates", "stages"]
+        ["flows", "projects"]
     );
-    let stages = body["stages"].as_array().unwrap();
-    let ids: Vec<_> = stages.iter().map(|s| s["id"].as_str().unwrap()).collect();
-    assert_eq!(ids, ["0.5", "1", "1.5", "2", "3", "4", "5"]);
-    assert_eq!(stages[0]["name"], "Stage 0 · Define");
-    assert_eq!(stages[0]["skills"], json!(["brainstorming", "ideate"]));
-    assert_eq!(stages[0]["agents"], json!(["Supervisor"]));
+    assert_eq!(body["projects"], json!({}));
+    let flows = body["flows"].as_array().unwrap();
+    let ids: Vec<_> = flows.iter().map(|f| f["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["easy-kit", "plain"]);
+    for flow in flows {
+        assert_eq!(
+            flow.as_object().unwrap().keys().collect::<Vec<_>>(),
+            ["gates", "id", "name", "steps"]
+        );
+        for step in flow["steps"].as_array().unwrap() {
+            assert_eq!(
+                step.as_object().unwrap().keys().collect::<Vec<_>>(),
+                ["agents", "id", "name", "parts", "signals"]
+            );
+            assert_eq!(
+                step["signals"]
+                    .as_object()
+                    .unwrap()
+                    .keys()
+                    .collect::<Vec<_>>(),
+                ["agents", "commands", "skills", "stages", "tools"]
+            );
+        }
+    }
+    let kit = &flows[0];
+    let steps = kit["steps"].as_array().unwrap();
+    let step_ids: Vec<_> = steps.iter().map(|s| s["id"].as_str().unwrap()).collect();
+    assert_eq!(step_ids, ["0", "1", "2", "3", "4", "5"]);
+    assert_eq!(steps[0]["name"], "Stage 0 · Define");
     assert_eq!(
-        stages[4]["agents"],
+        steps[0]["parts"],
+        json!(["Requirements", "Grilling", "Direction"])
+    );
+    assert_eq!(steps[0]["signals"]["stages"], json!(["0.5"]));
+    assert_eq!(
+        steps[0]["signals"]["skills"],
+        json!(["brainstorming", "ideate"])
+    );
+    assert_eq!(
+        steps[3]["agents"],
         json!([
             "common-infrastructure",
             "backend-developer",
             "frontend-developer"
         ])
     );
-    let gates = body["gates"].as_array().unwrap();
+    let gates = kit["gates"].as_array().unwrap();
     assert_eq!(
         gates[0],
         json!({"after": "2", "before": "3", "text": "No TASK_GUIDE, no Stage 3"})
@@ -1274,6 +1306,10 @@ async fn kit_workflow_is_the_fixed_pipeline_guarded_read_only_and_reads_no_store
         gates[3]["before"].is_null(),
         "the last gate has nothing after it"
     );
+    let plain = &flows[1];
+    assert_eq!(plain["name"], "Plain prompts (no kit)");
+    assert_eq!(plain["steps"][3]["signals"]["commands"][0], "cargo");
+    assert_eq!(plain["gates"], json!([]));
 
     for method in ["POST", "PUT", "PATCH", "DELETE"] {
         let request = Request::builder()

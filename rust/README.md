@@ -99,8 +99,10 @@ decoded like Starlette (`%XX`, `+` is a space, the last value of a repeated key 
   `account` as the usage routes do (same 400 texts); `/api/kit/workspaces` takes `since`, `until` and `account` (a `workspace` is ignored, as in Python);
   `/api/kit/reports` takes no parameter. A `since` or `until` that is not a date is `400` with an `error` key (the text is CPython's, ours says the
   same for the same inputs). `/api/kit/report-files` and `/api/kit/report-file` are T045 (below, "Report files"). Writes are 405.
-- `GET /api/kit/workflow` -> `{"stages": [{id, name, skills, agents}], "gates": [{after, before, text}]}` (T108, Rust only, no Python route: the kit's fixed
-  Stage 0-5 pipeline, a constant table in `core/src/workflow.rs` that `live::stage_of` (FR-083) reads too; no store, file or network read; takes no parameter).
+- `GET /api/kit/workflow` -> `{"flows": [{id, name, steps: [{id, name, parts, agents, signals: {stages, skills, agents, tools, commands}}], gates: [{after, before, text}]}], "projects": {}}`
+  (T108, FR-117, Rust only, no Python route: two built-in flows, `easy-kit` (the kit's Stage 0-5 pipeline) and `plain` (no kit: Understand, Plan, Change, Check,
+  Ship), a constant table in `core/src/workflow.rs` whose stage map `live::stage_of` (FR-083) reads too; `signals` say what puts a session on a step; no store,
+  file or network read; takes no parameter).
 - `GET /api/reports` -> `{"reports": [...]}` (T040: the newest 50 saved investigate reports, newest first; each `{id, saved_utc, workspace, account,
   fired_count, summary_first_line}`), `GET /api/reports/{id}` -> one report (`{id, saved_utc, server_version, workspace, account, summary, fixes,
   as_of_utc, now_as_of_utc, rules: [{rule_id, title, before, now}]}`: `before` is the saved snapshot, `now` is each rule measured on this request for the

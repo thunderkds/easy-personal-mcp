@@ -431,7 +431,7 @@ async fn kit_reports(State(api): State<Api>, uri: Uri) -> Response {
     .await
 }
 
-/// `GET /api/kit/workflow` (T108, FR-117): the kit's fixed pipeline; static, so no store is opened.
+/// `GET /api/kit/workflow` (T108, FR-117): the built-in flows (easy-kit, plain); static, so no store is opened.
 async fn kit_workflow() -> Response {
     respond(StatusCode::OK, &easy_personal_core::workflow::json())
 }
