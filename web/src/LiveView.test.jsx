@@ -1127,11 +1127,11 @@ describe('kit stage chip and call labels (FR-084)', () => {
     expect(note).toMatch(/never other message or tool content/)
   })
 
-  it('T095 AC6: the footnote names the one text it shows, the question a waiting session asks', () => {
+  it('T095 AC6, T107 AC3: the footnote names the texts it shows: the question a waiting session asks, and the prompt of a terminal session you can answer', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     expect(screen.getByText(/tokens times the API price table/).textContent).toContain(
-      'Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; never other message or tool content.',
+      'Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question\'s header and options, and a permission\'s tool name and one line (the command or the path); never other message or tool content.',
     )
   })
 

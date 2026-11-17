@@ -49,3 +49,17 @@ export const setAgentRunAccount = (id) =>
 /** Start the one job for the workspace (none = all). Answers the state, running. */
 export const startAgentRun = (workspace) => sendJson('POST', '/api/agent-run', workspace ? { job: 'investigate', workspace } : { job: 'investigate' })
 export const stopAgentRun = () => sendJson('POST', '/api/agent-run/stop', {})
+
+/** Answer bridge (FR-113). The accounts with their bridge state and the exact entry text, or null when the server has no such route (404: the Python server). */
+export const getHooks = () =>
+  getJson('/api/hooks').catch((error) => {
+    if (error.status === 404) return null
+    throw error
+  })
+/** Turn the bridge on or off for one account (the caller has shown the entries and been confirmed). Answers that account's row. */
+export const setHooks = (account, on) => sendJson('PUT', '/api/hooks', { account: String(account), on, confirmed: true })
+
+/** Answer a prompt of a terminal session (FR-114): `fields` is `{answers: [{selected, other}]}` for a question or `{decision, message}` for a permission. */
+export const answerPrompt = (id, fields) => sendJson('POST', '/api/answer', { ...fields, id, confirmed: true })
+/** Hand a prompt back to the terminal. */
+export const releasePrompt = (id) => sendJson('POST', '/api/answer/release', { id, confirmed: true })
