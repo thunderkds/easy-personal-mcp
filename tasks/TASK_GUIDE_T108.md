@@ -118,6 +118,7 @@ Redo on the `T108` branch (not merged; worktree `easy-personal-mcp-wt/T108`).
 - 2026-11-17 DEBATE where the stage/skill/agent map comes from → one table in the Rust core + `GET /api/kit/workflow` (Advocate 1: B; Advocate 2: B) ⚠ decided for you — please review
 - 2026-11-17 DEBATE where the view goes and with what design → a second `// kit` tab Workflow from existing `app.css` tokens (Advocate 1: A; Advocate 2: A) ⚠ decided for you — please review
 
+- 2026-11-17 DEBATE how the six-step line fits at 1280 px with token-sized chips → paused for the owner (Advocate 1: B hide the rail on Workflow; Advocate 2: C scroll inside the strip) ⚠ decided for you — please review
 - 2026-11-17 Owner redo: flows, horizontal line, no skills, latest kit names; own flows file + editor → T109 (PRD decision 44)
 
 ## Completion checklist
