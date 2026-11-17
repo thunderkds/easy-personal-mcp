@@ -4,6 +4,7 @@
 > new record directly under this note. The same block is the Supervisor's final chat message.
 
 ## T082 — Load-flaky web tests: 20 s test timeout, 10 s Testing Library wait · minimal
+Mode: auto
 **Asked:** "continue" (second supervisor session, `[admin]`; task offered by the other supervisor `rust-57`: "web/src/App.test.jsx 'opens on Usage and switches in-page between the views without changing the URL fragment' times out at 5 s under load ... same kind, test code only")
 **Decisions:**
 - Track minimal — C1, Risk Low: test configuration only (`web/vitest.config.js`, `web/src/test/setup.js`), no app code, no UI change
@@ -18,6 +19,7 @@
 - Real run: test-only change; the runs above are the run
 **Files:** `web/vitest.config.js`, `web/src/test/setup.js`, `tasks/MINIMAL_LOG.md`
 **Not done:** merge (the other supervisor / the owner decides); the board row (the other supervisor owns the board)
+**Memory:** nothing new — the "flake vs base under load" lesson is already in `memory/learnings.md` (Rust P3 wave 3 learnings). Lines `Mode: auto` and `Memory:` added 2026-11-16 by a later session; T082 itself was merged 2026-11-15 (`bea87cd`).
 
 ## T081 — Load-flaky `live_feed` panic test: wait for the third step, not a fixed 550 ms sleep · minimal
 **Asked:** "continue" (second supervisor session, `[admin]`; task agreed with the other supervisor `rust-57`: "take the live_feed `a_step_that_panics_is_skipped_and_the_thread_goes_on` load flake as a T079-style minimal fix (test code only, next free T-number, own branch)")
