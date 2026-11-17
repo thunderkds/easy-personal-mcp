@@ -343,7 +343,7 @@ describe('continue mode: Continue in app', () => {
   })
 
   it('a 409 for a folder that is still active shows the server\'s words and stays on Continue (the fix is to Fork from Live)', async () => {
-    const error = 'a session in this folder is still active in another window; resume it with Fork instead'
+    const error = 'a session in this folder is still active in another window; open it from the Live view and use Fork in app'
     server = appServer({ routes: { 'POST /api/app-sessions': () => ({ status: 409, body: { error } }) } })
     vi.stubGlobal('fetch', server)
     setup({ continueIn: where })

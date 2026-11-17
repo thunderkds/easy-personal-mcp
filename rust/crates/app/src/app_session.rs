@@ -484,6 +484,8 @@ pub(crate) struct Session {
     model: &'static str,
     mode: &'static str,
     worktree: bool,
+    /// The folder the plan was made for (a worktree's base repo, a resumed session's start folder).
+    repo: PathBuf,
     state: Mutex<State>,
     /// Apart from `state`: a write that blocks must not block a read of the state.
     stdin: Mutex<Option<ChildStdin>>,
@@ -510,6 +512,7 @@ impl Session {
             model: plan.model,
             mode: plan.mode,
             worktree: plan.worktree,
+            repo: plan.repo.clone(),
             state: Mutex::new(State {
                 phase: Phase::Working,
                 reason: None,
@@ -1060,6 +1063,15 @@ impl Sessions {
     /// True when a going app session runs the Claude session `claude_id` (a plain resume of it counts from its start).
     pub(crate) fn runs(&self, claude_id: &str) -> bool {
         lock(&self.list).iter().any(|s| s.goes_on_as(claude_id))
+    }
+
+    /// True when a going app session runs in `repo`: its folder, or the base repo of its worktree (T105: a `continue`
+    /// takes the newest conversation of the folder, which may be that one).
+    pub(crate) fn runs_in(&self, repo: &Path) -> bool {
+        lock(&self.list).iter().any(|s| {
+            let state = lock(&s.state);
+            state.phase != Phase::Ended && (s.repo == repo || state.cwd == repo)
+        })
     }
 
     /// Takes the session out of the list and drops its text, once it has ended (its panel is closed): `Err(true)` when

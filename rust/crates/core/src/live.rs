@@ -388,6 +388,8 @@ struct Usage {
 pub struct Item {
     session_id: String,
     project: Option<String>,
+    /// The resolved project folder the name in `project` is cut from (T105: the resume and continue checks match on it).
+    project_dir: Option<String>,
     ts: String,
     is_sidechain: bool,
     message_id: Option<String>,
@@ -464,12 +466,11 @@ fn item(record: &Value, p: &Event, project_of: &mut dyn FnMut(&str) -> String) -
         }),
         _ => None,
     };
+    let project_dir = p.project_path.as_deref().map(&mut *project_of);
     Some(Item {
         session_id,
-        project: p
-            .project_path
-            .as_deref()
-            .map(|cwd| project_name(&project_of(cwd))),
+        project: project_dir.as_deref().map(project_name),
+        project_dir,
         ts,
         is_sidechain: p.is_sidechain == Some(true),
         message_id: p.message_id.clone(),
@@ -879,6 +880,8 @@ struct Session {
     entrypoint: Option<String>,
     account: Option<String>,
     project: Option<String>,
+    /// The resolved project folder (the name in `project` is cut from it); never leaves the process except by [`LiveTail::session_origin`].
+    project_dir: Option<String>,
     last_ts: String,
     tool_calls: i64,
     messages: Ordered<Figures>,
@@ -1018,6 +1021,26 @@ impl LiveTail {
             .get(session_id)
             .map(|s| s.last_ts.clone())
             .filter(|ts| !ts.is_empty())
+    }
+
+    /// The transcript file of the session's main thread and its project folder, as the tail read them (T105: a resume of
+    /// a session the store has not ingested yet). `None`: the tail does not know the session or has no main-thread file.
+    pub fn session_origin(&self, session_id: &str) -> Option<(String, Option<String>)> {
+        let session = self.sessions.get(session_id)?;
+        let (path, _) = session.streams.iter().find(|(_, s)| !s.sub_agent)?;
+        Some((path.clone(), session.project_dir.clone()))
+    }
+
+    /// The newest record time over the sessions whose project folder is `project_dir` (T105: the continue check; the
+    /// store lags the tail by one ingest).
+    pub fn last_record_in(&self, project_dir: &str) -> Option<String> {
+        self.sessions
+            .values()
+            .filter(|s| s.project_dir.as_deref() == Some(project_dir))
+            .map(|s| s.last_ts.as_str())
+            .filter(|ts| !ts.is_empty())
+            .max()
+            .map(str::to_owned)
     }
 
     /// Active sessions with running totals and the `last_id` they include. A session with an open call is listed
@@ -1308,6 +1331,7 @@ impl LiveTail {
                 entrypoint: None,
                 account: account.map(str::to_owned),
                 project: None,
+                project_dir: None,
                 last_ts: String::new(),
                 tool_calls: 0,
                 messages: Ordered::default(),
@@ -1322,6 +1346,7 @@ impl LiveTail {
             }
             if item.project.as_deref().is_some_and(|p| !p.is_empty()) {
                 session.project = item.project.clone();
+                session.project_dir = item.project_dir.clone();
             }
             if item.entrypoint.is_some() {
                 session.entrypoint = item.entrypoint.clone();

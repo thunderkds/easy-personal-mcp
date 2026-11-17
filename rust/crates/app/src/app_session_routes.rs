@@ -29,6 +29,7 @@ use axum::http::header::{ALLOW, AUTHORIZATION, CONTENT_TYPE, HOST};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use axum::routing::{get, post};
+use easy_personal_core::ingest::folders::resolve_project;
 use easy_personal_core::live::is_recent;
 use easy_personal_core::memgraph::transcript_start_folder;
 use easy_personal_core::store::open_checked;
@@ -49,8 +50,7 @@ const FOLDER_GONE: &str = "the folder of this session no longer exists";
 const ACTIVE: &str = "this session is still active in another window; fork it instead";
 const RUNNING_HERE: &str = "this session is running in an app session; stop that one first";
 const BAD_ID: &str = "resume must be a session id: hex digits and - only, at most 64 characters";
-const ACTIVE_FOLDER: &str =
-    "a session in this folder is still active in another window; resume it with Fork instead";
+const ACTIVE_FOLDER: &str = "a session in this folder is still active in another window; open it from the Live view and use Fork in app";
 const MAX_PROMPT: usize = 100_000;
 const MAX_NOTE: usize = 10_000;
 /// The largest body of the permission tool's route.
@@ -310,11 +310,27 @@ fn resume_folder(api: &Api, dir: &FsPath, id: &ResumeId, fork: bool) -> Result<P
             },
         )
         .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
-    // The real start folder is the first `cwd` of the transcript (a git worktree or a subfolder stays itself); the
-    // stored project folder is the repo it belongs to, used when the transcript cannot be read.
-    let folder = transcript
+    // A session the store has not ingested yet (it fills at app start and by a daily timer) is known to the live tail,
+    // which reads the transcripts at every poll: its file and its project folder stand in for the stored ones.
+    let (tail_path, tail_folder) = match api.live_session_origin(id.as_str()) {
+        Some((path, folder)) => (Some(path), folder),
+        None => (None, None),
+    };
+    let stored_folder = stored_folder.or(tail_folder);
+    let transcript = transcript.or(tail_path);
+    // The real start folder is the first `cwd` of the transcript (a git worktree or a subfolder stays itself). It is
+    // used only when it belongs to the project folder (the same resolution ingest uses): a transcript is a file the
+    // owner's account can write, and its `cwd` must not move the run to a folder of another project. A folder that is
+    // gone resolves to itself and is left to the check below (400), as a worktree that was removed.
+    let start = transcript
         .and_then(|path| transcript_start_folder(&path))
-        .or(stored_folder);
+        .filter(|cwd| {
+            !FsPath::new(cwd).is_dir()
+                || stored_folder
+                    .as_deref()
+                    .is_some_and(|project| resolve_project(cwd, FsPath::new("")) == project)
+        });
+    let folder = start.or(stored_folder);
     let last = [stored_last, api.live_last_record(id.as_str())]
         .into_iter()
         .flatten()
@@ -335,19 +351,25 @@ fn resume_folder(api: &Api, dir: &FsPath, id: &ResumeId, fork: bool) -> Result<P
     Ok(path)
 }
 
-/// A `continue` is refused while any record of the repo's project is under two minutes old: `--continue` takes the
-/// newest conversation of the folder, which may be one that is open in another window (T105).
+/// A `continue` is refused when its folder may hold a conversation that is open elsewhere (T105): a record of the repo's
+/// project under two minutes old, in the store or in the live tail (which is ahead of the store by one ingest), or a
+/// going app session in the repo. `--continue` takes the newest conversation of the folder.
 fn repo_quiet(api: &Api, dir: &FsPath, repo: &str) -> Result<(), Response> {
     let conn = open_checked(&dir.join("store.sqlite"))
         .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
-    let last: Option<String> = conn
+    let stored: Option<String> = conn
         .query_row(
             "SELECT MAX(ts_utc) FROM events WHERE project_path = ?1",
             [repo],
             |r| r.get(0),
         )
         .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
-    if last.is_some_and(|ts| is_recent(&ts, api.now())) {
+    let busy = [stored, api.live_last_in_project(repo)]
+        .into_iter()
+        .flatten()
+        .any(|ts| is_recent(&ts, api.now()))
+        || api.agent.sessions.runs_in(FsPath::new(repo));
+    if busy {
         return Err(fail(StatusCode::CONFLICT, ACTIVE_FOLDER));
     }
     Ok(())
@@ -2040,6 +2062,102 @@ mod tests {
         fn started(&self) -> bool {
             self.fake.root.join("log/argv").exists()
         }
+
+        /// `git` in `folder`, with the owner's own configuration left out.
+        fn git(folder: &std::path::Path, args: &[&str]) {
+            assert!(
+                std::process::Command::new("git")
+                    .arg("-C")
+                    .arg(folder)
+                    .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                    .args(args)
+                    .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                    .status()
+                    .unwrap()
+                    .success(),
+                "git {args:?}"
+            );
+        }
+
+        /// `folder` as a git repo with one commit.
+        fn git_repo(folder: &std::path::Path) {
+            Self::git(folder, &["init", "-q"]);
+            Self::git(folder, &["commit", "-q", "--allow-empty", "-m", "i"]);
+        }
+
+        /// A transcript file of the Claude session `id` whose records say it started in `cwd`.
+        fn transcript(&self, name: &str, cwd: &std::path::Path) -> PathBuf {
+            let dir = self.fake.root.join("transcripts");
+            std::fs::create_dir_all(&dir).unwrap();
+            let file = dir.join(name);
+            std::fs::write(
+                &file,
+                format!(
+                    "{{\"type\":\"summary\"}}\n{{\"type\":\"user\",\"cwd\":{}}}\n",
+                    json!(cwd.display().to_string())
+                ),
+            )
+            .unwrap();
+            file
+        }
+
+        /// Points the stored events of `id` at the transcript `file`.
+        fn source(&self, id: &str, file: &std::path::Path) {
+            self._conn
+                .execute(
+                    "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                    rusqlite::params![file.display().to_string(), id],
+                )
+                .unwrap();
+        }
+    }
+
+    /// A live tail over a temp tree that a test writes transcripts into (`feed`).
+    struct Feed {
+        tail: crate::live_feed::SharedTail,
+        roots: Vec<easy_personal_core::live::Root>,
+        tree: PathBuf,
+    }
+
+    impl Feed {
+        fn new(tag: &str) -> Feed {
+            let tree = std::env::temp_dir().join(format!(
+                "easy-personal-rs-t105-{tag}-{}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&tree);
+            std::fs::create_dir_all(tree.join("p")).unwrap();
+            let mut tail = easy_personal_core::live::LiveTail::new(
+                easy_personal_core::prices::PriceTable::shipped().unwrap(),
+            );
+            let roots = vec![easy_personal_core::live::Root {
+                account: None,
+                projects: tree.clone(),
+            }];
+            tail.poll_once(&roots, NOW, None);
+            Feed {
+                tail: Arc::new(std::sync::Mutex::new(tail)),
+                roots,
+                tree,
+            }
+        }
+
+        /// One record of session `id`, `secs_ago` old, written in `cwd`, read by the tail.
+        fn feed(&self, id: &str, secs_ago: i64, cwd: &std::path::Path) {
+            let line = format!(
+                "{{\"type\":\"assistant\",\"sessionId\":\"{id}\",\"cwd\":{},\"timestamp\":\"{}\",\"message\":{{\"id\":\"m1\",\"model\":\"x\",\"content\":[{{\"type\":\"text\",\"text\":\"hi\"}}]}}}}\n",
+                json!(cwd.display().to_string()),
+                at(secs_ago)
+            );
+            std::fs::write(self.tree.join(format!("p/{id}.jsonl")), line).unwrap();
+            self.tail.lock().unwrap().poll_once(&self.roots, NOW, None);
+        }
+    }
+
+    impl Drop for Feed {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.tree);
+        }
     }
 
     /// The words of the argument list between the fixed header and the permission wiring.
@@ -2191,11 +2309,22 @@ mod tests {
         block(async {
             let w = world_full("resume-cwd", CHAT, NOW, None);
             let repo = w.old_folder();
-            // started inside a subfolder of the repo, and in a git worktree: the stored project is the repo for both
+            World::git_repo(&repo);
+            // started inside a subfolder of the repo, and in a git worktree: the project is the repo for both
             let sub = repo.join("src/deep");
             std::fs::create_dir_all(&sub).unwrap();
             let tree = w.fake.root.join("old-project-wt");
-            std::fs::create_dir_all(&tree).unwrap();
+            World::git(
+                &repo,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "wt",
+                    &tree.display().to_string(),
+                ],
+            );
             let transcripts = w.fake.root.join("transcripts");
             std::fs::create_dir_all(&transcripts).unwrap();
             let lines = |cwd: &std::path::Path| {
@@ -2307,7 +2436,7 @@ mod tests {
             assert_eq!(status, 409, "{body}");
             assert_eq!(
                 body["error"],
-                "a session in this folder is still active in another window; resume it with Fork instead"
+                "a session in this folder is still active in another window; open it from the Live view and use Fork in app"
             );
             assert!(!w.started(), "a refused continue starts nothing");
             // a new session in the same folder is not a continue: the guard is for --continue only
@@ -2316,6 +2445,17 @@ mod tests {
             assert!(!w.fake.argv().contains(&"--continue".to_string()));
             let cont = |w: &World| w.fake.argv().iter().filter(|a| *a == "--continue").count();
             assert_eq!(cont(&w), 0);
+            // the new session is going in the repo: a continue would take the newest conversation of the folder
+            let (status, body) = w
+                .post("/api/app-sessions", &w.form(json!({"continue": true})))
+                .await;
+            assert_eq!(status, 409, "a going app session in the repo: {body}");
+            w.post(
+                &format!("/api/app-sessions/{fresh}/stop"),
+                &json!({"confirmed": true}),
+            )
+            .await;
+            w.until_state(&fresh, "ended").await;
             // 121 s is quiet
             w._conn
                 .execute(
@@ -2326,6 +2466,109 @@ mod tests {
             let id = w.begin(json!({"continue": true})).await;
             w.until_state(&id, "idle").await;
             assert_eq!(cont(&w), 1);
+        });
+    }
+
+    #[test]
+    fn continue_is_409_for_a_record_only_the_live_tail_has_and_for_a_running_app_session_in_the_repo_and_quiet_is_202()
+     {
+        let _serial = serial();
+        block(async {
+            let feed = Feed::new("continue");
+            let w = world_full("continue-tail", CHAT, NOW, Some(feed.tail.clone()));
+            let wording = "a session in this folder is still active in another window; open it from the Live view and use Fork in app";
+            // the store is a day behind: its newest record of the repo is old; the tail read a record 20 s ago
+            w.record(
+                "5e55c0de-0000-4000-8000-0000000000e1",
+                86_400,
+                &w.repo.display().to_string(),
+            );
+            // a record the tail has, quiet for 5 minutes, does not refuse a continue
+            feed.feed("5e55c0de-0000-4000-8000-0000000000e2", 300, &w.repo);
+            let id = w.begin(json!({"continue": true})).await;
+            w.until_state(&id, "idle").await;
+            w.post(
+                &format!("/api/app-sessions/{id}/stop"),
+                &json!({"confirmed": true}),
+            )
+            .await;
+            w.until_state(&id, "ended").await;
+            let before = w.fake.log("argv");
+            feed.feed(SID, 20, &w.repo);
+            let (status, body) = w
+                .post("/api/app-sessions", &w.form(json!({"continue": true})))
+                .await;
+            assert_eq!(
+                (status.as_u16(), body["error"].as_str()),
+                (409, Some(wording))
+            );
+            assert_eq!(
+                w.fake.log("argv"),
+                before,
+                "a refused continue starts nothing"
+            );
+        });
+    }
+
+    #[test]
+    fn a_session_known_only_to_the_live_tail_is_resumed_in_its_start_folder_and_404_only_when_the_tail_does_not_know_it()
+     {
+        let _serial = serial();
+        block(async {
+            let feed = Feed::new("fresh");
+            let w = world_full("resume-fresh", CHAT, NOW, Some(feed.tail.clone()));
+            let repo = w.old_folder();
+            World::git_repo(&repo);
+            let sub = repo.join("src/deep");
+            std::fs::create_dir_all(&sub).unwrap();
+            // no stored row at all; the tail read the session, quiet for 10 minutes, started in a subfolder
+            feed.feed(SID, 600, &sub);
+            let started = w.begin_resume(&w.resume_form(SID, json!({}))).await;
+            w.until_state(&started, "idle").await;
+            assert_eq!(
+                w.fake.log("cwd").lines().last().unwrap(),
+                sub.canonicalize().unwrap().display().to_string()
+            );
+            w.post(
+                &format!("/api/app-sessions/{started}/stop"),
+                &json!({"confirmed": true}),
+            )
+            .await;
+            w.until_state(&started, "ended").await;
+            // a session neither the store nor the tail knows is still 404
+            let (status, body) = w
+                .post(
+                    "/api/app-sessions",
+                    &w.resume_form("5e55c0de-0000-4000-8000-0000000000f9", json!({})),
+                )
+                .await;
+            assert_eq!(
+                (status.as_u16(), body["error"].as_str()),
+                (404, Some("no such Claude session"))
+            );
+        });
+    }
+
+    #[test]
+    fn a_transcript_cwd_outside_the_project_is_ignored_and_the_run_is_in_the_project_folder() {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-outside", CHAT, NOW, None);
+            let repo = w.old_folder();
+            World::git_repo(&repo);
+            // a folder of another project, which exists; the transcript of a session of `repo` says it started there
+            let other = w.fake.root.join("other-project");
+            std::fs::create_dir_all(&other).unwrap();
+            World::git_repo(&other);
+            w.record(SID, 600, &repo.display().to_string());
+            w.source(SID, &w.transcript("outside.jsonl", &other));
+            let started = w.begin_resume(&w.resume_form(SID, json!({}))).await;
+            w.until_state(&started, "idle").await;
+            assert_eq!(
+                w.fake.log("cwd").lines().last().unwrap(),
+                repo.canonicalize().unwrap().display().to_string(),
+                "the project folder, not the folder the transcript names"
+            );
         });
     }
 
