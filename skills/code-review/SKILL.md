@@ -1,18 +1,18 @@
 ---
 name: code-review
-description: Structured multi-reviewer code review for Stage 4. Use after every task reaches Ready for Review. Layers P0–P3 severity scoring, cross-reviewer confidence anchors, conditional reviewer personas, and model tiering over the base review — producing a deduplicated, confidence-gated finding set rather than a raw list of comments.
+description: Structured multi-reviewer code review for Stage 4. Use after every task reaches Ready for Review. Layers P0–P3 severity scoring, cross-reviewer confidence anchors, conditional reviewer personas, and model tiering over the base review — producing a deduplicated, confidence-gated finding set.
 ---
 
 ## Role: Review Orchestration Specialist
 
-Stage 4 review gatekeeper: run a structured, multi-perspective review of the current diff and produce a finding set where every item has an explicit severity, a confidence anchor, and at least one concrete action. Suppress noise (low-confidence findings), promote signal (cross-reviewer agreement), apply safe fixes directly.
+Stage 4 review gatekeeper: run a multi-perspective review of the current diff and produce a finding set where every item has a severity, a confidence anchor, and a concrete action. Suppress low-confidence noise, promote cross-reviewer agreement, apply safe fixes.
 
 ### Karpathy Operational Commands
 
-- **Think Before Coding / Ask vs. Guess**: Determine review scope from git diff before spawning any reviewer persona. Never review the whole repo — scope to the change's blast radius (affected files + their direct callers).
-- **Simplicity First**: Only surface findings that survive the confidence gate (≥75 for P1–P3; ≥50 for P0). Suppress advisory findings from a single low-confidence reviewer.
-- **Surgical Changes**: Apply only fixes that are unambiguous and safe — no refactoring, no style sweeps beyond the flagged lines.
-- **Goal-Driven Execution**: Success = every surviving finding has severity + confidence + action; safe fixes are applied and committed; the diff is ready for Supervisor merge decision.
+- **Think Before Coding / Ask vs. Guess**: Get review scope from git diff before spawning any persona. Scope to the change's blast radius (affected files + direct callers), never the whole repo.
+- **Simplicity First**: Only surface findings that survive the confidence gate (≥75 for P1–P3; ≥50 for P0).
+- **Surgical Changes**: Apply only unambiguous, safe fixes — no refactoring or style sweeps beyond the flagged lines.
+- **Goal-Driven Execution**: Success = every surviving finding has severity + confidence + action; safe fixes applied and committed.
 
 ---
 
@@ -37,7 +37,7 @@ Stage 4 review gatekeeper: run a structured, multi-perspective review of the cur
 | **25** | Low — heuristic or incomplete analysis |
 | **0** | Speculation — should not appear in output |
 
-**Gate rule**: suppress any P1–P3 finding with confidence < 75. Allow P0 findings at confidence ≥ 50 (flag as "unverified P0" in output).
+**Gate rule**: suppress any P1–P3 finding with confidence < 75, except a security lead (`needs_validation`). Allow P0 at confidence ≥ 50 (flag as "unverified P0").
 
 ---
 
@@ -56,11 +56,12 @@ Stage 4 review gatekeeper: run a structured, multi-perspective review of the cur
 
 | Persona | Activate when diff contains… |
 |---|---|
-| **security-reviewer** | Auth logic, input handling, secrets, permissions, SQL/shell |
+| **security-reviewer** | Auth logic, input handling, secrets, permissions, SQL/shell. Rules: [security-reviewer.md](references/security-reviewer.md) |
 | **performance-reviewer** | DB queries, loops over large collections, cache logic, network calls |
 | **migration-reviewer** | Schema changes, data migrations, seed files |
 | **adversarial-reviewer** | ≥ 50 changed lines, or any security-reviewer activation |
 | **api-reviewer** | Public API changes, endpoint signatures, OpenAPI/schema files |
+| **ux-evaluate** | UI files: run `Skill({ skill: "ux-evaluate" })`; `fail` is P1, `fail (older)` P3, `not checked` or `no UX criteria` P2 |
 | **over-engineering-reviewer** | Any diff that adds a new function, class, module, dependency or config option. Flags: a new abstraction with one caller; a new dependency replacing ≤ 10 lines; speculative config or flags nothing sets; duplication of an existing helper or the stdlib. Apply "Search Before You Build" (`templates/general-agent-template.md`) by name — do not restate its rungs |
 
 ---
@@ -69,11 +70,11 @@ Stage 4 review gatekeeper: run a structured, multi-perspective review of the cur
 
 #### Phase 0 — Determine Scope
 
-Run `git diff --name-only` (or `git diff <base>..HEAD --name-only` if a base ref is provided). List the changed files, then identify direct callers of changed functions (Grep) and test files covering the changed code. This set is the review scope — do not review files outside it.
+Run `git diff --name-only` (or `git diff <base>..HEAD --name-only` if a base ref is given). List the changed files, their direct callers (Grep) and the test files covering them. This set is the review scope.
 
-Also run `python3 scripts/lane_check.py tasks/TASK_GUIDE_Txxx.md <base>...HEAD` and paste its one line into the report (T144). It is warn-only: `EXCEEDS (...)` or `unpredicted: ...` means the task may be under-labelled — raise it to the Supervisor; it never blocks.
+Also run `python3 "${CLAUDE_SKILL_DIR}/../../scripts/lane_check.py" tasks/TASK_GUIDE_Txxx.md <base>...HEAD` and paste its one line into the report (T144). It is warn-only: `EXCEEDS (...)` or `unpredicted: ...` means the task may be under-labelled — raise it to the Supervisor; it never blocks.
 
-Completion criterion: review scope listed; no file outside the diff + direct callers set queued for review.
+Completion criterion: review scope listed; no file outside it queued for review.
 
 ---
 
@@ -82,19 +83,21 @@ Completion criterion: review scope listed; no file outside the diff + direct cal
 Read the task's `TASK_GUIDE_Txxx.md` `## Dependencies & Reachability` section (`Depends on` / `Entry point` convention, `PROJECT_SPEC.md` Glossary). If `Entry point:` is `Standalone — N/A`, skip. Otherwise:
 
 - Grep the diff (or repo, if the identifier lives outside the changed files — e.g. a router config) for the literal `Entry point` string.
-- Found → no finding, feature is reachable. Not found → add a **P2 finding** ("declared entry point `[identifier]` not found — feature may be unreachable/dead code") into the Phase 1 findings set, same severity pipeline as any other finding. Advisory, not a Hard-Stop Gate — doesn't block Done alone, but should be resolved or explicitly waived by the Supervisor before merge.
+- Found → no finding, feature is reachable. Not found → add a **P2 finding** ("declared entry point `[identifier]` not found — feature may be unreachable/dead code") to the Phase 1 findings set. Advisory, not a Hard-Stop Gate — doesn't block Done alone, but should be resolved or explicitly waived by the Supervisor before merge.
 
-Completion criterion: reachability check run (or explicitly skipped as N/A) and its result folded into the Phase 1 findings set.
+Completion criterion: reachability check run (or skipped as N/A) and folded into the Phase 1 findings set.
 
-**Startup-reads check (T129).** Compare the implementing agent's final-report line `Startup reads: <paths>` against the spawn prompt's `**Startup reads**` block. A Permanent-Rule read (`PROJECT_SPEC.md`, the TASK_GUIDE, the `agents/` role guide) missing from the line is a **P1 process finding**; a missing line counts as all missing. Lives here because Phase 0.5 already checks spawn/guide conformance before the reviewers run.
+**Stale-reference sweep (T259).** For each fact the diff changes (a flag, count, path, channel or skill name, version, or a "green" claim), grep the repo for the old wording: README, `site/`, `docs/claude-md/`, docstrings and comments, `agents/`, `PROJECT_KANBAN.md` notes, test comments. Each hit outside the guide's `Files to Change` is a **P2 finding** with its `file:line`.
+
+**Startup-reads check (T129).** Compare the implementing agent's final-report line `Startup reads: <paths>` against the spawn prompt's `**Startup reads**` block. A Permanent-Rule read (`PROJECT_SPEC.md`, the TASK_GUIDE, the `agents/` role guide) missing from the line is a **P1 process finding**; a missing line counts as all missing.
 
 ---
 
 #### Phase 1 — Run Always-On Reviewers
 
-For each always-on persona: read the scoped files, produce findings with severity + confidence + one-line action as a structured list — do not apply changes yet. Activate conditional reviewers based on diff content analysis.
+For each always-on persona: read the scoped files, list findings with severity + confidence + one-line action; apply nothing yet. Activate conditional reviewers by diff content.
 
-Completion criterion: all always-on reviewers complete; conditional reviewers activated or skipped with stated reason.
+Completion criterion: always-on reviewers done; conditional reviewers activated or skipped with a reason.
 
 ---
 
@@ -103,11 +106,11 @@ Completion criterion: all always-on reviewers complete; conditional reviewers ac
 Merge findings from all reviewers:
 
 1. **Fingerprint**: `[file]:[line]:[title]` — collapse identical fingerprints to one finding
-2. **Promote**: if the same fingerprint appears from 2+ independent reviewers, bump confidence by one anchor (e.g. 50 → 75)
-3. **Gate**: remove any P1–P3 finding with confidence < 75 after promotion. Keep P0 at ≥ 50.
-4. **Assign model tier**: P0 and security findings → re-verify with top-tier model reasoning before surfacing. All others → mid-tier is sufficient.
+2. **Promote**: if the same fingerprint appears from 2+ independent reviewers, bump confidence by one anchor
+3. **Gate**: remove any P1–P3 finding with confidence < 75 after promotion. Keep P0 at ≥ 50. A security lead that fails the gate stays as `needs_validation` (no severity).
+4. **Assign model tier**: P0 and security findings → re-verify with top-tier model reasoning before surfacing, by a verifier that did not find them. All others → mid-tier.
 
-Completion criterion: deduplicated finding set; no duplicate fingerprints; confidence gate applied.
+Completion criterion: no duplicate fingerprints; confidence gate applied.
 
 ---
 
@@ -127,6 +130,9 @@ Emit findings grouped by severity:
 
 ## P3 — Optional
 | File | Line | Finding | Confidence | Action |
+
+## Needs validation
+| File | Line | Lead | Missing fact | Safe check |
 ```
 
 If no findings in a severity group: emit "None."
@@ -135,13 +141,13 @@ If no findings in a severity group: emit "None."
 
 #### Phase 4 — Apply Safe Fixes
 
-For each P0 and P1 finding where the fix is unambiguous and safe (no behavior change beyond what the finding describes): apply the fix to the working tree, re-run relevant tests if a test suite exists, stage the change.
+For each P0 and P1 finding with an unambiguous, safe fix (no behavior change beyond the finding): apply it, re-run relevant tests, stage the change.
 
 Commit all applied fixes together: `fix: address Stage 4 review findings (P0/P1)`
 
-Do not apply P2/P3 fixes automatically — present them as suggestions only.
+Present P2/P3 fixes as suggestions only.
 
-Completion criterion: all unambiguous P0/P1 fixes applied and committed; P2/P3 left as suggestions.
+Completion criterion: all unambiguous P0/P1 fixes applied and committed.
 
 ---
 

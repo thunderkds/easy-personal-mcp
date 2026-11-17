@@ -2,25 +2,47 @@
 """
 PreToolUse hook — fires before every Bash tool call.
 
-Blocks git push/merge/rebase commands if:
+Blocks git push/merge/rebase/pull commands if:
   1. Any task in PROJECT_KANBAN.md is still In Progress or Ready for Review
   2. No Stage 5 verify evidence is found in any pending task guide
 
 This enforces the pipeline gate: Stage 4 review + Stage 5 verify must
 complete before code ships.
+
+T211: git's global options between `git` and the verb (`git -C <dir> push`, `git -c k=v merge`,
+`git --no-pager pull`, an unknown `--x`) do not hide it, and `git -c alias.<x>=… <x>` (or
+`--config-env alias.<x>=…`) is gated as a merge. Known limit, by design: an alias set in a git
+config file, or through the `GIT_CONFIG_*` environment variables, is out of reach of a static
+check of the command text — this hook never reads git config to find an alias (it reads config
+only for the push checks and, for an `[admin]` merge or push, for the T295 repo rule). Shell
+aliases and functions, scripts that call git, and `gh pr merge` are out of scope too.
+
+T232: the project comes from `lib/project_root.py`, and from a plugin the hook stands down in a
+non-kit project. Inside one, input it cannot read is a block: it cannot tell the call is not a push.
+
+T284: while the session's latest user request carries `[auto]` or `[admin]`, a merge, push or pull
+is blocked, unless `[admin]` allows that one command (see `auto_mode_blocker`). T317: the same holds
+while a session tag (`[admin]`, `[ticket]`) is in force; `[ticket]` allows only a plain push of its
+task branch to `origin` (docs/claude-md/tracks.md `### Session tags`).
+
+T296: in that mode a git word or git verb that is not a plain literal word is a block too
+(`hidden_git_verb`); a `git merge` option's value is never read as the branch (`_merge_sources`);
+a branch push goes only to the repository's own remote; `invokes_test_runner` reads backslashes
+as the shell does.
 """
+import fnmatch
+import glob
 import json
 import os
 import re
 import shlex
+import stat
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOOKS_DIR = os.path.dirname(os.path.abspath(__file__))
-KANBAN = os.path.join(ROOT, "PROJECT_KANBAN.md")
-TASKS_DIR = os.path.join(ROOT, "tasks")
-TRACE_DIR = os.path.join(ROOT, "memory", "event-trace")
 
 # The Evidence table may live in the guide or in the sibling TASK_REVIEW file
 # (T064). Imported off __file__, like post_tool_trace.py does for task_context.
@@ -40,14 +62,24 @@ TRACE_DIR = os.path.join(ROOT, "memory", "event-trace")
 # unavailable resolver is a block — rather than two.
 sys.path.insert(0, os.path.join(HOOKS_DIR, "lib"))
 try:
-    from guide_sections import read_guide_section  # noqa: E402
-    from shell_data import strip_heredoc_bodies, strip_quoted_spans  # noqa: E402
+    from project_root import exit_outside_kit_project, project_root  # noqa: E402
+    exit_outside_kit_project()  # T232: first, so a broken lib stays silent in a non-kit project
+    from guide_sections import (  # noqa: E402
+        GUIDE_PREFIX, REVIEW_PREFIX, _candidate_paths, is_pointer_only, normalize_task_id,
+        read_guide_section, slice_section)
+    from shell_data import (  # noqa: E402
+        DATA_COMMAND_PATTERN, strip_heredoc_bodies, strip_quoted_spans)
     from board.config import load_config, task_id_pattern  # noqa: E402
     from board.moments import (  # noqa: E402
         board_mode, my_blocking_tasks, my_review_tasks, pull_cache)
     from verify_record import (  # noqa: E402
-        AUTO_CHECKED_TAG, AUTO_ROW_TAG, MINIMAL_LOG_REL, auto_row_confirmed,
-        minimal_verify_line)
+        AUTO_CHECKED_TAG, AUTO_ROW_TAG, MINIMAL_LOG_REL, ROW_COMMIT, ROW_SESSION, SHA_PATTERN,
+        auto_row_confirmed, head_commit, minimal_verify_lines, read_record, record_confirms_pass,
+        record_path, record_verify_lines, same_code)
+    import auto_mode  # noqa: E402
+    from auto_mode import record_block  # noqa: E402
+    import session_work  # noqa: E402
+    from task_context import join_line_continuations  # noqa: E402
 except Exception as exc:  # pragma: no cover - exercised via subprocess test
     print(json.dumps({
         "decision": "block",
@@ -55,18 +87,64 @@ except Exception as exc:  # pragma: no cover - exercised via subprocess test
             "[hook:pre_bash] Evidence resolver unavailable "
             f"({type(exc).__name__}: {exc}) — cannot confirm Stage 5 verify "
             "evidence for any task, so this push/merge is blocked. Restore "
-            ".claude/hooks/lib/guide_sections.py, "
+            ".claude/hooks/lib/project_root.py, .claude/hooks/lib/guide_sections.py, "
             ".claude/hooks/lib/shell_data.py, .claude/hooks/lib/board/config.py, "
-            ".claude/hooks/lib/board/moments.py and .claude/hooks/lib/verify_record.py."
+            ".claude/hooks/lib/board/moments.py, .claude/hooks/lib/verify_record.py and "
+            ".claude/hooks/lib/session_work.py."
         ),
     }))
     sys.exit(0)
 
+ROOT = project_root()
+KANBAN = os.path.join(ROOT, "PROJECT_KANBAN.md")
+TASKS_DIR = os.path.join(ROOT, "tasks")
+TRACE_DIR = os.path.join(ROOT, "memory", "event-trace")
+
+# T210: `git pull` fetches and merges, so it is a merge (D1), in every form (`--ff-only` and
+# `--rebase` both move the branch). `git merge-base` is a read-only query and is the only
+# `merge-*` subcommand exempted (D3): `merge-file` and `merge-tree` stay blocked.
+#
+# T211 (D1, D4): any run of git's global options may come between `git` and the verb. The ones
+# that take an argument are `GIT_OPTIONS_WITH_ARG` (separate, attached `-Cdir`, or `--opt=value`);
+# every other `-` word is skipped as a flag, known (`--no-pager`, `-P`, `--bare`,
+# `--no-replace-objects`, `--literal-pathspecs`, `--exec-path[=<p>]`) or not (D4: fail closed).
+# `_git_actions` resolves only `-C`, `-c`, `--no-pager` and `-P` of these and treats any other
+# option as unresolved, so narrowing can never read a command classification did not. An argument
+# may be quoted (`-C "dir with space"`). Each option consumes its argument with no alternative
+# parse — the flag clause never starts with an arg-taking name — so matching stays linear.
+# T296 (S1): every global option git reads a separate value for (git.c `handle_options`): `--attr-source`
+# and `--super-prefix` too; `--exec-path[=<p>]` and `--list-cmds=<g>` take only an attached value.
+GIT_OPTIONS_WITH_ARG = ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env",
+                        "--attr-source", "--super-prefix")
+_GIT_ARG = r"""(?:"[^"\n]*"|'[^'\n]*'|[^\s;&|"'])+"""
+_GIT_SHORT_WITH_ARG = "".join(o[1] for o in GIT_OPTIONS_WITH_ARG if not o.startswith("--"))
+_GIT_LONG_WITH_ARG = "|".join(re.escape(o[2:]) for o in GIT_OPTIONS_WITH_ARG if o.startswith("--"))
+GIT_GLOBAL_OPTION = (
+    rf"(?:-[{_GIT_SHORT_WITH_ARG}]\s*{_GIT_ARG}"
+    rf"|--(?:{_GIT_LONG_WITH_ARG})(?:=|\s+){_GIT_ARG}"
+    rf"|-(?![{_GIT_SHORT_WITH_ARG}]|-(?:{_GIT_LONG_WITH_ARG})(?:[=\s]|$))[^\s;&|]*)"
+)
+GIT_VERB_PREFIX = rf"\bgit(?:\s+{GIT_GLOBAL_OPTION})*\s+"
 BLOCKED_PATTERNS = [
-    r"\bgit\s+push\b",
-    r"\bgit\s+merge\b",
-    r"\bgit\s+rebase\b",
+    GIT_VERB_PREFIX + r"push\b",
+    GIT_VERB_PREFIX + r"merge\b(?!-base\b)",
+    GIT_VERB_PREFIX + r"rebase\b",
+    GIT_VERB_PREFIX + r"pull\b",
 ]
+
+# T211 (D3): `git -c alias.p=push p` defines and runs an alias in one command, so the verb never
+# appears. `-c alias.` (or `--config-env alias.`) anywhere in a `git` command gates it as a merge:
+# the whole board. Matched per command segment, and skipped only when that segment's command is
+# one T099's `DATA_COMMAND_PATTERN` names (`echo git -c alias.p=push p` prints it) — the same
+# keep-unless-known-data direction as `strip_quoted_spans`.
+GIT_ALIAS_PATTERN = re.compile(
+    r"\bgit\b.*?\s(?:-c\s*|--config-env(?:=|\s+))[\"']?(?i:alias)\.")
+
+
+def defines_git_alias(scannable):
+    """True when a command segment of `scannable` runs `git` with an inline alias (T211 D3)."""
+    return any(GIT_ALIAS_PATTERN.search(segment) and not DATA_COMMAND_PATTERN.match(segment)
+               for segment in COMMAND_SEPARATOR_PATTERN.split(scannable))
 
 # --- Evidence matching: "invoked" vs "merely mentioned" (T044 defect C) ------
 #
@@ -119,17 +197,30 @@ COMMAND_SEPARATOR_PATTERN = re.compile(r"[;&|\n]+|\$\(|`")
 # `CLAUDE_ACTIVE_TASK=T044 python3 -m pytest …` — the assignment is not the command.
 ENV_ASSIGNMENT_PREFIX = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+")
 
-# Wrappers that pass through to the real command.
+# Wrappers that pass through to the real command. T210 (D2): `timeout [options] <duration>`,
+# where `-k`/`-s` take a separate argument (`timeout -k 5 60s pytest`). The duration is
+# required, so `timeout pytest` stays a mention.
 BENIGN_COMMAND_PREFIX = re.compile(
     r"^(?:(?:sudo|env|time|nohup|npx|uv\s+run|poetry\s+run|pipenv\s+run|"
-    r"pnpm\s+exec|yarn\s+exec)\s+)+",
+    r"pnpm\s+exec|yarn\s+exec|"
+    r"timeout(?:\s+(?:-[ks]\s+\S+|-[-\w=]+))*\s+\d+(?:\.\d+)?[smhd]?)\s+)+",
     re.IGNORECASE,
 )
+
+# A subshell's opening paren: `(timeout 300 python3 -m pytest)` runs the runner (T210 AC 3).
+# One paren only — `((` opens an arithmetic expression, not a command.
+SUBSHELL_OPEN = re.compile(r"^\((?!\()\s*")
+
+# Harmless interpreter flags that may sit between `python3` and `-m` (T291): `-B -u -O -s -E -I`,
+# alone or in a run (`-uB`). A fixed list, case exact (`(?-i:…)`: the pattern below is
+# IGNORECASE, which would also admit `-b -S -i`). Any other flag (`-X dev`, `-W error`, `-c`)
+# is not in it, so that command is not counted: fail closed.
+INTERPRETER_FLAGS = r"(?:\s+(?-i:-[BuOsEI]+))*"
 
 # Anchored at the head of a command — `match`, never `search`.
 TEST_INVOCATION_PATTERN = re.compile(
     r"^(?:"
-    r"(?:python3?|py)\s+-m\s+(?:pytest|unittest)\b"
+    r"(?:python3?|py)" + INTERPRETER_FLAGS + r"\s+-m\s+(?:pytest|unittest)\b"
     r"|pytest\b"
     r"|jest\b"
     r"|tox\b"
@@ -144,9 +235,10 @@ TEST_INVOCATION_PATTERN = re.compile(
 
 
 def strip_command_prefixes(candidate):
-    """Peel leading env assignments and benign wrappers until nothing changes."""
+    """Peel a subshell paren, leading env assignments and benign wrappers until nothing changes."""
     while True:
-        shorter = BENIGN_COMMAND_PREFIX.sub("", ENV_ASSIGNMENT_PREFIX.sub("", candidate))
+        shorter = BENIGN_COMMAND_PREFIX.sub("", ENV_ASSIGNMENT_PREFIX.sub(
+            "", SUBSHELL_OPEN.sub("", candidate)))
         if shorter == candidate:
             return candidate
         candidate = shorter
@@ -190,12 +282,26 @@ def extract_command(summary):
     )
 
 
+# T296 (P3-1): the shell's reading of data in a command, left to right. A quoted span is data (a
+# double-quoted one may hold an escaped quote), a backslash + newline continues the line and joins its
+# two sides, and any other backslash makes the next character an ordinary one that cannot separate
+# commands. Used by `invokes_test_runner` only; `QUOTED_SPAN_PATTERN` keeps its other users.
+SHELL_DATA_PATTERN = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'|\\\n|\\.", re.S)
+
+
+def _shell_data_removed(match):
+    text = match.group(0)
+    if text == "\\\n":
+        return ""
+    return " " if text[0] in "\"'" else "x"
+
+
 def invokes_test_runner(command):
     """True only if `command` contains a test-runner invocation at a command
     boundary — not merely a mention of one inside a quoted string or argument."""
     if not isinstance(command, str):
         return False
-    unquoted = QUOTED_SPAN_PATTERN.sub(" ", command)
+    unquoted = SHELL_DATA_PATTERN.sub(_shell_data_removed, command)
     for part in COMMAND_SEPARATOR_PATTERN.split(unquoted):
         if TEST_INVOCATION_PATTERN.match(strip_command_prefixes(part.strip())):
             return True
@@ -342,47 +448,263 @@ def has_filled_verify_row(task_id, tasks_dir=None):
 
     T188 D5 adds one more place to look, and only after every Evidence table has
     said no: a **minimal-track** task has no guide and no review file, so its
-    result is the `verify:` line in its Decision record
-    (`tasks/MINIMAL_LOG.md`). That line is read under exactly T182's rule and
-    nothing weaker — it counts only when it is an `auto-run by hook` line whose
-    run record exists for this task and the checkout's head commit and says
-    pass. A hand-typed line counts for nothing there, including one that claims
-    the user ran `/verify`: before T188 a minimal-track task at Ready for Review
-    always blocked, so reading a line the hook did not write would be the one
-    way this change could make the gate weaker.
+    result is a `verify:` line in its Decision record (`tasks/MINIMAL_LOG.md`).
+    An `auto-run by hook` line is read under exactly T182's rule — its run
+    record exists for this task and the checkout's head commit and says pass.
+    T250 G1 adds one hand-written shape, and only with proof the hook cannot
+    fake: `/verify by the user, session <sid>, commit <sha>` counts when the
+    transcript of session `<sid>` (in this session's transcripts folder) holds a
+    human `/verify <ID>` entry dated after `<sha>` was committed and before the
+    line was, and `<sha>` is the same code as the head (`user_line_confirmed`).
+    Any other hand-typed line still counts for nothing. Every `verify:` line of
+    the record is read, so the user's line may follow a blocked hook line.
+
+    T308 reads the same user shape in an extended-track Evidence `verify` row
+    (`| verify | ☑ pass | /verify by the user, session <sid>, commit <sha> |`),
+    with the same proof; the upper date is the commit that added the row to the
+    file it was read from (the guide or the review file), and only that file may
+    differ from `<sha>`.
     """
     for directory in evidence_search_dirs(tasks_dir):
+        checkout = os.path.dirname(os.path.abspath(directory))
         section = read_guide_section(task_id, "Evidence", directory)
-        if not section:
-            continue
-        for match in VERIFY_ROW_PATTERN.finditer(section):
-            if UNCHECKED_PASS_PATTERN.search(match.group("result")):
-                continue
-            notes = match.group("notes").lower()
-            # T182: the Supervisor's own real-run check (T180) is never `/verify`, and an
-            # `auto-run by hook` row counts only with its run record (D5) for this task and the
-            # head commit of the checkout this row was read from.
-            if AUTO_CHECKED_TAG in notes:
-                continue
-            if AUTO_ROW_TAG in notes and not auto_row_confirmed(
-                    ROOT, os.path.dirname(os.path.abspath(directory)), task_id,
-                    match.group("notes")):
-                continue
+        if verify_row_passes(
+                section,
+                lambda notes, rel: auto_row_confirmed(ROOT, checkout, task_id, notes, rel),
+                confirm_user=lambda notes: user_line_confirmed(
+                    checkout, task_id, notes, head_commit(checkout),
+                    report_rel=_evidence_rel(task_id, directory, section))):
             return True
     for directory in evidence_search_dirs(tasks_dir):
-        line = minimal_verify_line(task_id, directory)
-        if not line:
-            continue
-        result, notes = line
-        if "☑" not in result or "pass" not in result.lower():
-            continue
-        low = notes.lower()
-        if AUTO_CHECKED_TAG in low or AUTO_ROW_TAG not in low:
-            continue
-        if auto_row_confirmed(ROOT, os.path.dirname(os.path.abspath(directory)), task_id,
-                              notes, MINIMAL_LOG_REL):
+        checkout = os.path.dirname(os.path.abspath(directory))
+        lines = minimal_verify_lines(task_id, directory)
+        if any(minimal_line_passes(
+                line,
+                lambda notes, rel: auto_row_confirmed(ROOT, checkout, task_id, notes, rel),
+                lambda notes: user_line_confirmed(checkout, task_id, notes,
+                                                  head_commit(checkout)))
+               for line in lines):
             return True
     return False
+
+
+def _evidence_rel(task_id, directory, section):
+    """T308: the checkout-relative path of the file in `directory` whose Evidence section is
+    `section` — guide first, review second, the order `read_guide_section` reads in — or None.
+    Never raises."""
+    try:
+        checkout = os.path.dirname(os.path.abspath(directory))
+        normalized = normalize_task_id(task_id, checkout)
+        if not section or not normalized:
+            return None
+        for prefix in (GUIDE_PREFIX, REVIEW_PREFIX):
+            for path in _candidate_paths(directory, prefix, normalized):
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        text = f.read()
+                except OSError:
+                    continue
+                if slice_section(text, "Evidence") == section:
+                    return os.path.relpath(path, checkout).replace(os.sep, "/")
+        return None
+    except Exception:
+        return None
+
+
+def verify_row_passes(section, confirm, hook_only=False, confirm_user=None):
+    """True when an Evidence `section` holds a filled `verify` pass row. `confirm(notes, None)`
+    decides an `auto-run by hook` row (T182 D5): against which commit is the caller's choice.
+    A hand-typed pass row is skipped on every gate (T309; before, only with `[admin]`'s
+    `hook_only`, T284). T308: a `☑ pass` row whose whole Notes cell is the user's `/verify` line
+    (`USER_LINE`) counts when `confirm_user(notes)` proves it; never with `hook_only`."""
+    return (_verify_row_passes(section, confirm, hook_only)
+            or (not hook_only and confirm_user is not None
+                and _user_row_passes(section, confirm_user)))
+
+
+# T308: the user's row. Its Notes hold no word "pass", so `VERIFY_ROW_PATTERN` never matches it.
+# A whole table row: the Check cell is exactly `verify`, the Result cell holds a checked `☑ pass`
+# with no unchecked `☐ pass`, and the Notes cell, stripped, is exactly `USER_LINE`.
+USER_ROW_PATTERN = re.compile(
+    r"^\s*\|\s*verify\s*\|(?P<result>[^|\n]*)\|(?P<notes>[^|\n]*)\|",
+    re.IGNORECASE | re.MULTILINE,
+)
+CHECKED_PASS_PATTERN = re.compile(r"☑\s*pass\b", re.IGNORECASE)
+
+
+def _user_row_passes(section, confirm_user):
+    if not section:
+        return False
+    for match in USER_ROW_PATTERN.finditer(section):
+        result = match.group("result")
+        if not CHECKED_PASS_PATTERN.search(result) or UNCHECKED_PASS_PATTERN.search(result):
+            continue
+        if USER_LINE.match(match.group("notes").strip()) and confirm_user(match.group("notes")):
+            return True
+    return False
+
+
+def _verify_row_passes(section, confirm, hook_only=False):
+    if not section:
+        return False
+    for match in VERIFY_ROW_PATTERN.finditer(section):
+        if UNCHECKED_PASS_PATTERN.search(match.group("result")):
+            continue
+        notes = match.group("notes").lower()
+        # T182: the Supervisor's own real-run check (T180) is never `/verify`, and an
+        # `auto-run by hook` row counts only with its run record (D5) for this task and the
+        # head commit of the checkout (or branch) this row was read from.
+        if AUTO_CHECKED_TAG in notes:
+            continue
+        # T309: on every gate, not only `[admin]`'s `hook_only`, a row with no `auto-run by hook`
+        # tag is typed by hand and counts for nothing, even with "pass" in Notes. The user's own
+        # `/verify` row is read by `_user_row_passes` (T308), never here.
+        if AUTO_ROW_TAG not in notes:
+            continue
+        if AUTO_ROW_TAG in notes and not confirm(match.group("notes"), None):
+            continue
+        return True
+    return False
+
+
+def minimal_line_passes(line, confirm, confirm_user=None):
+    """True when a minimal-track `verify:` line `(result, notes)` is a confirmed hook pass (T188
+    D5), or a user `/verify` line `confirm_user(notes)` proves (T250 G1). Any other hand-typed
+    line counts for nothing."""
+    if not line:
+        return False
+    result, notes = line
+    if "☑" not in result or "pass" not in result.lower():
+        return False
+    low = notes.lower()
+    if AUTO_CHECKED_TAG in low:
+        return False
+    if AUTO_ROW_TAG in low:
+        return confirm(notes, MINIMAL_LOG_REL)
+    if confirm_user is not None and USER_LINE.match(notes.strip()):
+        return confirm_user(notes)
+    return False
+
+
+# --- The user's `/verify` line (T250 G1) --------------------------------------
+#
+# A blocked auto verify run falls back to the user's own `/verify <ID>` (tracks.md). For a
+# minimal-track task the fallback's result is one hand-written line under `Checked:`:
+#
+#     - verify: ☑ pass — /verify by the user, session <session id>, commit <40-hex sha>
+#
+# The line's text is never the proof. It counts only when (all of): the session's transcript —
+# `<sid>.jsonl` in the folder of this hook event's own `transcript_path` — holds a human
+# `/verify <ID>` entry (`session_work.verify_typed`); that entry is dated after `<sha>` was
+# committed and before the line itself was (when it is committed; a line only in the working tree
+# has no upper date); and `<sha>` is the same code as the head (`same_code`, the record excepted).
+# No transcript folder, a missing or unreadable file, a short hash, an unknown commit: not a pass.
+USER_LINE = re.compile(r"/verify by the user, session ([A-Za-z0-9-]{1,128}), commit ([0-9a-f]{40})$")
+TRANSCRIPTS_DIR = None  # set by main() from the event's transcript_path
+
+
+def _commit_time(directory, *args):
+    """The committer time of the last line `git log`/`git show` prints, as an aware datetime, or
+    None (no output, a failure)."""
+    done = _git(directory, *args)
+    if done is None or done.returncode != 0 or not done.stdout.strip():
+        return None
+    return datetime.fromtimestamp(int(done.stdout.split()[-1]), timezone.utc)
+
+
+def user_line_confirmed(checkout, task_id, notes, head, ref=None, report_rel=MINIMAL_LOG_REL):
+    """True when the user `/verify` line `notes` is proven (see above). `ref` is the branch tip
+    the line was read from (a committed read: the line must be in its history), or None for a
+    working-tree read. `report_rel` (T308) is the checkout-relative file the line was read from:
+    `tasks/MINIMAL_LOG.md` for a minimal-track record, the guide or review file for an Evidence
+    row; the upper date and `same_code` read that file only. Never raises; any doubt is False."""
+    try:
+        match = USER_LINE.match((notes or "").strip())
+        if not match or not TRANSCRIPTS_DIR or not head or not report_rel:
+            return False
+        sid, sha = match.groups()
+        after = _commit_time(checkout, "show", "-s", "--format=%ct", f"{sha}^{{commit}}")
+        if after is None:
+            return False
+        before = _commit_time(checkout, "log", "--format=%ct", "-S", notes.strip(),
+                              ref or head, "--", report_rel)
+        if before is None and ref is not None:
+            return False
+        transcript = os.path.join(TRANSCRIPTS_DIR, f"{sid}.jsonl")
+        if not session_work.verify_typed(transcript, task_id, after, before):
+            return False
+        return same_code(checkout, task_id, sha, head, report_rel)
+    except Exception:
+        return False
+
+
+# --- The verify row must be committed on the branch (T210 D4) -----------------
+#
+# The working-tree read above let T207 and T208 merge with a pass their merged commit did not
+# contain: the auto verify run writes its row into the worktree AFTER the branch's last commit.
+# So for a merge, or a narrowed push, of one task's branch, that task's row is read from the
+# branch tip with `git show <tip>:tasks/...` — guide first, review second, then the minimal-track
+# Decision record, the same order as `has_filled_verify_row`. An `auto-run by hook` row is
+# confirmed against the tip, not the checkout's HEAD: a merge runs on `main`.
+#
+# The T095 note above rejected `git show` because a pushed commit may not be in the main
+# checkout's object store. This reads in the directory the command runs in, where the merged or
+# pushed ref must resolve for the command itself to work.
+#
+# Never weaker than before: when the tip cannot be resolved, the caller falls back to
+# `has_filled_verify_row` (the working trees), exactly the pre-T210 rule.
+UNCOMMITTED_ROW_MESSAGE = "verify row for {tid} is not committed on {branch} — commit it, then merge"
+
+
+def _auto_row_confirmed_at(directory, task_id, notes, tip, report_rel=None):
+    """`verify_record.auto_row_confirmed`, with the branch `tip` in place of the checkout HEAD."""
+    commit, session = ROW_COMMIT.search(notes or ""), ROW_SESSION.search(notes or "")
+    if not commit or not session:
+        return False
+    sha = commit.group(1)
+    record = read_record(ROOT, task_id, sha)
+    if not record or (record.get("task"), record.get("commit"), record.get("session")) != (
+            task_id, sha, session.group(1)) or not record_confirms_pass(directory, record):
+        return False  # T289: a `skip-pass` record counts only when git, read here, still backs it
+    return same_code(directory, task_id, sha, tip, report_rel)
+
+
+def committed_verify_row(task_id, branch, directory, hook_only=False):
+    """True/False: whether `branch`'s tip, read in `directory`, commits a filled `verify` row (or a
+    confirmed minimal-track `verify:` line) for `task_id`. None when the tip cannot be resolved —
+    the caller then keeps the pre-T210 working-tree read. `hook_only` (T284) accepts only the
+    hook's own `auto-run by hook` result, confirmed by its run record. Never raises."""
+    try:
+        done = _git(directory, "rev-parse", "--verify", "--quiet", f"{branch}^{{commit}}")
+        tip = done.stdout.strip() if done is not None and done.returncode == 0 else ""
+        normalized = normalize_task_id(task_id, ROOT)
+        if not SHA_PATTERN.match(tip) or not normalized:
+            return None
+
+        def show(rel):
+            shown = _git(directory, "show", f"{tip}:{rel}")
+            return shown.stdout if shown is not None and shown.returncode == 0 else None
+
+        def confirm(notes, rel):
+            return _auto_row_confirmed_at(directory, task_id, notes, tip, rel)
+
+        sections = ((rel, slice_section(show(rel), "Evidence"))
+                    for prefix in (GUIDE_PREFIX, REVIEW_PREFIX)
+                    for rel in _candidate_paths("tasks", prefix, normalized))
+        row_rel, section = next(((rel, s) for rel, s in sections if s is not None
+                                 and not is_pointer_only(s)), (None, None))
+        user_row = None if hook_only else (
+            lambda notes: user_line_confirmed(directory, task_id, notes, tip, ref=tip,
+                                              report_rel=row_rel))
+        if verify_row_passes(section, confirm, hook_only, user_row):
+            return True
+        block = record_block(show(MINIMAL_LOG_REL) or "", task_id, skip_comments=True)
+        user = None if hook_only else (
+            lambda notes: user_line_confirmed(directory, task_id, notes, tip, ref=tip))
+        return any(minimal_line_passes(line, confirm, user)
+                   for line in (record_verify_lines(block[2]) if block else []))
+    except Exception:
+        return False
 
 
 # --- The companion score row and the three UI design rows (T190) ------------
@@ -692,10 +1014,11 @@ def _current_branch(directory):
     return name if name and name != "HEAD" else None
 
 
-def _push_config_is_plain(directory):
+def _push_config_is_plain(directory, keys=PUSH_CONFIG_KEYS):
     """True only when no config in `directory` can send a push somewhere its refspec
-    does not say: no `remote.*.push`, no `remote.*.mirror`, `push.default` simple/current."""
-    done = _git(directory, "config", "--get-regexp", PUSH_CONFIG_KEYS)
+    does not say: no `remote.*.push`, no `remote.*.mirror`, `push.default` simple/current.
+    T284 passes `ADMIN_PUSH_CONFIG_KEYS`, which also refuses URL rewrites and hook/pack config."""
+    done = _git(directory, "config", "--get-regexp", keys)
     if done is None:
         return False
     if done.returncode == 1 and not done.stdout.strip():
@@ -720,8 +1043,9 @@ def _ref_task_id(name, id_regex):
     return ids.pop() if len(ids) == 1 else None
 
 
-def _push_task_id(args, directory, id_regex):
-    """The one task a single `git push <args>` run in `directory` pushes, or None."""
+def _push_task_id(args, directory, id_regex, sources=None):
+    """The one task a single `git push <args>` run in `directory` pushes, or None.
+    `sources`, when a list, collects `(directory, source branch)` per refspec (T210 D4)."""
     if directory is None:
         return None
     positionals = []
@@ -746,6 +1070,8 @@ def _push_task_id(args, directory, id_regex):
             if task_id is None:
                 return None
             ids.add(task_id)
+        if sources is not None:
+            sources.append((directory, names[0]))
     return ids.pop() if len(ids) == 1 else None
 
 
@@ -794,14 +1120,15 @@ def _command_segments(command):
     return [segment for segment in segments if segment[0]]
 
 
-def _resolve_pushed_task(command, cwd, id_pattern):
+def _git_actions(command, cwd):
+    """`[(git args, directory)]` for every `git` segment that is not an allowlisted read-only
+    one, in order, or None when the command holds anything else this resolver does not read."""
     if not isinstance(command, str) or not isinstance(cwd, str) or not os.path.isabs(cwd):
         return None
     segments = _command_segments(command)
     if not segments:
         return None
-    id_regex = re.compile(id_pattern or task_id_pattern(ROOT, bounded=True), re.IGNORECASE)
-    directory, found, pushes = cwd, set(), 0
+    directory, actions = cwd, []
     for tokens, before, after in segments:
         head, args = tokens[0], tokens[1:]
         if head == "cd":
@@ -814,22 +1141,48 @@ def _resolve_pushed_task(command, cwd, id_pattern):
             continue  # reads the push's output in a subshell; cannot move the push
         if head != "git":
             return None
-        where = directory
-        while args[:1] == ["-C"]:
-            if len(args) < 2 or where is None or not SAFE_PATH_PATTERN.fullmatch(args[1]):
+        # T211 D1: git's global options. `-C <dir>` moves the directory, like `cd <dir> &&`.
+        # `-c <k=v>` can change what a push or a read-only command does (`push.default`,
+        # `core.fsmonitor`), so it is read only before `merge`, where it cannot change which tip
+        # is merged. `--no-pager`/`-P` change nothing. Every other option — another repository,
+        # work tree or ref namespace, an attached form, an unknown flag — is unresolved.
+        where, configured = directory, False
+        while args and args[0].startswith("-"):
+            if args[0] in ("--no-pager", "-P"):
+                args = args[1:]
+                continue
+            if args[0] not in ("-C", "-c") or len(args) < 2:
                 return None
-            where, args = os.path.normpath(os.path.join(where, args[1])), args[2:]
-        if not args:
+            if args[0] == "-C":
+                if where is None or not SAFE_PATH_PATTERN.fullmatch(args[1]):
+                    return None
+                where = os.path.normpath(os.path.join(where, args[1]))
+            configured = configured or args[0] == "-c"
+            args = args[2:]
+        if not args or (configured and args[0] != "merge"):
             return None
-        if args[0] == "push":
-            task_id = _push_task_id(args[1:], where, id_regex)
-            if task_id is None:
+        if args[0] in SAFE_GIT_SUBCOMMANDS:
+            if not _read_only_git_args_ok(args[0], args[1:]):
                 return None
-            found.add(task_id)
-            pushes += 1
-        elif args[0] not in SAFE_GIT_SUBCOMMANDS or not _read_only_git_args_ok(args[0], args[1:]):
+            continue
+        actions.append((args, where))
+    return actions
+
+
+def _resolve_pushed_task(command, cwd, id_pattern, sources=None):
+    actions = _git_actions(command, cwd)
+    if not actions:
+        return None
+    id_regex = re.compile(id_pattern or task_id_pattern(ROOT, bounded=True), re.IGNORECASE)
+    found = set()
+    for args, where in actions:
+        if args[0] != "push":
             return None
-    return found.pop() if pushes and len(found) == 1 else None
+        task_id = _push_task_id(args[1:], where, id_regex, sources)
+        if task_id is None:
+            return None
+        found.add(task_id)
+    return found.pop() if len(found) == 1 else None
 
 
 def pushed_task_ids(command, cwd, id_pattern=None):
@@ -843,6 +1196,1412 @@ def pushed_task_ids(command, cwd, id_pattern=None):
         return _resolve_pushed_task(command, cwd, id_pattern)
     except Exception:
         return None
+
+
+# T211 D2: the `git merge` options that take a separate argument. Every other `-` word is skipped
+# alone (`--opt=value` and `-Xours` are one word), so any option leaves the branches resolvable.
+# T296: `--message`, `--file` and `--cleanup` too, and git's own reading of an option word: an
+# unambiguous prefix of a long option is that option (`--mess <x>`), and a short option in a run
+# takes the rest of the run, or the next word when it ends the run (`-qm <x>`). `-S` takes only an
+# attached value, so it never takes the next word.
+MERGE_OPTIONS_WITH_ARG = frozenset({"-m", "--message", "-F", "--file", "-s", "--strategy", "-X",
+                                    "--strategy-option", "--cleanup", "--into-name"})
+MERGE_SHORT_WITH_ARG = frozenset(o[1] for o in MERGE_OPTIONS_WITH_ARG if not o.startswith("--"))
+MERGE_LONG_WITH_ARG = tuple(o for o in MERGE_OPTIONS_WITH_ARG if o.startswith("--"))
+OCTOPUS_DOUBT_MESSAGE = ("octopus merge: cannot confirm {branch} — each branch must name exactly "
+                         "one task and resolve to a commit")
+
+
+def _merge_option_takes_next(arg):
+    """T296: True when the option word `arg` takes the NEXT word as its value (git's parse-options)."""
+    if arg.startswith("--"):
+        return len(arg) > 2 and any(o.startswith(arg) for o in MERGE_LONG_WITH_ARG)
+    for index, char in enumerate(arg[1:], 1):
+        if char in MERGE_SHORT_WITH_ARG:
+            return index == len(arg) - 1  # the rest of the run is the value, else the next word is
+        if char == "S":
+            return False  # `-S[<keyid>]`: an attached value only
+    return False
+
+
+def _merge_sources(args, where):
+    """`[(directory, branch)]` for every branch `git merge <args>` names, in order."""
+    names, index = [], 0
+    while index < len(args):
+        if args[index].startswith("-") and _merge_option_takes_next(args[index]):
+            index += 2  # the option and its argument (a message, a strategy, …)
+            continue
+        if not args[index].startswith("-"):
+            names.append(args[index])
+        index += 1
+    return [(where, name) for name in names]
+
+
+def branch_targets(command, cwd, id_pattern=None):
+    """`(targets, doubts)` for what `command` merges or pushes (T210 D4, T211 D2), never raising.
+
+    `targets` is `[(task ID, branch, directory)]`, each branch whose task's verify row must be
+    committed on it. One merged or pushed branch that cannot be resolved gives `([], [])`: the
+    pre-T210 working-tree read. An octopus merge (two or more branches) resolves every branch, and
+    each one that names no single task, or whose tip does not resolve, is a `doubts` entry (a
+    block). `git pull` and `git rebase` are always `([], [])`: what they merge is not a local tip.
+    """
+    try:
+        actions = _git_actions(command, cwd)
+        if not actions:
+            return [], []
+        id_regex = re.compile(id_pattern or task_id_pattern(ROOT, bounded=True), re.IGNORECASE)
+        sources = []
+        if len(actions) == 1 and actions[0][0][0] == "merge":
+            sources = _merge_sources(actions[0][0][1:], actions[0][1])
+        elif _resolve_pushed_task(command, cwd, id_pattern, sources) is None:
+            return [], []
+        if len(set(sources)) == 1:
+            directory, branch = sources[0]
+            task_id = _ref_task_id(branch, id_regex) if directory is not None else None
+            return ([(task_id, branch, directory)] if task_id else []), []
+        if actions[0][0][0] != "merge" or len(sources) < 2:
+            return [], []
+        targets, doubts = [], []
+        for directory, branch in sources:
+            task_id = _ref_task_id(branch, id_regex)
+            tip = None if directory is None else _git(
+                directory, "rev-parse", "--verify", "--quiet", f"{branch}^{{commit}}")
+            if task_id is None or tip is None or tip.returncode != 0:
+                doubts.append(branch)
+            else:
+                targets.append((task_id, branch, directory))
+        return targets, doubts
+    except Exception:
+        return [], []
+
+
+def branch_target(command, cwd, id_pattern=None):
+    """The one `(task ID, branch, directory)` `command` merges or pushes, or None (T210 D4)."""
+    targets, doubts = branch_targets(command, cwd, id_pattern)
+    return targets[0] if len(targets) == 1 and not doubts else None
+
+
+# --- An In Progress task blocks only this session's merge (T250 G2) ---------
+#
+# Before T250 any In Progress row refused every merge, so a task another session was working on
+# (T249, in its own worktree) blocked this session's merge of an unrelated branch. Now, for a
+# `git merge` whose every branch names exactly one task, an In Progress task stays a blocker when
+# this session worked on it (`session_work.worked_on`: an edit, a writing `Bash` command or a spawn
+# for it, in the session's transcript or a sub-agent's), or the merge brings in its branch. A branch
+# name is not enough for that: `fix/t251-x` cut from T249's branch carries T249's unfinished
+# commits, so each of the task's branches (`branch_carries_task_work`) is also compared by commit.
+# Every doubt keeps the blocker: another command (push, pull, rebase, `merge --abort`), a branch
+# that names no task, no transcript, an unreadable one, a task with no known branch, a missing ref,
+# or any error.
+
+
+def merge_brought_task_ids(command, cwd, id_pattern=None):
+    """The task IDs (upper-cased) of every branch a `git merge` command merges, or None when the
+    command is anything else or one branch names no single task. Never raises."""
+    try:
+        actions = _git_actions(command, cwd)
+        if not actions or any(args[0] != "merge" for args, _ in actions):
+            return None
+        id_regex = re.compile(id_pattern or task_id_pattern(ROOT, bounded=True), re.IGNORECASE)
+        ids = set()
+        for args, where in actions:
+            names = [name for _, name in _merge_sources(args[1:], where)]
+            if not names:
+                return None
+            for name in names:
+                task_id = _ref_task_id(name, id_regex)
+                if task_id is None:
+                    return None
+                ids.add(task_id)
+        return ids
+    except Exception:
+        return None
+
+
+def _merged_refs(command, cwd):
+    """`[(directory, ref)]` for every ref the `git merge` segments of `command` merge."""
+    sources = []
+    for args, where in _git_actions(command, cwd) or []:
+        if args and args[0] == "merge":
+            sources.extend(_merge_sources(args[1:], where))
+    return sources
+
+
+def branch_carries_task_work(command, cwd, task_id, row):
+    """False only when every merged ref is proven to bring in none of the task's own commits: for
+    each merged ref M and each branch B of the task (its board row's, and each of its worktrees'),
+    `git merge-base M B` is already in HEAD. True on any doubt — no branch known, no merged ref, a
+    missing ref, a git error (fail closed)."""
+    try:
+        branches = {auto_mode.row_branch(row or "")}
+        branches.update(auto_mode.branch_of(path)
+                        for path in session_work.task_worktrees(ROOT, task_id, row))
+        branches.discard(None)
+        refs = _merged_refs(command, cwd)
+        if not branches or not refs:
+            return True
+        for where, ref in refs:
+            if where is None:
+                return True
+            for branch in branches:
+                base = _git(where, "merge-base", f"{ref}^{{commit}}", f"{branch}^{{commit}}")
+                if base is None or base.returncode != 0 or not base.stdout.strip():
+                    return True
+                held = _git(where, "merge-base", "--is-ancestor", base.stdout.strip(), "HEAD")
+                if held is None or held.returncode != 0:
+                    return True
+        return False
+    except Exception:
+        return True
+
+
+def session_owned_in_progress(rows, command, cwd, transcript_path):
+    """The In Progress task IDs (from `[(ID, board row)]`) that still block this command (T250 G2).
+    Fails closed: on any doubt every ID is kept."""
+    ids = [task_id for task_id, _ in rows]
+    try:
+        brought = merge_brought_task_ids(command, cwd)
+        if brought is None or not ids:
+            return ids
+        calls = session_work.load_work(transcript_path)
+        if calls is None:
+            print("[hook:pre_bash] cannot read this session's transcript — every In Progress "
+                  "task blocks this merge", file=sys.stderr)
+            return ids
+        kept = []
+        for task_id, row in rows:
+            if task_id.upper() in brought or session_work.worked_on(
+                    calls, task_id, session_work.task_worktrees(ROOT, task_id, row)):
+                kept.append(task_id)
+            elif branch_carries_task_work(command, cwd, task_id, row):
+                kept.append(task_id)
+                print(f"[hook:pre_bash] {task_id} is In Progress and this merge may bring in "
+                      "commits of its branch (or its branch is not known) — still blocking (T250)",
+                      file=sys.stderr)
+            else:
+                print(f"[hook:pre_bash] {task_id} is In Progress, but this session did not work "
+                      "on it and this merge does not bring in its branch — not blocking (T250)",
+                      file=sys.stderr)
+        return kept
+    except Exception as exc:
+        print(f"[hook:pre_bash] session ownership check failed ({type(exc).__name__}) — every "
+              "In Progress task blocks this merge", file=sys.stderr)
+        return ids
+
+
+# --- Auto mode: merge and push stay the user's, except under `[admin]` (T284) ---------------
+#
+# While the session's latest user request carries `[auto]` or `[admin]` (`lib/auto_mode.py`, the
+# reader the Stop check shares), a `git merge`, `git push` or `git pull` — or an inline git alias,
+# which may be one — is blocked. Before T284 "never in auto mode: merge, push" was doctrine only:
+# this gate did not read the tag. `git rebase` is not part of this rule; it keeps its board check.
+#
+# `[admin]` lifts that block for one command, and only when every one of these holds (any doubt is
+# a block):
+#   * the latest request is one the user typed (`origin.kind` "human", not a sidechain) and carries
+#     `[admin]` outside code spans and `>` quoted lines — `auto_mode.admin_request`;
+#   * each git action of the command is `git merge <one branch>` or a plain `git push` of a branch
+#     to the same branch name: no force flag, no `+refspec`, no other destination, no `--no-verify`;
+#   * every branch names the same one task, and that task is the request's: the request names it
+#     with no negation in its clause, or it is the one task whose guide was first added after the
+#     request (`_named_tasks`, `_guides_added_since`), or (T323) the latest request is a short yes
+#     to the Supervisor's question directly before it, which named that one task (`_answered_task`);
+#   * a push of `main` (round 2): the remote's real `main` comes from `git ls-remote origin`, the
+#     local `main` is that sha plus only this session's merge of the task branch (run with `main`
+#     checked out), and the merge commit's tree is `git merge-tree --write-tree`'s result;
+#   * the branch tip commits the hook's own `auto-run by hook` verify result for the task, confirmed
+#     by its run record for that commit (`committed_verify_row(..., hook_only=True)`): a hand-typed
+#     pass row never counts.
+#   * round 3: one git write per command; push and merge in the same repository; no executable
+#     merge/push hook and no repo config that can run a command; `-c` refused anywhere before the
+#     verb; a hidden git verb (quotes, `${IFS}`, `$(…)`, backticks, `eval`; since T296 also a `$`, brace
+#     or glob in the git word or verb or its wrapper chain, and `send-pack`) is a block in auto mode.
+#   * T295: the repo rule is an allowlist of config keys, no executable hook file, no attributes line
+#     with `merge=`, `filter=` or `diff=`, and no other git command in the same command line.
+# The gate's other checks then still run. No transcript, or one that cannot be read, means no
+# request is known: the rule does not apply and the gate is exactly as before T284.
+AUTO_MODE_PATTERNS = [p for p in BLOCKED_PATTERNS if not p.endswith(r"rebase\b")]
+ADMIN_MAIN_BRANCH = "main"  # AC 8: the one branch `[admin]` may push besides the task branch
+ADMIN_REMOTE = "origin"     # P2: the one remote `[admin]` may push to
+# P1: a task ID in the request counts only when no negation stands before it in its clause.
+NEGATION = re.compile(r"\b(?:not|never|no|without|except|skip|leave|don't|dont|hold|wait|later|"
+                      r"postpone)\b|n't\b", re.I)
+LS_REMOTE_TIMEOUT_S = 10
+# T296 still reads a read-only verb set (the scan's env-risk doubt); T295 lets no other git command
+# share an `[admin]` command with its merge or push at all.
+ADMIN_READ_ONLY_GIT = frozenset({"status", "log", "diff", "show", "rev-parse"})
+GIT_OPTION_ARGS = GIT_OPTIONS_WITH_ARG
+# T295 (finding P1-2, replaces the T284 round-3 deny lists): the repo/worktree config of an `[admin]`
+# merge or push is read as an allowlist. Each key is `(section, has a subsection, variable)`, with
+# section and variable in lower case (git ignores their case; the subsection is case-sensitive).
+# A key not here is refused by name; a longer deny list failed against `merge.<d>.driver`,
+# `filter.<f>.smudge`, `diff.<d>.textconv`, `gpg.program` and `core.editor`. The value is the reason
+# the key cannot run code or reach another host. Add a key only with a reason and a test.
+ADMIN_ALLOWED_CONFIG = {
+    ("core", False, "repositoryformatversion"): "a number that git reads; it names no program",
+    ("core", False, "filemode"): "a boolean about the executable bit; it names no program",
+    ("core", False, "bare"): "a boolean about the repository kind; it names no program",
+    ("core", False, "logallrefupdates"): "a boolean about the reflog; it names no program",
+    ("core", False, "ignorecase"): "a boolean about file name case; it names no program",
+    ("core", False, "precomposeunicode"): "a boolean about file name encoding on macOS",
+    ("core", False, "autocrlf"): "a line-ending mode; git converts text itself, no program",
+    ("core", False, "safecrlf"): "a line-ending warning mode; it names no program",
+    ("core", False, "symlinks"): "a boolean that WSL and Windows checkouts set; no program",
+    ("remote", True, "url"): ("the address of a remote; checked below: no helper or option form, one "
+                              "URL per remote, and for a push no local target whose hooks could run"),
+    ("remote", True, "fetch"): "a refspec that only maps ref names",
+    ("branch", True, "remote"): "a remote name; a bare push checks that it is origin",
+    ("branch", True, "merge"): "a ref name; it names no program",
+    ("branch", True, "vscode-merge-base"): "a ref name that only an editor reads",
+    ("pull", False, "rebase"): "a boolean here (checked below); `git pull` is blocked anyway",
+    ("push", False, "default"): "simple or current only (checked below): the push destination",
+    ("user", False, "name"): "the commit author name; text only",
+    ("user", False, "email"): "the commit author address; text only",
+    ("extensions", False, "worktreeconfig"): "makes git read the per-worktree config the gate reads",
+}
+ADMIN_REMOTE_URL_HELPER = re.compile(r"^-|^[A-Za-z0-9+.-]+::|://-|@-")  # option, `ext::` helper
+# F3: read on bytes, as git reads them. git separates attributes by space, tab or CR only, and a
+# quoted pattern (`"*"merge=x`) may be followed by an attribute with no blank between them.
+ADMIN_ATTRIBUTE_PATTERN = re.compile(rb'(?:^|[ \t\r"])(?:merge|filter|diff)=', re.I)
+ADMIN_ATTRIBUTE_MACRO = re.compile(rb"(?:merge|filter|diff)=", re.I)  # anywhere in an `[attr]` line
+ADMIN_ATTRIBUTES_MAX_BYTES = 1 << 20
+ADMIN_ATTRIBUTES_WALK_S = 10  # F4: the attributes scan of a checkout refuses after this many seconds
+ADMIN_BOOLEAN_VALUES = frozenset({"", "true", "false", "yes", "no", "on", "off", "1", "0"})
+ADMIN_SHOWN_CHARS = 120  # F6d: at most this many characters of a name the repository chose
+# Round 3 (N5): shell forms that hide which word is `git` or its verb.
+OBFUSCATION = re.compile(r"\$\{?IFS\b|\$\(|`|\beval\b")
+# T296 (P2-1, Stage 4 fix round): the words that pass their command on (the wrapper chain), the shell
+# keywords that start a command, the shells that run a `-c` string, and the git verbs that publish.
+# Rule: EVERY word whose basename is `git` or `git-<verb>` is a git word; a git word whose verb cannot
+# be read (an option git does not know, a verb that is not a plain word, no verb after a wrapper such
+# as `xargs`) is a doubt; and a doubt is a block in auto mode, never an allow.
+SHELL_WRAPPERS = frozenset({"command", "env", "sudo", "doas", "nohup", "time", "exec", "timeout", "nice",
+                            "ionice", "setsid", "stdbuf", "xargs"})
+SHELL_KEYWORDS = frozenset({"do", "then", "else", "elif", "if", "while", "until", "!", "{", "coproc"})
+SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
+DATA_HEADS = frozenset({"echo", "printf", "grep", "egrep", "fgrep", "rg", "ag"})  # print or match only
+# The verbs that publish or run a program that does. `push`, `merge`, `pull` are the gate's own;
+# `merge-*` (but `merge-base`) is read as `merge`. Each other one, and why it is here:
+#   send-pack, http-push   plumbing that pushes refs to a remote (the T296 finding);
+#   receive-pack           updates refs of a repository and runs its hooks;
+#   remote-ext             runs an arbitrary command as the transport;
+#   subtree                `git subtree push` pushes a split branch (really pushed in the review);
+#   svn, p4                `git svn dcommit` and `git p4 submit` publish to another server;
+#   cvsexportcommit        commits to a CVS checkout.
+# Not here, on purpose: `fetch` (reads), `submodule` and `rebase --exec` (run a program but are a
+# documented limit), `fast-import`, `archimport` (write to the local repository only).
+PUBLISH_VERBS = frozenset({"push", "merge", "pull", "send-pack", "http-push", "receive-pack",
+                           "remote-ext", "subtree", "svn", "p4", "cvsexportcommit"})
+# The global options that take no value (git.c `handle_options`, `--version`/`--help`); an option that
+# is neither here nor in `GIT_OPTIONS_WITH_ARG` is unknown, and an unknown option before the verb is a
+# doubt in a command position (git itself refuses it, but a newer git may take a value with it).
+GIT_NOVALUE_GLOBALS = frozenset({
+    "--no-pager", "-P", "-p", "--paginate", "--bare", "--no-replace-objects", "--literal-pathspecs",
+    "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs", "--no-optional-locks",
+    "--no-lazy-fetch", "--no-advice", "--version", "--help", "-h", "-v", "--html-path", "--man-path",
+    "--info-path", "--exec-path"})
+GIT_ATTACHED_GLOBALS = ("--exec-path=", "--list-cmds=")
+# An assignment that makes git read another config or program path: with a git word in the same
+# command it can define an alias (`GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.x ... git x`), a doubt.
+GIT_ENV_RISK = re.compile(r"^(?:GIT_(?:CONFIG_COUNT|CONFIG_PARAMETERS|CONFIG_KEY_\d+|CONFIG_VALUE_\d+"
+                          r"|EXEC_PATH|CONFIG_GLOBAL|CONFIG_SYSTEM))=")
+# `GIT_CONFIG_COUNT` or `GIT_CONFIG_PARAMETERS` with a value can define an alias, so it is a doubt before
+# any verb; the other `GIT_ENV_RISK` names are a doubt only before a verb that is not read-only.
+GIT_ENV_ALIAS = re.compile(r"^GIT_CONFIG_(?:COUNT|PARAMETERS)=.")
+# One shell operator out of a run of punctuation (`>|` is a redirect, not a pipe; `&>>`, `<>`, `>&`).
+OPERATOR_PIECE = re.compile(r"&>>|<<<|<<-|&>|>>\||>\||<>|>>|>&|<&|<<|\|&|\|\||&&|;;|[<>|&;()]")
+ANSI_MARK = "\x01"  # stands for the `$` of an ANSI-C `$'…'` or locale `$"…"` quote while shlex runs
+FIND_EXEC = frozenset({"-exec", "-execdir", "-ok", "-okdir"})  # the word after these is a command
+ASSIGNMENT_NAME = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\+?=")
+VARIABLE_REFERENCE = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)")
+VARIABLE_PART = re.compile(r"\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*")
+ANSI_ESCAPE = re.compile(r"\\(?:x[0-9A-Fa-f]|[0-7]{1,3}|[uU][0-9A-Fa-f]|c.)")  # a hex, octal or code-point escape
+BRACE_EXPANSION = re.compile(r"(?<!\$)\{[^{}]*(?:,|\.\.)[^{}]*\}")
+NONLITERAL = re.compile(r"[$`{}*?\[]")
+PLAIN_VERB = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
+TEST_BRACKETS = frozenset({"[", "[["})
+HIDDEN_DEPTH_LIMIT = 6
+FUTURE_SLACK_S = 60  # B11: a commit dated later than now + this is not trusted as "added after"
+# B7: config that can send an `[admin]` push somewhere else or run code during it.
+ADMIN_PUSH_CONFIG_KEYS = (r"^(push\.default|remote\..*\.(push|mirror)|push\.followtags|core\.hookspath"
+                          r"|remote\..*\.(receivepack|pushurl)|url\..*\.(insteadof|pushinsteadof))$")
+CLAUSE_END = re.compile(r"[.;,!?\n]")
+ADMIN_PUSH_FLAGS = frozenset({"-u", "--set-upstream", "-q", "--quiet", "-v", "--verbose",
+                              "--progress", "-n", "--dry-run"})
+AUTO_MODE_LIMIT = ("With `[auto]`, merge and push stay the user's. `[admin]` allows only a merge or a "
+                   "plain push of its own task branch (or of `main` after that merge), after its auto "
+                   "verify passed (docs/claude-md/tracks.md `### Admin tag`), in the request that "
+                   "holds it or, as a session tag, for the task of the session's loop "
+                   "(`### Session tags`). `[ticket]` allows only a plain push "
+                   "of its task branch to `origin`, after that same pass (`### Session tags`).")
+
+
+def _config_value(directory, key):
+    """`git config --get <key>` in `directory`: the value, "" when unset, None on any failure."""
+    done = _git(directory, "config", "--get", key)
+    if done is None:
+        return None
+    if done.returncode == 1 and not done.stdout.strip():
+        return ""
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def _admin_push_branch(args, directory):
+    """The one branch a `git push <args>` run in `directory` sends to the same branch name on
+    `origin`, or None (a force, an unknown option, another remote or a URL, more than one refspec,
+    another destination; for a bare push, `pushRemote`/`pushDefault`/the branch remote not origin)."""
+    positionals = []
+    for arg in args:
+        if arg.startswith("-"):
+            if arg not in ADMIN_PUSH_FLAGS:
+                return None
+        else:
+            positionals.append(arg)
+    if len(positionals) > 2 or (positionals and not REMOTE_NAME_PATTERN.fullmatch(positionals[0])):
+        return None
+    current = _current_branch(directory)
+    if current is None or not _push_config_is_plain(directory, ADMIN_PUSH_CONFIG_KEYS):
+        return None
+    fetch_url = _git(directory, "remote", "get-url", ADMIN_REMOTE)
+    push_url = _git(directory, "remote", "get-url", "--push", ADMIN_REMOTE)
+    if (fetch_url is None or push_url is None or fetch_url.returncode != 0
+            or push_url.returncode != 0 or fetch_url.stdout.strip() != push_url.stdout.strip()):
+        return None
+    if positionals:
+        if positionals[0] != ADMIN_REMOTE:
+            return None
+    else:
+        for key in (f"branch.{current}.pushRemote", "remote.pushDefault", f"branch.{current}.remote"):
+            if _config_value(directory, key) not in ("", ADMIN_REMOTE):
+                return None
+    spec = positionals[1] if len(positionals) == 2 else "HEAD"
+    if spec.startswith("+"):
+        return None
+    src, colon, dst = spec.partition(":")
+    strip = lambda name: name[len("refs/heads/"):] if name.startswith("refs/heads/") else name
+    src = current if src == "HEAD" else strip(src)
+    if colon and strip(dst) != src:
+        return None
+    return src or None
+
+
+def _origin_url(directory):
+    """The URL of `origin` in `directory`, or None. A local path (absolute, or relative to the
+    repository) is resolved first, so a symlink or `../origin.git` to the same bare repository is the
+    same remote."""
+    done = _git(directory, "remote", "get-url", ADMIN_REMOTE)
+    if done is None or done.returncode != 0:
+        return None
+    url = done.stdout.strip()
+    if url and "://" not in url and not re.match(r"^[\w.-]+@[\w.-]+:", url):
+        path = url if os.path.isabs(url) else os.path.join(directory, url)
+        if os.path.exists(path):
+            return os.path.realpath(path)
+    return url
+
+
+def _own_origin_refusal(where, cwd):
+    """T296 (P3-3): None when the repository a push runs in (`where`) is the one the command started
+    in (`cwd`) or the project's (`ROOT`), or when its `origin` has the URL of either one's `origin`.
+    Otherwise why: `cd <clone> && git push origin <branch>` in a clone whose `origin` is another remote
+    would send the branch there (the `main` push has had the same-repository rule since T284)."""
+    mine, url = _common_dir(where), _origin_url(where)
+    for base in (cwd, ROOT):
+        if not isinstance(base, str) or not os.path.isdir(base):
+            continue
+        if mine is not None and mine == _common_dir(base):
+            return None
+        known = _origin_url(base)
+        if url is not None and known is not None and url == known:
+            return None
+    return (f"the `origin` of the repository at {where} is another remote than this repository's "
+            "`origin`: `[admin]` pushes only to this repository's own remote")
+
+
+def _session_admin_merges(transcript_path, when, id_regex):
+    """`[(task ID, branch, directory)]` for each `git merge <one task branch>` this session (or a
+    sub-agent) ran since `when` and whose result is in the transcript and not an error — read from
+    the transcript, never from a command's own text."""
+    found = []
+    for command, call_cwd, ok in session_work.merge_calls(transcript_path, when):
+        if not ok:
+            continue
+        for args, where in _git_actions(command, call_cwd) or []:
+            # Round 2: only a merge run with `main` checked out counts.
+            if args[0] != "merge" or where is None or _current_branch(where) != ADMIN_MAIN_BRANCH:
+                continue
+            names = [n for _, n in _merge_sources(args[1:], where)]
+            task_id = _ref_task_id(names[0], id_regex) if len(names) == 1 else None
+            if task_id:
+                found.append((task_id, names[0], where))
+    return found
+
+
+def _git_verb(tokens):
+    """The git subcommand of a `git …` token list, past git's global options; None if absent."""
+    i = 1
+    while i < len(tokens) and tokens[i].startswith("-"):
+        i += 2 if tokens[i] in GIT_OPTION_ARGS else 1
+    return tokens[i] if i < len(tokens) else None
+
+
+def _common_dir(where):
+    """The absolute, resolved `git rev-parse --git-common-dir` of `where`, or None."""
+    done = _git(where, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    path = done.stdout.strip() if done is not None and done.returncode == 0 else ""
+    return os.path.realpath(path) if path else None
+
+
+def _config_key_shape(key):
+    """`(section, has a subsection, variable)` of a `git config --list` key, section and variable in
+    lower case; the subsection (case-sensitive, it may hold dots) is not part of the shape."""
+    section, _, rest = key.partition(".")
+    subsection, dot, variable = rest.rpartition(".")
+    if not dot:
+        return (section.lower(), False, rest.lower())
+    return (section.lower(), True, variable.lower()) if subsection else (section.lower(), False, "?")
+
+
+def _shown(text, limit=ADMIN_SHOWN_CHARS):
+    """F6d: `text` the repository chose (a hook file name, a config key, a path) as a refusal may
+    show it: control and non-ASCII characters escaped, a backtick as `'`, at most `limit` chars."""
+    safe = text.encode("unicode_escape").decode("ascii").replace("`", "'")
+    return safe if len(safe) <= limit else safe[:limit] + "..."
+
+
+def _config_value_ok(shape, value):
+    """The few allowlisted keys whose value matters: a push default, a rebase mode, a remote URL,
+    and the two booleans (F6a)."""
+    if shape == ("push", False, "default"):
+        return value.strip().lower() in SAFE_PUSH_DEFAULTS
+    if shape == ("pull", False, "rebase"):
+        return value.strip().lower() in ("true", "false")
+    if shape in (("core", False, "symlinks"), ("extensions", False, "worktreeconfig")):
+        return value.strip().lower() in ADMIN_BOOLEAN_VALUES
+    if shape == ("remote", True, "url"):
+        return not ADMIN_REMOTE_URL_HELPER.search(value.strip())
+    return True
+
+
+def _admin_config_refusal(where):
+    """Why the repo/worktree config at `where` is refused (a key not on `ADMIN_ALLOWED_CONFIG`, an
+    allowlisted key with a value that can run a command, or a remote with a second `url`), or None.
+    User-global and system config are trusted and not read. `-z` ends an entry at NUL, so a newline
+    in a value is not a new key."""
+    done = _git(where, "config", "--list", "--show-scope", "-z")
+    if done is None or done.returncode not in (0, 1):
+        return "cannot read the repository config"
+    fields = done.stdout.split("\0")
+    if fields and not fields[-1]:
+        fields.pop()
+    if len(fields) % 2:
+        return "cannot read the repository config"
+    url_counts = {}
+    for scope, entry in zip(fields[0::2], fields[1::2]):
+        key, _, value = entry.partition("\n")
+        shape = _config_key_shape(key)
+        if scope not in ("local", "worktree"):
+            # Review P1: a `url` set in global or system config adds a push target too, so count it
+            # with the repo's own; nothing else in those scopes is read.
+            if shape == ("remote", True, "url"):
+                remote = key.partition(".")[2].rpartition(".")[0]
+                url_counts[remote] = url_counts.get(remote, 0) + 1
+                if url_counts[remote] > 1:
+                    return (f"repo config `{_shown(key)}` is set more than once: a push to that "
+                            "remote would go to every URL")
+            continue
+        if shape not in ADMIN_ALLOWED_CONFIG:
+            return (f"repo config `{_shown(key)}` is not on the `[admin]` allowlist: it can run a "
+                    "command or send git elsewhere, so `[admin]` refuses")
+        if not _config_value_ok(shape, value):
+            return (f"repo config `{_shown(key)}` has a value that can run a command or send git "
+                    "elsewhere")
+        if shape == ("remote", True, "url"):
+            # F2a: git pushes to every `url` of a remote, but `git remote get-url` shows the first.
+            remote = key.partition(".")[2].rpartition(".")[0]
+            url_counts[remote] = url_counts.get(remote, 0) + 1
+            if url_counts[remote] > 1:
+                return (f"repo config `{_shown(key)}` is set more than once: a push to that remote "
+                        "would go to every URL")
+    return None
+
+
+def _admin_hooks_refusal(hooks, whose="the repository"):
+    """T295: why the hooks directory `hooks` refuses an `[admin]` merge or push (any executable file
+    that is not a `.sample` file, whatever its name), or None. A symlinked directory or file is
+    followed. `whose` names the repository in the refusal (the local one, or a push target)."""
+    try:
+        with os.scandir(hooks) as entries:
+            for entry in entries:
+                if (not entry.name.endswith(".sample") and not os.path.isdir(entry.path)
+                        and os.access(entry.path, os.X_OK)):
+                    return (f"{whose} has an executable `{_shown(entry.name)}` hook, which this "
+                            "merge or push could run")
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return f"cannot read the hooks directory of {whose}"
+    return None
+
+
+def _attributes_bytes(path):
+    """F4: the bytes of the attributes file `path` (at most `ADMIN_ATTRIBUTES_MAX_BYTES` + 1), b""
+    when it does not exist, or a refusal (a str). `os.lstat` first: a FIFO, device or directory is
+    refused and never opened; the open is `O_NONBLOCK | O_NOFOLLOW` and `fstat` checks it again."""
+    shown = _shown(path, 2 * ADMIN_SHOWN_CHARS)
+    try:
+        info = os.lstat(path)
+        if stat.S_ISLNK(info.st_mode):
+            path = os.path.realpath(path)
+            info = os.lstat(path)
+    except FileNotFoundError:
+        return b""  # no file, or a dangling symlink: git reads nothing either
+    except OSError:
+        return f"cannot read the attributes file {shown}"
+    if not stat.S_ISREG(info.st_mode):
+        return f"the attributes file {shown} is not a regular file"
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        try:
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                return f"the attributes file {shown} is not a regular file"
+            chunks, size = [], 0
+            while size <= ADMIN_ATTRIBUTES_MAX_BYTES:
+                chunk = os.read(descriptor, ADMIN_ATTRIBUTES_MAX_BYTES + 1 - size)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                size += len(chunk)
+            return b"".join(chunks)
+        finally:
+            os.close(descriptor)
+    except OSError:
+        return f"cannot read the attributes file {shown}"
+
+
+def _sets_a_driver(raw):
+    """F3: True when an attributes file's bytes hold a line that can set `merge=`, `filter=` or
+    `diff=`, read as git reads it: lines end at `\\n` only; space, tab and CR at the start are
+    skipped, then `#` is a comment (a NBSP or `\\v` before it is not). An `[attr]` macro line that
+    holds `merge=`, `filter=` or `diff=` anywhere refuses too (stricter than git)."""
+    for line in raw.split(b"\n"):
+        line = line.lstrip(b" \t\r")
+        if not line or line.startswith(b"#"):
+            continue
+        if ADMIN_ATTRIBUTE_PATTERN.search(line) or (
+                line.startswith(b"[attr]") and ADMIN_ATTRIBUTE_MACRO.search(line)):
+            return True
+    return False
+
+
+def _admin_attributes_refusal(where, common):
+    """T295: why the attributes of the repository at `where` refuse an `[admin]` merge or push (a
+    line with `merge=`, `filter=` or `diff=` in `.git/info/attributes` or any `.gitattributes` of the
+    checkout), or None. Such a line names a driver or filter that a config outside the allowlist, or
+    user-global config, could define. The scan of the checkout stops with a refusal after
+    `ADMIN_ATTRIBUTES_WALK_S` seconds (F4)."""
+    files = [os.path.join(common, "info", "attributes")]
+    top = _git(where, "rev-parse", "--show-toplevel")
+    if top is not None and top.returncode == 0 and top.stdout.strip():
+        deadline = time.monotonic() + ADMIN_ATTRIBUTES_WALK_S
+
+        def raise_walk_error(error):
+            raise error
+        try:
+            for directory, subdirs, names in os.walk(top.stdout.strip(), onerror=raise_walk_error):
+                if time.monotonic() > deadline:
+                    return (f"the attributes scan of the repository took longer than "
+                            f"{ADMIN_ATTRIBUTES_WALK_S} s")
+                subdirs[:] = [d for d in subdirs if d != ".git"]
+                files += [os.path.join(directory, n) for n in subdirs + names if n == ".gitattributes"]
+        except OSError:
+            return "cannot read the attributes of the repository"
+    for path in files:
+        raw = _attributes_bytes(path)
+        if isinstance(raw, str):
+            return raw
+        if len(raw) > ADMIN_ATTRIBUTES_MAX_BYTES:
+            return f"the attributes file {_shown(path, 2 * ADMIN_SHOWN_CHARS)} is too large to read"
+        if _sets_a_driver(raw):
+            return (f"the attributes file {_shown(path, 2 * ADMIN_SHOWN_CHARS)} sets `merge=`, "
+                    "`filter=` or `diff=`, which can run a driver or filter during this merge or push")
+    return None
+
+
+def _admin_repo_refusal(where):
+    """Why the repository at `where` may not run an `[admin]` merge or push, or None (T295, finding
+    P1-2): repo/worktree config off the allowlist, an executable hook, a legacy `remotes/` or
+    `branches/` file, or an attributes line with `merge=`, `filter=` or `diff=`. User-global and
+    system config are trusted (not read here). Read at hook time: a change between this check and
+    the command stays a documented limit."""
+    common = _common_dir(where)
+    if common is None:
+        return f"cannot read the repository at {_shown(where, 2 * ADMIN_SHOWN_CHARS)}"
+    for legacy in ("remotes", "branches"):
+        # F2b: a file here defines a remote (and its URL) outside the config the gate reads.
+        try:
+            if os.listdir(os.path.join(common, legacy)):
+                return f"the repository has a file in `.git/{legacy}/`, which can define a remote"
+        except FileNotFoundError:
+            pass
+        except OSError:
+            return f"cannot read `.git/{legacy}/` of the repository"
+    return (_admin_hooks_refusal(os.path.join(common, "hooks")) or _admin_config_refusal(where)
+            or _admin_attributes_refusal(where, common))
+
+
+def _local_push_path(url):
+    """F2b: the path of a push URL that git reaches on this machine (a path or `file://`), or None
+    for a network URL (`scheme://…` or the scp form `host:path`)."""
+    if url.startswith("file://"):
+        return url[len("file://"):]
+    if "://" in url:
+        return None
+    colon, slash = url.find(":"), url.find("/")
+    return url if colon < 0 or 0 <= slash < colon else None
+
+
+def _admin_push_target_refusal(where):
+    """F2b: why the push target of `origin` refuses an `[admin]` push, or None. A local or `file://`
+    target runs its own `pre-receive`, `update`, `post-receive`… hooks (from its `core.hooksPath`
+    too), and `receive.denyCurrentBranch=updateInstead` makes a non-bare target check out the push
+    with its own filters. A relative URL is resolved from the worktree top, as git does. The target
+    is only read (`rev-parse`, `config --get`), never run. A network URL is not checked."""
+    done = _git(where, "remote", "get-url", ADMIN_REMOTE)
+    if done is None or done.returncode != 0:
+        return None  # `_admin_push_branch` refuses a push with no readable origin URL
+    local = _local_push_path(done.stdout.strip())
+    if local is None:
+        return None
+    if "%" in local:
+        return "the push target of origin is a `file://` URL with an escape the gate does not decode"
+    top = _git(where, "rev-parse", "--show-toplevel")
+    base = top.stdout.strip() if top is not None and top.returncode == 0 else ""
+    base = base or _common_dir(where) or ""
+    target = os.path.join(base, os.path.expanduser(local)) if base else ""
+    found = next((target + suffix for suffix in ("/.git", "", ".git/.git", ".git")
+                  if target and os.path.exists(target + suffix)), None)
+    shown = _shown(target, 2 * ADMIN_SHOWN_CHARS)
+    hooks = found and _git(found, f"--git-dir={found}", "rev-parse", "--path-format=absolute",
+                           "--git-path", "hooks")
+    if not hooks or hooks.returncode != 0 or not hooks.stdout.strip():
+        return f"cannot read the push target of origin at {shown}"
+    refusal = _admin_hooks_refusal(hooks.stdout.strip(), "the push target of origin")
+    if refusal:
+        return refusal
+    mode = _git(found, f"--git-dir={found}", "config", "--get", "receive.denyCurrentBranch")
+    if mode is None or mode.returncode not in (0, 1):
+        return f"cannot read the config of the push target of origin at {shown}"
+    if mode.stdout.strip().lower() == "updateinstead":
+        return ("the push target of origin sets `receive.denyCurrentBranch=updateInstead`: the push "
+                "would check out files there, with that repository's own filters")
+    return None
+
+
+def _basename(word):
+    """The last path part of a command word; a leading `=` (zsh's `=git` is git's path) is dropped."""
+    return word.lstrip("=").rsplit("/", 1)[-1]
+
+
+def _is_git_word(word):
+    """True for `git`, a path to it, and a dashed command `git-push` (or a path to one)."""
+    base = _basename(word)
+    return base == "git" or base.startswith("git-")
+
+
+def _publishes(verb):
+    return verb in PUBLISH_VERBS or (verb.startswith("merge-") and verb != "merge-base")
+
+
+def _read_git_word(words, index, strict):
+    """`(verb or None, doubt)` for the git word `words[index]` of one simple command (redirects already
+    removed). A dashed command `git-push` has its verb in its name. For `git`, the verb is the first
+    word past git's global options; an option with a value (`GIT_OPTIONS_WITH_ARG`) takes the next word.
+    `strict` is true for a word in a command position (first word, or after a wrapper): there an unknown
+    option, a verb that is not a plain word and no verb at all (after a wrapper such as `xargs`, which may
+    take it from stdin) are a doubt. Elsewhere (`man git`, `strace -f git push`) only a verb that
+    publishes or holds an expansion character is."""
+    word = words[index]
+    base = _basename(word)
+    if base.startswith("git-"):
+        verb = base[4:]
+        return verb, bool(NONLITERAL.search(base)) or not verb or bool(re.search(r"[^A-Za-z0-9._-]", verb))
+    if NONLITERAL.search(base):
+        return None, True
+    j = index + 1
+    while j < len(words) and words[j].startswith("-"):
+        option = words[j]
+        if option in GIT_OPTIONS_WITH_ARG or option == "--":
+            j += 2 if option != "--" else 1
+        elif option.startswith(tuple(o + "=" for o in GIT_OPTIONS_WITH_ARG if o.startswith("--"))) \
+                or option in GIT_NOVALUE_GLOBALS or option.startswith(GIT_ATTACHED_GLOBALS):
+            j += 1
+        elif strict:
+            return None, True
+        else:
+            j += 1
+    verb = words[j] if j < len(words) else None
+    if verb is None:
+        return None, False
+    if strict:
+        return verb, not PLAIN_VERB.fullmatch(verb)
+    return verb, bool(NONLITERAL.search(verb))
+
+
+class _Scan:
+    """What one pass over a command found: `doubt` (a form the gate cannot read), `verbs` (the verb of
+    each git word whose verb could be read) and `git_words` (how many git words there were)."""
+
+    def __init__(self):
+        self.doubt = False
+        self.verbs = []
+        self.git_words = 0
+        self.env_risk = False
+        self.env_alias = False
+
+
+def _assigned_names(simple_commands):
+    """The names this command sets: `NAME=value` in any word, `for NAME in`, `read NAME`."""
+    names = set()
+    for words in simple_commands:
+        for word in words:
+            found = ASSIGNMENT_NAME.match(word)
+            if found:
+                names.add(found.group(1))
+        if len(words) > 1 and words[0] == "for":
+            names.add(words[1])
+        if words and words[0] == "read":
+            names.update(w for w in words[1:] if not w.startswith("-"))
+    return names
+
+
+def _scan_simple(words, depth, tainted, scan, ansi=False):
+    """Read one simple command (`words`: shlex-unquoted, redirects removed) into `scan`. Every word is
+    examined: nothing returns at the first word that looks like git. `ansi` is true when a word was an
+    ANSI-C `$'…'` or locale `$"…"` quote, which shlex cannot unquote the way the shell does."""
+    if depth > HIDDEN_DEPTH_LIMIT:
+        scan.doubt = True
+        return
+    if any(GIT_ENV_RISK.match(w) for w in words):
+        scan.env_risk = True
+    if any(GIT_ENV_ALIAS.match(w) for w in words):
+        scan.env_alias = True
+    start = 0
+    while start < len(words) and (ASSIGNMENT_NAME.match(words[start]) or words[start] in SHELL_KEYWORDS):
+        start += 1
+    words = words[start:]
+    if words and words[0] == "function" and "{" in words:
+        words = words[words.index("{") + 1:]  # `function f { git push; }`: the body is a command
+    if not words or _basename(words[0]) in DATA_HEADS:
+        return
+    git_before, verbs_before = scan.git_words, len(scan.verbs)
+    wrapped = _basename(words[0]) in SHELL_WRAPPERS
+    xargs_at = next((i for i, w in enumerate(words) if _basename(w) == "xargs"), len(words))
+    for k, word in enumerate(words):
+        if wrapped and k:
+            split = None
+            if word in ("-S", "--split-string") and k + 1 < len(words):
+                split = words[k + 1]
+            elif word.startswith("--split-string="):
+                split = word[len("--split-string="):]
+            elif re.match(r"^-[A-Za-z]*S.", word):
+                split = word.split("S", 1)[1]
+            if split:  # `env -S 'git "push" x'`, `env -S'…'`, `env --split-string='…'`
+                _merge_scan(scan, split, depth + 1, tainted)
+        if k and (word.startswith("-") or ASSIGNMENT_NAME.match(word)):
+            continue  # a wrapper's option, or a `VAR=value` it sets: not a command word
+        base = _basename(word)
+        command_position = wrapped or k == 0 or words[k - 1] in FIND_EXEC
+        if _is_git_word(word):
+            if base.startswith("git-") and not command_position:
+                continue  # `man git-push`, `ls /usr/lib/git-core/git-push`: a name, not a command
+            scan.git_words += 1
+            verb, doubt = _read_git_word(words, k, command_position)
+            if verb is None and k > xargs_at:
+                doubt = True  # `env xargs git`, `busybox xargs git`: the verb may come on stdin
+            scan.doubt = scan.doubt or doubt
+            if verb is not None:
+                scan.verbs.append(verb)
+            continue
+        if not command_position:
+            continue
+        if base == "eval":
+            scan.doubt = True  # the string it runs is built at run time
+        elif base in SHELLS:
+            for j in range(k + 1, len(words) - 1):
+                if re.fullmatch(r"-[A-Za-z]*c[A-Za-z]*", words[j]):
+                    if ansi:
+                        scan.doubt = True  # `sh -c $'git \\x70ush x'`: the string is not what shlex sees
+                    _merge_scan(scan, words[j + 1], depth + 1, tainted)
+                    break
+        elif NONLITERAL.search(base) and base not in TEST_BRACKETS:
+            names = set(VARIABLE_REFERENCE.findall(base))
+            # A variable the command sets, a head that says git once its variables are cut out (`$GIT`,
+            # `${G:-git}`, `g${E}it`) and a glob that matches `git` (`gi?`) may be git; a variable it does
+            # not set (`$PY`, `$DOCKER`) is data (`$DOCKER push registry/img`).
+            if (BRACE_EXPANSION.search(base) or names & tainted
+                    or "git" in base.lower() or "git" in VARIABLE_PART.sub("", base).lower()
+                    or fnmatch.fnmatchcase("git", base)
+                    or any(w == "-c" for w in words[k + 1:])
+                    or ("$" not in base and any(_publishes(w) for w in words[k + 1:]))):
+                scan.doubt = True  # (a glob or a backtick word, not a variable, plus a publish verb)
+    if ansi and (any(_publishes(w) or BRACE_EXPANSION.search(w) or ANSI_ESCAPE.search(w) for w in words)
+                 or (scan.git_words > git_before
+                     and any(v not in SAFE_GIT_SUBCOMMANDS for v in scan.verbs[verbs_before:]))):
+        # `$'\\x67it' push x`, `$'git-push' x`: an ANSI-C or locale quote hides the git word, and shlex
+        # reads `\\x67it` as a plain word. Doubt only when a publishing verb, an expansion or a git verb
+        # that is not a plain commit or read stands in the same simple command.
+        scan.doubt = True
+
+
+def _merge_scan(scan, command, depth, tainted=frozenset()):
+    inner = _scan_command(command, depth, tainted)
+    scan.doubt = scan.doubt or inner.doubt
+    scan.verbs += inner.verbs
+    scan.git_words += inner.git_words
+    scan.env_risk = scan.env_risk or inner.env_risk
+    scan.env_alias = scan.env_alias or inner.env_alias
+
+
+def _mark_ansi_quotes(text):
+    """`(text, unbalanced)`: `text` with the `$` of each ANSI-C `$'…'` and locale `$"…"` quote that the
+    shell reads (not one inside another quote) replaced by `ANSI_MARK`. `unbalanced` is true when an
+    ANSI-C span holds `\\'`, where shlex and the shell disagree about where the quote ends."""
+    out, mode, unbalanced, i, n = [], None, False, 0, len(text)
+    while i < n:
+        c = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if mode == "s":
+            out.append(c)
+            mode = None if c == "'" else mode
+        elif mode == "d":
+            out.append(c)
+            if c == "\\" and nxt:
+                out.append(nxt)
+                i += 1
+            elif c == '"':
+                mode = None
+        elif c == "\\" and nxt:
+            out.append(c + nxt)
+            i += 1
+        elif c == "$" and nxt == "'":
+            j = i + 2
+            while j < n and text[j] != "'":
+                j += 2 if text[j] == "\\" else 1
+            unbalanced = unbalanced or "\\'" in text[i + 2:j]
+            out.append(ANSI_MARK + text[i + 1:j + 1])
+            i = j
+        elif c == "$" and nxt == '"':
+            out.append(ANSI_MARK)
+        else:
+            out.append(c)
+            mode = "s" if c == "'" else "d" if c == '"' else None
+        i += 1
+    return "".join(out), unbalanced
+
+
+def _scan_command(command, depth=0, outer_tainted=frozenset()):
+    """Read `command` into a `_Scan`. Two layers: `${IFS}`, `$(…)`, a backtick or `eval` in a segment that
+    names git; then each simple command, after shlex removed quotes and backslashes (a lone backslash +
+    newline is joined first, as the shell does): redirects are skipped, every git word is read. An
+    empty quoted word is a word. `>|` and the other redirect operators are not pipes."""
+    scan = _Scan()
+    text = join_line_continuations(strip_heredoc_bodies(command))
+    for segment in re.split(r"[;&|\n]+", QUOTED_SPAN_PATTERN.sub(" ", text)):
+        if re.search(r"git", segment, re.I) and OBFUSCATION.search(segment):
+            scan.doubt = True
+            return scan
+    text, unbalanced = _mark_ansi_quotes(text)
+    if unbalanced or any(m.group(1).count("'") % 2 or m.group(1).count('"') % 2
+                         for m in re.finditer(r"`([^`]*)`", text)):
+        # `echo $'\\'' ; git "push" x #'`, "echo `echo '` ; git push x": the shell and shlex end the
+        # quote in different places, so shlex would read a command as quoted data. Rare in real use.
+        scan.doubt = True
+        return scan
+    lexer = shlex.shlex(text.replace("\n", " ; "), posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        scan.doubt = "git" in text.lower()
+        return scan
+    simple, words, skip, ansi = [], [], False, False
+    for token in tokens + [";"]:
+        if token and set(token) <= SHELL_PUNCTUATION:
+            for operator in OPERATOR_PIECE.findall(token):
+                skip = False
+                if "<" in operator or ">" in operator:
+                    if words and words[-1].isdigit():
+                        words.pop()  # `2>/dev/null`: the fd number
+                    skip = True
+                else:  # `;` `&&` `||` `|` `&` `(` `)`: ends a simple command
+                    simple.append((words, ansi))
+                    words, ansi = [], False
+        elif skip:
+            skip = False  # the target of a redirect
+        else:
+            ansi = ansi or ANSI_MARK in token
+            words.append(token.replace(ANSI_MARK, ""))
+    tainted = _assigned_names([w for w, _ in simple]) | set(outer_tainted)
+    for words, ansi in simple:
+        _scan_simple(words, depth, tainted, scan, ansi)
+    if scan.git_words and (scan.env_alias or (scan.env_risk and (
+            len(scan.verbs) != scan.git_words or any(v not in ADMIN_READ_ONLY_GIT for v in scan.verbs)))):
+        scan.doubt = True  # an alias through the environment, or a program path, before more than a read
+    return scan
+
+
+def hidden_git_verb(command, depth=0):
+    """Round 3 (N5), T296: True when `command` may run git push/merge/pull (or another verb that
+    publishes, `PUBLISH_VERBS`) in a form the patterns do not read, or holds a doubt (`_scan_command`).
+    Used only in auto mode (a block on doubt). Covers a `$`, brace, glob or quote in the git word, the
+    verb or a wrapper chain before it; a redirect between git and its verb; `--attr-source <tree>` and
+    the other options with a value; dashed `git-push`; `git` found later in a command, or after an unknown
+    head; an alias set by `GIT_CONFIG_COUNT` and its kin; `xargs git`; `eval`; `bash -c '…'`; `env -S`."""
+    scan = _scan_command(command, depth)
+    return scan.doubt or any(_publishes(v) for v in scan.verbs)
+
+
+def _remote_main(where):
+    """Round 2: the remote's real `main` sha from `git ls-remote origin refs/heads/main` (argv, no
+    shell, a 10 s timeout, no prompt), never the local `refs/remotes/origin/main` the model can move.
+    None on any failure, a timeout or no answer."""
+    try:
+        done = subprocess.run(
+            # Round 3 (N4): the gate's own call never runs a repo-set upload-pack (an explicit
+            # `--upload-pack` wins over `remote.origin.uploadpack`; a `-c` override does not, tested)
+            # nor a repo-set proxy. Repo-local `core.sshCommand` was already refused above.
+            ["git", "-c", "remote.origin.proxy=", "-C", where, "ls-remote",
+             "--upload-pack=git-upload-pack", ADMIN_REMOTE, f"refs/heads/{ADMIN_MAIN_BRANCH}"],
+            capture_output=True, text=True, timeout=LS_REMOTE_TIMEOUT_S,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+    except Exception:
+        return None
+    words = done.stdout.split() if done.returncode == 0 else []
+    return words[0] if len(words) >= 2 and SHA_PATTERN.match(words[0]) and \
+        words[1] == f"refs/heads/{ADMIN_MAIN_BRANCH}" else None
+
+
+def _rev(where, ref):
+    done = _git(where, "rev-parse", "--verify", "--quiet", ref)
+    sha = done.stdout.strip() if done is not None and done.returncode == 0 else ""
+    return sha if SHA_PATTERN.match(sha) else None
+
+
+def _main_push_refusal(where, merged):
+    """P0 (rounds 1-2): why `main` may not be pushed after the merge of branch `merged`, or None.
+    Allowed: `main` is the branch tip and contains the remote's real `main` (a fast-forward), or
+    `main` is one merge commit whose parents are the remote's real `main` and the tip and whose tree
+    is `git merge-tree --write-tree <remote main> <tip>`. Anything else is refused."""
+    # T295: `git merge-tree` below runs the repo's own merge drivers, so it cannot tell a tree a
+    # driver rewrote; the same repository rule as for the merge is what refuses it. `admin_refusal`
+    # already ran this check before it calls here; it is repeated so that a direct call is not open
+    # (tested: `test_ac6_main_push_refusal_itself_refuses_a_tree_a_driver_changed`).
+    repo_refusal = _admin_repo_refusal(where)
+    if repo_refusal:
+        return repo_refusal
+    remote = _remote_main(where)
+    if remote is None:
+        return ("cannot read the remote's real `main`: `git ls-remote origin refs/heads/main` "
+                "failed, timed out or returned nothing")
+    # Round 3 (N8): always the branch, never a tag of the same name.
+    merged = merged if merged.startswith("refs/") else f"refs/heads/{merged}"
+    tip = _rev(where, f"{merged}^{{commit}}")
+    main_sha = _rev(where, f"refs/heads/{ADMIN_MAIN_BRANCH}^{{commit}}")
+    if tip is None or main_sha is None:
+        return f"cannot resolve `main` or {merged}"
+    if main_sha == tip:
+        held = _git(where, "merge-base", "--is-ancestor", remote, tip)
+        return None if held is not None and held.returncode == 0 else (
+            f"`main` is {merged}, which does not contain the remote's `main`")
+    parents = _git(where, "rev-list", "--parents", "-n", "1", main_sha)
+    if parents is None or parents.returncode != 0 or parents.stdout.split()[1:] != [remote, tip]:
+        return (f"`main` carries commits besides the merge of {merged}: it is not one merge commit "
+                "of the remote's `main` and the branch tip")
+    expected = _git(where, "merge-tree", "--write-tree", remote, tip)
+    tree = expected.stdout.split()[0] if expected is not None and expected.returncode == 0 \
+        and expected.stdout.split() else ""
+    if not SHA_PATTERN.match(tree):
+        return ("`git merge-tree --write-tree` failed or found a conflict: push a merge that "
+                "resolves a conflict yourself")
+    if _rev(where, f"{main_sha}^{{tree}}") != tree:
+        return f"the merge commit on `main` changes files the merge of {merged} does not"
+    return None
+
+
+def _named_tasks(text, id_regex):
+    """P1: the task IDs `text` names as tasks to do — an ID with a negation before it in its own
+    clause ("do NOT merge T900") is left out. A plain reading, not a parser (documented limit)."""
+    named = set()
+    for match in id_regex.finditer(text or ""):
+        start = max((m.end() for m in CLAUSE_END.finditer(text, 0, match.start())), default=0)
+        after = CLAUSE_END.search(text, match.end())
+        end = after.start() if after else len(text)
+        # Round 2 (B9): a negation after the ID in the same clause counts too ("T900 is not ready").
+        if not NEGATION.search(text[start:match.start()]) and \
+                not NEGATION.search(text[match.end():end]):
+            named.add(match.group(0).upper())
+    return named
+
+
+# T323: a reply that is only a short yes (AC 2), and the hint every unbound `[admin]` refusal carries.
+SHORT_YES = re.compile(r"\s*(?:yes|y|ok|okay|sure|go(?: ahead)?|do it|merge(?: it)?)\W*", re.I)
+SHORT_YES_MAX = 40
+ANSWER_HINT = ("a bare yes binds only when the Supervisor's last message asked about exactly one "
+               "task; else reply with the task ID and `[admin]`")
+
+
+def _short_yes(text):
+    """T323 AC 2: True when request `text`, without code spans, `>` quoted lines and `[admin]`, is
+    only a short yes."""
+    plain = auto_mode.QUOTED_LINE.sub(" ", auto_mode.CODE.sub(" ", text or ""))
+    plain = plain.replace(auto_mode.ADMIN_TAG, " ")
+    return len(plain.strip()) <= SHORT_YES_MAX and SHORT_YES.fullmatch(plain) is not None
+
+
+def _answered_task(transcript_path, request_entry, id_regex):
+    """T323: the one task ID that the Supervisor's question directly before `request_entry` (the
+    session's latest human request, a short yes) named, or None. The question is the newest
+    non-sidechain assistant entry with a `text` block after the previous human request; only its
+    `text` blocks are read. It names exactly one task (`_named_tasks`, so a negated ID drops out) and
+    its last non-empty line ends with `?`. A compact summary, an unreadable line or a malformed
+    assistant entry after the previous request leaves no question. Never raises: any doubt is None."""
+    try:
+        if (not isinstance(transcript_path, str) or not os.path.isabs(transcript_path)
+                or not isinstance(request_entry, dict)
+                or not _short_yes(auto_mode.request_text(request_entry))):
+            return None
+        question, answered, last = None, None, None
+        with open(transcript_path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    entry = None
+                if not isinstance(entry, dict):
+                    question = False  # an unreadable line may be the question: fail closed
+                    continue
+                if entry.get("isSidechain"):
+                    continue
+                if entry.get("isCompactSummary"):
+                    question = False
+                elif entry.get("type") == "assistant":
+                    message = entry.get("message")
+                    content = message.get("content") if isinstance(message, dict) else None
+                    if not isinstance(content, list):
+                        question = False
+                        continue
+                    texts = [b.get("text") for b in content
+                             if isinstance(b, dict) and b.get("type") == "text"]
+                    if texts:
+                        question = ("\n".join(texts) if all(isinstance(t, str) for t in texts)
+                                    else False)
+                elif entry.get("type") == "user":
+                    origin = entry.get("origin")
+                    if (auto_mode.request_text(entry) is not None and isinstance(origin, dict)
+                            and origin.get("kind") == "human"):
+                        answered, last, question = question, entry, None
+        if last != request_entry or not isinstance(answered, str):
+            return None
+        lines = [l.strip() for l in answered.splitlines() if l.strip()]
+        if not lines or not lines[-1].endswith("?"):
+            return None
+        named = _named_tasks(answered, id_regex)
+        return named.pop() if len(named) == 1 else None
+    except Exception:
+        return None
+
+
+def _guides_added_since(directory, when):
+    """P1: the task IDs whose `tasks/TASK_GUIDE_<ID>.md` was first added, on any ref, at or after
+    `when`. None when git cannot be read."""
+    done = _git(directory, "log", "--all", "--diff-filter=A", "--format=%x00%ct", "--name-only",
+                "--", "tasks/")
+    if done is None or done.returncode != 0:
+        return None
+    first, latest = {}, time.time() + FUTURE_SLACK_S
+    for chunk in done.stdout.split("\x00")[1:]:
+        lines = [l.strip() for l in chunk.splitlines() if l.strip()]
+        if not lines or not lines[0].isdigit() or int(lines[0]) > latest:
+            continue  # B11: a commit dated in the future is not trusted (the date is git's record)
+        for name in lines[1:]:
+            hit = re.fullmatch(r"tasks/TASK_GUIDE_([A-Za-z]+-?\d+)\.md", name)
+            if hit:
+                task = hit.group(1).upper()
+                first[task] = min(first.get(task, int(lines[0])), int(lines[0]))
+    return {task for task, at in first.items() if at >= when.timestamp()}
+
+
+def _session_holds(transcript_path, when, task_id):
+    """T317 G1: True when this session (or a sub-agent of it) changed task `task_id` since `when`, the
+    time of the request that set the session tag, and changed no other task that the board shows In
+    Progress or Ready for Review. False on any doubt (no transcript, no board, an error)."""
+    try:
+        calls = session_work.load_work(transcript_path, since=when)
+        with open(KANBAN, encoding="utf-8") as f:
+            kanban = f.read()
+    except Exception:
+        return False
+    if calls is None:
+        return False
+    rows = auto_mode.board_rows(kanban, ("In Progress", "Ready for Review", "Done"))
+    own_row = next((row for tid, row in rows if tid.upper() == task_id), None)
+    if not session_work.worked_on(calls, task_id,
+                                  session_work.task_worktrees(ROOT, task_id, own_row)):
+        return False
+    return not any(tid.upper() != task_id and session_work.worked_on(
+        calls, tid, session_work.task_worktrees(ROOT, tid, row))
+        for tid, row in auto_mode.board_rows(kanban))
+
+
+START_SCRIPT = ".claude/hooks/stop_auto_verify.py"
+
+
+def _own_start_since(transcript_path, when, task_id):
+    """T317 R1: the time of this session's (or a sub-agent's) earliest own `Bash` call dated at or
+    after `when` (the tag request) that runs `python3 .claude/hooks/stop_auto_verify.py --start
+    <task_id>` as a command of its own, read from the transcript like `_session_admin_merges`; None
+    when there is none. An echoed or quoted mention, or one in an `Agent` prompt, is not that call."""
+    starts = []
+    for at, command, _, _ in session_work.bash_calls(transcript_path, when):
+        for tokens, _, _ in _command_segments(command) or []:
+            script = os.path.normpath(tokens[1]).replace(os.sep, "/") if len(tokens) == 4 else ""
+            if (_basename(tokens[0]) in ("python3", "python")
+                    and (script == START_SCRIPT or script.endswith("/" + START_SCRIPT))
+                    and tokens[2] == "--start" and tokens[3].upper() == task_id):
+                starts.append(at)
+    return min(starts) if starts else None
+
+
+def _ready_for_review(task_id):
+    """T317 R4: True when the board shows `task_id`'s own row in Ready for Review; False on any
+    doubt. (An In Progress row is blocked before any tag rule, by the pipeline gate.)"""
+    try:
+        with open(KANBAN, encoding="utf-8") as f:
+            kanban = f.read()
+    except Exception:
+        return False
+    rows = auto_mode.board_rows(kanban, ("Ready for Review",))
+    return any(tid.upper() == task_id for tid, _ in rows)
+
+
+def _pass_recorded_since(task_id, branch, where, when):
+    """T317 G1/R1: True when the hook's run record says pass for `task_id` at a commit that `branch`
+    holds, and the hook wrote that record at or after `when`, the time of this session's own
+    `--start` call for the task (`_own_start_since`), itself dated after the tag request. The record's
+    file time is read (agents are denied writes there), but it never binds alone: without that own
+    `--start` call the caller binds nothing, so a `touch` of a file and a fresh record do not bind."""
+    try:
+        normalized = normalize_task_id(task_id, ROOT)
+        empty = "0" * 40
+        prefix = record_path(ROOT, normalized, empty)[:-len(empty + ".json")]
+        for path in glob.glob(glob.escape(prefix) + "*.json"):
+            sha = os.path.basename(path)[len(os.path.basename(prefix)):-len(".json")]
+            record = read_record(ROOT, normalized, sha) if SHA_PATTERN.match(sha) else None
+            if (record is None or record.get("commit") != sha
+                    or os.path.getmtime(path) < when.timestamp()
+                    or not record_confirms_pass(where, record)):
+                continue
+            held = _git(where, "merge-base", "--is-ancestor", sha, f"refs/heads/{branch}^{{commit}}")
+            if held is not None and held.returncode == 0:
+                return True
+    except Exception:
+        return False
+    return False
+
+
+def admin_refusal(command, cwd, transcript_path, admin, tag=None):
+    """Why `[admin]` (`admin` = `(timestamp, text)` of the request) does not allow `command`, or
+    None when it does. Never raises: an error is a refusal.
+
+    T317: `tag` is the session tag in force ("admin" or "ticket"; None for a per-request `[admin]`).
+    Under a session tag the task may also be bound by G1 (`_session_holds`); under "ticket" that is
+    the only binding, and only a push of the task branch is allowed: no merge, no `main` push."""
+    try:
+        when, text = admin
+        # Round 2: any `git -c <k>=<v>` (or `--config-env`) before the verb can change what a merge
+        # or push runs (`core.hooksPath`) or where it goes, so `[admin]` refuses it.
+        git_commands = 0
+        for tokens, _, _ in _command_segments(command) or []:
+            if tokens and tokens[0] == "git":
+                i = 1  # Round 3 (N7): every global option up to the verb, past `-C <dir>` too
+                while i < len(tokens) and tokens[i].startswith("-"):
+                    if tokens[i].startswith(("-c", "--config-env")):
+                        return "`[admin]` refuses `git -c` (or `--config-env`) before merge or push"
+                    i += 2 if tokens[i] in GIT_OPTION_ARGS else 1
+                verb = tokens[i] if i < len(tokens) else None
+                if verb in SAFE_GIT_SUBCOMMANDS and not _read_only_git_args_ok(verb, tokens[i + 1:]):
+                    # T296 (P3-4): say why, instead of "cannot tell which branch"
+                    if verb in ADMIN_READ_ONLY_GIT:
+                        return (f"`git {verb}` carries an option or a glob outside the read-only "
+                                "allowlist (`--output=` writes a file, `--ext-diff` runs a program): "
+                                "`[admin]` refuses it")
+                    return (f"`git {verb}` carries an option outside its short allowlist, and `[admin]` "
+                            "allows no git write besides its one merge or push")
+                git_commands += 1
+        # Round 3 (N1): a chained `git add`/`commit`/`reset`/… runs after this check and could change
+        # what the push publishes, so the command holds exactly one git command: its merge or push.
+        # T295: no exception either: `git status`, `show`, `diff` and `log` can run a textconv, a
+        # clean filter or an external diff, so only `cd <dir> &&` may stand before it.
+        if git_commands != 1:
+            return ("an `[admin]` command holds exactly one git merge or push, and no other git command "
+                    "(run the others in their own command)")
+        # Stage 4 fix round: this loop read only a `git` that starts a segment. The scan reads every git
+        # word (a redirect before the verb, a dashed `git-push`, `git` after another command), so the two
+        # must agree: a doubt, a dashed command or a git write the loop did not count is refused.
+        scan = _scan_command(command)
+        if scan.doubt:
+            return ("`[admin]` refuses a command in which a git word, its verb or a wrapper before it is "
+                    "not a plain literal word")
+        if any(_basename(w).startswith("git-") for tokens, _, _ in _command_segments(command) or []
+               for w in tokens):
+            return "`[admin]` refuses a dashed git command (`git-push`): write `git push`"
+        if len(scan.verbs) != git_commands:  # T295 counts every git command, T296's scan every git word
+            return ("`[admin]` cannot tell which git writes this command holds (a git word that is not "
+                    "the first word of a plain segment)")
+        actions = _git_actions(command, cwd)
+        if not actions:
+            return "cannot tell which branch this command merges or pushes"
+        id_regex = re.compile(task_id_pattern(ROOT, bounded=True), re.IGNORECASE)
+        targets, main_push = set(), False
+        for args, where in actions:
+            if where is None:
+                return "cannot tell which directory this command runs in"
+            repo_refusal = _admin_repo_refusal(where)
+            if repo_refusal:
+                return repo_refusal
+            if args[0] == "merge" and tag == "ticket":
+                return "`[ticket]` allows no merge: only a plain push of the task branch to `origin`"
+            if args[0] == "merge":
+                names = [name for _, name in _merge_sources(args[1:], where)]
+                if len(names) != 1:
+                    return "an `[admin]` merge names exactly one task branch"
+                branch = names[0]
+            elif args[0] == "push":
+                target_refusal = _admin_push_target_refusal(where)
+                if target_refusal:
+                    return target_refusal
+                branch = _admin_push_branch(args[1:], where)
+                if branch is None:
+                    return ("`[admin]` allows only a plain push of the task branch, or of `main` "
+                            "after the task's own merge, to the same branch: no force, no other "
+                            "destination")
+                own = _own_origin_refusal(where, cwd)
+                if own:
+                    return own
+                if branch == ADMIN_MAIN_BRANCH and tag == "ticket":
+                    return "`[ticket]` never pushes `main`: only the task branch, to `origin`"
+                if branch == ADMIN_MAIN_BRANCH:
+                    # AC 8 / 7b: `main` only after this session's own merge of the task branch,
+                    # and only when `main` really holds that branch's tip.
+                    merges = _session_admin_merges(transcript_path, when, id_regex)
+                    if not merges:
+                        return ("a push of `main` needs the task's own `[admin]` merge into `main` "
+                                "in this session, after the request")
+                    for task_id, merged, merge_where in merges:
+                        # Round 3 (N2): the push and the merge are in the same repository.
+                        if _common_dir(where) is None or _common_dir(where) != _common_dir(merge_where):
+                            return ("the push of `main` and the task's merge are not in the same "
+                                    "repository")
+                        held = _git(where, "merge-base", "--is-ancestor",
+                                    f"refs/heads/{merged}^{{commit}}",
+                                    f"refs/heads/{ADMIN_MAIN_BRANCH}^{{commit}}")
+                        if held is None or held.returncode != 0:
+                            return f"`main` does not hold the merged branch {merged}"
+                        refusal = _main_push_refusal(where, merged)
+                        if refusal:
+                            return refusal
+                        targets.add((task_id, merged, merge_where))
+                    main_push = True
+                    continue
+            else:
+                allowed = "a push" if tag == "ticket" else "merge and push"
+                return f"`[admin]` allows only {allowed}, not `git {args[0]}`"
+            task_id = _ref_task_id(branch, id_regex)
+            if task_id is None:
+                return f"{branch} names no single task"
+            targets.add((task_id, branch, where))
+        task_ids = {task_id for task_id, _, _ in targets}
+        if len(task_ids) != 1:
+            return "an `[admin]` command covers one task only"
+        task_id = task_ids.pop()
+
+        def answered():
+            # T323: a short yes answering the Supervisor's one-task question. Under a session tag the
+            # latest human request (it may carry no tag) is read, dated at or after the tag request;
+            # the row is in Ready for Review except for the `main` push after the merge.
+            latest = auto_mode.latest_request(transcript_path)
+            at = auto_mode.parse_ts(latest[0].get("timestamp")) if latest is not None else None
+            return (at is not None and at >= when
+                    and _answered_task(transcript_path, latest[0], id_regex) == task_id
+                    and (tag is None or main_push or _ready_for_review(task_id)))
+
+        bound = tag != "ticket" and (task_id in _named_tasks(text, id_regex) or _guides_added_since(
+            sorted(targets)[0][2], when) == {task_id} or answered())
+        if not bound and tag is not None:
+            # R1: the loop binds only through this session's own `--start` call after the tag
+            # request, and a pass record written after that call. R4: for the merge and the task
+            # branch push the task's own row is in Ready for Review (the `main` push after the
+            # merge may follow the close-out, so its row may be Done).
+            _, branch, where = sorted(targets)[0]
+            started = _own_start_since(transcript_path, when, task_id)
+            bound = (started is not None
+                     and (main_push or _ready_for_review(task_id))
+                     and _session_holds(transcript_path, when, task_id)
+                     and _pass_recorded_since(task_id, branch, where, started))
+        if not bound:
+            loop = ("the task of this session's loop (its row in Ready for Review, changed by this "
+                    "session since the tag request, its only task In Progress or Ready for Review, "
+                    "its auto verify started by this session's own `python3 "
+                    ".claude/hooks/stop_auto_verify.py --start <ID>` call after the request, and "
+                    "the pass recorded after that call)")
+            if tag == "ticket":
+                return f"{task_id} is not {loop}"
+            return (f"{task_id} is not the task of the `[admin]` request: the request does not "
+                    "name it, and it is not the one task whose guide was first added after "
+                    "the request" + ("" if tag is None else ", nor " + loop) + "; " + ANSWER_HINT)
+        for _, branch, where in sorted(targets):
+            if committed_verify_row(task_id, branch, where, hook_only=True) is not True:
+                return (f"{task_id} has no passed auto verify committed on {branch} (a hook-written "
+                        "`auto-run by hook` row with its run record for that commit)")
+        return None
+    except Exception as exc:
+        return f"the `[admin]` check failed ({type(exc).__name__})"
+
+
+def in_auto_mode(transcript_path):
+    """True while the latest request carries `[auto]` or `[admin]`, or a session tag holds (T317)."""
+    latest = auto_mode.latest_request(transcript_path)
+    return ((latest is not None and auto_mode.auto_tagged(latest[1]))
+            or auto_mode.session_tag(transcript_path) != "none")
+
+
+def auto_mode_blocker(command, cwd, transcript_path):
+    """The block line for a merge, push or pull while the latest request carries `[auto]` or
+    `[admin]`, or a session tag holds, or None (none of these, or the tag allows this command).
+
+    T317: a session tag (`auto_mode.session_request`) is read first. `[ticket]` allows only a plain
+    push of its task branch to `origin`; `[admin]` keeps every `[admin]` rule. Both bind the task by
+    G1 as well (`admin_refusal`)."""
+    session = auto_mode.session_request(transcript_path)
+    if session is not None:
+        tag, when, text = session
+        why = admin_refusal(command, cwd, transcript_path, (when, text), tag=tag)
+        if why and tag == "ticket":
+            why = why.replace("`[admin]`", "`[ticket]`")
+        return f"`[{tag}]` does not allow this command: {why}" if why else None
+    latest = auto_mode.latest_request(transcript_path)
+    if latest is None or not auto_mode.auto_tagged(latest[1]):
+        return None
+    admin = auto_mode.admin_request(transcript_path)
+    if admin is not None and auto_mode.request_session_tag(latest[1]) == "stop":
+        admin = None  # T317 R5: `[stop]` in the same request turns its `[admin]` off
+    if admin is None:
+        return "auto mode (`[auto]`): merge, push and pull stay the user's"
+    why = admin_refusal(command, cwd, transcript_path, admin)
+    return f"`[admin]` does not allow this command: {why}" if why else None
 
 
 # --- What to actually do about an unattributed Bash call (T095 defect B) ----
@@ -873,10 +2632,13 @@ def pushed_task_ids(command, cwd, id_pattern=None):
 # reads. That was T047's own Stage 4 P1 finding.
 ATTRIBUTION_REMEDY = (
     "Note: if a task above is missing its trace record rather than its evidence "
-    "row, attribute your Bash calls by writing the active-task state file first: "
-    "`mkdir -p <main-checkout>/.claude/hooks/.state && printf '%s\\n%s\\n' "
-    "\"Txxx\" \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" > "
-    "<main-checkout>/.claude/hooks/.state/active_task` — using the literal "
+    "row, attribute your Bash calls. A sub-agent whose spawn prompt carries "
+    "`Task ID: Txxx` or a `tasks/TASK_GUIDE_Txxx.md` path is attributed from its "
+    "own transcript and writes nothing. Otherwise write this session's state file "
+    "first: `mkdir -p <main-checkout>/.claude/hooks/.state/active_task.d && "
+    "printf '%s\\n%s\\n' \"Txxx\" \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" > "
+    "<main-checkout>/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID` "
+    "— using the literal "
     "absolute path of the main checkout (not $CLAUDE_PROJECT_DIR, which is empty "
     "inside a Bash tool call, and not a relative path, which resolves into your "
     "worktree). Valid for CLAUDE_ACTIVE_TASK_STATE_MAX_AGE_S seconds (default "
@@ -887,23 +2649,40 @@ ATTRIBUTION_REMEDY = (
 )
 
 
+def block_unreadable_input(detail):
+    """T232 D4: a call this hook cannot read may be a push, so it never passes silently."""
+    print(json.dumps({
+        "decision": "block",
+        "reason": (f"[hook:pre_bash] Hook input unreadable ({detail}) — cannot tell whether this "
+                   "call is a push or a merge, so it is blocked. Retry the call."),
+    }))
+    sys.exit(0)
+
+
 def main():
     try:
         event = json.load(sys.stdin)
-    except Exception:
+    except Exception as exc:
+        block_unreadable_input(type(exc).__name__)
+
+    if not isinstance(event, dict):
+        block_unreadable_input("event is not an object")
+    if event.get("tool_name") != "Bash":
         sys.exit(0)
 
-    # Fail open on any payload shape this hook doesn't understand — it runs
-    # before every Bash call, so a traceback here breaks all work.
-    if not isinstance(event, dict) or event.get("tool_name") != "Bash":
-        sys.exit(0)
+    # T250 G1: the folder holding this session's transcript, where a user `/verify` line's own
+    # session file is looked up. No path, no folder: such a line never passes.
+    global TRANSCRIPTS_DIR
+    transcript_path = event.get("transcript_path")
+    if isinstance(transcript_path, str) and os.path.isabs(transcript_path):
+        TRANSCRIPTS_DIR = os.path.dirname(transcript_path)
 
     tool_input = event.get("tool_input")
     if not isinstance(tool_input, dict):
-        sys.exit(0)
+        block_unreadable_input("tool_input is not an object")
     command = tool_input.get("command", "")
     if not isinstance(command, str):
-        sys.exit(0)
+        block_unreadable_input("command is not a string")
 
     # Classify the command, not the data it carries (T095 defect C, T099).
     # Heredocs first, then quoted spans — that order is required, and
@@ -919,8 +2698,39 @@ def main():
     # negative means "not verified" and refuses the merge; here it would mean
     # "not a push" and wave one through.
     scannable = strip_quoted_spans(strip_heredoc_bodies(command))
-    if not any(re.search(p, scannable) for p in BLOCKED_PATTERNS):
-        sys.exit(0)
+    auto_pattern = (any(re.search(p, scannable) for p in AUTO_MODE_PATTERNS)
+                    or defines_git_alias(scannable))
+    if not auto_pattern:
+        # T284 round 3 (N5), T296: in auto mode a git word or verb the patterns cannot read is a block on
+        # doubt. It runs whenever the auto-mode patterns do not match (a `rebase` earlier in the command
+        # matches a blocked pattern but is no auto-mode pattern, and must not hide the rest). An error in
+        # the check is a doubt too: an uncaught exception exits 1, which does not block. Outside auto
+        # mode nothing changes.
+        try:
+            hidden = hidden_git_verb(command)
+        except Exception:
+            hidden = True
+        if hidden:
+            if in_auto_mode(transcript_path):
+                print(json.dumps({"decision": "block", "reason": (
+                    "[hook:pre_bash] Auto-mode gate — cannot push/merge:\n  • cannot tell: the "
+                    "command may run git push, merge or pull in a hidden form (a `$`, brace, glob, "
+                    "quote, backslash, redirect or backtick between or in the git word and its verb, "
+                    "or before it in a wrapper chain such as `env` or `timeout`; a dashed `git-push`; "
+                    "`${IFS}`, `$(…)`, `eval`; an alias set in the environment; or a verb that "
+                    "publishes such as `send-pack`)\n" + AUTO_MODE_LIMIT)}))
+                sys.exit(0)
+        if not any(re.search(p, scannable) for p in BLOCKED_PATTERNS):
+            sys.exit(0)
+
+    # T284: in auto mode a merge, push or pull is the user's, unless `[admin]` allows this one.
+    if auto_pattern:
+        auto_block = auto_mode_blocker(command, event.get("cwd"), transcript_path)
+        if auto_block:
+            print(json.dumps({"decision": "block", "reason": (
+                "[hook:pre_bash] Auto-mode gate — cannot push/merge:\n  • " + auto_block
+                + "\n" + AUTO_MODE_LIMIT)}))
+            sys.exit(0)
 
     # T157: in board mode `online` the board cache is refreshed before it is evaluated
     # (the pre-merge pull moment). A failed or hanging pull is a warning, and the gate
@@ -990,6 +2800,13 @@ def main():
         in_progress = [tid for tid in in_progress if tid.upper() == scoped]
         ready_review = [tid for tid in ready_review if tid.upper() == scoped]
 
+    # T250 G2: of the In Progress tasks left, only this session's work blocks a merge.
+    if in_progress:
+        rows = dict(tasks_in_section("In Progress", id_pattern, with_lines=True))
+        in_progress = session_owned_in_progress(
+            [(tid, rows.get(tid, "")) for tid in in_progress], command, event.get("cwd"),
+            event.get("transcript_path"))
+
     blockers = []
 
     if in_progress:
@@ -999,15 +2816,30 @@ def main():
         # Check each for verify evidence in their task guide
         unverified = []
         failed_rows = []
+        uncommitted = []
+        # T210 D4: the task branches this command merges or pushes, where they can be resolved;
+        # T211 D2: every branch of an octopus merge, and the ones it cannot confirm.
+        targets, doubts = branch_targets(command, event.get("cwd"))
+        uncommitted.extend(OCTOPUS_DOUBT_MESSAGE.format(branch=branch) for branch in doubts)
         for tid in ready_review:
             # Look for a filled verify row in the Evidence table — in the guide,
             # or in the sibling TASK_REVIEW file it may have moved to (T064) —
             # AND a matching real tool call in the event trace. The text claim
             # alone is not trusted (the model can lie about success). Every
             # absence resolves to False, so this stays fail-closed.
-            has_evidence_row = has_filled_verify_row(tid)
+            # T210 D4: for a merged or pushed task, the row must be committed on each of its
+            # branches; a branch without it wins, and an unresolvable tip (None) otherwise keeps
+            # the working-tree read.
+            verdicts = [(committed_verify_row(tid, branch, directory), branch)
+                        for task_id, branch, directory in targets if task_id == tid.upper()]
+            missing_on = next((branch for found, branch in verdicts if found is False), None)
+            committed = (False if missing_on is not None
+                         else True if verdicts and all(found for found, _ in verdicts) else None)
+            has_evidence_row = has_filled_verify_row(tid) if committed is None else committed
             has_trace = trace_shows_verification(tid)
-            if not has_evidence_row or not has_trace:
+            if committed is False and has_filled_verify_row(tid):
+                uncommitted.append(UNCOMMITTED_ROW_MESSAGE.format(tid=tid, branch=missing_on))
+            elif not has_evidence_row or not has_trace:
                 unverified.append(tid if has_evidence_row else f"{tid} (no evidence row)")
                 if has_evidence_row and not has_trace:
                     unverified[-1] = f"{tid} (evidence row present but no verified tool call in memory/event-trace/{tid}.jsonl)"
@@ -1025,6 +2857,8 @@ def main():
                 f"Tasks in Ready for Review missing Stage 5 verify evidence: "
                 f"{', '.join(unverified)}"
             )
+
+        blockers.extend(uncommitted)
 
         if failed_rows:
             blockers.append(

@@ -16,17 +16,18 @@ You interview the user relentlessly about every aspect of a plan until you reach
 
 This skill operates in two modes. The active mode is passed via `args: "mode=<mode>"`.
 
-**Requirement mode** (`mode=requirement`) — runs after Phase 0, before brainstorming (Stage 0 → 0.5):
-- Read `PRD.md` and the Phase 0 Project Context Document.
+**Requirement mode** (`mode=requirement`) — runs in Stage 0 after step Requirements, before step Direction (brainstorming):
+- Read `PRD.md` and the Stage 0 Project Context Document.
 - Validate: each FR traces to a User Story; each User Story is clearly scoped; Out of Scope is explicit; no FR is ambiguous (would two engineers implement it differently?).
-- Challenge missing NFRs (performance, security, scale) implied by Phase 0 Q&A Section C answers.
+- Challenge missing NFRs (performance, security, scale) implied by Stage 0 Q&A Section C answers.
 - Flag every Open Question that lacks an owner or due date.
-- **Re-test the Assumptions list** from Phase 0 Step 1.5: any FR/NFR derived from a supervisor
+- **Re-test the Assumptions list** from the Stage 0 Ambiguity Resolution Protocol: any FR/NFR derived from a supervisor
   default or a `"you decide"` deferral is treated as *unconfirmed* — resolve it via the Ambiguity
   Resolution Protocol (forced choice for material, bounded, user-facing ambiguity) before it can
   drive a task. A requirement that traces only to a guess does **not** pass the gate.
 - Output: annotated `PRD.md` with unresolved items flagged inline (`<!-- FLAGGED: ... -->`); gate sign-off when all items are resolved.
 - Notify: "Requirement grilling complete. N FRs validated, M open questions resolved, K items flagged for user. PRD gate: PASS / FAIL."
+- Under `[admin]`, flag no item for the user: decide by `docs/claude-md/tracks.md` row 2.
 
 **Terminology mode** (default — no `args`, or `mode=terminology`) — runs in Stage 2, before `to-issues`:
 - Behavior unchanged from the original skill definition below.
@@ -44,7 +45,7 @@ This skill operates in two modes. The active mode is passed via `args: "mode=<mo
 This project's single source of truth is `PROJECT_SPEC.md` — do **not** introduce a separate `CONTEXT.md`. Instead:
 - **Glossary / sharpened terms** → update the relevant section of `PROJECT_SPEC.md` inline as each term resolves (keep it a glossary, free of implementation detail).
 - **Design decisions** → for every real design decision, check the **DDR gate first** (`templates/DDR_template.md`): offer a DDR at `docs/ddr/NNNN-title.md` when **at least two of three** hold — (1) hard to reverse, (2) surprising without context, (3) the result of a genuine trade-off.
-  - If the decision **also clears all three ADR criteria**, flag it **ADR-eligible** and ask the user whether to escalate to a full ADR (`templates/ADR_template.md`, `docs/adr/NNNN-title.md`) instead — a DDR is **never silently auto-upgraded** to an ADR.
+  - If the decision **also clears all three ADR criteria**, flag it **ADR-eligible** and ask the user whether to escalate to a full ADR (`templates/ADR_template.md`, `docs/adr/NNNN-title.md`) instead — a DDR is **never silently auto-upgraded** to an ADR. Under `[admin]`, do not ask: decide by `docs/claude-md/tracks.md` row 3.
   - If **fewer than two** of the three criteria hold, skip both DDR and ADR — note the decision in `memory/decisions.md` only.
   - Whichever tier is written, the corresponding `memory/decisions.md` entry gains a `→ see DDR-NNNN` / `→ see ADR-NNNN` pointer.
 

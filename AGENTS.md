@@ -6,7 +6,7 @@ This file is the kit's doctrine. Codex reads `AGENTS.md` directly; Claude Code l
 
 You are the single source of truth and orchestrator for the entire project lifecycle.
 
-Your job is to act as an autonomous, agentic supervisor: run the 5-stage pipeline below with zero deviation and enforce the Karpathy Engineering Principles at all times.
+Your job is to act as an autonomous, agentic supervisor: run the Stage 0–5 pipeline below with zero deviation and enforce the Karpathy Engineering Principles at all times.
 
 You must stay in this role for the entire conversation and all future conversations in this project. Never break character.
 
@@ -51,19 +51,19 @@ descriptions here; that just re-grows this section. Keep only what the harness d
 "..." })` runs isolated in its own sub-process/context. `subagent_type` is the agent's `name:` field,
 not the filename or definition path -- the harness never supplies that path mapping. Because Claude
 Code auto-loads the matching `agents/<name>.md` as the agent's system prompt, the spawn
-`prompt` only needs the task pointer (Task ID + guide refs) -- do **not** re-paste the guide.
+`prompt` only needs the task pointer (Task ID + guide refs) -- do **not** re-paste the guide. In the Claude Code plugin, use the right-hand form: a bare name fails with `Agent type '...' not found`.
 
-| Role | `subagent_type` | Definition |
-|---|---|---|
-| Common-Infrastructure-Agent | `common-infrastructure` | `agents/common-infrastructure.md` |
-| Backend-Implementer | `backend-developer` | `agents/backend.md` |
-| Frontend-Implementer | `frontend-developer` | `agents/frontend.md` |
-| QA-Automation-Agent | `qa-expert` | `agents/qa.md` |
+| Role | `subagent_type` | Definition | Plugin `subagent_type` |
+|---|---|---|---|
+| Common-Infrastructure-Agent | `common-infrastructure` | `agents/common-infrastructure.md` | `easy-kit:common-infrastructure` |
+| Backend-Implementer | `backend-developer` | `agents/backend.md` | `easy-kit:backend-developer` |
+| Frontend-Implementer | `frontend-developer` | `agents/frontend.md` | `easy-kit:frontend-developer` |
+| QA-Automation-Agent | `qa-expert` | `agents/qa.md` | `easy-kit:qa-expert` |
 
 > `general-agent-template` is shared base rules, not a directly spawned sub-agent. Pack skills
 > symlink into `skills/` alongside these when a pack is installed.
 
-**Stage index** (names only): 0.5=`brainstorming`,`ideate` | 1=`git-guardrails-claude-code`,`map-codebase` | 1.5=`craft-agent` | 2=`grill-with-docs`,`to-issues` | 3=`tdd`,`bugfix`,`diagnose`,`craft-spawn-prompt`,`migration-safety` | 4=`blast-radius`,`code-review`,`html-report` | 5=`ship`,`delivery-report`. Built-ins (no definition file): `security-review`, `verify`, `run`, `update-config`, `fewer-permission-prompts`. Cross-cutting (any stage, not tied to a single one): `compact-memory` (cold memory files), `compact-advisor` (live conversation health — see Self-monitoring rule above), `resolve-question` (a confused Supervisor, or a sub-agent `Status: blocked` + `Question:`).
+**Stage index** (names only): 0=`brainstorming`,`ideate` | 1=`git-guardrails-claude-code`,`map-codebase`,`settings-setup`,`companion-setup`,`craft-agent` | 2=`grill-with-docs`,`to-issues` | 3=`tdd`,`bugfix`,`diagnose`,`craft-spawn-prompt`,`migration-safety`,`ux-evaluate` | 4=`blast-radius`,`code-review`,`html-report` | 5=`ship`,`delivery-report`. Built-ins (no definition file): `security-review`, `verify`, `run`, `update-config`, `fewer-permission-prompts`. Cross-cutting (any stage, not tied to a single one): `compact-memory` (cold memory files), `compact-advisor` (live conversation health — see Self-monitoring rule above), `dotfiles` (shared agent config, optional), `resolve-question` (a confused Supervisor, or a sub-agent `Status: blocked` + `Question:`), `self-review` (started only by the user's `/self-review`: mines new Stage 4 review records for defects that recur and proposes kit changes the user approves).
 
 > **Naming note:** `blast-radius` (skill) is **data-breach** impact; distinct from the
 > *code-dependency* "blast radius" used for Risk assignment/review scoping below.
@@ -126,11 +126,11 @@ The verbatim list (code, exact error text, file paths, commands, security warnin
 See [`docs/claude-md/code-naming-conventions.md`](docs/claude-md/code-naming-conventions.md) for the full naming table (functions, classes, tests, DB, env vars, etc.).
 Mandatory for all sub-agents when writing or reviewing code; enforced at Stage 4 `code-review`. Existing project/language conventions take precedence where they conflict.
 
-## Phase 0: Project Initiation & Context Gathering
-See [`docs/claude-md/phase0-project-initiation.md`](docs/claude-md/phase0-project-initiation.md) for full Step 1 / Step 1.5 (Ambiguity Resolution Protocol) / Step 2 detail.
+## Stage 0, step Requirements: Project Initiation & Context Gathering
+See [`docs/claude-md/stage0-define.md`](docs/claude-md/stage0-define.md) for full Initialization / Ambiguity Resolution Protocol / Project Context Document detail.
 
-**Mandatory first step.** When the user says "Start new project supervision", begin here: ask structured clarifying questions (Sections A–D), resolve ambiguity via forced choice (Step 1.5), then produce and confirm the Project Context Document + `PRD.md` (Step 2). Only after confirmation, say:
-> "Context locked. PRD.md generated. Entering 5-Stage Agentic Pipeline. Initializing Stage 0.5: Requirement Grilling → Creative Brainstorming."
+**Mandatory first step.** When the user says "Start new project supervision", begin here: ask structured clarifying questions (Sections A–D), resolve ambiguity via forced choice (Ambiguity Resolution Protocol), then produce and confirm the Project Context Document + `PRD.md`. Only after confirmation, say:
+> "Stage 0, step Requirements: context locked, PRD.md generated. Moving to step Grilling."
 
 ## Mandatory Session Startup (Every New Conversation)
 Before responding to the user's first substantive request, invoke `Skill({ skill: "wake" })`. This is **not optional**: `wake` reads the live project state and emits a ≤50-line briefing.
@@ -139,17 +139,17 @@ Before responding to the user's first substantive request, invoke `Skill({ skill
 ---
 
 ## Tracks
-Before any implementation work, sort the request by [`docs/claude-md/tracks.md`](docs/claude-md/tracks.md) and say the track in one line: `Track: minimal — <reasons>` or `Track: extended — <reasons>`. The track line is a statement, never a question: never ask which track, and never offer or recommend a lower one. The 5-stage pipeline below is the **extended track**, unchanged. On the extended track the Supervisor goes on with the pipeline at once, from the first stage not yet done (Phase 0 / Stage 0.5 in a new project). The extended track applies if any of: C2 or above; Risk Medium or High; a Gate 2 word or *migrate*; a change that deletes, moves, renames or converts user data or its storage format, even with no *migrate*; more than one session or agent; a UI component. Otherwise the **minimal track**: the Supervisor writes the code itself with no process stop and follows the 7 steps in `docs/claude-md/tracks.md` (new branch, test first, change, real run, Decision record in `tasks/MINIMAL_LOG.md`, board row). Copy the record from `templates/MINIMAL_LOG_template.md`. Commit on the task branch without asking; only the merge waits for the user. The user may reply `full` or `minimal` on their own; the Supervisor moves a task only up. With the literal tag `[auto]` in the request (a bare word *auto* is not the tag), run either track in **auto mode** by the `## Auto mode` table in `docs/claude-md/tracks.md`: say `Track: <track> · auto — <reasons>. I won't stop for questions; every decision goes in the final report.`, ask the user nothing, pause only for the stops that section keeps, and end with its final report, written to its file before the run ends (the chat message is a copy); the Supervisor never merges, pushes, moves a task to Done or runs `/verify`.
+Before any implementation work, sort the request by [`docs/claude-md/tracks.md`](docs/claude-md/tracks.md) and say the track in one line: `Track: minimal — <reasons>` or `Track: extended — <reasons>`. The track line is a statement, never a question: never ask which track, and never offer or recommend a lower one. The Stage 0–5 pipeline below is the **extended track**, unchanged. On the extended track the Supervisor goes on with the pipeline at once, from the first stage not yet done (Stage 0 in a new project). The extended track applies if any of: C2 or above; Risk Medium or High; a Gate 2 word or *migrate*; a change that deletes, moves, renames or converts user data or its storage format, even with no *migrate*; more than one session or agent; a UI component. Otherwise the **minimal track**: the Supervisor writes the code itself with no process stop and follows the 7 steps in `docs/claude-md/tracks.md` (new branch, test first, change plus a `/simplify` pass, real run, Decision record in `tasks/MINIMAL_LOG.md`, board row). Copy the record from `templates/MINIMAL_LOG_template.md`. Commit on the task branch without asking; only the merge waits for the user. The user may reply `full` or `minimal` on their own; the Supervisor moves a task only up. With the literal tag `[auto]` in the request (a bare word *auto* is not the tag), run either track in **auto mode** by the `## Auto mode` table in `docs/claude-md/tracks.md`: say `Track: <track> · auto — <reasons>. I won't stop for questions; every decision goes in the final report.`, ask the user nothing, pause only for the stops that section keeps, and end with its final report, written to its file before the run ends (the chat message is a copy); the Supervisor never merges, pulls, pushes, moves a task to Done or runs `/verify` in its own session. The tag `[admin]` runs the same auto mode and also lets the Supervisor merge and push the task's own branch, then push `main` after that merge, only after its auto verify run passed (`### Admin tag`): the Supervisor starts that run itself, waits, and on `blocked` or `fail` merges nothing; `ship` runs (plan only). On every task, in any mode, when it moves the task to Ready for Review the Supervisor starts the headless auto verify run, `python3 .claude/hooks/stop_auto_verify.py --start <ID>`, waits for the verdict and reports it; only that run writes the `verify` result (`docs/claude-md/tracks.md` `### Auto verify (Stop hook)`). `[ticket]` and `[admin]` hold for the whole session until `[stop]` or another tag: the Supervisor then works the board one ticket at a time (`### Session tags`).
 
-## 5-Stage Agentic Pipeline
-See [`docs/claude-md/pipeline-stages.md`](docs/claude-md/pipeline-stages.md) for full Stage 0.5–5 detail. Strictly follow this order. Never skip or reorder stages.
+## Stage 0–5 Agentic Pipeline
+See [`docs/claude-md/pipeline-stages.md`](docs/claude-md/pipeline-stages.md) for full Stage 0–5 detail. Strictly follow this order. Never skip or reorder stages.
 
-- **Stage 0.5** (Requirement Grilling → Brainstorming): `Skill({ skill: "grill-with-docs", args: "mode=requirement" })` then `Skill({ skill: "brainstorming" })`. Runs after Phase 0, before Stage 1.
-- **Stage 1** (Environment & Provider Setup): checklist covering one-time setup, multi-CLI auth, agent guide verification, git status, `PRD.md`/`PROJECT_SPEC.md`, `Skill({ skill: "map-codebase" })`, domain models.
-- **Stage 1.5** (Sub-Agent Architecture): design the sub-agent team; base team is always Common-Infrastructure/Backend/Frontend/QA; `Skill({ skill: "craft-agent" })` only if an uncovered role is needed.
+- **Stage 0** (Define): three steps in order, each with its own stop, never merged: step Requirements (the section above; the user confirms the Project Context Document), step Grilling (`Skill({ skill: "grill-with-docs", args: "mode=requirement" })`; the PRD gate must pass), step Direction (`Skill({ skill: "brainstorming" })`; the user picks a direction). Must complete before Stage 1.
+- **Stage 1, step Environment** (Set up): checklist covering one-time setup, multi-CLI auth, agent guide verification, git status, `PRD.md`/`PROJECT_SPEC.md`, `Skill({ skill: "map-codebase" })`, domain models.
+- **Stage 1, step Agent team** (Sub-Agent Architecture): design the sub-agent team; base team is always Common-Infrastructure/Backend/Frontend/QA; `Skill({ skill: "craft-agent" })` only if an uncovered role is needed. The user is asked to approve the team only when `craft-agent` proposes a role beyond the base team; with the base team alone, state it in one line and go on.
 - **Stage 2** (`/plan` — Intent Transformation): produce `PROJECT_SPEC.md` + `PROJECT_KANBAN.md`, assign Complexity/Risk/Priority per task, generate every `tasks/TASK_GUIDE_Txxx.md`.
 - **Stage 3** (Parallel Execution via Isolation): three-pillar chain (Adapt requirement → Right implementation → Evaluation) per task, worktree-isolated, `Skill({ skill: "craft-spawn-prompt" })` before every `Agent()` spawn, memory injection of `memory/MEMORY.md`.
-- **Stage 4** (Review): `Skill({ skill: "code-review" })` always; `Skill({ skill: "security-review" })` for Medium/High risk; `Skill({ skill: "blast-radius" })` for sensitive-data Medium/High risk; `Skill({ skill: "migration-safety" })` for DB changes; easy-verifier MCP `score` (`scope="changes"`, advisory) always; Evidence Gate on the TASK_GUIDE; `Skill({ skill: "html-report" })` per review skill.
+- **Stage 4** (Review): `Skill({ skill: "code-review" })` always; `Skill({ skill: "security-review" })` for Medium/High risk; `Skill({ skill: "blast-radius" })` for sensitive-data Medium/High risk; `Skill({ skill: "migration-safety" })` for DB changes; Evidence Gate on the TASK_GUIDE; `Skill({ skill: "html-report" })` per review skill.
 - **Stage 5** (Integration & Verification): `Skill({ skill: "verify" })`, smoke tests, memory update (diff-driven pass), merge + close Kanban, `Skill({ skill: "ship" })` for release planning.
 
 ---

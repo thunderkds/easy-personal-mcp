@@ -180,8 +180,8 @@ When the sub-agent marks the task Ready for Review:
 2. `Skill({ skill: "security-review" })` — if Risk is Medium or High
 3. Confirm the fix matches the "correct behaviour" definition from the mental model — not just that tests pass
 4. Verify every row of the expanded Evidence table is filled with real output — new tests, verification
-   command, negative cases, the `verify` row (Notes column must literally say "pass" or "fail" — the
-   merge gate scans Notes, not Result), review scope, full smoke suite, the three UI rows (`☐ N/A` is
+   command, negative cases, the `verify` row (the gate counts only the hook's row or your proven `/verify`
+   line, never a hand-typed one), review scope, full smoke suite, the three UI rows (`☐ N/A` is
    only valid for a non-UI bugfix), and the bugfix-specific repro loop / regression test / smoke suite
    rows
 

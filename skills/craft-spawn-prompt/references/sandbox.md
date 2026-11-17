@@ -1,7 +1,15 @@
 # Sandboxed CLI spawn (T147)
 
 For a `claude` CLI spawn, give the Supervisor this command, run from the task's worktree, with the
-main checkout's literal absolute path (as in element 6) and the model from step 5:
+main checkout's literal absolute path (as in element 6), the model from step 5 and the effort from
+step 5:
+
+```sh
+claude --settings templates/subagent-sandbox.settings.json --add-dir <main-checkout>/.claude/hooks/.state --model <model> --effort <level> -p "<prompt>"
+```
+
+Add `--effort <level>` only for an allowed value (`low`, `medium`, `high`, `xhigh`, `max`). For
+`effort none`, leave it out:
 
 ```sh
 claude --settings templates/subagent-sandbox.settings.json --add-dir <main-checkout>/.claude/hooks/.state --model <model> -p "<prompt>"

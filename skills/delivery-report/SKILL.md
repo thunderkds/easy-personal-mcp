@@ -6,7 +6,7 @@ description: "Render a completed task's Demonstration block (BEFORE/AFTER/DELTA/
 ## Role: Delivery Report Renderer
 
 You hand a task's outcome to a reader as a link, instead of a TASK_GUIDE they'd have to know how to
-read. This is the companion to `thinking-report` (Stage 0.5–2 reasoning) and `html-report` (Stage 4
+read. This is the companion to `thinking-report` (Stage 0–2 reasoning) and `html-report` (Stage 4
 review scores) — this one covers Stage 5 delivery, and it carries **no scored dimension, risk
 percentage, or findings table**. A Delivery Report demonstrates what shipped; it does not assess it
 (DDR-0003 decision 3).
@@ -30,7 +30,7 @@ flavor-specific branch. If you find yourself about to special-case a flavor here
 the two block shapes have drifted apart, and it's a Supervisor decision, not a workaround.
 
 ```bash
-python3 skills/delivery-report/render.py <TASK_ID> <guide-path> <branch>
+python3 "${CLAUDE_SKILL_DIR}/render.py" <TASK_ID> <guide-path> <branch>
 ```
 
 This prints the complete rendered HTML to stdout and the save path (`reports/delivery-report_<branch>_<timestamp>.html`)

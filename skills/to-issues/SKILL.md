@@ -28,6 +28,8 @@ Break the plan into **tracer-bullet** tasks — thin vertical slices cutting thr
 #### 4. Quiz the user
 Present a numbered list. For each slice show: **Title**, **Type** (HITL/AFK), **Blocked by** (dependencies), **Complexity (C0–C3)**, **Risk (Low/Med/High)**, **Priority (P0–P2)**. Ask: Is the granularity right? Are the dependencies correct? Should any be merged/split? Iterate until approved.
 
+Under `[admin]`, do not quiz the user: decide by `docs/claude-md/tracks.md` row 12.
+
 #### 5. Emit the task breakdown
 For each approved slice, produce a task entry in dependency order (blockers first). This drives Stage 2's `PROJECT_KANBAN.md` rows and `tasks/TASK_GUIDE_Txxx.md` generation. Per-task body:
 

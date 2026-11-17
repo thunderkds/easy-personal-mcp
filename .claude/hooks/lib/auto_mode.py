@@ -15,8 +15,10 @@ keeps a second copy.
 
   * the **track**, from the board row: ``| Track: minimal`` means minimal, anything else extended;
   * the **report file** — ``tasks/TASK_REVIEW_<ID>.md`` (extended) or the task's own record inside
-    ``tasks/MINIMAL_LOG.md`` (minimal), resolved main checkout first and then each live worktree,
-    the way the merge gate already resolves Evidence;
+    ``tasks/MINIMAL_LOG.md`` (minimal). Since T203 a live worktree's copy wins over the main
+    checkout's (`find_for_task`): main may hold only the Stage 2 placeholder, and the task's code
+    and HEAD are in its worktree. The worktree is the one whose branch the board row names, never
+    picked by `git worktree list` order; `ambiguous` says no worktree could be told apart;
   * how the task is **marked**, kept as separate facts rather than one verdict, because the two
     hooks need different thresholds and both must read the same facts:
 
@@ -26,8 +28,15 @@ keeps a second copy.
       - ``strict``  — the marker is the *first* line of the report block. ``stop_auto_mode_check.py``
         check (1).
       - ``auto_section`` / ``tagged`` — an extended report carrying ``## Auto decisions``, or a
-        Decision record whose text carries the literal ``[auto]`` tag. ``marked`` is the union, which
-        is what ``stop_auto_mode_check.py`` treats as "this task is an auto-mode run".
+        Decision record whose text carries the literal ``[auto]`` tag (or ``[admin]``, T284). ``marked``
+        is the union, which is what ``stop_auto_mode_check.py`` treats as "this task is an auto-mode
+        run".
+
+**The tags (T284).** `request_text`, `auto_tagged`, `admin_tagged`, `latest_request` and
+`admin_request` are the one reader of the tags in a user request: the Stop check reads `[auto]` /
+`[admin]` windows with them, and the merge gate reads whether the latest request is `[admin]`.
+T317 adds `session_tag` / `session_request`, the one reader of the session tags `[admin]` and
+`[ticket]` (see "Session tags" below).
 
 **Never widens, never raises on its own.** `read` raises `Unreadable` for a file that exists but
 cannot be read, so each caller keeps its own fail-open line on stderr; everything else degrades to
@@ -36,13 +45,19 @@ pass the raw file text when you intend to write it back, and `skip_comments=True
 template copy is never the thing you edit.
 """
 import glob
+import json
 import os
 import re
 import subprocess
 from collections import namedtuple
+from datetime import datetime, timezone
 
 MARKER = "Mode: auto"
 TAG = "[auto]"
+# T284: `[admin]` is auto mode, and also lets the merge gate allow a merge or push of the task's own
+# branch after a passed auto verify. There is no second marker line: an admin task is marked
+# `Mode: auto` like any other auto-mode task.
+ADMIN_TAG = "[admin]"
 AUTO_SECTION = "## Auto decisions"
 MINIMAL_LOG = "MINIMAL_LOG.md"
 MINIMAL_LOG_REL = os.path.join("tasks", MINIMAL_LOG)
@@ -50,12 +65,239 @@ GUIDE_PREFIX = "TASK_GUIDE_"
 REVIEW_PREFIX = "TASK_REVIEW_"
 MINIMAL_ROW_STANDIN = "| Track: minimal"  # for a task found from its file, not from a board row
 
+
+def parse_ts(value):
+    """T292: the one ISO timestamp parser of the hooks (`stop_auto_mode_check.py` and
+    `session_work.py` bind it). An aware datetime from a transcript or trace timestamp, a naive one
+    read as UTC; None for anything else."""
+    try:
+        ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 ROW_ID = re.compile(r"\*\*([A-Za-z]+-?\d+)\*\*")
 MINIMAL_ROW = re.compile(r"\|\s*Track: minimal\b")
 TASK_ID = re.compile(r"[A-Za-z]+-?\d+")
 NEWEST_RECORD = re.compile(r"^## ([A-Za-z]+-?\d+) — [^\n]*\n(.*?)(?=^## |\Z)", re.S | re.M)
 GIT_TIMEOUT_S = 5
+
+# --- The tags in a user request (T229, T284) --------------------------------------------------
+#
+# A request is a `user` transcript entry the user sent: not a tool result, a task notification, a
+# skill body or reminder, the compact summary or a `!` command. A tag inside a code span is a
+# mention, not the tag. `[admin]` is read more strictly than `[auto]`, because it lifts a merge-gate
+# block: only a request the transcript marks `origin.kind` "human" (and not a sub-agent's sidechain)
+# counts, and a `>` quoted line is pasted text, never the tag. Any doubt is "not admin".
+CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)
+QUOTED_LINE = re.compile(r"^[ \t]*>.*$", re.M)
+NOT_A_REQUEST = re.compile(r"\s*<(task-notification|bash-input|bash-stdout|bash-stderr|local-command)")
+
+
+def request_text(entry):
+    """The text of a user request in a transcript entry, or None for any other entry (a tool
+    result, a task notification, a skill body or reminder, the compact summary, a `!` command)."""
+    if not isinstance(entry, dict) or entry.get("type") != "user":
+        return None
+    if entry.get("isMeta") or entry.get("isCompactSummary") or entry.get("isSidechain"):
+        return None  # T284: a sub-agent's prompt is not the user's request
+    origin = entry.get("origin")
+    if isinstance(origin, dict) and origin.get("kind") not in (None, "human"):
+        return None
+    content = (entry.get("message") or {}).get("content")
+    if isinstance(content, list):
+        content = " ".join(b.get("text", "") for b in content
+                           if isinstance(b, dict) and b.get("type") == "text")
+    if not isinstance(content, str) or not content.strip() or NOT_A_REQUEST.match(content):
+        return None
+    return content
+
+
+def auto_tagged(text):
+    """True when request `text` turns auto mode on: `[auto]` or `[admin]` outside code spans.
+
+    A request is free text, where a tag in a code span is a mention. `request_tagged` below reads a
+    Decision record instead — a file the Supervisor writes, whose `**Asked:**` line may quote the
+    request in backticks — and keeps T180's plain substring rule, so `[auto]`'s reading of a record
+    does not change."""
+    plain = CODE.sub(" ", text or "")
+    return TAG in plain or ADMIN_TAG in plain
+
+
+def admin_tagged(text):
+    """True when request `text` carries `[admin]` outside code spans and `>` quoted lines."""
+    return ADMIN_TAG in QUOTED_LINE.sub(" ", CODE.sub(" ", text or ""))
+
+
+def latest_request(transcript_path):
+    """`(entry, text)` of the session's latest request the user typed, or None (no request, no
+    transcript, a path that is not absolute, any read error).
+
+    For the merge gate only an entry marked `origin.kind` "human" (and not a sidechain) is a request
+    (T284 decision): an entry with no origin neither ends an `[auto]` window, nor opens one, nor
+    carries `[admin]`. The Stop check keeps T229's looser `request_text` reading."""
+    try:
+        if not isinstance(transcript_path, str) or not os.path.isabs(transcript_path):
+            return None
+        latest = None
+        with open(transcript_path, encoding="utf-8") as f:
+            for line in f:
+                if '"user"' not in line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                text = request_text(entry)
+                origin = entry.get("origin") if isinstance(entry, dict) else None
+                if text is not None and isinstance(origin, dict) and origin.get("kind") == "human":
+                    latest = (entry, text)
+        return latest
+    except Exception:
+        return None
+
+
+def admin_request(transcript_path):
+    """`(timestamp, text)` when the session's latest request is one the user typed and it carries
+    `[admin]`; None on any doubt. A later request without the tag ends it."""
+    latest = latest_request(transcript_path)
+    if latest is None:
+        return None
+    entry, text = latest
+    origin = entry.get("origin")
+    if not isinstance(origin, dict) or origin.get("kind") != "human" or entry.get("isSidechain"):
+        return None
+    try:
+        ts = datetime.fromisoformat(str(entry.get("timestamp")).replace("Z", "+00:00"))
+    except Exception:
+        return None
+    ts = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    return (ts, text) if admin_tagged(text) else None
+
+
+# --- Session tags (T317) ----------------------------------------------------------------------
+#
+# `[admin]` and `[ticket]` hold for the whole session: the latest typed request that carries
+# `[admin]`, `[ticket]` or `[stop]` decides, read as strictly as `admin_request` (an `origin.kind`
+# "human" request, outside code spans and `>` quoted lines). `[stop]`, or a later request with
+# `[auto]` alone (G3), ends it. In one request `[stop]` beats `[ticket]`, and `[ticket]` (the
+# narrower tag) beats `[admin]`. The compact summary never counts (`request_text`), so a tag typed
+# before `/compact` survives it. A resume ends it: `session_start_resume_mark.py` writes the resume
+# time to `resume_mark_path(<session id>)`, beside the auto verify run records under the anchors base
+# (agents are denied writes there, T317 R2), and every tag typed before that time is ignored. Any
+# doubt (no transcript, an unreadable mark) is "none".
+TICKET_TAG = "[ticket]"
+STOP_TAG = "[stop]"
+SESSION_ID = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def resume_mark_path(session_id):
+    """T317 R2: `<$CLAUDE_TRACE_ANCHOR_DIR or ~/.claude/harness-anchors>/<repo slug>/resume-at-<id>`,
+    the folder of the run records (`verify_record.record_dir`), which `.claude/settings.json` denies
+    agents write access to. None for an unsafe ID or a base that is not absolute."""
+    if not isinstance(session_id, str) or not SESSION_ID.fullmatch(session_id):
+        return None
+    from project_root import project_root  # read at call time: `$CLAUDE_PROJECT_DIR` may change
+    import verify_record  # here, not at the top: verify_record imports this module
+    try:
+        folder = os.path.dirname(verify_record.record_dir(project_root()))
+    except OSError:
+        return None
+    return os.path.join(folder, f"resume-at-{session_id}")
+
+
+def _resume_mark(session_id):
+    """`(ok, time)`: the session's recorded resume time (None when there is no mark). `ok` is False
+    when a mark exists but cannot be read or parsed: the caller then trusts no tag."""
+    path = resume_mark_path(session_id)
+    if path is None:
+        return True, None
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = f.read().strip()
+    except FileNotFoundError:
+        return True, None
+    except Exception:
+        return False, None
+    when = parse_ts(raw)
+    return (when is not None), when
+
+
+def _session_entries(source):
+    """`(session id, entries)` of a transcript path or a list of parsed events; None on any doubt."""
+    if isinstance(source, list):
+        sid = next((e.get("sessionId") for e in source
+                    if isinstance(e, dict) and isinstance(e.get("sessionId"), str)), None)
+        return sid, source
+    if not isinstance(source, str) or not os.path.isabs(source) or not os.path.isfile(source):
+        return None
+    entries = []
+    with open(source, encoding="utf-8") as f:
+        for line in f:
+            if '"user"' not in line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except Exception:
+                continue
+    return os.path.splitext(os.path.basename(source))[0], entries
+
+
+def request_session_tag(text):
+    """The session-tag word request `text` carries: "stop", "ticket", "admin", "auto" (`[auto]` alone,
+    which ends a session tag, G3) or None (no tag)."""
+    plain = QUOTED_LINE.sub(" ", CODE.sub(" ", text or ""))
+    if STOP_TAG in plain:
+        return "stop"
+    if TICKET_TAG in plain:
+        return "ticket"
+    if ADMIN_TAG in plain:
+        return "admin"
+    return "auto" if auto_tagged(text) else None
+
+
+def session_request(source):
+    """`(tag, timestamp, text)` of the typed request that set the session tag now in force, with
+    `tag` "admin" or "ticket"; None when no session tag holds or on any doubt."""
+    try:
+        found = _session_entries(source)
+        if found is None:
+            return None
+        sid, entries = found
+        ok, resumed = _resume_mark(sid)
+        if not ok:
+            return None
+        current = None
+        for entry in entries:
+            text = request_text(entry)
+            origin = entry.get("origin") if isinstance(entry, dict) else None
+            if text is None or not isinstance(origin, dict) or origin.get("kind") != "human":
+                continue
+            ts = parse_ts(entry.get("timestamp"))
+            if resumed is not None and (ts is None or ts < resumed):
+                continue  # typed before the resume (or undated while a mark exists)
+            tag = request_session_tag(text)
+            if tag in ("ticket", "admin"):
+                current = (tag, ts, text) if ts is not None else None
+            elif tag is not None:
+                current = None  # `[stop]`, or G3: a later different tag ends the session tag
+        return current
+    except Exception:
+        return None
+
+
+def session_tag(source):
+    """AC 1: "admin", "ticket" or "none" for a transcript path or a list of parsed events."""
+    found = session_request(source)
+    return found[0] if found else "none"
+
+
+def request_tagged(text):
+    """True when a Decision record's text carries `[auto]` or `[admin]` (T284: the same check as
+    T180's `TAG in body`; see `auto_tagged` for why code spans are not stripped here)."""
+    return TAG in (text or "") or ADMIN_TAG in (text or "")
 
 
 class Unreadable(Exception):
@@ -116,6 +358,79 @@ def find(name, dirs):
     return os.path.join(dirs[0], name)
 
 
+def branch_of(checkout):
+    """The branch checked out in `checkout`, or None (detached, git absent, any failure)."""
+    try:
+        done = subprocess.run(["git", "-C", checkout, "rev-parse", "--abbrev-ref", "HEAD"],
+                              capture_output=True, text=True, timeout=GIT_TIMEOUT_S)
+        name = done.stdout.strip() if done.returncode == 0 else ""
+        return name if name and name != "HEAD" else None
+    except Exception:
+        return None
+
+
+def names_task(branch, task_id):
+    """True when `branch` names `task_id`, case-insensitive and word-bounded: `feat/t951-x` names
+    T951, `feat/t9510` and `xt951` do not (the shape of T197's push-scope resolver)."""
+    return bool(branch and re.search(rf"(?<![A-Za-z0-9]){re.escape(task_id)}(?![0-9])", branch,
+                                     re.I))
+
+
+ROW_BRANCH = re.compile(r"\bbranch `([^`\s]+)`")
+ROW_WORKTREE_BRANCH = re.compile(r"\bworktree `[^`]+` \(`([^`\s]+)`\)")
+
+
+def row_branch(row):
+    """The task's branch as its main-checkout board row names it, or None. Read from the newest
+    `Started …` segment only (the Supervisor writes it at Stage 3): ``branch `<name>` `` or
+    ``worktree `../<dir>` (`<name>`)``."""
+    for seg in reversed([g for g in re.split(r"\s\|\s", row or "") if g.strip().startswith("Started")]):
+        hit = ROW_BRANCH.search(seg) or ROW_WORKTREE_BRANCH.search(seg)
+        if hit:
+            return hit.group(1)
+    return None
+
+
+def find_for_task(name, dirs, task_id, holds=None, branch=None):
+    """T203: the task's own copy of `name`, as `(path, ambiguous)`.
+
+    The Supervisor creates `tasks/TASK_REVIEW_<ID>.md` on main at Stage 2 as a placeholder, while the
+    task's real report, code and HEAD live in its worktree (Stage 4 P1). Which worktree is decided by
+    the trusted source, the main checkout's board row, never by `git worktree list` order (security
+    review: a decoy `git worktree add ../a-t951 -b fix/t951-x` would otherwise win):
+
+      * the row names a branch -> the live worktree with exactly that branch checked out, if its copy
+        exists (and passes `holds`); else no worktree copy — `find`'s main-first order;
+      * the row names none -> the one worktree whose branch names the task; zero or several among the
+        worktrees holding a copy -> `find`'s order and `ambiguous=True`, so no run starts;
+      * no worktree holds a copy -> `find`'s order, not ambiguous.
+    """
+    found = []
+    for d in dirs[1:]:
+        path = os.path.join(d, name)
+        if os.path.exists(path) and (holds is None or holds(path)):
+            found.append(d)
+    if branch:
+        exact = [d for d in found if branch_of(checkout_of(d)) == branch]
+        return (os.path.join(exact[0], name), False) if exact else (find(name, dirs), False)
+    if not found:
+        return find(name, dirs), False
+    named = [d for d in found if names_task(branch_of(checkout_of(d)), task_id)]
+    if len(named) == 1:
+        return os.path.join(named[0], name), False
+    return find(name, dirs), True
+
+
+def _holds_record(task_id):
+    def holds(path):
+        try:
+            text = read(path)
+        except Unreadable:
+            return False
+        return text is not None and record_block(COMMENT.sub("", text), task_id) is not None
+    return holds
+
+
 def comment_spans(text):
     return [(m.start(), m.end()) for m in COMMENT.finditer(text or "")]
 
@@ -124,14 +439,31 @@ def section(text, heading_pattern, skip_comments=False):
     """(start, end, body) of the block under the first heading matching `heading_pattern`, or None.
 
     With `skip_comments`, a heading inside an HTML comment is passed over — that is the copy of a
-    template, not the report, and writing into it would edit the instructions.
+    template, not the report, and writing into it would edit the instructions. A comment that ends
+    the block — only blank lines and comments after it — is not part of the block either (T244): a
+    template comment right below the report would otherwise take the report's next line. A comment
+    between two fields stays inside.
     """
     spans = comment_spans(text) if skip_comments else []
     for m in re.finditer(rf"^{heading_pattern}[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M):
         if any(a <= m.start() < b for a, b in spans):
             continue
-        return m.start(1), m.end(1), m.group(1)
+        start, end = m.start(1), m.end(1)
+        for a, _ in sorted(spans):
+            if start <= a < end and _only_comments(text, a, end, spans):
+                end = a
+                break
+        return start, end, text[start:end]
     return None
+
+
+def _only_comments(text, a, end, spans):
+    """True when `text[a:end]` is blank once every comment span is removed from it."""
+    keep = [True] * (end - a)
+    for s, e in spans:
+        for i in range(max(s, a), min(e, end)):
+            keep[i - a] = False
+    return not "".join(c for c, k in zip(text[a:end], keep) if k).strip()
 
 
 def record_block(text, task_id, skip_comments=False):
@@ -188,13 +520,14 @@ def file_candidates(dirs, skip):
     newest = NEWEST_RECORD.search(log)
     if newest and newest.group(1) not in skip and newest.group(1) not in found:
         body = newest.group(2)
-        if MARKER in body.splitlines() or TAG in body:
+        if MARKER in body.splitlines() or request_tagged(body):
             found[newest.group(1)] = MINIMAL_ROW_STANDIN
     return found, notes
 
 
 _AutoTask = namedtuple("AutoTask", "task_id track report_path guide_path text body marker strict "
-                                   "auto_section tagged exists row")
+                                   "auto_section tagged exists row ambiguous",
+                       defaults=(False,))
 
 
 class AutoTask(_AutoTask):
@@ -239,7 +572,8 @@ def resolve(task_id, row, dirs):
     """
     row = row or ""
     if MINIMAL_ROW.search(row):
-        path = find(MINIMAL_LOG, dirs)
+        path, ambiguous = find_for_task(MINIMAL_LOG, dirs, task_id, _holds_record(task_id),
+                                        row_branch(row))
         text = read(path)
         block = record_block(COMMENT.sub("", text), task_id) if text is not None else None
         body = block[2] if block else ""
@@ -247,16 +581,17 @@ def resolve(task_id, row, dirs):
                         marker=MARKER in body.splitlines(),
                         strict=first_line(body) == MARKER,
                         auto_section=False,
-                        tagged=TAG in body,
-                        exists=block is not None, row=row)
-    path = find(f"{REVIEW_PREFIX}{task_id}.md", dirs)
+                        tagged=request_tagged(body),
+                        exists=block is not None, row=row, ambiguous=ambiguous)
+    branch = row_branch(row)
+    path, ambiguous = find_for_task(f"{REVIEW_PREFIX}{task_id}.md", dirs, task_id, branch=branch)
     text = read(path)
     clean = COMMENT.sub("", text or "")
     block = section(clean, AUTO_SECTION)
     body = block[2] if block else ""
-    return AutoTask(task_id, "extended", path, find(f"{GUIDE_PREFIX}{task_id}.md", dirs), text, body,
+    return AutoTask(task_id, "extended", path, find_for_task(f"{GUIDE_PREFIX}{task_id}.md", dirs, task_id, branch=branch)[0], text, body,
                     marker=MARKER in clean.splitlines(),
                     strict=bool(block) and first_line(body) == MARKER,
                     auto_section=bool(block),
                     tagged=False,
-                    exists=text is not None, row=row)
+                    exists=text is not None, row=row, ambiguous=ambiguous)

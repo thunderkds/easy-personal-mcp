@@ -24,21 +24,52 @@ slice itself; hooks do not rewrite spawn prompts.
 Likewise warns — non-blocking — when a prompt names a TASK_GUIDE but has no
 `**Startup reads**` block (T129): the agent was never told to read PROJECT_SPEC.md
 and its role guide first.
+
+Also warns — non-blocking, loudly — when the project's `PROJECT_SPEC.md`
+`## Readiness` section (T223) is missing or incomplete: the requirements, the
+brainstorming direction, the codebase map, the tech stack, a main-flow file with a
+Mermaid diagram and the user's approval. The warning names every gap and the risk
+(agents code on a design nobody checked). It never blocks; a crash in the check
+fails open with no warning.
+
+T232: the project comes from `lib/project_root.py`, and from a plugin the hook stands down in a
+non-kit project. Inside one, input it cannot read is a block: it cannot tell the spawn has a guide.
 """
 import json
 import os
 import re
+import shlex
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOOKS_DIR = os.path.dirname(os.path.abspath(__file__))
+# The kit's own folder (the project in a `setup.sh` install, the plugin cache in a plugin). A script
+# a message tells the agent to run lives here, not in the project (T234).
+KIT_DIR = os.path.dirname(os.path.dirname(HOOKS_DIR))
+
+sys.path.insert(0, os.path.join(HOOKS_DIR, "lib"))
+
+
+def block_spawn(reason):
+    print(json.dumps({"decision": "block", "reason": f"[hook:pre_agent] {reason}"}))
+    sys.exit(0)
+
+
+# T232 D4: unlike the advisory imports below, this one has no degraded mode. With no
+# project root the hook cannot look for a guide, so the spawn is blocked.
+try:
+    from project_root import exit_outside_kit_project, project_root
+    exit_outside_kit_project()  # first, so a broken lib stays silent in a non-kit project
+    ROOT = project_root()
+except Exception as exc:
+    block_spawn(f"Project root helper unavailable ({type(exc).__name__}: {exc}) — cannot look "
+                "for the TASK_GUIDE, so this spawn is blocked. Restore "
+                ".claude/hooks/lib/project_root.py.")
 TASKS_DIR = os.path.join(ROOT, "tasks")
 KANBAN = os.path.join(ROOT, "PROJECT_KANBAN.md")
 
 # The Demonstration block may live in the guide or in the sibling TASK_REVIEW
 # file (T064). This hook is advisory only, so a broken import degrades to "no
 # Demonstration warnings" rather than blocking a spawn.
-sys.path.insert(0, os.path.join(HOOKS_DIR, "lib"))
 try:
     from guide_sections import missing_guide_sections, read_guide_section
 except Exception:  # pragma: no cover - fail open, never block a spawn
@@ -285,8 +316,8 @@ def check_memory_slice_warning(prompt):
     return [
         "Spawn prompt names a TASK_GUIDE but has no `<!-- memory-slice:` marker, so "
         "the agent gets none of the memory lines its task touches. Run "
-        "`python3 skills/craft-spawn-prompt/scripts/memory_slice.py <guide>` and paste "
-        "its output verbatim (craft-spawn-prompt element 4)."
+        f"`python3 {shlex.quote(os.path.join(KIT_DIR, 'skills', 'craft-spawn-prompt', 'scripts', 'memory_slice.py'))} "
+        "<guide>` and paste its output verbatim (craft-spawn-prompt element 4)."
     ]
 
 
@@ -306,16 +337,144 @@ def check_startup_reads_warning(prompt):
     ]
 
 
+# T223 — the `## Readiness` lines, in template order. A path line names a file
+# relative to the project root; `Tech stack` and `Approved by` are plain values.
+READINESS_LINES = ("Requirements", "Direction", "Codebase map", "Tech stack", "Main flow", "Approved by")
+READINESS_PATH_LINES = ("Requirements", "Direction", "Codebase map", "Main flow")
+READINESS_HEAD = "⚠ HIGH RISK — project readiness incomplete:"
+APPROVED_RE = re.compile(r"user \d{4}-\d{2}-\d{2}\b")
+WAIVED_RE = re.compile(r"user \d{4}-\d{2}-\d{2}\s*[—–-]+\s*\S")
+BLANK_SCAFFOLD_RE = re.compile(r"none\s*[—–-]+\s*blank scaffold", re.IGNORECASE)
+MERMAID_RE = re.compile(r"^[ \t]*```[ \t]*mermaid\b", re.MULTILINE)
+MERMAID_SCAN_BYTES = 1_000_000  # read only enough of a large file to find the block
+SPEC_READ_BYTES = 1_000_000  # only the first 1 MB of PROJECT_SPEC.md is read
+SHOWN_PATH_CHARS = 80  # a spec path echoed into the warning is cut to this length
+
+
+def _readiness_values(spec_text):
+    """`{label: value}` for each `- **Label**: value` line under `## Readiness`,
+    or None when the section is absent. The first line for a label wins."""
+    sect = re.search(r"^## Readiness[ \t]*$(.*?)(?=^## |\Z)", spec_text, re.DOTALL | re.MULTILINE)
+    if not sect:
+        return None
+    values = {}
+    for label, value in re.findall(r"^[ \t]*[-*][ \t]+\*\*([^*]+)\*\*[ \t]*:[ \t]*(.*)$", sect.group(1), re.MULTILINE):
+        values.setdefault(label.strip(), value.strip())
+    return values
+
+
+def _is_blank(value):
+    return not value or re.fullmatch(r"\[.*\]", value) is not None
+
+
+def _path_of(value):
+    """The first backtick span, else the first word: `docs/SPEC.md` (stand-in) -> docs/SPEC.md."""
+    span = re.search(r"`([^`]+)`", value)
+    return span.group(1).strip() if span else value.split()[0].rstrip(",;.:")
+
+
+def _shown(path):
+    """A spec path as it may appear in the warning: only `[\\w./-]` characters, at most
+    80 characters (cut ones end with `…`). Spec text never reaches the context verbatim."""
+    safe = re.sub(r"[^\w./-]", "", path)
+    return safe if len(safe) <= SHOWN_PATH_CHARS else safe[:SHOWN_PATH_CHARS - 1] + "…"
+
+
+def _has_mermaid(path):
+    with open(path, encoding="utf-8", errors="replace") as f:
+        return MERMAID_RE.search(f.read(MERMAID_SCAN_BYTES)) is not None
+
+
+def readiness_gaps(root):
+    """T223: the list of gaps in `<root>/PROJECT_SPEC.md` `## Readiness`; `[]` when
+    the section is complete or carries a valid `Waived: user YYYY-MM-DD — reason`
+    line. Presence only: it never judges what a file or diagram says."""
+    spec_path = os.path.join(root, "PROJECT_SPEC.md")
+    if not os.path.isfile(spec_path):
+        return ["no `PROJECT_SPEC.md` at the project root"]
+    with open(spec_path, encoding="utf-8", errors="replace") as f:
+        values = _readiness_values(f.read(SPEC_READ_BYTES))
+    if values is None:
+        return ["`PROJECT_SPEC.md` has no `## Readiness` section"]
+    waived = values.get("Waived", "")
+    if WAIVED_RE.match(waived.strip("`")):
+        return []
+    real_root = os.path.realpath(root)
+    gaps = []
+    if not _is_blank(waived):
+        gaps.append("`Waived` is not `user YYYY-MM-DD — reason`")
+    for label in READINESS_LINES:
+        if label not in values:
+            gaps.append(f"`{label}` line missing")
+            continue
+        value = values[label]
+        if _is_blank(value.strip("` ")):
+            gaps.append(f"`{label}` is empty or a `[...]` placeholder")
+        elif label == "Codebase map" and BLANK_SCAFFOLD_RE.fullmatch(value.strip("`\" ")):
+            continue
+        elif label == "Approved by":
+            if not APPROVED_RE.match(value.strip("`")):
+                gaps.append("`Approved by` is not `user YYYY-MM-DD`")
+        elif label in READINESS_PATH_LINES:
+            rel = _path_of(value)
+            shown = _shown(rel)
+            full = os.path.realpath(os.path.join(real_root, rel))
+            if os.path.isabs(rel) or not full.startswith(real_root + os.sep):
+                gaps.append(f"`{label}` path `{shown}` is outside the project root")
+            elif not os.path.isfile(full):
+                gaps.append(f"`{label}` file `{shown}` does not exist")
+            elif label == "Main flow" and not _has_mermaid(full):
+                gaps.append(f"`Main flow` file `{shown}` has no ```mermaid block")
+    return gaps
+
+
+def check_readiness_warning(root):
+    """T223: one warning (never one per task ID) naming every readiness gap, or `[]`."""
+    gaps = readiness_gaps(root)
+    if not gaps:
+        return []
+    return [
+        f"{READINESS_HEAD} {'; '.join(gaps)}. Risk: agents will code on a design nobody "
+        "checked, and architecture gaps found later cost rework. To fix: fill `PROJECT_SPEC.md` "
+        "`## Readiness` (run Stage 0 / Stage 1), or ask the user for a `Waived` "
+        "line (`- **Waived**: user YYYY-MM-DD — reason`). The spawn goes ahead (warning only)."
+    ]
+
+
+def emit_readiness(readiness):
+    """Print the readiness warning alone (stderr + additionalContext): the path
+    `main()` takes when another advisory check crashed."""
+    if not readiness:
+        return
+    for warning in readiness:
+        print(warning, file=sys.stderr)
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
+                                             "additionalContext": "\n\n".join(readiness)}}))
+
+
+def block_unreadable_input(detail):
+    """T232 D4: a spawn this hook cannot read may name a task with no guide."""
+    block_spawn(f"Hook input unreadable ({detail}) — cannot tell whether this spawn has a "
+                "TASK_GUIDE, so it is blocked. Retry the call.")
+
+
 def main():
     try:
         event = json.load(sys.stdin)
-    except Exception:
-        sys.exit(0)
+    except Exception as exc:
+        block_unreadable_input(type(exc).__name__)
 
+    if not isinstance(event, dict):
+        block_unreadable_input("event is not an object")
     if event.get("tool_name") != "Agent":
         sys.exit(0)
 
-    prompt = event.get("tool_input", {}).get("prompt", "")
+    tool_input = event.get("tool_input", {})
+    if not isinstance(tool_input, dict):
+        block_unreadable_input("tool_input is not an object")
+    prompt = tool_input.get("prompt", "")
+    if not isinstance(prompt, str):
+        block_unreadable_input("prompt is not a string")
 
     task_ids = extract_structural_task_ids(prompt)
     if not task_ids:
@@ -350,10 +509,15 @@ def main():
             "reason": (
                 f"[hook:pre_agent] Cannot spawn agent — incomplete TASK_GUIDE for: "
                 f"{'; '.join(incomplete)}. Fill those sections first (Stage 2); in board "
-                f"mode push them with `python3 scripts/board_sync.py update --guide <ID>`."
+                f"mode push them with `python3 {shlex.quote(os.path.join(KIT_DIR, 'scripts', 'board_sync.py'))} update --guide <ID>`."
             )
         }))
         sys.exit(0)
+
+    try:
+        readiness = check_readiness_warning(ROOT)
+    except Exception:
+        readiness = []  # fail open: a broken readiness check gives no warning
 
     try:
         warnings = check_dependency_warnings(task_ids)
@@ -363,8 +527,13 @@ def main():
         reads_warnings = check_startup_reads_warning(prompt)
         warnings += reads_warnings
     except Exception:
-        # Fail-open: an advisory path must never block a spawn.
+        # Fail-open: an advisory path must never block a spawn. The readiness
+        # warning was computed on its own, so it is still shown.
+        emit_readiness(readiness)
         sys.exit(0)
+
+    for warning in readiness:
+        print(warning, file=sys.stderr)
 
     for warning in slice_warnings:
         print(f"[hook:pre_agent] memory-slice missing: {warning}", file=sys.stderr)
@@ -372,14 +541,14 @@ def main():
     for warning in reads_warnings:
         print(f"[hook:pre_agent] startup-reads missing: {warning}", file=sys.stderr)
 
+    blocks = list(readiness)  # T223: the loud readiness warning goes first, on its own
     if warnings:
+        blocks.append("[hook:pre_agent] Advisory warning (not blocking):\n  • " + "\n  • ".join(warnings))
+    if blocks:
         print(json.dumps({
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "additionalContext": (
-                    "[hook:pre_agent] Advisory warning (not blocking):\n  • "
-                    + "\n  • ".join(warnings)
-                ),
+                "additionalContext": "\n\n".join(blocks),
             }
         }))
 

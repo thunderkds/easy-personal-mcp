@@ -17,3 +17,4 @@
   3. Update matched entries in place (fix stale facts, expand with new context)
   4. Append any new decisions or learnings from the session to the appropriate cold file
   5. Summarize new/changed entries as one-liners in `memory/MEMORY.md` (keep ≤50,000 characters total)
+- **Attempt log**: at the diff-driven pass after a merge, the Supervisor runs `python3 scripts/attempt_log.py append tasks/attempts.tsv memory/event-trace` (the trace folder is in the main checkout). It adds one row for each blocked or stopped sub-agent run the file does not hold. Only the Supervisor writes `tasks/attempts.tsv`; it is append-only and nothing reads it back.
