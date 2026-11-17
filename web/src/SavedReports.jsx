@@ -131,9 +131,9 @@ function ReportOpen({ id, waiting }) {
 
 const scopeText = (r) => [r.workspace, r.account && `account ${r.account}`].filter(Boolean).join(' / ') || 'all workspaces'
 
-/** The Saved reports section of Warnings & plan; `command` is the investigate prompt the empty text names. */
-export default function SavedReports({ command, waiting = false }) {
-  const state = useLoad(getReports, [])
+/** The Saved reports section of Warnings & plan; `command` is the investigate prompt the empty text names; the list is read again when `reloadKey` changes. */
+export default function SavedReports({ command, waiting = false, reloadKey = 0 }) {
+  const state = useLoad(getReports, [reloadKey])
   const [open, setOpen] = useState(null) // the id of the one open report
   return (
     <section aria-labelledby="h-saved-reports" className="saved-reports">

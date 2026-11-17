@@ -10,6 +10,7 @@ import Loading from './Loading.jsx'
 import MemoryView from './MemoryView.jsx'
 import Rail from './Rail.jsx'
 import { NO_SCOPE, ScopeSelects, scopeNames } from './Scope.jsx'
+import SettingsView, { FirstOpenPrompt } from './SettingsView.jsx'
 import StatusChips from './StatusChips.jsx'
 import { ToastProvider } from './Toast.jsx'
 import UsageView from './UsageView.jsx'
@@ -48,7 +49,14 @@ const GROUPS = [
       { id: 'agents', label: 'Agents', View: AgentsView },
     ],
   },
-  { id: 'system', label: '// system', tabs: [{ id: 'first-run', label: 'First run', View: FirstRun }] },
+  {
+    id: 'system',
+    label: '// system',
+    tabs: [
+      { id: 'first-run', label: 'First run', View: FirstRun },
+      { id: 'settings', label: 'Settings', View: SettingsView },
+    ],
+  },
 ]
 const TABS = GROUPS.flatMap((g) => g.tabs)
 
@@ -262,6 +270,7 @@ function Shell() {
                 steps={firstRun}
                 onOpenAgents={() => setActive('agents')}
                 onOpenWorkspaces={() => setActive('workspaces')}
+                onOpenSettings={() => setActive('settings')}
                 onOpenUsage={() => setActive('usage')}
                 onCheckAgain={checkFirstRun}
                 onAccountsChanged={reloadOptions}
@@ -273,6 +282,7 @@ function Shell() {
           {options !== undefined && <Rail scope={scope} period={period} refresh={options} onOpenPlan={() => setActive('warnings')} />}
         </div>
       </div>
+      <FirstOpenPrompt accounts={options?.accounts} suppressed={active === 'first-run'} />
     </div>
   )
 }

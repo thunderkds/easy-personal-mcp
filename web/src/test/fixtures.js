@@ -471,6 +471,17 @@ export const kitReportFiles = {
   truncated: false,
 }
 
+// T092: GET /api/agent-run, as `rust/crates/app/src/agent_routes.rs` answers it; `last` is the outcome record of the run before.
+export const agentRunOff = { enabled: false, account: null, claude_found: true, running: false, last: null }
+export const agentRunOn = (over = {}) => ({
+  enabled: true, account: { id: 2, label: 'Claude personal', status: 'confirmed' }, claude_found: true, running: false, last: null, ...over,
+})
+export const agentLast = (outcome, report_id = null) => ({
+  job: 'investigate', started: '2026-11-17T03:00:00Z', ended: '2026-11-17T03:04:10Z', outcome, report_id,
+})
+/** An agent-run route answer that is an error: the body holds markup, which the page must never draw. */
+export const agentRunError = (status) => ({ status, body: { error: '<script>window.__pwned = 1</script><b>server text</b>' } })
+
 export function fakeFetch(overrides = {}) {
   const calls = []
   const fn = async (url, init = {}) => {
@@ -502,7 +513,13 @@ export function fakeFetch(overrides = {}) {
       if (typeof given === 'number') return { ok: false, status: given, json: async () => ({}) }
       return { ok: true, status: 200, headers: { get: (h) => (h.toLowerCase() === 'content-type' ? 'text/html; charset=utf-8' : null) }, arrayBuffer: async () => new TextEncoder().encode('<h1>report</h1>').buffer }
     } else if (path === '/api/kit/reports') body = overrides.kitReports ?? kitReports
-    else if (path === '/api/first-run') body = overrides.firstRun ?? firstRun
+    else if (path === '/api/agent-run' || path.startsWith('/api/agent-run/')) {
+      // `overrides.agentRun`: a GET answer, or `(method, path, body) => answer` (an answer is a body, or `agentRunError(status)`). Absent: 404.
+      const given = overrides.agentRun
+      const answer = typeof given === 'function' ? given(init.method ?? 'GET', path, init.body ? JSON.parse(init.body) : undefined) : init.method ? undefined : given
+      if (answer?.status) return { ok: answer.status < 400, status: answer.status, json: async () => answer.body }
+      body = answer
+    } else if (path === '/api/first-run') body = overrides.firstRun ?? firstRun
     else if (path === '/api/accounts' && !init.method)
       body = (u.searchParams.get('by') === 'provider' ? overrides.accountsByProvider : overrides.accounts) ?? (u.searchParams.get('by') === 'provider' ? accountsByProvider : accountsByAccount)
     else if (path === '/api/workspaces' && !init.method) body = overrides.workspaces ?? workspaceList
