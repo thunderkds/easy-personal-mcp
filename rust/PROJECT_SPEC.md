@@ -46,6 +46,7 @@ A Rust core replaces the Python implementation slice by slice. It opens the same
 - **NFR-006**: the `exec` launcher adds < 200 ms and touches only the OS keychain.
 - **Secrets** never reach argv, logs, the store or the page. No plaintext fallback when no keychain exists.
 - **DDR-0001**: connector writes go only through `claude mcp add-json --scope user`.
+- **DDR-0006 (write sessions)**: app sessions run the owner's `claude` with an argument list built from fixed lists only; `--permission-prompt-tool` prompts always reach the owner; `hook ask` fails open (exit 0, no output, < 50 ms) when the app is not running; FR-115 text never reaches the store, a log, MCP, the CLI, `/api/alerts`, the tray or a popup.
 - **The guard keys on the raw request path** (`server.rs`, `starts_with("/api/")`). Python guards the decoded path. Today no route matches an encoded form, so `/%61pi/version`, `//api/version` and `/api%2fversion` are 404 (T004 probe). When P1b adds a static fallback or any nested router, add a test that no encoded or dot-segment form reaches an `/api` handler unguarded.
 - **The React page is never ported** — only served.
 - **Platform order**: Ubuntu → macOS → Windows. No Windows-only work before P5.
