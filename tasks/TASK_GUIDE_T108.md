@@ -28,6 +28,8 @@
 
 **Owner redo 2 (2026-11-17)**: "you can show the flow only, with the node that got the agent are working, let highlight this node, when hover into the node, will show the agents are working on that, the agents should show the project, name of agents, and the time that agent have took." This replaces intent 4 below and settles the 1280 px Debate (nodes alone fit; the rail stays).
 
+**Owner redo 3 (2026-11-17)**: "you can draw like this" with a picture, saved as `docs/design/workflow/owner-reference-2026-11-17.png`: a node graph on a dotted canvas, cards with icon/title/mono subtitle and square ports, pill decision nodes, curved edges, the active path solid in the accent colour, idle paths dashed and muted. Applies to intent 4 (redo 2 behaviour kept: highlight, hover/focus/tap panel with project · agent · time).
+
 **Restated intent** (redo; `PRD.md` FR-117, FR-118):
 > 1. The route answers **flows**, not one stage list: `{"flows": [easy-kit, plain], "projects": {}}`; each flow `{id, name, steps, gates}`, each step `{id, name, parts, agents, signals}`; `signals` = `{stages, skills, agents, tools, commands}`.
 > 2. **easy-kit** = the kit's latest pipeline (`docs/claude-md/pipeline-stages.md`), six steps: Stage 0 Define (parts Requirements · Grilling · Direction; signals.stages ["0.5"]), Stage 1 Set up (Environment · Agent team; ["1","1.5"]), Stage 2 Plan, Stage 3 Execute, Stage 4 Review, Stage 5 Integrate; agents and gates as before. FR-083's ids and `stage_of` output stay exactly the same (Python parity); the skills move into `signals.skills`.
@@ -61,7 +63,7 @@ No new crate, no new npm package.
 | 6 | Step B: a node with a working agent (a call ≤ 5 minutes old) has a highlight class and an accessible state (e.g. `aria-label` "… · 2 working"); a node with none has neither; an agent whose newest call is older than 5 minutes is not working | intent 4 |
 | 7 | Step B: hover, focus (node is a button) and click/tap open the node's panel; Escape or blur closes it; one row per working agent with project, agent ("main session" for the main thread) and time taken formatted like the page's other durations (e.g. "45s", "12m", "1h 5m"); gates on the arrows are focusable markers whose text shows the same way; route failing → error line; no stream → one muted line | intent 4 |
 | 8 | No message text, tool input or path reaches the view (FR-081 labels, project names, ids only); leak gate 0 hits | NFR-002 |
-| 9 | `ux-evaluate` at 375 px and 1280 px: the whole line fits at 1280 px with the right rail shown (no scroll); at 375 px the strip may scroll inside itself, the page never; the panel stays inside the viewport | — |
+| 9 | `ux-evaluate` at 375 px and 1280 px, compared with `docs/design/workflow/owner-reference-2026-11-17.png` (dotted canvas, cards with ports, gate pills, curved edges, active = accent solid, idle = muted dashed); the rail stays; the canvas scrolls inside itself when narrower than the graph; at 375 px the strip may scroll inside itself, the page never; the panel stays inside the viewport | — |
 | 10 | `cd rust && cargo test --workspace`, clippy (with and without `--features window`) `-D warnings`, `cargo fmt --check`, leak gate 0 hits; `cd web && npx vitest run && npm run build`; `python3 scripts/check_static.py` ok | all |
 
 ## UI / Design Acceptance Criteria
