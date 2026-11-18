@@ -39,6 +39,7 @@ Mode: auto
 Checks: spike not finished; its verification command and Stage 4 (code-review, security-review) run when it reports
 Memory: nothing new yet (the pass runs when the spike reports)
 Not done: spike running (backend agent); hold-rule Debate; T111/T112 guides; Stage 4 review and security review; merge (admin: after the auto verify pass)
+Paused: auto-mode check failed — no test run in memory/event-trace/T110.jsonl — write /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID with the task ID (minimal-track step 1): `mkdir -p /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d && printf '%s\n%s\n' "T110" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID`, then rerun the task's tests so the trace records them under the task, then stop; Risk High: decision 2 (`FACT`) is a choice — its FACT has no Citation (`path:line "quoted text"`) — so it must be `DEBATED` with exactly 3 Advocates named; Risk High, but no decision was DEBATED with 3 Advocates; Risk High, but the trace has no `security-review` Skill call [report 2b93d518b0e8]
 
 ## Evidence
 
