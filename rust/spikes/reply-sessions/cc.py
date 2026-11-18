@@ -1,13 +1,13 @@
 """Shared helpers for the T110 spike probes (throwaway). Python 3 stdlib only.
-claude is started with an argument list (never a shell) in a scratch git repo under /tmp/t110, with the parent Claude Code
+claude is started with an argument list (never a shell) in a scratch git repo under a private per-run temp folder (mkdtemp, 0700), with the parent Claude Code
 markers dropped from the environment. CLAUDE_CONFIG_DIR is kept (the logged-in account, as in T102). Hooks reach claude only
 through --settings <tmp file>; nothing here writes a real Claude settings file."""
-import json, os, shutil, subprocess, time
+import json, os, shutil, subprocess, tempfile, time
 
 DROP = ["CLAUDECODE", "AI_AGENT", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
         "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED",
         "CLAUDE_PID", "CLAUDE_EFFORT"]
-BASE = "/tmp/t110"
+BASE = tempfile.mkdtemp(prefix="t110-")  # Stage 4 security review: never a fixed, predictable /tmp path another user could create first
 HERE = os.path.dirname(os.path.abspath(__file__))
 HOOK = f"python3 {HERE}/stop_hook.py"
 
