@@ -9,6 +9,7 @@
 ## Board
 
 ### Todo
+- [ ] **T113** — Workflow placement moves into the live service — each agent's step comes in the live snapshot | backend-developer | C2 | Risk: Medium | P2
 
 ### In Progress
 
