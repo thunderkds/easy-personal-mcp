@@ -8,12 +8,14 @@
 //!
 //! Strings are ordered by byte, which for UTF-8 is Python's code point order, so session ids sort as Python sorts them.
 
+use crate::live::DEFAULT_LABEL;
 use crate::metrics::{
-    MetricsError, bounds, folder, parse_iso, period, period_json, round_py, text,
+    MetricsError, bounds, folder, format_stored, parse_iso, period, period_json, round_py, text,
 };
 use crate::scope::{self, Clause, Scope};
 use crate::store::StoreError;
 use jiff::tz::TimeZone;
+use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, params_from_iter};
 use serde_json::{Map, Value, json};
 use std::cmp::Reverse;
@@ -296,4 +298,205 @@ pub fn session_timeline_scoped(
         answer.insert("detail_sessions".into(), json!(n));
     }
     Ok(Value::Object(answer))
+}
+
+// ---- past sessions (T117, FR-126) --------------------------------------------------------------------------------------
+
+/// Sessions on one page of [`past_sessions`].
+pub const PAST_PAGE: usize = 50;
+/// The longest `project` / `branch` filter, in bytes.
+const FILTER_MAX: usize = 255;
+/// The longest session id a cursor or a name route accepts.
+const ID_MAX: usize = 128;
+
+/// The filters of `GET /api/sessions/past`; an empty value is no filter. `from` / `to` are ISO 8601 dates or datetimes
+/// (an offset-less one is local time, as `since` / `until`); `kind` is `terminal`, `app` or `headless`; `account` is an
+/// account id or label; `before` is the cursor the last page gave (`next`).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PastFilter<'a> {
+    pub project: Option<&'a str>,
+    pub branch: Option<&'a str>,
+    pub from: Option<&'a str>,
+    pub to: Option<&'a str>,
+    pub kind: Option<&'a str>,
+    pub account: Option<&'a str>,
+    pub before: Option<&'a str>,
+}
+
+/// A session id the app handles as a name key or a cursor part: 1..=128 characters of `A-Z a-z 0-9 _ -`.
+pub fn valid_session_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= ID_MAX
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// `terminal` for any entrypoint that is not `sdk*` (cli, IDE, desktop), `app` for `sdk-cli` (what this app's own
+/// `claude -p` session writes), `headless` for any other `sdk*`; NULL when the session has no entrypoint yet.
+/// The store cannot tell an app session from a scheduled `claude -p` run: both write `sdk-cli`.
+const KIND_SQL: &str = "CASE WHEN MAX(entrypoint) IS NULL THEN NULL WHEN MAX(entrypoint) = 'sdk-cli' THEN 'app' \
+                        WHEN MAX(entrypoint) LIKE 'sdk%' THEN 'headless' ELSE 'terminal' END";
+
+fn filter_text<'a>(name: &str, value: Option<&'a str>) -> Result<Option<&'a str>> {
+    match value.filter(|v| !v.is_empty()) {
+        Some(v) if v.len() > FILTER_MAX || v.chars().any(char::is_control) => Err(
+            MetricsError::Invalid(format!("{name} must be one line of at most {FILTER_MAX} bytes")),
+        ),
+        other => Ok(other),
+    }
+}
+
+/// `from` / `to` as stored-form UTC bounds; the error text is fixed and holds none of the input.
+fn past_bound(name: &str, value: Option<&str>) -> Result<Option<String>> {
+    let Some(value) = value.filter(|v| !v.is_empty()) else {
+        return Ok(None);
+    };
+    let bad = || MetricsError::Invalid(format!("{name} must be an ISO 8601 date or datetime"));
+    let b = bounds(Some(value), None, &TimeZone::system()).map_err(|_| bad())?;
+    b.since.ok_or_else(bad).map(Some)
+}
+
+/// The cursor: a stored-form time, then `|` and a session id (`next` of the page before); the id may be left out.
+fn past_cursor(value: Option<&str>) -> Result<Option<(String, Option<String>)>> {
+    let Some(value) = value.filter(|v| !v.is_empty()) else {
+        return Ok(None);
+    };
+    let bad = || MetricsError::Invalid("before must be the next value of the last page".into());
+    let (stamp, id) = match value.split_once('|') {
+        Some((stamp, id)) => (stamp, Some(id)),
+        None => (value, None),
+    };
+    if id.is_some_and(|id| !valid_session_id(id)) {
+        return Err(bad());
+    }
+    let micros = parse_iso(stamp).ok_or_else(bad)?;
+    Ok(Some((format_stored(micros), id.map(str::to_owned))))
+}
+
+/// One page of past sessions from `events` metadata only (FR-002), newest `last` first, [`PAST_PAGE`] a page, as
+/// `{sessions: [{id, project, branch, first, last, kind, account, model}], next}`; `next` is the `before` of the following
+/// page, `null` on the last. One query: filters on project, branch and kind apply to the session's own values (HAVING);
+/// `from` / `to` and the account window the events that are counted (WHERE, so the time index serves them), which makes
+/// `first` / `last` the first / last event inside the window. A session's branch, project and model are the greatest
+/// stored value (`MAX`), its account the account of its events (none = the default account). No text is read.
+pub fn past_sessions(conn: &Connection, filter: PastFilter) -> Result<Value> {
+    let (sql, params) = past_query(conn, filter)?;
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt
+        .query_map(params_from_iter(&params), |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, Option<String>>(5)?,
+                r.get::<_, Option<String>>(6)?,
+                r.get::<_, Option<String>>(7)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let more = rows.len() > PAST_PAGE;
+    rows.truncate(PAST_PAGE);
+    let next = if more {
+        rows.last().map(|r| format!("{}|{}", r.2, r.0))
+    } else {
+        None
+    };
+    let sessions: Vec<Value> = rows
+        .into_iter()
+        .map(|(id, first, last, project, branch, kind, model, account)| {
+            json!({
+                "id": id, "project": folder(project.as_deref()), "branch": branch.filter(|b| !b.is_empty()),
+                "first": first, "last": last, "kind": kind, "account": account, "model": model,
+            })
+        })
+        .collect();
+    Ok(json!({"sessions": sessions, "next": next}))
+}
+
+/// The one statement of [`past_sessions`] and its values, after the filters are checked (a test asks SQLite for its plan).
+#[doc(hidden)]
+pub fn past_query(conn: &Connection, filter: PastFilter) -> Result<(String, Vec<Sql>)> {
+    let project = filter_text("project", filter.project)?;
+    let branch = filter_text("branch", filter.branch)?;
+    let kind = match filter.kind.filter(|k| !k.is_empty()) {
+        None => None,
+        Some(k @ ("terminal" | "app" | "headless")) => Some(k),
+        Some(_) => {
+            return Err(MetricsError::Invalid(
+                "kind must be one of terminal, app, headless".into(),
+            ));
+        }
+    };
+    let (from, to) = (
+        past_bound("from", filter.from)?,
+        past_bound("to", filter.to)?,
+    );
+    let before = past_cursor(filter.before)?;
+    let Clause {
+        sql: scope_sql,
+        params: scope_params,
+    } = scope::resolve(
+        conn,
+        Scope {
+            workspace: None,
+            account: filter.account.filter(|a| !a.is_empty()),
+        },
+    )?
+    .clause(conn, from.as_deref(), to.as_deref())?;
+
+    let (where_utc, window) = period("ts_utc", from.as_deref(), to.as_deref());
+    let mut params: Vec<Sql> = text(window);
+    params.extend(scope_params);
+    let mut having: Vec<&str> = Vec::new();
+    let text_param = |v: &str| Sql::Text(v.to_owned());
+    if let Some(p) = project {
+        having.push("(MAX(project_path) = ? OR substr(MAX(project_path), -length(?) - 1) = '/' || ?)");
+        params.extend([text_param(p), text_param(p), text_param(p)]);
+    }
+    if let Some(b) = branch {
+        having.push("MAX(git_branch) = ?");
+        params.push(text_param(b));
+    }
+    let kind_having = format!("{KIND_SQL} = ?");
+    if let Some(k) = kind {
+        having.push(&kind_having);
+        params.push(text_param(k));
+    }
+    if let Some((stamp, id)) = &before {
+        match id {
+            Some(id) => {
+                having.push("(MAX(ts_utc) < ? OR (MAX(ts_utc) = ? AND session_id < ?))");
+                params.extend([text_param(stamp), text_param(stamp), text_param(id)]);
+            }
+            None => {
+                having.push("MAX(ts_utc) < ?");
+                params.push(text_param(stamp));
+            }
+        }
+    }
+    let having = if having.is_empty() {
+        String::new()
+    } else {
+        format!(" HAVING {}", having.join(" AND "))
+    };
+    let sql = format!(
+        "SELECT s.session_id, s.t_first, s.t_last, s.project, s.branch, s.kind, s.model, \
+                COALESCE((SELECT label FROM agent_accounts WHERE id = s.account), \
+                         (SELECT label FROM agent_accounts WHERE provider = 'claude' AND config_dir_env IS NULL \
+                          ORDER BY id LIMIT 1), ?) \
+         FROM (SELECT session_id, MIN(ts_utc) AS t_first, MAX(ts_utc) AS t_last, MAX(project_path) AS project, \
+                      MAX(git_branch) AS branch, {KIND_SQL} AS kind, MAX(model) AS model, \
+                      MAX(agent_account_id) AS account \
+               FROM events WHERE abstained = 0 AND session_id IS NOT NULL AND ts_utc IS NOT NULL \
+               AND {where_utc} AND {scope_sql} GROUP BY session_id{having} \
+               ORDER BY MAX(ts_utc) DESC, session_id DESC LIMIT {limit}) AS s \
+         ORDER BY s.t_last DESC, s.session_id DESC",
+        limit = PAST_PAGE + 1
+    );
+    // the label for a default account with no row comes first in the statement text, so it is bound first
+    params.insert(0, Sql::Text(DEFAULT_LABEL.to_owned()));
+    Ok((sql, params))
 }
