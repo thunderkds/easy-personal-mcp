@@ -33,7 +33,7 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
-1. Mark state comes from the server's `reply_marked` (T111 decision 4, DEBATED A), not page memory — FACT: tasks/TASK_REVIEW_T111.md decision 4 "a per-session `reply_marked: true` in the `GET /api/live` snapshot"
+1. Mark state comes from the server's `reply_marked` (T111 decision 4, DEBATED A), not page memory — FACT: tasks/TASK_REVIEW_T111.md:39 "A marked session's state outside a hold reaches the page as a per-session `reply_marked: true` in the `GET /api/live` snapshot"
 2. Every reply route is sent with `confirmed: true` (watch and mark too), as FR-116 requires of every write route — FACT: PRD.md:213 "Every write route of FR-109..FR-114 keeps the NFR-008 guard and needs `confirmed: true` in its body"
 Checks: build pending (frontend agent)
 Memory: nothing new yet
