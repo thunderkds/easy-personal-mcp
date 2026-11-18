@@ -487,3 +487,5 @@ state `your_turn` (FR-105): a typed-work main thread whose newest `assistant`/`u
 `end_turn`) with no open call; such a session stays listed until the one-hour rule drops it. (2) The question text (FR-106): the
 `questions` key of a `waiting` state, sent only on the `GET /api/live` stream (`live_feed::stream_data`), never in
 `LiveTail::snapshot()`. Proved in `crates/core/tests/live_waiting.rs`, the `live_feed.rs` tests and the leak gate.
+
+**A third Rust-only difference (T111, FR-121)**: the live reader skips a `user` record with `isMeta: true` (a Stop hook's `Stop hook feedback:` reply); Python reads it as a `user` record. No golden transcript has one, so every live golden stays equal. Proved in `crates/core/tests/live_waiting.rs`.

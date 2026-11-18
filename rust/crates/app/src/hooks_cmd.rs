@@ -1,9 +1,10 @@
 //! The answer bridge's install (T106, FR-113, DDR-0006): `hooks install|remove|status` and `GET`/`PUT /api/hooks`.
 //!
-//! Off by default. For one confirmed Claude account, **on** adds exactly two entries to that account's user settings file
+//! Off by default. For one confirmed Claude account, **on** adds exactly three entries to that account's user settings file
 //! `<account folder>/settings.json`: `hooks.PreToolUse` (matcher `AskUserQuestion`) and `hooks.PermissionRequest`, each one
-//! command hook `<absolute path of this program> hook ask`, timeout 130 s. **Off** removes only entries equal to the ones
-//! the app adds. Never `~/.claude.json` (DDR-0001), never a project's settings.
+//! command hook `<absolute path of this program> hook ask`, timeout 130 s, and (T111, FR-121) `hooks.Stop` (no matcher, the
+//! same command, timeout 660 s). An install that has only the first two (T106) reads *on (no reply)*; `install` adds the
+//! third. **Off** removes only entries equal to the ones the app adds. Never `~/.claude.json` (DDR-0001), never a project's settings.
 //!
 //! The write is add-only and safe: the file is read and parsed first (a file that is not a JSON object is refused and left
 //! byte for byte as it is); every other key and hook is kept; the new text is written to a temp file in the same folder and
@@ -16,8 +17,8 @@
 //! our shape. An entry that merely looks like ours (`... easy-personal-rs hook ask`) and is not that is *changed by hand*:
 //! kept by `remove`, refused by `install`.
 //!
-//! `status` is *on*, *off*, *changed by hand* (an entry that looks like ours differs from ours, or only one of the two is
-//! there), *binary moved* (our entries name a program that is gone) or *other copy* (our entries name another existing
+//! `status` is *on*, *on (no reply)*, *off*, *changed by hand* (an entry that looks like ours differs from ours, or only one
+//! of the first two is there), *binary moved* (our entries name a program that is gone) or *other copy* (our entries name another existing
 //! copy of this program). `remove` drops equal, moved and other-copy entries; a hand-edited entry is kept. `install` over a
 //! moved or other-copy entry replaces it (the CLI says so in one fixed line); over a changed one it refuses. No answer or message names a path (NFR-002); the command text, which holds this program's path, is the one
 //! thing shown on purpose (the confirm step needs it).
@@ -45,9 +46,13 @@ use std::process::ExitCode;
 
 const PRE: &str = "PreToolUse";
 const PERM: &str = "PermissionRequest";
+const STOP: &str = "Stop";
+const EVENTS: [&str; 3] = [PRE, PERM, STOP];
 const MATCHER: &str = "AskUserQuestion";
 /// Seconds: the bridge waits 120 s for the owner, the hook may run a little longer (FR-113).
 const TIMEOUT: u64 = 130;
+/// Seconds: a `Stop` hold lasts at most 10 min (FR-121), the hook may run a little longer.
+const STOP_TIMEOUT: u64 = 660;
 const SETTINGS: &str = "settings.json";
 /// The program's name in our commands: what tells an entry that looks like ours from the owner's own hooks.
 const PROGRAM: &str = "easy-personal-rs";
@@ -59,7 +64,7 @@ const MAX_SETTINGS_BYTES: u64 = 8 << 20;
 
 // ---- the entries ----
 
-/// The command of both entries: the program's absolute path (quoted when it needs it) and `hook ask`.
+/// The command of every entry: the program's absolute path (quoted when it needs it) and `hook ask`.
 pub(crate) fn command_text(exe: &Path) -> String {
     format!("{}{SUFFIX}", sh_quote(&exe.to_string_lossy()))
 }
@@ -71,7 +76,8 @@ fn own_command() -> Option<String> {
 }
 
 fn entry(event: &str, command: &str) -> Value {
-    let hook = json!({"type": "command", "command": command, "timeout": TIMEOUT});
+    let timeout = if event == STOP { STOP_TIMEOUT } else { TIMEOUT };
+    let hook = json!({"type": "command", "command": command, "timeout": timeout});
     if event == PRE {
         json!({"matcher": MATCHER, "hooks": [hook]})
     } else {
@@ -81,7 +87,7 @@ fn entry(event: &str, command: &str) -> Value {
 
 /// The exact text the owner confirms: the `hooks` block that is merged in.
 pub(crate) fn block_text(command: &str) -> String {
-    let block = json!({"hooks": {PRE: [entry(PRE, command)], PERM: [entry(PERM, command)]}});
+    let block = json!({"hooks": {PRE: [entry(PRE, command)], PERM: [entry(PERM, command)], STOP: [entry(STOP, command)]}});
     serde_json::to_string_pretty(&block).unwrap_or_default()
 }
 
@@ -160,7 +166,7 @@ fn event_list<'a>(settings: &'a Value, event: &str) -> Option<&'a [Value]> {
 }
 
 /// The kind of each event (worst entry wins; `Absent` with none of ours); `None` for an unexpected shape.
-fn kinds(settings: &Value, command: &str) -> Option<[Kind; 2]> {
+fn kinds(settings: &Value, command: &str) -> Option<[Kind; 3]> {
     let one = |event: &str| -> Option<Kind> {
         Some(
             event_list(settings, event)?
@@ -170,12 +176,14 @@ fn kinds(settings: &Value, command: &str) -> Option<[Kind; 2]> {
                 .unwrap_or(Kind::Absent),
         )
     };
-    Some([one(PRE)?, one(PERM)?])
+    Some([one(PRE)?, one(PERM)?, one(STOP)?])
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Status {
     On,
+    /// The two entries of T106 are ours and there; the `Stop` entry (FR-121) is not: `install` adds it.
+    OnNoReply,
     Off,
     ChangedByHand,
     BinaryMoved,
@@ -190,6 +198,7 @@ impl Status {
     pub(crate) fn word(self) -> &'static str {
         match self {
             Status::On => "on",
+            Status::OnNoReply => "on (no reply)",
             Status::Off => "off",
             Status::ChangedByHand => "changed by hand",
             Status::BinaryMoved => "binary moved",
@@ -203,6 +212,7 @@ impl Status {
         match self {
             Status::ChangedByHand => "changed_by_hand",
             Status::BinaryMoved => "binary_moved",
+            Status::OnNoReply => "on_no_reply",
             Status::OtherCopy => "other_copy",
             other => other.word(),
         }
@@ -212,10 +222,13 @@ impl Status {
 pub(crate) fn status_of(settings: &Value, command: &str) -> Status {
     match kinds(settings, command) {
         None => Status::ChangedByHand,
-        Some([Kind::Absent, Kind::Absent]) => Status::Off,
-        Some(k) if k.contains(&Kind::Changed) || k.contains(&Kind::Absent) => Status::ChangedByHand,
+        Some([Kind::Absent, Kind::Absent, Kind::Absent]) => Status::Off,
+        Some(k) if k.contains(&Kind::Changed) || k[..2].contains(&Kind::Absent) => {
+            Status::ChangedByHand
+        }
         Some(k) if k.contains(&Kind::Other) => Status::OtherCopy,
         Some(k) if k.contains(&Kind::Moved) => Status::BinaryMoved,
+        Some([_, _, Kind::Absent]) => Status::OnNoReply,
         Some(_) => Status::On,
     }
 }
@@ -251,13 +264,13 @@ impl Refused {
     }
 }
 
-/// Adds what is missing. `Ok(false)`: both entries were there, nothing to do.
+/// Adds what is missing. `Ok(false)`: all three entries were there, nothing to do.
 fn install_into(settings: &mut Value, command: &str) -> Result<bool, Refused> {
     let found = kinds(settings, command).ok_or(Refused::Shape)?;
     if found.contains(&Kind::Changed) {
         return Err(Refused::ChangedByHand);
     }
-    if found == [Kind::Equal, Kind::Equal] {
+    if found == [Kind::Equal; 3] {
         return Ok(false);
     }
     let hooks = settings
@@ -267,7 +280,7 @@ fn install_into(settings: &mut Value, command: &str) -> Result<bool, Refused> {
         .or_insert_with(|| json!({}))
         .as_object_mut()
         .ok_or(Refused::Shape)?;
-    for (event, kind) in [PRE, PERM].into_iter().zip(found) {
+    for (event, kind) in EVENTS.into_iter().zip(found) {
         if kind == Kind::Equal {
             continue;
         }
@@ -288,7 +301,7 @@ fn remove_from(settings: &mut Value, command: &str) -> bool {
     let Some(hooks) = settings.get_mut("hooks").and_then(Value::as_object_mut) else {
         return false;
     };
-    for event in [PRE, PERM] {
+    for event in EVENTS {
         let Some(list) = hooks.get_mut(event).and_then(Value::as_array_mut) else {
             continue;
         };
@@ -530,11 +543,11 @@ const OTHER_COPY_NOTE: &str =
 
 #[derive(Subcommand)]
 pub enum Action {
-    /// Show the two entries, ask, then add them to an account's user settings.json (add-only; the old file is copied to backups/ first)
+    /// Show the three entries, ask, then add them to an account's user settings.json (add-only; the old file is copied to backups/ first)
     Install(Target),
     /// Remove the entries `install` added (an entry changed by hand is kept)
     Remove(Target),
-    /// Print on, off, changed by hand or binary moved for each confirmed Claude account (or one)
+    /// Print on, on (no reply), off, changed by hand or binary moved for each confirmed Claude account (or one)
     Status {
         /// The account (id or label of a confirmed Claude account)
         #[arg(long)]
@@ -836,9 +849,10 @@ mod tests {
         serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
     }
 
-    /// AC 1: golden. Exactly the two entries are added; every other key and hook equals what was there.
+    /// AC 1: golden. Exactly the three entries are added (T111: the `Stop` one, timeout 660, no matcher, joined the two of
+    /// T106); every other key and hook equals what was there.
     #[test]
-    fn install_adds_exactly_two_entries_and_keeps_everything_else() {
+    fn install_adds_exactly_three_entries_and_keeps_everything_else() {
         let t = Temp::new("golden");
         let command = t.command();
         fs::write(t.settings(), OWNER).unwrap();
@@ -851,6 +865,8 @@ mod tests {
                 {"type": "command", "command": command, "timeout": 130}]}));
         want["hooks"]["PermissionRequest"] =
             json!([{"hooks": [{"type": "command", "command": command, "timeout": 130}]}]);
+        want["hooks"]["Stop"] =
+            json!([{"hooks": [{"type": "command", "command": command, "timeout": 660}]}]);
         assert_eq!(read(&t.settings()), want);
         assert_eq!(status_in(&t.acc(), &command), Status::On);
         assert!(fs::read_to_string(t.settings()).unwrap().ends_with("}\n"));
@@ -884,6 +900,8 @@ mod tests {
             "a new file holds just the block"
         );
         assert!(block_text(&command).contains("\"timeout\": 130"));
+        assert!(block_text(&command).contains("\"timeout\": 660"));
+        assert!(block_text(&command).contains("\"Stop\""));
         assert!(block_text(&command).contains("\"matcher\": \"AskUserQuestion\""));
         assert!(fs::read_dir(t.backups()).is_err(), "no old file, no backup");
     }
@@ -1208,6 +1226,97 @@ mod tests {
         );
         // the notice is one fixed line that names no path
         assert!(!OTHER_COPY_NOTE.contains('/') && OTHER_COPY_NOTE.ends_with('\n'));
+    }
+
+    /// T111 AC 1: an install that has only the two entries of T106 reads `on (no reply)` (not *changed by hand*); `install` adds
+    /// the third (`Stop`) and nothing else; a second install writes nothing; `remove` drops all three.
+    #[test]
+    fn a_t106_install_reads_on_no_reply_and_install_adds_only_the_stop_entry() {
+        let t = Temp::new("noreply");
+        let command = t.command();
+        fs::write(t.settings(), OWNER).unwrap();
+        apply(&t.acc(), &command, true, &t.backups(), "1").unwrap();
+        let mut two = read(&t.settings());
+        two["hooks"].as_object_mut().unwrap().remove(STOP);
+        two["hooks"]["Stop"] = json!([{"hooks": [{"type": "command", "command": "echo stop"}]}]);
+        let owner_stop = two["hooks"]["Stop"].clone();
+        fs::write(t.settings(), serde_json::to_string(&two).unwrap()).unwrap();
+        assert_eq!(status_in(&t.acc(), &command), Status::OnNoReply);
+        assert_eq!(Status::OnNoReply.word(), "on (no reply)");
+        assert_eq!(Status::OnNoReply.code(), "on_no_reply");
+
+        assert_eq!(apply(&t.acc(), &command, true, &t.backups(), "1"), Ok(true));
+        assert_eq!(status_in(&t.acc(), &command), Status::On);
+        let after = read(&t.settings());
+        let stop = after["hooks"][STOP].as_array().unwrap();
+        assert_eq!(stop.len(), 2, "the owner's own Stop hook stays");
+        assert_eq!(stop[0], owner_stop[0]);
+        assert_eq!(
+            stop[1],
+            json!({"hooks": [{"type": "command", "command": command, "timeout": 660}]})
+        );
+        assert_eq!(after["hooks"]["PreToolUse"], two["hooks"]["PreToolUse"]);
+        assert_eq!(
+            after["hooks"]["PermissionRequest"],
+            two["hooks"]["PermissionRequest"]
+        );
+        let once = fs::read(t.settings()).unwrap();
+        assert_eq!(
+            apply(&t.acc(), &command, true, &t.backups(), "1"),
+            Ok(false)
+        );
+        assert_eq!(fs::read(t.settings()).unwrap(), once);
+
+        assert_eq!(
+            apply(&t.acc(), &command, false, &t.backups(), "1"),
+            Ok(true)
+        );
+        assert_eq!(status_in(&t.acc(), &command), Status::Off);
+        let mut want = serde_json::from_str::<Value>(OWNER).unwrap();
+        want["hooks"]["Stop"] = owner_stop;
+        assert_eq!(read(&t.settings()), want);
+    }
+
+    /// T111 AC 1: a hand-edited `Stop` entry of ours (here the timeout) reads *changed by hand*; `remove` keeps it, `install`
+    /// refuses it. The same for a wrapper in front of the command.
+    #[test]
+    fn a_hand_edited_stop_entry_is_changed_by_hand_and_kept() {
+        let t = Temp::new("stopedit");
+        let command = t.command();
+        apply(&t.acc(), &command, true, &t.backups(), "1").unwrap();
+        let mut edited = read(&t.settings());
+        edited["hooks"]["Stop"][0]["hooks"][0]["timeout"] = json!(5);
+        fs::write(t.settings(), serde_json::to_string(&edited).unwrap()).unwrap();
+        assert_eq!(status_in(&t.acc(), &command), Status::ChangedByHand);
+        assert_eq!(
+            apply(&t.acc(), &command, true, &t.backups(), "1"),
+            Err(Refused::ChangedByHand)
+        );
+        assert_eq!(
+            apply(&t.acc(), &command, false, &t.backups(), "1"),
+            Ok(true)
+        );
+        let kept = read(&t.settings());
+        assert_eq!(kept["hooks"]["Stop"][0]["hooks"][0]["timeout"], 5, "kept");
+        assert!(
+            kept["hooks"].get("PreToolUse").is_none(),
+            "the two equal ones went"
+        );
+        assert_eq!(status_in(&t.acc(), &command), Status::ChangedByHand);
+
+        let wrapped = format!("nice {command}");
+        let text = json!({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": wrapped, "timeout": 660}]}]}}).to_string();
+        fs::write(t.settings(), &text).unwrap();
+        assert_eq!(status_in(&t.acc(), &command), Status::ChangedByHand);
+        assert_eq!(
+            apply(&t.acc(), &command, false, &t.backups(), "1"),
+            Ok(false)
+        );
+        assert_eq!(
+            fs::read_to_string(t.settings()).unwrap(),
+            text,
+            "byte for byte"
+        );
     }
 
     /// F4 (f): a `backups/` folder that already exists wider than 0700 is tightened.

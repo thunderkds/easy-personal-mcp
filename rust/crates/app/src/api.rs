@@ -299,6 +299,10 @@ pub fn routes() -> Router<Api> {
         .route("/api/hooks", get(hooks_cmd::get).put(hooks_cmd::put))
         .route("/api/answer", post(answer_bridge::answer))
         .route("/api/answer/release", post(answer_bridge::release))
+        .route("/api/reply", post(answer_bridge::reply))
+        .route("/api/reply/release", post(answer_bridge::reply_release))
+        .route("/api/reply/watch", post(answer_bridge::reply_watch))
+        .route("/api/reply/mark", post(answer_bridge::reply_mark))
 }
 
 /// `GET /api/alerts` (T074, FR-097): `{alerts, paused}`, the last 50 alerts newest first. It reads no store and writes nothing.

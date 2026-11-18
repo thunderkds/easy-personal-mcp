@@ -13,7 +13,8 @@
 //! messages in the same order, the JSON keys of `_SESSION_KEYS`, `_EVENT_KEYS` and `_snapshot_data` and nothing else,
 //! but for two Rust-only differences (T094): the `your_turn` attention state (FR-105) and the `questions` key of a
 //! `waiting` state ([`stream_data`], FR-106, DDR-0005), and (T106) the `pending_answer` of a session whose terminal hook
-//! waits for the owner ([`add_pending`], FR-114, from `answer_bridge.rs`): the other place the page gets prompt text.
+//! waits for the owner ([`add_pending`], FR-114, from `answer_bridge.rs`): the other place the page gets prompt text; and
+//! (T111) the `pending_reply` of a session whose `Stop` hook is held for the owner's reply (FR-121).
 
 use crate::answer_bridge::{Bridge, Subscription};
 use crate::api::Clock;
@@ -24,7 +25,7 @@ use easy_personal_core::prices::PriceTable;
 use easy_personal_core::store::store_path;
 use futures_core::Stream;
 use serde_json::{Map, Value, json};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::future::Future;
 use std::panic::{self, AssertUnwindSafe};
@@ -199,6 +200,15 @@ pub(crate) fn resume_id(value: &[u8]) -> Option<i64> {
     std::str::from_utf8(digits).ok()?.parse().ok()
 }
 
+/// What the bridge adds to a snapshot: its change counter, the `pending_answer` and `pending_reply` per session, and the
+/// sessions marked *Reply from the app*.
+type BridgeView = (
+    u64,
+    HashMap<String, Value>,
+    HashMap<String, Value>,
+    HashSet<String>,
+);
+
 /// One client's place in the stream: Python's `cursor` and `seen` of `live_stream`.
 pub(crate) struct LiveStream {
     cursor: Option<i64>,
@@ -228,6 +238,18 @@ impl LiveStream {
     /// One pass of Python's loop body (without the ping and the sleep): the bytes to send, maybe none.
     pub(crate) fn step(&mut self, tail: Option<&LiveTail>, now: i64) -> Vec<u8> {
         let mut out = Vec::new();
+        // FR-121: a mark of a session that left the live list goes now (it must not come back marked)
+        if let Some(b) = self.answers.as_ref().filter(|b| b.has_marks()) {
+            let listed = tail.map_or_else(HashSet::new, |t| {
+                t.snapshot(now)["sessions"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|s| s["session_id"].as_str().map(str::to_owned))
+                    .collect()
+            });
+            b.prune_marks(&listed);
+        }
         // the set of hooks is read (and cloned) only when its counter moved or a snapshot goes out anyway
         let answers_moved = self
             .answers
@@ -241,15 +263,15 @@ impl LiveStream {
         match (self.cursor, tail) {
             (None, _) => {
                 let snapshot = tail.map_or_else(empty_snapshot, |t| t.snapshot(now));
-                let (answers_version, pending) = self.pending();
+                let (answers_version, pending, replies, marks) = self.pending();
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, tail);
-                add_pending(&mut data, &pending);
+                add_pending(&mut data, &pending, &replies, &marks);
                 out.extend(sse("snapshot", &data, None));
             }
             (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || answers_moved => {
                 let snapshot = t.snapshot(now); // attention changed: events up to its `last_id` first
-                let (answers_version, pending) = self.pending();
+                let (answers_version, pending, replies, marks) = self.pending();
                 let upto = snapshot["last_id"].as_i64().unwrap_or(0);
                 for event in t.events_since(cursor) {
                     let id = event["id"].as_i64().unwrap_or(0);
@@ -260,7 +282,7 @@ impl LiveStream {
                 }
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, Some(t));
-                add_pending(&mut data, &pending);
+                add_pending(&mut data, &pending, &replies, &marks);
                 out.extend(sse("snapshot", &data, None));
             }
             _ => {}
@@ -275,11 +297,12 @@ impl LiveStream {
         out
     }
 
-    /// The bridge's change counter and its cards (none without a bridge).
-    fn pending(&self) -> (u64, HashMap<String, Value>) {
-        self.answers
-            .as_ref()
-            .map_or_else(|| (0, HashMap::new()), |b| b.view())
+    /// The bridge's change counter, its cards and its reply holds (none without a bridge).
+    fn pending(&self) -> BridgeView {
+        self.answers.as_ref().map_or_else(
+            || (0, HashMap::new(), HashMap::new(), HashSet::new()),
+            |b| b.view_all(),
+        )
     }
 
     fn take(&mut self, snapshot: &Value, answers_version: u64) {
@@ -449,17 +472,31 @@ fn stream_data(snapshot: &Value, tail: Option<&LiveTail>) -> Value {
 
 /// T106 (FR-114): the key `pending_answer` of each session of a snapshot whose terminal hook waits for the owner. A hook
 /// whose session is not in the snapshot is not shown (it ends by itself after its wait). The one place this text joins
-/// the page's data; the tail, the alert engine and the tray never see it.
-fn add_pending(data: &mut Value, pending: &HashMap<String, Value>) {
-    if pending.is_empty() {
+/// the page's data; the tail, the alert engine and the tray never see it. T111 (FR-121): also `pending_reply` of a session
+/// whose `Stop` hook is held (its `last` is the last assistant text).
+fn add_pending(
+    data: &mut Value,
+    pending: &HashMap<String, Value>,
+    replies: &HashMap<String, Value>,
+    marks: &HashSet<String>,
+) {
+    if pending.is_empty() && replies.is_empty() && marks.is_empty() {
         return;
     }
     for session in data["sessions"].as_array_mut().into_iter().flatten() {
-        if let Some(found) = session["session_id"]
-            .as_str()
-            .and_then(|id| pending.get(id))
-        {
+        let Some(id) = session["session_id"].as_str().map(str::to_owned) else {
+            continue;
+        };
+        if let Some(found) = pending.get(&id) {
             session["pending_answer"] = found.clone();
+        }
+        // T111 (FR-121): the same place, the same rule: a held `Stop` hook waits for the owner's reply
+        if let Some(found) = replies.get(&id) {
+            session["pending_reply"] = found.clone();
+        }
+        // the owner marked the session *Reply from the app* (a boolean, not text): shown also with no hold
+        if marks.contains(&id) {
+            session["reply_marked"] = json!(true);
         }
     }
 }
@@ -1284,7 +1321,15 @@ mod tests {
 
     /// A hook for session `s1` that waits for the owner: a `Bash` permission with a planted command.
     fn waiting_hook(bridge: &Arc<Bridge>) -> std::sync::mpsc::Receiver<String> {
+        let input = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash", "session_id": "s1",
+                           "tool_input": {"command": "PLANTED-T106-COMMAND"}});
+        hook_of(bridge, &input)
+    }
+
+    /// A hook with this input, on a socket of its own; the reply line (empty when it was handed back) comes on the channel.
+    fn hook_of(bridge: &Arc<Bridge>, input: &Value) -> std::sync::mpsc::Receiver<String> {
         use std::io::Write;
+        let input = input.clone();
         static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let dir = std::env::temp_dir().join(format!(
             "ep-t106-feed-{}-{}",
@@ -1297,8 +1342,6 @@ mod tests {
         let path = dir.join(crate::answer_bridge::SOCKET);
         thread::spawn(move || {
             let mut stream = std::os::unix::net::UnixStream::connect(path).unwrap();
-            let input = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash", "session_id": "s1",
-                               "tool_input": {"command": "PLANTED-T106-COMMAND"}});
             writeln!(stream, "{input}").unwrap();
             let mut line = String::new();
             let _ = std::io::BufRead::read_line(&mut std::io::BufReader::new(stream), &mut line);
@@ -1384,6 +1427,144 @@ mod tests {
             "",
             "the hook got no reply"
         );
+    }
+
+    /// T111 (FR-121, AC 3): a session whose `Stop` hook is held gets `pending_reply` `{id, until, marked, last}` in the stream's
+    /// snapshot (a new one is sent when the hold starts, is marked or ends); the tail's own snapshot, the one the tray and the
+    /// alerts read, and a stream with no bridge never hold it.
+    #[test]
+    fn the_stream_adds_pending_reply_to_the_session_whose_stop_hook_is_held() {
+        let tmp = Temp::new("pending-reply");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s1", "b1", "2026-01-20T00:00:05Z"));
+        tail.poll_once(&roots, NOW, None);
+        let bridge = Arc::new(Bridge::default());
+        let _open = bridge.subscribe();
+        let mut stream = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let first = messages(&stream.step(Some(&tail), NOW));
+        assert!(
+            !first.last().unwrap().2["sessions"][0]
+                .as_object()
+                .unwrap()
+                .contains_key("pending_reply")
+        );
+
+        let stop = json!({"hook_event_name": "Stop", "session_id": "s1", "stop_hook_active": false,
+                          "last_assistant_message": "PLANTED-T111-LAST text\nsecond line"});
+        let reply = hook_of(&bridge, &stop);
+        for _ in 0..200 {
+            if !bridge.view_all().2.is_empty() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(
+            sent.last().unwrap().0,
+            "snapshot",
+            "a new snapshot for the new hold"
+        );
+        let session = &sent.last().unwrap().2["sessions"][0];
+        let held = &session["pending_reply"];
+        assert_eq!(held["last"], "PLANTED-T111-LAST text\nsecond line");
+        assert_eq!(held["marked"], false);
+        assert_eq!(held["id"].as_str().unwrap().len(), 32);
+        assert!(held["until"].as_i64().unwrap() > 1_700_000_000);
+        assert!(
+            session.get("pending_answer").is_none(),
+            "a reply is not an answer"
+        );
+        assert!(!tail.snapshot(NOW).to_string().contains("PLANTED"));
+        assert!(!tail.snapshot(NOW).to_string().contains("pending_reply"));
+        let plain = String::from_utf8_lossy(&LiveStream::new(None, true).step(Some(&tail), NOW))
+            .into_owned();
+        assert!(!plain.contains("PLANTED") && !plain.contains("pending_reply"));
+        assert!(
+            stream.step(Some(&tail), NOW).is_empty(),
+            "no change, nothing sent"
+        );
+
+        // a mark changes the shown state: a new snapshot
+        assert!(bridge.mark("s1", true));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(
+            sent.last().unwrap().2["sessions"][0]["pending_reply"]["marked"],
+            true
+        );
+
+        // the owner's reply ends it: the next snapshot has none
+        let id = held["id"].as_str().unwrap().to_string();
+        assert!(bridge.reply(&id, "go on"));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert!(!sent.last().unwrap().2.to_string().contains("pending_reply"));
+        assert_eq!(
+            reply.recv_timeout(Duration::from_secs(5)).unwrap(),
+            "{\"decision\":\"block\",\"reason\":\"go on\"}\n"
+        );
+    }
+
+    /// Stage 4 decision (FR-121): a listed session the owner marked *Reply from the app* gets `reply_marked: true` in the
+    /// stream's snapshot, also with no hold; unmarking removes it; the tail's own snapshot (tray, alerts) never has it; a
+    /// session that left the live list loses its mark, so it never comes back marked.
+    #[test]
+    fn the_stream_marks_an_idle_marked_session_and_drops_the_mark_of_one_that_left() {
+        let tmp = Temp::new("reply-marked");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s1", "b1", "2026-01-20T00:00:05Z"));
+        append(
+            &tmp,
+            &result_line("s1", "b1", false, "2026-01-20T00:00:06Z"),
+        );
+        tail.poll_once(&roots, NOW, None);
+        let bridge = Arc::new(Bridge::default());
+        let mut stream = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let session =
+            |sent: &[(String, Option<i64>, Value)]| sent.last().unwrap().2["sessions"][0].clone();
+        let first = messages(&stream.step(Some(&tail), NOW));
+        assert!(session(&first).get("reply_marked").is_none());
+
+        assert!(bridge.mark("s1", true));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(sent.last().unwrap().0, "snapshot");
+        assert_eq!(session(&sent)["reply_marked"], true);
+        assert!(
+            session(&sent).get("pending_reply").is_none(),
+            "no hold, only the mark"
+        );
+        assert!(!tail.snapshot(NOW).to_string().contains("reply_marked"));
+        let plain = String::from_utf8_lossy(&LiveStream::new(None, true).step(Some(&tail), NOW))
+            .into_owned();
+        assert!(!plain.contains("reply_marked"));
+        assert!(
+            stream.step(Some(&tail), NOW).is_empty(),
+            "no change, nothing sent"
+        );
+
+        assert!(bridge.mark("s1", false));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert!(session(&sent).get("reply_marked").is_none(), "unmarked");
+
+        // marked again, then the session leaves the live list (quiet for more than 5 minutes, no open call)
+        assert!(bridge.mark("s1", true));
+        assert_eq!(
+            session(&messages(&stream.step(Some(&tail), NOW)))["reply_marked"],
+            true
+        );
+        let later = NOW + 10 * 60 * SECOND;
+        let sent = messages(&stream.step(Some(&tail), later));
+        assert!(
+            sent.last().unwrap().2["sessions"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "left the list"
+        );
+        assert!(bridge.view_all().3.is_empty(), "its mark went with it");
+        // it comes back (a new record): not marked
+        let mut again = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let sent = messages(&again.step(Some(&tail), NOW));
+        assert_eq!(sent.last().unwrap().2["sessions"][0]["session_id"], "s1");
+        assert!(session(&sent).get("reply_marked").is_none());
     }
 
     /// A hook of a session that is not in the snapshot is not shown (and no other session gets its card).

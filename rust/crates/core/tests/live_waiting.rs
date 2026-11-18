@@ -174,6 +174,59 @@ fn a_system_record_does_not_end_the_turn() {
     assert_eq!(states(&live, NOW), ["your_turn"]);
 }
 
+/// T111 (FR-121, AC 9): a Stop hook's reply is written by Claude Code as a `user` record with `isMeta: true` and the
+/// string content `Stop hook feedback:\n<text>` (the T110 transcript shape, the text replaced). It is not the owner's
+/// prompt: the parser skips it, so it builds no item and counts for nothing (no tool call, no change of the session's
+/// newest record time) and the session stays as it was until Claude's own next record. A typed `user` record still ends
+/// the turn.
+#[test]
+fn a_stop_hook_feedback_record_is_skipped_by_the_parser() {
+    let feedback = |ts: &str| {
+        let mut r: Value = serde_json::from_str(&rec(
+            "user",
+            Some("cli"),
+            false,
+            ts,
+            json!({"role": "user", "content": "Stop hook feedback:\n<text>\nsecond line"}),
+        ))
+        .unwrap();
+        r["isMeta"] = json!(true);
+        format!("{r}\n")
+    };
+    let late = "2026-01-20T00:00:08Z";
+    assert!(
+        line_item(feedback(late).as_bytes(), &mut |c: &str| c.to_owned()).is_none(),
+        "no item for the feedback record"
+    );
+    assert!(
+        line_item(user(Some("cli")).as_bytes(), &mut |c: &str| c.to_owned()).is_some(),
+        "a typed prompt is still an item"
+    );
+
+    let tmp = Temp::new("meta");
+    let mut live = primed(&tmp);
+    tmp.append(
+        "s.jsonl",
+        &(user(Some("cli")) + &end_turn(Some("cli"), "m1")),
+    );
+    live.poll_once(&tmp.roots(), NOW, None);
+    let before = live.snapshot(NOW)["sessions"][0].clone();
+    assert_eq!(states(&live, NOW), ["your_turn"]);
+    tmp.append("s.jsonl", &feedback(late));
+    live.poll_once(&tmp.roots(), NOW, None);
+    let after = live.snapshot(NOW)["sessions"][0].clone();
+    assert_eq!(
+        after, before,
+        "the session is counted exactly as before the feedback record"
+    );
+    assert_eq!(after["last_ts"], SINCE);
+    assert_eq!(after["tool_calls"], 0);
+    // Claude's own next record ends the turn, as it does after any prompt
+    tmp.append("s.jsonl", &assistant(Some("cli"), "m2", None));
+    live.poll_once(&tmp.roots(), NOW, None);
+    assert_eq!(states(&live, NOW), Vec::<String>::new());
+}
+
 // ---- AC 2 -------------------------------------------------------------------------------------------------------------
 
 #[test]

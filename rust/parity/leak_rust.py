@@ -107,11 +107,15 @@ BRIDGE_PATTERNS = {
     "bridge_command": "BRIDGECANARY command {t}",
     "bridge_tool_description": "BRIDGECANARY tooldesc {t}",
     "bridge_deny_message": "BRIDGECANARY deny {t}",
+    "bridge_last": "BRIDGECANARY last assistant text {t}",  # T111: a Stop hook's `last_assistant_message`
+    "bridge_reply": "BRIDGECANARY owner reply {t}",  # T111: the owner's reply to an idle session
 }
-BRIDGE_LIVE = {"bridge_question", "bridge_header", "bridge_label_picked", "bridge_label_other", "bridge_description", "bridge_command"}
+BRIDGE_LIVE = {"bridge_question", "bridge_header", "bridge_label_picked", "bridge_label_other", "bridge_description", "bridge_command", "bridge_last"}
 # The documented PreToolUse output returns the tool's own input (`updatedInput`: the whole `questions` array, with header, labels and
 # descriptions) plus `answers`, so those come back on `hook ask`'s stdout (to Claude Code only); the permission command is not echoed.
-BRIDGE_HOOK = (BRIDGE_LIVE - {"bridge_command"}) | {"bridge_other_text", "bridge_deny_message"}
+# T111 (FR-121): the last assistant text (`pending_reply.last`) is on `GET /api/live` only; the owner's reply text is on `hook ask`'s stdout
+# only (`{"decision":"block","reason":<reply>}`), never on `GET /api/live`.
+BRIDGE_HOOK = (BRIDGE_LIVE - {"bridge_command", "bridge_last"}) | {"bridge_other_text", "bridge_deny_message", "bridge_reply"}
 # T094 fix round: the only surfaces where the marker question may be (the main server's live answers; the alerts server's
 # is in `run.live_only`), by exact label, never by a part of it.
 LIVE_ANSWER_LABELS = frozenset(f"api GET /api/live ({label}, first message)" for label in ("query token", "header token", "resume"))
@@ -183,6 +187,10 @@ API_CALLS: dict[str, list[str]] = {
     "/api/hooks": [""],  # T106: the account list with the hook state and the entry text; nothing of a prompt
     "/api/answer": [""],  # T106: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
     "/api/answer/release": [""],  # T106: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
+    "/api/reply": [""],  # T111: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
+    "/api/reply/release": [""],
+    "/api/reply/watch": [""],
+    "/api/reply/mark": [""],
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -202,6 +210,11 @@ GUARD_CALLS = [
     ("unknown route", "GET", "/api/nope", {}),
     ("answer no token", "POST", "/api/answer", {"x-dashboard-token": None}),
     ("answer release foreign origin", "POST", "/api/answer/release", {"Origin": "http://evil.invalid"}),
+    ("reply no token", "POST", "/api/reply", {"x-dashboard-token": None}),  # T111
+    ("reply release foreign origin", "POST", "/api/reply/release", {"Origin": "http://evil.invalid"}),
+    ("reply watch no token", "POST", "/api/reply/watch", {"x-dashboard-token": None}),
+    ("reply mark wrong host", "POST", "/api/reply/mark", {"Host": "localhost:1"}),
+    ("reply write method", "DELETE", "/api/reply", {}),
     ("hooks write no token", "PUT", "/api/hooks", {"x-dashboard-token": None}),
     ("live no token", "GET", "/api/live", {"x-dashboard-token": None}),
     ("live write method", "POST", "/api/live", {}),
@@ -260,6 +273,14 @@ WRITE_CALLS = [
     ("answer key as field", "POST", "/api/answer", '{"id":"x","confirmed":true,"{key}":1}'),
     ("answer key as decision", "POST", "/api/answer", '{"id":"x","confirmed":true,"decision":"{key}"}'),
     ("release key as id", "POST", "/api/answer/release", '{"id":"{key}","confirmed":true}'),
+    ("reply key as id", "POST", "/api/reply", '{"id":"{key}","text":"x","confirmed":true}'),  # T111
+    ("reply key as text", "POST", "/api/reply", '{"id":"x","text":"{key}","confirmed":true}'),
+    ("reply key as field", "POST", "/api/reply", '{"id":"x","text":"x","confirmed":true,"{key}":1}'),
+    ("reply key as text type", "POST", "/api/reply", '{"id":"x","text":["{key}"],"confirmed":true}'),
+    ("reply release key as id", "POST", "/api/reply/release", '{"id":"{key}","confirmed":true}'),
+    ("reply watch key as session", "POST", "/api/reply/watch", '{"session_id":"{key}","confirmed":true}'),
+    ("reply mark key as session", "POST", "/api/reply/mark", '{"session_id":"{key}","on":true,"confirmed":true}'),
+    ("reply mark key as on", "POST", "/api/reply/mark", '{"session_id":"x","on":"{key}","confirmed":true}'),
     ("hooks key as account", "PUT", "/api/hooks", '{"account":"{key}","on":true,"confirmed":true}'),
     ("hooks key as field", "PUT", "/api/hooks", '{"account":"1","on":true,"confirmed":true,"{key}":1}'),
     ("workspace delete plan", "DELETE", "/api/workspaces/2", ""),
@@ -1070,6 +1091,20 @@ def pending_ids(blob: bytes) -> dict[str, str]:
     return found
 
 
+def reply_ids(blob: bytes) -> dict[str, str]:
+    """T111: session id -> `pending_reply` id of the last snapshot in a `GET /api/live` answer."""
+    found: dict[str, str] = {}
+    for part in as_text(blob).split("\n"):
+        if part.startswith("data: "):
+            try:
+                sessions = json.loads(part[6:]).get("sessions")
+            except ValueError:
+                continue
+            if isinstance(sessions, list):
+                found = {x["session_id"]: x["pending_reply"]["id"] for x in sessions if isinstance(x.get("pending_reply"), dict)}
+    return found
+
+
 def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
     """T106 (FR-114, FR-115): one `serve` with an answer socket, two sessions that each have an open call, and two real `hook ask`
     processes that wait: a permission (`Bash`, planted command) and a question (planted header, labels, description). While both
@@ -1092,7 +1127,14 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                    "content": [{"type": "tool_use", "id": f"toolu_{sid}", "name": tool, "input": {}}]}  # fmt: skip
         (projects / f"{sid}.jsonl").write_text(json.dumps({"isSidechain": False, "entrypoint": "cli", "cwd": "/work/bridge", "sessionId": sid,
             "version": "2.1.295", "timestamp": when, "type": "assistant", "message": message}) + "\n")  # fmt: skip
+    # T111 (FR-121): a typed session whose turn ended (the live list shows it), and the `Stop` input of its hook
+    stop_message = {"role": "assistant", "id": "msg_bridge-stop", "model": "claude-fixture-model-1", "stop_reason": "end_turn",
+                    "content": [{"type": "text", "text": "done"}]}  # fmt: skip
+    (projects / "bridge-stop.jsonl").write_text(json.dumps({"isSidechain": False, "entrypoint": "cli", "cwd": "/work/bridge", "sessionId": "bridge-stop",
+        "version": "2.1.295", "timestamp": when, "type": "assistant", "message": stop_message}) + "\n")  # fmt: skip
     hook_input = {
+        "bridge-stop": {"hook_event_name": "Stop", "session_id": "bridge-stop", "stop_hook_active": False, "transcript_path": "/x/y.jsonl",
+                        "cwd": "/work/bridge", "last_assistant_message": v["bridge_last"]},  # fmt: skip
         "bridge-ask": {"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "session_id": "bridge-ask", "tool_use_id": "toolu_bridge-ask",
                        "tool_input": {"questions": [{"question": v["bridge_question"], "header": v["bridge_header"], "multiSelect": True,
                                                      "options": [{"label": v["bridge_label_picked"], "description": v["bridge_description"]},
@@ -1105,7 +1147,8 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
     run.env["EASY_PERSONAL_AGENT_ROOT"] = str(run.logs / "bridge-no-agent-root")
     live: dict[str, object] = {}
     hook: dict[str, object] = {}
-    state = {"private": False, "gone": False, "seen": False, "json_only": True, "exits": True, "second": 0, "card": False}
+    state = {"private": False, "gone": False, "seen": False, "json_only": True, "exits": True, "second": 0, "card": False,
+             "reply_seen": False, "reply_out": False, "reply_second": 0}  # fmt: skip
     streams: list[socket.socket] = []
     hooks_procs: dict[str, subprocess.Popen] = {}
     try:
@@ -1164,6 +1207,13 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                 ids = pending_ids(blob)
                 live["bridge live GET /api/live (both hooks waiting)"] = blob
             state["seen"] = set(ids) == set(sessions)
+            rids: dict[str, str] = {}  # T111: the idle session's `Stop` hold shows as `pending_reply`
+            deadline = time.monotonic() + 30
+            while "bridge-stop" not in rids and time.monotonic() < deadline:
+                blob = drain()
+                rids = reply_ids(blob)
+                live["bridge live GET /api/live (hooks waiting)"] = blob
+            state["reply_seen"] = "bridge-stop" in rids
             cards = {}
             for part in as_text(drain()).split("\n"):
                 if part.startswith("data: "):
@@ -1175,6 +1225,8 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
             state["card"] = bash.get("input") == v["bridge_command"] and bash.get("complete") is True and "summary" not in bash
             if not state["seen"]:
                 raise Fatal("bridge: the two waiting hooks did not show as pending_answer on GET /api/live")
+            if not state["reply_seen"]:
+                raise Fatal("bridge: the held Stop hook did not show as pending_reply on GET /api/live")
             for route, queries in API_CALLS.items():  # every GET route, asked while both hooks wait
                 for query in queries:
                     run.add(f"bridge api GET {route}{query}", request(port, "GET", route + query, base)[1])
@@ -1184,6 +1236,11 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                 status, blob = request(port, "POST", "/api/answer", base, json.dumps(body).encode())
                 run.add(f"bridge api POST /api/answer ({label}) -> {status}", blob)
                 state["second"] = status if label.endswith("again") else state["second"]
+            reply_body = {"id": rids["bridge-stop"], "text": v["bridge_reply"], "confirmed": True}  # T111: the owner's reply
+            for label in ("reply", "reply again"):
+                status, blob = request(port, "POST", "/api/reply", base, json.dumps(reply_body).encode())
+                run.add(f"bridge api POST /api/reply ({label}) -> {status}", blob)
+                state["reply_second"] = status if label.endswith("again") else state["reply_second"]
             for sid, proc_hook in hooks_procs.items():
                 out, err = proc_hook.communicate(timeout=30)
                 hook[f"bridge hook ask stdout ({sid})"] = out
@@ -1193,7 +1250,10 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                     reply = json.loads(out)
                 except ValueError:
                     reply = None
-                state["json_only"] = state["json_only"] and isinstance(reply, dict) and list(reply) == ["hookSpecificOutput"]
+                if sid == "bridge-stop":  # T111: the documented Stop output, with the owner's text and nothing else
+                    state["reply_out"] = reply == {"decision": "block", "reason": v["bridge_reply"]}
+                else:
+                    state["json_only"] = state["json_only"] and isinstance(reply, dict) and list(reply) == ["hookSpecificOutput"]
             run.run("bridge hooks status (while serving)", "hooks", "status")
             run.add("bridge serve stdout (first line, token inside)", first + lines.buf)
         finally:
@@ -1231,6 +1291,9 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
     checks.append(f"check bridge hook ask: exit 0, documented JSON  {ok(state['json_only'] and state['exits'])}")
     checks.append(f"check bridge second answer is a 409             {ok(state['second'] == 409)} (status {state['second']})")
     checks.append(f"check bridge socket removed at SIGINT           {ok(state['gone'])} (exit {rc})")
+    checks.append(f"check bridge pending_reply on GET /api/live      {ok(state['reply_seen'])} (1 Stop hold)")
+    checks.append(f"check bridge Stop hook prints the block JSON     {ok(state['reply_out'])}")
+    checks.append(f"check bridge second reply is a 409               {ok(state['reply_second'] == 409)} (status {state['reply_second']})")
 
 
 def bridge_scan(run: Run) -> tuple[list[str], list[str]]:
