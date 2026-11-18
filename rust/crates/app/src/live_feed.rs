@@ -25,7 +25,7 @@ use easy_personal_core::prices::PriceTable;
 use easy_personal_core::store::store_path;
 use futures_core::Stream;
 use serde_json::{Map, Value, json};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::future::Future;
 use std::panic::{self, AssertUnwindSafe};
@@ -200,6 +200,15 @@ pub(crate) fn resume_id(value: &[u8]) -> Option<i64> {
     std::str::from_utf8(digits).ok()?.parse().ok()
 }
 
+/// What the bridge adds to a snapshot: its change counter, the `pending_answer` and `pending_reply` per session, and the
+/// sessions marked *Reply from the app*.
+type BridgeView = (
+    u64,
+    HashMap<String, Value>,
+    HashMap<String, Value>,
+    HashSet<String>,
+);
+
 /// One client's place in the stream: Python's `cursor` and `seen` of `live_stream`.
 pub(crate) struct LiveStream {
     cursor: Option<i64>,
@@ -229,6 +238,18 @@ impl LiveStream {
     /// One pass of Python's loop body (without the ping and the sleep): the bytes to send, maybe none.
     pub(crate) fn step(&mut self, tail: Option<&LiveTail>, now: i64) -> Vec<u8> {
         let mut out = Vec::new();
+        // FR-121: a mark of a session that left the live list goes now (it must not come back marked)
+        if let Some(b) = self.answers.as_ref().filter(|b| b.has_marks()) {
+            let listed = tail.map_or_else(HashSet::new, |t| {
+                t.snapshot(now)["sessions"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|s| s["session_id"].as_str().map(str::to_owned))
+                    .collect()
+            });
+            b.prune_marks(&listed);
+        }
         // the set of hooks is read (and cloned) only when its counter moved or a snapshot goes out anyway
         let answers_moved = self
             .answers
@@ -242,15 +263,15 @@ impl LiveStream {
         match (self.cursor, tail) {
             (None, _) => {
                 let snapshot = tail.map_or_else(empty_snapshot, |t| t.snapshot(now));
-                let (answers_version, pending, replies) = self.pending();
+                let (answers_version, pending, replies, marks) = self.pending();
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, tail);
-                add_pending(&mut data, &pending, &replies);
+                add_pending(&mut data, &pending, &replies, &marks);
                 out.extend(sse("snapshot", &data, None));
             }
             (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || answers_moved => {
                 let snapshot = t.snapshot(now); // attention changed: events up to its `last_id` first
-                let (answers_version, pending, replies) = self.pending();
+                let (answers_version, pending, replies, marks) = self.pending();
                 let upto = snapshot["last_id"].as_i64().unwrap_or(0);
                 for event in t.events_since(cursor) {
                     let id = event["id"].as_i64().unwrap_or(0);
@@ -261,7 +282,7 @@ impl LiveStream {
                 }
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, Some(t));
-                add_pending(&mut data, &pending, &replies);
+                add_pending(&mut data, &pending, &replies, &marks);
                 out.extend(sse("snapshot", &data, None));
             }
             _ => {}
@@ -277,10 +298,11 @@ impl LiveStream {
     }
 
     /// The bridge's change counter, its cards and its reply holds (none without a bridge).
-    fn pending(&self) -> (u64, HashMap<String, Value>, HashMap<String, Value>) {
-        self.answers
-            .as_ref()
-            .map_or_else(|| (0, HashMap::new(), HashMap::new()), |b| b.view_all())
+    fn pending(&self) -> BridgeView {
+        self.answers.as_ref().map_or_else(
+            || (0, HashMap::new(), HashMap::new(), HashSet::new()),
+            |b| b.view_all(),
+        )
     }
 
     fn take(&mut self, snapshot: &Value, answers_version: u64) {
@@ -456,8 +478,9 @@ fn add_pending(
     data: &mut Value,
     pending: &HashMap<String, Value>,
     replies: &HashMap<String, Value>,
+    marks: &HashSet<String>,
 ) {
-    if pending.is_empty() && replies.is_empty() {
+    if pending.is_empty() && replies.is_empty() && marks.is_empty() {
         return;
     }
     for session in data["sessions"].as_array_mut().into_iter().flatten() {
@@ -470,6 +493,10 @@ fn add_pending(
         // T111 (FR-121): the same place, the same rule: a held `Stop` hook waits for the owner's reply
         if let Some(found) = replies.get(&id) {
             session["pending_reply"] = found.clone();
+        }
+        // the owner marked the session *Reply from the app* (a boolean, not text): shown also with no hold
+        if marks.contains(&id) {
+            session["reply_marked"] = json!(true);
         }
     }
 }
@@ -1474,6 +1501,70 @@ mod tests {
             reply.recv_timeout(Duration::from_secs(5)).unwrap(),
             "{\"decision\":\"block\",\"reason\":\"go on\"}\n"
         );
+    }
+
+    /// Stage 4 decision (FR-121): a listed session the owner marked *Reply from the app* gets `reply_marked: true` in the
+    /// stream's snapshot, also with no hold; unmarking removes it; the tail's own snapshot (tray, alerts) never has it; a
+    /// session that left the live list loses its mark, so it never comes back marked.
+    #[test]
+    fn the_stream_marks_an_idle_marked_session_and_drops_the_mark_of_one_that_left() {
+        let tmp = Temp::new("reply-marked");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s1", "b1", "2026-01-20T00:00:05Z"));
+        append(
+            &tmp,
+            &result_line("s1", "b1", false, "2026-01-20T00:00:06Z"),
+        );
+        tail.poll_once(&roots, NOW, None);
+        let bridge = Arc::new(Bridge::default());
+        let mut stream = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let session =
+            |sent: &[(String, Option<i64>, Value)]| sent.last().unwrap().2["sessions"][0].clone();
+        let first = messages(&stream.step(Some(&tail), NOW));
+        assert!(session(&first).get("reply_marked").is_none());
+
+        assert!(bridge.mark("s1", true));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(sent.last().unwrap().0, "snapshot");
+        assert_eq!(session(&sent)["reply_marked"], true);
+        assert!(
+            session(&sent).get("pending_reply").is_none(),
+            "no hold, only the mark"
+        );
+        assert!(!tail.snapshot(NOW).to_string().contains("reply_marked"));
+        let plain = String::from_utf8_lossy(&LiveStream::new(None, true).step(Some(&tail), NOW))
+            .into_owned();
+        assert!(!plain.contains("reply_marked"));
+        assert!(
+            stream.step(Some(&tail), NOW).is_empty(),
+            "no change, nothing sent"
+        );
+
+        assert!(bridge.mark("s1", false));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert!(session(&sent).get("reply_marked").is_none(), "unmarked");
+
+        // marked again, then the session leaves the live list (quiet for more than 5 minutes, no open call)
+        assert!(bridge.mark("s1", true));
+        assert_eq!(
+            session(&messages(&stream.step(Some(&tail), NOW)))["reply_marked"],
+            true
+        );
+        let later = NOW + 10 * 60 * SECOND;
+        let sent = messages(&stream.step(Some(&tail), later));
+        assert!(
+            sent.last().unwrap().2["sessions"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "left the list"
+        );
+        assert!(bridge.view_all().3.is_empty(), "its mark went with it");
+        // it comes back (a new record): not marked
+        let mut again = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let sent = messages(&again.step(Some(&tail), NOW));
+        assert_eq!(sent.last().unwrap().2["sessions"][0]["session_id"], "s1");
+        assert!(session(&sent).get("reply_marked").is_none());
     }
 
     /// A hook of a session that is not in the snapshot is not shown (and no other session gets its card).

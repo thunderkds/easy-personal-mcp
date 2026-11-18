@@ -23,6 +23,8 @@
 //! - a line longer than [`MAX_LINE_BYTES`] is skipped once its newline arrives (no event; Python parses it), and while
 //!   it has no newline the file waits, never holding more than the bound in memory;
 //! - [`MAX_BATCH_LINES`] is the publish batch, as in Python, which reads every new line of a file in one poll.
+//! - a `user` record with `isMeta: true` (T111, FR-121: Claude Code writes a Stop hook's reply as one, `Stop hook feedback:`) is
+//!   skipped like a line the item step does not read: no item, no change of the session (Python builds an item from it).
 
 use crate::board::is_space;
 use crate::ingest::claude_code::parse_record;

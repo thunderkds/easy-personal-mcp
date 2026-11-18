@@ -99,6 +99,24 @@ const REPLY_MAX: usize = 8000;
 /// Holds at once (kept apart from [`MAX_PENDING`] so a crowd of idle sessions cannot starve a prompt).
 const MAX_HOLDS: usize = 16;
 
+/// How long the app waits for a hook thread to say whether it wrote a line to its socket (a write times out after
+/// [`REQUEST_WAIT`]).
+const ACK_WAIT: Duration = Duration::from_secs(6);
+
+/// A line for a waiting hook and where the hook thread says whether the line was written to the hook's socket (Stage 4 of
+/// T111: a reply to a hook that Esc just killed must not be reported as sent).
+struct Delivery {
+    line: String,
+    ack: Sender<bool>,
+}
+
+/// Sends `line` to a hook thread and waits for its word that the line was written. `false`: the hook went away, or the write
+/// failed, so nobody got the text.
+fn deliver(to: &Sender<Delivery>, line: String) -> bool {
+    let (ack, written) = mpsc::channel();
+    to.send(Delivery { line, ack }).is_ok() && written.recv_timeout(ACK_WAIT).unwrap_or(false)
+}
+
 /// FR-121, PRD question 42 (hybrid, owner 2026-11-18): how long a `Stop` hook is held.
 #[derive(Clone, Copy)]
 struct HoldRule {
@@ -198,7 +216,7 @@ struct Pending {
     /// `pending_answer` without its `id`: the cleaned, capped text the page shows.
     shown: Value,
     detail: Detail,
-    reply: Sender<String>,
+    reply: Sender<Delivery>,
 }
 
 /// A parsed hook input: who asks, what the page shows and what the reply is made from.
@@ -422,7 +440,7 @@ struct Hold {
     began: Instant,
     /// The newest watch call's keep-alive time.
     watched: Option<Instant>,
-    reply: Sender<String>,
+    reply: Sender<Delivery>,
 }
 
 #[derive(Default)]
@@ -544,7 +562,7 @@ impl Bridge {
 
     /// Registers a hook. `None`: the bridge is closed or full, no stream is open, or the page does not list the hook's
     /// session (the hook is handed back to the terminal, which asks as usual).
-    fn add(&self, prompt: Prompt) -> Option<(String, Receiver<String>)> {
+    fn add(&self, prompt: Prompt) -> Option<(String, Receiver<Delivery>)> {
         if self.subscribers.load(Ordering::SeqCst) == 0
             || !self.listed_soon(&prompt.session_id, false)
         {
@@ -600,7 +618,7 @@ impl Bridge {
     /// FR-121: registers a `Stop` hold for `session_id`. `None`: the bridge is closed or full, no stream is open, the session
     /// is not listed as typed work within the grace, or it has a waiting prompt (FR-114): the hook is handed back. A newer
     /// hold of the same session replaces the older one (that hook is handed back).
-    fn add_hold(&self, session_id: &str, last: String) -> Option<(String, Receiver<String>)> {
+    fn add_hold(&self, session_id: &str, last: String) -> Option<(String, Receiver<Delivery>)> {
         if self.subscribers.load(Ordering::SeqCst) == 0 || !self.listed_soon(session_id, true) {
             return None;
         }
@@ -677,14 +695,19 @@ impl Bridge {
 
     /// FR-121: the owner's reply goes to the holding hook. `false`: no such hold (unknown, ended, released, replied).
     pub(crate) fn reply(&self, id: &str, text: &str) -> bool {
-        let mut state = self.lock();
-        let Some(at) = state.holds.iter().position(|h| h.id == id) else {
-            return false;
+        let hold = {
+            let mut state = self.lock();
+            let Some(at) = state.holds.iter().position(|h| h.id == id) else {
+                return false;
+            };
+            state.version += 1;
+            state.holds.remove(at)
         };
-        let hold = state.holds.remove(at);
-        state.version += 1;
-        let line = json!({"decision": "block", "reason": text}).to_string();
-        hold.reply.send(line).is_ok()
+        // `true` only when the hook's socket took the line: a hook that Esc killed a moment ago got nothing (a 409)
+        deliver(
+            &hold.reply,
+            json!({"decision": "block", "reason": text}).to_string(),
+        )
     }
 
     /// FR-121: the owner hands the terminal its prompt back. `false`: no such hold.
@@ -702,13 +725,20 @@ impl Bridge {
     /// [`Bridge::view_all`]; the tests of T106 read this).
     #[cfg(test)]
     pub(crate) fn view(&self) -> (u64, HashMap<String, Value>) {
-        let (version, answers, _) = self.view_all();
+        let (version, answers, _, _) = self.view_all();
         (version, answers)
     }
 
     /// [`Bridge::view`] and, per session id, the `pending_reply` `{id, until, marked, last}` of its hold (FR-121; `until` is
     /// epoch seconds), all read under one lock.
-    pub(crate) fn view_all(&self) -> (u64, HashMap<String, Value>, HashMap<String, Value>) {
+    pub(crate) fn view_all(
+        &self,
+    ) -> (
+        u64,
+        HashMap<String, Value>,
+        HashMap<String, Value>,
+        HashSet<String>,
+    ) {
         let state = self.lock();
         let mut per_session = HashMap::new();
         for p in &state.pending {
@@ -736,7 +766,23 @@ impl Bridge {
                 )
             })
             .collect();
-        (state.version, per_session, replies)
+        (state.version, per_session, replies, state.marked.clone())
+    }
+
+    /// Is any session marked? (A stream looks at the live list only then.)
+    pub(crate) fn has_marks(&self) -> bool {
+        !self.lock().marked.is_empty()
+    }
+
+    /// FR-121: drops the marks of sessions that are not in `listed` (the live list), so a session that left it never comes
+    /// back marked.
+    pub(crate) fn prune_marks(&self, listed: &HashSet<String>) {
+        let mut state = self.lock();
+        let before = state.marked.len();
+        state.marked.retain(|s| listed.contains(s));
+        if state.marked.len() != before {
+            state.version += 1;
+        }
     }
 
     /// The owner's answer: the first one wins and goes to the waiting hook.
@@ -757,14 +803,17 @@ impl Bridge {
         }?;
         let item = state.pending.remove(at);
         state.version += 1;
-        if item.reply.send(line).is_err() {
-            return Err(AnswerError::NotFound); // the hook went away this instant
-        }
-        state.answered.push_back(item.id);
+        state.answered.push_back(item.id.clone());
         if state.answered.len() > ANSWERED_KEPT {
             state.answered.pop_front();
         }
-        Ok(())
+        drop(state);
+        if deliver(&item.reply, line) {
+            return Ok(());
+        }
+        // the hook went away: nobody got the answer, so it is not an answered item
+        self.lock().answered.retain(|a| *a != item.id);
+        Err(AnswerError::NotFound)
     }
 
     /// The owner hands the prompt back to the terminal. `false`: no such item.
@@ -1005,7 +1054,13 @@ fn serve_hook(mut stream: UnixStream, bridge: &Bridge) -> Option<()> {
     };
     bridge.remove(&id);
     // an answer that arrived between the end of the wait and the removal still counts
-    let line = reply.or_else(|| receiver.try_recv().ok())?;
+    let delivery = reply.or_else(|| receiver.try_recv().ok())?;
+    let written = write_line(&mut stream, &delivery.line);
+    let _ = delivery.ack.send(written.is_some()); // the route answers 200 only for a line that was written
+    written
+}
+
+fn write_line(stream: &mut UnixStream, line: &str) -> Option<()> {
     stream.set_nonblocking(false).ok()?;
     stream.set_write_timeout(Some(REQUEST_WAIT)).ok()?;
     stream.write_all(line.as_bytes()).ok()?;
@@ -1013,7 +1068,7 @@ fn serve_hook(mut stream: UnixStream, bridge: &Bridge) -> Option<()> {
 }
 
 /// FR-121: a `Stop` input to a hold. Only `stop_hook_active: false` is held (the client checks it first, the app again).
-fn hold_for(input: &Value, bridge: &Bridge) -> Option<(String, Receiver<String>)> {
+fn hold_for(input: &Value, bridge: &Bridge) -> Option<(String, Receiver<Delivery>)> {
     if input.get("stop_hook_active") != Some(&Value::Bool(false)) {
         return None;
     }
@@ -1030,10 +1085,10 @@ fn hold_for(input: &Value, bridge: &Bridge) -> Option<(String, Receiver<String>)
 /// for [`HoldRule::stream_grace`], the app stopping or the hook process going away (Esc in the terminal).
 fn hold_wait(
     stream: &UnixStream,
-    receiver: &Receiver<String>,
+    receiver: &Receiver<Delivery>,
     bridge: &Bridge,
     id: &str,
-) -> Option<String> {
+) -> Option<Delivery> {
     let mut no_stream = None::<Instant>;
     loop {
         match receiver.recv_timeout(POLL) {
@@ -1057,7 +1112,7 @@ fn hold_wait(
 }
 
 /// The answer, or `None` for a release, the end of the wait, the app stopping or the hook process going away.
-fn wait(stream: &UnixStream, receiver: &Receiver<String>, limit: Duration) -> Option<String> {
+fn wait(stream: &UnixStream, receiver: &Receiver<Delivery>, limit: Duration) -> Option<Delivery> {
     let deadline = Instant::now() + limit;
     loop {
         match receiver.recv_timeout(POLL) {
@@ -1201,7 +1256,12 @@ pub(crate) async fn answer(State(api): State<Api>, req: Request) -> Response {
         Ok(parts) => parts,
         Err(answer) => return answer,
     };
-    match api.answers.answer(&id, &body) {
+    let bridge = Arc::clone(&api.answers);
+    // it waits for the hook thread's word that the line was written: not on a runtime worker
+    let done = tokio::task::spawn_blocking(move || bridge.answer(&id, &body))
+        .await
+        .unwrap_or(Err(AnswerError::NotFound));
+    match done {
         Ok(()) => ok(),
         Err(AnswerError::NotFound) => fail(StatusCode::NOT_FOUND, NOT_FOUND),
         Err(AnswerError::Answered) => fail(StatusCode::CONFLICT, ANSWERED),
@@ -1275,7 +1335,11 @@ pub(crate) async fn reply(State(api): State<Api>, req: Request) -> Response {
     if let Err(why) = check_reply_text(text) {
         return fail(StatusCode::BAD_REQUEST, why);
     }
-    if api.answers.reply(&id, text) {
+    let (bridge, text) = (Arc::clone(&api.answers), text.clone());
+    let sent = tokio::task::spawn_blocking(move || bridge.reply(&id, &text))
+        .await
+        .unwrap_or(false);
+    if sent {
         ok()
     } else {
         fail(StatusCode::CONFLICT, NO_HOLD)
@@ -1429,7 +1493,7 @@ mod tests {
         /// Waits until `n` sessions have a `pending_reply`; returns them by session.
         fn holding(&self, n: usize) -> HashMap<String, Value> {
             for _ in 0..500 {
-                let (_, _, replies) = self.bridge.view_all();
+                let (_, _, replies, _) = self.bridge.view_all();
                 if replies.len() >= n {
                     return replies;
                 }
@@ -2623,5 +2687,54 @@ mod tests {
         );
         world.bridge.close();
         assert_eq!(typed.join().unwrap(), None);
+    }
+
+    /// Stage 4 fix: a reply (or an answer) to a hook that has gone away (Esc killed it inside the 200 ms look) is not reported
+    /// as sent: the route answers only when the line was written to the hook's socket, else "no longer waiting".
+    #[test]
+    fn a_reply_or_an_answer_to_a_hook_that_went_away_is_refused() {
+        let world = World::new("lost", WAIT);
+        let mut stream = UnixStream::connect(world.dir.0.join(SOCKET)).unwrap();
+        stream
+            .write_all(format!("{}\n", stop_input("s1", false, "x")).as_bytes())
+            .unwrap();
+        let id = world.holding(1)["s1"]["id"].as_str().unwrap().to_string();
+        drop(stream); // the process died
+        assert!(!world.bridge.reply(&id, "lost text"), "nothing was written");
+        assert_eq!(world.bridge.view_all().2.len(), 0);
+
+        let mut stream = UnixStream::connect(world.dir.0.join(SOCKET)).unwrap();
+        stream
+            .write_all(format!("{}\n", bash_input("s2", "ls")).as_bytes())
+            .unwrap();
+        let id = world.waiting(1)["s2"]["id"].as_str().unwrap().to_string();
+        drop(stream);
+        let allow = World::body(json!({"id": id, "confirmed": true, "decision": "allow"}));
+        assert_eq!(world.bridge.answer(&id, &allow), Err(AnswerError::NotFound));
+    }
+
+    /// Stage 4 fix: 16 holds at once; the 17th `Stop` is handed back at once (no output, nothing held) and a prompt is still
+    /// accepted (holds and prompts have separate caps).
+    #[test]
+    fn the_seventeenth_hold_is_handed_back_and_a_prompt_is_still_accepted() {
+        let world = World::new("max-holds", WAIT);
+        let hooks: Vec<_> = (0..MAX_HOLDS)
+            .map(|n| world.hook(&stop_input(&format!("s{n}"), false, "x")))
+            .collect();
+        assert_eq!(world.holding(MAX_HOLDS).len(), MAX_HOLDS);
+        let began = Instant::now();
+        let extra = world.hook(&stop_input("s-extra", false, "x"));
+        assert_eq!(extra.join().unwrap(), None);
+        assert!(began.elapsed() < Duration::from_secs(2));
+        let held = world.bridge.view_all().2;
+        assert_eq!(held.len(), MAX_HOLDS);
+        assert!(!held.contains_key("s-extra"));
+        let prompt = world.hook(&bash_input("s-prompt", "ls"));
+        assert!(world.waiting(1).contains_key("s-prompt"));
+        world.bridge.close();
+        assert_eq!(prompt.join().unwrap(), None);
+        for hook in hooks {
+            assert_eq!(hook.join().unwrap(), None);
+        }
     }
 }
