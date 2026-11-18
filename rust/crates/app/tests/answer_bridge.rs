@@ -1371,3 +1371,88 @@ fn a_held_stop_hook_ends_when_the_last_stream_closes_and_at_app_exit() {
     let (code, out, _) = finished(hook);
     assert_eq!((code, out.len()), (Some(0), 0));
 }
+
+/// T112 (FR-122): a second confirmed Claude account with the same label as the first, its folder `<home>/.claude2`.
+fn second_account(home: &Home) {
+    let conn = rusqlite::Connection::open(home.0.join("store.sqlite")).unwrap();
+    conn.execute(
+        "INSERT INTO agent_accounts (id, provider, folder, label, status) VALUES (2, 'claude', ?1, 'Work', 'confirmed')",
+        [home.0.join(".claude2").to_str().unwrap()],
+    )
+    .unwrap();
+    std::fs::create_dir_all(home.0.join(".claude2/projects/p")).unwrap();
+}
+
+/// A session of the account folder `folder` (`.claude` or `.claude2`) whose turn just ended.
+fn ended_turn_in(home: &Home, folder: &str, sid: &str, entrypoint: &str) {
+    let stamp = jiff::Timestamp::now().strftime("%Y-%m-%dT%H:%M:%S.000Z");
+    let line = json!({"type": "assistant", "sessionId": sid, "timestamp": stamp.to_string(), "cwd": "/tmp",
+        "entrypoint": entrypoint, "isSidechain": false,
+        "message": {"id": format!("m-{sid}"), "model": "x", "stop_reason": "end_turn", "content": [{"type": "text", "text": "done"}]}});
+    std::fs::write(
+        home.0.join(format!("{folder}/projects/p/{sid}.jsonl")),
+        format!("{line}\n"),
+    )
+    .unwrap();
+}
+
+/// `Some(flag)` of `reply_bridge` on session `sid`'s row (`None`: no such key), `Err` when the session is not listed.
+fn bridge_flag(snapshot: &Value, sid: &str) -> Result<Option<Value>, ()> {
+    let all = snapshot["sessions"].as_array().unwrap();
+    all.iter()
+        .find(|s| s["session_id"] == sid)
+        .map(|s| s.get("reply_bridge").cloned())
+        .ok_or(())
+}
+
+/// T112 (FR-122): the page's snapshot says `reply_bridge: true` on the typed sessions of an account whose hook status is
+/// `on`, by account id (two accounts share a label); never on `on (no reply)`, `off`, an `sdk` session; follows `PUT /api/hooks`.
+#[test]
+fn reply_bridge_follows_the_hook_status_of_the_sessions_account_by_id() {
+    let home = Home::new("t112-flag");
+    second_account(&home);
+    ended_turn_in(&home, ".claude", "one", "cli");
+    ended_turn_in(&home, ".claude", "headless", "sdk-cli");
+    ended_turn_in(&home, ".claude2", "two", "cli");
+    for account in ["1", "2"] {
+        let out = home.run(&["hooks", "install", "--yes", "--account", account], "");
+        assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    }
+    // account 2 keeps the two entries of T106 only: `on (no reply)`
+    let path = home.0.join(".claude2/settings.json");
+    let mut settings = json_of(&path);
+    settings["hooks"].as_object_mut().unwrap().remove("Stop");
+    std::fs::write(&path, settings.to_string()).unwrap();
+    assert!(
+        text(&home.run(&["hooks", "status", "--account", "2"], "").stdout)
+            .contains("on (no reply)")
+    );
+
+    let mut serve = Serve::start(&home);
+    let mut live = serve.watch();
+    let first = live.next_snapshot(|d| bridge_flag(d, "one") == Ok(Some(json!(true))));
+    assert_eq!(
+        bridge_flag(&first, "two"),
+        Ok(None),
+        "on (no reply), same label as an `on` account"
+    );
+    assert_eq!(
+        bridge_flag(&first, "headless"),
+        Ok(None),
+        "an sdk session never"
+    );
+
+    // install by the route: the next snapshot has it for the account's sessions
+    let on = json!({"account": "2", "on": true, "confirmed": true});
+    assert_eq!(serve.request("PUT", "/api/hooks", Some(&on), true).0, 200);
+    let after = live.next_snapshot(|d| bridge_flag(d, "two") == Ok(Some(json!(true))));
+    assert_eq!(bridge_flag(&after, "one"), Ok(Some(json!(true))));
+
+    // off by the route: the flag goes
+    let off = json!({"account": "1", "on": false, "confirmed": true});
+    assert_eq!(serve.request("PUT", "/api/hooks", Some(&off), true).0, 200);
+    let gone = live.next_snapshot(|d| bridge_flag(d, "one") == Ok(None));
+    assert_eq!(bridge_flag(&gone, "two"), Ok(Some(json!(true))));
+    let (code, _, err) = serve.sigint();
+    assert_eq!(code, Some(0), "{err}");
+}

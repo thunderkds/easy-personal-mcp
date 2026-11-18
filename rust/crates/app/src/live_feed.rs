@@ -44,6 +44,8 @@ pub(crate) const LIVE_PATH: &str = "/api/live";
 pub(crate) const POLL: Duration = Duration::from_millis(100);
 /// Python's `PING_S`: a `: ping` comment after this long without one.
 pub(crate) const PING: Duration = Duration::from_secs(15);
+/// T112: how often a stream has the accounts' hook status read again.
+const REPLY_EVERY: Duration = Duration::from_secs(30);
 /// Python's `stop()` joins with `timeout=10`.
 const STOP_WAIT: Duration = Duration::from_secs(10);
 /// Python's `THREAD_NAME`.
@@ -266,7 +268,7 @@ impl LiveStream {
                 let (answers_version, pending, replies, marks) = self.pending();
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, tail);
-                add_pending(&mut data, &pending, &replies, &marks);
+                add_pending(&mut data, &pending, &replies, &marks, &self.bridged(tail));
                 out.extend(sse("snapshot", &data, None));
             }
             (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || answers_moved => {
@@ -282,7 +284,7 @@ impl LiveStream {
                 }
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, Some(t));
-                add_pending(&mut data, &pending, &replies, &marks);
+                add_pending(&mut data, &pending, &replies, &marks, &self.bridged(tail));
                 out.extend(sse("snapshot", &data, None));
             }
             _ => {}
@@ -303,6 +305,22 @@ impl LiveStream {
             || (0, HashMap::new(), HashMap::new(), HashSet::new()),
             |b| b.view_all(),
         )
+    }
+
+    /// T112: the typed sessions of the tail whose account's bridge is on (none without a bridge or a tail).
+    fn bridged(&self, tail: Option<&LiveTail>) -> HashSet<String> {
+        let (Some(b), Some(t)) = (&self.answers, tail) else {
+            return HashSet::new();
+        };
+        let on = b.reply_accounts();
+        if on.is_empty() {
+            return HashSet::new();
+        }
+        t.reply_accounts()
+            .into_iter()
+            .filter(|(_, account)| on.contains(account))
+            .map(|(id, _)| id)
+            .collect()
     }
 
     fn take(&mut self, snapshot: &Value, answers_version: u64) {
@@ -329,9 +347,18 @@ pub(crate) struct SseBody {
     /// [`PING`]; a test sets a shorter one.
     ping: Duration,
     first: bool,
+    /// T112: reads which accounts have the bridge on (the work is done off the runtime worker); due every [`REPLY_EVERY`].
+    refresh: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 impl SseBody {
+    /// T112 (FR-122): `refresh` re-reads the accounts' hook status into the bridge; the stream runs it every
+    /// [`REPLY_EVERY`] (the first pass too), so a settings file changed by hand shows within that time.
+    pub(crate) fn with_refresh(mut self, refresh: Arc<dyn Fn() + Send + Sync>) -> Self {
+        self.refresh = Some(refresh);
+        self
+    }
+
     /// T106: the hooks whose owner answer the snapshots carry.
     pub(crate) fn with_answers(mut self, answers: Arc<Bridge>) -> Self {
         self._subscription = Some(answers.subscribe());
@@ -355,10 +382,18 @@ impl SseBody {
             last_ping: Instant::now(),
             ping: PING,
             first: true,
+            refresh: None,
         }
     }
 
     fn pass(&mut self) -> Vec<u8> {
+        if let (Some(refresh), Some(b)) = (&self.refresh, &self.stream.answers)
+            && b.reply_due(REPLY_EVERY)
+            && let Ok(runtime) = tokio::runtime::Handle::try_current()
+        {
+            let refresh = Arc::clone(refresh);
+            drop(runtime.spawn_blocking(move || refresh()));
+        }
         let now = (self.clock)();
         let mut out = match &self.tail {
             None => self.stream.step(None, now),
@@ -479,8 +514,9 @@ fn add_pending(
     pending: &HashMap<String, Value>,
     replies: &HashMap<String, Value>,
     marks: &HashSet<String>,
+    bridged: &HashSet<String>,
 ) {
-    if pending.is_empty() && replies.is_empty() && marks.is_empty() {
+    if pending.is_empty() && replies.is_empty() && marks.is_empty() && bridged.is_empty() {
         return;
     }
     for session in data["sessions"].as_array_mut().into_iter().flatten() {
@@ -497,6 +533,10 @@ fn add_pending(
         // the owner marked the session *Reply from the app* (a boolean, not text): shown also with no hold
         if marks.contains(&id) {
             session["reply_marked"] = json!(true);
+        }
+        // T112 (FR-122): a typed session of an account whose answer bridge is on can be replied to from the app
+        if bridged.contains(&id) {
+            session["reply_bridge"] = json!(true);
         }
     }
 }

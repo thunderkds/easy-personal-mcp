@@ -882,6 +882,9 @@ struct Attention {
 struct Session {
     entrypoint: Option<String>,
     account: Option<String>,
+    /// T112: the id of the account whose folder the transcript is in (the label above is not unique); never in a snapshot,
+    /// only [`LiveTail::reply_accounts`] gives it out.
+    account_id: Option<i64>,
     project: Option<String>,
     /// The resolved project folder (the name in `project` is cut from it); never leaves the process except by [`LiveTail::session_origin`].
     project_dir: Option<String>,
@@ -958,6 +961,8 @@ pub struct LiveTail {
     offsets: HashMap<String, (u64, u64)>,
     primed: bool,
     replaying: bool,
+    /// T112: the account id of the root being scanned (set by `scan`, read when a session is first seen).
+    scan_account: Option<i64>,
 }
 
 /// Counts only: no path, session id or label reaches a `Debug` line.
@@ -985,6 +990,7 @@ impl LiveTail {
             offsets: HashMap::new(),
             primed: false,
             replaying: false,
+            scan_account: None,
         }
     }
 
@@ -1039,6 +1045,16 @@ impl LiveTail {
     pub fn session_typed(&self, session_id: &str) -> Option<bool> {
         let session = self.sessions.get(session_id)?;
         session.entrypoint.as_ref().map(|_| session.is_typed())
+    }
+
+    /// T112 (FR-122): session id -> the id of its account, for the typed sessions (`sdk` ones left out) whose account is
+    /// known. The page's `reply_bridge` flag is decided from this; it is not part of [`LiveTail::snapshot`] (DDR-0005).
+    pub fn reply_accounts(&self) -> HashMap<String, i64> {
+        self.sessions
+            .iter()
+            .filter(|(_, s)| s.is_typed())
+            .filter_map(|(id, s)| s.account_id.map(|a| (id.clone(), a)))
+            .collect()
     }
 
     /// The newest record time over the sessions whose project folder is `project_dir` (T105: the continue check; the
@@ -1155,6 +1171,7 @@ impl LiveTail {
     ) {
         let mut seen: HashSet<String> = HashSet::new();
         for root in roots {
+            self.scan_account = root.account;
             let label = labels
                 .get(&root.account)
                 .cloned()
@@ -1337,9 +1354,11 @@ impl LiveTail {
                 }
             };
             let mut appended: Vec<Pending> = Vec::new();
+            let account_id = self.scan_account;
             let session = self.sessions.entry(&item.session_id, || Session {
                 entrypoint: None,
                 account: account.map(str::to_owned),
+                account_id,
                 project: None,
                 project_dir: None,
                 last_ts: String::new(),
@@ -1812,6 +1831,46 @@ mod tests {
         assert!(
             !ids.is_empty(),
             "the line after the cursor is published after the caught panic"
+        );
+    }
+
+    /// T112 (FR-122): the tail knows the account id of each typed session by the root it was read from (two roots may
+    /// carry one label), leaves an `sdk` session out, and keeps the id out of `snapshot()` (DDR-0005).
+    #[test]
+    fn the_tail_gives_the_account_id_of_typed_sessions_and_keeps_it_out_of_the_snapshot() {
+        let dir =
+            std::env::temp_dir().join(format!("easy-personal-rs-t112-acct-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let stamp = format_stored(crate::clock::now_micros());
+        let roots: Vec<Root> = [(1, "one", "cli"), (2, "two", "cli"), (3, "three", "sdk-cli")]
+            .iter()
+            .map(|(account, name, entrypoint)| {
+                let file = dir.join(name).join("projects/p/s.jsonl");
+                std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+                let record = format!(
+                    "{{\"type\":\"assistant\",\"sessionId\":\"s-{name}\",\"timestamp\":\"{stamp}\",\"entrypoint\":\"{entrypoint}\",\"message\":{{\"id\":\"m\",\"model\":\"x\",\"stop_reason\":\"end_turn\",\"content\":[{{\"type\":\"text\",\"text\":\"hi\"}}]}}}}\n"
+                );
+                std::fs::write(&file, record).unwrap();
+                Root { account: Some(*account), projects: dir.join(name).join("projects") }
+            })
+            .collect();
+        let mut tail = LiveTail::new(PriceTable::shipped().unwrap());
+        let now = crate::clock::now_micros();
+        tail.poll_once(&roots, now, None);
+        tail.poll_once(&roots, now + SECOND, None);
+        let found = tail.reply_accounts();
+        let shown = tail.snapshot(now + SECOND).to_string();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(found.get("s-one"), Some(&1));
+        assert_eq!(found.get("s-two"), Some(&2));
+        assert!(
+            !found.contains_key("s-three"),
+            "an sdk session is left out: {found:?}"
+        );
+        assert!(
+            shown.contains("s-one")
+                && !shown.contains("reply_bridge")
+                && !shown.contains("account_id")
         );
     }
 
