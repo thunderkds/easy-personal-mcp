@@ -36,9 +36,9 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 
 Mode: auto
 1. Past sessions listed from the store's `events` metadata, no schema change — FACT: rust/crates/core/src/schema_v11.sql:79 "session_id                  TEXT,"
-2. Own names in one owner-only file `session_names.json` — RULE: FR-119 pattern (owner-only file, temp + rename)
-3. Past sessions with no `from`: default window of the last 30 days (ts index), stated in the answer; any explicit `from` lifts it — DEBATED: (c) 30-day default (Advocate 1: 30-day default, the only option within no-schema-change and fast at real scale; Advocate 2: 30-day default with a visible "Show older") ⚠ decided for you — please review
-4. Kind filter `terminal|headless` only; the page marks app sessions from its live app-session list — FACT: reviewer, real store 2026-11-18: entrypoints are only `cli`, `claude-desktop`, `sdk-cli` and empty, so app and headless runs cannot be told apart in the store
+2. Own names in one owner-only file `session_names.json` — FACT: PRD.md:225 "Names live in one owner-only file `session_names.json`"
+3. Past sessions with no `from`: default window of the last 30 days (ts index), stated in the answer (`window`); any explicit `from` lifts it — DEBATED: (c) 30-day default (Advocate 1: 30-day default, no session_id index so an undated page is a full scan, `sessions.rs:449-452`; Advocate 2: 30-day default, the owner wants recent sessions and the page must say "last 30 days" with a wider-range control) ⚠ decided for you — please review
+4. Kind filter `terminal|headless` only; the page marks app sessions from its live app-session list — FACT: memory/decisions.md:384 "Entrypoints in the store are only `cli`, `claude-desktop`, `sdk-cli`: app and headless runs cannot be told apart there"
 Checks: tests `cargo test --workspace --no-fail-fast` — 1283 passed, 2 failed (`store_check` signal tests, load-related; `--test store_check` alone 12 passed); leak gate — 0 hits over 42 canaries, 1266 surfaces; reviews code-review — 0 P0/P1, 4 P2 + 3 P3 fixed (`afa11e1`, `2909860`); security-review — no finding ≥ 8; real store timing: default 30-day window ~80 ms (release), whole store 1.18 s
 Memory: memory/decisions.md — "2026-11-18 — Live like Claude: transcript on demand, queue, Stop/Force stop, past sessions, one panel" (+ MEMORY.md index line), `5c38bf4` on main
 Not done: merge (admin: after the auto verify pass); owner smoke test (name a session and see it in Live); auto verify: runs next
