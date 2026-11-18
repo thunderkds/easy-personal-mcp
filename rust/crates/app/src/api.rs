@@ -219,7 +219,7 @@ pub fn routes() -> Router<Api> {
     Router::new()
         .route(LIVE_PATH, get(live))
         .route(
-            crate::transcript_route::PATH,
+            "/api/live/sessions/{id}/transcript",
             get(crate::transcript_route::get),
         )
         .route("/api/usage/summary", get(summary))

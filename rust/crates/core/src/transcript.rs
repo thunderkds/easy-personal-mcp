@@ -236,11 +236,12 @@ impl Builder {
     fn push(&mut self, entry: Value) {
         self.flush();
         self.bytes += weight(&entry);
-        if entry["type"] == "tool" && !entry["orphan"].as_bool().unwrap_or(false) {
-            if let Some(id) = entry["id"].as_str() {
-                self.open
-                    .insert(id.to_string(), self.base + self.entries.len());
-            }
+        if let (true, Some(id)) = (
+            entry["type"] == "tool" && entry["orphan"] != true,
+            entry["id"].as_str(),
+        ) {
+            self.open
+                .insert(id.to_string(), self.base + self.entries.len());
         }
         self.entries.push_back(entry);
     }
@@ -307,10 +308,11 @@ impl Builder {
             {
                 let gone = self.entries.pop_front().unwrap_or(Value::Null);
                 self.bytes = self.bytes.saturating_sub(weight(&gone));
-                if let Some(id) = gone["id"].as_str() {
-                    if self.open.get(id) == Some(&self.base) {
-                        self.open.remove(id);
-                    }
+                if let Some(id) = gone["id"]
+                    .as_str()
+                    .filter(|id| self.open.get(*id) == Some(&self.base))
+                {
+                    self.open.remove(id);
                 }
                 self.base += 1;
                 self.dropped = true;

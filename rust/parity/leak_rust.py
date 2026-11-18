@@ -92,6 +92,27 @@ SESSION_PATTERNS = {
     "session_answer": "LEAKCANARY owner answer {t}",
     "session_note": "LEAKCANARY owner note {t}",
 }
+# T115 (FR-123, DDR-0007, the fifth exception of NFR-002): strings of a session's transcript (the owner's text, the assistant's text,
+# a tool's input and output, a Stop hook reply). They may appear on the guarded `GET /api/live/sessions/{id}/transcript` answers
+# (positive control, labels start with `TRANSCRIPT_OK`; `transcript_thinking` not even there: thinking blocks are not shown) and on no
+# other surface: not the store, a log, `/api/live`, `/api/alerts`, MCP, the CLI.
+TRANSCRIPT_OK = "transcript guarded: "
+TRANSCRIPT_PATTERNS = {
+    "transcript_user": "LEAKCANARY transcript user {t}",
+    "transcript_assistant": "LEAKCANARY transcript assistant {t}",
+    "transcript_thinking": "LEAKCANARY transcript thinking {t}",
+    "transcript_command": "LEAKCANARY transcript command {t}",
+    "transcript_write_input": "LEAKCANARY transcript write input {t}",
+    "transcript_result": "LEAKCANARY transcript result {t}",
+    "transcript_result_block": "LEAKCANARY transcript result block {t}",
+    "transcript_secret": "sk-ant-TCANARY{t}",  # in a tool's output: shown unredacted on the route (owner choice: parity), nowhere else
+    "transcript_reply": "LEAKCANARY transcript reply {t}",
+    "transcript_past": "LEAKCANARY transcript past {t}",
+}
+TRANSCRIPT_SHOWN = [n for n in TRANSCRIPT_PATTERNS if n not in ("transcript_thinking", "transcript_past")]  # on the live session's answer
+TRANSCRIPT_LIVE_ID = "00000000-0000-4000-8000-0000000000c1"
+TRANSCRIPT_PAST_ID = "00000000-0000-4000-8000-0000000000c2"
+TRANSCRIPT_ALERTS_ID = "00000000-0000-4000-8000-0000000000c3"
 # T106 (FR-114, FR-115, DDR-0006): strings of an answer-bridge conversation (a `hook ask` that waits for the owner). Each may be on
 # `GET /api/live` while its hook waits (the typed ones never are) and on `hook ask`'s stdout when the owner picked or typed it
 # (`BRIDGE_LIVE`, `BRIDGE_HOOK`); on every other surface (the other routes, the store, logs, alerts, CLI output) none may be.
@@ -168,6 +189,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/dirs": ["", "?path=%2F", "?path=%2Fproc%2Fself", "?path=%2Fdev", "?path=relative", "?path=%00", "?path=%2Ftmp%2F..%2Ftmp%2F"],
     "/api/jobs": [""],
     "/api/store/health": [""],  # T059: also over a store planted with canaries, in `store_check`
+    "/api/live/sessions/{id}/transcript": ["", "?after=x", "?before=x", "?after=1&before=2"],  # T115: asked literally (an id that is no id: the 404); the real ones are in `serve`
     "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
     "/api/machine": [""],  # T072: the in-memory machine status history; no store, no path
     "/api/effectiveness": ["", "?since=2026-01-01", "?workspace=acme", "?account=1", "?account=nope", "?since=garbage"],  # T075
@@ -218,6 +240,11 @@ GUARD_CALLS = [
     ("hooks write no token", "PUT", "/api/hooks", {"x-dashboard-token": None}),
     ("live no token", "GET", "/api/live", {"x-dashboard-token": None}),
     ("live write method", "POST", "/api/live", {}),
+    ("transcript no token", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {"x-dashboard-token": None}),  # T115
+    ("transcript wrong token", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {"x-dashboard-token": "wrong"}),
+    ("transcript wrong host", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {"Host": "localhost:1"}),
+    ("transcript foreign origin", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {"Origin": "http://evil.invalid"}),
+    ("transcript write method", "POST", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {}),
     ("report id", "GET", "/api/reports/1", {}),
     ("report id too long", "GET", "/api/reports/1000000000000000000", {}),
     ("report write method", "DELETE", "/api/reports/1", {}),
@@ -743,11 +770,55 @@ def session_scan(run: "Run") -> tuple[list[str], list[str]]:
 
 
 
-def plant(canaries: Canaries, root: Path, q: Canaries) -> dict[str, Path]:
+def transcript_lines(t: Canaries, session: str, cwd: str, start: datetime.datetime, live: bool, finish: bool = True) -> str:
+    """T115: the transcript of a session as Claude Code writes it (2.1.327 shapes, `tasks/evidence-T110/SPIKE.md`) with every planted
+    string in a place the route shows: typed text, a thinking block (not shown), assistant text, a Bash command, a Write input, a
+    string tool result (with a secret-shaped string in it), a block-list tool result, and a Stop hook reply (`isMeta`). The past
+    session holds one typed text and one reply. No tool result is an error (the ingest check counts exactly one)."""
+    v, n = t.values, [0]
+
+    def line(kind: str, content, extra: dict | None = None) -> str:
+        n[0] += 1
+        when = (start + datetime.timedelta(seconds=n[0])).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        message = {"role": kind, "content": content}
+        if kind == "assistant":
+            message |= {"id": f"msg_t115_{session[-2:]}_{n[0]}", "model": "claude-fixture-model-1", "usage": {
+                "input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}  # fmt: skip
+        return json.dumps({"isSidechain": False, "entrypoint": "cli", "cwd": cwd, "sessionId": session, "version": "2.1.327",
+                           "timestamp": when, "type": kind, "message": message, **(extra or {})}) + "\n"  # fmt: skip
+
+    if not live:
+        return line("user", v["transcript_past"]) + line("assistant", [{"type": "text", "text": "done"}])
+    return "".join([
+        line("user", v["transcript_user"]),
+        line("assistant", [{"type": "thinking", "thinking": v["transcript_thinking"], "signature": "x"},
+                           {"type": "text", "text": v["transcript_assistant"]}]),
+        line("assistant", [{"type": "tool_use", "id": "toolu_t115_1", "name": "Bash", "input": {"command": f'echo "{v["transcript_command"]}"', "description": "d"}}]),
+        line("user", [{"type": "tool_result", "tool_use_id": "toolu_t115_1", "content": f'{v["transcript_result"]} {v["transcript_secret"]}'}]),
+        line("assistant", [{"type": "tool_use", "id": "toolu_t115_2", "name": "Write", "input": {"file_path": "/work/transcript/a.txt", "content": v["transcript_write_input"]}}]),
+        line("user", [{"type": "tool_result", "tool_use_id": "toolu_t115_2", "content": [{"type": "text", "text": v["transcript_result_block"]}]}]),
+        line("user", "Stop hook feedback:\n" + v["transcript_reply"], {"isMeta": True}),
+    ] + ([line("assistant", [{"type": "text", "text": "done"}])] if finish else []))  # fmt: skip
+
+
+def plant_transcripts(t: Canaries, projects: Path) -> None:
+    """T115: a live session (its records two minutes old at planting: the live tail knows it) and a past one (three days old) in a
+    project folder of the main planted tree, so the ingest stores their metadata and every surface is scanned for their text."""
+    folder = projects / "-work-transcript"
+    folder.mkdir()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    (folder / f"{TRANSCRIPT_LIVE_ID}.jsonl").write_text(
+        transcript_lines(t, TRANSCRIPT_LIVE_ID, "/work/transcript", now - datetime.timedelta(minutes=2, seconds=30), True))
+    (folder / f"{TRANSCRIPT_PAST_ID}.jsonl").write_text(
+        transcript_lines(t, TRANSCRIPT_PAST_ID, "/work/transcript", now - datetime.timedelta(days=3), False))
+
+
+def plant(canaries: Canaries, root: Path, q: Canaries, t: Canaries) -> dict[str, Path]:
     projects = canaries.render_fixture(root / "projects")
     (projects / "-work-question").mkdir()  # T094: ingested, so the store, CLI and MCP are scanned for the question strings
     (projects / "-work-question" / "question.jsonl").write_text(
         question_line(q, "/work/question", "00000000-0000-4000-8000-0000000000dd", "2026-02-01T09:05:00.000Z"))
+    plant_transcripts(t, projects)  # T115
     repo = canaries.render_kit_trace(root / "repo")
     canaries.render_verifier_report(repo)
     (projects / "-repo").mkdir()
@@ -785,7 +856,7 @@ def plant(canaries: Canaries, root: Path, q: Canaries) -> dict[str, Path]:
             "easy_memory": root / "easy-memory", "verifier": root / "no-verifier-container"}  # fmt: skip
 
 
-def plant_alerts(canaries: Canaries, agent: Path, q: Canaries) -> Path:
+def plant_alerts(canaries: Canaries, agent: Path, q: Canaries, t: Canaries) -> Path:
     """T085: an agent folder of its own (never read by ingest: a canary in a project path would be stored by design) whose
     transcripts leave four sessions that need you, every free piece of the alert text a canary or too long: a waiting
     session whose project folder is a secret-looking canary, one whose session id is, one whose project folder is 64
@@ -814,6 +885,9 @@ def plant_alerts(canaries: Canaries, agent: Path, q: Canaries) -> Path:
     (projects / "waiting-session.jsonl").write_text(line("/work/plain-alert", v["claude_json_env_secret"], "assistant", [use(2, "ExitPlanMode")]))
     (projects / "waiting-cut.jsonl").write_text(line("/work/" + "P" * 64 + v["message_text"], plain + "3", "assistant", [use(3, "AskUserQuestion")]))
     (projects / "waiting-question.jsonl").write_text(question_line(q, "/work/plain-question", plain + "5", when))
+    # T115: an active session whose transcript holds the planted strings and no open call: no alert, but its metadata is on `/api/live`
+    (projects / "transcript.jsonl").write_text(transcript_lines(
+        t, TRANSCRIPT_ALERTS_ID, "/work/plain-transcript", datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=1), True, finish=False))
     tool = v["api_key"]
     (projects / "failing-tool.jsonl").write_text(
         line("/work/plain-failing", plain + "4", "assistant", [use(n, tool) for n in (4, 5, 6)])
@@ -1056,6 +1130,7 @@ def serve(run: Run, checks: list[str], key: str) -> None:
             run.add(f"api GET /api/live ({label}, first message)", blob)
             ok = blob.startswith(b"HTTP/1.1 200") and b"event: snapshot" in blob
             checks.append(f"check api live sends a snapshot ({label})  {'ok' if ok else 'FAILED'}")
+        transcripts(run, checks, port, token)  # T115
         for label, method, path, change in GUARD_CALLS:
             headers = {k: v for k, v in {**base, **change}.items() if v is not None}
             status, blob = request(port, method, path, headers)
@@ -1075,6 +1150,75 @@ def serve(run: Run, checks: list[str], key: str) -> None:
     if not kids:
         raise Fatal("serve: could not find the server's PID under `timeout`")
     checks.append(f"check serve stopped by PID (SIGINT)   ok (exit {rc}, no process left)")
+
+
+def transcripts(run: Run, checks: list[str], port: int, token: str) -> None:
+    """T115 (FR-123): the transcript route over real HTTP for the live session (known to the tail, which polls 100 ms after start)
+    and the past one. The answers are the positive control (labels start with `TRANSCRIPT_OK`); a thinking block is not in them; a
+    poll from `next` finds nothing new; a token in
+    the query is refused here (only `/api/live` takes one); an unknown id and a bad offset leave one line."""
+    base = {"Host": f"127.0.0.1:{port}", "x-dashboard-token": token}
+    route = lambda sid, query="": f"/api/live/sessions/{sid}/transcript{query}"
+    body = lambda blob: json.loads(blob.split(b"\n\n", 1)[1])
+    status, blob = 0, b""
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        status, blob = request(port, "GET", route(TRANSCRIPT_LIVE_ID), base)
+        if status == 200:
+            break
+        time.sleep(0.25)
+    run.add(f"{TRANSCRIPT_OK}live session -> {status}", blob)
+    t, shown = run.t, set()
+    if status == 200:
+        shown = {name for name, _ in t.find(blob)}
+    missing = [n for n in TRANSCRIPT_SHOWN if n not in shown]
+    checks.append(f"check T115 transcript shows the live session's text  {'ok' if status == 200 and not missing else 'FAILED'} (status {status}, {len(shown)} strings, missing {missing})")
+    checks.append(f"check T115 thinking block not shown  {'ok' if status == 200 and 'transcript_thinking' not in shown else 'FAILED'}")
+    got = body(blob) if status == 200 else {}
+    kinds = [e.get("type") for e in got.get("entries", [])]
+    ok = status == 200 and got.get("complete") is True and {"user", "assistant", "tool", "reply"} <= set(kinds)
+    checks.append(f"check T115 transcript entries are user, assistant, tool, reply  {'ok' if ok else 'FAILED'} ({kinds})")
+    status, blob = request(port, "GET", route(TRANSCRIPT_LIVE_ID, f"?after={got.get('next', 0)}"), base)
+    run.add(f"{TRANSCRIPT_OK}live session poll from next -> {status}", blob)
+    ok = status == 200 and not body(blob)["entries"]
+    checks.append(f"check T115 a poll from next is empty  {'ok' if ok else 'FAILED'} (status {status})")
+    status, blob = request(port, "GET", route(TRANSCRIPT_LIVE_ID, "?before=0"), base)
+    run.add(f"{TRANSCRIPT_OK}live session before 0 -> {status}", blob)
+    checks.append(f"check T115 before 0 is empty and complete  {'ok' if status == 200 and body(blob)['entries'] == [] and body(blob)['complete'] else 'FAILED'}")
+    status, blob = request(port, "GET", route(TRANSCRIPT_PAST_ID), base)
+    run.add(f"{TRANSCRIPT_OK}past session -> {status}", blob)
+    found = {name for name, _ in t.find(blob)} if status == 200 else set()
+    checks.append(f"check T115 transcript shows the past session's text  {'ok' if found == {'transcript_past'} else 'FAILED'} (status {status}, {sorted(found)})")
+    for label, sid, query, headers, want in (
+        ("query token", TRANSCRIPT_LIVE_ID, f"?token={token}", {"Host": base["Host"]}, 403),
+        ("unknown id", "00000000-0000-4000-8000-0000000000f9", "", base, 404),
+        ("bad offset", TRANSCRIPT_LIVE_ID, "?after=x", base, 400),
+    ):
+        status, blob = request(port, "GET", route(sid, query), headers)
+        run.add(f"api transcript {label} -> {status}", blob)
+        checks.append(f"check T115 transcript {label} is {want}  {'ok' if status == want else 'FAILED'} (status {status})")
+
+
+def transcript_scan(run: "Run") -> tuple[list[str], list[str]]:
+    """T115: no transcript string is on any surface except the guarded answers `transcripts` labels `TRANSCRIPT_OK`; the alerts
+    server's `/api/live` and `/api/alerts` answers are scanned whole. The thinking string is on no surface at all."""
+    hits = []
+    for surfaces in (run.out, run.live_only):
+        for label, blob in surfaces.items():
+            if label.startswith(TRANSCRIPT_OK):
+                text = as_text(blob)
+                for name, value in run.t.values.items():
+                    if name == "transcript_thinking":
+                        for _, form in Canaries({name: value}).find(text):
+                            hits.append(f"HIT T115 {name} as {form} in [{label}]: {excerpt(text, name, value, form)}")
+                continue
+            text = as_text(blob)
+            for name, value in run.t.values.items():
+                for _, form in Canaries({name: value}).find(text):
+                    hits.append(f"HIT T115 {name} as {form} in [{label}]: {excerpt(text, name, value, form)}")
+    guarded = sum(1 for label in run.out if label.startswith(TRANSCRIPT_OK))
+    checks = [f"check T115 transcript strings scanned     {'ok' if guarded else 'FAILED'} ({len(run.t.values)} strings, {len(run.out) - guarded + len(run.live_only)} surfaces, {guarded} guarded answers allowed to hold them)"]
+    return hits, checks
 
 
 def pending_ids(blob: bytes) -> dict[str, str]:
@@ -1322,7 +1466,7 @@ def alerts(run: Run, checks: list[str], canaries: Canaries) -> None:
     a canary in the list is a hit. The server has a data folder of its own: a store with one confirmed Claude account whose folder
     is the planted one (the live tail reads the confirmed accounts' folders). No popup reaches the owner's desktop: the session bus
     address leads nowhere (and the env has no `XDG_RUNTIME_DIR`), and the run fails unless the server says it could not notify."""
-    agent = plant_alerts(canaries, run.logs / "alert-agent", run.q)
+    agent = plant_alerts(canaries, run.logs / "alert-agent", run.q, run.t)
     digest = tree_digest(agent)
     home, empty = run.logs / "alerts-home", run.logs / "alerts-empty"
     empty.mkdir()
@@ -2210,11 +2354,13 @@ def main() -> int:
             sys.exit(f"no binary at {binary.relative_to(REPO)}: run `cargo build` in rust/ first")
     plant_root = root / "plant"
     q = Canaries({n: pat.format(t=secrets.token_hex(8)) for n, pat in QUESTION_PATTERNS.items()})
-    planted = plant(canaries, plant_root, q)
+    t = Canaries({n: pat.format(t=secrets.token_hex(8)) for n, pat in TRANSCRIPT_PATTERNS.items()})  # T115
+    planted = plant(canaries, plant_root, q, t)
     where = planted_where(canaries, plant_root)
     before = tree_digest(plant_root)
     run = Run(BINARY, root, planted)
     run.q, run.live_only, run.bridge = q, {}, None
+    run.t = t  # T115
     run.s = Canaries({n: pat.format(t=secrets.token_hex(8)) for n, pat in SESSION_PATTERNS.items()})  # T103
     checks, failure = [], None
     try:
@@ -2228,6 +2374,8 @@ def main() -> int:
     hits, scanned = scan(canaries, run.out)
     q_hits, q_checks = question_scan(run)
     checks.extend(q_checks)
+    t_hits, t_checks = transcript_scan(run)  # T115
+    checks.extend(t_checks)
     s_hits, s_checks = session_scan(run)  # T103
     checks.extend(s_checks)
     b_hits, b_checks = bridge_scan(run) if run.bridge else ([], ["check T106 bridge ran  FAILED"])
@@ -2264,11 +2412,11 @@ def main() -> int:
         problems.append("the canary set differs from PATTERNS")
     if failure:
         problems.append(failure)
-    problems += q_hits + s_hits + b_hits
+    problems += q_hits + s_hits + b_hits + t_hits
     for name, form, label, cut in hits:
         report.append(f"HIT canary {name} as {form} in [{label}]: {cut}")
     text = "\n".join(report)
-    if canaries.find(text) or q.find(text) or run.s.find(text) or (run.bridge and run.bridge[0].find(text)):  # the report must not become a leak
+    if canaries.find(text) or q.find(text) or run.s.find(text) or run.t.find(text) or (run.bridge and run.bridge[0].find(text)):  # the report must not become a leak
         print("leak check: the report itself would hold a canary; it was withheld")
         print(f"temp folder kept: {root}")
         return 1

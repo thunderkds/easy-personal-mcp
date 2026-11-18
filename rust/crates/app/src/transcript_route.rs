@@ -20,7 +20,6 @@ use easy_personal_core::transcript::{self, Window};
 use serde_json::json;
 use std::path::PathBuf;
 
-pub(crate) const PATH: &str = "/api/live/sessions/{id}/transcript";
 const UNKNOWN: &str = "no such session";
 const UNREADABLE: &str = "the transcript cannot be read";
 const BAD_OFFSET: &str = "after and before must be whole numbers, and only one of them";
