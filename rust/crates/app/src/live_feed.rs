@@ -19,6 +19,7 @@
 use crate::answer_bridge::{Bridge, Subscription};
 use crate::api::Clock;
 use crate::session_names;
+use crate::session_procs;
 use axum::body::Bytes;
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::live::{ACTIVE_WINDOW_S, LiveTail, OPEN_CALL_MINUTES};
@@ -48,6 +49,8 @@ pub(crate) const POLL: Duration = Duration::from_millis(100);
 pub(crate) const PING: Duration = Duration::from_secs(15);
 /// T112: how often a stream has the accounts' hook status read again.
 const REPLY_EVERY: Duration = Duration::from_secs(30);
+/// T116 (FR-124): how often a stream has the sessions' process files read again.
+const PROCS_EVERY: Duration = Duration::from_secs(2);
 /// Python's `stop()` joins with `timeout=10`.
 const STOP_WAIT: Duration = Duration::from_secs(10);
 /// Python's `THREAD_NAME`.
@@ -299,6 +302,7 @@ impl LiveStream {
                 let mut data = stream_data(&snapshot, tail);
                 add_pending(&mut data, &pending, &replies, &marks, &self.bridged(tail));
                 add_names(&mut data, &self.names());
+                self.add_extras(&mut data);
                 out.extend(sse("snapshot", &data, None));
             }
             (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || overlay_moved => {
@@ -316,6 +320,7 @@ impl LiveStream {
                 let mut data = stream_data(&snapshot, Some(t));
                 add_pending(&mut data, &pending, &replies, &marks, &self.bridged(tail));
                 add_names(&mut data, &self.names());
+                self.add_extras(&mut data);
                 out.extend(sse("snapshot", &data, None));
             }
             _ => {}
@@ -328,6 +333,25 @@ impl LiveStream {
             }
         }
         out
+    }
+
+    /// T116: `proc` and `queued` of the sessions of a snapshot (FR-124, FR-125); the page's data only.
+    fn add_extras(&self, data: &mut Value) {
+        let Some(b) = &self.answers else {
+            return;
+        };
+        let (procs, queued) = b.view_session_extras();
+        for session in data["sessions"].as_array_mut().into_iter().flatten() {
+            let Some(id) = session["session_id"].as_str().map(str::to_owned) else {
+                continue;
+            };
+            if let Some(found) = procs.get(&id) {
+                session["proc"] = found.clone();
+            }
+            if let Some(text) = queued.get(&id) {
+                session["queued"] = json!({"text": text});
+            }
+        }
     }
 
     /// The bridge's change counter, its cards and its reply holds (none without a bridge).
@@ -430,6 +454,13 @@ impl SseBody {
         {
             let refresh = Arc::clone(refresh);
             drop(runtime.spawn_blocking(move || refresh()));
+        }
+        if let Some(b) = &self.stream.answers
+            && let Some(dirs) = b.procs_due(PROCS_EVERY)
+            && let Ok(runtime) = tokio::runtime::Handle::try_current()
+        {
+            let b = Arc::clone(b);
+            drop(runtime.spawn_blocking(move || b.set_procs(session_procs::read_all(&dirs))));
         }
         let now = (self.clock)();
         let mut out = match &self.tail {
@@ -1645,6 +1676,71 @@ mod tests {
             reply.recv_timeout(Duration::from_secs(5)).unwrap(),
             "{\"decision\":\"block\",\"reason\":\"go on\"}\n"
         );
+    }
+
+    /// T116 AC 2, 6: the stream's snapshot gives a listed session `proc {busy, name}` and `queued {text}` (and nothing else of
+    /// the process file); the tail's own snapshot never has them; a change sends a new snapshot; a queued text goes when
+    /// the session leaves the live list.
+    #[test]
+    fn the_stream_adds_proc_and_queued_to_a_listed_session_and_drops_the_text_when_it_leaves() {
+        use crate::session_procs::ProcInfo;
+        let tmp = Temp::new("proc-queued");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s1", "b1", "2026-01-20T00:00:05Z"));
+        append(
+            &tmp,
+            &result_line("s1", "b1", false, "2026-01-20T00:00:06Z"),
+        );
+        tail.poll_once(&roots, NOW, None);
+        let bridge = Arc::new(Bridge::default());
+        let mut stream = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let first = messages(&stream.step(Some(&tail), NOW));
+        assert!(first.last().unwrap().2["sessions"][0].get("proc").is_none());
+
+        bridge.set_procs(std::collections::HashMap::from([(
+            "s1".to_string(),
+            ProcInfo {
+                pid: 41,
+                proc_start: "9".into(),
+                busy: true,
+                name: Some("PLANTED-T116-NAME".into()),
+                kind: Some("interactive".into()),
+                entrypoint: Some("cli".into()),
+            },
+        )]));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        let session = &sent.last().unwrap().2["sessions"][0];
+        assert_eq!(
+            session["proc"],
+            json!({"busy": true, "name": "PLANTED-T116-NAME"})
+        );
+        assert!(session.get("queued").is_none());
+        let shown = session.to_string();
+        assert!(!shown.contains("interactive") && !shown.contains("entrypoint"));
+
+        bridge.queue_for_test("s1", "PLANTED-T116-QUEUED");
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(
+            sent.last().unwrap().2["sessions"][0]["queued"],
+            json!({"text": "PLANTED-T116-QUEUED"})
+        );
+        for plain in [
+            tail.snapshot(NOW).to_string(),
+            String::from_utf8_lossy(&LiveStream::new(None, true).step(Some(&tail), NOW))
+                .into_owned(),
+        ] {
+            assert!(!plain.contains("PLANTED-T116") && !plain.contains("\"proc\""));
+        }
+        assert!(
+            stream.step(Some(&tail), NOW).is_empty(),
+            "no change, nothing sent"
+        );
+
+        // the session leaves the live list: its text goes at once
+        let sent = messages(&stream.step(Some(&tail), NOW + 10 * 60 * SECOND));
+        let shown = sent.last().unwrap().2.to_string();
+        assert!(!shown.contains("PLANTED-T116-QUEUED") && !shown.contains("queued"));
+        assert!(bridge.view_session_extras().1.is_empty());
     }
 
     /// Stage 4 decision (FR-121): a listed session the owner marked *Reply from the app* gets `reply_marked: true` in the

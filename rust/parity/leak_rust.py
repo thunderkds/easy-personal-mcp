@@ -113,13 +113,20 @@ BRIDGE_PATTERNS = {
     "bridge_deny_message": "BRIDGECANARY deny {t}",
     "bridge_last": "BRIDGECANARY last assistant text {t}",  # T111: a Stop hook's `last_assistant_message`
     "bridge_reply": "BRIDGECANARY owner reply {t}",  # T111: the owner's reply to an idle session
+    "bridge_queued": "BRIDGECANARY queued text {t}",  # T116 (FR-125): the owner's text queued for a busy terminal session
+    "bridge_proc_name": "BRIDGECANARY session name {t}",  # T116 (FR-124): the `name` of a session's process file
+    "bridge_proc_cwd": "BRIDGECANARY proc cwd {t}",  # T116: other fields of the process file and the `*.key` file beside it: on no surface
+    "bridge_proc_key": "BRIDGECANARY proc key {t}",
 }
-BRIDGE_LIVE = {"bridge_question", "bridge_header", "bridge_label_picked", "bridge_label_other", "bridge_description", "bridge_command", "bridge_last"}
+BRIDGE_LIVE = {"bridge_question", "bridge_header", "bridge_label_picked", "bridge_label_other", "bridge_description", "bridge_command", "bridge_last",
+               "bridge_queued", "bridge_proc_name"}  # fmt: skip
 # The documented PreToolUse output returns the tool's own input (`updatedInput`: the whole `questions` array, with header, labels and
 # descriptions) plus `answers`, so those come back on `hook ask`'s stdout (to Claude Code only); the permission command is not echoed.
 # T111 (FR-121): the last assistant text (`pending_reply.last`) is on `GET /api/live` only; the owner's reply text is on `hook ask`'s stdout
 # only (`{"decision":"block","reason":<reply>}`), never on `GET /api/live`.
-BRIDGE_HOOK = (BRIDGE_LIVE - {"bridge_command", "bridge_last"}) | {"bridge_other_text", "bridge_deny_message", "bridge_reply"}
+# T116 (FR-124, FR-125): the queued text is on `GET /api/live` (`queued`) and on `hook ask`'s stdout (the block JSON at the turn end); the process
+# file's name is on `GET /api/live` only (`proc.name`).
+BRIDGE_HOOK = (BRIDGE_LIVE - {"bridge_command", "bridge_last", "bridge_proc_name"}) | {"bridge_other_text", "bridge_deny_message", "bridge_reply"}
 # T094 fix round: the only surfaces where the marker question may be (the main server's live answers; the alerts server's
 # is in `run.live_only`), by exact label, never by a part of it.
 LIVE_ANSWER_LABELS = frozenset(f"api GET /api/live ({label}, first message)" for label in ("query token", "header token", "resume"))
@@ -198,6 +205,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/sessions/past": ["", "?project=leak-check&kind=terminal&branch=main", "?from=2026-01-01&to=2027-01-01", "?kind=bad", "?kind=app", "?kind=headless", "?from=2000-01-01", "?from=2000-01-01&kind=terminal", "?from=garbage",
                            "?to=garbage", "?before=garbage", "?before=2026-02-01T09%3A00%3A00Z%7Cx", "?account=nope", "?account=1", "?project=%0A"],  # T117
     "/api/sessions/{id}/name": [""],  # T117: asked literally with GET (the 405); the PUT is in WRITE_CALLS / GUARD_CALLS
+    "/api/reply/queue": [""],  # T116: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
+    "/api/live/sessions/{id}/stop": [""],  # T116: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -222,6 +231,11 @@ GUARD_CALLS = [
     ("reply watch no token", "POST", "/api/reply/watch", {"x-dashboard-token": None}),
     ("reply mark wrong host", "POST", "/api/reply/mark", {"Host": "localhost:1"}),
     ("reply write method", "DELETE", "/api/reply", {}),
+    ("reply queue no token", "POST", "/api/reply/queue", {"x-dashboard-token": None}),  # T116
+    ("reply queue foreign origin", "POST", "/api/reply/queue", {"Origin": "http://evil.invalid"}),
+    ("live session stop no token", "POST", "/api/live/sessions/x/stop", {"x-dashboard-token": None}),
+    ("live session stop wrong host", "POST", "/api/live/sessions/x/stop", {"Host": "localhost:1"}),
+    ("live session stop write method", "DELETE", "/api/live/sessions/x/stop", {}),
     ("hooks write no token", "PUT", "/api/hooks", {"x-dashboard-token": None}),
     ("live no token", "GET", "/api/live", {"x-dashboard-token": None}),
     ("live write method", "POST", "/api/live", {}),
@@ -294,6 +308,14 @@ WRITE_CALLS = [
     ("reply watch key as session", "POST", "/api/reply/watch", '{"session_id":"{key}","confirmed":true}'),
     ("reply mark key as session", "POST", "/api/reply/mark", '{"session_id":"{key}","on":true,"confirmed":true}'),
     ("reply mark key as on", "POST", "/api/reply/mark", '{"session_id":"x","on":"{key}","confirmed":true}'),
+    ("reply queue key as session", "POST", "/api/reply/queue", '{"session_id":"{key}","text":"x","confirmed":true}'),  # T116
+    ("reply queue key as text", "POST", "/api/reply/queue", '{"session_id":"x","text":"{key}","confirmed":true}'),
+    ("reply queue key as field", "POST", "/api/reply/queue", '{"session_id":"x","text":"x","confirmed":true,"{key}":1}'),
+    ("reply queue key as text type", "POST", "/api/reply/queue", '{"session_id":"x","text":["{key}"],"confirmed":true}'),
+    ("live session stop key as id", "POST", "/api/live/sessions/{key}/stop", '{"confirmed":true}'),
+    ("live session stop key as field", "POST", "/api/live/sessions/x/stop", '{"confirmed":true,"{key}":1}'),
+    ("live session stop force key as type", "POST", "/api/live/sessions/x/stop", '{"confirmed":true,"force":"{key}"}'),
+    ("live session stop force key as id", "POST", "/api/live/sessions/{key}/stop", '{"confirmed":true,"force":true}'),
     ("hooks key as account", "PUT", "/api/hooks", '{"account":"{key}","on":true,"confirmed":true}'),
     ("hooks key as field", "PUT", "/api/hooks", '{"account":"1","on":true,"confirmed":true,"{key}":1}'),
     ("workspace delete plan", "DELETE", "/api/workspaces/2", ""),
@@ -1171,6 +1193,14 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                     "content": [{"type": "text", "text": "done"}]}  # fmt: skip
     (projects / "bridge-stop.jsonl").write_text(json.dumps({"isSidechain": False, "entrypoint": "cli", "cwd": "/work/bridge", "sessionId": "bridge-stop",
         "version": "2.1.295", "timestamp": when, "type": "assistant", "message": stop_message}) + "\n")  # fmt: skip
+    # T116 (FR-124, FR-125): a typed session whose turn ended, with a process file (a stand-in process that is not Claude Code) and a queued text
+    (projects / "bridge-queue.jsonl").write_text(json.dumps({"isSidechain": False, "entrypoint": "cli", "cwd": "/work/bridge", "sessionId": "bridge-queue",
+        "version": "2.1.295", "timestamp": when, "type": "assistant", "message": {**stop_message, "id": "msg_bridge-queue"}}) + "\n")  # fmt: skip
+    standin = subprocess.Popen(["sleep", "600"], env=run.env, cwd=run.nowhere, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    (agent / "sessions").mkdir()
+    (agent / "sessions" / f"{standin.pid}.json").write_text(json.dumps({"pid": standin.pid, "sessionId": "bridge-queue", "procStart": "1",
+        "status": "busy", "name": v["bridge_proc_name"], "kind": "interactive", "entrypoint": "cli", "cwd": "/work/bridge/" + v["bridge_proc_cwd"]}))  # fmt: skip
+    (agent / "sessions" / f"{standin.pid}.abcdef.key").write_text(v["bridge_proc_key"])
     hook_input = {
         "bridge-stop": {"hook_event_name": "Stop", "session_id": "bridge-stop", "stop_hook_active": False, "transcript_path": "/x/y.jsonl",
                         "cwd": "/work/bridge", "last_assistant_message": v["bridge_last"]},  # fmt: skip
@@ -1187,7 +1217,8 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
     live: dict[str, object] = {}
     hook: dict[str, object] = {}
     state = {"private": False, "gone": False, "seen": False, "json_only": True, "exits": True, "second": 0, "card": False,
-             "reply_seen": False, "reply_out": False, "reply_second": 0}  # fmt: skip
+             "reply_seen": False, "reply_out": False, "reply_second": 0,
+             "queue_status": 0, "queue_seen": False, "stop_status": 0, "stop_left": False, "queue_out": False}  # fmt: skip
     streams: list[socket.socket] = []
     hooks_procs: dict[str, subprocess.Popen] = {}
     try:
@@ -1280,6 +1311,34 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
                 status, blob = request(port, "POST", "/api/reply", base, json.dumps(reply_body).encode())
                 run.add(f"bridge api POST /api/reply ({label}) -> {status}", blob)
                 state["reply_second"] = status if label.endswith("again") else state["reply_second"]
+            # T116 (FR-124, FR-125): the process file's name, a queued text, Stop refused for a process that is not Claude Code, and the
+            # block JSON at the turn end with no hold
+            queue_body = {"session_id": "bridge-queue", "text": v["bridge_queued"], "confirmed": True}
+            status, blob = request(port, "POST", "/api/reply/queue", base, json.dumps(queue_body).encode())
+            run.add(f"bridge api POST /api/reply/queue -> {status}", blob)
+            state["queue_status"] = status
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                blob = drain()
+                live["bridge live GET /api/live (queued, proc)"] = blob
+                if v["bridge_queued"] in as_text(blob) and v["bridge_proc_name"] in as_text(blob):
+                    break
+            state["queue_seen"] = v["bridge_queued"] in as_text(blob) and v["bridge_proc_name"] in as_text(blob)
+            status, blob = request(port, "POST", "/api/live/sessions/bridge-queue/stop", base, json.dumps({"confirmed": True}).encode())
+            run.add(f"bridge api POST /api/live/sessions/bridge-queue/stop -> {status}", blob)
+            state["stop_status"] = status
+            status, blob = request(port, "POST", "/api/live/sessions/bridge-queue/stop", base, json.dumps({"confirmed": True, "force": True}).encode())
+            run.add(f"bridge api POST /api/live/sessions/bridge-queue/stop (force) -> {status}", blob)
+            state["stop_status"] = state["stop_status"] if status == 409 else status  # both the plain and the forced stop must be a 409
+            state["stop_left"] = standin.poll() is None  # neither the plain nor the forced stop signalled a process that is not Claude Code
+            argv = [run.timeout, "-k", "5", "130", str(run.binary), "hook", "ask"]
+            turn_end = {"hook_event_name": "Stop", "session_id": "bridge-queue", "stop_hook_active": False, "transcript_path": "/x/y.jsonl", "cwd": "/work/bridge",
+                        "last_assistant_message": "done"}  # fmt: skip
+            queue_hook = subprocess.run(argv, env=run.env, cwd=run.nowhere, input=json.dumps(turn_end).encode(), capture_output=True, timeout=60)
+            hook["bridge hook ask stdout (bridge-queue)"] = queue_hook.stdout
+            run.add("bridge hook ask stderr (bridge-queue)", queue_hook.stderr)
+            with contextlib.suppress(ValueError):
+                state["queue_out"] = queue_hook.returncode == 0 and json.loads(queue_hook.stdout) == {"decision": "block", "reason": v["bridge_queued"]}
             for sid, proc_hook in hooks_procs.items():
                 out, err = proc_hook.communicate(timeout=30)
                 hook[f"bridge hook ask stdout ({sid})"] = out
@@ -1317,6 +1376,8 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
             run.add(f"bridge backup: {path.name}", path.read_bytes())
         run.add("bridge data folder listing", "\n".join(sorted(p.relative_to(home).as_posix() for p in home.rglob("*"))))
     finally:
+        standin.kill()
+        standin.wait()
         for name, value in saved.items():
             if value is None:
                 run.env.pop(name, None)
@@ -1333,6 +1394,9 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
     checks.append(f"check bridge pending_reply on GET /api/live      {ok(state['reply_seen'])} (1 Stop hold)")
     checks.append(f"check bridge Stop hook prints the block JSON     {ok(state['reply_out'])}")
     checks.append(f"check bridge second reply is a 409               {ok(state['reply_second'] == 409)} (status {state['reply_second']})")
+    checks.append(f"check bridge queue 200, text + proc name on live {ok(state['queue_status'] == 200 and state['queue_seen'])} (status {state['queue_status']})")
+    checks.append(f"check bridge Stop of a non-Claude process is 409 {ok(state['stop_status'] == 409 and state['stop_left'])} (status {state['stop_status']})")
+    checks.append(f"check bridge turn end prints the queued block    {ok(state['queue_out'])}")
 
 
 def bridge_scan(run: Run) -> tuple[list[str], list[str]]:

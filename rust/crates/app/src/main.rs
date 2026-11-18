@@ -28,6 +28,7 @@ mod sampler;
 mod schedule_cmd;
 mod server;
 mod session_names;
+mod session_procs;
 mod static_files;
 mod store_check_cmd;
 mod sync_apply;

@@ -1456,3 +1456,349 @@ fn reply_bridge_follows_the_hook_status_of_the_sessions_account_by_id() {
     let (code, _, err) = serve.sigint();
     assert_eq!(code, Some(0), "{err}");
 }
+
+// ---- T116: the queue and Stop of a terminal session (FR-124, FR-125) ----
+
+fn queued_of(snapshot: &Value, sid: &str) -> Option<Value> {
+    snapshot["sessions"]
+        .as_array()?
+        .iter()
+        .find(|s| s["session_id"] == sid)
+        .and_then(|s| s.get("queued"))
+        .cloned()
+}
+
+/// T116 AC 4, 5, 6, 7: the queue over the real binary. The guard and body rules; a listed typed session of a bridge account
+/// takes a text (a newer one replaces it, `null` cancels), an `sdk` session or one that is not listed does not; with no page
+/// connected the `Stop` hook prints exactly the block JSON at once and the text is gone after; the text is on the page's
+/// snapshot only.
+#[test]
+fn a_queued_text_reaches_the_stop_hook_at_the_turn_end_and_leaks_nowhere() {
+    let home = Home::new("t116-queue");
+    ended_turn(&home, "busy", "cli");
+    ended_turn(&home, "headless", "sdk-cli");
+    assert_eq!(
+        home.run(&["hooks", "install", "--yes"], "").status.code(),
+        Some(0)
+    );
+    let mut serve = Serve::start(&home);
+    let mut live = serve.watch();
+    wait_for("the socket", || home.0.join("answer.sock").exists());
+    live.next_snapshot(|d| {
+        d["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["session_id"] == "busy" && s["reply_bridge"] == true)
+    });
+    let queue = |body: &Value| serve.request("POST", "/api/reply/queue", Some(body), true);
+    let ask = |sid: &str, text: Value| json!({"session_id": sid, "text": text, "confirmed": true});
+
+    // the guard and the body rules
+    let good = ask("busy", json!("x"));
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/queue", Some(&good), false)
+            .0,
+        403
+    );
+    assert_eq!(serve.request("GET", "/api/reply/queue", None, true).0, 405);
+    let mut open = good.clone();
+    open.as_object_mut().unwrap().remove("confirmed");
+    assert_eq!(queue(&open).0, 400, "not confirmed");
+    let mut odd = good.clone();
+    odd["extra"] = json!(1);
+    assert_eq!(queue(&odd).0, 400, "unknown field");
+    for bad in [
+        ask("busy", json!("")),
+        ask("busy", json!(" \n ")),
+        ask("busy", json!(5)),
+        ask("busy", json!("x".repeat(8001))),
+        json!({"session_id": "busy", "confirmed": true}),
+        ask("", json!("x")),
+    ] {
+        assert_eq!(queue(&bad).0, 400, "{bad:.80}");
+    }
+    assert_eq!(queue(&ask("nobody", json!("x"))).0, 404, "not listed");
+    assert_eq!(
+        queue(&ask("headless", json!("x"))).0,
+        409,
+        "an sdk session is an app session: not for the bridge"
+    );
+    assert_eq!(queue(&ask("busy", json!("x".repeat(8000)))).0, 200);
+
+    // one text per session: the newer replaces it; it shows on the snapshot
+    assert_eq!(queue(&ask("busy", json!("PLANTED-QUEUED one"))).0, 200);
+    let typed = "/status PLANTED-QUEUED two\n  \"q\" é";
+    assert_eq!(queue(&ask("busy", json!(typed))).0, 200);
+    let snapshot = live.next_snapshot(|d| queued_of(d, "busy").is_some_and(|q| q["text"] == typed));
+    assert_eq!(
+        queued_of(&snapshot, "busy").unwrap(),
+        json!({"text": typed})
+    );
+    assert!(queued_of(&snapshot, "headless").is_none());
+    // cancel, and queue again
+    assert_eq!(queue(&ask("busy", Value::Null)).0, 200);
+    live.next_snapshot(|d| queued_of(d, "busy").is_none());
+    assert_eq!(
+        queue(&ask("busy", Value::Null)).0,
+        200,
+        "cancelling nothing is fine"
+    );
+    assert_eq!(queue(&ask("busy", json!(typed))).0, 200);
+    live.next_snapshot(|d| queued_of(d, "busy").is_some());
+
+    // no page connected, no hold: the turn end gets the text at once
+    drop(live);
+    let began = Instant::now();
+    let out = home.run(&["hook", "ask"], &stop_input("busy", true, "x"));
+    assert_eq!(
+        (out.status.code(), out.stdout.len()),
+        (Some(0), 0),
+        "an active turn"
+    );
+    let out = home.run(&["hook", "ask"], &stop_input("busy", false, "x"));
+    assert_eq!(out.status.code(), Some(0));
+    assert!(out.stderr.is_empty());
+    assert_eq!(
+        text(&out.stdout),
+        "{\"decision\":\"block\",\"reason\":\"/status PLANTED-QUEUED two\\n  \\\"q\\\" é\"}\n"
+    );
+    assert!(
+        began.elapsed() < Duration::from_secs(5),
+        "{:?}",
+        began.elapsed()
+    );
+    // delivered once: the next turn end is the T111 path (no page: handed back), and the snapshot has no text
+    let out = home.run(&["hook", "ask"], &stop_input("busy", false, "x"));
+    assert_eq!((out.status.code(), out.stdout.len()), (Some(0), 0));
+    let mut live = serve.watch();
+    // `watch` took the first snapshot; a mark makes the server send another, which must have no queued text
+    let mark = json!({"session_id": "busy", "on": true, "confirmed": true});
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/mark", Some(&mark), true)
+            .0,
+        200
+    );
+    let again = live.next_snapshot(|d| {
+        d["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["reply_marked"] == true)
+    });
+    assert!(queued_of(&again, "busy").is_none(), "delivered once");
+
+    // nothing of the text on the alert list, nor on the server's stdout or stderr
+    let (_, alerts) = serve.request("GET", "/api/alerts", None, true);
+    assert!(!alerts.to_string().contains("PLANTED"), "{alerts}");
+    let (code, out, err) = serve.sigint();
+    assert_eq!(code, Some(0), "{err}");
+    for log in [&out, &err] {
+        assert!(
+            !log.contains("PLANTED") && !log.contains("/status"),
+            "{log}"
+        );
+    }
+}
+
+/// The wall-clock-free start time of a process: field 22 of its `/proc/<pid>/stat`.
+fn start_ticks(pid: u32) -> String {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+    stat[stat.rfind(')').unwrap() + 1..]
+        .split_whitespace()
+        .nth(19)
+        .unwrap()
+        .to_string()
+}
+
+/// A copy of the shell named `name` under the temp home, running; killed and reaped when dropped.
+struct Dummy(Child);
+
+impl Dummy {
+    fn new(home: &Home, name: &str) -> Dummy {
+        let dir = home.0.join(format!(
+            "bin-{name}-{}",
+            std::fs::read_dir(&home.0).unwrap().count()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bin = dir.join(name.split('/').next_back().unwrap());
+        // a copy of the shell (not of `sleep`: that is a multicall binary on some systems) that waits on its open stdin
+        std::fs::copy("/bin/sh", &bin).unwrap();
+        Dummy(
+            Command::new(&bin)
+                .args(["-c", "read line"])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        )
+    }
+
+    fn running(&mut self) -> bool {
+        self.0.try_wait().unwrap().is_none()
+    }
+
+    /// The signal that ended the process (it must have ended).
+    fn signal(&mut self) -> Option<i32> {
+        use std::os::unix::process::ExitStatusExt;
+        self.0.wait().unwrap().signal()
+    }
+
+    /// Writes the process file of session `sid` for this process (`start` overrides `procStart`).
+    fn file(&self, home: &Home, sid: &str, start: Option<&str>, name: &str) {
+        let pid = self.0.id();
+        let dir = home.0.join(".claude/sessions");
+        std::fs::create_dir_all(&dir).unwrap();
+        let start = start.map_or_else(|| start_ticks(pid), str::to_string);
+        std::fs::write(
+            dir.join(format!("{pid}.json")),
+            json!({"pid": pid, "sessionId": sid, "procStart": start, "status": "busy", "name": name,
+                   "kind": "interactive", "entrypoint": "cli", "cwd": "/PLANTED-CWD"})
+            .to_string(),
+        )
+        .unwrap();
+    }
+}
+
+impl Drop for Dummy {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+fn proc_of(snapshot: &Value, sid: &str) -> Option<Value> {
+    snapshot["sessions"]
+        .as_array()?
+        .iter()
+        .find(|s| s["session_id"] == sid)
+        .and_then(|s| s.get("proc"))
+        .cloned()
+}
+
+/// T116 AC 1, 2, 3, 7: the process files over the real binary. The snapshot shows `proc {busy, name}` of a session with a
+/// process file and nothing else of the file; Stop needs the guard and `confirmed`; a process that is not named `claude`, a
+/// start time that does not match, an app session and a session with no file are refused and nothing is signalled; the
+/// matching dummy `claude` gets SIGTERM; no path of the file reaches the alert list or the server's output.
+#[test]
+fn stop_of_a_terminal_session_signals_only_a_checked_claude_process_and_leaks_nowhere() {
+    let home = Home::new("t116-stop");
+    ended_turn(&home, "busy", "cli");
+    ended_turn(&home, "renamed", "cli");
+    ended_turn(&home, "stale", "cli");
+    ended_turn(&home, "headless", "sdk-cli");
+    ended_turn(&home, "nofile", "cli");
+    ended_turn(&home, "forced", "cli");
+    let mut claude = Dummy::new(&home, "claude");
+    let mut forced = Dummy::new(&home, "claude");
+    forced.file(&home, "forced", None, "x");
+    let mut other = Dummy::new(&home, "something-else");
+    let mut old = Dummy::new(&home, "claude");
+    claude.file(&home, "busy", None, "PLANTED-NAME fix\nthe bug");
+    other.file(&home, "renamed", None, "x");
+    old.file(&home, "stale", Some("1"), "x");
+    // a file for an app session, and one that is a symlink and one beside the key files: never used
+    std::fs::write(
+        home.0.join(".claude/sessions/1.abc.key"),
+        "PLANTED-KEY-CONTENT",
+    )
+    .unwrap();
+    assert_eq!(
+        home.run(&["hooks", "install", "--yes"], "").status.code(),
+        Some(0)
+    );
+    let mut serve = Serve::start(&home);
+    let mut live = serve.watch();
+    let snapshot = live.next_snapshot(|d| proc_of(d, "busy").is_some());
+    assert_eq!(
+        proc_of(&snapshot, "busy").unwrap(),
+        json!({"busy": true, "name": "PLANTED-NAME fix the bug"})
+    );
+    assert!(proc_of(&snapshot, "nofile").is_none());
+    let shown = snapshot.to_string();
+    assert!(
+        !shown.contains("PLANTED-CWD")
+            && !shown.contains("PLANTED-KEY")
+            && !shown.contains("interactive"),
+        "only busy and name"
+    );
+
+    let stop = |sid: &str, body: &Value| {
+        serve.request(
+            "POST",
+            &format!("/api/live/sessions/{sid}/stop"),
+            Some(body),
+            true,
+        )
+    };
+    let yes = json!({"confirmed": true});
+    let path = "/api/live/sessions/busy/stop";
+    assert_eq!(
+        serve.request("POST", path, Some(&yes), false).0,
+        403,
+        "no token"
+    );
+    assert_eq!(serve.request("GET", path, None, true).0, 405);
+    assert_eq!(stop("busy", &json!({})).0, 400, "not confirmed");
+    assert_eq!(stop("busy", &json!({"confirmed": false})).0, 400);
+    assert_eq!(stop("busy", &json!({"confirmed": true, "x": 1})).0, 400);
+    for odd in [json!("yes"), json!(1), Value::Null, json!(["true"])] {
+        assert_eq!(
+            stop("busy", &json!({"confirmed": true, "force": odd})).0,
+            400,
+            "force must be a boolean: {odd}"
+        );
+    }
+    assert_eq!(
+        stop("busy", &json!({"force": true})).0,
+        400,
+        "force does not replace confirmed"
+    );
+    assert!(claude.running() && forced.running());
+
+    assert_eq!(stop("nobody", &yes).0, 404, "no process file");
+    assert_eq!(stop("nofile", &yes).0, 404);
+    assert_eq!(stop("headless", &yes).0, 409, "an app session");
+    assert_eq!(stop("renamed", &yes).0, 409, "not named claude");
+    assert_eq!(stop("stale", &yes).0, 409, "another start time");
+    let (_, body) = stop("renamed", &yes);
+    assert!(
+        body["error"]
+            .as_str()
+            .is_some_and(|e| !e.contains('\n') && !e.contains(home.0.to_str().unwrap())),
+        "one line, no path: {body}"
+    );
+    let force = json!({"confirmed": true, "force": true});
+    assert_eq!(stop("nobody", &force).0, 404);
+    assert_eq!(stop("headless", &force).0, 409, "an app session, forced");
+    assert_eq!(stop("renamed", &force).0, 409, "not named claude, forced");
+    assert_eq!(stop("stale", &force).0, 409, "another start time, forced");
+    assert!(
+        claude.running() && forced.running() && other.running() && old.running(),
+        "nothing was signalled"
+    );
+
+    // force: false is the plain SIGTERM; force: true is SIGKILL
+    let soft = json!({"confirmed": true, "force": false});
+    assert_eq!(stop("forced", &force).1, json!({"ok": true}));
+    wait_for("the forced process to end", || !forced.running());
+    assert_eq!(forced.signal(), Some(9), "SIGKILL");
+    assert!(claude.running());
+
+    let (status, body) = stop("busy", &soft);
+    assert_eq!((status, body), (200, json!({"ok": true})));
+    wait_for("the claude process to end", || !claude.running());
+    assert_eq!(claude.signal(), Some(15), "SIGTERM");
+    assert!(other.running() && old.running());
+
+    let (_, alerts) = serve.request("GET", "/api/alerts", None, true);
+    assert!(!alerts.to_string().contains("PLANTED"), "{alerts}");
+    let (code, out, err) = serve.sigint();
+    assert_eq!(code, Some(0), "{err}");
+    for log in [&out, &err] {
+        assert!(!log.contains("PLANTED"), "{log}");
+    }
+}
