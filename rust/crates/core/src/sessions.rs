@@ -310,7 +310,7 @@ const FILTER_MAX: usize = 255;
 const ID_MAX: usize = 128;
 
 /// The filters of `GET /api/sessions/past`; an empty value is no filter. `from` / `to` are ISO 8601 dates or datetimes
-/// (an offset-less one is local time, as `since` / `until`); `kind` is `terminal`, `app` or `headless`; `account` is an
+/// (an offset-less one is local time, as `since` / `until`); `kind` is `terminal` or `headless`; `account` is an
 /// account id or label; `before` is the cursor the last page gave (`next`).
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PastFilter<'a> {
@@ -332,11 +332,15 @@ pub fn valid_session_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// `terminal` for any entrypoint that is not `sdk*` (cli, IDE, desktop), `app` for `sdk-cli` (what this app's own
-/// `claude -p` session writes), `headless` for any other `sdk*`; NULL when the session has no entrypoint yet.
-/// The store cannot tell an app session from a scheduled `claude -p` run: both write `sdk-cli`.
-const KIND_SQL: &str = "CASE WHEN MAX(entrypoint) IS NULL THEN NULL WHEN MAX(entrypoint) = 'sdk-cli' THEN 'app' \
-                        WHEN MAX(entrypoint) LIKE 'sdk%' THEN 'headless' ELSE 'terminal' END";
+/// `headless` for any `sdk*` entrypoint, `terminal` for any other (cli, IDE, desktop); NULL when the session has no
+/// entrypoint yet. The store cannot tell an app session from a scheduled `claude -p` run (both write `sdk-cli`), so
+/// there is no `app` here: the page marks an app session from the live app-session list.
+const KIND_SQL: &str = "CASE WHEN MAX(entrypoint) IS NULL THEN NULL WHEN MAX(entrypoint) LIKE 'sdk%' THEN 'headless' \
+                        ELSE 'terminal' END";
+
+/// With no `from`, a page covers the last this many days (before `to`, else before now): the time index serves it.
+const DEFAULT_DAYS: i64 = 30;
+const DAY_MICROS: i64 = 86_400_000_000;
 
 fn filter_text<'a>(name: &str, value: Option<&'a str>) -> Result<Option<&'a str>> {
     match value.filter(|v| !v.is_empty()) {
@@ -377,13 +381,14 @@ fn past_cursor(value: Option<&str>) -> Result<Option<(String, Option<String>)>> 
 }
 
 /// One page of past sessions from `events` metadata only (FR-002), newest `last` first, [`PAST_PAGE`] a page, as
-/// `{sessions: [{id, project, branch, first, last, kind, account, model}], next}`; `next` is the `before` of the following
-/// page, `null` on the last. One query: filters on project, branch and kind apply to the session's own values (HAVING);
+/// `{sessions: [{id, project, branch, first, last, kind, account, model}], next, window: {from, to, default}}`; `next` is
+/// the `before` of the following page, `null` on the last. With no `from` the window is the last [`DEFAULT_DAYS`] days
+/// (before `to` when given, else before `now_micros`) and `default` is true; any `from` lifts it. One query: filters on project, branch and kind apply to the session's own values (HAVING);
 /// `from` / `to` and the account window the events that are counted (WHERE, so the time index serves them), which makes
 /// `first` / `last` the first / last event inside the window. A session's branch, project and model are the greatest
 /// stored value (`MAX`), its account the account of its events (none = the default account). No text is read.
-pub fn past_sessions(conn: &Connection, filter: PastFilter) -> Result<Value> {
-    let (sql, params) = past_query(conn, filter)?;
+pub fn past_sessions(conn: &Connection, filter: PastFilter, now_micros: i64) -> Result<Value> {
+    let (sql, params, window) = past_query(conn, filter, now_micros)?;
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt
         .query_map(params_from_iter(&params), |r| {
@@ -415,20 +420,24 @@ pub fn past_sessions(conn: &Connection, filter: PastFilter) -> Result<Value> {
             })
         })
         .collect();
-    Ok(json!({"sessions": sessions, "next": next}))
+    Ok(json!({"sessions": sessions, "next": next, "window": window}))
 }
 
 /// The one statement of [`past_sessions`] and its values, after the filters are checked (a test asks SQLite for its plan).
 #[doc(hidden)]
-pub fn past_query(conn: &Connection, filter: PastFilter) -> Result<(String, Vec<Sql>)> {
+pub fn past_query(
+    conn: &Connection,
+    filter: PastFilter,
+    now_micros: i64,
+) -> Result<(String, Vec<Sql>, Value)> {
     let project = filter_text("project", filter.project)?;
     let branch = filter_text("branch", filter.branch)?;
     let kind = match filter.kind.filter(|k| !k.is_empty()) {
         None => None,
-        Some(k @ ("terminal" | "app" | "headless")) => Some(k),
+        Some(k @ ("terminal" | "headless")) => Some(k),
         Some(_) => {
             return Err(MetricsError::Invalid(
-                "kind must be one of terminal, app, headless".into(),
+                "kind must be one of terminal, headless".into(),
             ));
         }
     };
@@ -436,6 +445,12 @@ pub fn past_query(conn: &Connection, filter: PastFilter) -> Result<(String, Vec<
         past_bound("from", filter.from)?,
         past_bound("to", filter.to)?,
     );
+    let default_window = from.is_none();
+    let from = from.or_else(|| {
+        let base = to.as_deref().and_then(parse_iso).unwrap_or(now_micros);
+        Some(format_stored(base - DEFAULT_DAYS * DAY_MICROS))
+    });
+    let window_json = json!({"from": from, "to": to, "default": default_window});
     let before = past_cursor(filter.before)?;
     let Clause {
         sql: scope_sql,
@@ -502,5 +517,5 @@ pub fn past_query(conn: &Connection, filter: PastFilter) -> Result<(String, Vec<
     );
     // the label for a default account with no row comes first in the statement text, so it is bound first
     params.insert(0, Sql::Text(DEFAULT_LABEL.to_owned()));
-    Ok((sql, params))
+    Ok((sql, params, window_json))
 }

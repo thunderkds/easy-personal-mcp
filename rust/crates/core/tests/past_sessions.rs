@@ -56,7 +56,7 @@ impl Fx {
     }
 
     fn past(&self, f: PastFilter) -> Result<Value, String> {
-        past_sessions(&self.conn, f).map_err(|e| e.to_string())
+        past_sessions(&self.conn, f, NOW).map_err(|e| e.to_string())
     }
 }
 
@@ -69,6 +69,8 @@ fn ids(body: &Value) -> Vec<&str> {
         .collect()
 }
 
+/// 2026-01-20T00:00:00Z in microseconds: the clock of every call.
+const NOW: i64 = 1_768_867_200_000_000;
 const T1: &str = "2026-01-10T10:00:00.000000Z";
 const T2: &str = "2026-01-10T11:00:00.000000Z";
 const T3: &str = "2026-01-11T09:00:00.000000Z";
@@ -134,7 +136,8 @@ fn lists_one_row_per_session_newest_last_first_with_metadata_only() {
     let mut got = keys.clone();
     got.sort_unstable();
     assert_eq!(got, want);
-    assert_eq!(body["sessions"][1]["kind"], "app");
+    // the store cannot tell an app session from a headless run: every sdk* entrypoint is headless
+    assert_eq!(body["sessions"][1]["kind"], "headless");
     assert_eq!(body["sessions"][0]["kind"], "headless");
 }
 
@@ -176,7 +179,15 @@ fn filters_by_project_branch_kind_and_dates() {
             kind: Some("headless"),
             ..Default::default()
         }),
-        "ccc"
+        "ccc,bbb"
+    );
+    assert!(
+        fx.past(PastFilter {
+            kind: Some("app"),
+            ..Default::default()
+        })
+        .is_err(),
+        "there is no app kind: the store cannot tell it from headless"
     );
     assert_eq!(
         f(PastFilter {
@@ -384,7 +395,7 @@ fn the_time_index_serves_a_dated_query_and_no_query_builds_an_index_or_reads_a_s
     }
     fx.conn.execute_batch("COMMIT").unwrap();
     let plan = |f: PastFilter| -> String {
-        let (sql, params) = past_query(&fx.conn, f).unwrap();
+        let (sql, params, _) = past_query(&fx.conn, f, NOW).unwrap();
         let mut stmt = fx
             .conn
             .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
@@ -406,12 +417,122 @@ fn the_time_index_serves_a_dated_query_and_no_query_builds_an_index_or_reads_a_s
         dated.contains("SEARCH events USING INDEX events_ts_message"),
         "{dated}"
     );
-    let all = plan(PastFilter::default());
-    assert!(!all.contains("AUTOMATIC"), "{all}");
-    println!("plan dated: {dated}\nplan all: {all}");
+    // no `from`: the default window of 30 days is served by the same index (it is not a full scan)
+    let default = plan(PastFilter::default());
+    assert!(
+        default.contains("SEARCH events USING INDEX events_ts_message"),
+        "{default}"
+    );
+    let to_only = plan(PastFilter {
+        to: Some("2026-03-06"),
+        ..Default::default()
+    });
+    assert!(
+        to_only.contains("SEARCH events USING INDEX events_ts_message"),
+        "{to_only}"
+    );
+    for p in [&dated, &default, &to_only] {
+        assert!(
+            !p.contains("AUTOMATIC") && !p.contains("SCAN events"),
+            "{p}"
+        );
+    }
+    println!("plan dated: {dated}\nplan default: {default}");
     // and the real call on 100k rows answers one page
     let t = std::time::Instant::now();
     let body = fx.past(PastFilter::default()).unwrap();
     assert_eq!(ids(&body).len(), PAST_PAGE);
     println!("unbounded page over 100k rows: {:?}", t.elapsed()); // measured, not asserted: a loaded machine is slow
+}
+
+#[test]
+fn with_no_from_a_page_covers_the_last_30_days_and_says_so() {
+    let mut fx = Fx::new("window");
+    let old = "2025-11-01T10:00:00.000000Z"; // 80 days before NOW
+    let edge = "2025-12-22T00:00:00.000000Z"; // inside the 30 days (from is 2025-12-21T00:00:00Z)
+    fx.add(old, "old", ("/w/shop", "main"), Some("cli"), None, None);
+    fx.add(edge, "edge", ("/w/shop", "main"), Some("cli"), None, None);
+    fx.add(T1, "new", ("/w/shop", "main"), Some("cli"), None, None);
+    let body = fx.past(PastFilter::default()).unwrap();
+    assert_eq!(ids(&body), ["new", "edge"]);
+    assert_eq!(
+        body["window"],
+        serde_json::json!({"from": "2025-12-21T00:00:00.000000Z", "to": null, "default": true})
+    );
+    // with a `to` and no `from`, the 30 days end at `to`
+    let body = fx
+        .past(PastFilter {
+            to: Some("2025-11-15T00:00:00Z"),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(ids(&body), ["old"]);
+    assert_eq!(body["window"]["default"], true);
+    assert_eq!(body["window"]["from"], "2025-10-16T00:00:00.000000Z");
+    // any `from` lifts the default, however old
+    let body = fx
+        .past(PastFilter {
+            from: Some("2000-01-01"),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(ids(&body), ["new", "edge", "old"]);
+    assert_eq!(body["window"]["default"], false);
+    assert_eq!(body["window"]["to"], Value::Null);
+    // the cursor works inside the window
+    let page = fx.past(PastFilter::default()).unwrap();
+    assert_eq!(page["next"], Value::Null);
+}
+
+/// Not run by default (`cargo test -p easy-personal-core --test past_sessions -- --ignored --nocapture`): the time of one
+/// page over 700k events of 1,000 sessions, of which ~5% fall inside the 30 days before NOW, with the default window and
+/// with an explicit old `from` (the whole store).
+#[test]
+#[ignore]
+fn measure_the_default_window_on_a_700k_event_store() {
+    let mut fx = Fx::new("measure");
+    fx.conn.execute_batch("BEGIN").unwrap();
+    let day = 86_400_i64;
+    for i in 0..700_000_i64 {
+        // 5% of the events in the last 30 days, the rest spread over the 600 days before
+        let age = if i % 20 == 0 {
+            (i * 7919) % (30 * day)
+        } else {
+            30 * day + (i * 7919) % (600 * day)
+        };
+        let secs = NOW / 1_000_000 - age;
+        let ts = format!(
+            "{}.000000Z",
+            fx.conn
+                .query_row(
+                    "SELECT strftime('%Y-%m-%dT%H:%M:%S', ?, 'unixepoch')",
+                    [secs],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap()
+        );
+        fx.add(
+            &ts,
+            &format!("s{}", (i / 700) % 1000),
+            ("/w/shop", "main"),
+            Some("cli"),
+            Some("m"),
+            None,
+        );
+    }
+    fx.conn.execute_batch("COMMIT").unwrap();
+    for (label, f) in [
+        ("default window (30 days)", PastFilter::default()),
+        (
+            "explicit from=2000-01-01 (whole store)",
+            PastFilter {
+                from: Some("2000-01-01"),
+                ..Default::default()
+            },
+        ),
+    ] {
+        let t = std::time::Instant::now();
+        let body = fx.past(f).unwrap();
+        println!("{label}: {:?}, {} sessions", t.elapsed(), ids(&body).len());
+    }
 }

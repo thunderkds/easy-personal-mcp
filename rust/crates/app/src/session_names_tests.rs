@@ -153,71 +153,137 @@ fn past_2000_names_the_oldest_is_dropped() {
     assert_eq!(got.last().unwrap().0, "newest");
 }
 
+/// Unusable files: shown as no names, and a write over them is refused with the file left as it was.
 #[test]
-fn a_missing_or_unusable_file_is_no_names_and_the_next_write_starts_over() {
+fn an_unusable_file_is_no_names_and_a_write_never_replaces_it() {
     let t = Temp::new();
     assert!(load(&t.0).is_empty()); // missing
-    let bad: Vec<(&str, String)> = vec![
-        ("not json", "{{{".into()),
-        ("empty", String::new()),
-        ("array", "[]".into()),
-        ("no names", "{}".into()),
-        ("names not a list", r#"{"names": {"a": "b"}}"#.into()),
-        ("entry without name", r#"{"names": [{"id": "a"}]}"#.into()),
-        ("entry not an object", r#"{"names": ["a"]}"#.into()),
-        (
-            "bad id",
-            r#"{"names": [{"id": "a b", "name": "x"}]}"#.into(),
-        ),
-        (
-            "empty name",
-            r#"{"names": [{"id": "a", "name": ""}]}"#.into(),
-        ),
-        (
-            "uncleaned name",
-            r#"{"names": [{"id": "a", "name": " x "}]}"#.into(),
-        ),
-        (
-            "long name",
-            format!(
-                r#"{{"names": [{{"id": "a", "name": "{}"}}]}}"#,
-                "x".repeat(81)
-            ),
-        ),
-        ("binary", "\u{0}\u{1}\u{2}".into()),
-    ];
-    for (why, text) in bad {
-        fs::write(t.file(), text).unwrap();
-        fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(load(&t.0).is_empty(), "{why}");
-        store_name(&t.0, "ok", Some("fresh".into())).unwrap(); // never a failure: it starts again
-        assert_eq!(
-            load(&t.0),
-            [("ok".to_string(), "fresh".to_string())],
-            "{why}"
-        );
-    }
-    // too many entries, a huge file, a file others can write, a directory, a symlink
     let many: Vec<_> = (0..=MAX_NAMES)
         .map(|i| json!({"id": format!("s{i}"), "name": "n"}))
         .collect();
-    fs::write(t.file(), json!({"names": many}).to_string()).unwrap();
-    assert!(load(&t.0).is_empty(), "2001 entries");
-    fs::write(t.file(), vec![b' '; (MAX_FILE + 1) as usize]).unwrap();
-    assert!(load(&t.0).is_empty(), "over the size cap");
+    let bad: Vec<(&str, Vec<u8>)> = vec![
+        ("not json", b"{{{".to_vec()),
+        ("empty", Vec::new()),
+        ("array", b"[]".to_vec()),
+        ("no names", b"{}".to_vec()),
+        ("names not a list", br#"{"names": {"a": "b"}}"#.to_vec()),
+        ("binary", vec![0, 1, 2]),
+        (
+            "2001 entries",
+            json!({"names": many}).to_string().into_bytes(),
+        ),
+        ("over the size cap", vec![b' '; (MAX_FILE + 1) as usize]),
+    ];
+    for (why, bytes) in bad {
+        fs::write(t.file(), &bytes).unwrap();
+        fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(load(&t.0).is_empty(), "{why}");
+        let e = store_name(&t.0, "ok", Some("fresh".into())).unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::InvalidData, "{why}");
+        assert_eq!(fs::read(t.file()).unwrap(), bytes, "{why}: left as it was");
+    }
+    // a file others can write: shown as no names, kept, and a write is refused; at 0600 it is used again
     fs::write(t.file(), r#"{"names": [{"id": "a", "name": "x"}]}"#).unwrap();
     fs::set_permissions(t.file(), fs::Permissions::from_mode(0o666)).unwrap();
     assert!(load(&t.0).is_empty(), "world-writable");
+    assert!(load_map(&t.0).is_empty(), "the cache sees the mode change");
+    assert!(store_name(&t.0, "ok", Some("fresh".into())).is_err());
+    assert_eq!(
+        fs::read_to_string(t.file()).unwrap(),
+        r#"{"names": [{"id": "a", "name": "x"}]}"#
+    );
     fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap();
     assert_eq!(load(&t.0).len(), 1);
+    assert_eq!(load_map(&t.0).get("a").map(String::as_str), Some("x"));
+    store_name(&t.0, "ok", Some("fresh".into())).unwrap(); // the owner fixed the mode: the name is added, "a" kept
+    assert_eq!(load(&t.0).len(), 2);
+    // a directory, a symlink
     fs::remove_file(t.file()).unwrap();
     fs::create_dir(t.file()).unwrap();
     assert!(load(&t.0).is_empty(), "a directory");
+    assert!(store_name(&t.0, "ok", Some("fresh".into())).is_err());
+    assert!(t.file().is_dir());
     fs::remove_dir(t.file()).unwrap();
     let elsewhere = t.0.join("elsewhere.json");
     fs::write(&elsewhere, r#"{"names": [{"id": "a", "name": "x"}]}"#).unwrap();
     symlink(&elsewhere, t.file()).unwrap();
     assert!(load(&t.0).is_empty(), "a symlink");
+    assert!(store_name(&t.0, "ok", Some("fresh".into())).is_err());
+    assert!(
+        fs::symlink_metadata(t.file())
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    // gone: a missing file is made
+    fs::remove_file(t.file()).unwrap();
+    store_name(&t.0, "ok", Some("fresh".into())).unwrap();
+    assert_eq!(load(&t.0), [("ok".to_string(), "fresh".to_string())]);
+}
+
+/// One bad entry costs only itself: the others are shown, and the next write keeps them.
+#[test]
+fn a_bad_entry_is_skipped_and_the_good_ones_survive_a_write() {
+    let t = Temp::new();
+    let text = json!({"names": [
+        {"id": "good-1", "name": "one"},
+        {"id": "a b", "name": "bad id"},
+        {"id": "x"},
+        "not an object",
+        {"id": "x2", "name": ""},
+        {"id": "x3", "name": " padded "},
+        {"id": "x4", "name": "y".repeat(81)},
+        {"id": "good-2", "name": "two"},
+    ]});
+    fs::write(t.file(), text.to_string()).unwrap();
+    fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap(); // the umask may leave others write
+    let want = [
+        ("good-1".to_string(), "one".to_string()),
+        ("good-2".to_string(), "two".to_string()),
+    ];
+    assert_eq!(load(&t.0), want);
+    store_name(&t.0, "good-3", Some("three".into())).unwrap();
+    let got = load(&t.0);
+    assert_eq!(got[..2], want);
+    assert_eq!(got.len(), 3);
+}
+
+/// The parsed names are kept while the file's stamp is the same, and read again after any write.
+#[test]
+fn the_parsed_names_are_cached_by_the_files_stamp() {
+    let t = Temp::new();
+    store_name(&t.0, "s1", Some("one".into())).unwrap();
+    let first = load_map(&t.0);
+    assert!(
+        Arc::ptr_eq(&first, &load_map(&t.0)),
+        "same stamp: not parsed again"
+    );
+    store_name(&t.0, "s1", Some("two".into())).unwrap();
+    let second = load_map(&t.0);
+    assert_eq!(second.get("s1").map(String::as_str), Some("two"));
+    assert!(!Arc::ptr_eq(&first, &second));
+    assert_eq!(first.get("s1").map(String::as_str), Some("one"));
+}
+
+/// The temp file has a name of its own (pid and counter), so two writers never share one, and none is left behind.
+#[test]
+fn the_temp_file_names_are_unique_and_none_is_left() {
+    let t = Temp::new();
+    std::thread::scope(|scope| {
+        for i in 0..8 {
+            let dir = &t.0;
+            scope.spawn(move || store_name(dir, &format!("s{i}"), Some(format!("n{i}"))).unwrap());
+        }
+    });
+    assert_eq!(load(&t.0).len(), 8);
+    let left: Vec<_> = fs::read_dir(&t.0)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(left, [std::ffi::OsString::from(FILE)]);
+    // a stale temp file of a crashed run does not stop a write (the new name is different)
+    fs::write(t.0.join(format!("{FILE}.new")), "stale").unwrap();
+    store_name(&t.0, "s9", Some("n9".into())).unwrap();
 }
 
 #[tokio::test]
@@ -345,18 +411,27 @@ async fn naming_sets_cleans_refuses_and_removes() {
 }
 
 #[tokio::test]
-async fn a_corrupt_file_is_never_a_500_for_the_owner() {
+async fn over_an_unusable_file_a_put_is_a_one_line_500_and_the_list_still_works() {
     let t = Temp::new();
     fs::write(t.file(), "garbage").unwrap();
     let app = t.app(true);
+    let (status, body) = put_name(&app, "s1", r#"{"name":"a","confirmed":true}"#).await;
+    assert_eq!(status, 500);
+    assert_eq!(body["error"], UNUSABLE);
+    assert!(!body["error"].as_str().unwrap().contains('\n'));
     assert_eq!(
-        put_name(&app, "s1", r#"{"name":"a","confirmed":true}"#)
-            .await
-            .0,
-        200
+        fs::read_to_string(t.file()).unwrap(),
+        "garbage",
+        "left as it was"
     );
-    fs::write(t.file(), "garbage").unwrap();
-    let (status, body) = call(&app, "GET", "/api/sessions/past", &good(), "").await;
+    let (status, body) = call(
+        &app,
+        "GET",
+        "/api/sessions/past?from=2000-01-01",
+        &good(),
+        "",
+    )
+    .await;
     assert_eq!(status, 200, "{body}");
     assert!(
         body["sessions"]
@@ -364,6 +439,13 @@ async fn a_corrupt_file_is_never_a_500_for_the_owner() {
             .unwrap()
             .iter()
             .all(|s| s["name"].is_null())
+    );
+    fs::remove_file(t.file()).unwrap(); // the owner removes it: the next write makes a new one
+    assert_eq!(
+        put_name(&app, "s1", r#"{"name":"a","confirmed":true}"#)
+            .await
+            .0,
+        200
     );
 }
 

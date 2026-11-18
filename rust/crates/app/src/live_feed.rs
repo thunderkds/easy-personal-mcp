@@ -247,9 +247,9 @@ impl LiveStream {
     }
 
     /// The owner's names for a snapshot; the file's stamp is read first, so a write that lands meanwhile sends another one.
-    fn names(&mut self) -> HashMap<String, String> {
+    fn names(&mut self) -> Arc<HashMap<String, String>> {
         let Some(dir) = self.names_dir.as_deref() else {
-            return HashMap::new();
+            return Arc::default();
         };
         self.seen_names = session_names::stamp(dir);
         session_names::load_map(dir)
@@ -276,8 +276,9 @@ impl LiveStream {
             });
             b.prune_marks(&listed);
         }
-        // the set of hooks is read (and cloned) only when its counter moved or a snapshot goes out anyway
-        let answers_moved = self
+        // what the page adds to a snapshot (the set of hooks, the owner's names) is read only when it moved or a snapshot
+        // goes out anyway
+        let overlay_moved = self
             .answers
             .as_ref()
             .is_some_and(|b| b.version() != self.seen_answers)
@@ -300,7 +301,7 @@ impl LiveStream {
                 add_names(&mut data, &self.names());
                 out.extend(sse("snapshot", &data, None));
             }
-            (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || answers_moved => {
+            (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || overlay_moved => {
                 let snapshot = t.snapshot(now); // attention changed: events up to its `last_id` first
                 let (answers_version, pending, replies, marks) = self.pending();
                 let upto = snapshot["last_id"].as_i64().unwrap_or(0);

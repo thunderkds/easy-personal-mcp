@@ -195,7 +195,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/reply/release": [""],
     "/api/reply/watch": [""],
     "/api/reply/mark": [""],
-    "/api/sessions/past": ["", "?project=leak-check&kind=terminal&branch=main", "?from=2026-01-01&to=2027-01-01", "?kind=bad", "?from=garbage",
+    "/api/sessions/past": ["", "?project=leak-check&kind=terminal&branch=main", "?from=2026-01-01&to=2027-01-01", "?kind=bad", "?kind=app", "?kind=headless", "?from=2000-01-01", "?from=2000-01-01&kind=terminal", "?from=garbage",
                            "?to=garbage", "?before=garbage", "?before=2026-02-01T09%3A00%3A00Z%7Cx", "?account=nope", "?account=1", "?project=%0A"],  # T117
     "/api/sessions/{id}/name": [""],  # T117: asked literally with GET (the 405); the PUT is in WRITE_CALLS / GUARD_CALLS
 }  # fmt: skip
@@ -1093,10 +1093,17 @@ def serve(run: Run, checks: list[str], key: str) -> None:
         name = run.s.values["session_name"]
         status, blob = request(port, "PUT", f"/api/sessions/{CONTROL}/name", base, json.dumps({"name": name, "confirmed": True}).encode())
         run.add(f"{SESSION_OK}name put -> {status}", blob)
-        status, blob = request(port, "GET", "/api/sessions/past", base)
+        status, blob = request(port, "GET", "/api/sessions/past?from=2000-01-01", base)  # an explicit `from` lifts the 30-day default
         run.add(f"{SESSION_OK}past list -> {status}", blob)
         shown = status == 200 and any(x.get("id") == CONTROL and x.get("name") == name for x in json.loads(blob.split(b"\n\n", 1)[1]).get("sessions", []))
         checks.append(f"check past list shows the owner's name   {'ok' if shown else 'FAILED'} (status {status})")
+        status, blob = request(port, "GET", "/api/sessions/past", base)
+        run.add(f"{SESSION_OK}past list default window -> {status}", blob)
+        window = json.loads(blob.split(b"\n\n", 1)[1]).get("window", {}) if status == 200 else {}
+        checks.append(f"check past list default window says so   {'ok' if window.get('default') is True and window.get('from') else 'FAILED'} (status {status})")
+        status, blob = request(port, "GET", "/api/sessions/past?kind=app", base)
+        run.add(f"api GET /api/sessions/past?kind=app (refused) -> {status}", blob)
+        checks.append(f"check past kind=app is refused (400)     {'ok' if status == 400 else 'FAILED'} (status {status})")
         run.add("serve stdout (first line, token inside)", first + lines.buf)
     finally:
         rc = run.stop("serve", proc, kids, signal.SIGINT)

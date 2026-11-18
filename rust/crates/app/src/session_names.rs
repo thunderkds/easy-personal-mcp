@@ -3,10 +3,15 @@
 //! `~/.easy-personal`). The route sits behind the guard in `server.rs` (Host, Origin, token) like every `/api/` route.
 //!
 //! - **File**: `{"names": [{"id": "<session id>", "name": "<name>"}, ...]}`, oldest first, at most [`MAX_NAMES`]; one
-//!   past that drops the oldest. A write goes to a new owner-only (0600) temp file in the same folder (`O_NOFOLLOW`,
-//!   `O_EXCL`), is synced, then renamed over the old one, so a reader never sees half a file.
-//! - **Read**: never an error. A missing file, a symlink, a file that is not the app user's or that others may write, one
-//!   over [`MAX_FILE`] bytes, one that is not valid JSON of this shape, or one holding a bad entry means *no names*.
+//!   past that drops the oldest. A write goes to a new owner-only (0600) temp file in the same folder, named with the
+//!   process id and a counter (`O_NOFOLLOW`, `O_EXCL`), is synced, then renamed over the old one, so a reader never sees
+//!   half a file.
+//! - **Read**: never an error; a bad entry (not an id and a clean name) is skipped, and a file that is *unusable* shows
+//!   *no names*: a symlink, a file that is not the app user's or that others may write, one over [`MAX_FILE`] bytes, one
+//!   with more than [`MAX_NAMES`] entries, one that is not valid JSON of this shape. A missing file is no names too. The
+//!   parsed names are kept in memory while the file's [`stamp`] is the same.
+//! - **Write over an unusable file**: refused (500, one line), never rebuilt from nothing: the file may be the owner's
+//!   own, hand-edited or with a wrong mode. A missing file is made. The owner fixes or removes it.
 //! - **Name**: 1..=[`MAX_NAME_CHARS`] characters after cleaning: line breaks and tabs become spaces, the hidden and
 //!   control characters of FR-092 are removed (`live::clean_line`), the ends are trimmed. A longer one is refused, not cut.
 //!   `null` removes the session's name. The text is the owner's own typing, not transcript text; it is shown in Live
@@ -30,7 +35,8 @@ use std::fs::{self, DirBuilder, OpenOptions};
 use std::io::{self, Read, Write};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path as FsPath, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 /// The file in the data folder.
 pub(crate) const FILE: &str = "session_names.json";
@@ -48,9 +54,9 @@ pub(crate) fn routes() -> Router<Api> {
     Router::new().route("/api/sessions/{id}/name", put(set_name))
 }
 
-/// What a stream compares to tell its snapshot is stale: the names file's inode, modification time and size (`None`: no
-/// file). Every write renames a new file over the old one, so every write changes it.
-pub(crate) type Stamp = Option<(u64, i64, u64)>;
+/// What a stream (or the cache) compares to tell the names are stale: the names file's inode, modification time, size,
+/// mode and owner (`None`: no file). Every write renames a new file over the old one, so every write changes it.
+pub(crate) type Stamp = Option<(u64, i64, u64, u32, u32)>;
 
 pub(crate) fn stamp(dir: &FsPath) -> Stamp {
     let meta = fs::symlink_metadata(dir.join(FILE)).ok()?;
@@ -58,6 +64,8 @@ pub(crate) fn stamp(dir: &FsPath) -> Stamp {
         meta.ino(),
         meta.mtime_nsec() + meta.mtime() * 1_000_000_000,
         meta.len(),
+        meta.mode(),
+        meta.uid(),
     ))
 }
 
@@ -68,22 +76,60 @@ pub(crate) fn dir_of(api: &Api) -> Option<PathBuf> {
         .and_then(|path| path.parent().and_then(|d| std::path::absolute(d).ok()))
 }
 
+/// What the file holds.
+enum Held {
+    Missing,
+    Unusable,
+    Names(Vec<(String, String)>),
+}
+
 /// The names, oldest first; empty for a file that is missing or not usable (see the module text).
 pub(crate) fn load(dir: &FsPath) -> Vec<(String, String)> {
-    read(dir).unwrap_or_default()
+    match read(dir) {
+        Held::Names(names) => names,
+        Held::Missing | Held::Unusable => Vec::new(),
+    }
 }
 
-/// The names as a map from session id to name.
-pub(crate) fn load_map(dir: &FsPath) -> HashMap<String, String> {
-    load(dir).into_iter().collect()
+type Cached = Option<(PathBuf, Stamp, Arc<HashMap<String, String>>)>;
+/// The last parsed names: a snapshot and a past page read them often, the file changes rarely.
+static CACHE: Mutex<Cached> = Mutex::new(None);
+
+/// The names as a map from session id to name, parsed again only when the file's [`stamp`] has changed. The stamp is
+/// taken before the read, so a write that lands meanwhile is read at the next call.
+pub(crate) fn load_map(dir: &FsPath) -> Arc<HashMap<String, String>> {
+    let at = stamp(dir);
+    let mut cache = CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some((cached_dir, cached_at, map)) = cache.as_ref()
+        && cached_dir == dir
+        && *cached_at == at
+    {
+        return Arc::clone(map);
+    }
+    let map: Arc<HashMap<String, String>> = Arc::new(load(dir).into_iter().collect());
+    *cache = Some((dir.to_path_buf(), at, Arc::clone(&map)));
+    map
 }
 
-fn read(dir: &FsPath) -> Option<Vec<(String, String)>> {
-    let file = OpenOptions::new()
+fn read(dir: &FsPath) -> Held {
+    let file = match OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW)
         .open(dir.join(FILE))
-        .ok()?;
+    {
+        Ok(file) => file,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Held::Missing,
+        Err(_) => return Held::Unusable,
+    };
+    match parse(file) {
+        Some(names) => Held::Names(names),
+        None => Held::Unusable,
+    }
+}
+
+fn parse(file: fs::File) -> Option<Vec<(String, String)>> {
     let meta = file.metadata().ok()?;
     // SAFETY: `geteuid` has no preconditions and cannot fail.
     let me = unsafe { libc::geteuid() };
@@ -99,16 +145,17 @@ fn read(dir: &FsPath) -> Option<Vec<(String, String)>> {
     if list.len() > MAX_NAMES {
         return None;
     }
-    let mut names = Vec::with_capacity(list.len());
-    for entry in list {
-        let id = entry.get("id")?.as_str()?;
-        let name = entry.get("name")?.as_str()?;
-        if !valid_session_id(id) || clean(name).as_deref() != Some(name) {
-            return None;
-        }
-        names.push((id.to_owned(), name.to_owned()));
-    }
-    Some(names)
+    // a bad entry is skipped, the rest are kept
+    Some(
+        list.iter()
+            .filter_map(|entry| {
+                let id = entry.get("id")?.as_str()?;
+                let name = entry.get("name")?.as_str()?;
+                (valid_session_id(id) && clean(name).as_deref() == Some(name))
+                    .then(|| (id.to_owned(), name.to_owned()))
+            })
+            .collect(),
+    )
 }
 
 /// The name as it is kept, or `None` when cleaning leaves nothing or more than [`MAX_NAME_CHARS`] characters.
@@ -144,8 +191,12 @@ fn save(dir: &FsPath, names: &[(String, String)]) -> io::Result<()> {
         .map(|(id, name)| json!({"id": id, "name": name}))
         .collect();
     let body = json!({"names": list}).to_string();
-    let new = dir.join(format!("{FILE}.new"));
-    let _ = fs::remove_file(&new);
+    static N: AtomicU64 = AtomicU64::new(0);
+    let new = dir.join(format!(
+        "{FILE}.new.{}.{}",
+        std::process::id(),
+        N.fetch_add(1, Ordering::Relaxed)
+    ));
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -163,12 +214,18 @@ fn save(dir: &FsPath, names: &[(String, String)]) -> io::Result<()> {
         })
 }
 
-/// Sets or removes one name in the file in `dir`. A file that cannot be read starts again from no names.
+/// Sets or removes one name in the file in `dir`. A file that exists but is unusable is left as it is: the error is
+/// [`io::ErrorKind::InvalidData`].
 pub(crate) fn store_name(dir: &FsPath, id: &str, name: Option<String>) -> io::Result<()> {
     let _one = WRITE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    save(dir, &with(load(dir), id, name))
+    let names = match read(dir) {
+        Held::Names(names) => names,
+        Held::Missing => Vec::new(),
+        Held::Unusable => return Err(io::Error::from(io::ErrorKind::InvalidData)),
+    };
+    save(dir, &with(names, id, name))
 }
 
 /// Adds `name` (the owner's name, else `null`) to each session of a past-sessions answer.
@@ -183,6 +240,7 @@ pub(crate) fn attach(body: &mut Value, dir: Option<&FsPath>) {
 const BAD_ID: &str = "session id must be 1 to 128 letters, digits, - or _";
 const BAD_BODY: &str = "body must be {name: text or null, confirmed: true}";
 const BAD_NAME: &str = "name must be 1 to 80 characters after cleaning";
+const UNUSABLE: &str = "session_names.json in the data folder cannot be used (its mode, owner or content); fix or remove it";
 const NOT_WRITTEN: &str = "the name could not be saved right now; try again in a moment";
 
 /// `PUT /api/sessions/{id}/name` `{name: "<text>"|null, confirmed: true}` -> `{id, name}`.
@@ -214,6 +272,9 @@ async fn set_name(State(api): State<Api>, Path(id): Path<String>, req: Request) 
     };
     blocking(move || match store_name(&dir, &id, name.clone()) {
         Ok(()) => respond(StatusCode::OK, &json!({"id": id, "name": name})),
+        Err(e) if e.kind() == io::ErrorKind::InvalidData => {
+            fail(StatusCode::INTERNAL_SERVER_ERROR, UNUSABLE)
+        }
         Err(_) => fail(StatusCode::INTERNAL_SERVER_ERROR, NOT_WRITTEN),
     })
     .await

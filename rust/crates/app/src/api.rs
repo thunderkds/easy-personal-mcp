@@ -415,7 +415,7 @@ async fn sessions(State(api): State<Api>, uri: Uri) -> Response {
 /// the store's metadata (`sessions::past_sessions`), each with the owner's name from `session_names.json` (or `null`).
 async fn sessions_past(State(api): State<Api>, uri: Uri) -> Response {
     let dir = session_names::dir_of(&api);
-    serve(api, uri, move |conn, q, _now| {
+    serve(api, uri, move |conn, q, now| {
         let filter = PastFilter {
             project: q.get("project"),
             branch: q.get("branch"),
@@ -425,7 +425,7 @@ async fn sessions_past(State(api): State<Api>, uri: Uri) -> Response {
             account: q.get("account"),
             before: q.get("before"),
         };
-        let mut body = past_sessions(conn, filter).map_err(metrics_failure)?;
+        let mut body = past_sessions(conn, filter, now).map_err(metrics_failure)?;
         session_names::attach(&mut body, dir.as_deref());
         Ok(body)
     })

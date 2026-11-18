@@ -216,6 +216,16 @@ Known limit: the warm start reads only files changed in the last hour, and only 
 
 The totals add up the listed session rows. The tab never shows message text, tool input or tool output, except the labels above. It shows only tool names, those labels, counts and times. Claude Code itself writes some records a little late, so an event can show up a second or two after it happened.
 
+#### Past sessions and names (Rust app)
+
+`GET /api/sessions/past` lists past sessions from the store's metadata only (no message text): `id`, `project` (folder name), `branch`, `first` and `last` event time, `kind`, `account` (label), `model` and your `name`, newest `last` first, 50 a page. Filters: `project` (a folder name or a full path, matched exactly), `branch`, `from`, `to` (ISO 8601 date or datetime; no offset means local time), `kind` (`terminal` or `headless`) and `account` (id or label). `next` in the answer is the `before` value for the following page; it is `null` on the last page. A bad value is a 400 with one fixed line that never echoes your input.
+
+With no `from`, a page covers the **last 30 days** (the 30 days before `to` when you give one), so that the time index serves it, and the answer says so in `window: {from, to, default: true}`. Any `from`, however old, lifts the window (`default: false`). Inside a window, `first` and `last` are the first and last event in it.
+
+Known limit: the store cannot tell an app session from a headless `claude -p` run, because both write the entrypoint `sdk-cli`. So `kind` is `headless` for every `sdk*` entrypoint and `terminal` for any other, and there is no `app` kind. The Live page marks an app session from the app-session list it already has.
+
+`PUT /api/sessions/{id}/name` with `{"name": "<text>" | null, "confirmed": true}` sets or removes your own name for a session (1 to 80 characters after hidden characters are removed and line breaks become spaces; a longer one is refused, not cut). The names live in one owner-only file, `session_names.json`, in the data folder (at most 2,000; the oldest goes first). A bad entry in that file is skipped. A file that cannot be used (a symlink, a mode others can write, not your user's, too big, not valid JSON) shows no names, and a `PUT` over it is refused with a 500 and one line, and the file is left as it is: fix or remove it. The name is shown in the past list and on the Live snapshot of that session, and goes to no log, MCP tool, CLI output, tray row or notification.
+
 ### Kit view and report folders
 
 The Kit tab has a **Kit by workspace** block, with one row for each workspace except `orphan`. It reads only what is already stored, and it follows the account and the period that you picked.
