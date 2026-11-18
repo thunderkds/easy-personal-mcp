@@ -110,6 +110,8 @@ main button.turn-fold:hover { background: none; }
 }
 @media (max-width: 39.999rem) {
   .session-panel button, .queue-box button, .stop-confirm button { min-height: 44px; }
+  .session-panel .prompt-note input, .session-panel .message-box textarea { min-height: 44px; }
   main button.turn-fold { min-height: 44px; align-items: center; }
   .session-back { min-height: 44px; }
 }
+.live-session[data-open] { box-shadow: inset 3px 0 0 var(--color-accent); } /* the row whose panel is open, beyond the lighter background and never by colour alone: aria-current is on its button */
