@@ -147,7 +147,7 @@ describe('AC3: Send', () => {
     expect(box()).toHaveValue('hello')
   })
 
-  it('a 400 shows the server line; any other failure asks to try again; both keep the text', async () => {
+  it('a 400 and a 500 both show the server line, and both keep the text', async () => {
     stubFetch({ routes: { '/api/reply': 400 } })
     render(<ReplyBox sessionId="s1" reply={reply()} open={false} />)
     type('hello')
@@ -156,20 +156,28 @@ describe('AC3: Send', () => {
     expect(box()).toHaveValue('hello')
     vi.mocked(fetch).mockImplementationOnce(async () => ({ ok: false, status: 500, json: async () => ({ error: 'boom' }) }))
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Could not send the reply. Try again.'))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('boom'))
     expect(box()).toHaveValue('hello')
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
-  it('text typed while the request is out stays after a 200', async () => {
+  it('text typed while the request is out is not sent and not kept: a 200 clears the box and says "sent"', async () => {
     let release
-    vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => (release = () => resolve({ ok: true, status: 200, json: async () => ({ ok: true }) })))))
+    const bodies = []
+    vi.stubGlobal('fetch', vi.fn((url, init) => {
+      bodies.push(JSON.parse(init.body))
+      return new Promise((resolve) => (release = () => resolve({ ok: true, status: 200, json: async () => ({ ok: true }) })))
+    }))
     render(<ReplyBox sessionId="s1" reply={reply()} open={false} />)
     type('first')
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() => expect(release).toBeTypeOf('function'))
+    type('first and a late thought') // typed while the request is out
+    expect(box()).toHaveValue('first and a late thought')
     await act(async () => release())
     expect(await screen.findByText('sent')).toBeInTheDocument()
+    expect(bodies).toEqual([{ id: 'r1', text: 'first', confirmed: true }])
+    expect(box()).toHaveValue('')
   })
 
   it('the row returns to normal when pending_reply goes away', async () => {
@@ -270,7 +278,7 @@ describe('AC5: the watch call', () => {
 })
 
 describe('AC6: Reply from the app', () => {
-  const idle = (over = {}) => holdSession('s1', { pending_reply: undefined, ...over })
+  const idle = (over = {}) => holdSession('s1', { pending_reply: undefined, reply_bridge: true, ...over }) // the server's flag: all three hook entries of its account are on
   const toggle = () => screen.getByRole('button', { name: 'Reply from the app' })
 
   it('a bridge-enabled session that is not your turn shows the toggle, and a click posts /api/reply/mark', async () => {
@@ -299,21 +307,31 @@ describe('AC6: Reply from the app', () => {
   it('a marked session that has a hold shows the box, not the "marked" note', async () => {
     stubFetch()
     render(<LiveView />)
-    stream().emit('snapshot', snapshotOf([holdSession('s1', { reply_marked: true })]))
+    stream().emit('snapshot', snapshotOf([holdSession('s1', { reply_marked: true, reply_bridge: true })]))
     await screen.findByRole('button', { name: 'Reply from the app' })
     expect(screen.queryByText(MARKED_NOTE)).toBeNull()
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument()
   })
 
-  it('no toggle when the account has no bridge, or the session is at your turn, or the server has no hooks route', async () => {
-    stubFetch({ hooks: { accounts: [{ id: 1, label: 'Claude work', status: 'off' }] } })
+  it('no toggle without the server flag reply_bridge, and no /api/hooks read to find out', async () => {
+    const calls = stubFetch()
     render(<LiveView />)
-    stream().emit('snapshot', snapshotOf([idle()]))
+    stream().emit('snapshot', snapshotOf([idle({ reply_bridge: undefined })]))
     await act(async () => {})
     expect(screen.queryByRole('button', { name: 'Reply from the app' })).toBeNull()
+    expect(calls.filter((c) => c.url === '/api/hooks')).toHaveLength(0)
   })
 
-  it('no toggle for a session at your turn', async () => {
+  it('the toggle follows the flag: it shows when a later snapshot carries reply_bridge', async () => {
+    stubFetch()
+    render(<LiveView />)
+    stream().emit('snapshot', snapshotOf([idle({ reply_bridge: undefined })]))
+    expect(screen.queryByRole('button', { name: 'Reply from the app' })).toBeNull()
+    stream().emit('snapshot', snapshotOf([idle()]))
+    expect(screen.getByRole('button', { name: 'Reply from the app' })).toBeInTheDocument()
+  })
+
+  it('no toggle for a session at your turn, even with the flag', async () => {
     stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([idle({ attention: [{ state: 'your_turn', count: 1 }] })]))

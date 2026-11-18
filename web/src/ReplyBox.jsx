@@ -13,8 +13,8 @@ const FAILED_RELEASE = 'Could not hand the session back. Try again.'
 const FAILED_MARK = 'Could not change the mark. Try again.'
 
 const chars = (text) => Array.from(text).length
-/** The server's own words for a refused request (400, 404), else the fallback; a 409 is the session that is gone. */
-const why = (error, fallback) => (error.status === 409 ? GONE : (error.status === 400 || error.status === 404) && error.message ? error.message : fallback)
+/** The server's one line for a failed request, else the fallback; a 409 is the session that is gone. */
+const why = (error, fallback) => (error.status === 409 ? GONE : error.message || fallback)
 /** "1m 20s", "54s". */
 const left = (until, now) => {
   const s = Math.max(0, Math.ceil(until - now / 1000))
@@ -64,7 +64,7 @@ export default function ReplyBox({ sessionId, reply, open }) {
     const typed = text
     run(() => sendReply(reply.id, typed), FAILED_SEND, () => {
       setSent(true)
-      setText((now) => (now === typed ? '' : now.startsWith(typed) ? now.slice(typed.length) : now)) // text typed while the request was out stays
+      setText('') // the box is closed after "sent": what was typed while the request was out was not sent, so it is not kept
     })
   }
   const label = `Reply to session ${sessionId.slice(0, 8)}`
