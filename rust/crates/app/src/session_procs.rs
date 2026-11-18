@@ -8,7 +8,7 @@
 //! folder is opened. The page reads the result through the bridge (`answer_bridge.rs`) as `proc {busy, name}` of a session in
 //! `GET /api/live` only (DDR-0005).
 //!
-//! [`stop`] sends SIGTERM to a session's process, and only when it is plainly a Claude Code session of ours: the process is
+//! [`stop`] sends SIGTERM (SIGKILL only when the owner asks for a force stop) to a session's process, and only when it is plainly a Claude Code session of ours: the process is
 //! pinned with a pidfd first (so its pid cannot be reused while the checks run), `/proc/<pid>` is owned by our uid, its start
 //! time (field 22 of `/proc/<pid>/stat`, clock ticks since boot, which is what Claude Code writes as `procStart`) equals
 //! `procStart` within 2 s, and its executable file name or `argv[0]` base name is `claude` (or it is a `node` or `bun`
@@ -77,17 +77,19 @@ fn read_dir(dir: &Path) -> Vec<(String, ProcInfo)> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
     };
+    // only `<digits>.json` names count towards the cap (`<pid>.<hash>.key` files and anything else do not)
     entries
-        .take(FILES_MAX)
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let name = entry.file_name().into_string().ok()?;
             let stem = name.strip_suffix(".json")?;
             if stem.is_empty() || !stem.bytes().all(|b| b.is_ascii_digit()) {
-                return None; // `<pid>.<hash>.key` and anything else
+                return None;
             }
-            read_file(&entry.path(), stem.parse().ok()?)
+            Some((entry.path(), stem.parse().ok()?))
         })
+        .take(FILES_MAX)
+        .filter_map(|(path, pid)| read_file(&path, pid))
         .collect()
 }
 
@@ -187,10 +189,27 @@ fn start_matches(ticks: u64, proc_start: &str, hz: u64) -> bool {
         .is_ok_and(|written| written.abs_diff(ticks) <= START_SLACK_S * hz)
 }
 
-/// SIGTERM to the process of `info`, after the checks of the module docs. `Err`: the one-line reason it was not sent.
+/// The identity checks of [`stop`], on what was read from `/proc/<pid>`: the process belongs to `own` (`proc_uid`), its start
+/// time matches `procStart` and it is Claude Code.
+fn identity_ok(
+    proc_uid: Option<u32>,
+    own: u32,
+    ticks: Option<u64>,
+    proc_start: &str,
+    hz: u64,
+    exe: Option<&str>,
+    argv: &[&str],
+) -> bool {
+    proc_uid == Some(own)
+        && ticks.is_some_and(|t| start_matches(t, proc_start, hz))
+        && is_claude(exe, argv)
+}
+
+/// A signal to the process of `info`, after the checks of the module docs: SIGTERM, or with `force` SIGKILL (through the same
+/// pidfd and the same checks). `Err`: the one-line reason it was not sent.
 #[cfg(target_os = "linux")]
-pub(crate) fn stop(info: &ProcInfo) -> Result<(), &'static str> {
-    use std::os::fd::{FromRawFd, OwnedFd};
+pub(crate) fn stop(info: &ProcInfo, force: bool) -> Result<(), &'static str> {
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     const GONE: &str = "that session's process is gone or is not the Claude Code process it was";
     if info.pid <= 1 {
         return Err(GONE);
@@ -206,16 +225,14 @@ pub(crate) fn stop(info: &ProcInfo) -> Result<(), &'static str> {
     // SAFETY: `fd` is a fresh descriptor this function owns.
     let pidfd = unsafe { OwnedFd::from_raw_fd(fd) };
     let root = PathBuf::from(format!("/proc/{}", info.pid));
-    let owned = fs::metadata(&root).is_ok_and(|m| m.uid() == own_uid());
     // SAFETY: `sysconf` has no side effect.
     let hz = u64::try_from(unsafe { libc::sysconf(libc::_SC_CLK_TCK) })
         .ok()
         .filter(|&h| h > 0)
         .unwrap_or(100);
-    let started = fs::read_to_string(root.join("stat"))
+    let ticks = fs::read_to_string(root.join("stat"))
         .ok()
-        .and_then(|s| start_ticks(&s))
-        .is_some_and(|t| start_matches(t, &info.proc_start, hz));
+        .and_then(|s| start_ticks(&s));
     let exe = fs::read_link(root.join("exe")).ok();
     let mut cmdline = Vec::new();
     if let Ok(file) = fs::File::open(root.join("cmdline")) {
@@ -225,17 +242,26 @@ pub(crate) fn stop(info: &ProcInfo) -> Result<(), &'static str> {
         .split(|&b| b == 0)
         .filter_map(|a| std::str::from_utf8(a).ok())
         .collect();
+    let proc_uid = fs::metadata(&root).ok().map(|m| m.uid());
     let exe_name = exe.as_deref().and_then(|p| p.to_str());
-    if !(owned && started && is_claude(exe_name, &argv)) {
+    if !identity_ok(
+        proc_uid,
+        own_uid(),
+        ticks,
+        &info.proc_start,
+        hz,
+        exe_name,
+        &argv,
+    ) {
         return Err(GONE);
     }
-    use std::os::fd::AsRawFd;
+    let signal = if force { libc::SIGKILL } else { libc::SIGTERM };
     // SAFETY: `pidfd` is a valid pidfd; a null `siginfo` and flags 0 are what the call takes for a plain signal.
     let sent = unsafe {
         libc::syscall(
             libc::SYS_pidfd_send_signal,
             libc::c_long::from(pidfd.as_raw_fd()),
-            libc::c_long::from(libc::SIGTERM),
+            libc::c_long::from(signal),
             std::ptr::null::<libc::c_void>(),
             0,
         )
@@ -248,14 +274,14 @@ pub(crate) fn stop(info: &ProcInfo) -> Result<(), &'static str> {
 }
 
 #[cfg(not(target_os = "linux"))]
-pub(crate) fn stop(_info: &ProcInfo) -> Result<(), &'static str> {
+pub(crate) fn stop(_info: &ProcInfo, _force: bool) -> Result<(), &'static str> {
     Err("stopping a terminal session is supported on Linux only")
 }
 
 // ---- the route ----
 
-/// `POST /api/live/sessions/{id}/stop` `{confirmed: true}`: SIGTERM to a terminal session's process, found by its process file
-/// (the page's `proc`). 200 `{ok: true}`; 400 a bad body; 404 no process file for that session; 409 an app session (its own
+/// `POST /api/live/sessions/{id}/stop` `{confirmed: true, force?: bool}`: SIGTERM (with `force: true` SIGKILL) to a terminal
+/// session's process, found by its process file (the page's `proc`). 200 `{ok: true}`; 400 a bad body; 404 no process file for that session; 409 an app session (its own
 /// Stop is `POST /api/app-sessions/{id}/stop`) or a process that is not that Claude Code session (see [`stop`]).
 pub(crate) async fn stop_session(
     State(api): State<Api>,
@@ -269,9 +295,14 @@ pub(crate) async fn stop_session(
     let Some(Value::Object(body)) = writes::parse(&raw) else {
         return fail(StatusCode::BAD_REQUEST, "body must be a JSON object");
     };
-    if body.keys().any(|k| k != "confirmed") {
+    if body.keys().any(|k| k != "confirmed" && k != "force") {
         return fail(StatusCode::BAD_REQUEST, "unknown field");
     }
+    let force = match body.get("force") {
+        None => false,
+        Some(Value::Bool(force)) => *force,
+        Some(_) => return fail(StatusCode::BAD_REQUEST, "force must be true or false"),
+    };
     if body.get("confirmed") != Some(&Value::Bool(true)) {
         return fail(
             StatusCode::BAD_REQUEST,
@@ -295,7 +326,7 @@ pub(crate) async fn stop_session(
                 "no running terminal session has that id",
             ));
         };
-        stop(&info).map_err(|why| (StatusCode::CONFLICT, why))
+        stop(&info, force).map_err(|why| (StatusCode::CONFLICT, why))
     })
     .await
     .unwrap_or(Err((StatusCode::INTERNAL_SERVER_ERROR, api::INTERNAL)));
@@ -504,7 +535,11 @@ mod tests {
         use std::os::unix::process::ExitStatusExt;
         let t = Temp::new("stop");
         let mut other = dummy(&t.0, "not-it");
-        assert!(stop(&info_of(&other)).is_err(), "another name");
+        assert!(stop(&info_of(&other), false).is_err(), "another name");
+        assert!(
+            stop(&info_of(&other), true).is_err(),
+            "another name, forced"
+        );
         assert!(other.try_wait().unwrap().is_none(), "left running");
         other.kill().unwrap();
         other.wait().unwrap();
@@ -512,16 +547,35 @@ mod tests {
         let mut claude = dummy(&t.0, "claude");
         let mut wrong = info_of(&claude);
         wrong.proc_start = (wrong.proc_start.parse::<u64>().unwrap() + 1000).to_string();
-        assert!(stop(&wrong).is_err(), "a start time 10 s off");
+        assert!(stop(&wrong, false).is_err(), "a start time 10 s off");
         wrong.proc_start = String::new();
-        assert!(stop(&wrong).is_err(), "no procStart");
+        assert!(stop(&wrong, false).is_err(), "no procStart");
         assert!(claude.try_wait().unwrap().is_none(), "left running");
         let mut near = info_of(&claude);
         near.proc_start = (near.proc_start.parse::<u64>().unwrap() + 150).to_string();
-        assert!(stop(&near).is_ok(), "1.5 s off is within the slack");
+        assert!(stop(&near, false).is_ok(), "1.5 s off is within the slack");
         let status = wait_gone(&mut claude).expect("SIGTERM ended it");
         assert_eq!(status.signal(), Some(libc::SIGTERM));
-        assert!(stop(&info_of_gone(&claude)).is_err(), "a pid that is gone");
+        assert!(
+            stop(&info_of_gone(&claude), false).is_err(),
+            "a pid that is gone"
+        );
+    }
+
+    /// Force: the same checks, then SIGKILL (not SIGTERM).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_force_stop_sends_sigkill_after_the_same_checks() {
+        use std::os::unix::process::ExitStatusExt;
+        let t = Temp::new("force");
+        let mut claude = dummy(&t.0, "claude");
+        let mut wrong = info_of(&claude);
+        wrong.proc_start = String::new();
+        assert!(stop(&wrong, true).is_err(), "the checks apply to force too");
+        assert!(claude.try_wait().unwrap().is_none(), "left running");
+        assert!(stop(&info_of(&claude), true).is_ok());
+        let status = wait_gone(&mut claude).expect("SIGKILL ended it");
+        assert_eq!(status.signal(), Some(libc::SIGKILL));
     }
 
     fn info_of_gone(child: &Child) -> ProcInfo {
@@ -535,14 +589,49 @@ mod tests {
         }
     }
 
-    /// pid 1 and a pid of another user's process are never signalled.
+    /// pid 1, 0 and a negative pid are never signalled.
     #[cfg(target_os = "linux")]
     #[test]
-    fn pid_one_and_other_users_processes_are_refused() {
+    fn a_pid_of_one_or_less_is_refused() {
+        let mut child = Command::new("true").spawn().unwrap();
+        let mut info = info_of_gone(&child);
+        child.wait().unwrap();
         for pid in [1, 0, -1] {
-            let mut info = info_of_gone(&Command::new("true").spawn().unwrap());
             info.pid = pid;
-            assert!(stop(&info).is_err(), "pid {pid}");
+            assert!(stop(&info, false).is_err(), "pid {pid}");
+            assert!(stop(&info, true).is_err(), "pid {pid}, forced");
         }
+    }
+
+    /// The identity checks: all must hold; another user's process, a missing read and a wrong start or name each refuse.
+    #[test]
+    fn the_identity_checks_need_every_part() {
+        let claude = ["/home/u/.local/bin/claude"];
+        let ok =
+            |uid, ticks, start: &str, exe| identity_ok(uid, 1000, ticks, start, 100, exe, &claude);
+        assert!(ok(Some(1000), Some(500), "500", Some("/x/2.1.1")));
+        assert!(
+            !ok(Some(0), Some(500), "500", Some("/x/2.1.1")),
+            "uid mismatch"
+        );
+        assert!(!ok(Some(1001), Some(500), "500", Some("/x/2.1.1")));
+        assert!(!ok(None, Some(500), "500", Some("/x/2.1.1")), "no uid");
+        assert!(
+            !ok(Some(1000), None, "500", Some("/x/2.1.1")),
+            "no start time"
+        );
+        assert!(
+            !ok(Some(1000), Some(500), "900", Some("/x/2.1.1")),
+            "start differs"
+        );
+        assert!(!identity_ok(
+            Some(1000),
+            1000,
+            Some(500),
+            "500",
+            100,
+            Some("/usr/bin/vim"),
+            &["vim"]
+        ));
     }
 }

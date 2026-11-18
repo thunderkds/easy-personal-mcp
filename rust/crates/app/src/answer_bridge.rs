@@ -469,6 +469,8 @@ struct Held {
     procs_checked: Option<Instant>,
     /// T116 (FR-125): the text the owner queued for a busy terminal session, by session id; in memory, dropped at app exit.
     queued: HashMap<String, String>,
+    /// How many times a queued text was cancelled or replaced: a failed write puts its text back only if this did not move.
+    queue_edits: u64,
     answered: VecDeque<String>,
     /// Counts every change of the set, so the live stream sends a new snapshot.
     version: u64,
@@ -917,6 +919,7 @@ impl Bridge {
     fn queue(&self, session_id: &str, text: Option<String>) -> Queueable {
         let Some(text) = text else {
             let mut state = self.lock();
+            state.queue_edits += 1;
             if state.queued.remove(session_id).is_some() {
                 state.version += 1;
             }
@@ -928,6 +931,7 @@ impl Bridge {
             if state.closed {
                 return Queueable::NotListed;
             }
+            state.queue_edits += 1;
             state.queued.insert(session_id.to_string(), text);
             state.version += 1;
         }
@@ -940,18 +944,28 @@ impl Bridge {
         self.queue(session_id, Some(text.to_string()));
     }
 
-    /// FR-125: the text queued for `session_id`, left in place until [`Bridge::unqueue`].
-    fn queued_text(&self, session_id: &str) -> Option<String> {
-        self.lock().queued.get(session_id).cloned()
+    /// FR-125: takes the text queued for `session_id` out of the queue; with the edit counter at that moment.
+    fn take_queued(&self, session_id: &str) -> Option<(String, u64)> {
+        let mut state = self.lock();
+        let taken = state.queued.remove(session_id)?;
+        state.version += 1;
+        Some((taken, state.queue_edits))
     }
 
-    /// FR-125: drops the queued text after it was written to the hook's socket; not when the owner has replaced it since.
-    fn unqueue(&self, session_id: &str, text: &str) {
+    /// FR-125: puts a taken text back after a failed write; not when the owner cancelled or queued a text meanwhile (the
+    /// edit counter moved).
+    fn put_back(&self, session_id: &str, text: String, edits: u64) {
         let mut state = self.lock();
-        if state.queued.get(session_id).is_some_and(|t| t == text) {
-            state.queued.remove(session_id);
+        if !state.closed && state.queue_edits == edits && !state.queued.contains_key(session_id) {
+            state.queued.insert(session_id.to_string(), text);
             state.version += 1;
         }
+    }
+
+    /// The text queued for `session_id` (a test's look).
+    #[cfg(test)]
+    fn queued_text(&self, session_id: &str) -> Option<String> {
+        self.lock().queued.get(session_id).cloned()
     }
 
     /// The owner's answer: the first one wins and goes to the waiting hook.
@@ -1233,9 +1247,11 @@ fn serve_hook(mut stream: UnixStream, bridge: &Bridge) -> Option<()> {
 }
 
 /// FR-125: a `Stop` input (`stop_hook_active` false) of a session with a queued text is answered at once with the block
-/// JSON: no Live stream and no hold needed. `None`: nothing is queued for it (the usual path goes on); `Some`: it was answered,
-/// and whether the text was written. The text leaves the queue only after the socket took it (a hook that Esc just killed
-/// loses nothing), and not when the owner replaced it meanwhile.
+/// JSON: no Live stream and no hold needed. `None`: nothing is queued for it, or the session is not in the live list now (the
+/// text is dropped: a queued text must not outlive the page and reach a later resume) and the usual path goes on; `Some`: it
+/// was answered, and whether the text was written. The text is taken out under the lock before it is written (so a second
+/// hook cannot send it again) and put back when the socket did not take it (a hook that Esc just killed loses nothing), unless
+/// the owner queued or cancelled one meanwhile.
 fn queued_for(stream: &mut UnixStream, input: &Value, bridge: &Bridge) -> Option<Option<()>> {
     if text(input, "hook_event_name") != Some("Stop")
         || input.get("stop_hook_active") != Some(&Value::Bool(false))
@@ -1243,13 +1259,16 @@ fn queued_for(stream: &mut UnixStream, input: &Value, bridge: &Bridge) -> Option
         return None;
     }
     let session = text(input, "session_id").filter(|s| !s.is_empty() && s.len() <= ID_MAX)?;
-    let queued = bridge.queued_text(session)?;
+    let (queued, edits) = bridge.take_queued(session)?;
+    if bridge.listed(session, false) != Some(true) {
+        return None;
+    }
     let written = write_line(
         stream,
         &json!({"decision": "block", "reason": queued}).to_string(),
     );
-    if written.is_some() {
-        bridge.unqueue(session, &queued);
+    if written.is_none() {
+        bridge.put_back(session, queued, edits);
     }
     Some(written)
 }
@@ -3069,10 +3088,10 @@ mod tests {
         );
     }
 
-    /// AC 5: the text leaves the queue only after the socket took it: a hook that is gone loses nothing; and a text the
-    /// owner replaced meanwhile is not dropped by the delivery of the older one.
+    /// AC 5: a text is taken out before it is written and put back only when the socket did not take it: a hook that is gone
+    /// loses nothing; a text the owner queued meanwhile is not overwritten by the put-back; a taken text cannot go twice.
     #[test]
-    fn the_queued_text_stays_when_the_write_fails_or_it_was_replaced() {
+    fn the_queued_text_is_taken_before_the_write_and_put_back_only_when_it_failed() {
         let bridge = Bridge::default();
         bridge.queue("s1", Some("keep me".into()));
         let (mut ours, theirs) = UnixStream::pair().unwrap();
@@ -3084,10 +3103,50 @@ mod tests {
             queued_for(&mut ours, &stop_input("none", false, "x"), &bridge),
             None
         );
-        bridge.unqueue("s1", "older text");
-        assert_eq!(bridge.queued_text("s1").as_deref(), Some("keep me"));
-        bridge.unqueue("s1", "keep me");
-        assert_eq!(bridge.queued_text("s1"), None);
+        // taken, the owner queues a newer text, the older one's write fails: the newer stays
+        let (older, edits) = bridge.take_queued("s1").unwrap();
+        assert_eq!(
+            bridge.queued_text("s1"),
+            None,
+            "a second hook finds nothing"
+        );
+        bridge.queue("s1", Some("newer".into()));
+        bridge.put_back("s1", older, edits);
+        assert_eq!(bridge.queued_text("s1").as_deref(), Some("newer"));
+        // taken, the owner cancels meanwhile, the write fails: the text does not come back
+        let (taken, edits) = bridge.take_queued("s1").unwrap();
+        assert!(matches!(bridge.queue("s1", None), Queueable::Yes));
+        bridge.put_back("s1", taken, edits);
+        assert_eq!(bridge.queued_text("s1"), None, "a cancel stays a cancel");
+        // taken, nothing changes, the write fails: back; but not after the app closed
+        bridge.queue("s1", Some("again".into()));
+        let (taken, edits) = bridge.take_queued("s1").unwrap();
+        bridge.put_back("s1", taken, edits);
+        assert_eq!(bridge.queued_text("s1").as_deref(), Some("again"));
+        let (taken, edits) = bridge.take_queued("s1").unwrap();
+        bridge.close();
+        bridge.put_back("s1", taken, edits);
+        assert_eq!(bridge.queued_text("s1"), None, "not after the app closed");
+    }
+
+    /// P2 fix: a queued text is delivered only to a session the live list shows now; with the page gone it is dropped and the
+    /// `Stop` takes the usual path, so the text cannot reach a later resume of the session.
+    #[test]
+    fn a_queued_text_of_a_session_that_is_not_listed_is_dropped_not_delivered() {
+        let bridge = Bridge::default();
+        bridge.queue("s1", Some("late".into()));
+        *bridge.listing.lock().unwrap() = Listing::Nothing;
+        let (mut ours, mut theirs) = UnixStream::pair().unwrap();
+        assert_eq!(
+            queued_for(&mut ours, &stop_input("s1", false, "x"), &bridge),
+            None,
+            "no block line"
+        );
+        drop(ours);
+        let mut seen = String::new();
+        theirs.read_to_string(&mut seen).unwrap();
+        assert_eq!(seen, "", "nothing was written");
+        assert_eq!(bridge.queued_text("s1"), None, "the entry is gone");
     }
 
     /// AC 2: the page's extras hold `{busy, name}` of a process file and nothing else of it.

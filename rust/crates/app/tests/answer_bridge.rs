@@ -1641,6 +1641,12 @@ impl Dummy {
         self.0.try_wait().unwrap().is_none()
     }
 
+    /// The signal that ended the process (it must have ended).
+    fn signal(&mut self) -> Option<i32> {
+        use std::os::unix::process::ExitStatusExt;
+        self.0.wait().unwrap().signal()
+    }
+
     /// Writes the process file of session `sid` for this process (`start` overrides `procStart`).
     fn file(&self, home: &Home, sid: &str, start: Option<&str>, name: &str) {
         let pid = self.0.id();
@@ -1685,7 +1691,10 @@ fn stop_of_a_terminal_session_signals_only_a_checked_claude_process_and_leaks_no
     ended_turn(&home, "stale", "cli");
     ended_turn(&home, "headless", "sdk-cli");
     ended_turn(&home, "nofile", "cli");
+    ended_turn(&home, "forced", "cli");
     let mut claude = Dummy::new(&home, "claude");
+    let mut forced = Dummy::new(&home, "claude");
+    forced.file(&home, "forced", None, "x");
     let mut other = Dummy::new(&home, "something-else");
     let mut old = Dummy::new(&home, "claude");
     claude.file(&home, "busy", None, "PLANTED-NAME fix\nthe bug");
@@ -1736,7 +1745,19 @@ fn stop_of_a_terminal_session_signals_only_a_checked_claude_process_and_leaks_no
     assert_eq!(stop("busy", &json!({})).0, 400, "not confirmed");
     assert_eq!(stop("busy", &json!({"confirmed": false})).0, 400);
     assert_eq!(stop("busy", &json!({"confirmed": true, "x": 1})).0, 400);
-    assert!(claude.running());
+    for odd in [json!("yes"), json!(1), Value::Null, json!(["true"])] {
+        assert_eq!(
+            stop("busy", &json!({"confirmed": true, "force": odd})).0,
+            400,
+            "force must be a boolean: {odd}"
+        );
+    }
+    assert_eq!(
+        stop("busy", &json!({"force": true})).0,
+        400,
+        "force does not replace confirmed"
+    );
+    assert!(claude.running() && forced.running());
 
     assert_eq!(stop("nobody", &yes).0, 404, "no process file");
     assert_eq!(stop("nofile", &yes).0, 404);
@@ -1750,14 +1771,27 @@ fn stop_of_a_terminal_session_signals_only_a_checked_claude_process_and_leaks_no
             .is_some_and(|e| !e.contains('\n') && !e.contains(home.0.to_str().unwrap())),
         "one line, no path: {body}"
     );
+    let force = json!({"confirmed": true, "force": true});
+    assert_eq!(stop("nobody", &force).0, 404);
+    assert_eq!(stop("headless", &force).0, 409, "an app session, forced");
+    assert_eq!(stop("renamed", &force).0, 409, "not named claude, forced");
+    assert_eq!(stop("stale", &force).0, 409, "another start time, forced");
     assert!(
-        claude.running() && other.running() && old.running(),
+        claude.running() && forced.running() && other.running() && old.running(),
         "nothing was signalled"
     );
 
-    let (status, body) = stop("busy", &yes);
+    // force: false is the plain SIGTERM; force: true is SIGKILL
+    let soft = json!({"confirmed": true, "force": false});
+    assert_eq!(stop("forced", &force).1, json!({"ok": true}));
+    wait_for("the forced process to end", || !forced.running());
+    assert_eq!(forced.signal(), Some(9), "SIGKILL");
+    assert!(claude.running());
+
+    let (status, body) = stop("busy", &soft);
     assert_eq!((status, body), (200, json!({"ok": true})));
     wait_for("the claude process to end", || !claude.running());
+    assert_eq!(claude.signal(), Some(15), "SIGTERM");
     assert!(other.running() && old.running());
 
     let (_, alerts) = serve.request("GET", "/api/alerts", None, true);

@@ -301,6 +301,8 @@ WRITE_CALLS = [
     ("reply queue key as text type", "POST", "/api/reply/queue", '{"session_id":"x","text":["{key}"],"confirmed":true}'),
     ("live session stop key as id", "POST", "/api/live/sessions/{key}/stop", '{"confirmed":true}'),
     ("live session stop key as field", "POST", "/api/live/sessions/x/stop", '{"confirmed":true,"{key}":1}'),
+    ("live session stop force key as type", "POST", "/api/live/sessions/x/stop", '{"confirmed":true,"force":"{key}"}'),
+    ("live session stop force key as id", "POST", "/api/live/sessions/{key}/stop", '{"confirmed":true,"force":true}'),
     ("hooks key as account", "PUT", "/api/hooks", '{"account":"{key}","on":true,"confirmed":true}'),
     ("hooks key as field", "PUT", "/api/hooks", '{"account":"1","on":true,"confirmed":true,"{key}":1}'),
     ("workspace delete plan", "DELETE", "/api/workspaces/2", ""),
@@ -1286,7 +1288,10 @@ def bridge(run: Run, checks: list[str], canaries: Canaries) -> None:
             status, blob = request(port, "POST", "/api/live/sessions/bridge-queue/stop", base, json.dumps({"confirmed": True}).encode())
             run.add(f"bridge api POST /api/live/sessions/bridge-queue/stop -> {status}", blob)
             state["stop_status"] = status
-            state["stop_left"] = standin.poll() is None
+            status, blob = request(port, "POST", "/api/live/sessions/bridge-queue/stop", base, json.dumps({"confirmed": True, "force": True}).encode())
+            run.add(f"bridge api POST /api/live/sessions/bridge-queue/stop (force) -> {status}", blob)
+            state["stop_status"] = state["stop_status"] if status == 409 else status  # both the plain and the forced stop must be a 409
+            state["stop_left"] = standin.poll() is None  # neither the plain nor the forced stop signalled a process that is not Claude Code
             argv = [run.timeout, "-k", "5", "130", str(run.binary), "hook", "ask"]
             turn_end = {"hook_event_name": "Stop", "session_id": "bridge-queue", "stop_hook_active": False, "transcript_path": "/x/y.jsonl", "cwd": "/work/bridge",
                         "last_assistant_message": "done"}  # fmt: skip
