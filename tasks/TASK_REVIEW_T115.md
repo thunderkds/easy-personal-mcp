@@ -30,6 +30,8 @@ numbered decision, `Checks:`, `Memory:`, the `Not done:` auto verify slot with i
 naming the merge — no `<...>` left (`docs/claude-md/tracks.md` `### Auto close-out`).
 With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pass`, Notes `/verify by the user, session <id>, commit <sha>`.
 
+-->
+
 ## Auto decisions
 
 Mode: auto
@@ -39,8 +41,10 @@ Mode: auto
 4. Answer gains `start` (offset of the first entry) for Load earlier — RULE: T118 contract gap; smallest addition to the FR-123 shape
 Checks: tests `cargo test --workspace --no-fail-fast` — 1285 passed, 1 failed (`store_check` sigterm test, load-related; `--test store_check` alone 12 passed); leak gate `leak_rust.py` — 0 hits over 42 canaries, 1234 surfaces; reviews code-review — 0 P0/P1, 1 P2 + 3 P3 fixed in `ca9e153`, re-check of `ca9e153` no regression; security-review — no finding ≥ 8 (two same-user-write notes below the bar)
 Memory: memory/decisions.md — "2026-11-18 — Live like Claude: transcript on demand, queue, Stop/Force stop, past sessions, one panel" (+ MEMORY.md index line), `5c38bf4` on main
-Not done: owner smoke test (open a running terminal session in Live and read its conversation); auto verify: runs next
+Not done: merge (admin: after the auto verify pass); owner smoke test (open a running terminal session in Live and read its conversation); auto verify: runs next
 
+
+<!-- template:
 Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
@@ -60,7 +64,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/src/transcript.rs` tests (15: pairing across records, cut at 16,000 while building, 500 entries / 2 MB body both directions, after/before paging, mid-line offset, skipped runs, far orphans, `start`), `rust/crates/core/tests/transcript_golden.rs` + `transcript_golden/session.jsonl` (every record kind of claude 2.1.327), `rust/crates/app/src/transcript_route.rs` tests (6: live file re-read each call, past path from the store, 404 one line for gone/unknown/hostile/outside-roots files, guard); `rust/parity/leak_rust.py` T115 canaries |
 | Verification command run | ☑ pass | at `ca9e153`: `cargo fmt --check` ok; clippy `-D warnings` workspace and `--features window` rc 0; `cargo test --workspace --no-fail-fast` 1285 passed / 1 failed (`store_check::sigterm_stops_like_ctrl_c_and_the_private_copy_is_removed`, load; alone `12 passed; 0 failed; 1 ignored`); `leak check: 0 hits over 42 canaries, 1234 surfaces, 2828649 bytes` |
 | Negative cases hold | ☑ pass | mutation: an added `eprintln!` of the entry text made the leak gate print `HIT T115 transcript_user … [serve stderr]` (reverted); hostile files (symlink, FIFO, directory, 32 MB line, `/etc/passwd`, `..`, `.txt`, symlinked folder outside the roots) → 404; no token / wrong token / wrong Host / foreign Origin / query token → 403 |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
+| verify | ☑ pass | auto-run by hook, session 9cde4efc-3f82-4e1b-8602-083795893c8a, commit 3784378174060a0507d04f7548921e38280059f3, log .claude/verify-runs/T115-378437817406.log — pass |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review and security-review on `main...T115` (transcript.rs, transcript_route.rs, live.rs helpers, store.rs lookup, api.rs route, leak gate) plus callers; re-check of the fix commit `ca9e153` |
 | Full smoke suite still green (no regression) | ☑ pass | Rust 1285 + the load-flaky `store_check` target green alone; leak 0 hits
 | **Companion score (easy-verifier)** | ☑ N/A | not run: independent code and security reviews used instead | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
