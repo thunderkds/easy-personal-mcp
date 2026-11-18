@@ -43,6 +43,8 @@ const posted = (calls, path) => calls.filter((c) => c.url === path)
 const box = () => screen.getByRole('textbox', { name: /reply/i })
 const type = (text) => fireEvent.change(box(), { target: { value: text } })
 const reply = (over = {}) => replyHold(over)
+/** The reply box and the toggle are in the session's panel (T118): the row is opened first. */
+const openRow = () => fireEvent.click(document.querySelector('.live-row'))
 
 beforeEach(() => {
   FakeEventSource.instances = []
@@ -78,10 +80,11 @@ describe('AC1: the box of a session with pending_reply', () => {
     expect(screen.getByText('waits 54s more')).toBeInTheDocument()
   })
 
-  it('is drawn in the Live row of a session with a hold', () => {
+  it('is drawn in the panel of a session with a hold', () => {
     stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([holdSession('s1')]))
+    openRow()
     expect(screen.getByRole('button', { name: 'Hand back to terminal' })).toBeInTheDocument()
     expect(screen.getByText('Waiting on you for the next step.')).toBeInTheDocument()
   })
@@ -180,10 +183,11 @@ describe('AC3: Send', () => {
     expect(box()).toHaveValue('')
   })
 
-  it('the row returns to normal when pending_reply goes away', async () => {
+  it('the box goes away when pending_reply goes away', async () => {
     stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([holdSession('s1')]))
+    openRow()
     type('go')
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
     expect(await screen.findByText('sent')).toBeInTheDocument()
@@ -262,6 +266,7 @@ describe('AC5: the watch call', () => {
     const calls = stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([holdSession('s1', { pending_reply: undefined })]))
+    openRow()
     fireEvent.click(document.querySelector('.live-row'))
     await act(async () => vi.advanceTimersByTime(60_000))
     expect(watches(calls)).toHaveLength(0)
@@ -271,9 +276,11 @@ describe('AC5: the watch call', () => {
     const calls = stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([holdSession('s1')]))
-    expect(watches(calls)).toHaveLength(0)
-    fireEvent.click(document.querySelector('.live-row'))
+    expect(watches(calls)).toHaveLength(0) // the box is in the panel: nothing is watched until the panel is open
+    openRow()
     await waitFor(() => expect(watches(calls)).toHaveLength(1))
+    fireEvent.click(document.querySelector('.live-row')) // closing the panel ends the box and its watch
+    expect(screen.queryByRole('textbox', { name: /reply/i })).toBeNull()
   })
 })
 
@@ -285,6 +292,7 @@ describe('AC6: Reply from the app', () => {
     const calls = stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([idle()]))
+    openRow()
     await screen.findByRole('button', { name: 'Reply from the app' })
     expect(toggle()).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(toggle())
@@ -296,6 +304,7 @@ describe('AC6: Reply from the app', () => {
     const calls = stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([idle({ reply_marked: true })]))
+    openRow()
     await screen.findByRole('button', { name: 'Reply from the app' })
     expect(toggle()).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText(MARKED_NOTE)).toBeInTheDocument()
@@ -308,6 +317,7 @@ describe('AC6: Reply from the app', () => {
     stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([holdSession('s1', { reply_marked: true, reply_bridge: true })]))
+    openRow()
     await screen.findByRole('button', { name: 'Reply from the app' })
     expect(screen.queryByText(MARKED_NOTE)).toBeNull()
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument()
@@ -317,6 +327,7 @@ describe('AC6: Reply from the app', () => {
     const calls = stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([idle({ reply_bridge: undefined })]))
+    openRow()
     await act(async () => {})
     expect(screen.queryByRole('button', { name: 'Reply from the app' })).toBeNull()
     expect(calls.filter((c) => c.url === '/api/hooks')).toHaveLength(0)
@@ -326,6 +337,7 @@ describe('AC6: Reply from the app', () => {
     stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([idle({ reply_bridge: undefined })]))
+    openRow()
     expect(screen.queryByRole('button', { name: 'Reply from the app' })).toBeNull()
     stream().emit('snapshot', snapshotOf([idle()]))
     expect(screen.getByRole('button', { name: 'Reply from the app' })).toBeInTheDocument()
@@ -335,6 +347,7 @@ describe('AC6: Reply from the app', () => {
     stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([idle({ attention: [{ state: 'your_turn', count: 1 }] })]))
+    openRow()
     await act(async () => {})
     expect(screen.queryByRole('button', { name: 'Reply from the app' })).toBeNull()
   })
@@ -343,6 +356,7 @@ describe('AC6: Reply from the app', () => {
     stubFetch({ routes: { '/api/reply/mark': 404 } })
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([idle()]))
+    openRow()
     await screen.findByRole('button', { name: 'Reply from the app' })
     fireEvent.click(toggle())
     expect(await screen.findByRole('alert')).toHaveTextContent('no such session')
@@ -355,6 +369,7 @@ describe('AC7: nothing kept, token never in a URL', () => {
     const calls = stubFetch()
     render(<LiveView />)
     stream().emit('snapshot', snapshotOf([holdSession('s1')]))
+    openRow()
     type('a private request')
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
     await screen.findByText('sent')

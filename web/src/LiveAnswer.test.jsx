@@ -41,15 +41,22 @@ const session = (id, pending, over = {}) => ({
   tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0, ...(pending ? { pending_answer: pending } : {}), ...over,
 })
 const snapshot = (sessions) => ({ active_window_s: 300, last_id: 0, sessions })
+/** The card is in the session's panel (T118): the first session that holds a prompt is opened. */
+const openCard = (sessions) => {
+  const first = sessions.find((s) => s.pending_answer)
+  if (first) fireEvent.click(document.getElementById(`live-row-${first.session_id}`))
+}
 const show = (sessions) => {
   render(<LiveView />)
   stream().emit('snapshot', snapshot(sessions))
+  openCard(sessions)
 }
 
 /** `routes`: answer / release -> a status (200 default). Records every request. */
 function stubFetch(routes = {}) {
   const calls = []
   const f = vi.fn(async (url, init = {}) => {
+    if (String(url).endsWith('/transcript')) return { ok: false, status: 404, json: async () => ({ error: 'no conversation in this test' }) } // the panel's own read: not one of the answer calls
     calls.push({ url: String(url), init, body: init.body ? JSON.parse(init.body) : undefined })
     const status = (url === '/api/answer' ? routes.answer : routes.release) ?? 200
     const error = { 400: 'choose an option or type an answer for every question', 404: 'no such question or permission is waiting', 409: 'already answered' }[status]
@@ -314,7 +321,9 @@ describe('sorting and the rest of the row', () => {
     expect(ids).toEqual(['bbbbbbbb', 'aaaaaaaa'])
     const waiting = session('cccccccc-3', question(), { attention: [{ state: 'waiting', questions: ['Which database?'] }] })
     act(() => stream().emit('snapshot', snapshot([waiting])))
-    expect(document.querySelectorAll('.live-question')).toHaveLength(0)
+    expect(document.querySelectorAll('.live-question')).toHaveLength(1) // the panel is closed: the row shows the plain text
+    openCard([waiting])
+    expect(document.querySelectorAll('.live-question')).toHaveLength(0) // open: the card shows it, once
     expect(screen.getAllByText('Which database?')).toHaveLength(1)
   })
 })

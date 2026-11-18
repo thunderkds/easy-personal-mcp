@@ -94,3 +94,24 @@ export const releaseReply = (id) => sendJson('POST', '/api/reply/release', { id,
 export const watchReply = (sessionId) => sendJson('POST', '/api/reply/watch', { session_id: sessionId, confirmed: true })
 /** Mark (on) or unmark a session: its next hold lasts up to 10 minutes without watch calls. */
 export const markReply = (sessionId, on) => sendJson('POST', '/api/reply/mark', { session_id: sessionId, on, confirmed: true })
+
+/**
+ * One page of a session's transcript (FR-123): `{entries, next, complete}`. No offset reads the newest page; `after` is the byte offset to poll from
+ * (the last answer's `next`), `before` the offset to page back from. The text is read on demand and shown only: the token goes in the header, the
+ * query holds only an offset. A refused read throws with the server's one line (404: the file is gone or cannot be read).
+ */
+export async function getTranscript(sessionId, { after, before } = {}) {
+  const query = after !== undefined ? `?after=${Number(after)}` : before !== undefined ? `?before=${Number(before)}` : ''
+  const path = `/api/live/sessions/${encodeURIComponent(sessionId)}/transcript${query}`
+  const response = await fetch(path, { headers: { 'X-Dashboard-Token': readToken() } })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw failure(typeof data.error === 'string' && data.error ? data.error : `The conversation cannot be read (status ${response.status}).`, response.status)
+  }
+  return response.json()
+}
+
+/** Stop a terminal session (FR-124): SIGTERM after the server's checks; `force` sends SIGKILL (the caller has shown its own confirm). A refusal (409) throws with its one line. */
+export const stopSession = (sessionId, { force = false } = {}) => sendJson('POST', `/api/live/sessions/${encodeURIComponent(sessionId)}/stop`, force ? { confirmed: true, force: true } : { confirmed: true })
+/** Queue a text for a busy terminal session's next turn end (FR-125); a second call replaces it, `null` cancels. */
+export const queueReply = (sessionId, text) => sendJson('POST', '/api/reply/queue', { session_id: sessionId, text, confirmed: true })

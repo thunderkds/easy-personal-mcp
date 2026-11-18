@@ -145,7 +145,8 @@ function Shell() {
   const [active, setActive] = useState(start === undefined ? 'usage' : 'live')
   const [wantedId, setWantedId] = useState(start ?? null) // the session to select; given up WANT_MS after the first snapshot, once selected, when the owner opens a row, or when Live is left
   const [menuOpen, setMenuOpen] = useState(false)
-  const [appTarget, setAppTarget] = useState(null) // what the App sessions page does when it opens: {newFor: workspace name} or {open: app session id} (T104)
+  const [appTarget, setAppTarget] = useState(null) // what the App sessions page does when it opens: {newFor: workspace name}, {resume} or {continueIn} (T104)
+  const [wantedApp, setWantedApp] = useState(null) // an app session just started: Live opens its panel (T118, FR-128)
   const [chosen, setChosen] = useState(readScope)
   const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064); not remembered across reloads
   const [options, setOptions] = useState(undefined)
@@ -165,7 +166,10 @@ function Shell() {
     return () => clearTimeout(timer)
   }, [wantedId, loaded])
   useEffect(() => {
-    if (active !== 'live') setWantedId(null) // leaving Live drops a wish that is still pending
+    if (active !== 'live') {
+      setWantedId(null) // leaving Live drops a wish that is still pending
+      setWantedApp(null)
+    }
   }, [active])
 
   useEffect(() => {
@@ -219,7 +223,12 @@ function Shell() {
     setMenuOpen(false)
   }, [])
   const newAppSession = useCallback((workspace) => openApp({ newFor: workspace }), [openApp])
-  const openAppSession = useCallback((id) => openApp({ open: id }), [openApp])
+  const openAppSession = useCallback((id) => {
+    setWantedApp(id)
+    setActive('live')
+    setMenuOpen(false)
+  }, [])
+  const wantedAppUsed = useCallback(() => setWantedApp(null), [])
   const resumeInApp = useCallback((resume) => openApp({ resume }), [openApp])
   const continueInApp = useCallback((workspace, repo) => openApp({ continueIn: { workspace, repo } }), [openApp])
   const scope = options ? validScope(chosen, options) : NO_SCOPE
@@ -323,6 +332,9 @@ function Shell() {
                 onOpenUsage={() => setActive('usage')}
                 onNewSession={newAppSession}
                 onOpenAppSession={openAppSession}
+                appSessions
+                wantedApp={wantedApp}
+                onWantedAppUsed={wantedAppUsed}
                 onResumeInApp={resumeInApp}
                 onContinueInApp={continueInApp}
                 target={appTarget}
@@ -339,7 +351,8 @@ function Shell() {
           {options !== undefined && <Rail scope={scope} period={period} refresh={options} onOpenPlan={() => setActive('warnings')} />}
         </div>
       </div>
-      <FirstOpenPrompt accounts={options?.accounts} suppressed={active === 'first-run' || active === 'settings'} />
+      {/* A modal never covers the Live view: the question cards of every session are there (T118, FR-128), so the one-time prompt waits for another view. */}
+      <FirstOpenPrompt accounts={options?.accounts} suppressed={active === 'first-run' || active === 'settings' || active === 'live'} />
     </div>
   )
 }
