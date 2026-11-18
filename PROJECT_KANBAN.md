@@ -9,14 +9,14 @@
 ## Board
 
 ### Todo
-- [ ] **T115** — Live like Claude 1 — the transcript route (fifth exception of NFR-002) | backend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T115.md` (2026-11-18); PRD FR-123, question 45, DDR-0007
-- [ ] **T116** — Live like Claude 2 — session process files, Stop a terminal session, the queue | backend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T116.md`; FR-124, FR-125
-- [ ] **T117** — Live like Claude 3 — past sessions and own names | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T117.md`; FR-126, FR-127
-- [ ] **T118** — Live like Claude 4 — one panel for every session | frontend-developer | C3 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T118.md`; FR-128; Depends on T115, T116
 - [ ] **T119** — Live like Claude 5 — filters, names, past sessions | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T119.md`; FR-128; Depends on T117, T118
 - [ ] **T113** — Workflow placement moves into the live service — each agent's step comes in the live snapshot | backend-developer | C2 | Risk: Medium | P2
 
 ### In Progress
+- [ ] **T118** — Live like Claude 4 — one panel for every session | frontend-developer | C3 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T118.md`; FR-128; Depends on T115, T116; started 2026-11-18: worktree `easy-personal-mcp-wt/T118`, branch `T118` from `main`
+- [ ] **T117** — Live like Claude 3 — past sessions and own names | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T117.md`; FR-126, FR-127; started 2026-11-18: worktree `easy-personal-mcp-wt/T117`, branch `T117` from `main`
+- [ ] **T116** — Live like Claude 2 — session process files, Stop a terminal session, the queue | backend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T116.md`; FR-124, FR-125; started 2026-11-18: worktree `easy-personal-mcp-wt/T116`, branch `T116` from `main`
+- [ ] **T115** — Live like Claude 1 — the transcript route (fifth exception of NFR-002) | backend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T115.md` (2026-11-18); PRD FR-123, question 45, DDR-0007; started 2026-11-18: worktree `easy-personal-mcp-wt/T115`, branch `T115` from `main`
 
 ### Ready for Review
 - [ ] **T112** — Reply to idle sessions 2 — the reply box and *Reply from the app* in the Live view | frontend-developer | C2 | Risk: Medium | P1 | started 2026-11-18: worktree `easy-personal-mcp-wt/T112`, branch `T112` from `T111`; Depends on T111; PRD FR-122; built + Stage 4 2026-11-18 (`a3ad637`): code-review 0 P0/P1, 1 P2 + 5 P3 fixed (`5664316`); security-review no finding ≥ 8 (twice); owner chose the server flag `reply_bridge` (`babf7f7`); web 1294, Rust 1263 / 0, leak 0 hits | auto verify pass (`a3ad637`); merged to `main` 2026-11-18 (`cd27c37`, [admin]); .deb rebuilt
