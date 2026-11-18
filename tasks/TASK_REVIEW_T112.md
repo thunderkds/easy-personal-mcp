@@ -33,16 +33,11 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
-1. <what was decided> — RULE: <the rule>
-2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review
-4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
-Paused: <only when a stop that stays paused the task: which one, and why>
-Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
-Memory: <each entry the memory pass wrote, as `file — entry` | nothing new>
-Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | /verify (yours), with [admin] only after the one retry also ended blocked>
-
--->
+1. Mark state comes from the server's `reply_marked` (T111 decision 4, DEBATED A), not page memory — FACT: tasks/TASK_REVIEW_T111.md decision 4 "a per-session `reply_marked: true` in the `GET /api/live` snapshot"
+2. Every reply route is sent with `confirmed: true` (watch and mark too), as FR-116 requires of every write route — FACT: PRD.md:213 "Every write route of FR-109..FR-114 keeps the NFR-008 guard and needs `confirmed: true` in its body"
+Checks: build pending (frontend agent)
+Memory: nothing new yet
+Not done: build; Stage 4; auto verify; merge (admin: after the auto verify pass)
 
 ## Evidence
 
@@ -68,8 +63,15 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Supervisor, before any T112 implementation commit; worktree `T112` at `13508b5`):
+```
+$ date -u; git log -1 --oneline; grep -c "pending_reply\|reply_marked\|sendReply" web/src/*.jsx web/src/api.js | grep -v ':0'; ls web/src/ReplyBox.jsx
+2026-11-18T05:31:21Z
+13508b5 T112: review file from main
+web: no pending_reply / reply_marked / sendReply anywhere
+ls: cannot access 'web/src/ReplyBox.jsx': No such file or directory
+```
+(The server sends `pending_reply` and `reply_marked` since T111, but the page reads neither: no reply box, no *Reply from the app* toggle.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
