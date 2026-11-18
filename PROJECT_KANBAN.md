@@ -10,9 +10,9 @@
 
 ### Todo
 - [ ] **T112** — Reply to idle sessions 2 — the reply box and *Reply from the app* in the Live view | frontend-developer | C2 | Risk: Medium | P1
-- [ ] **T111** — Reply to idle sessions 1 — `hook ask` on `Stop`, the hold, `/api/reply*`, `pending_reply` | backend-developer | C3 | Risk: High | P1
 
 ### In Progress
+- [ ] **T111** — Reply to idle sessions 1 — `hook ask` on `Stop`, the hold, `/api/reply*`, `pending_reply` | backend-developer | C3 | Risk: High | P1 | started 2026-11-18: worktree `easy-personal-mcp-wt/T111`, branch `T111` from `T110` (spike findings); Depends on T110; PRD FR-121
 
 ### Ready for Review
 - [ ] **T110** — Reply to idle sessions 0 — spike: prove the Stop-hook reply on the installed `claude` | backend-developer | C2 | Risk: High | P1 | started 2026-11-18: worktree `easy-personal-mcp-wt/T110`, branch `T110` (spike; PRD question 42 decided by the owner); built + Stage 4 2026-11-18 (`4b46f62`): all 8 ACs GO (claude 2.1.327), security-review 1 Medium fixed (per-run 0700 temp folder); hold rule decided by the owner (hybrid) → FR-121/FR-122
