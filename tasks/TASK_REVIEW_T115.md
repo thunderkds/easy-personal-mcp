@@ -30,6 +30,8 @@ numbered decision, `Checks:`, `Memory:`, the `Not done:` auto verify slot with i
 naming the merge — no `<...>` left (`docs/claude-md/tracks.md` `### Auto close-out`).
 With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pass`, Notes `/verify by the user, session <id>, commit <sha>`.
 
+-->
+
 ## Auto decisions
 
 Mode: auto
@@ -41,6 +43,8 @@ Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T1
 Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
 Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
 
+
+<!-- template:
 Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
