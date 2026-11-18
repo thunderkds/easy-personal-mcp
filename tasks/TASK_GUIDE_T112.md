@@ -31,7 +31,7 @@ Owner 2026-11-18: "if the agent is idle, I can input the request to the live ses
 | 3 | Send → `POST /api/reply {id, text, confirmed: true}`; on 200 the box shows "sent" and the row returns to normal when `pending_reply` goes away; 409 → "This session is no longer waiting"; other errors show the server's one line and keep the text | FR-122 |
 | 4 | **Hand back to terminal** → `POST /api/reply/release {id}` | FR-122 |
 | 5 | While the row is open or the box has focus, the page sends `POST /api/reply/watch {session_id}` every 20 s (fake timers test); closing the row or blur + closed row stops it; no call for a session without `pending_reply` | FR-121, FR-122 |
-| 6 | A bridge-enabled terminal session that is not your turn shows the toggle **Reply from the app** (`aria-pressed`) → `POST /api/reply/mark {session_id, on}`; a marked idle session without a hold says "marked: it waits for you at its next turn end" | FR-122 |
+| 6 | A bridge-enabled terminal session (server `reply_bridge: true` in the live snapshot, from the account's hook status by account id; owner decision 2026-11-18) that is not your turn shows the toggle **Reply from the app** (`aria-pressed`) → `POST /api/reply/mark {session_id, on}`; a marked idle session without a hold says "marked: it waits for you at its next turn end" | FR-122 |
 | 7 | The token is never in a URL; nothing of the text in `localStorage`; text typed during a failed send is kept | FR-115, NFR-008 |
 | 8 | Settings bridge block (`AnswerBridge.jsx`) names the third entry and shows `on (no reply)` with **Turn on** to add it | FR-113 |
 | 9 | `ux-evaluate` at 375 and 1280 (row with a hold, marked row, sent, 409): no horizontal page scroll; touch targets ≥ 44 px at 375; tokens only | FR-122 |
@@ -50,7 +50,7 @@ Owner 2026-11-18: "if the agent is idle, I can input the request to the live ses
 ## Files must NOT touch
 | File | Reason |
 |------|--------|
-| `rust/**` | T111 |
+| `rust/**` except the `reply_bridge` flag (owner decision 2026-11-18, review decision 3): `rust/crates/app/src/live_feed.rs`, `answer_bridge.rs`/`hooks_cmd.rs` (status per account id), `rust/crates/core/src/live.rs` (carry the account id), leak test | T111 owns the rest |
 | `src/easy_personal/**` | Python app |
 
 ## Verification Command
