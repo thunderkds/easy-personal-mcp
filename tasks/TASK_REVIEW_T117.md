@@ -35,6 +35,8 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 Mode: auto
 1. Past sessions listed from the store's `events` metadata, no schema change — FACT: rust/crates/core/src/schema_v11.sql:79 "session_id                  TEXT,"
 2. Own names in one owner-only file `session_names.json` — RULE: FR-119 pattern (owner-only file, temp + rename)
+3. Past sessions with no `from`: default window of the last 30 days (ts index), stated in the answer; any explicit `from` lifts it — DEBATED: (c) 30-day default (Advocate 1: 30-day default, the only option within no-schema-change and fast at real scale; Advocate 2: 30-day default with a visible "Show older") ⚠ decided for you — please review
+4. Kind filter `terminal|headless` only; the page marks app sessions from its live app-session list — FACT: reviewer, real store 2026-11-18: entrypoints are only `cli`, `claude-desktop`, `sdk-cli` and empty, so app and headless runs cannot be told apart in the store
 Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T117`); tests, code-review, security-review and the auto verify run follow when it reports
 Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
 Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
