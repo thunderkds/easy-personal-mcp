@@ -68,3 +68,21 @@ export const setHooks = (account, on) => sendJson('PUT', '/api/hooks', { account
 export const answerPrompt = (id, fields) => sendJson('POST', '/api/answer', { ...fields, id, confirmed: true })
 /** Hand a prompt back to the terminal. */
 export const releasePrompt = (id) => sendJson('POST', '/api/answer/release', { id, confirmed: true })
+
+/** App sessions (FR-109..FR-111). The list `{sessions, max}`, or null when the server has no such route (404: the Python server). Every id goes in the path as text. */
+export const getAppSessions = () =>
+  getJson('/api/app-sessions').catch((error) => {
+    if (error.status === 404) return null
+    throw error
+  })
+/** Start one from the form's fields only (the caller has shown the confirm step). Answers 202 `{id}`. */
+export const startAppSession = (form) => sendJson('POST', '/api/app-sessions', { ...form, confirmed: true })
+const appPath = (id, action) => `/api/app-sessions/${encodeURIComponent(id)}/${action}`
+/** One more user message, sent as typed. Each of these answers the session as the list has it. */
+export const sendAppMessage = (id, text) => sendJson('POST', appPath(id, 'message'), { text, confirmed: true })
+export const interruptAppSession = (id) => sendJson('POST', appPath(id, 'interrupt'), { confirmed: true })
+export const stopAppSession = (id) => sendJson('POST', appPath(id, 'stop'), { confirmed: true })
+/** Answer a prompt card: `{behavior: 'allow' | 'deny', updatedInput?: {answers}, message?}`. */
+export const answerAppPrompt = (id, promptId, fields) => sendJson('POST', appPath(id, 'answer'), { ...fields, prompt_id: promptId, confirmed: true })
+/** Close the panel of an ended session: its text is dropped on the server. */
+export const closeAppSession = (id) => sendJson('POST', appPath(id, 'close'), { confirmed: true })

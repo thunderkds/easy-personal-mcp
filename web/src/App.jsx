@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import AgentsView from './AgentsView.jsx'
+import AppSessions from './AppSessions.jsx'
 import BoardView from './BoardView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
@@ -26,6 +27,7 @@ const GROUPS = [
     label: '// work',
     tabs: [
       { id: 'live', label: 'Live', View: LiveView },
+      { id: 'app-sessions', label: 'App sessions', View: AppSessions },
       { id: 'watch', label: 'Watch', View: WatchView },
       { id: 'board', label: 'Board', View: BoardView, scoped: true },
       { id: 'scheduled', label: 'Scheduled', View: JobsView },
@@ -135,6 +137,7 @@ function Shell() {
   const [active, setActive] = useState(start === undefined ? 'usage' : 'live')
   const [wantedId, setWantedId] = useState(start ?? null) // the session to select; given up WANT_MS after the first snapshot, once selected, when the owner opens a row, or when Live is left
   const [menuOpen, setMenuOpen] = useState(false)
+  const [appTarget, setAppTarget] = useState(null) // what the App sessions page does when it opens: {newFor: workspace name} or {open: app session id} (T104)
   const [chosen, setChosen] = useState(readScope)
   const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064); not remembered across reloads
   const [options, setOptions] = useState(undefined)
@@ -201,6 +204,14 @@ function Shell() {
   }, [])
 
   const wantedUsed = useCallback(() => setWantedId(null), [])
+  const appTargetUsed = useCallback(() => setAppTarget(null), [])
+  const openApp = useCallback((target) => {
+    setAppTarget(target)
+    setActive('app-sessions')
+    setMenuOpen(false)
+  }, [])
+  const newAppSession = useCallback((workspace) => openApp({ newFor: workspace }), [openApp])
+  const openAppSession = useCallback((id) => openApp({ open: id }), [openApp])
   const scope = options ? validScope(chosen, options) : NO_SCOPE
   const choose = (next) => {
     setChosen(next)
@@ -300,6 +311,10 @@ function Shell() {
                 onOpenWorkspaces={() => setActive('workspaces')}
                 onOpenSettings={() => setActive('settings')}
                 onOpenUsage={() => setActive('usage')}
+                onNewSession={newAppSession}
+                onOpenAppSession={openAppSession}
+                target={appTarget}
+                onTargetUsed={appTargetUsed}
                 onCheckAgain={checkFirstRun}
                 onAccountsChanged={reloadOptions}
                 period={period}
