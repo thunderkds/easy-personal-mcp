@@ -19,7 +19,7 @@ const EMPTY = { sessions: {}, lastId: 0, windowS: DEFAULT_WINDOW_S }
 const priced = (cost) => cost !== null && cost !== undefined
 const hasTokens = (tokensIn, tokensOut) => (tokensIn ?? 0) + (tokensOut ?? 0) > 0
 
-const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced', 'stage', 'stage_skill', 'replyMarked', 'replyBridge', 'name', 'branch']
+const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced', 'stage', 'stage_skill', 'replyMarked', 'replyBridge', 'name', 'branch', 'entrypoint']
 
 const text = (v) => (typeof v === 'string' && v !== '' ? v : null)
 /** The process file's part of a snapshot row (T116, FR-124): `{busy, name}` or null. The server's word, shown as it came. */
@@ -59,6 +59,7 @@ function fromSnapshot(s, old) {
     queued: readQueued(s.queued), // the text waiting for this session's turn end (T116)
     name: text(s.name), // the owner's own name for the session (T117, FR-127); the page only shows it
     branch: text(s.branch),
+    entrypoint: text(s.entrypoint), // Claude Code's entrypoint, when the snapshot carries it: `sdk…` is a headless run
     feed: old?.feed ?? [],
   }
   // A session the snapshot did not change keeps its object, so its memoized row does not draw again.

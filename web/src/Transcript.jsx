@@ -17,18 +17,37 @@ function labelText(label) {
   return ''
 }
 
-/** New entries into the list. A tool call that is already listed (same id) is replaced in place: its result may have come since. */
+const keep = (a, b) => (b === null || b === undefined ? a : b)
+/** A tool entry merged with the one already listed under its id, field by field: a null never replaces a value (a result may come before its call, or alone). */
+function joinTool(old, e) {
+  const out = { ...old, ...e }
+  for (const f of ['name', 'label', 'input', 'result']) out[f] = keep(old[f], e[f])
+  out.orphan = old.orphan === true && e.orphan === true // the call was seen: no longer an orphan
+  out.cut = old.cut === true || e.cut === true
+  out.is_error = old.is_error === true || e.is_error === true
+  return out
+}
+
+/** New entries into the list. A tool entry whose id is already listed is merged in place, in either order of call and result. */
 function merge(old, incoming, tag, front) {
   const list = [...old]
   const fresh = []
   for (const e of incoming) {
-    const at = e.kind === 'tool' && isName(e.id) ? list.findIndex((x) => x.kind === 'tool' && x.id === e.id) : -1
-    if (at >= 0) list[at] = { ...e, k: list[at].k }
+    if (e.kind !== 'tool' || !isName(e.id)) {
+      fresh.push({ ...e, k: tag() })
+      continue
+    }
+    const at = list.findIndex((x) => x.kind === 'tool' && x.id === e.id)
+    const dup = fresh.findIndex((x) => x.kind === 'tool' && x.id === e.id)
+    if (at >= 0) list[at] = { ...joinTool(list[at], e), k: list[at].k }
+    else if (dup >= 0) fresh[dup] = { ...joinTool(fresh[dup], e), k: fresh[dup].k }
     else fresh.push({ ...e, k: tag() })
   }
   return front ? [...fresh, ...list] : [...list, ...fresh]
 }
 
+/** Where the page starts in the file: the answer's `start`, else the first entry's `offset`; null when neither is a number. */
+const startOf = (page) => (typeof page.start === 'number' ? page.start : typeof page.entries[0]?.offset === 'number' ? page.entries[0].offset : null)
 const readPage = (page) => (page && typeof page === 'object' && Array.isArray(page.entries) ? page : null)
 
 function useTranscript(sessionId) {
@@ -52,7 +71,7 @@ function useTranscript(sessionId) {
         if (!current) return
         if (!page) return fail(new Error('The conversation came in a shape this page cannot read.'))
         if (typeof page.next === 'number') next.current = page.next
-        if (first) startRef.current = typeof page.start === 'number' ? page.start : null
+        if (first) startRef.current = startOf(page)
         setState((s) => ({
           status: 'ready',
           message: '',
@@ -82,7 +101,8 @@ function useTranscript(sessionId) {
     try {
       const page = readPage(await getTranscript(sessionId, { before: startRef.current }))
       if (!page) throw new Error('The earlier part came in a shape this page cannot read.')
-      startRef.current = typeof page.start === 'number' && page.start < startRef.current ? page.start : null
+      const s = startOf(page)
+      startRef.current = s !== null && s < startRef.current ? s : null
       setState((s) => ({ ...s, entries: merge(s.entries, page.entries, tag, true), start: startRef.current, earlier: false, stale: false }))
     } catch {
       setState((s) => ({ ...s, earlier: false, stale: true }))
@@ -105,7 +125,8 @@ function Block({ text, label }) {
 /** One tool call: folded to its label; a click opens its input and its result. */
 function Tool({ e }) {
   const [open, setOpen] = useState(false)
-  const label = [isName(e.name) ? e.name : 'a tool', labelText(e.label)].filter(Boolean).join(' · ')
+  const orphan = e.orphan === true && !isName(e.name)
+  const label = orphan ? 'result of an earlier call' : [isName(e.name) ? e.name : 'a tool', labelText(e.label)].filter(Boolean).join(' · ')
   const input = textOf(e.input)
   const result = textOf(e.result)
   return (

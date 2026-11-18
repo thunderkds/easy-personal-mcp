@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LiveView from './LiveView.jsx'
 import { TRANSCRIPT_POLL_MS } from './Transcript.jsx'
 import { BRIDGE_OFF, QUEUE_NOTE } from './Composer.jsx'
-import { STOP_SENT } from './SessionPanel.jsx'
+import { FORCE_WAIT_MS, STILL_RUNNING, STOP_SENT } from './SessionPanel.jsx'
 import { FakeEventSource, entryAssistant, entryReply, entrySkipped, entryTool, entryUser, liveRow, liveServer, page, snapshot, stream } from './test/liveStream.js'
 
 // The one Live panel for a terminal session (T118, FR-128): header, the conversation read from the T115 route, the cards, the composer by state
@@ -57,6 +57,16 @@ describe('header (AC 2)', () => {
     await open(liveServer(), { name: 'the owner name', proc: { busy: false, name: 'claude name' } })
     expect(within(panel()).getByRole('heading', { name: 'the owner name' })).toBeInTheDocument()
     expect(within(panel()).getByText('idle', { selector: '.session-state' })).toBeInTheDocument()
+  })
+
+  it('the kind: terminal; headless when the entrypoint starts with sdk', async () => {
+    await open(liveServer(), { entrypoint: 'cli' })
+    expect(within(panel()).getByText('Kind', { selector: 'dt' }).nextSibling).toHaveTextContent('terminal')
+  })
+
+  it('a headless session says headless', async () => {
+    await open(liveServer(), { entrypoint: 'sdk-cli' })
+    expect(within(panel()).getByText('Kind', { selector: 'dt' }).nextSibling).toHaveTextContent('headless')
   })
 
   it('moves the focus to the heading when the owner opens it', async () => {
@@ -126,6 +136,49 @@ describe('the conversation (AC 2)', () => {
     expect(within(log()).queryByText('total 0')).toBeNull()
   })
 
+  describe('a result and its call, in either order (T115 orphan results)', () => {
+    const fold = (re) => within(log()).getByRole('button', { name: re })
+    const detail = (name, re) => within(log()).getByLabelText(`${name} of ${re}`)
+
+    it('call then result: one entry, the result joins the call and the call\'s name, label and input stay', async () => {
+      vi.useFakeTimers()
+      const server = liveServer({ pages: [page([entryTool('t1', { result: null })], { next: 50 }), page([{ kind: 'tool', id: 't1', orphan: true, name: null, label: null, input: null, result: 'done now', is_error: false }], { next: 90 })] })
+      await open(server)
+      await settle()
+      await tick(TRANSCRIPT_POLL_MS)
+      expect(within(log()).getAllByRole('button', { name: /Bash/ })).toHaveLength(1)
+      fireEvent.click(fold(/Bash · ls/))
+      expect(detail('Input', 'Bash · ls')).toHaveTextContent('ls -la')
+      expect(detail('Result', 'Bash · ls')).toHaveTextContent('done now')
+      expect(within(log()).queryByText('result of an earlier call')).toBeNull()
+    })
+
+    it('result then call: the later call fills the name, label and input of the entry the result made, in the same place', async () => {
+      vi.useFakeTimers()
+      const orphan = { kind: 'tool', id: 't1', orphan: true, name: null, label: null, input: null, result: 'the output', is_error: false }
+      const server = liveServer({ pages: [page([entryUser('first'), orphan], { next: 50 }), page([entryTool('t1', { result: null })], { next: 90 })] })
+      await open(server)
+      await settle()
+      expect(within(log()).getByRole('button', { name: /result of an earlier call/ })).toBeInTheDocument()
+      await tick(TRANSCRIPT_POLL_MS)
+      expect(within(log()).queryByText('result of an earlier call')).toBeNull()
+      expect(within(log()).getAllByRole('button', { name: /Bash · ls/ })).toHaveLength(1)
+      fireEvent.click(fold(/Bash · ls/))
+      expect(detail('Input', 'Bash · ls')).toHaveTextContent('ls -la')
+      expect(detail('Result', 'Bash · ls')).toHaveTextContent('the output') // a null result never replaces the one already shown
+    })
+
+    it('a result without its call is shown as "result of an earlier call", with its error tag', async () => {
+      await open(liveServer({ pages: [page([{ kind: 'tool', id: 'gone', orphan: true, name: null, label: null, input: null, result: 'late output', is_error: true }])] }))
+      const orphan = await within(log()).findByRole('button', { name: /result of an earlier call/ })
+      expect(within(log()).getByText('error')).toBeInTheDocument()
+      expect(within(log()).queryByText('a tool')).toBeNull()
+      fireEvent.click(orphan)
+      expect(detail('Result', 'result of an earlier call')).toHaveTextContent('late output')
+      expect(within(log()).getByText('No input.')).toBeInTheDocument()
+    })
+  })
+
   it('a long block scrolls inside itself, and a cut block says so', async () => {
     await open(liveServer({ pages: [page([entryUser('x'.repeat(16_000), { cut: true }), entryTool('t1', { result: 'y'.repeat(16_000), cut: true })])] }))
     expect(await within(log()).findAllByText('Cut at 16,000 characters')).toHaveLength(1)
@@ -157,6 +210,17 @@ describe('the conversation (AC 2)', () => {
     const texts = [...log().querySelectorAll('.turn-text')].map((p) => p.textContent)
     expect(texts).toEqual(['older one', 'older two', 'newest'])
     expect(screen.queryByRole('button', { name: 'Load earlier' })).toBeNull() // the file starts here
+  })
+
+  it('with no `start` the first entry\'s `offset` says where the page starts; offset 0 means the file starts here', async () => {
+    const server = liveServer({
+      pages: (q) => (q.has('before') ? page([entryUser('older', { offset: 0 })], { start: 0 }) : page([entryUser('newest', { offset: 300 })], { next: 900 })),
+    })
+    await open(server)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load earlier' }))
+    expect(await within(log()).findByText('older')).toBeInTheDocument()
+    expect(server.reads().at(-1).search).toBe('?before=300')
+    expect(screen.queryByRole('button', { name: 'Load earlier' })).toBeNull()
   })
 
   it('no start offset, no Load earlier button', async () => {
@@ -363,6 +427,61 @@ describe('Stop of a terminal session (AC 5)', () => {
     fireEvent.click(within(panel()).getByRole('button', { name: 'Stop session aaaaaaaa' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('that process is not a claude session of yours')
     expect(within(panel()).getByRole('button', { name: 'Stop' })).toBeEnabled()
+  })
+
+  it('a stop that was accepted and a session still listed after 5 s says so and offers Force stop; its confirm warns, then posts force: true', async () => {
+    vi.useFakeTimers()
+    const server = liveServer({ pages: [page([])] })
+    await open(server, { project: 'alpha' })
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Stop' }))
+    await act(async () => {
+      fireEvent.click(within(panel()).getByRole('button', { name: 'Stop session aaaaaaaa' }))
+    })
+    expect(server.posts('/stop')[0].body).toEqual({ confirmed: true })
+    expect(screen.getByText(STOP_SENT)).toBeInTheDocument()
+    expect(within(panel()).queryByRole('button', { name: 'Force stop' })).toBeNull()
+    await tick(FORCE_WAIT_MS - 100)
+    expect(within(panel()).queryByRole('button', { name: 'Force stop' })).toBeNull() // not before 5 s
+    await tick(200)
+    expect(screen.getByText(STILL_RUNNING)).toBeInTheDocument()
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Force stop' }))
+    const confirm = within(panel()).getByRole('group', { name: 'Confirm force stop' })
+    expect(confirm).toHaveTextContent('may leave the last transcript line half written')
+    expect(server.posts('/stop')).toHaveLength(1) // nothing more is sent before the confirm
+    await act(async () => {
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Force stop session aaaaaaaa' }))
+    })
+    expect(server.posts('/stop')).toHaveLength(2)
+    expect(server.posts('/stop')[1].body).toEqual({ confirmed: true, force: true })
+  })
+
+  it('a session that leaves the list within 5 s never offers Force stop', async () => {
+    vi.useFakeTimers()
+    const server = liveServer({ pages: [page([])] })
+    await open(server)
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Stop' }))
+    await act(async () => {
+      fireEvent.click(within(panel()).getByRole('button', { name: 'Stop session aaaaaaaa' }))
+    })
+    act(() => stream().emit('snapshot', snapshot([])))
+    await tick(FORCE_WAIT_MS * 2)
+    expect(screen.queryByRole('button', { name: 'Force stop' })).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
+  })
+
+  it('"Keep waiting" in the force confirm posts nothing and goes back to Force stop', async () => {
+    vi.useFakeTimers()
+    const server = liveServer({ pages: [page([])] })
+    await open(server)
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Stop' }))
+    await act(async () => {
+      fireEvent.click(within(panel()).getByRole('button', { name: 'Stop session aaaaaaaa' }))
+    })
+    await tick(FORCE_WAIT_MS + 100)
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Force stop' }))
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Keep waiting' }))
+    expect(within(panel()).getByRole('button', { name: 'Force stop' })).toBeInTheDocument()
+    expect(server.posts('/stop')).toHaveLength(1)
   })
 
   it('a terminal session has Stop and Resume / Fork, and no Interrupt or Close', async () => {

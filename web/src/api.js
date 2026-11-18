@@ -111,7 +111,7 @@ export async function getTranscript(sessionId, { after, before } = {}) {
   return response.json()
 }
 
-/** Stop a terminal session (FR-124): SIGTERM after the server's checks. The caller has shown the confirm step. A refusal (409) throws with its one line. */
-export const stopSession = (sessionId) => sendJson('POST', `/api/live/sessions/${encodeURIComponent(sessionId)}/stop`, { confirmed: true })
+/** Stop a terminal session (FR-124): SIGTERM after the server's checks; `force` sends SIGKILL (the caller has shown its own confirm). A refusal (409) throws with its one line. */
+export const stopSession = (sessionId, { force = false } = {}) => sendJson('POST', `/api/live/sessions/${encodeURIComponent(sessionId)}/stop`, force ? { confirmed: true, force: true } : { confirmed: true })
 /** Queue a text for a busy terminal session's next turn end (FR-125); a second call replaces it, `null` cancels. */
 export const queueReply = (sessionId, text) => sendJson('POST', '/api/reply/queue', { session_id: sessionId, text, confirmed: true })

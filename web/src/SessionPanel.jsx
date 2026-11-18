@@ -98,23 +98,36 @@ function Turn({ item }) {
   )
 }
 
-/** Stop of a terminal session: one confirm that names the project and the short id, then the server's checks; a refusal shows its one line. */
+export const STILL_RUNNING = 'Asked to stop, still running.'
+export const FORCE_WAIT_MS = 5000 // a Stop that answered 200 and a session still listed after this long: Force stop is offered
+const FORCE_NOTE = 'Force stop ends it at once and may leave the last transcript line half written.'
+
+/**
+ * Stop of a terminal session: one confirm that names the project and the short id, then the server's checks (SIGTERM). If the session is still
+ * listed 5 s after a Stop that was accepted, it says so and offers Force stop, with its own confirm. A refusal shows the server's one line.
+ * The panel closes when the session leaves the list, which ends the wait.
+ */
 function StopTerminal({ s }) {
-  const [step, setStep] = useState('idle') // idle | confirm | sent
+  const [step, setStep] = useState('idle') // idle | confirm | sent | still | force
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const out = useRef(false)
   const id = s.session_id.slice(0, ID_CHARS)
-  const go = async () => {
+  useEffect(() => {
+    if (step !== 'sent') return undefined
+    const timer = setTimeout(() => setStep('still'), FORCE_WAIT_MS)
+    return () => clearTimeout(timer)
+  }, [step])
+  const go = async (force) => {
     if (out.current) return
     out.current = true
     setBusy(true)
     setError('')
     try {
-      await stopSession(s.session_id)
+      await stopSession(s.session_id, { force })
       setStep('sent')
     } catch (e) {
-      setStep('idle')
+      setStep(force ? 'force' : 'idle')
       setError(why(e, 'Could not ask the session to stop. Try again.'))
     } finally {
       out.current = false
@@ -123,11 +136,11 @@ function StopTerminal({ s }) {
   }
   return (
     <>
-      {step === 'confirm' ? (
+      {step === 'confirm' && (
         <div role="group" aria-label="Confirm stop" className="stop-confirm">
           <p className="prompt-text">{`Stop session ${id} in ${s.project}? Claude Code is asked to end it (SIGTERM); work not yet saved there is lost.`}</p>
           <div className="actions">
-            <button type="button" className="danger" disabled={busy} onClick={go}>
+            <button type="button" className="danger" disabled={busy} onClick={() => go(false)}>
               {`Stop session ${id}`}
             </button>
             <button type="button" disabled={busy} onClick={() => setStep('idle')}>
@@ -135,14 +148,38 @@ function StopTerminal({ s }) {
             </button>
           </div>
         </div>
-      ) : (
+      )}
+      {step === 'force' && (
+        <div role="group" aria-label="Confirm force stop" className="stop-confirm">
+          <p className="prompt-text">{`Force stop session ${id} in ${s.project}? ${FORCE_NOTE}`}</p>
+          <div className="actions">
+            <button type="button" className="danger" disabled={busy} onClick={() => go(true)}>
+              {`Force stop session ${id}`}
+            </button>
+            <button type="button" disabled={busy} onClick={() => setStep('still')}>
+              Keep waiting
+            </button>
+          </div>
+        </div>
+      )}
+      {(step === 'idle' || step === 'sent') && (
         <button type="button" className="danger" disabled={step === 'sent'} onClick={() => setStep('confirm')}>
           Stop
+        </button>
+      )}
+      {step === 'still' && (
+        <button type="button" className="danger" onClick={() => setStep('force')}>
+          Force stop
         </button>
       )}
       {step === 'sent' && (
         <p role="status" className="muted">
           {STOP_SENT}
+        </p>
+      )}
+      {step === 'still' && (
+        <p role="status" className="muted">
+          {STILL_RUNNING}
         </p>
       )}
       {error && (
@@ -241,7 +278,7 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
         <dt>Project</dt>
         <dd>{project}</dd>
         <dt>Kind</dt>
-        <dd>{app ? 'app' : 'terminal'}</dd>
+        <dd>{app ? 'app' : typeof s.entrypoint === 'string' && s.entrypoint.startsWith('sdk') ? 'headless' : 'terminal'}</dd>
         <dt>Session</dt>
         <dd className="mono">{id ?? 'starting'}</dd>
         <dt>Account</dt>
