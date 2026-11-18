@@ -1036,7 +1036,7 @@ command`, `cannot start provider command for '<name>'`, `invalid connector name`
 1 ms before the provider runs (NFR-006: < 200 ms; `tests/launcher.rs` measures it).
 
 **`claude` subprocess** (`crates/app/src/claude_cli.rs`, the core's `Claude` trait; argument lists in `crates/core/src/sync.rs`): `claude` is
-found on `PATH` (an executable regular file), run with an argument list (never a shell), this process's environment minus
+found on `PATH` (an executable regular file), else at `$HOME/.local/bin/claude`, then `$HOME/.claude/local/claude` (T114: the tray, which systemd starts, has no `~/.local/bin` on its `PATH`; the agent run and app sessions look the same way), run with an argument list (never a shell), this process's environment minus
 `CLAUDE_CONFIG_DIR`, plus `CLAUDE_CONFIG_DIR=<folder>` for an account that is not the default one (the folder comes from the account's row,
 never the request), stdin closed, a 60 s timeout (then killed; the call answers 127, as Python does). stdout is kept up to 1 MiB and only parsed
 (`Command:` / `Args:` of `claude mcp get`); stderr is read and dropped. Calls: `mcp get <alias>`, `mcp add-json <alias> {"type": "stdio",

@@ -2,7 +2,8 @@
 //! `launcher_path`, behind core's [`Claude`] trait (the argument lists are built in `core/src/sync.rs`).
 //!
 //! `claude` is found on `PATH` like `shutil.which` (an executable regular file; an empty `PATH` entry is skipped, where
-//! Python would look in the working folder). It runs with an argument list, never a shell; with this process's
+//! Python would look in the working folder), else in `$HOME/.local/bin` and `$HOME/.claude/local` (T114: the tray has
+//! no `~/.local/bin` on its `PATH`). It runs with an argument list, never a shell; with this process's
 //! environment minus `CLAUDE_CONFIG_DIR`, plus `CLAUDE_CONFIG_DIR=<folder>` for an account that is not the default one;
 //! stdin closed; in a process group of its own; for at most 60 s (then the whole group is killed, so no process it
 //! started lives on (T066), and the call answers 127, as Python's `TimeoutExpired` path does).
@@ -58,9 +59,20 @@ impl SystemClaude {
     }
 }
 
-/// T114 seam, red: still `PATH` only; the fallback in `home` comes in the fix commit.
-pub(crate) fn find_claude(search: Option<&OsStr>, _home: Option<&OsStr>) -> Option<PathBuf> {
-    which(search, "claude")
+/// Where Claude Code's installers put `claude`, under `HOME`; tried in this order when `PATH` has none (T114: the tray
+/// that systemd starts has no `~/.local/bin` on its `PATH`, a login shell adds it).
+const HOME_CLAUDE: [&str; 2] = [".local/bin/claude", ".claude/local/claude"];
+
+/// `claude`: the one on `search` (a `PATH` value) if any, else the first executable regular file of [`HOME_CLAUDE`] under
+/// `home`. No `home` (or an empty one) means no fallback.
+pub(crate) fn find_claude(search: Option<&OsStr>, home: Option<&OsStr>) -> Option<PathBuf> {
+    which(search, "claude").or_else(|| {
+        let home = Path::new(home.filter(|h| !h.is_empty())?);
+        HOME_CLAUDE
+            .iter()
+            .map(|rel| home.join(rel))
+            .find(|path| is_executable(path))
+    })
 }
 
 /// `shutil.which` over `search` (a `PATH` value): the first executable regular file `name` in its folders.

@@ -28,7 +28,7 @@
 //!   no longer a confirmed Claude account) stops the session.
 
 use crate::agent_run::DROPPED;
-use crate::claude_cli::which;
+use crate::claude_cli::find_claude;
 use crate::server::constant_time_eq;
 use easy_personal_core::ingest::json as pyjson;
 use easy_personal_core::live::{call_label, clean_block, hidden};
@@ -1100,14 +1100,14 @@ impl Sessions {
             return Err(StartError::Internal);
         };
         // an absolute path: the child runs in the repo, and a relative `PATH` entry must not resolve there
-        let claude = which(
+        let var = |name: &str| {
             self.env
                 .iter()
-                .find(|(k, _)| k == "PATH")
-                .map(|(_, v)| v.as_os_str()),
-            "claude",
-        )
-        .and_then(|found| std::path::absolute(found).ok());
+                .find(|(k, _)| k == name)
+                .map(|(_, v)| v.as_os_str())
+        };
+        let claude =
+            find_claude(var("PATH"), var("HOME")).and_then(|found| std::path::absolute(found).ok());
         let folder = plan
             .repo
             .file_name()

@@ -24,7 +24,7 @@
 //!   `CLAUDE_CONFIG_DIR=<dir>` for an account that is not the default one, as `claude_cli.rs` runs `claude`.
 //! - **Outcome**: start, end, [`Ended`], and the id of the newest report saved after the start for the run's scope.
 
-use crate::claude_cli::{kill_group, which};
+use crate::claude_cli::{find_claude, kill_group};
 use clap::Subcommand;
 use easy_personal_core::scope::{account_config_dir_env, claude_account_id};
 use easy_personal_core::store::{open_checked, store_path};
@@ -340,7 +340,7 @@ impl Runner {
     }
 
     pub fn claude(&self) -> Option<PathBuf> {
-        which(self.var("PATH"), "claude")
+        find_claude(self.var("PATH"), self.var("HOME"))
     }
 
     /// Another process (or thread) holds the lock. Makes no file.
