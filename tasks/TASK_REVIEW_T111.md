@@ -33,16 +33,12 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
-1. <what was decided> — RULE: <the rule>
-2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review
-4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
-Paused: <only when a stop that stays paused the task: which one, and why>
-Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
-Memory: <each entry the memory pass wrote, as `file — entry` | nothing new>
-Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | /verify (yours), with [admin] only after the one retry also ended blocked>
-
--->
+1. Route and hold rule as PRD FR-121 (Stop hook block-with-reason; hybrid hold 90 s / watched / marked up to 10 min) — FACT: PRD.md:332 "Hold rule decided by the owner 2026-11-18 after an unsettled 3-Advocate Debate: **hybrid**"
+2. One bridge: extend `answer_bridge.rs` and its socket instead of a second bridge — RULE: `CLAUDE.md` § Karpathy Engineering Principles (Simplicity First)
+3. Branch `T111` cut from `T110` so the spike findings are in the worktree — RULE: `tasks/TASK_GUIDE_T111.md` "Depends on: T110 (spike GO)"
+Checks: build running (backend agent); Stage 4 (code-review, security-review, a 3-Advocate Debate on the agent's own open choices) when it reports
+Memory: nothing new yet (the pass runs at the merge)
+Not done: build; Stage 4; auto verify; merge (admin: after the auto verify pass)
 
 ## Evidence
 
