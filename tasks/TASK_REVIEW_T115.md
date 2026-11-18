@@ -33,6 +33,13 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
+1. Transcript read on demand by a route, not streamed on /api/live — FACT: BRAINSTORMING_LOG_LIVENATIVE.md Path A (Path B rejected: every page would get all text)
+2. Full tool input and output shown, no redaction — FACT: PRD.md:344 "trace = **full transcript**, shown never stored; busy input = **queue until the turn end**"
+Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T115`); tests, code-review, security-review and the auto verify run follow when it reports
+Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
+Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
+
+Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
 3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review

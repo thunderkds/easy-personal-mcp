@@ -33,6 +33,13 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
+1. Queue for a busy terminal session, delivered by `hook ask` on the next Stop — FACT: PRD.md:344 "trace = **full transcript**, shown never stored; busy input = **queue until the turn end**"
+2. No SIGKILL escalation for a terminal session (SIGTERM only, after uid/exe/start-time checks) — SAFER OPTION: it is the owner's own terminal process; a Debate runs at Stage 4 with the code in hand ⚠ decided for you — please review
+Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T116`); tests, code-review, security-review and the auto verify run follow when it reports
+Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
+Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
+
+Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
 3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review

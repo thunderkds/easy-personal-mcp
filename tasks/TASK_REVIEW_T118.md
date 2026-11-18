@@ -33,6 +33,13 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
+1. App sessions move into Live; App sessions tab keeps New session — FACT: owner AskUserQuestion answer 2026-11-18 "One place for all sessions"
+2. The FR-104 one-time account prompt waits while a card is pending — FACT: owner test 2026-11-18, the dialog covered a question card
+Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T118`); tests, code-review, security-review and the auto verify run follow when it reports
+Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
+Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
+
+Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
 3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review

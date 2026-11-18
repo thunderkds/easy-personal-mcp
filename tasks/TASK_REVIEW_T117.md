@@ -33,6 +33,13 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
+1. Past sessions listed from the store's `events` metadata, no schema change — FACT: rust/crates/core/src/schema_v11.sql:79 "session_id                  TEXT,"
+2. Own names in one owner-only file `session_names.json` — RULE: FR-119 pattern (owner-only file, temp + rename)
+Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T117`); tests, code-review, security-review and the auto verify run follow when it reports
+Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
+Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
+
+Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
 3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review
