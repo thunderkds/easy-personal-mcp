@@ -9,6 +9,11 @@
 ## Board
 
 ### Todo
+- [ ] **T115** — Live like Claude 1 — the transcript route (fifth exception of NFR-002) | backend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T115.md` (2026-11-18); PRD FR-123, question 45, DDR-0007
+- [ ] **T116** — Live like Claude 2 — session process files, Stop a terminal session, the queue | backend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T116.md`; FR-124, FR-125
+- [ ] **T117** — Live like Claude 3 — past sessions and own names | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T117.md`; FR-126, FR-127
+- [ ] **T118** — Live like Claude 4 — one panel for every session | frontend-developer | C3 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T118.md`; FR-128; Depends on T115, T116
+- [ ] **T119** — Live like Claude 5 — filters, names, past sessions | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T119.md`; FR-128; Depends on T117, T118
 - [ ] **T113** — Workflow placement moves into the live service — each agent's step comes in the live snapshot | backend-developer | C2 | Risk: Medium | P2
 
 ### In Progress
