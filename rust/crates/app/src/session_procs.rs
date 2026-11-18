@@ -155,15 +155,11 @@ const START_SLACK_S: u64 = 2;
 /// Is the process one of Claude Code? `exe` and `argv` are what `/proc/<pid>/exe` and `/proc/<pid>/cmdline` say.
 fn is_claude(exe: Option<&str>, argv: &[&str]) -> bool {
     let base = |path: &str| path.rsplit('/').next().unwrap_or("").to_string();
-    if exe.map(&base).as_deref() == Some("claude")
-        || argv.first().map(|a| base(a)).as_deref() == Some("claude")
-    {
+    let names = [exe.map(base), argv.first().map(|a| base(a))];
+    if names.iter().flatten().any(|n| n == "claude") {
         return true;
     }
-    let runner = |name: &str| name == "node" || name == "bun";
-    let runs_node = exe.map(&base).is_some_and(|n| runner(&n))
-        || argv.first().map(|a| base(a)).is_some_and(|n| runner(&n));
-    runs_node
+    names.iter().flatten().any(|n| n == "node" || n == "bun")
         && argv
             .iter()
             .skip(1)
@@ -465,12 +461,13 @@ mod tests {
         assert!(!is_claude(None, &[]));
     }
 
-    /// A copy of `sleep` named `name` in `dir`, running.
+    /// A copy of the shell (`sleep` is a multicall binary on some systems) named `name` in `dir`, waiting on its open stdin.
     fn dummy(dir: &Path, name: &str) -> Child {
         let bin = dir.join(name);
-        fs::copy("/bin/sleep", &bin).unwrap();
+        fs::copy("/bin/sh", &bin).unwrap();
         Command::new(&bin)
-            .arg("30")
+            .args(["-c", "read line"])
+            .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
