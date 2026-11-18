@@ -154,7 +154,7 @@ describe('Live: Open in app', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([row('abcdef1234567890')]))
     await screen.findByText('abcdef12', { selector: '.live-id' })
-    expect(server.calls).toHaveLength(0)
+    expect(server.calls.filter((c) => c.url.includes('app-sessions'))).toHaveLength(0) // the bridge read of T112 (`/api/hooks`) is not an app session request
   })
 
   it('a server with no app session route leaves Live as it was', async () => {

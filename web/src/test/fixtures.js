@@ -576,3 +576,19 @@ export function fakeFetch(overrides = {}) {
   fn.calls = calls
   return fn
 }
+
+// T112 (FR-122): a Live session with a Stop-hook hold (`pending_reply`), the snapshot around sessions, and the hold itself.
+export const replyHold = (over = {}) => ({ id: 'r1', until: Date.now() / 1000 + 80, marked: false, last: 'Waiting on you for the next step.', ...over })
+export const holdSession = (id, over = {}) => ({
+  session_id: id,
+  account: 'Claude work',
+  project: 'alpha',
+  last_ts: new Date().toISOString(),
+  tool_calls: 0,
+  tokens_in: 0,
+  tokens_out: 0,
+  cost_usd: 0,
+  pending_reply: replyHold(),
+  ...over,
+})
+export const snapshotOf = (sessions) => ({ active_window_s: 300, last_id: 0, sessions })

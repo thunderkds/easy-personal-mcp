@@ -86,3 +86,11 @@ export const stopAppSession = (id) => sendJson('POST', appPath(id, 'stop'), { co
 export const answerAppPrompt = (id, promptId, fields) => sendJson('POST', appPath(id, 'answer'), { ...fields, prompt_id: promptId, confirmed: true })
 /** Close the panel of an ended session: its text is dropped on the server. */
 export const closeAppSession = (id) => sendJson('POST', appPath(id, 'close'), { confirmed: true })
+
+/** Reply to an idle terminal session (FR-121, FR-122). Every write carries `confirmed: true` (FR-116). */
+export const sendReply = (id, text) => sendJson('POST', '/api/reply', { id, text, confirmed: true })
+export const releaseReply = (id) => sendJson('POST', '/api/reply/release', { id, confirmed: true })
+/** "The owner is looking": keeps the hold going. The page sends it every 20 s while the row is open or the box has focus. */
+export const watchReply = (sessionId) => sendJson('POST', '/api/reply/watch', { session_id: sessionId, confirmed: true })
+/** Mark (on) or unmark a session: its next hold lasts up to 10 minutes without watch calls. */
+export const markReply = (sessionId, on) => sendJson('POST', '/api/reply/mark', { session_id: sessionId, on, confirmed: true })
