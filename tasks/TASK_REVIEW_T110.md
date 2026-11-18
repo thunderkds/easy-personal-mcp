@@ -68,8 +68,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Supervisor, before the spike's first commit; worktree `T110` at `4219ef5`):
+```
+$ date -u; git log -1 --oneline; ls tasks/evidence-T110 rust/spikes/reply-sessions; claude --version
+2026-11-18T04:14:00Z
+4219ef5 T110 planned: reply to idle sessions spike (PRD question 42 decided by the owner)
+ls: cannot access 'tasks/evidence-T110': No such file or directory
+ls: cannot access 'rust/spikes/reply-sessions': No such file or directory
+2.1.327 (Claude Code)
+```
+(No probe and no finding exist: whether a Stop hook can carry the owner's request into a terminal session is unproven.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
