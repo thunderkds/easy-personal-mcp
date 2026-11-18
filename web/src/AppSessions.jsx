@@ -328,7 +328,7 @@ function usePolled(initial) {
 
 function Loaded({ initial, agentRun, workspaces, accounts, target, onTargetUsed, onOpenSettings }) {
   const { data, stale, replace, remove } = usePolled(initial)
-  const [form, setForm] = useState(() => (target?.newFor !== undefined ? { workspace: target.newFor } : null))
+  const [form, setForm] = useState(() => (target?.newFor !== undefined ? { workspace: target.newFor } : target?.resume ? { resume: target.resume } : target?.continueIn ? { continueIn: target.continueIn } : null))
   const [picked, setPicked] = useState(target?.open ?? null)
   useEffect(() => {
     if (target) onTargetUsed?.()
@@ -372,7 +372,7 @@ function Loaded({ initial, agentRun, workspaces, accounts, target, onTargetUsed,
         {full && <span className="muted">{`${data.max} sessions are going; stop one first.`}</span>}
       </div>
       {form && !off && !noClaude && (
-        <NewSession workspaces={workspaces} accounts={accounts} defaultAccount={defaultAccount} initialWorkspace={form.workspace} onStarted={started} onCancel={() => setForm(null)} />
+        <NewSession workspaces={workspaces} accounts={accounts} defaultAccount={defaultAccount} initialWorkspace={form.workspace} resume={form.resume} continueIn={form.continueIn} onStarted={started} onCancel={() => setForm(null)} />
       )}
       {sessions.length === 0 && !form && <p className="muted">No app sessions. Start one with New session.</p>}
       {sessions.length > 0 && (
@@ -398,7 +398,8 @@ const load = () => Promise.all([getAppSessions(), getAgentRun(), getJson('/api/w
 
 /**
  * The page. `target`: `{newFor: <workspace name>}` opens the form for that workspace (Workspaces page), `{open: <app session id>}` selects
- * that session (Live view); `onTargetUsed` is called once it was read.
+ * that session (Live view), `{resume: {id, project, account, fork}}` opens the form for a stored Claude session (Live view), `{continueIn:
+ * {workspace, repo}}` opens it to continue a repo (Workspaces page); `onTargetUsed` is called once it was read.
  */
 export default function AppSessions({ target = null, onTargetUsed, onOpenSettings }) {
   const state = useLoad(load, [])

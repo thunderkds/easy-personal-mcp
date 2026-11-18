@@ -148,9 +148,39 @@ pub(crate) struct Account {
     pub config_dir: Option<String>,
 }
 
+/// A Claude session id the page named for `--resume`: hex digits and `-` only, the first a hex digit (so it can never be
+/// read as an option), at most [`MAX_RESUME_ID`] characters. The only way to make one is [`ResumeId::new`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ResumeId(String);
+
+/// The longest session id accepted for `--resume` (a UUID is 36).
+pub(crate) const MAX_RESUME_ID: usize = 64;
+
+impl ResumeId {
+    pub(crate) fn new(text: &str) -> Option<ResumeId> {
+        let ok = !text.is_empty()
+            && text.len() <= MAX_RESUME_ID
+            && text.starts_with(|c: char| c.is_ascii_hexdigit())
+            && text.chars().all(|c| c.is_ascii_hexdigit() || c == '-');
+        ok.then(|| ResumeId(text.to_string()))
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// What a start continues (T105, FR-112): `--resume <id>` (with `--fork-session` when `fork`), or `--continue`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Resume {
+    Session { id: ResumeId, fork: bool },
+    Continue,
+}
+
 pub(crate) struct Plan {
-    /// A repo path the store holds (an existing folder).
+    /// A repo path the store holds (an existing folder), or the stored folder of a session to resume.
     pub repo: PathBuf,
+    pub resume: Option<Resume>,
     pub account: Option<Account>,
     pub model: &'static str,
     pub mode: &'static str,
@@ -162,6 +192,8 @@ pub(crate) struct Plan {
 pub(crate) enum StartError {
     /// 409: [`MAX_RUNNING`] sessions are going.
     Busy,
+    /// 409: the session to resume is the session of an app session that is going.
+    Running,
     /// 400 with a fixed text.
     Refused(&'static str),
     /// 500.
@@ -181,6 +213,16 @@ pub(crate) fn argv(plan: &Plan, config: &Path) -> Vec<String> {
     ]
     .map(str::to_string)
     .to_vec();
+    match &plan.resume {
+        Some(Resume::Session { id, fork }) => {
+            args.extend(["--resume".into(), id.as_str().into()]);
+            if *fork {
+                args.push("--fork-session".into());
+            }
+        }
+        Some(Resume::Continue) => args.push("--continue".into()),
+        None => {}
+    }
     if plan.model != "default" {
         args.extend(["--model".into(), plan.model.into()]);
     }
@@ -442,6 +484,8 @@ pub(crate) struct Session {
     model: &'static str,
     mode: &'static str,
     worktree: bool,
+    /// The folder the plan was made for (a worktree's base repo, a resumed session's start folder).
+    repo: PathBuf,
     state: Mutex<State>,
     /// Apart from `state`: a write that blocks must not block a read of the state.
     stdin: Mutex<Option<ChildStdin>>,
@@ -468,10 +512,15 @@ impl Session {
             model: plan.model,
             mode: plan.mode,
             worktree: plan.worktree,
+            repo: plan.repo.clone(),
             state: Mutex::new(State {
                 phase: Phase::Working,
                 reason: None,
-                claude_id: None,
+                // a plain resume goes on in the same session: it counts as running from the start (no second start of it)
+                claude_id: match &plan.resume {
+                    Some(Resume::Session { id, fork: false }) => Some(id.as_str().to_string()),
+                    _ => None,
+                },
                 items: VecDeque::new(),
                 prompts: Vec::new(),
                 outstanding: 0,
@@ -498,6 +547,12 @@ impl Session {
 
     pub(crate) fn ended(&self) -> bool {
         lock(&self.state).phase == Phase::Ended
+    }
+
+    /// Going, and its Claude session is `claude_id`.
+    fn goes_on_as(&self, claude_id: &str) -> bool {
+        let state = lock(&self.state);
+        state.phase != Phase::Ended && state.claude_id.as_deref() == Some(claude_id)
     }
 
     fn state_word(state: &State) -> &'static str {
@@ -1005,6 +1060,20 @@ impl Sessions {
         lock(&self.list).iter().find(|s| s.id == id).cloned()
     }
 
+    /// True when a going app session runs the Claude session `claude_id` (a plain resume of it counts from its start).
+    pub(crate) fn runs(&self, claude_id: &str) -> bool {
+        lock(&self.list).iter().any(|s| s.goes_on_as(claude_id))
+    }
+
+    /// True when a going app session runs in `repo`: its folder, or the base repo of its worktree (T105: a `continue`
+    /// takes the newest conversation of the folder, which may be that one).
+    pub(crate) fn runs_in(&self, repo: &Path) -> bool {
+        lock(&self.list).iter().any(|s| {
+            let state = lock(&s.state);
+            state.phase != Phase::Ended && (s.repo == repo || state.cwd == repo)
+        })
+    }
+
     /// Takes the session out of the list and drops its text, once it has ended (its panel is closed): `Err(true)` when
     /// it has not ended yet, `Err(false)` when there is none.
     pub(crate) fn close(&self, id: &str) -> Result<(), bool> {
@@ -1053,6 +1122,11 @@ impl Sessions {
         ));
         {
             let mut list = lock(&self.list);
+            if let Some(Resume::Session { id, .. }) = &plan.resume
+                && list.iter().any(|s| s.goes_on_as(id.as_str()))
+            {
+                return Err(StartError::Running);
+            }
             if list.iter().filter(|s| !s.ended()).count() >= MAX_RUNNING {
                 return Err(StartError::Busy);
             }
@@ -1340,6 +1414,7 @@ done"#;
     pub(crate) fn plan(repo: &Path, mode: &'static str, worktree: bool) -> Plan {
         Plan {
             repo: repo.to_path_buf(),
+            resume: None,
             account: None,
             model: "default",
             mode,
@@ -1443,6 +1518,78 @@ done"#;
                 assert!(!got.iter().any(|a| a == banned), "{mode} {banned}");
             }
             assert!(got.iter().any(|a| a == "--permission-prompt-tool"));
+        }
+    }
+
+    /// T105 (FR-112): `--resume <id>`, `--resume <id> --fork-session` and `--continue` are fixed words and a checked id,
+    /// right after the header; no other word moves.
+    #[test]
+    fn the_argv_of_a_resume_a_fork_and_a_continue_holds_the_checked_id_and_fixed_words() {
+        let config = Path::new("/data/app-sessions/x.mcp.json");
+        let id = "5e55c0de-0000-4000-8000-0000000000a1";
+        let resume = |r: Option<Resume>| {
+            let mut p = plan(Path::new("/r"), "default", false);
+            p.resume = r;
+            argv(&p, config)
+        };
+        let new = resume(None);
+        let word = |args: &[String], at: usize| args[at].clone();
+        assert_eq!(word(&new, 6), "--permission-prompt-tool");
+        let session = |fork| Resume::Session {
+            id: ResumeId::new(id).unwrap(),
+            fork,
+        };
+        let got = resume(Some(session(false)));
+        assert_eq!(got[..6], new[..6]);
+        assert_eq!(got[6..8], ["--resume", id]);
+        assert_eq!(got[8..], new[6..]);
+        let got = resume(Some(session(true)));
+        assert_eq!(got[6..9], ["--resume", id, "--fork-session"]);
+        assert_eq!(got[9..], new[6..]);
+        let got = resume(Some(Resume::Continue));
+        assert_eq!(got[6], "--continue");
+        assert_eq!(got[7..], new[6..]);
+        assert!(!got.iter().any(|a| a == "--resume" || a == "--fork-session"));
+        assert_eq!(
+            new.iter()
+                .filter(|a| a.starts_with("--resume")
+                    || a.starts_with("--continue")
+                    || a.starts_with("--fork"))
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn a_resume_id_is_hex_and_dashes_with_a_hex_first_character_and_at_most_64() {
+        for good in [
+            "a",
+            "0",
+            "5e55c0de-0000-4000-8000-0000000000a1",
+            "A-1",
+            &"f".repeat(64),
+        ] {
+            assert!(ResumeId::new(good).is_some(), "{good}");
+        }
+        for bad in [
+            "",
+            "-",
+            "--",
+            "-a",
+            "a;b",
+            "a b",
+            "a\n",
+            "a\0",
+            "a/b",
+            "../a",
+            "g",
+            "ab$",
+            "a`b",
+            "a'b",
+            "\u{ff10}",
+            &"f".repeat(65),
+        ] {
+            assert!(ResumeId::new(bad).is_none(), "{bad:?}");
         }
     }
 

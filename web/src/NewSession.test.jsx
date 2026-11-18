@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import NewSession, { BYPASS, BYPASS_NOTE, MODELS, MODES, NOTE, repoChoices } from './NewSession.jsx'
+import NewSession, { BYPASS, BYPASS_NOTE, FORK_NOTE, MODELS, MODES, NOTE, STILL_ACTIVE, repoChoices } from './NewSession.jsx'
 import { appServer, workspaces } from './test/appSessions.js'
 
 const accounts = [
@@ -199,5 +199,171 @@ describe('bypass permissions needs a second, explicit confirm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
     await waitFor(() => expect(onStarted).toHaveBeenCalled())
     expect(server.posts('/api/app-sessions')[0].body.mode).toBe('acceptEdits')
+  })
+})
+
+// T105 (FR-112): the same form for a stored Claude session (resume, fork) and for a repo's newest conversation (continue).
+describe('resume mode: Resume in app and Fork in app', () => {
+  const session = { id: 'abcdef12-3456-7890', project: 'alpha', account: 'Claude default', fork: false }
+  const next = () => {
+    fill('carry on')
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+  }
+
+  it('names the session (short id and project), has no repo or worktree field, and asks for account, model, mode and a first prompt', () => {
+    setup({ resume: session })
+    expect(screen.getByRole('heading', { name: 'Resume session' })).toBeInTheDocument()
+    expect(screen.getByText('abcdef12')).toBeInTheDocument()
+    expect(screen.getByText(/alpha/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Repo')).toBeNull()
+    expect(screen.queryByLabelText(/New worktree/)).toBeNull()
+    for (const label of ['Account', 'Model', 'Permission mode', 'First prompt']) expect(screen.getByLabelText(label)).toBeInTheDocument()
+    expect(screen.queryByText(FORK_NOTE)).toBeNull() // no fork, no note
+    expect(screen.getByLabelText('Account')).toHaveValue('1') // the session's own account, found by its name
+  })
+
+  it('Resume posts resume: <id> with the form fields and confirmed: true, and no repo, workspace, worktree or fork', async () => {
+    const { onStarted } = setup({ resume: session })
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'opus' } })
+    next()
+    expect(screen.getByRole('heading', { name: 'Start this session?' })).toHaveFocus()
+    expect(screen.getByText('Session', { selector: 'dt' }).closest('dl')).toHaveTextContent('alpha')
+    expect(screen.getByText('Resume', { selector: 'dt' }).nextSibling).toHaveTextContent('the same session')
+    expect(screen.queryByText('Worktree', { selector: 'dt' })).toBeNull()
+    expect(server.posts('/api/app-sessions')).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('a9'))
+    const body = server.posts('/api/app-sessions')[0].body
+    expect(body).toEqual({ resume: 'abcdef12-3456-7890', account: '1', model: 'opus', mode: 'default', prompt: 'carry on', confirmed: true })
+  })
+
+  it('a session of an account that is not confirmed here starts on the agent run account', () => {
+    setup({ resume: { ...session, account: 'Gone account' } })
+    expect(screen.getByLabelText('Account')).toHaveValue('2')
+  })
+
+  it('Fork shows the fixed note on the form and on the confirm step, and posts fork: true', async () => {
+    const { onStarted } = setup({ resume: { ...session, fork: true } })
+    expect(screen.getByRole('heading', { name: 'Fork session' })).toBeInTheDocument()
+    expect(screen.getByText('The open window does not see a fork: it becomes a new session.')).toBeInTheDocument()
+    next()
+    expect(screen.getByRole('heading', { name: 'Start a fork of this session?' })).toBeInTheDocument()
+    expect(screen.getByText(FORK_NOTE)).toBeInTheDocument()
+    expect(screen.getByText('Resume', { selector: 'dt' }).nextSibling).toHaveTextContent('a fork')
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalled())
+    expect(server.posts('/api/app-sessions')[0].body).toMatchObject({ resume: 'abcdef12-3456-7890', fork: true, confirmed: true })
+  })
+
+  it('a 409 "still active" switches to Fork with the note, then Start session sends fork: true', async () => {
+    let calls = 0
+    server = appServer({
+      routes: { 'POST /api/app-sessions': (body) => (++calls === 1 ? { status: 409, body: { error: STILL_ACTIVE } } : body.fork ? { status: 202, body: { id: 'f1' } } : { status: 409, body: { error: STILL_ACTIVE } }) },
+    })
+    vi.stubGlobal('fetch', server)
+    const { onStarted } = setup({ resume: session })
+    next()
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(STILL_ACTIVE)
+    expect(screen.getByRole('heading', { name: 'Start a fork of this session?' })).toBeInTheDocument()
+    expect(screen.getByText(FORK_NOTE)).toBeInTheDocument()
+    expect(onStarted).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('f1'))
+    const posts = server.posts('/api/app-sessions')
+    expect(posts[0].body.fork).toBeUndefined()
+    expect(posts[1].body).toMatchObject({ resume: 'abcdef12-3456-7890', fork: true })
+  })
+
+  it('the bypass mode still needs its second step after a switch to Fork', async () => {
+    server = appServer({ routes: { 'POST /api/app-sessions': () => ({ status: 409, body: { error: STILL_ACTIVE } }) } })
+    vi.stubGlobal('fetch', server)
+    setup({ resume: session })
+    fireEvent.change(screen.getByLabelText('Permission mode'), { target: { value: BYPASS } })
+    next()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start without permission prompts' }))
+    await screen.findByRole('alert')
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument() // back on the first confirm step
+    expect(screen.queryByRole('button', { name: 'Start without permission prompts' })).toBeNull()
+  })
+
+  it.each([
+    [404, 'no such Claude session'],
+    [404, 'the folder of this session is not stored yet; try again after the next ingest'],
+    [409, 'this session is running in an app session; stop that one first'],
+    [400, 'the folder of this session no longer exists'],
+  ])('a %i shows the server\'s words: %s (no switch to Fork)', async (status, error) => {
+    server = appServer({ routes: { 'POST /api/app-sessions': () => ({ status, body: { error } }) } })
+    vi.stubGlobal('fetch', server)
+    const { onStarted } = setup({ resume: session })
+    next()
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(error)
+    expect(screen.queryByText(FORK_NOTE)).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Start this session?' })).toBeInTheDocument()
+    expect(onStarted).not.toHaveBeenCalled()
+  })
+
+  it('a 409 on a fork that was asked for does not loop: the words are shown and the owner stays', async () => {
+    server = appServer({ routes: { 'POST /api/app-sessions': () => ({ status: 409, body: { error: STILL_ACTIVE } }) } })
+    vi.stubGlobal('fetch', server)
+    setup({ resume: { ...session, fork: true } })
+    next()
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(STILL_ACTIVE)
+    expect(server.posts('/api/app-sessions')).toHaveLength(1)
+  })
+
+  it('the text is React text: markup in the project or the prompt is not parsed', () => {
+    const { container } = render(<NewSession workspaces={[]} accounts={accounts} defaultAccount="2" resume={{ ...session, project: '<img src=x onerror=alert(1)>' }} onStarted={() => {}} onCancel={() => {}} />)
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByText(/<img src=x/)).toBeInTheDocument()
+  })
+})
+
+describe('continue mode: Continue in app', () => {
+  const where = { workspace: 'company', repo: '/work/company-web' }
+
+  it('fixes the repo (no picker, no worktree) and posts continue: true with the repo and workspace', async () => {
+    const { onStarted } = setup({ continueIn: where })
+    expect(screen.getByRole('heading', { name: 'Continue session' })).toBeInTheDocument()
+    expect(screen.getByText('/work/company-web')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Repo')).toBeNull()
+    expect(screen.queryByLabelText(/New worktree/)).toBeNull()
+    fill('go on')
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    const facts = screen.getByText('Repo', { selector: 'dt' }).closest('dl')
+    expect(facts).toHaveTextContent('/work/company-web')
+    expect(facts).toHaveTextContent('the newest conversation')
+    expect(screen.queryByText('Worktree', { selector: 'dt' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('a9'))
+    expect(server.posts('/api/app-sessions')[0].body).toEqual({ continue: true, repo: '/work/company-web', workspace: 'company', account: '2', model: 'default', mode: 'default', prompt: 'go on', confirmed: true })
+  })
+
+  it('a 409 for a folder that is still active shows the server\'s words and stays on Continue (the fix is to Fork from Live)', async () => {
+    const error = 'a session in this folder is still active in another window; open it from the Live view and use Fork in app'
+    server = appServer({ routes: { 'POST /api/app-sessions': () => ({ status: 409, body: { error } }) } })
+    vi.stubGlobal('fetch', server)
+    setup({ continueIn: where })
+    fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(error)
+    expect(screen.queryByText(FORK_NOTE)).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Start this session?' })).toBeInTheDocument()
+  })
+
+  it('the new session form is unchanged: no resume field, no continue field', async () => {
+    const { onStarted } = setup()
+    fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalled())
+    const body = server.posts('/api/app-sessions')[0].body
+    expect(body).not.toHaveProperty('resume')
+    expect(body).not.toHaveProperty('continue')
+    expect(body).not.toHaveProperty('fork')
   })
 })

@@ -564,7 +564,7 @@ function WorkspaceForm({ workspace, data, act, onBack }) {
   )
 }
 
-function WorkspaceCard({ workspace: w, data, act, onOpen, onNewSession }) {
+function WorkspaceCard({ workspace: w, data, act, onOpen, onNewSession, onContinue }) {
   const mine = data.connectors.filter((c) => c.workspace === w.name)
   const users = data.accounts.filter((a) => a.provider === 'claude' && a.workspaces?.includes(w.name)).map(accountName)
   return (
@@ -610,6 +610,18 @@ function WorkspaceCard({ workspace: w, data, act, onOpen, onNewSession }) {
           )}
           <p className="muted">Used by: {users.length ? users.join(', ') : 'no agent account'}</p>
           <CopyCommand repos={w.repos} />
+          {onContinue && w.repos.length > 0 && (
+            <ul className="repo-continue" aria-label={`Repos of ${w.name}`}>
+              {w.repos.map((repo) => (
+                <li key={repo}>
+                  <span className="mono">{repo}</span>
+                  <button type="button" aria-label={`Continue in app: ${repo}`} onClick={() => onContinue(w.name, repo)}>
+                    Continue in app
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="actions">
             <button type="button" onClick={onOpen} disabled={act.locked}>
               Open
@@ -661,7 +673,7 @@ function LegacyBanner({ legacy, act }) {
   )
 }
 
-export default function WorkspacesView({ onNewSession }) {
+export default function WorkspacesView({ onNewSession, onContinueInApp }) {
   const unassigned = useUnassigned() // its own read, started with the page's reads; the page never waits for it
   const [state, reload] = useWorkspaceData()
   const [mode, setMode] = useState(null) // null = cards; 'new'; or { id }
@@ -728,6 +740,7 @@ export default function WorkspacesView({ onNewSession }) {
                 data={data}
                 act={act}
                 onNewSession={onNewSession}
+                onContinue={onContinueInApp}
                 onOpen={() => {
                   act.reset()
                   setMode({ id: w.id })

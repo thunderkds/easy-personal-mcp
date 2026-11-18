@@ -18,7 +18,8 @@ use crate::agent_routes::{blocking, data_dir, object};
 use crate::agent_run::{Runner, Setting};
 use crate::api::{Api, INTERNAL, respond};
 use crate::app_session::{
-    self as app, Account, Answer, AnswerError, MODELS, MODES, Plan, Session, StartError, TOOL,
+    self as app, Account, Answer, AnswerError, MODELS, MODES, Plan, Resume, ResumeId, Session,
+    StartError, TOOL,
 };
 use crate::writes::{fail, parse};
 use axum::Router;
@@ -28,6 +29,9 @@ use axum::http::header::{ALLOW, AUTHORIZATION, CONTENT_TYPE, HOST};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use axum::routing::{get, post};
+use easy_personal_core::ingest::folders::resolve_project;
+use easy_personal_core::live::is_recent;
+use easy_personal_core::memgraph::transcript_start_folder;
 use easy_personal_core::store::open_checked;
 use serde_json::{Map, Value, json};
 use std::path::{Path as FsPath, PathBuf};
@@ -39,6 +43,14 @@ const ENDED: &str = "the session has ended";
 const UNREADABLE: &str = "the store cannot be read right now; try again in a moment";
 const INCOMPLETE: &str =
     "the tool input is too long to show whole, so it cannot be allowed from here; deny it";
+const UNKNOWN_SESSION: &str = "no such Claude session";
+const NO_FOLDER: &str =
+    "the folder of this session is not stored yet; try again after the next ingest";
+const FOLDER_GONE: &str = "the folder of this session no longer exists";
+const ACTIVE: &str = "this session is still active in another window; fork it instead";
+const RUNNING_HERE: &str = "this session is running in an app session; stop that one first";
+const BAD_ID: &str = "resume must be a session id: hex digits and - only, at most 64 characters";
+const ACTIVE_FOLDER: &str = "a session in this folder is still active in another window; open it from the Live view and use Fork in app";
 const MAX_PROMPT: usize = 100_000;
 const MAX_NOTE: usize = 10_000;
 /// The largest body of the permission tool's route.
@@ -123,14 +135,26 @@ async fn one(State(api): State<Api>, Path(id): Path<String>) -> Response {
     .await
 }
 
+/// What a start is on: a stored repo (new, or `--continue`), or a Claude session to resume in its own folder.
+enum Target {
+    Repo {
+        repo: String,
+        workspace: String,
+        worktree: bool,
+        cont: bool,
+    },
+    Resume {
+        id: ResumeId,
+        fork: bool,
+    },
+}
+
 /// The form of `POST /api/app-sessions`, each field checked against its fixed list.
 struct Form {
-    repo: String,
-    workspace: String,
+    target: Target,
     account: Option<String>,
     model: &'static str,
     mode: &'static str,
-    worktree: bool,
     prompt: String,
 }
 
@@ -163,23 +187,61 @@ fn form(body: &Map<String, Value>) -> Result<Form, Response> {
             ));
         }
     };
-    let worktree = match body.get("worktree") {
-        None => false,
-        Some(Value::Bool(flag)) => *flag,
-        Some(_) => {
+    let flag = |key: &str| match body.get(key) {
+        None => Ok(false),
+        Some(Value::Bool(flag)) => Ok(*flag),
+        Some(_) => Err(fail(
+            StatusCode::BAD_REQUEST,
+            &format!("{key} must be true or false"),
+        )),
+    };
+    let worktree = flag("worktree")?;
+    let (cont, fork) = (flag("continue")?, flag("fork")?);
+    let resume = match body.get("resume") {
+        None => None,
+        Some(Value::String(text)) => {
+            Some(ResumeId::new(text).ok_or_else(|| fail(StatusCode::BAD_REQUEST, BAD_ID))?)
+        }
+        Some(_) => return Err(fail(StatusCode::BAD_REQUEST, BAD_ID)),
+    };
+    let target = match resume {
+        Some(_) if cont => {
             return Err(fail(
                 StatusCode::BAD_REQUEST,
-                "worktree must be true or false",
+                "resume and continue cannot be used together",
             ));
         }
+        Some(id) => {
+            if ["repo", "workspace", "worktree"]
+                .iter()
+                .any(|key| body.contains_key(*key))
+            {
+                return Err(fail(
+                    StatusCode::BAD_REQUEST,
+                    "resume takes the folder of the session: send no repo, workspace or worktree",
+                ));
+            }
+            Target::Resume { id, fork }
+        }
+        None if fork => return Err(fail(StatusCode::BAD_REQUEST, "fork needs resume")),
+        None if cont && worktree => {
+            return Err(fail(
+                StatusCode::BAD_REQUEST,
+                "continue cannot start a new worktree",
+            ));
+        }
+        None => Target::Repo {
+            repo: name("repo")?,
+            workspace: name("workspace")?,
+            worktree,
+            cont,
+        },
     };
     Ok(Form {
-        repo: name("repo")?,
-        workspace: name("workspace")?,
+        target,
         account,
         model: listed("model", &MODELS)?,
         mode: listed("mode", &MODES)?,
-        worktree,
         prompt: text_field(body, "prompt", MAX_PROMPT)?,
     })
 }
@@ -217,6 +279,100 @@ fn stored_repo(dir: &FsPath, workspace: &str, repo: &str) -> Result<PathBuf, Res
         return Err(bad("the repo folder is missing"));
     }
     Ok(path)
+}
+
+/// The folder to resume a Claude session in (T105, FR-112): the project folder the store holds for it, never one the
+/// page names. A session of a going app session is refused; a session with a record in the last two minutes (the
+/// newer of the store's last record and the live tail's, which is ahead of the store by one ingest) is refused unless
+/// it is forked.
+fn resume_folder(api: &Api, dir: &FsPath, id: &ResumeId, fork: bool) -> Result<PathBuf, Response> {
+    if api.agent.sessions.runs(id.as_str()) {
+        return Err(fail(StatusCode::CONFLICT, RUNNING_HERE));
+    }
+    let conn = open_checked(&dir.join("store.sqlite"))
+        .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
+    // the first record of the session: `claude` keeps a session under the folder it was started in
+    let (stored_last, stored_folder, transcript) = conn
+        .query_row(
+            "SELECT MAX(ts_utc), \
+             (SELECT project_path FROM events WHERE session_id = ?1 \
+              AND project_path IS NOT NULL AND project_path <> '' ORDER BY ts_utc LIMIT 1), \
+             (SELECT source_path FROM events WHERE session_id = ?1 AND source = 'claude_code' \
+              ORDER BY ts_utc LIMIT 1) \
+             FROM events WHERE session_id = ?1",
+            [id.as_str()],
+            |r| {
+                Ok((
+                    r.get::<_, Option<String>>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                ))
+            },
+        )
+        .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
+    // A session the store has not ingested yet (it fills at app start and by a daily timer) is known to the live tail,
+    // which reads the transcripts at every poll: its file and its project folder stand in for the stored ones.
+    let (tail_path, tail_folder) = match api.live_session_origin(id.as_str()) {
+        Some((path, folder)) => (Some(path), folder),
+        None => (None, None),
+    };
+    let stored_folder = stored_folder.or(tail_folder);
+    let transcript = transcript.or(tail_path);
+    // The real start folder is the first `cwd` of the transcript (a git worktree or a subfolder stays itself). It is
+    // used only when it belongs to the project folder (the same resolution ingest uses): a transcript is a file the
+    // owner's account can write, and its `cwd` must not move the run to a folder of another project. A folder that is
+    // gone resolves to itself and is left to the check below (400), as a worktree that was removed.
+    let start = transcript
+        .and_then(|path| transcript_start_folder(&path))
+        .filter(|cwd| {
+            !FsPath::new(cwd).is_dir()
+                || stored_folder
+                    .as_deref()
+                    .is_some_and(|project| resolve_project(cwd, FsPath::new("")) == project)
+        });
+    let folder = start.or(stored_folder);
+    let last = [stored_last, api.live_last_record(id.as_str())]
+        .into_iter()
+        .flatten()
+        .max();
+    if folder.is_none() && last.is_none() {
+        return Err(fail(StatusCode::NOT_FOUND, UNKNOWN_SESSION));
+    }
+    if !fork && last.is_some_and(|ts| is_recent(&ts, api.now())) {
+        return Err(fail(StatusCode::CONFLICT, ACTIVE));
+    }
+    let Some(folder) = folder else {
+        return Err(fail(StatusCode::NOT_FOUND, NO_FOLDER));
+    };
+    let path = PathBuf::from(folder);
+    if !path.is_absolute() || !path.is_dir() {
+        return Err(fail(StatusCode::BAD_REQUEST, FOLDER_GONE));
+    }
+    Ok(path)
+}
+
+/// A `continue` is refused when its folder may hold a conversation that is open elsewhere (T105): a record of the repo's
+/// project under two minutes old, in the store or in the live tail (which is ahead of the store by one ingest), or a
+/// going app session in the repo. `--continue` takes the newest conversation of the folder.
+fn repo_quiet(api: &Api, dir: &FsPath, repo: &str) -> Result<(), Response> {
+    let conn = open_checked(&dir.join("store.sqlite"))
+        .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
+    let stored: Option<String> = conn
+        .query_row(
+            "SELECT MAX(ts_utc) FROM events WHERE project_path = ?1",
+            [repo],
+            |r| r.get(0),
+        )
+        .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
+    let busy = [stored, api.live_last_in_project(repo)]
+        .into_iter()
+        .flatten()
+        .any(|ts| is_recent(&ts, api.now()))
+        || api.agent.sessions.runs_in(FsPath::new(repo));
+    if busy {
+        return Err(fail(StatusCode::CONFLICT, ACTIVE_FOLDER));
+    }
+    Ok(())
 }
 
 /// The account the session uses: the one asked for, else the agent run account (`None`: the default account).
@@ -260,6 +416,8 @@ fn pick_account(
 }
 
 /// `POST /api/app-sessions` `{repo, workspace, account?, model, mode, worktree, prompt, confirmed: true}` -> 202 `{id}`.
+/// With `continue: true` it adds `--continue`; instead of `repo`, `workspace` and `worktree` it takes `resume: <session
+/// id>` and `fork` (T105, FR-112).
 async fn start(State(api): State<Api>, req: Request) -> Response {
     let port = port_of(req.headers());
     let body = match write_body(
@@ -272,6 +430,9 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
             "mode",
             "worktree",
             "prompt",
+            "resume",
+            "fork",
+            "continue",
         ],
     )
     .await
@@ -297,9 +458,25 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
         if runner.setting() == Setting::Off {
             return fail(StatusCode::FORBIDDEN, OFF);
         }
-        let repo = match stored_repo(&dir, &form.workspace, &form.repo) {
-            Ok(repo) => repo,
-            Err(answer) => return answer,
+        let (repo, resume, worktree) = match form.target {
+            Target::Repo {
+                repo,
+                workspace,
+                worktree,
+                cont,
+            } => match stored_repo(&dir, &workspace, &repo) {
+                Ok(path) => {
+                    if cont && let Err(answer) = repo_quiet(&api, &dir, &repo) {
+                        return answer;
+                    }
+                    (path, cont.then_some(Resume::Continue), worktree)
+                }
+                Err(answer) => return answer,
+            },
+            Target::Resume { id, fork } => match resume_folder(&api, &dir, &id, fork) {
+                Ok(folder) => (folder, Some(Resume::Session { id, fork }), false),
+                Err(answer) => return answer,
+            },
         };
         let account = match pick_account(&runner, &dir, form.account.as_deref()) {
             Ok(account) => account,
@@ -325,10 +502,11 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
         });
         let plan = Plan {
             repo,
+            resume,
             account,
             model: form.model,
             mode: form.mode,
-            worktree: form.worktree,
+            worktree,
             prompt: form.prompt,
         };
         match agent.sessions.start(plan, &dir, port, allowed) {
@@ -340,6 +518,7 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
                     app::MAX_RUNNING
                 ),
             ),
+            Err(StartError::Running) => fail(StatusCode::CONFLICT, RUNNING_HERE),
             Err(StartError::Refused(text)) => fail(StatusCode::BAD_REQUEST, text),
             Err(StartError::Internal) => fail(StatusCode::INTERNAL_SERVER_ERROR, INTERNAL),
         }
@@ -664,6 +843,15 @@ mod tests {
     }
 
     fn world(tag: &str, tail: &str) -> World {
+        world_full(tag, tail, 0, None)
+    }
+
+    fn world_full(
+        tag: &str,
+        tail: &str,
+        now: i64,
+        live: Option<crate::live_feed::SharedTail>,
+    ) -> World {
         let fake = Fake::new(&format!("t103r-{tag}"), tail);
         let conn = fake.store();
         let repo = fake.root.join("repo");
@@ -685,7 +873,9 @@ mod tests {
             PathBuf::from("/opt/t103/easy-personal-rs"),
             Duration::from_secs(30),
         );
-        let api = Api::new(move || Ok(path.clone()), || 0).with_agent(agent);
+        let api = Api::new(move || Ok(path.clone()), move || now)
+            .with_agent(agent)
+            .with_live(live, Arc::default());
         api.agent.runner(&fake.dir()).turn(true).unwrap();
         World {
             app: router(TOKEN.into(), PORT, api.clone()),
@@ -767,6 +957,12 @@ mod tests {
             let (status, body) = self.post("/api/app-sessions", &self.form(extra)).await;
             assert_eq!(status, 202, "{body}");
             body["id"].as_str().unwrap().to_string()
+        }
+
+        async fn begin_resume(&self, body: &Value) -> String {
+            let (status, answer) = self.post("/api/app-sessions", body).await;
+            assert_eq!(status, 202, "{answer}");
+            answer["id"].as_str().unwrap().to_string()
         }
 
         async fn session(&self, id: &str) -> Value {
@@ -1817,6 +2013,790 @@ mod tests {
                 "{left}"
             );
             assert_eq!(w.post(&path, &json!({"confirmed": true})).await.0, 404);
+        });
+    }
+
+    // ---- T105: resume, fork and continue (FR-112, FR-116) ----
+
+    /// 2027-01-15T08:00:00Z, the clock of these tests.
+    const NOW: i64 = 1_800_000_000 * 1_000_000;
+    const SID: &str = "5e55c0de-0000-4000-8000-0000000000a1";
+
+    fn at(secs_ago: i64) -> String {
+        jiff::Timestamp::from_microsecond(NOW - secs_ago * 1_000_000)
+            .unwrap()
+            .strftime("%Y-%m-%dT%H:%M:%S.%6fZ")
+            .to_string()
+    }
+
+    impl World {
+        /// One stored record of the Claude session `id`, `secs_ago` old, in the project folder `folder`.
+        fn record(&self, id: &str, secs_ago: i64, folder: &str) {
+            self._conn
+                .execute(
+                    "INSERT INTO events (machine_id, source, source_path, inode, byte_offset, abstained, \
+                     record_type, ts_utc, session_id, project_path) \
+                     VALUES ('m', 'claude_code', ?1, 1, ?2, 0, 'assistant', ?3, ?1, ?4)",
+                    rusqlite::params![id, secs_ago, at(secs_ago), folder],
+                )
+                .unwrap();
+        }
+
+        /// The folder a stored session was run in: a folder of its own, not the workspace repo.
+        fn old_folder(&self) -> PathBuf {
+            let folder = self.fake.root.join("old-project");
+            std::fs::create_dir_all(&folder).unwrap();
+            folder
+        }
+
+        /// The body of a resume: no repo, workspace or worktree.
+        fn resume_form(&self, id: &str, extra: Value) -> Value {
+            let mut body =
+                self.form(json!({"repo": null, "workspace": null, "worktree": null, "resume": id}));
+            for (key, value) in extra.as_object().unwrap() {
+                body[key] = value.clone();
+            }
+            body
+        }
+
+        fn started(&self) -> bool {
+            self.fake.root.join("log/argv").exists()
+        }
+
+        /// `git` in `folder`, with the owner's own configuration left out.
+        fn git(folder: &std::path::Path, args: &[&str]) {
+            assert!(
+                std::process::Command::new("git")
+                    .arg("-C")
+                    .arg(folder)
+                    .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                    .args(args)
+                    .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                    .status()
+                    .unwrap()
+                    .success(),
+                "git {args:?}"
+            );
+        }
+
+        /// `folder` as a git repo with one commit.
+        fn git_repo(folder: &std::path::Path) {
+            Self::git(folder, &["init", "-q"]);
+            Self::git(folder, &["commit", "-q", "--allow-empty", "-m", "i"]);
+        }
+
+        /// A transcript file of the Claude session `id` whose records say it started in `cwd`.
+        fn transcript(&self, name: &str, cwd: &std::path::Path) -> PathBuf {
+            let dir = self.fake.root.join("transcripts");
+            std::fs::create_dir_all(&dir).unwrap();
+            let file = dir.join(name);
+            std::fs::write(
+                &file,
+                format!(
+                    "{{\"type\":\"summary\"}}\n{{\"type\":\"user\",\"cwd\":{}}}\n",
+                    json!(cwd.display().to_string())
+                ),
+            )
+            .unwrap();
+            file
+        }
+
+        /// Points the stored events of `id` at the transcript `file`.
+        fn source(&self, id: &str, file: &std::path::Path) {
+            self._conn
+                .execute(
+                    "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                    rusqlite::params![file.display().to_string(), id],
+                )
+                .unwrap();
+        }
+    }
+
+    /// A live tail over a temp tree that a test writes transcripts into (`feed`).
+    struct Feed {
+        tail: crate::live_feed::SharedTail,
+        roots: Vec<easy_personal_core::live::Root>,
+        tree: PathBuf,
+    }
+
+    impl Feed {
+        fn new(tag: &str) -> Feed {
+            let tree = std::env::temp_dir().join(format!(
+                "easy-personal-rs-t105-{tag}-{}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&tree);
+            std::fs::create_dir_all(tree.join("p")).unwrap();
+            let mut tail = easy_personal_core::live::LiveTail::new(
+                easy_personal_core::prices::PriceTable::shipped().unwrap(),
+            );
+            let roots = vec![easy_personal_core::live::Root {
+                account: None,
+                projects: tree.clone(),
+            }];
+            tail.poll_once(&roots, NOW, None);
+            Feed {
+                tail: Arc::new(std::sync::Mutex::new(tail)),
+                roots,
+                tree,
+            }
+        }
+
+        /// One record of session `id`, `secs_ago` old, written in `cwd`, read by the tail.
+        fn feed(&self, id: &str, secs_ago: i64, cwd: &std::path::Path) {
+            let line = format!(
+                "{{\"type\":\"assistant\",\"sessionId\":\"{id}\",\"cwd\":{},\"timestamp\":\"{}\",\"message\":{{\"id\":\"m1\",\"model\":\"x\",\"content\":[{{\"type\":\"text\",\"text\":\"hi\"}}]}}}}\n",
+                json!(cwd.display().to_string()),
+                at(secs_ago)
+            );
+            std::fs::write(self.tree.join(format!("p/{id}.jsonl")), line).unwrap();
+            self.tail.lock().unwrap().poll_once(&self.roots, NOW, None);
+        }
+    }
+
+    impl Drop for Feed {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.tree);
+        }
+    }
+
+    /// The words of the argument list between the fixed header and the permission wiring.
+    fn middle(argv: &[String]) -> Vec<String> {
+        let from = argv.iter().position(|a| a == "--verbose").unwrap() + 1;
+        let to = argv
+            .iter()
+            .position(|a| a == "--permission-prompt-tool")
+            .unwrap();
+        argv[from..to].to_vec()
+    }
+
+    #[test]
+    fn a_quiet_session_is_resumed_with_resume_in_its_stored_folder_and_a_page_given_path_is_refused()
+     {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-quiet", CHAT, NOW, None);
+            let old = w.old_folder();
+            w.record(SID, 121, &old.display().to_string());
+            let id = w.begin_resume(&w.resume_form(SID, json!({}))).await;
+            let view = w.until_state(&id, "idle").await;
+            assert_eq!(view["folder"], "old-project");
+            assert_eq!(view["worktree"], false);
+            let argv = w.fake.argv();
+            assert_eq!(middle(&argv), ["--resume", SID], "{argv:?}");
+            assert!(!argv.contains(&"--fork-session".to_string()));
+            let cwd = w.fake.log("cwd");
+            assert_eq!(
+                cwd.trim(),
+                old.canonicalize().unwrap().display().to_string(),
+                "the child runs in the stored folder, not in the workspace repo"
+            );
+            // a folder, a repo, a workspace or a worktree flag the page adds is not a field of a resume
+            for extra in [
+                json!({"repo": w.repo.display().to_string()}),
+                json!({"workspace": "acme"}),
+                json!({"worktree": false}),
+                json!({"worktree": true}),
+                json!({"cwd": "/etc"}),
+                json!({"folder": "/etc"}),
+            ] {
+                let before = w.fake.log("argv");
+                let (status, body) = w
+                    .post(
+                        "/api/app-sessions",
+                        &w.resume_form("5e55c0de-0000-4000-8000-0000000000a2", extra.clone()),
+                    )
+                    .await;
+                assert_eq!(status, 400, "{extra}: {body}");
+                assert_eq!(w.fake.log("argv"), before, "{extra}: nothing started");
+            }
+        });
+    }
+
+    #[test]
+    fn a_session_with_a_record_in_the_last_two_minutes_is_409_without_fork_and_forks_with_it() {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-active", CHAT, NOW, None);
+            let old = w.old_folder();
+            w.record(SID, 30, &old.display().to_string());
+            let (status, body) = w
+                .post("/api/app-sessions", &w.resume_form(SID, json!({})))
+                .await;
+            assert_eq!(status, 409, "{body}");
+            assert_eq!(
+                body["error"],
+                "this session is still active in another window; fork it instead"
+            );
+            let (status, _) = w
+                .post(
+                    "/api/app-sessions",
+                    &w.resume_form(SID, json!({"fork": false})),
+                )
+                .await;
+            assert_eq!(status, 409);
+            assert!(!w.started(), "a refused resume starts nothing");
+            let id = w
+                .begin_resume(&w.resume_form(SID, json!({"fork": true})))
+                .await;
+            w.until_state(&id, "idle").await;
+            assert_eq!(middle(&w.fake.argv()), ["--resume", SID, "--fork-session"]);
+            // 119 s is still active, 121 s is quiet
+            let busy = "5e55c0de-0000-4000-8000-0000000000b1";
+            let calm = "5e55c0de-0000-4000-8000-0000000000b2";
+            w.record(busy, 119, &old.display().to_string());
+            w.record(calm, 121, &old.display().to_string());
+            assert_eq!(
+                w.post("/api/app-sessions", &w.resume_form(busy, json!({})))
+                    .await
+                    .0,
+                409
+            );
+            let _ = w.begin_resume(&w.resume_form(calm, json!({}))).await;
+        });
+    }
+
+    #[test]
+    fn a_record_only_the_live_tail_has_makes_a_session_active() {
+        let _serial = serial();
+        block(async {
+            let tree = std::env::temp_dir()
+                .join(format!("easy-personal-rs-t105-tail-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&tree);
+            std::fs::create_dir_all(tree.join("p")).unwrap();
+            let mut tail = easy_personal_core::live::LiveTail::new(
+                easy_personal_core::prices::PriceTable::shipped().unwrap(),
+            );
+            let roots = vec![easy_personal_core::live::Root {
+                account: None,
+                projects: tree.clone(),
+            }];
+            tail.poll_once(&roots, NOW, None);
+            let line = format!(
+                "{{\"type\":\"assistant\",\"sessionId\":\"{SID}\",\"timestamp\":\"{}\",\"message\":{{\"id\":\"m1\",\"model\":\"x\",\"content\":[{{\"type\":\"text\",\"text\":\"hi\"}}]}}}}\n",
+                at(20)
+            );
+            std::fs::write(tree.join("p/s.jsonl"), line).unwrap();
+            tail.poll_once(&roots, NOW, None);
+            assert!(tail.last_record(SID).is_some());
+            let live: crate::live_feed::SharedTail = Arc::new(std::sync::Mutex::new(tail));
+            let w = world_full("resume-tail", CHAT, NOW, Some(live));
+            let old = w.old_folder();
+            // the store's last record is 10 minutes old: ingest has not caught up
+            w.record(SID, 600, &old.display().to_string());
+            let (status, body) = w
+                .post("/api/app-sessions", &w.resume_form(SID, json!({})))
+                .await;
+            assert_eq!(
+                (status.as_u16(), body["error"].as_str()),
+                (
+                    409,
+                    Some("this session is still active in another window; fork it instead")
+                )
+            );
+            assert!(!w.started());
+            let _ = w
+                .begin_resume(&w.resume_form(SID, json!({"fork": true})))
+                .await;
+            let _ = std::fs::remove_dir_all(&tree);
+        });
+    }
+
+    #[test]
+    fn a_session_resumes_in_the_first_cwd_of_its_transcript_not_in_its_repo_and_falls_back_to_the_stored_folder()
+     {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-cwd", CHAT, NOW, None);
+            let repo = w.old_folder();
+            World::git_repo(&repo);
+            // started inside a subfolder of the repo, and in a git worktree: the project is the repo for both
+            let sub = repo.join("src/deep");
+            std::fs::create_dir_all(&sub).unwrap();
+            let tree = w.fake.root.join("old-project-wt");
+            World::git(
+                &repo,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "wt",
+                    &tree.display().to_string(),
+                ],
+            );
+            let transcripts = w.fake.root.join("transcripts");
+            std::fs::create_dir_all(&transcripts).unwrap();
+            let lines = |cwd: &std::path::Path| {
+                format!(
+                    "{{\"type\":\"summary\"}}\n{{\"type\":\"user\",\"cwd\":{}}}\n{{\"type\":\"user\",\"cwd\":\"/elsewhere\"}}\n",
+                    json!(cwd.display().to_string())
+                )
+            };
+            let cases = [
+                ("5e55c0de-0000-4000-8000-0000000000c1", sub.clone()),
+                ("5e55c0de-0000-4000-8000-0000000000c2", tree.clone()),
+            ];
+            for (id, cwd) in &cases {
+                let file = transcripts.join(format!("{id}.jsonl"));
+                std::fs::write(&file, lines(cwd)).unwrap();
+                w.record(id, 600, &repo.display().to_string());
+                w._conn
+                    .execute(
+                        "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                        rusqlite::params![file.display().to_string(), id],
+                    )
+                    .unwrap();
+                let started = w.begin_resume(&w.resume_form(id, json!({}))).await;
+                w.until_state(&started, "idle").await;
+                w.post(
+                    &format!("/api/app-sessions/{started}/stop"),
+                    &json!({"confirmed": true}),
+                )
+                .await;
+                w.until_state(&started, "ended").await;
+                assert_eq!(
+                    w.fake.log("cwd").lines().last().unwrap(),
+                    cwd.canonicalize().unwrap().display().to_string(),
+                    "the child runs where the session was started"
+                );
+            }
+            // a transcript that is gone, a symlink and one with no cwd: the stored project folder
+            let none = "5e55c0de-0000-4000-8000-0000000000c3";
+            let linked = "5e55c0de-0000-4000-8000-0000000000c4";
+            let bare = "5e55c0de-0000-4000-8000-0000000000c5";
+            let real = transcripts.join("real.jsonl");
+            std::fs::write(&real, lines(&tree)).unwrap();
+            std::os::unix::fs::symlink(&real, transcripts.join("link.jsonl")).unwrap();
+            std::fs::write(transcripts.join("bare.jsonl"), "{\"type\":\"summary\"}\n").unwrap();
+            for (id, file) in [
+                (none, "missing.jsonl"),
+                (linked, "link.jsonl"),
+                (bare, "bare.jsonl"),
+            ] {
+                w.record(id, 600, &repo.display().to_string());
+                w._conn
+                    .execute(
+                        "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                        rusqlite::params![transcripts.join(file).display().to_string(), id],
+                    )
+                    .unwrap();
+                let started = w.begin_resume(&w.resume_form(id, json!({}))).await;
+                w.until_state(&started, "idle").await;
+                w.post(
+                    &format!("/api/app-sessions/{started}/stop"),
+                    &json!({"confirmed": true}),
+                )
+                .await;
+                w.until_state(&started, "ended").await;
+                assert_eq!(
+                    w.fake.log("cwd").lines().last().unwrap(),
+                    repo.canonicalize().unwrap().display().to_string(),
+                    "{file}: no readable cwd, the stored folder"
+                );
+            }
+            // a start folder that no longer exists is 400, not a resume somewhere else
+            let gone = "5e55c0de-0000-4000-8000-0000000000c6";
+            let file = transcripts.join("gone.jsonl");
+            std::fs::write(&file, lines(&w.fake.root.join("deleted-worktree"))).unwrap();
+            w.record(gone, 600, &repo.display().to_string());
+            w._conn
+                .execute(
+                    "UPDATE events SET source_path = ?1 WHERE session_id = ?2",
+                    rusqlite::params![file.display().to_string(), gone],
+                )
+                .unwrap();
+            let before = w.fake.log("argv");
+            let (status, body) = w
+                .post("/api/app-sessions", &w.resume_form(gone, json!({})))
+                .await;
+            assert_eq!(status, 400, "{body}");
+            assert_eq!(body["error"], "the folder of this session no longer exists");
+            assert_eq!(w.fake.log("argv"), before);
+        });
+    }
+
+    #[test]
+    fn continue_is_409_while_any_record_of_the_repo_is_under_two_minutes_old_and_starts_when_quiet()
+    {
+        let _serial = serial();
+        block(async {
+            let w = world_full("continue-active", CHAT, NOW, None);
+            let repo = w.repo.display().to_string();
+            // a record of another folder does not count
+            w.record(
+                "5e55c0de-0000-4000-8000-0000000000d0",
+                5,
+                "/some/other/project",
+            );
+            w.record("5e55c0de-0000-4000-8000-0000000000d1", 119, &repo);
+            let (status, body) = w
+                .post("/api/app-sessions", &w.form(json!({"continue": true})))
+                .await;
+            assert_eq!(status, 409, "{body}");
+            assert_eq!(
+                body["error"],
+                "a session in this folder is still active in another window; open it from the Live view and use Fork in app"
+            );
+            assert!(!w.started(), "a refused continue starts nothing");
+            // a new session in the same folder is not a continue: the guard is for --continue only
+            let fresh = w.begin(json!({})).await;
+            w.until_state(&fresh, "idle").await;
+            assert!(!w.fake.argv().contains(&"--continue".to_string()));
+            let cont = |w: &World| w.fake.argv().iter().filter(|a| *a == "--continue").count();
+            assert_eq!(cont(&w), 0);
+            // the new session is going in the repo: a continue would take the newest conversation of the folder
+            let (status, body) = w
+                .post("/api/app-sessions", &w.form(json!({"continue": true})))
+                .await;
+            assert_eq!(status, 409, "a going app session in the repo: {body}");
+            w.post(
+                &format!("/api/app-sessions/{fresh}/stop"),
+                &json!({"confirmed": true}),
+            )
+            .await;
+            w.until_state(&fresh, "ended").await;
+            // 121 s is quiet
+            w._conn
+                .execute(
+                    "UPDATE events SET ts_utc = ?1 WHERE session_id = '5e55c0de-0000-4000-8000-0000000000d1'",
+                    [at(121)],
+                )
+                .unwrap();
+            let id = w.begin(json!({"continue": true})).await;
+            w.until_state(&id, "idle").await;
+            assert_eq!(cont(&w), 1);
+        });
+    }
+
+    #[test]
+    fn continue_is_409_for_a_record_only_the_live_tail_has_and_for_a_running_app_session_in_the_repo_and_quiet_is_202()
+     {
+        let _serial = serial();
+        block(async {
+            let feed = Feed::new("continue");
+            let w = world_full("continue-tail", CHAT, NOW, Some(feed.tail.clone()));
+            let wording = "a session in this folder is still active in another window; open it from the Live view and use Fork in app";
+            // the store is a day behind: its newest record of the repo is old; the tail read a record 20 s ago
+            w.record(
+                "5e55c0de-0000-4000-8000-0000000000e1",
+                86_400,
+                &w.repo.display().to_string(),
+            );
+            // a record the tail has, quiet for 5 minutes, does not refuse a continue
+            feed.feed("5e55c0de-0000-4000-8000-0000000000e2", 300, &w.repo);
+            let id = w.begin(json!({"continue": true})).await;
+            w.until_state(&id, "idle").await;
+            w.post(
+                &format!("/api/app-sessions/{id}/stop"),
+                &json!({"confirmed": true}),
+            )
+            .await;
+            w.until_state(&id, "ended").await;
+            let before = w.fake.log("argv");
+            feed.feed(SID, 20, &w.repo);
+            let (status, body) = w
+                .post("/api/app-sessions", &w.form(json!({"continue": true})))
+                .await;
+            assert_eq!(
+                (status.as_u16(), body["error"].as_str()),
+                (409, Some(wording))
+            );
+            assert_eq!(
+                w.fake.log("argv"),
+                before,
+                "a refused continue starts nothing"
+            );
+        });
+    }
+
+    #[test]
+    fn a_session_known_only_to_the_live_tail_is_resumed_in_its_start_folder_and_404_only_when_the_tail_does_not_know_it()
+     {
+        let _serial = serial();
+        block(async {
+            let feed = Feed::new("fresh");
+            let w = world_full("resume-fresh", CHAT, NOW, Some(feed.tail.clone()));
+            let repo = w.old_folder();
+            World::git_repo(&repo);
+            let sub = repo.join("src/deep");
+            std::fs::create_dir_all(&sub).unwrap();
+            // no stored row at all; the tail read the session, quiet for 10 minutes, started in a subfolder
+            feed.feed(SID, 600, &sub);
+            let started = w.begin_resume(&w.resume_form(SID, json!({}))).await;
+            w.until_state(&started, "idle").await;
+            assert_eq!(
+                w.fake.log("cwd").lines().last().unwrap(),
+                sub.canonicalize().unwrap().display().to_string()
+            );
+            w.post(
+                &format!("/api/app-sessions/{started}/stop"),
+                &json!({"confirmed": true}),
+            )
+            .await;
+            w.until_state(&started, "ended").await;
+            // a session neither the store nor the tail knows is still 404
+            let (status, body) = w
+                .post(
+                    "/api/app-sessions",
+                    &w.resume_form("5e55c0de-0000-4000-8000-0000000000f9", json!({})),
+                )
+                .await;
+            assert_eq!(
+                (status.as_u16(), body["error"].as_str()),
+                (404, Some("no such Claude session"))
+            );
+        });
+    }
+
+    #[test]
+    fn a_transcript_cwd_outside_the_project_is_ignored_and_the_run_is_in_the_project_folder() {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-outside", CHAT, NOW, None);
+            let repo = w.old_folder();
+            World::git_repo(&repo);
+            // a folder of another project, which exists; the transcript of a session of `repo` says it started there
+            let other = w.fake.root.join("other-project");
+            std::fs::create_dir_all(&other).unwrap();
+            World::git_repo(&other);
+            w.record(SID, 600, &repo.display().to_string());
+            w.source(SID, &w.transcript("outside.jsonl", &other));
+            let started = w.begin_resume(&w.resume_form(SID, json!({}))).await;
+            w.until_state(&started, "idle").await;
+            assert_eq!(
+                w.fake.log("cwd").lines().last().unwrap(),
+                repo.canonicalize().unwrap().display().to_string(),
+                "the project folder, not the folder the transcript names"
+            );
+        });
+    }
+
+    #[test]
+    fn an_unknown_session_is_404_and_a_folder_that_is_gone_is_400_and_nothing_starts() {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-missing", CHAT, NOW, None);
+            let (status, body) = w
+                .post("/api/app-sessions", &w.resume_form("deadbeef", json!({})))
+                .await;
+            assert_eq!(
+                (status.as_u16(), body["error"].as_str()),
+                (404, Some("no such Claude session"))
+            );
+            let (status, _) = w
+                .post(
+                    "/api/app-sessions",
+                    &w.resume_form("deadbeef", json!({"fork": true})),
+                )
+                .await;
+            assert_eq!(status, 404);
+            w.record(SID, 3600, "/nonexistent-t105/project");
+            let (status, body) = w
+                .post("/api/app-sessions", &w.resume_form(SID, json!({})))
+                .await;
+            assert_eq!(
+                (status.as_u16(), body["error"].as_str()),
+                (400, Some("the folder of this session no longer exists"))
+            );
+            // a relative stored folder is no folder either
+            let rel = "5e55c0de-0000-4000-8000-0000000000c1";
+            w.record(rel, 3600, "repo");
+            assert_eq!(
+                w.post("/api/app-sessions", &w.resume_form(rel, json!({})))
+                    .await
+                    .0,
+                400
+            );
+            assert!(!w.started());
+            assert!(w.api.agent.sessions.all().is_empty());
+        });
+    }
+
+    #[test]
+    fn a_session_id_with_a_shell_character_a_space_an_option_or_over_64_characters_is_400_and_nothing_starts()
+     {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-bad", CHAT, NOW, None);
+            let old = w.old_folder();
+            w.record("ab", 3600, &old.display().to_string());
+            let long = "a".repeat(65);
+            for bad in [
+                "a;b",
+                "ab cd",
+                "--",
+                "-ab",
+                "--resume",
+                "$(id)",
+                "`id`",
+                "ab\nc",
+                "../a",
+                "ABG",
+                "",
+                long.as_str(),
+            ] {
+                let (status, body) = w
+                    .post("/api/app-sessions", &w.resume_form(bad, json!({})))
+                    .await;
+                assert_eq!(status, 400, "{bad:?}: {body}");
+                let (status, _) = w
+                    .post(
+                        "/api/app-sessions",
+                        &w.resume_form(bad, json!({"fork": true})),
+                    )
+                    .await;
+                assert_eq!(status, 400, "{bad:?} with fork");
+            }
+            for odd in [json!(5), json!(null), json!(["ab"]), json!(true)] {
+                let mut body = w.resume_form("ab", json!({}));
+                body["resume"] = odd.clone();
+                assert_eq!(w.post("/api/app-sessions", &body).await.0, 400, "{odd}");
+            }
+            assert!(!w.started());
+            // 64 characters is the limit and fine
+            let edge = "a".repeat(64);
+            w.record(&edge, 3600, &old.display().to_string());
+            let id = w.begin_resume(&w.resume_form(&edge, json!({}))).await;
+            w.until_state(&id, "idle").await;
+            assert_eq!(middle(&w.fake.argv()), ["--resume", edge.as_str()]);
+        });
+    }
+
+    #[test]
+    fn continue_adds_continue_in_a_stored_repo_and_is_never_mixed_with_resume_fork_or_a_worktree() {
+        let _serial = serial();
+        block(async {
+            let w = world_full("continue", CHAT, NOW, None);
+            let id = w.begin(json!({"continue": true})).await;
+            let view = w.until_state(&id, "idle").await;
+            assert_eq!(view["folder"], "repo");
+            assert_eq!(middle(&w.fake.argv()), ["--continue"]);
+            // continue needs a stored repo as a new session does
+            for extra in [
+                json!({"continue": true, "repo": null}),
+                json!({"continue": true, "workspace": null}),
+                json!({"continue": true, "repo": "/etc"}),
+                json!({"continue": true, "workspace": "nope"}),
+                json!({"continue": true, "repo": "; touch /tmp/x"}),
+                // never both, never fork without resume, no worktree for a conversation that has none
+                json!({"continue": true, "resume": SID}),
+                json!({"continue": true, "fork": true}),
+                json!({"fork": true}),
+                json!({"continue": true, "worktree": true}),
+                json!({"continue": "yes"}),
+                json!({"continue": 1}),
+                json!({"fork": "yes"}),
+            ] {
+                let before = w.fake.log("argv");
+                let (status, body) = w.post("/api/app-sessions", &w.form(extra.clone())).await;
+                assert_eq!(status, 400, "{extra}: {body}");
+                assert_eq!(w.fake.log("argv"), before, "{extra}: nothing started");
+            }
+            // continue:false is a new session
+            let _ = w.begin(json!({"continue": false})).await;
+            assert_eq!(
+                w.fake.argv().iter().filter(|a| *a == "--continue").count(),
+                1
+            );
+            // and the guard stays: no confirmed, no start
+            let mut body = w.resume_form(SID, json!({}));
+            body.as_object_mut().unwrap().remove("confirmed");
+            assert_eq!(w.post("/api/app-sessions", &body).await.0, 400);
+            let mut body = w.form(json!({"continue": true}));
+            body["confirmed"] = json!("true");
+            assert_eq!(w.post("/api/app-sessions", &body).await.0, 400);
+        });
+    }
+
+    #[test]
+    fn the_session_of_a_going_app_session_cannot_be_resumed_but_can_once_it_has_ended() {
+        let _serial = serial();
+        block(async {
+            // this fake reports the session id of its init line as SID
+            let fake = CHAT.replace("sess-1", SID);
+            let w = world_full("resume-own", &fake, NOW, None);
+            let old = w.old_folder();
+            w.record(SID, 3600, &old.display().to_string());
+            let first = w.begin_resume(&w.resume_form(SID, json!({}))).await;
+            // at once, before the child says anything: the second start of the same session is refused
+            for extra in [json!({}), json!({"fork": true})] {
+                let (status, body) = w
+                    .post("/api/app-sessions", &w.resume_form(SID, extra.clone()))
+                    .await;
+                assert_eq!(status, 409, "{extra}: {body}");
+                assert_eq!(
+                    body["error"],
+                    "this session is running in an app session; stop that one first"
+                );
+            }
+            w.until_state(&first, "idle").await;
+            assert_eq!(
+                w.post("/api/app-sessions", &w.resume_form(SID, json!({})))
+                    .await
+                    .0,
+                409
+            );
+            assert_eq!(w.fake.argv().iter().filter(|a| *a == "--resume").count(), 1);
+            // an app session that started new, and has the id from the child's init line, is the same
+            let fresh = w.begin(json!({})).await;
+            w.until_state(&fresh, "idle").await;
+            assert_eq!(
+                w.post(
+                    "/api/app-sessions",
+                    &w.resume_form(SID, json!({"fork": true}))
+                )
+                .await
+                .0,
+                409
+            );
+            for id in [&first, &fresh] {
+                w.post(
+                    &format!("/api/app-sessions/{id}/stop"),
+                    &json!({"confirmed": true}),
+                )
+                .await;
+                w.until_state(id, "ended").await;
+            }
+            let _ = w.begin_resume(&w.resume_form(SID, json!({}))).await;
+        });
+    }
+
+    #[test]
+    fn the_resume_fields_keep_the_guard_and_the_setting_off_is_403() {
+        let _serial = serial();
+        block(async {
+            let w = world_full("resume-guard", CHAT, NOW, None);
+            let old = w.old_folder();
+            w.record(SID, 3600, &old.display().to_string());
+            for flag in [json!(false), json!("true"), json!(1)] {
+                let mut body = w.resume_form(SID, json!({}));
+                body["confirmed"] = flag.clone();
+                assert_eq!(w.post("/api/app-sessions", &body).await.0, 400, "{flag}");
+            }
+            let body = w.resume_form(SID, json!({}));
+            let no_token = HttpRequest::builder()
+                .method("POST")
+                .uri("/api/app-sessions")
+                .header("host", format!("127.0.0.1:{PORT}"))
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap();
+            assert_eq!(w.send(no_token).await.0, 403);
+            let foreign = HttpRequest::builder()
+                .method("POST")
+                .uri("/api/app-sessions")
+                .header("host", format!("127.0.0.1:{PORT}"))
+                .header("origin", "http://evil.example")
+                .header("x-dashboard-token", TOKEN)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap();
+            assert_eq!(w.send(foreign).await.0, 403);
+            assert!(!w.started());
+            w.api.agent.runner(&w.fake.dir()).turn(false).unwrap();
+            assert_eq!(w.post("/api/app-sessions", &body).await.0, 403);
+            assert!(!w.started());
         });
     }
 }

@@ -74,6 +74,8 @@ pub const QUESTION_MAX_CHARS: usize = 300;
 /// `input.questions[i]`; `options` and anything deeper are not kept (FR-106).
 const LIVE_KEEP_DEPTH: usize = 7;
 const SECOND: i64 = 1_000_000;
+/// FR-112: a session with a record newer than this many seconds is still open somewhere (T105).
+pub const RESUME_QUIET_S: i64 = 120;
 
 // `os.O_NOFOLLOW | os.O_NONBLOCK`: the one per-arch table of the crate (`report_files::sys`); a target it does not list
 // fails to compile here instead of opening with a wrong flag.
@@ -386,6 +388,8 @@ struct Usage {
 pub struct Item {
     session_id: String,
     project: Option<String>,
+    /// The resolved project folder the name in `project` is cut from (T105: the resume and continue checks match on it).
+    project_dir: Option<String>,
     ts: String,
     is_sidechain: bool,
     message_id: Option<String>,
@@ -462,12 +466,11 @@ fn item(record: &Value, p: &Event, project_of: &mut dyn FnMut(&str) -> String) -
         }),
         _ => None,
     };
+    let project_dir = p.project_path.as_deref().map(&mut *project_of);
     Some(Item {
         session_id,
-        project: p
-            .project_path
-            .as_deref()
-            .map(|cwd| project_name(&project_of(cwd))),
+        project: project_dir.as_deref().map(project_name),
+        project_dir,
         ts,
         is_sidechain: p.is_sidechain == Some(true),
         message_id: p.message_id.clone(),
@@ -877,6 +880,8 @@ struct Session {
     entrypoint: Option<String>,
     account: Option<String>,
     project: Option<String>,
+    /// The resolved project folder (the name in `project` is cut from it); never leaves the process except by [`LiveTail::session_origin`].
+    project_dir: Option<String>,
     last_ts: String,
     tool_calls: i64,
     messages: Ordered<Figures>,
@@ -898,6 +903,12 @@ impl Session {
             .as_deref()
             .is_some_and(|e| !e.starts_with("sdk"))
     }
+}
+
+/// True when `ts` (the stored form, or a record's own) is within [`RESUME_QUIET_S`] of `now` (microseconds since the
+/// epoch): the session it belongs to is not quiet (FR-112). A time in the future counts as recent.
+pub fn is_recent(ts: &str, now: i64) -> bool {
+    ts >= format_stored(now - RESUME_QUIET_S * SECOND).as_str()
 }
 
 /// One buffered event (`_append`'s dict).
@@ -1000,6 +1011,36 @@ impl LiveTail {
         self.buffer
             .front()
             .is_some_and(|e| last_id.saturating_add(1) < e.id)
+    }
+
+    /// The time of the newest record the tail has read of the session (the stored form, `None`: the tail does not know
+    /// it, which is also the case for a session quiet for [`FORGET_AFTER_S`]). Fresher than the store, which ingest fills
+    /// by its schedule; the resume check of T105 reads it beside the store's.
+    pub fn last_record(&self, session_id: &str) -> Option<String> {
+        self.sessions
+            .get(session_id)
+            .map(|s| s.last_ts.clone())
+            .filter(|ts| !ts.is_empty())
+    }
+
+    /// The transcript file of the session's main thread and its project folder, as the tail read them (T105: a resume of
+    /// a session the store has not ingested yet). `None`: the tail does not know the session or has no main-thread file.
+    pub fn session_origin(&self, session_id: &str) -> Option<(String, Option<String>)> {
+        let session = self.sessions.get(session_id)?;
+        let (path, _) = session.streams.iter().find(|(_, s)| !s.sub_agent)?;
+        Some((path.clone(), session.project_dir.clone()))
+    }
+
+    /// The newest record time over the sessions whose project folder is `project_dir` (T105: the continue check; the
+    /// store lags the tail by one ingest).
+    pub fn last_record_in(&self, project_dir: &str) -> Option<String> {
+        self.sessions
+            .values()
+            .filter(|s| s.project_dir.as_deref() == Some(project_dir))
+            .map(|s| s.last_ts.as_str())
+            .filter(|ts| !ts.is_empty())
+            .max()
+            .map(str::to_owned)
     }
 
     /// Active sessions with running totals and the `last_id` they include. A session with an open call is listed
@@ -1290,6 +1331,7 @@ impl LiveTail {
                 entrypoint: None,
                 account: account.map(str::to_owned),
                 project: None,
+                project_dir: None,
                 last_ts: String::new(),
                 tool_calls: 0,
                 messages: Ordered::default(),
@@ -1304,6 +1346,7 @@ impl LiveTail {
             }
             if item.project.as_deref().is_some_and(|p| !p.is_empty()) {
                 session.project = item.project.clone();
+                session.project_dir = item.project_dir.clone();
             }
             if item.entrypoint.is_some() {
                 session.entrypoint = item.entrypoint.clone();
@@ -1759,6 +1802,23 @@ mod tests {
         assert!(
             !ids.is_empty(),
             "the line after the cursor is published after the caught panic"
+        );
+    }
+
+    /// T105 (FR-112): a record 119 s old is recent, one 121 s old is quiet, a time in the future is recent.
+    #[test]
+    fn a_record_is_recent_for_two_minutes() {
+        let now = 1_800_000_000 * SECOND;
+        let at = |secs_ago: i64| format_stored(now - secs_ago * SECOND);
+        assert!(is_recent(&at(0), now));
+        assert!(is_recent(&at(119), now));
+        assert!(!is_recent(&at(121), now));
+        assert!(!is_recent(&at(3600), now));
+        assert!(is_recent(&at(-30), now));
+        assert!(!is_recent("", now));
+        assert!(
+            is_recent("2027-01-15T08:00:00.123Z", now),
+            "a record's own millisecond form"
         );
     }
 }

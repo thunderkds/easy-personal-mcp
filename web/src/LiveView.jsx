@@ -1,6 +1,7 @@
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { getAppSessions, readToken } from './api.js'
 import Cost from './Cost.jsx'
+import { FORK_NOTE } from './NewSession.jsx'
 import { ago, compact, fmt } from './format.js'
 import { PendingAnswer, useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
@@ -11,6 +12,7 @@ const CLOSED = 2 // EventSource.readyState: the browser gave up and will not ret
 const TICK_MS = 15_000 // how often "active" and "idle" are worked out again
 const BATCH_MS = 250 // live events wait at most this long, then reach the page as one update (NFR-015)
 const ID_CHARS = 8
+const QUIET_S = 120 // the server's resume check (live.rs RESUME_QUIET_S): a newer record than this is active
 
 const EMPTY = { sessions: {}, lastId: 0, windowS: DEFAULT_WINDOW_S }
 
@@ -257,10 +259,11 @@ function Bar({ label, text, ratio }) {
 
 /** One session: a button (arrow, id, project, states, time) with its three bars; open, its feed is drawn under the row in the same card.
  * Memoized: it draws again only when its own figures (or its open state) change. */
-const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onToggle, onEnd, notice, appId, onOpenApp, tokensPct, costPct, callsPct }) {
+const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onToggle, onEnd, notice, appId, onOpenApp, onResume, tokensPct, costPct, callsPct }) {
   const button = useRef(null)
   const states = statesOf(s)
   const idle = isIdle(s, now, windowS)
+  const fork = now - Date.parse(s.last_ts) < QUIET_S * 1000 // a record in the last 2 minutes: the session may be open in a window
   const tokens = s.tokens_in + s.tokens_out
   const unknown = s.unpriced && s.cost === 0
   const regionId = `live-feed-${s.session_id}`
@@ -309,10 +312,18 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onT
           {notice}
         </p>
       )}
-      {appId && (
+      {appId && onOpenApp && (
         <button type="button" className="live-open-app" onClick={() => onOpenApp(appId)}>
           Open in app
         </button>
+      )}
+      {!appId && onResume && (
+        <>
+          <button type="button" className="live-open-app" onClick={() => onResume({ id: s.session_id, project: s.project, account: s.account, fork })}>
+            {fork ? 'Fork in app' : 'Resume in app'}
+          </button>
+          {fork && <span className="muted live-fork-note">{FORK_NOTE}</span>}
+        </>
       )}
       {!open && !s.pending && <Questions states={states} />}
       <span className="live-bars">
@@ -409,9 +420,9 @@ export function LiveProvider({ children }) {
 
 /** `// work` › Live: active Claude Code sessions as rows with three bars; one open session shows its tool feed under its row. Metadata only.
  * Inside a LiveProvider it shows the page's stream; alone it opens its own. */
-export default function LiveView({ wantedId = null, onWantedUsed, onOpenAppSession }) {
+export default function LiveView({ wantedId = null, onWantedUsed, onOpenAppSession, onResumeInApp }) {
   const shared = useContext(LiveContext)
-  return shared ? <Live {...shared} wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} /> : <OwnStream wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} />
+  return shared ? <Live {...shared} wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} onResumeInApp={onResumeInApp} /> : <OwnStream wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} onResumeInApp={onResumeInApp} />
 }
 
 const APP_IDS_REREAD_MS = 5000 // at most one more read per this long while a live row is not in the map
@@ -423,8 +434,8 @@ const APP_IDS_REREAD_MS = 5000 // at most one more read per this long while a li
  */
 function useAppSessionIds(enabled, liveIds) {
   const key = liveIds.join(',')
-  const [ids, setIds] = useState({})
-  const known = useRef(ids)
+  const [ids, setIds] = useState(null) // null until the first read answered: a row is not known to be an app session or not
+  const known = useRef({})
   const live = useRef(liveIds)
   live.current = liveIds
   useEffect(() => {
@@ -451,14 +462,14 @@ function useAppSessionIds(enabled, liveIds) {
   return ids
 }
 
-function OwnStream({ wantedId, onWantedUsed, onOpenAppSession }) {
+function OwnStream({ wantedId, onWantedUsed, onOpenAppSession, onResumeInApp }) {
   const [attempt, setAttempt] = useState(0)
   const [state, link] = useLive(attempt)
   const reconnect = useCallback(() => setAttempt((n) => n + 1), [])
-  return <Live state={state} link={link} reconnect={reconnect} wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} />
+  return <Live state={state} link={link} reconnect={reconnect} wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} onResumeInApp={onResumeInApp} />
 }
 
-function Live({ state, link, reconnect, wantedId, onWantedUsed, onOpenAppSession }) {
+function Live({ state, link, reconnect, wantedId, onWantedUsed, onOpenAppSession, onResumeInApp }) {
   const [now, setNow] = useState(Date.now())
   const [openId, setOpenId] = useState(null) // not kept across a reload
   useEffect(() => {
@@ -488,7 +499,7 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed, onOpenAppSession
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
   const groups = useMemo(() => group(sessions), [sessions])
   const [notices, endPrompt] = useNotices(sessions)
-  const appIds = useAppSessionIds(Boolean(onOpenAppSession), Object.keys(state.sessions).sort())
+  const appIds = useAppSessionIds(Boolean(onOpenAppSession || onResumeInApp), Object.keys(state.sessions).sort())
   const needing = sessions.filter(needsYou).length
   const maxTokens = Math.max(0, ...sessions.map((s) => s.tokens_in + s.tokens_out))
   const maxCost = Math.max(0, ...sessions.map((s) => s.cost))
@@ -538,8 +549,9 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed, onOpenAppSession
                     onToggle={onToggle}
                     onEnd={endPrompt}
                     notice={notices[s.session_id]}
-                    appId={appIds[s.session_id]}
+                    appId={appIds?.[s.session_id]}
                     onOpenApp={onOpenAppSession}
+                    onResume={appIds ? onResumeInApp : undefined}
                     tokensPct={share(s.tokens_in + s.tokens_out, maxTokens)}
                     costPct={share(s.cost, maxCost)}
                     callsPct={share(s.tool_calls, maxCalls)}

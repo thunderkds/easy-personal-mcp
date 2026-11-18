@@ -140,7 +140,13 @@ fn resolve_project(cwd: &str) -> String {
 /// The `cwd` of the first record of a transcript that has one, within its first 200 lines (`None`: none, or the file is
 /// not UTF-8). Python's text reader decodes 8 KiB at a time, so a bad byte anywhere in the chunk that holds the first
 /// line fails the whole file: the chunks are decoded here the same way.
-fn first_cwd(mut file: File) -> Option<String> {
+fn first_cwd(file: File) -> Option<String> {
+    first_cwd_by(file, resolve_project)
+}
+
+/// [`first_cwd`] with the way a `cwd` is turned into its answer: `resolve_project` for the project, the text itself for the
+/// folder the record names.
+fn first_cwd_by(mut file: File, map: fn(&str) -> String) -> Option<String> {
     let (mut pending, mut carry, mut total, mut seen) = (String::new(), Vec::new(), 0, 0);
     let mut buf = [0u8; 8192];
     loop {
@@ -171,7 +177,7 @@ fn first_cwd(mut file: File) -> Option<String> {
             }
             let line: String = pending.drain(..next).collect();
             seen += 1;
-            if let Some(cwd) = cwd_of(&line) {
+            if let Some(cwd) = cwd_of(&line, map) {
                 return Some(cwd);
             }
             if seen >= CWD_SCAN_LINES {
@@ -179,7 +185,7 @@ fn first_cwd(mut file: File) -> Option<String> {
             }
         }
         if eof {
-            return cwd_of(&pending).filter(|_| seen < CWD_SCAN_LINES);
+            return cwd_of(&pending, map).filter(|_| seen < CWD_SCAN_LINES);
         }
         if total > CWD_SCAN_BYTES {
             return None;
@@ -187,10 +193,24 @@ fn first_cwd(mut file: File) -> Option<String> {
     }
 }
 
-fn cwd_of(line: &str) -> Option<String> {
+fn cwd_of(line: &str, map: fn(&str) -> String) -> Option<String> {
     let record: Value = serde_json::from_str(line).ok()?;
     let cwd = record.as_object()?.get("cwd")?.as_str()?;
-    (!cwd.is_empty()).then(|| resolve_project(cwd))
+    (!cwd.is_empty()).then(|| map(cwd))
+}
+
+/// The folder a Claude session was started in (T105): the first `cwd` of its transcript file, as written (a git worktree or
+/// a subfolder stays itself; [`first_cwd`] folds both into their repo). Read-only and bounded like every read here: the
+/// folder of the file is opened by its path, the file below it without following a symlink and only if it is a regular
+/// file. `None`: no such file, or no `cwd` in its first lines.
+pub fn transcript_start_folder(path: &str) -> Option<String> {
+    let path = Path::new(path);
+    if !path.is_absolute() {
+        return None;
+    }
+    let dir = sys::open_root(path.parent()?.to_str()?).ok()?;
+    let (file, _) = open_regular(&dir, path.file_name()?.to_str()?)?;
+    first_cwd_by(file, str::to_string)
 }
 
 /// `_transcript_project`: the project of a Claude folder from the `cwd` of its first three transcripts.
