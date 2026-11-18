@@ -359,7 +359,10 @@ async fn live(State(api): State<Api>, headers: HeaderMap) -> Response {
                 .into_response();
         }
     };
-    let body = SseBody::new(resume, api.live, api.stopping, api.clock).with_answers(api.answers);
+    let again = api.clone();
+    let body = SseBody::new(resume, api.live, api.stopping, api.clock)
+        .with_answers(api.answers)
+        .with_refresh(Arc::new(move || hooks_cmd::refresh_reply_accounts(&again)));
     (
         [
             (CONTENT_TYPE, "text/event-stream; charset=utf-8"),

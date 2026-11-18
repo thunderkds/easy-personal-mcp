@@ -5,6 +5,7 @@ import { FORK_NOTE } from './NewSession.jsx'
 import { ago, compact, fmt } from './format.js'
 import { PendingAnswer, useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
+import ReplyBox, { ReplyMark } from './ReplyBox.jsx'
 
 export const FEED_MAX = 50 // oldest feed items beyond this are dropped
 const DEFAULT_WINDOW_S = 300
@@ -19,7 +20,13 @@ const EMPTY = { sessions: {}, lastId: 0, windowS: DEFAULT_WINDOW_S }
 const priced = (cost) => cost !== null && cost !== undefined
 const hasTokens = (tokensIn, tokensOut) => (tokensIn ?? 0) + (tokensOut ?? 0) > 0
 
-const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced', 'stage', 'stage_skill']
+const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced', 'stage', 'stage_skill', 'replyMarked', 'replyBridge']
+
+/** The hold of a terminal session at your turn (T111's `pending_reply`, FR-121): kept only when well formed. `until` is epoch seconds. */
+function readReply(r) {
+  if (!r || typeof r.id !== 'string' || typeof r.until !== 'number') return null
+  return { id: r.id, until: r.until, last: typeof r.last === 'string' ? r.last : '' }
+}
 
 function fromSnapshot(s, old) {
   const next = {
@@ -36,10 +43,13 @@ function fromSnapshot(s, old) {
     stage_skill: s.stage_skill ?? null,
     attention: s.attention ?? [], // the server's states; the page never works one out itself
     pending: readPrompt(s.pending_answer), // the prompt a terminal session waits on (T107, FR-114): the server's, shown as it came
+    reply: readReply(s.pending_reply), // the hold a terminal session at your turn waits in for the owner's text (T112, FR-122)
+    replyMarked: s.reply_marked === true, // the owner marked it *Reply from the app*: the server's word
+    replyBridge: s.reply_bridge === true, // all three hook entries of its account are on (T112): the server's word, never worked out here
     feed: old?.feed ?? [],
   }
   // A session the snapshot did not change keeps its object, so its memoized row does not draw again.
-  const same = old && SAME_KEYS.every((k) => old[k] === next[k]) && JSON.stringify(old.attention) === JSON.stringify(next.attention) && JSON.stringify(old.pending) === JSON.stringify(next.pending)
+  const same = old && SAME_KEYS.every((k) => old[k] === next[k]) && JSON.stringify(old.attention) === JSON.stringify(next.attention) && JSON.stringify(old.pending) === JSON.stringify(next.pending) && JSON.stringify(old.reply) === JSON.stringify(next.reply)
   return same ? old : next
 }
 
@@ -257,6 +267,9 @@ function Bar({ label, text, ratio }) {
   )
 }
 
+/** A row that shows *Reply from the app*: the server says its account has the bridge on, no prompt card, not at your turn (unless marked). */
+const markable = (s) => s.replyBridge && !s.pending && (s.replyMarked || !s.attention.some((a) => a.state === 'your_turn'))
+
 /** One session: a button (arrow, id, project, states, time) with its three bars; open, its feed is drawn under the row in the same card.
  * Memoized: it draws again only when its own figures (or its open state) change. */
 const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onToggle, onEnd, notice, appId, onOpenApp, onResume, tokensPct, costPct, callsPct }) {
@@ -307,6 +320,8 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onT
         <span className="count">{`${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`}</span>
       </button>
       {s.pending && <PendingAnswer key={s.pending.id} sessionId={s.session_id} prompt={s.pending} onEnd={onEnd} />}
+      {s.reply && <ReplyBox key={s.reply.id} sessionId={s.session_id} reply={s.reply} open={open} />}
+      {!appId && markable(s) && <ReplyMark sessionId={s.session_id} marked={s.replyMarked} hold={s.reply !== null} />}
       {notice && (
         <p role="status" className="live-notice">
           {notice}

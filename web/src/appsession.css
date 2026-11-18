@@ -59,10 +59,24 @@ main .session-tabs button[aria-current='true'] { border-color: var(--color-accen
 .new-session-form select { width: 100%; }
 .new-session-prompt textarea { width: 100%; box-sizing: border-box; resize: vertical; }
 
+/* Live row: the reply box of a session at your turn and the toggle Reply from the app (T112, FR-122), above the row's click overlay */
+.reply-box, .reply-mark { position: relative; z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.reply-box { padding: var(--space-3); border: 1px solid var(--color-accent-line); border-radius: var(--radius-sm); background: var(--color-input); }
+.reply-box textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+.reply-box p, .reply-mark p { margin: 0; }
+.reply-last { max-height: 12rem; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); color: var(--color-muted); }
+.reply-sent { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-accent); }
+.reply-actions { align-items: center; }
+.reply-left, .reply-count, .reply-marked { font-family: var(--font-mono); font-size: var(--fs-note); overflow-wrap: anywhere; }
+.reply-mark { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+main button.reply-toggle { min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
+main button.reply-toggle[aria-pressed='true'] { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); }
+
 @media (max-width: 39.999rem) {
   .prompt-card button, .app-sessions button:not(.link-button), .app-sessions .check { min-height: 44px; }
   .session-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .session-facts dd { margin-bottom: var(--space-2); }
   .session-log { max-height: 55vh; }
-  main button.live-open-app, .repo-continue button { min-height: 44px; padding: 0 var(--space-3); }
+  main button.live-open-app, .repo-continue button, main button.reply-toggle { min-height: 44px; padding: 0 var(--space-3); }
+  .reply-box button { min-height: 44px; }
 }

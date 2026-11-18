@@ -7,6 +7,7 @@ import { useLoad } from './useLoad.js'
 // Turn on shows the exact entries that will be added to the account's settings.json and writes only after the owner confirms.
 const STATUS = {
   on: 'On',
+  on_no_reply: 'on (no reply)',
   off: 'Off',
   changed_by_hand: 'Changed by hand',
   binary_moved: 'Binary moved',
@@ -14,6 +15,7 @@ const STATUS = {
   unreadable: 'Settings file cannot be read',
 }
 const EXPLAIN = {
+  on_no_reply: 'The two entries for prompts are on, but the Stop entry is not: a session that finished its turn cannot be answered from the Live view. Turn on adds the Stop entry.',
   changed_by_hand: 'An entry of ours in this account’s settings.json was changed by hand, or only one of the two is there. Turn on adds what is missing; Turn off removes only the entries the app added.',
   binary_moved: 'The entries name a copy of this app that has moved. Turn on points them at this copy; Turn off removes them.',
   other_copy: 'The entries name another copy of this app that is still there. Turn on replaces them with this copy; Turn off removes them.',
@@ -164,6 +166,7 @@ export default function AnswerBridge({ accounts }) {
       {state.status === 'ready' && (
         <>
           <p>Off by default. When it is on for an account, a Claude Code session open in a terminal that asks a question or asks for permission shows that prompt in the Live view, and your answer goes back to that session. With the app closed, the terminal asks as usual.</p>
+          <p>A third entry, on the Stop event, lets you reply to a session that finished its turn and waits for you: the Live view shows a reply box while the session holds, and the terminal stays usable (Esc ends the hold). The same per-account switch turns on all three entries.</p>
           <p className="bridge-note">Sessions that were started before you turn this on are not covered. Start a new session.</p>
           <Accounts initial={state.data} byId={byId} />
         </>

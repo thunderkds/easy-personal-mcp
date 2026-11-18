@@ -449,6 +449,9 @@ struct Held {
     holds: Vec<Hold>,
     /// FR-121: sessions the owner marked *Reply from the app*; in memory, dropped at app exit.
     marked: HashSet<String>,
+    /// T112: the ids of the accounts whose hook status is `on` (the `Stop` entry too), and when it was last read.
+    reply_accounts: HashSet<i64>,
+    reply_checked: Option<Instant>,
     answered: VecDeque<String>,
     /// Counts every change of the set, so the live stream sends a new snapshot.
     version: u64,
@@ -767,6 +770,31 @@ impl Bridge {
             })
             .collect();
         (state.version, per_session, replies, state.marked.clone())
+    }
+
+    /// T112 (FR-122): the accounts whose answer bridge is `on`, as `hooks_cmd` read it. A change moves the counter, so the
+    /// streams send a new snapshot.
+    pub(crate) fn set_reply_accounts(&self, ids: HashSet<i64>) {
+        let mut state = self.lock();
+        state.reply_checked = Some(Instant::now());
+        if state.reply_accounts != ids {
+            state.reply_accounts = ids;
+            state.version += 1;
+        }
+    }
+
+    pub(crate) fn reply_accounts(&self) -> HashSet<i64> {
+        self.lock().reply_accounts.clone()
+    }
+
+    /// True (once) when the accounts were not read for `every`; the caller reads them then.
+    pub(crate) fn reply_due(&self, every: Duration) -> bool {
+        let mut state = self.lock();
+        if state.reply_checked.is_some_and(|t| t.elapsed() < every) {
+            return false;
+        }
+        state.reply_checked = Some(Instant::now());
+        true
     }
 
     /// Is any session marked? (A stream looks at the live list only then.)

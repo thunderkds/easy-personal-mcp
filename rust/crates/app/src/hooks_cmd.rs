@@ -697,6 +697,26 @@ pub(crate) async fn get(State(api): State<Api>) -> Response {
     .await
 }
 
+/// T112 (FR-122): reads each confirmed Claude account's settings file and tells the bridge which accounts are `on` (not
+/// `on (no reply)`, not changed by hand), so the live stream can flag their sessions `reply_bridge`. A store that cannot be
+/// read leaves the last answer as it is.
+pub(crate) fn refresh_reply_accounts(api: &Api) {
+    let Ok(rows) = open_accounts(api, None) else {
+        return;
+    };
+    let command = own_command();
+    let on = rows
+        .iter()
+        .filter(|a| {
+            command
+                .as_deref()
+                .is_some_and(|c| status_in(&a.folder, c) == Status::On)
+        })
+        .filter_map(|a| a.id.parse().ok())
+        .collect();
+    api.answers.set_reply_accounts(on);
+}
+
 fn listening(api: &Api) -> bool {
     api.socket
         .lock()
@@ -779,6 +799,7 @@ pub(crate) async fn put(State(api): State<Api>, req: Request) -> Response {
                 if on {
                     crate::answer_bridge::open_socket(&api.socket, &api.answers, &store);
                 }
+                refresh_reply_accounts(&api);
                 let mut row = account_json(&found, &command);
                 row["listening"] = json!(listening(&api));
                 api::respond(StatusCode::OK, &row)

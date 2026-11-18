@@ -193,3 +193,27 @@ describe('AC1: the block', () => {
     expect(setItem).not.toHaveBeenCalled()
   })
 })
+
+describe('T112 AC8: the third entry (reply from the app)', () => {
+  it('shows on_no_reply as "on (no reply)" with Turn on, and names the Stop entry', async () => {
+    await open({ get: { ...state('on_no_reply'), entries_text: `${ENTRIES}\n"Stop": [{}]` } })
+    const r = row('Claude default')
+    expect(within(r).getByText('on (no reply)')).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Turn on' })).toBeInTheDocument()
+    expect(within(r).getByText(/Stop entry/)).toBeInTheDocument()
+  })
+
+  it('Turn on of an on (no reply) account shows the entries, then PUTs on: true', async () => {
+    const calls = await open({ get: { ...state('on_no_reply'), entries_text: `${ENTRIES}\n"Stop": [{}]` }, put: (b) => ({ id: Number(b.account), label: 'Claude default', status: 'on' }) })
+    click(within(row('Claude default')).getByRole('button', { name: 'Turn on' }))
+    expect(screen.getByLabelText('The entries that are added')).toHaveTextContent('"Stop"')
+    click(screen.getByRole('button', { name: 'Add these entries' }))
+    await waitFor(() => expect(within(row('Claude default')).getByText('On')).toBeInTheDocument())
+    expect(calls.find((c) => c.method === 'PUT').body).toEqual({ account: '1', on: true, confirmed: true })
+  })
+
+  it('the intro names the reply entry', async () => {
+    await open()
+    expect(screen.getByText(/finished its turn/)).toBeInTheDocument()
+  })
+})
