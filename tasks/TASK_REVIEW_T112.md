@@ -35,7 +35,9 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 Mode: auto
 1. Mark state comes from the server's `reply_marked` (T111 decision 4, DEBATED A), not page memory — FACT: tasks/TASK_REVIEW_T111.md:39 "A marked session's state outside a hold reaches the page as a per-session `reply_marked: true` in the `GET /api/live` snapshot"
 2. Every reply route is sent with `confirmed: true` (watch and mark too), as FR-116 requires of every write route — FACT: PRD.md:213 "Every write route of FR-109..FR-114 keeps the NFR-008 guard and needs `confirmed: true` in its body"
-Checks: build pending (frontend agent)
+3. How the page knows a session is bridge-enabled (shows the *Reply from the app* toggle) — DEBATED: unsettled (Advocate 1: B, a server-computed per-session `reply_bridge` in the live snapshot, cites rust/crates/app/src/hooks_cmd.rs:503-504 vs rust/crates/core/src/live.rs:743 — labels come from different row sets, are not unique (schema_v11.sql:39), and the page reads `/api/hooks` once; Advocate 2: A, keep the page-side label match, cites web/src/LiveView.jsx:588 — a wrong match only shows a toggle that stores an unused mark, and B reopens the merged T111 server)
+Paused: unsure — how should the Live view decide that a session's bridge is on?; options: A keep the page-side account-label match (now) / B a server flag per session (reopens the server)
+Checks: build `48c4377` (agent): vitest 37 files / 1293 passed, build ok, check_static ok; ux-evaluate (agent harness) pass except B-e body text 14 px (older, app-wide); security-review (independent, `c71ffdf..48c4377`): no finding at or above confidence 8; code-review running
 Memory: nothing new yet
 Not done: build; Stage 4; auto verify; merge (admin: after the auto verify pass)
 
