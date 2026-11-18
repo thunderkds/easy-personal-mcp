@@ -7,6 +7,8 @@ mod agent_routes;
 mod agent_run;
 mod alerts;
 mod api;
+mod app_session;
+mod app_session_routes;
 mod claude_cli;
 mod cli_cmds;
 mod connector_cmd;
@@ -69,7 +71,7 @@ enum Command {
         #[command(subcommand)]
         action: schedule_cmd::Action,
     },
-    /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C; `dashboard` is Python's name for it. Not read-only for one feature: the agent run routes (`/api/agent-run`) can start your own `claude` for the fixed `investigate` job once you choose an agent run account; Ctrl-C ends a run that is going
+    /// Serve the dashboard API on 127.0.0.1 (a free port, a per-run token) until Ctrl-C; `dashboard` is Python's name for it. Not read-only for two features, both off until you choose an agent run account: the agent run routes (`/api/agent-run`) can start your own `claude` for the fixed `investigate` job, and the app session routes (`/api/app-sessions`) can start it as a session you talk to; Ctrl-C ends a run and the sessions that are going
     #[command(alias = "dashboard")]
     Serve {
         /// Also serve the built dashboard's files from this folder, from the same origin (no token for the page)

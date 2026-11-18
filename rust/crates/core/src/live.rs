@@ -224,7 +224,7 @@ pub fn call_label(name: &str, input: &Value) -> Option<Label> {
 /// the second check and be joined again by a browser: soft hyphen, combining grapheme joiner, Arabic letter mark,
 /// Hangul fillers, Khmer inherent vowels, Mongolian selectors, U+2060-U+206F, variation selectors, U+FFF0-U+FFFB,
 /// shorthand format controls, musical format controls, tags and supplementary variation selectors.
-fn hidden(c: char) -> bool {
+pub fn hidden(c: char) -> bool {
     c.is_control()
         || matches!(c, '\u{2028}' | '\u{2029}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}'
                        | '\u{2066}'..='\u{2069}' | '\u{FEFF}')
@@ -250,6 +250,71 @@ fn clean_question(value: &Value) -> Option<String> {
         return None;
     }
     Some(text.chars().take(QUESTION_MAX_CHARS).collect())
+}
+
+/// What the answer card shows in place of a question the core's secret check matches (T106, FR-114, FR-106).
+pub const HIDDEN_TEXT: &str = "[hidden: looks like a secret]";
+
+/// T106 (FR-114, FR-115): a one-line text of the answer card (a header, an option label or description, a permission
+/// summary): line breaks and tabs become one space, the other hidden characters are removed, then cut to `max` characters.
+pub fn clean_line(raw: &str, max: usize) -> String {
+    raw.chars()
+        .map(|c| {
+            if matches!(c, '\n' | '\r' | '\t') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .filter(|&c| !hidden(c))
+        .take(max)
+        .collect()
+}
+
+/// [`clean_line`] of a question (FR-106 cleaning): a question the secret check matches, raw or cleaned, is
+/// [`HIDDEN_TEXT`] (the answer still goes out by the position of the question and the raw text the hook sent).
+pub fn clean_ask(raw: &str, max: usize) -> String {
+    let text = clean_line(raw, usize::MAX);
+    if is_secret(raw.as_bytes()) || is_secret(text.as_bytes()) {
+        return HIDDEN_TEXT.into();
+    }
+    text.chars().take(max).collect()
+}
+
+/// T106 (FR-114): the owner's own typed answer (the "Other" text, a deny message): hidden characters removed except
+/// line breaks and tabs, cut to `max` characters, trimmed. No secret check: it is the owner's own text and goes to
+/// the owner's own session.
+pub fn clean_typed(raw: &str, max: usize) -> String {
+    let text: String = raw
+        .chars()
+        .filter(|&c| matches!(c, '\n' | '\t') || !hidden(c))
+        .take(max)
+        .collect();
+    text.trim().to_string()
+}
+
+/// T106 (FR-114, FR-115): a tool input the owner must read before allowing it: the permission card's text. Line breaks,
+/// tabs and runs of spaces are kept; each hidden, control or bidi character (the FR-092 / FR-106 list, [`hidden`]) shows
+/// as a visible escape such as `\u{202e}` (never dropped, so the owner sees what is there). Cut at `max` characters of
+/// that output; the flag is `false` when the cut removed anything, so a caller can refuse an allow it cannot show whole.
+/// No secret check: the owner must see what they allow.
+pub fn clean_block(raw: &str, max: usize) -> (String, bool) {
+    let mut out = String::new();
+    let mut count = 0usize;
+    for c in raw.chars() {
+        let piece = if matches!(c, '\n' | '\t') || !hidden(c) {
+            c.to_string()
+        } else {
+            format!("\\u{{{:x}}}", u32::from(c))
+        };
+        let width = piece.chars().count();
+        if count + width > max {
+            return (out, false); // an escape is never cut in half
+        }
+        count += width;
+        out.push_str(&piece);
+    }
+    (out, true)
 }
 
 /// FR-106: the `questions[].question` strings of an `AskUserQuestion` call's input, at most [`MAX_QUESTIONS`]. The only
@@ -1560,6 +1625,74 @@ mod tests {
             got.events[0].questions,
             Some(Questions(vec!["kept?".to_owned()]))
         );
+    }
+
+    /// T106: a one-line answer-card text loses its hidden characters, turns line breaks into one space and is cut.
+    #[test]
+    fn clean_line_makes_one_capped_line_without_hidden_characters() {
+        assert_eq!(clean_line("ls\nrm -rf x", 300), "ls rm -rf x");
+        assert_eq!(clean_line("a\u{200b}b\u{202e}c\u{7f}d\te", 300), "abcd e");
+        assert_eq!(clean_line(&"é".repeat(400), 300).chars().count(), 300);
+        assert_eq!(clean_line("", 5), "");
+    }
+
+    /// T106: a question the secret check matches (raw, or once a zero-width mark is taken out) is hidden whole.
+    #[test]
+    fn clean_ask_hides_a_secret_shaped_question_and_cuts_the_rest() {
+        assert_eq!(clean_ask("Which colour?", 300), "Which colour?");
+        assert_eq!(
+            clean_ask(&"q".repeat(31), 300),
+            "q".repeat(31),
+            "31 characters are no secret"
+        );
+        let secret = format!("use sk-{} here", "A1".repeat(20));
+        assert_eq!(clean_ask(&secret, 300), HIDDEN_TEXT);
+        let split = format!("use sk-{}\u{200b}{}", "A1".repeat(8), "B2".repeat(8));
+        assert_eq!(
+            clean_ask(&split, 300),
+            HIDDEN_TEXT,
+            "a hidden mark cannot split a secret"
+        );
+        assert_eq!(clean_ask(&"é".repeat(400), 300).chars().count(), 300);
+    }
+
+    /// T106: the owner's typed text keeps line breaks and tabs, loses the other hidden characters, is trimmed and cut.
+    #[test]
+    fn clean_typed_keeps_line_breaks_and_cuts_to_the_limit() {
+        assert_eq!(
+            clean_typed("  one\ntwo\u{200b}\tthree \u{7f}", 2000),
+            "one\ntwo\tthree"
+        );
+        assert_eq!(clean_typed(&"z".repeat(3000), 2000).chars().count(), 2000);
+        assert_eq!(clean_typed(" \u{200b} ", 2000), "");
+        let key = format!("my key sk-{}", "A1".repeat(20));
+        assert_eq!(
+            clean_typed(&key, 2000),
+            key,
+            "the owner's own text is not secret-checked"
+        );
+    }
+
+    /// T106: the permission card's text keeps line breaks, tabs and runs of spaces, shows each hidden character as an
+    /// escape (none dropped) and says when the cap cut anything.
+    #[test]
+    fn clean_block_keeps_layout_escapes_hidden_characters_and_reports_a_cut() {
+        assert_eq!(
+            clean_block("a\n  b\tc", 100),
+            ("a\n  b\tc".to_string(), true)
+        );
+        assert_eq!(
+            clean_block("x\u{202e}y\u{200b}z\u{7f}\r", 100),
+            ("x\\u{202e}y\\u{200b}z\\u{7f}\\u{d}".to_string(), true)
+        );
+        let spaced = format!("ls{}&& tail-here", " ".repeat(300));
+        let (shown, complete) = clean_block(&spaced, 16_000);
+        assert!(complete && shown == spaced, "a run of spaces is kept");
+        assert_eq!(clean_block("abcdef", 6), ("abcdef".to_string(), true));
+        assert_eq!(clean_block("abcdefg", 6), ("abcdef".to_string(), false));
+        // an escape that does not fit whole is not shown in part
+        assert_eq!(clean_block("ab\u{202e}", 5), ("ab".to_string(), false));
+        assert_eq!(clean_block("", 5), (String::new(), true));
     }
 
     fn line(block: &str) -> String {

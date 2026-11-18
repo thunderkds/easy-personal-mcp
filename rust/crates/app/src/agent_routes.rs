@@ -18,6 +18,7 @@
 
 use crate::agent_run::{LIMIT, Outcome, Refused, Runner, Setting, utc_now};
 use crate::api::{Api, INTERNAL, respond};
+use crate::app_session::Sessions;
 use crate::writes::{fail, parse, raw_body};
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
@@ -55,6 +56,8 @@ pub(crate) struct Agent {
     limit: Duration,
     stop: Arc<AtomicBool>,
     state: Arc<Mutex<Record>>,
+    /// The app sessions of this server (T103); stopped with the agent run at shutdown.
+    pub(crate) sessions: Arc<Sessions>,
 }
 
 fn lock(state: &Mutex<Record>) -> MutexGuard<'_, Record> {
@@ -75,6 +78,7 @@ impl Agent {
 
     pub(crate) fn new(env: Vec<(OsString, OsString)>, exe: PathBuf, limit: Duration) -> Agent {
         Agent {
+            sessions: Arc::new(Sessions::new(env.clone())),
             env,
             exe,
             limit,
@@ -83,7 +87,7 @@ impl Agent {
         }
     }
 
-    fn runner(&self, dir: &Path) -> Runner {
+    pub(crate) fn runner(&self, dir: &Path) -> Runner {
         Runner::over(
             dir.to_path_buf(),
             self.env.clone(),
@@ -166,6 +170,7 @@ impl Agent {
 
     /// Stops this server's run and joins its thread. After this no `claude` of this server lives.
     pub(crate) fn shutdown(&self) {
+        self.sessions.shutdown();
         self.stop.store(true, Ordering::Relaxed);
         let handle = lock(&self.state).handle.take();
         if let Some(handle) = handle {
@@ -194,7 +199,7 @@ impl Drop for AgentGuard {
 }
 
 /// The store's folder, absolute (the child runs in its own folder).
-fn data_dir(api: &Api) -> Result<PathBuf, Response> {
+pub(crate) fn data_dir(api: &Api) -> Result<PathBuf, Response> {
     let path = (api.store_path)().map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
     path.parent()
         .and_then(|dir| std::path::absolute(dir).ok())
@@ -202,14 +207,14 @@ fn data_dir(api: &Api) -> Result<PathBuf, Response> {
 }
 
 /// Runs the blocking part off the async workers; a panic says nothing about why.
-async fn blocking(work: impl FnOnce() -> Response + Send + 'static) -> Response {
+pub(crate) async fn blocking(work: impl FnOnce() -> Response + Send + 'static) -> Response {
     tokio::task::spawn_blocking(work)
         .await
         .unwrap_or_else(|_| fail(StatusCode::INTERNAL_SERVER_ERROR, INTERNAL))
 }
 
 /// A JSON object body: `{}` or an empty body when `empty_ok`.
-async fn object(req: Request, empty_ok: bool) -> Result<Map<String, Value>, Response> {
+pub(crate) async fn object(req: Request, empty_ok: bool) -> Result<Map<String, Value>, Response> {
     let (_, raw) = raw_body(req).await?;
     if empty_ok && raw.iter().all(u8::is_ascii_whitespace) {
         return Ok(Map::new());

@@ -191,7 +191,7 @@ fn serve_help_says_it_is_not_read_only_for_the_agent_run() {
         .unwrap();
     let help = String::from_utf8(out.stdout).unwrap();
     assert!(
-        help.contains("Not read-only for one feature") && help.contains("/api/agent-run"),
+        help.contains("Not read-only for two features") && help.contains("/api/agent-run"),
         "{help}"
     );
 }

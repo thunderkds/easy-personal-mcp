@@ -76,6 +76,22 @@ QUESTION_PATTERNS = {
     "multi_select": "LEAKCANARY q-multi {t}",
     "plan_text": "LEAKCANARY plan {t}",
 }
+# T103 (FR-115, DDR-0006): strings of an app session. They may appear on the guarded `/api/app-sessions` answers (positive
+# control, labels start with `SESSION_OK`) and nowhere else: not in the store, a log, MCP, the CLI, `/api/alerts`, `/api/live`.
+SESSION_OK = "sessions guarded: "
+SESSION_PATTERNS = {
+    "session_prompt": "LEAKCANARY owner prompt {t}",
+    "session_message": "LEAKCANARY owner message {t}",
+    "session_assistant": "LEAKCANARY assistant text {t}",
+    "session_tool_secret": "sk-ant-SCANARY{t}",  # in a tool call's input (not a prompt): no label, no output
+    "session_card_command": "LEAKCANARY-card-command-{t}",  # in a permission prompt's input: the card's `input` shows it whole (T103 fix round)
+    "session_question": "LEAKCANARY session question {t}?",
+    "session_header": "LEAKCANARY s-header {t}",
+    "session_option": "LEAKCANARY s-option {t}",
+    "session_plan": "LEAKCANARY session plan {t}",
+    "session_answer": "LEAKCANARY owner answer {t}",
+    "session_note": "LEAKCANARY owner note {t}",
+}
 # T094 fix round: the only surfaces where the marker question may be (the main server's live answers; the alerts server's
 # is in `run.live_only`), by exact label, never by a part of it.
 LIVE_ANSWER_LABELS = frozenset(f"api GET /api/live ({label}, first message)" for label in ("query token", "header token", "resume"))
@@ -136,6 +152,13 @@ API_CALLS: dict[str, list[str]] = {
     "/api/agent-run": [""],  # T091: the state; the setting is off in this run's data folder, so no `claude` ever starts
     "/api/agent-run/setting": [""],  # T091: asked literally with GET (the 405); the PUT is in WRITE_CALLS / GUARD_CALLS
     "/api/agent-run/stop": [""],  # T091: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
+    "/api/app-sessions": [""],  # T103: the list (empty here: no session is started in this run's data folder)
+    "/api/app-sessions/{id}": [""],  # T103: asked literally (a 404, no such session)
+    "/api/app-sessions/{id}/message": [""],  # T103: the writes asked literally with GET (the 405)
+    "/api/app-sessions/{id}/interrupt": [""],
+    "/api/app-sessions/{id}/stop": [""],
+    "/api/app-sessions/{id}/answer": [""],
+    "/api/app-sessions/{id}/close": [""],
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -184,6 +207,14 @@ GUARD_CALLS = [
     ("agent run start foreign origin", "POST", "/api/agent-run", {"Origin": "http://evil.invalid"}),
     ("agent run write method", "DELETE", "/api/agent-run", {}),
     ("agent run start without a body", "POST", "/api/agent-run", {}),
+    ("app sessions no token", "GET", "/api/app-sessions", {"x-dashboard-token": None}),  # T103
+    ("app session start no token", "POST", "/api/app-sessions", {"x-dashboard-token": None}),
+    ("app session stop no token", "POST", "/api/app-sessions/x/stop", {"x-dashboard-token": None}),
+    ("app session start foreign origin", "POST", "/api/app-sessions", {"Origin": "http://evil.invalid"}),
+    ("app session query token", "GET", "/api/app-sessions?token=x", {"x-dashboard-token": None}),
+    ("app session prompt route no bearer", "POST", "/app-session-mcp/x", {"x-dashboard-token": None}),  # 401: its own secret
+    ("app session prompt route get", "GET", "/app-session-mcp/x", {"x-dashboard-token": None}),
+    ("app session prompt route foreign host", "POST", "/app-session-mcp/x", {"Host": "evil.invalid:80"}),
 ]
 # The write routes (T048) with a body: (label, method, path, body). `{key}` is the planted API key: a refused write must not
 # echo it, store it or log it. The accepted ones carry harmless text only.
@@ -231,6 +262,22 @@ WRITE_CALLS = [
     ("agent start key not JSON", "POST", "/api/agent-run", '{{key}'),
     ("agent stop key as field", "POST", "/api/agent-run/stop", '{"{key}":1}'),
     ("agent stop accepted", "POST", "/api/agent-run/stop", '{}'),
+    # T103: the agent run setting is off in this run's data folder, so a start is a 403 after its checks, and nothing starts
+    ("app session start key as repo", "POST", "/api/app-sessions", '{"repo":"{key}","workspace":"acme","model":"default","mode":"default","worktree":false,"prompt":"x","confirmed":true}'),
+    ("app session start key as workspace", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"{key}","model":"default","mode":"default","worktree":false,"prompt":"x","confirmed":true}'),
+    ("app session start key as model", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"acme","model":"{key}","mode":"default","worktree":false,"prompt":"x","confirmed":true}'),
+    ("app session start key as mode", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"acme","model":"default","mode":"{key}","worktree":false,"prompt":"x","confirmed":true}'),
+    ("app session start key as prompt", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"acme","model":"default","mode":"default","worktree":false,"prompt":"{key}","confirmed":true}'),
+    ("app session start key as account", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"acme","account":"{key}","model":"default","mode":"default","worktree":false,"prompt":"x","confirmed":true}'),
+    ("app session start key as confirmed", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"acme","model":"default","mode":"default","worktree":false,"prompt":"x","confirmed":"{key}"}'),
+    ("app session start key as field", "POST", "/api/app-sessions", '{"{key}":1,"confirmed":true}'),
+    ("app session start key not JSON", "POST", "/api/app-sessions", '{{key}'),
+    ("app session message key as text", "POST", "/api/app-sessions/{key}/message", '{"text":"{key}","confirmed":true}'),
+    ("app session answer key as prompt", "POST", "/api/app-sessions/x/answer", '{"prompt_id":"{key}","behavior":"allow","confirmed":true}'),
+    ("app session answer key as behavior", "POST", "/api/app-sessions/x/answer", '{"prompt_id":"a","behavior":"{key}","confirmed":true}'),
+    ("app session stop key as field", "POST", "/api/app-sessions/x/stop", '{"{key}":1,"confirmed":true}'),
+    ("app session stop unknown", "POST", "/api/app-sessions/x/stop", '{"confirmed":true}'),
+    ("app session close unknown", "POST", "/api/app-sessions/x/close", '{"confirmed":true}'),
 ]
 # MCP tool -> argument variants (the Python suite's MCP_CALLS for these tools, plus error paths).
 MCP_CALLS: dict[str, list[dict]] = {
@@ -434,6 +481,212 @@ def live_only_scan(canaries: Canaries, live_only: dict[str, object]) -> list[tup
                     text = text.replace(needle, "")
         cut[label] = text
     return scan(canaries, cut)[0]
+
+
+SESSION_FAKE = """#!{python}
+# A stand-in for the owner's `claude` in an app session: stream-json on stdin and stdout, and the permission tool called over
+# the HTTP route its temp --mcp-config names (what the real child does). The texts it plants come from plant.json.
+import json, os, sys, urllib.request
+here = os.path.dirname(os.path.abspath(__file__))
+P = json.load(open(os.path.join(here, "plant.json")))
+with open(os.path.join(here, "pids"), "a") as f:
+    f.write(str(os.getpid()) + "\\n")
+args = sys.argv[1:]
+server = json.load(open(args[args.index("--mcp-config") + 1]))["mcpServers"]["easy-personal-app"]
+def emit(o):
+    sys.stdout.write(json.dumps(o) + "\\n")
+    sys.stdout.flush()
+def call(tool, tool_input, use_id):
+    body = {{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {{"name": "permission_prompt", "arguments":
+            {{"tool_name": tool, "input": tool_input, "tool_use_id": use_id}}}}}}
+    req = urllib.request.Request(server["url"], json.dumps(body).encode(),
+                                 {{"Content-Type": "application/json", "Authorization": server["headers"]["Authorization"]}})
+    text = json.loads(urllib.request.urlopen(req, timeout=120).read())["result"]["content"][0]["text"]
+    return json.loads(text)
+init = {{"type": "system", "subtype": "init", "session_id": "00000000-0000-4000-8000-0000000000ee"}}
+emit(init)
+for line in sys.stdin:
+    msg = json.loads(line)
+    if msg.get("type") == "control_request":
+        emit({{"type": "result", "subtype": "error_during_execution", "is_error": True, "num_turns": 1,
+              "terminal_reason": "aborted_streaming"}})
+        continue
+    text = msg["message"]["content"]
+    emit(init)
+    emit({{"type": "assistant", "message": {{"content": [{{"type": "text", "text": P["assistant"] + " | " + text}},
+         {{"type": "tool_use", "id": "tu1", "name": "Bash", "input": {{"command": "ls " + P["tool_secret"]}}}}]}}}})
+    if text == P["prompt"]:
+        r1 = call("Bash", {{"command": "touch " + P["card_command"] + "\\necho tail-" + P["card_command"], "description": "d"}}, "toolu_b")
+        ask = {{"questions": [{{"question": P["question"], "header": P["header"], "multiSelect": False,
+                              "options": [{{"label": P["option"], "description": P["option"]}}]}}]}}
+        r2 = call("AskUserQuestion", ask, "toolu_q")
+        r3 = call("ExitPlanMode", {{"plan": P["plan"], "planFilePath": "/x/plan.md"}}, "toolu_p")
+        emit({{"type": "assistant", "message": {{"content": [{{"type": "text", "text": json.dumps(
+            [r1["behavior"], r2.get("updatedInput", {{}}).get("answers"), r3.get("message")])}}]}}}})
+    emit({{"type": "user", "message": {{"content": [{{"type": "tool_result", "tool_use_id": "tu1", "is_error": False, "content": P["tool_secret"]}}]}}}})
+    emit({{"type": "result", "subtype": "success", "is_error": False, "num_turns": 1, "result": "done"}})
+"""
+
+
+def app_sessions(run: "Run", checks: list[str], canaries: Canaries) -> None:
+    """T103 (FR-115): an app session over real HTTP with a stand-in `claude` that streams planted text and asks for three
+    permissions (a command, a question, a plan). The owner's prompt and message, the assistant text, the cards, the answers and
+    the whole input of a permission card (`input`, T103 fix round) are on the guarded `/api/app-sessions` answers (positive
+    control; a secret in a running tool call's input is not) and on no other surface: the
+    server's stdout and stderr, `GET /api/alerts`, `GET /api/live`, the store files and `.dump`, the CLI, MCP over stdio, the data
+    folder (no temp config is left). The session ends, its panel closes, and its text is gone from the next answer; a second
+    session is left running and the server's stop must end its child. A data folder of its own, with the setting on."""
+    s, home = run.s, run.logs / "sessions-home"
+    refuse("sessions home", home)
+    sess_bin, repo = run.logs / "sess-bin", run.logs / "sess-repo"
+    sess_bin.mkdir()
+    repo.mkdir()
+    (sess_bin / "plant.json").write_text(json.dumps({k.removeprefix("session_"): v for k, v in s.values.items()}))
+    (sess_bin / "claude").write_text(SESSION_FAKE.format(python=sys.executable))
+    (sess_bin / "claude").chmod(0o755)
+    saved = {name: run.env.get(name) for name in ("EASY_PERSONAL_HOME", "PATH")}
+    run.env["EASY_PERSONAL_HOME"] = str(home)
+    run.env["PATH"] = f"{sess_bin}:{saved['PATH']}"
+    port, got, pids = 0, {}, []
+    try:
+        run.ingest("sessions ingest (planted sources: creates the store)")
+        run.run("sessions agent-run on", "agent-run", "on")
+        proc, errlog = run.popen(SERVER_TIMEOUT, "serve", "--no-ingest", err=run.logs / "sessions-serve.stderr")
+        kids, first = [], b""
+        try:
+            lines = Lines(proc.stdout.fileno())
+            first = lines.read(20) or b""
+            match = re.fullmatch(rb"dashboard: http://127\.0\.0\.1:(\d+)/#([A-Za-z0-9_-]{43})\n", first)
+            if not match:
+                raise Fatal("sessions serve: no `dashboard:` line within 20 s")
+            port, token = int(match[1]), match[2].decode()
+            kids = children(proc.pid)
+            base = {"Host": f"127.0.0.1:{port}", "x-dashboard-token": token}
+
+            def call(label: str, method: str, path: str, body: dict | None = None, guarded: bool = True) -> tuple[int, dict]:
+                status, blob = request(port, method, path, base, None if body is None else json.dumps(body).encode())
+                run.add(f"{SESSION_OK if guarded else 'sessions '}{label} -> {status}", blob)
+                head, _, text = blob.partition(b"\n\n")
+                try:
+                    return status, json.loads(text)
+                except ValueError:
+                    return status, {}
+
+            status, _ = call("workspace add", "POST", "/api/workspaces", {"name": "sess-check", "repos": [str(repo)]}, guarded=False)
+            status, listed = call("workspace list", "GET", "/api/workspaces", guarded=False)
+            stored = [r for w in listed.get("workspaces", []) if w.get("name") == "sess-check" for r in w.get("repos", [])]
+            checks.append(f"check app session workspace has its repo   {'ok' if stored else 'FAILED'}")
+            if not stored:
+                raise Fatal("app sessions: the workspace repo was not stored")
+            form = {"repo": stored[0], "workspace": "sess-check", "model": "default", "mode": "default", "worktree": False,
+                    "prompt": s.values["session_prompt"], "confirmed": True}
+            status, started = call("start", "POST", "/api/app-sessions", form)
+            sid = started.get("id", "")
+            if status != 202 or not sid:
+                raise Fatal(f"app sessions: start answered {status}")
+            answered, deadline, view, card_ok = 0, time.monotonic() + 60, {}, False
+            while time.monotonic() < deadline:
+                _, view = call("get", "GET", f"/api/app-sessions/{sid}")
+                for item in view.get("items", []):
+                    if item.get("kind") == "prompt" and item.get("status") == "pending":
+                        if item.get("type") == "tool":  # the card shows the whole input, with its line break, and no summary
+                            cmd = s.values["session_card_command"]
+                            card_ok = item.get("input") == f"touch {cmd}\necho tail-{cmd}" and item.get("complete") is True and "summary" not in item
+                        body = {"prompt_id": item["prompt_id"], "confirmed": True}
+                        if item["type"] == "question":
+                            body |= {"behavior": "allow", "updatedInput": {"answers": {item["questions"][0]["question"]: s.values["session_answer"]}}}
+                        elif item["type"] == "plan":
+                            body |= {"behavior": "deny", "message": s.values["session_note"]}
+                        else:
+                            body |= {"behavior": "allow"}
+                        status, _ = call("answer", "POST", f"/api/app-sessions/{sid}/answer", body)
+                        answered += 1 if status == 200 else 0
+                if answered >= 3 and view.get("state") == "idle":
+                    break
+                time.sleep(0.2)
+            checks.append(f"check app session answered 3 prompts, idle  {'ok' if answered == 3 and view.get('state') == 'idle' else 'FAILED'} ({answered} answered, state {view.get('state')})")
+            checks.append(f"check app session tool card shows input    {'ok' if card_ok else 'FAILED'}")
+            call("message", "POST", f"/api/app-sessions/{sid}/message", {"text": s.values["session_message"], "confirmed": True})
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                _, view = call("get", "GET", f"/api/app-sessions/{sid}")
+                if view.get("state") == "idle" and s.values["session_message"] in json.dumps(view):
+                    break
+                time.sleep(0.2)
+            seen = json.dumps(view, ensure_ascii=False)
+            want = [n for n in s.values if n not in ("session_tool_secret",)]
+            missing = [n for n in want if s.values[n] not in seen]
+            checks.append(f"check app session text on the guarded routes  {'ok' if not missing else 'FAILED'} ({len(want) - len(missing)} of {len(want)} planted texts, the tool secret not among them)")
+            checks.append(f"check app session tool input and output absent  {'ok' if s.values['session_tool_secret'] not in seen else 'FAILED'}")
+            call("interrupt", "POST", f"/api/app-sessions/{sid}/interrupt", {"confirmed": True})
+            call("stop", "POST", f"/api/app-sessions/{sid}/stop", {"confirmed": True})
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline and view.get("state") != "ended":
+                _, view = call("get", "GET", f"/api/app-sessions/{sid}")
+                time.sleep(0.2)
+            checks.append(f"check app session stopped by the route     {'ok' if view.get('state') == 'ended' else 'FAILED'}")
+            for path in ("/api/alerts", "/api/version", "/api/app-sessions"):
+                status, blob = request(port, "GET", path, base)
+                run.add(f"sessions after the run: api GET {path} -> {status}" if path != "/api/app-sessions" else f"{SESSION_OK}list -> {status}", blob)
+            run.add("sessions api GET /api/live (first message)", live_first(port, "/api/live", base))
+            status, closed = call("close", "POST", f"/api/app-sessions/{sid}/close", {"confirmed": True})
+            checks.append(f"check app session closed                   {'ok' if status == 200 else 'FAILED'}")
+            # after the close the text is gone: these answers are scanned like every other surface
+            status, blob = request(port, "GET", "/api/app-sessions", base)
+            run.add(f"sessions after the close: api GET /api/app-sessions -> {status}", blob)
+            status, blob = request(port, "GET", f"/api/app-sessions/{sid}", base)
+            run.add(f"sessions after the close: api GET /api/app-sessions/{{id}} -> {status}", blob)
+            # a second session stays up: the server's stop must end its child
+            second = dict(form, prompt="a second session that only waits")
+            status, started = call("second start", "POST", "/api/app-sessions", second)
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline and len((sess_bin / "pids").read_text().split()) < 2:
+                time.sleep(0.1)
+            pids = [int(p) for p in (sess_bin / "pids").read_text().split()]
+            run.add("sessions serve stdout (first line, token inside)", first + lines.buf)
+        finally:
+            rc = run.stop("sessions serve", proc, kids, signal.SIGINT)
+            errlog.close()
+            run.add("sessions serve stdout (after stop)", proc.stdout.read() if proc.stdout else b"")
+            run.add("sessions serve stderr", (run.logs / "sessions-serve.stderr").read_bytes())
+        alive = [p for p in pids if Path(f"/proc/{p}").exists() and "Z" not in (Path(f"/proc/{p}/stat").read_text().rsplit(")", 1)[-1].split() or ["?"])[0]]
+        checks.append(f"check app session children end with the server  {'ok' if pids and not alive else 'FAILED'} ({len(pids)} children, {len(alive)} left, exit {rc})")
+        for path in sorted(home.glob("store.sqlite*")):
+            run.add(f"sessions store: {path.name}", path.read_bytes())
+        conn = sqlite3.connect(home / "store.sqlite")
+        try:
+            run.add("sessions store .dump", "\n".join(conn.iterdump()))
+        finally:
+            conn.close()
+        for label, argv in (("store-info", ["store-info", "--json"]), ("usage", ["usage"]), ("warnings", ["warnings"]),
+                            ("agent-run status", ["agent-run", "status"]), ("kit", ["kit"])):
+            done = subprocess.run(run.argv(CHILD_TIMEOUT, *argv), env=run.env, cwd=run.nowhere, capture_output=True, stdin=subprocess.DEVNULL, check=False)
+            run.add(f"sessions cli {label} stdout", done.stdout)
+            run.add(f"sessions cli {label} stderr", done.stderr)
+        mcp(run, checks, canaries)  # every MCP tool over stdio, against this data folder
+        listing = sorted(p.relative_to(home).as_posix() for p in home.rglob("*"))
+        run.add("sessions data folder listing", "\n".join(listing))
+        stray = [n for n in listing if n.endswith(".mcp.json") or n.startswith("worktrees")]
+        checks.append(f"check app session temp config removed        {'ok' if not stray else 'FAILED'} ({len(listing)} entries)")
+    finally:
+        for name, value in saved.items():
+            run.env[name] = value
+
+
+def session_scan(run: "Run") -> tuple[list[str], list[str]]:
+    """T103: no app session string is on any surface except the guarded answers `app_sessions` labels `SESSION_OK`."""
+    hits = []
+    for label, blob in run.out.items():
+        if label.startswith(SESSION_OK):
+            continue
+        text = as_text(blob)
+        for name, value in run.s.values.items():
+            for _, form in Canaries({name: value}).find(text):
+                hits.append(f"HIT T103 {name} as {form} in [{label}]: {excerpt(text, name, value, form)}")
+    guarded = sum(1 for label in run.out if label.startswith(SESSION_OK))
+    checks = [f"check T103 app session strings scanned     ok ({len(run.s.values)} strings, {len(run.out) - guarded} surfaces, {guarded} guarded answers allowed to hold them)"]
+    return hits, checks
+
 
 
 def plant(canaries: Canaries, root: Path, q: Canaries) -> dict[str, Path]:
@@ -698,7 +951,7 @@ def serve(run: Run, checks: list[str], key: str) -> None:
     static.mkdir()
     (static / "index.html").write_text("<!doctype html><title>leak check</title>\n")
     rust_routes = set()
-    for source in ("api.rs", "server.rs"):
+    for source in ("api.rs", "server.rs", "app_session_routes.rs"):
         rust_routes |= set(
             API_ROUTE.findall((RUST / "crates" / "app" / "src" / source).read_text())
         )
@@ -1596,6 +1849,7 @@ def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
     store_check(run, checks, canaries)
     mcp(run, checks, canaries)
     mcp_http(run, checks, canaries)
+    app_sessions(run, checks, canaries)  # T103
     again = run.ingest("ingest #2 (same input again)")
     checks.append(
         f"check ingest #2 adds nothing         {'ok' if again.get('new_events') == 0 else 'FAILED'} ({again.get('new_events')})"
@@ -1667,6 +1921,7 @@ def main() -> int:
     before = tree_digest(plant_root)
     run = Run(BINARY, root, planted)
     run.q, run.live_only = q, {}
+    run.s = Canaries({n: pat.format(t=secrets.token_hex(8)) for n, pat in SESSION_PATTERNS.items()})  # T103
     checks, failure = [], None
     try:
         drive(run, canaries, checks)
@@ -1679,6 +1934,8 @@ def main() -> int:
     hits, scanned = scan(canaries, run.out)
     q_hits, q_checks = question_scan(run)
     checks.extend(q_checks)
+    s_hits, s_checks = session_scan(run)  # T103
+    checks.extend(s_checks)
     live_hits = live_only_scan(canaries, run.live_only)
     hits += live_hits
     checks.append(f"check alerts live answer, every canary  {'ok' if not live_hits else 'FAILED'} ({len(canaries.values)} canaries, "
@@ -1711,11 +1968,11 @@ def main() -> int:
         problems.append("the canary set differs from PATTERNS")
     if failure:
         problems.append(failure)
-    problems += q_hits
+    problems += q_hits + s_hits
     for name, form, label, cut in hits:
         report.append(f"HIT canary {name} as {form} in [{label}]: {cut}")
     text = "\n".join(report)
-    if canaries.find(text) or q.find(text):  # the report must not become a leak
+    if canaries.find(text) or q.find(text) or run.s.find(text):  # the report must not become a leak
         print("leak check: the report itself would hold a canary; it was withheld")
         print(f"temp folder kept: {root}")
         return 1
