@@ -530,6 +530,9 @@ fn parse_line(line: &[u8], project_of: &mut dyn FnMut(&str) -> String) -> Option
     if !record.is_dict() {
         return None;
     }
+    if is_meta_user(&record) {
+        return None; // T111 (FR-121): `Stop hook feedback:` and other meta records are not the owner's prompts
+    }
     if asks(&record) {
         #[cfg(test)]
         tests::DEEP_PARSES.set(tests::DEEP_PARSES.get() + 1);
@@ -541,6 +544,12 @@ fn parse_line(line: &[u8], project_of: &mut dyn FnMut(&str) -> String) -> Option
     let main_turn = matches!(record.get("type").as_str(), Some(b"assistant" | b"user"))
         && !record.get("isSidechain").is_true();
     main_turn.then_some(Parsed::Turn)
+}
+
+/// A `user` record Claude Code wrote itself (`isMeta: true`): a Stop hook's reply shows up as one (`Stop hook feedback:`,
+/// T110). It is not something the owner typed, so the tail does not read it.
+fn is_meta_user(record: &Value) -> bool {
+    record.get("type").as_str() == Some(b"user") && record.get("isMeta").is_true()
 }
 
 /// An `assistant` record with a `tool_use` block named `AskUserQuestion` (the blocks [`item`] reads).
@@ -1021,6 +1030,13 @@ impl LiveTail {
         let session = self.sessions.get(session_id)?;
         let (path, _) = session.streams.iter().find(|(_, s)| !s.sub_agent)?;
         Some((path.clone(), session.project_dir.clone()))
+    }
+
+    /// T111 (FR-121): is the session typed work (its entrypoint is known and does not start with `sdk`, FR-105)? `None`: the
+    /// tail does not know the session or its entrypoint yet, which can change within a poll.
+    pub fn session_typed(&self, session_id: &str) -> Option<bool> {
+        let session = self.sessions.get(session_id)?;
+        session.entrypoint.as_ref().map(|_| session.is_typed())
     }
 
     /// The newest record time over the sessions whose project folder is `project_dir` (T105: the continue check; the

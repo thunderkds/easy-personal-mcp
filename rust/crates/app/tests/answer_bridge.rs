@@ -129,7 +129,11 @@ fn hooks_install_status_and_remove_keep_every_other_key() {
     assert_eq!(out.status.code(), Some(1), "{}", text(&out.stderr));
     let shown = text(&out.stdout);
     assert!(
-        shown.contains("\"matcher\": \"AskUserQuestion\"") && shown.contains("\"timeout\": 130")
+        shown.contains("\"matcher\": \"AskUserQuestion\"")
+            && shown.contains("\"timeout\": 130")
+            && shown.contains("\"timeout\": 660")
+            && shown.contains("\"Stop\""),
+        "{shown}"
     );
     assert!(shown.contains(&format!("{BIN} hook ask")), "{shown}");
     assert!(shown.contains("already running are not covered"), "{shown}");
@@ -155,7 +159,13 @@ fn hooks_install_status_and_remove_keep_every_other_key() {
     let ours = json!({"type": "command", "command": command, "timeout": 130});
     assert_eq!(after["permissions"], before["permissions"]);
     assert_eq!(after["model"], before["model"]);
-    assert_eq!(after["hooks"]["Stop"], before["hooks"]["Stop"]);
+    // T111: the third entry joins the owner's own Stop hook (kept, first); no matcher, timeout 660
+    assert_eq!(after["hooks"]["Stop"][0], before["hooks"]["Stop"][0]);
+    assert_eq!(
+        after["hooks"]["Stop"][1],
+        json!({"hooks": [{"type": "command", "command": command, "timeout": 660}]})
+    );
+    assert_eq!(after["hooks"]["Stop"].as_array().unwrap().len(), 2);
     assert_eq!(
         after["hooks"]["PreToolUse"][0],
         before["hooks"]["PreToolUse"][0]
@@ -193,6 +203,46 @@ fn hooks_install_status_and_remove_keep_every_other_key() {
         std::fs::read_dir(home.0.join("backups")).unwrap().count(),
         1
     );
+
+    // an install that has only the two entries of T106 reads `on (no reply)`; `install` adds the third and nothing else
+    let mut two = after.clone();
+    two["hooks"]["Stop"] = json!([before["hooks"]["Stop"][0].clone()]);
+    std::fs::write(home.settings(), two.to_string()).unwrap();
+    assert_eq!(
+        text(&home.run(&["hooks", "status"], "").stdout),
+        "1 \"Work\": on (no reply)\n"
+    );
+    let out = home.run(&["hooks", "install", "--yes"], "");
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert!(
+        text(&out.stdout).ends_with("done: on\n"),
+        "{}",
+        text(&out.stdout)
+    );
+    assert_eq!(json_of(&home.settings()), after);
+
+    // a hand-edited Stop entry of ours: changed by hand, kept by remove
+    let mut stop_edited = after.clone();
+    stop_edited["hooks"]["Stop"][1]["hooks"][0]["timeout"] = json!(5);
+    std::fs::write(home.settings(), stop_edited.to_string()).unwrap();
+    assert_eq!(
+        text(&home.run(&["hooks", "status"], "").stdout),
+        "1 \"Work\": changed by hand\n"
+    );
+    assert_eq!(
+        home.run(&["hooks", "install", "--yes"], "").status.code(),
+        Some(2)
+    );
+    assert_eq!(
+        home.run(&["hooks", "remove", "--yes"], "").status.code(),
+        Some(0)
+    );
+    assert_eq!(
+        json_of(&home.settings())["hooks"]["Stop"][1],
+        stop_edited["hooks"]["Stop"][1],
+        "the hand-edited entry stays"
+    );
+    std::fs::write(home.settings(), after.to_string()).unwrap();
 
     // a hand-edited entry: status says so, remove keeps it
     let mut edited = after.clone();
@@ -758,6 +808,12 @@ fn an_answer_from_the_app_reaches_the_waiting_hook_and_leaks_nowhere() {
             .unwrap()
             .contains("\"timeout\": 130")
     );
+    assert!(
+        body["entries_text"]
+            .as_str()
+            .unwrap()
+            .contains("\"timeout\": 660")
+    );
     assert_eq!(
         serve
             .request(
@@ -969,4 +1025,349 @@ fn put_hooks_over_a_non_json_settings_file_is_a_409_and_leaves_it_byte_identical
     );
     let (code, _, err) = serve.sigint();
     assert_eq!(code, Some(0), "{err}");
+}
+
+// ---- T111: reply to an idle session (FR-121) ----
+
+fn stop_input(session: &str, active: bool, last: &str) -> String {
+    json!({"hook_event_name": "Stop", "session_id": session, "stop_hook_active": active,
+           "last_assistant_message": last, "transcript_path": "/y", "cwd": "/x"})
+    .to_string()
+}
+
+/// A typed (`entrypoint` `cli`) or headless (`sdk-cli`) session whose turn just ended: the live tail lists it, in *your turn*.
+fn ended_turn(home: &Home, sid: &str, entrypoint: &str) {
+    let stamp = jiff::Timestamp::now().strftime("%Y-%m-%dT%H:%M:%S.000Z");
+    let line = json!({"type": "assistant", "sessionId": sid, "timestamp": stamp.to_string(), "cwd": "/tmp",
+        "entrypoint": entrypoint, "isSidechain": false,
+        "message": {"id": format!("m-{sid}"), "model": "x", "stop_reason": "end_turn", "content": [{"type": "text", "text": "done"}]}});
+    std::fs::write(
+        home.0.join(format!(".claude/projects/p/{sid}.jsonl")),
+        format!("{line}\n"),
+    )
+    .unwrap();
+}
+
+fn reply_of(snapshot: &Value, sid: &str) -> Option<Value> {
+    snapshot["sessions"]
+        .as_array()?
+        .iter()
+        .find(|s| s["session_id"] == sid)
+        .and_then(|s| s.get("pending_reply"))
+        .filter(|r| r.is_object())
+        .cloned()
+}
+
+fn replies(snapshot: &Value) -> usize {
+    snapshot["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|s| s["pending_reply"].is_object())
+        .count()
+}
+
+/// The output of a hook child that is done.
+fn finished(mut hook: Child) -> (Option<i32>, Vec<u8>, Vec<u8>) {
+    wait_for("the hook to end", || hook.try_wait().unwrap().is_some());
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    hook.stdout.take().unwrap().read_to_end(&mut out).unwrap();
+    hook.stderr.take().unwrap().read_to_end(&mut err).unwrap();
+    (hook.wait().unwrap().code(), out, err)
+}
+
+/// T111 AC 2: a `Stop` input with no app: exit 0, empty stdout, under 50 ms (median and p90 of 20 real runs), with
+/// `stop_hook_active` true and false.
+#[test]
+fn a_stop_hook_with_no_app_is_silent_exit_zero_and_fast() {
+    let home = Home::new("stop-noapp");
+    let mut times = Vec::new();
+    for round in 0..20 {
+        let input = stop_input("s1", round % 2 == 0, "LAST-TEXT");
+        let began = Instant::now();
+        let out = home.run(&["hook", "ask"], &input);
+        times.push(began.elapsed());
+        assert_eq!(out.status.code(), Some(0));
+        assert!(out.stdout.is_empty(), "{}", text(&out.stdout));
+        assert!(out.stderr.is_empty(), "{}", text(&out.stderr));
+    }
+    times.sort();
+    let (median, p90) = (times[9], times[17]);
+    eprintln!(
+        "hook ask (Stop), no app: median {median:?}, p90 {p90:?}, max {:?}",
+        times[19]
+    );
+    assert!(median < Duration::from_millis(50), "median {median:?}");
+    assert!(p90 < Duration::from_millis(50), "p90 {p90:?}");
+}
+
+/// T111 AC 2: with the app and the bridge on, a `Stop` is handed back at once (exit 0, nothing printed, nothing held) when
+/// no page is connected, when `stop_hook_active` is true, for an `sdk` session (an app session) and for a session the live
+/// list does not show (after the one-second grace).
+#[test]
+fn a_stop_hook_is_handed_back_for_no_page_an_active_turn_an_sdk_session_or_an_unlisted_one() {
+    let home = Home::new("stop-back");
+    ended_turn(&home, "typed", "cli");
+    ended_turn(&home, "headless", "sdk-cli");
+    assert_eq!(
+        home.run(&["hooks", "install", "--yes"], "").status.code(),
+        Some(0)
+    );
+    let mut serve = Serve::start(&home);
+    wait_for("the socket", || home.0.join("answer.sock").exists());
+    let quiet = |input: String| {
+        let began = Instant::now();
+        let out = home.run(&["hook", "ask"], &input);
+        assert_eq!(
+            (out.status.code(), out.stdout.len()),
+            (Some(0), 0),
+            "{input}"
+        );
+        assert!(
+            began.elapsed() < Duration::from_secs(5),
+            "{input}: {:?}",
+            began.elapsed()
+        );
+    };
+    quiet(stop_input("typed", false, "x")); // no page is connected
+    let mut live = serve.watch();
+    quiet(stop_input("typed", true, "x")); // the reply already continued this turn
+    quiet(stop_input("headless", false, "x")); // an sdk entrypoint
+    quiet(stop_input("not-listed", false, "x"));
+    let snapshot = live.next_snapshot(|_| true);
+    assert_eq!(replies(&snapshot), 0, "nothing was held");
+    // and the typed session is held while the page is connected
+    let hook = spawn_hook(&home, &stop_input("typed", false, "x"));
+    live.next_snapshot(|d| replies(d) == 1);
+    let (code, _, _) = serve.sigint();
+    assert_eq!(code, Some(0));
+    assert_eq!(finished(hook).1.len(), 0);
+}
+
+/// T111 AC 3, 5, 6, 7, 10: the hold over the real binary. The snapshot carries `pending_reply`; the four routes keep the
+/// guard and `confirmed: true`; a reply makes `hook ask` print exactly the block JSON; a release prints nothing; a killed
+/// hook (Esc in the terminal) leaves nothing; nothing of the texts reaches `/api/alerts` or the server's output.
+#[test]
+fn a_reply_from_the_app_reaches_the_held_stop_hook_and_leaks_nowhere() {
+    let home = Home::new("stop-e2e");
+    ended_turn(&home, "idle", "cli");
+    assert_eq!(
+        home.run(&["hooks", "install", "--yes"], "").status.code(),
+        Some(0)
+    );
+    let mut serve = Serve::start(&home);
+    let mut live = serve.watch();
+    wait_for("the socket", || home.0.join("answer.sock").exists());
+    let last = "PLANTED-LAST Shall I go on?\nsecond line \u{200b}end";
+    let hook = spawn_hook(&home, &stop_input("idle", false, last));
+    let snapshot = live.next_snapshot(|d| replies(d) == 1);
+    let held = reply_of(&snapshot, "idle").unwrap();
+    let mut keys: Vec<_> = held.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(keys, ["id", "last", "marked", "until"]);
+    assert_eq!(
+        held["last"],
+        "PLANTED-LAST Shall I go on?\nsecond line \\u{200b}end"
+    );
+    assert_eq!(held["marked"], false);
+    let now = jiff::Timestamp::now().as_second();
+    let until = held["until"].as_i64().unwrap();
+    assert!(
+        (now - 1..=now + 91).contains(&until) && until >= now + 85,
+        "a 90 s hold: until {until}, now {now}"
+    );
+    let id = held["id"].as_str().unwrap().to_string();
+
+    // the guard and the body rules, on all four routes
+    let bodies = [
+        (
+            "/api/reply",
+            json!({"id": id, "text": "x", "confirmed": true}),
+        ),
+        ("/api/reply/release", json!({"id": id, "confirmed": true})),
+        (
+            "/api/reply/watch",
+            json!({"session_id": "idle", "confirmed": true}),
+        ),
+        (
+            "/api/reply/mark",
+            json!({"session_id": "idle", "on": true, "confirmed": true}),
+        ),
+    ];
+    for (path, body) in &bodies {
+        assert_eq!(
+            serve.request("POST", path, Some(body), false).0,
+            403,
+            "{path}: no token"
+        );
+        let mut open = body.clone();
+        open.as_object_mut().unwrap().remove("confirmed");
+        assert_eq!(
+            serve.request("POST", path, Some(&open), true).0,
+            400,
+            "{path}: not confirmed"
+        );
+        let mut odd = body.clone();
+        odd["extra"] = json!(1);
+        assert_eq!(
+            serve.request("POST", path, Some(&odd), true).0,
+            400,
+            "{path}: unknown field"
+        );
+        assert_eq!(serve.request("GET", path, None, true).0, 405, "{path}: GET");
+    }
+    for bad in [
+        json!({"id": id, "confirmed": true}),
+        json!({"id": id, "text": "", "confirmed": true}),
+        json!({"id": id, "text": " \n ", "confirmed": true}),
+        json!({"id": id, "text": 5, "confirmed": true}),
+        json!({"id": id, "text": "x".repeat(8001), "confirmed": true}),
+    ] {
+        assert_eq!(
+            serve.request("POST", "/api/reply", Some(&bad), true).0,
+            400,
+            "{bad:.80}"
+        );
+    }
+    let unknown = json!({"id": "f".repeat(32), "text": "x", "confirmed": true});
+    assert_eq!(
+        serve.request("POST", "/api/reply", Some(&unknown), true).0,
+        409,
+        "unknown id"
+    );
+
+    // watch, then mark (a session the live list does not show is a 404), then unmark
+    let watch = json!({"session_id": "idle", "confirmed": true});
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/watch", Some(&watch), true)
+            .0,
+        200
+    );
+    let mark = |sid: &str, on: bool| json!({"session_id": sid, "on": on, "confirmed": true});
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/mark", Some(&mark("nobody", true)), true)
+            .0,
+        404
+    );
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/mark", Some(&mark("idle", true)), true)
+            .0,
+        200
+    );
+    let snapshot = live.next_snapshot(|d| reply_of(d, "idle").is_some_and(|r| r["marked"] == true));
+    let until = reply_of(&snapshot, "idle").unwrap()["until"]
+        .as_i64()
+        .unwrap();
+    let now = jiff::Timestamp::now().as_second();
+    assert!(
+        (now + 590..=now + 601).contains(&until),
+        "marked: 10 min, until {until}"
+    );
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/mark", Some(&mark("idle", false)), true)
+            .0,
+        200
+    );
+    live.next_snapshot(|d| reply_of(d, "idle").is_some_and(|r| r["marked"] == false));
+
+    // the reply: the text as typed, a leading `/` kept; exactly the documented block JSON on stdout; a second reply is a 409
+    let typed = "/status please\n  second \"line\" é";
+    let reply = json!({"id": id, "text": typed, "confirmed": true});
+    assert_eq!(
+        serve.request("POST", "/api/reply", Some(&reply), true).0,
+        200
+    );
+    assert_eq!(
+        serve.request("POST", "/api/reply", Some(&reply), true).0,
+        409,
+        "a second reply"
+    );
+    let (code, out, err) = finished(hook);
+    assert_eq!(code, Some(0));
+    assert!(err.is_empty());
+    assert_eq!(
+        text(&out),
+        "{\"decision\":\"block\",\"reason\":\"/status please\\n  second \\\"line\\\" é\"}\n"
+    );
+    live.next_snapshot(|d| replies(d) == 0);
+
+    // a release: exit 0, nothing printed; the id is then gone (409)
+    let hook = spawn_hook(&home, &stop_input("idle", false, "again"));
+    let snapshot = live.next_snapshot(|d| replies(d) == 1);
+    let id2 = reply_of(&snapshot, "idle").unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_ne!(id2, id);
+    let release = json!({"id": id2, "confirmed": true});
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/release", Some(&release), true)
+            .0,
+        200
+    );
+    assert_eq!(
+        serve
+            .request("POST", "/api/reply/release", Some(&release), true)
+            .0,
+        409
+    );
+    let (code, out, _) = finished(hook);
+    assert_eq!((code, out.len()), (Some(0), 0));
+
+    // Esc in the terminal kills the hook: the app drops the hold, no stale `pending_reply`
+    let mut hook = spawn_hook(&home, &stop_input("idle", false, "third"));
+    live.next_snapshot(|d| replies(d) == 1);
+    hook.kill().unwrap();
+    hook.wait().unwrap();
+    live.next_snapshot(|d| replies(d) == 0);
+
+    // nothing of the texts on the alert list, nor on the server's stdout or stderr
+    let (_, alerts) = serve.request("GET", "/api/alerts", None, true);
+    assert!(!alerts.to_string().contains("PLANTED"), "{alerts}");
+    let (code, out, err) = serve.sigint();
+    assert_eq!(code, Some(0), "{err}");
+    for log in [&out, &err] {
+        assert!(
+            !log.contains("PLANTED") && !log.contains("status please"),
+            "{log}"
+        );
+    }
+}
+
+/// T111 AC 7: the hold ends, exit 0 and nothing printed, about 2 s after the last Live stream closed, and at app exit.
+#[test]
+fn a_held_stop_hook_ends_when_the_last_stream_closes_and_at_app_exit() {
+    let home = Home::new("stop-end");
+    ended_turn(&home, "idle", "cli");
+    assert_eq!(
+        home.run(&["hooks", "install", "--yes"], "").status.code(),
+        Some(0)
+    );
+    let mut serve = Serve::start(&home);
+    wait_for("the socket", || home.0.join("answer.sock").exists());
+    let mut live = serve.watch();
+    let hook = spawn_hook(&home, &stop_input("idle", false, "x"));
+    live.next_snapshot(|d| replies(d) == 1);
+    let closed = Instant::now();
+    drop(live);
+    let (code, out, _) = finished(hook);
+    let after = closed.elapsed();
+    assert_eq!((code, out.len()), (Some(0), 0));
+    assert!(
+        after >= Duration::from_millis(1500) && after < Duration::from_secs(6),
+        "{after:?}"
+    );
+
+    let mut live = serve.watch();
+    let hook = spawn_hook(&home, &stop_input("idle", false, "x"));
+    live.next_snapshot(|d| replies(d) == 1);
+    let (code, _, _) = serve.sigint();
+    assert_eq!(code, Some(0));
+    let (code, out, _) = finished(hook);
+    assert_eq!((code, out.len()), (Some(0), 0));
 }
