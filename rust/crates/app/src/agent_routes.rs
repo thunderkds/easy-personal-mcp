@@ -929,6 +929,29 @@ mod tests {
         });
     }
 
+    /// T114: the app's `PATH` lacks `~/.local/bin` (the .deb tray, started by systemd); `claude` is found in `HOME`.
+    #[test]
+    fn claude_found_is_true_when_claude_is_only_in_the_homes_local_bin() {
+        let _guard = serial();
+        block(async {
+            let w = world("t114", WAIT);
+            std::fs::remove_file(w.fake.root.join("bin/claude")).unwrap();
+            assert_eq!(
+                w.state().await["claude_found"],
+                false,
+                "no PATH hit, no fallback"
+            );
+            let local = w.fake.root.join("home/.local/bin");
+            std::fs::create_dir_all(&local).unwrap();
+            let exe = local.join("claude");
+            std::fs::write(&exe, "#!/bin/sh\nexit 0\n").unwrap();
+            std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o644)).unwrap();
+            assert_eq!(w.state().await["claude_found"], false, "not executable");
+            std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+            assert_eq!(w.state().await["claude_found"], true);
+        });
+    }
+
     // ---- AC 6: stop and shutdown ----
 
     #[test]

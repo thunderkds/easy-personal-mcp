@@ -2,7 +2,8 @@
 //! `launcher_path`, behind core's [`Claude`] trait (the argument lists are built in `core/src/sync.rs`).
 //!
 //! `claude` is found on `PATH` like `shutil.which` (an executable regular file; an empty `PATH` entry is skipped, where
-//! Python would look in the working folder). It runs with an argument list, never a shell; with this process's
+//! Python would look in the working folder), else in `$HOME/.local/bin` and `$HOME/.claude/local` (T114: the tray has
+//! no `~/.local/bin` on its `PATH`). It runs with an argument list, never a shell; with this process's
 //! environment minus `CLAUDE_CONFIG_DIR`, plus `CLAUDE_CONFIG_DIR=<folder>` for an account that is not the default one;
 //! stdin closed; in a process group of its own; for at most 60 s (then the whole group is killed, so no process it
 //! started lives on (T066), and the call answers 127, as Python's `TimeoutExpired` path does).
@@ -34,6 +35,8 @@ unsafe extern "C" {
 pub struct SystemClaude {
     /// The `PATH` `claude` and the launcher are looked up on (this process's, read once per request).
     search: Option<OsString>,
+    /// The `HOME` `claude` is also looked for in (T114).
+    home: Option<OsString>,
     timeout: Duration,
 }
 
@@ -42,6 +45,7 @@ impl SystemClaude {
     pub fn new() -> Self {
         SystemClaude {
             search: std::env::var_os("PATH"),
+            home: std::env::var_os("HOME"),
             timeout: TIMEOUT,
         }
     }
@@ -49,6 +53,26 @@ impl SystemClaude {
     fn which(&self, name: &str) -> Option<PathBuf> {
         which(self.search.as_deref(), name)
     }
+
+    fn find_claude(&self) -> Option<PathBuf> {
+        find_claude(self.search.as_deref(), self.home.as_deref())
+    }
+}
+
+/// Where Claude Code's installers put `claude`, under `HOME`; tried in this order when `PATH` has none (T114: the tray
+/// that systemd starts has no `~/.local/bin` on its `PATH`, a login shell adds it).
+const HOME_CLAUDE: [&str; 2] = [".local/bin/claude", ".claude/local/claude"];
+
+/// `claude`: the one on `search` (a `PATH` value) if any, else the first executable regular file of [`HOME_CLAUDE`] under
+/// `home`. No `home` (or an empty one) means no fallback.
+pub(crate) fn find_claude(search: Option<&OsStr>, home: Option<&OsStr>) -> Option<PathBuf> {
+    which(search, "claude").or_else(|| {
+        let home = Path::new(home.filter(|h| !h.is_empty())?);
+        HOME_CLAUDE
+            .iter()
+            .map(|rel| home.join(rel))
+            .find(|path| is_executable(path))
+    })
 }
 
 /// `shutil.which` over `search` (a `PATH` value): the first executable regular file `name` in its folders.
@@ -78,7 +102,7 @@ fn is_executable(path: &Path) -> bool {
 
 impl Claude for SystemClaude {
     fn on_path(&self) -> bool {
-        self.which("claude").is_some()
+        self.find_claude().is_some()
     }
 
     fn run(&self, args: &[&str], config_dir_env: Option<&str>) -> Ran {
@@ -87,7 +111,7 @@ impl Claude for SystemClaude {
             stdout: String::new(),
             not_run: true,
         };
-        let Some(exe) = self.which("claude") else {
+        let Some(exe) = self.find_claude() else {
             return not_run;
         };
         let mut cmd = Command::new(exe);
@@ -198,6 +222,7 @@ mod tests {
                 search: Some(
                     format!("/nonexistent-t050::{}", self.dir.join("bin").display()).into(),
                 ),
+                home: None,
                 timeout,
             }
         }
@@ -229,6 +254,121 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.dir);
         }
+    }
+
+    /// T114: a fake `HOME` (and a `PATH` folder) in a temp dir, to try `find_claude` on.
+    struct Homes {
+        dir: PathBuf,
+    }
+
+    impl Homes {
+        fn new(tag: &str) -> Homes {
+            let dir = std::env::temp_dir().join(format!(
+                "easy-personal-rs-t114-{tag}-{}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(dir.join("home")).unwrap();
+            std::fs::create_dir_all(dir.join("pathdir")).unwrap();
+            Homes { dir }
+        }
+
+        fn home(&self) -> OsString {
+            self.dir.join("home").into()
+        }
+
+        fn path(&self) -> OsString {
+            self.dir.join("pathdir").into()
+        }
+
+        /// An executable `claude` at `rel` under the fake home (or the PATH folder for `pathdir/claude`).
+        fn put(&self, rel: &str, mode: u32) -> PathBuf {
+            let file = self.dir.join(rel);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(&file, "#!/bin/sh\n").unwrap();
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
+            file
+        }
+    }
+
+    impl Drop for Homes {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    #[test]
+    fn claude_on_path_is_found() {
+        let h = Homes::new("path");
+        let exe = h.put("pathdir/claude", 0o755);
+        assert_eq!(find_claude(Some(&h.path()), Some(&h.home())), Some(exe));
+    }
+
+    #[test]
+    fn claude_off_path_is_found_in_local_bin_then_in_dot_claude_local() {
+        let h = Homes::new("fallback");
+        let second = h.put("home/.claude/local/claude", 0o755);
+        assert_eq!(
+            find_claude(Some(&h.path()), Some(&h.home())),
+            Some(second),
+            "the second place when the first has none"
+        );
+        let first = h.put("home/.local/bin/claude", 0o755);
+        assert_eq!(
+            find_claude(Some(&h.path()), Some(&h.home())),
+            Some(first),
+            "~/.local/bin comes first"
+        );
+        assert_eq!(
+            find_claude(Some(OsStr::new("")), Some(&h.home())),
+            Some(h.dir.join("home/.local/bin/claude")),
+            "a PATH with no folder in it"
+        );
+    }
+
+    #[test]
+    fn claude_on_path_wins_over_the_fallback() {
+        let h = Homes::new("wins");
+        h.put("home/.local/bin/claude", 0o755);
+        let on_path = h.put("pathdir/claude", 0o755);
+        assert_eq!(find_claude(Some(&h.path()), Some(&h.home())), Some(on_path));
+    }
+
+    #[test]
+    fn a_fallback_that_is_a_directory_or_not_executable_is_not_found() {
+        let h = Homes::new("bad");
+        std::fs::create_dir_all(h.dir.join("home/.local/bin/claude")).unwrap();
+        h.put("home/.claude/local/claude", 0o644);
+        assert_eq!(find_claude(Some(&h.path()), Some(&h.home())), None);
+    }
+
+    #[test]
+    fn no_home_or_an_empty_home_means_no_fallback() {
+        let h = Homes::new("nohome");
+        h.put("home/.local/bin/claude", 0o755);
+        assert_eq!(find_claude(Some(&h.path()), None), None);
+        assert_eq!(find_claude(Some(&h.path()), Some(OsStr::new(""))), None);
+        // the current folder is not a home: an empty `HOME` must not turn into `.local/bin/claude`
+        assert_eq!(find_claude(Some(OsStr::new("")), None), None);
+    }
+
+    #[test]
+    fn the_real_claude_looks_in_home_too() {
+        let h = Homes::new("system");
+        let exe = h.put("home/.local/bin/claude", 0o755);
+        let claude = SystemClaude {
+            search: Some(h.path()),
+            home: Some(h.home()),
+            timeout: TIMEOUT,
+        };
+        assert!(claude.on_path());
+        assert_eq!(claude.find_claude(), Some(exe));
+        let no_home = SystemClaude {
+            search: Some(h.path()),
+            home: None,
+            timeout: TIMEOUT,
+        };
+        assert!(!no_home.on_path());
     }
 
     #[test]
