@@ -13,7 +13,8 @@ Mode: auto
 4. Stage 4 for a spike = a scope and secret check of the branch (15 new files, no secret or transcript line) instead of the multi-reviewer code review: the scripts are throwaway and nothing in the app runs them. SAFER OPTION: the same review effort goes to T103 and T106, which carry these findings into code. ⚠ decided for you — please review
 Checks: Verification Command `test -s tasks/evidence-T102/SPIKE.md …` — 8 AC rows, 15 scripts listed; real run: about 26 `claude --model haiku` probes by the agent (auto-checked, not /verify)
 Memory: memory/decisions.md — the write sessions entry already names T102; spike findings live in `tasks/evidence-T102/SPIKE.md`
-Not done: merge (admin: after the auto verify pass); auto verify: ☑ pass (session f8dc253e-1dab-46c6-8831-5830682b3ce7, commit b7c05b3024807f47bd9f56e75ba4a20df9ed371e, log .claude/verify-runs/T102-b7c05b302480.log)
+Not done: merge (admin: after the auto verify pass); auto verify: ☑ pass (session d9c66400-4138-4fc8-842c-0b20626f4c68, commit 369917147c08576a751076245732456886fc39fc, log .claude/verify-runs/T102-369917147c08.log)
+Paused: done not moved — Gate 5: no test run in memory/event-trace/T102.jsonl
 
 ## Evidence
 
@@ -22,7 +23,7 @@ Not done: merge (admin: after the auto verify pass); auto verify: ☑ pass (sess
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | Spike: each AC is a probe script with its recorded output in `tasks/evidence-T102/SPIKE.md`. Re-run 2026-11-17 under T102: `test -s tasks/evidence-T102/SPIKE.md && grep -cE '^\| *[0-9]+ ' …` → `8`; `ls rust/spikes/write-sessions/` → 14 files (`cc.py`, `hook.py`, `p1_stream_json.py` … `p7_fork.py`, `perm_*_server.py`); `python3 -m py_compile` on each → no failure |
 | Verification command run | ☑ pass | `SPIKE.md` non-empty, 8 AC rows, `rust/spikes/write-sessions/` lists 15 files |
 | Negative cases hold | ☑ pass | Fail-open probes: hook with exit 0 and no output, and a hook timeout (8 s vs sleep 12), both leave the terminal dialog; an unknown result shape from the permission tool fails closed |
-| verify | ☑ pass | auto-run by hook, session f8dc253e-1dab-46c6-8831-5830682b3ce7, commit b7c05b3024807f47bd9f56e75ba4a20df9ed371e, log .claude/verify-runs/T102-b7c05b302480.log — pass; done not moved: Gate 5: the tests row is not `☑ pass` with pasted output; Gate 5: no test run in memory/event-trace/T102.jsonl |
+| verify | ☑ pass | auto-run by hook, session d9c66400-4138-4fc8-842c-0b20626f4c68, commit 369917147c08576a751076245732456886fc39fc, log .claude/verify-runs/T102-369917147c08.log — pass; done not moved: Gate 5: no test run in memory/event-trace/T102.jsonl |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Only new spike files; no app code touched |
 | Full smoke suite still green (no regression) | ☑ N/A | No app code changed |
 | **Companion score (easy-verifier)** | ☑ N/A | Spike scripts, not product code |
