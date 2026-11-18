@@ -302,14 +302,16 @@ mod shell {
                 None => notifier,
             }) as Box<dyn crate::alerts::Notifier>
         });
-        server::start_with_alerts(
+        let mut running = server::start_with_alerts(
             Some(&root),
             Some(feed),
             Some(machine),
             Some(limits),
             notifier,
         )
-        .map_err(|e| Failure(1, e))
+        .map_err(|e| Failure(1, e))?;
+        running.listen_for_answers(); // T106: terminal sessions can be answered from this window
+        Ok(running)
     }
 
     /// The display preflight (`display.rs`, no Tauri code yet): exit 5 when there is none.

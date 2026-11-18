@@ -6,6 +6,7 @@ use std::process::ExitCode;
 mod agent_routes;
 mod agent_run;
 mod alerts;
+mod answer_bridge;
 mod api;
 mod app_session;
 mod app_session_routes;
@@ -16,6 +17,7 @@ mod connector_writes;
 #[cfg(any(feature = "window", test))]
 mod display;
 mod doctor_cmd;
+mod hooks_cmd;
 mod ingest_cmd;
 use easy_personal_keychain as keychain;
 mod legacy;
@@ -130,6 +132,16 @@ enum Command {
         #[command(subcommand)]
         action: agent_run::Action,
     },
+    /// Answer terminal sessions from the app: add or remove the two Claude Code hook entries of an account (off by default; add-only)
+    Hooks {
+        #[command(subcommand)]
+        action: hooks_cmd::Action,
+    },
+    /// The hook command Claude Code runs for those entries (not for typing by hand)
+    Hook {
+        #[command(subcommand)]
+        action: answer_bridge::HookAction,
+    },
     /// Open the dashboard in a window (needs a build with `--features window` and a display)
     App {
         /// Serve the built dashboard's files from this folder, from the same origin as the API
@@ -233,5 +245,7 @@ fn main() -> ExitCode {
         Command::Connector { action } => connector_cmd::run(action),
         Command::Doctor => doctor_cmd::run(),
         Command::AgentRun { action } => agent_run::main(action),
+        Command::Hooks { action } => hooks_cmd::run(action),
+        Command::Hook { action } => answer_bridge::ask_main(&action),
     }
 }

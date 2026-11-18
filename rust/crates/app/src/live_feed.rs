@@ -12,8 +12,10 @@
 //! [`LiveStream`] turns the tail into the Server-Sent Events of Python's `live_stream` (`surfaces/api.py`): the same
 //! messages in the same order, the JSON keys of `_SESSION_KEYS`, `_EVENT_KEYS` and `_snapshot_data` and nothing else,
 //! but for two Rust-only differences (T094): the `your_turn` attention state (FR-105) and the `questions` key of a
-//! `waiting` state ([`stream_data`], FR-106, DDR-0005).
+//! `waiting` state ([`stream_data`], FR-106, DDR-0005), and (T106) the `pending_answer` of a session whose terminal hook
+//! waits for the owner ([`add_pending`], FR-114, from `answer_bridge.rs`): the other place the page gets prompt text.
 
+use crate::answer_bridge::{Bridge, Subscription};
 use crate::api::Clock;
 use axum::body::Bytes;
 use easy_personal_core::clock::now_micros;
@@ -22,6 +24,7 @@ use easy_personal_core::prices::PriceTable;
 use easy_personal_core::store::store_path;
 use futures_core::Stream;
 use serde_json::{Map, Value, json};
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::future::Future;
 use std::panic::{self, AssertUnwindSafe};
@@ -200,6 +203,9 @@ pub(crate) fn resume_id(value: &[u8]) -> Option<i64> {
 pub(crate) struct LiveStream {
     cursor: Option<i64>,
     seen: Option<i64>,
+    /// T106: the hooks waiting for an answer (`None`: no bridge), and the change counter the last snapshot had.
+    answers: Option<Arc<Bridge>>,
+    seen_answers: u64,
 }
 
 impl LiveStream {
@@ -208,12 +214,25 @@ impl LiveStream {
         LiveStream {
             cursor: resume.filter(|_| tail_running),
             seen: None,
+            answers: None,
+            seen_answers: 0,
         }
+    }
+
+    /// T106: a snapshot also carries the sessions' `pending_answer`, and is sent again when the set of them changes.
+    pub(crate) fn with_answers(mut self, answers: Arc<Bridge>) -> Self {
+        self.answers = Some(answers);
+        self
     }
 
     /// One pass of Python's loop body (without the ping and the sleep): the bytes to send, maybe none.
     pub(crate) fn step(&mut self, tail: Option<&LiveTail>, now: i64) -> Vec<u8> {
         let mut out = Vec::new();
+        // the set of hooks is read (and cloned) only when its counter moved or a snapshot goes out anyway
+        let answers_moved = self
+            .answers
+            .as_ref()
+            .is_some_and(|b| b.version() != self.seen_answers);
         if let (Some(t), Some(c)) = (tail, self.cursor)
             && (c > t.last_id() || t.rolled_past(c))
         {
@@ -222,11 +241,15 @@ impl LiveStream {
         match (self.cursor, tail) {
             (None, _) => {
                 let snapshot = tail.map_or_else(empty_snapshot, |t| t.snapshot(now));
-                self.take(&snapshot);
-                out.extend(sse("snapshot", &stream_data(&snapshot, tail), None));
+                let (answers_version, pending) = self.pending();
+                self.take(&snapshot, answers_version);
+                let mut data = stream_data(&snapshot, tail);
+                add_pending(&mut data, &pending);
+                out.extend(sse("snapshot", &data, None));
             }
-            (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) => {
+            (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || answers_moved => {
                 let snapshot = t.snapshot(now); // attention changed: events up to its `last_id` first
+                let (answers_version, pending) = self.pending();
                 let upto = snapshot["last_id"].as_i64().unwrap_or(0);
                 for event in t.events_since(cursor) {
                     let id = event["id"].as_i64().unwrap_or(0);
@@ -235,8 +258,10 @@ impl LiveStream {
                     }
                     out.extend(sse("live", &event_data(&event), Some(id)));
                 }
-                self.take(&snapshot);
-                out.extend(sse("snapshot", &stream_data(&snapshot, Some(t)), None));
+                self.take(&snapshot, answers_version);
+                let mut data = stream_data(&snapshot, Some(t));
+                add_pending(&mut data, &pending);
+                out.extend(sse("snapshot", &data, None));
             }
             _ => {}
         }
@@ -250,9 +275,17 @@ impl LiveStream {
         out
     }
 
-    fn take(&mut self, snapshot: &Value) {
+    /// The bridge's change counter and its cards (none without a bridge).
+    fn pending(&self) -> (u64, HashMap<String, Value>) {
+        self.answers
+            .as_ref()
+            .map_or_else(|| (0, HashMap::new()), |b| b.view())
+    }
+
+    fn take(&mut self, snapshot: &Value, answers_version: u64) {
         self.cursor = Some(snapshot["last_id"].as_i64().unwrap_or(0));
         self.seen = Some(snapshot["state_version"].as_i64().unwrap_or(0));
+        self.seen_answers = answers_version;
     }
 }
 
@@ -263,6 +296,8 @@ impl LiveStream {
 /// that does not read is not polled, so nothing piles up here; what one pass can hold is bounded by the tail's buffer.
 pub(crate) struct SseBody {
     stream: LiveStream,
+    /// T106: while this stream is open the bridge holds terminal hooks for the owner (see `Bridge::subscribe`).
+    _subscription: Option<Subscription>,
     tail: Option<SharedTail>,
     stopping: Arc<AtomicBool>,
     clock: Clock,
@@ -274,6 +309,13 @@ pub(crate) struct SseBody {
 }
 
 impl SseBody {
+    /// T106: the hooks whose owner answer the snapshots carry.
+    pub(crate) fn with_answers(mut self, answers: Arc<Bridge>) -> Self {
+        self._subscription = Some(answers.subscribe());
+        self.stream = self.stream.with_answers(answers);
+        self
+    }
+
     pub(crate) fn new(
         resume: Option<i64>,
         tail: Option<SharedTail>,
@@ -282,6 +324,7 @@ impl SseBody {
     ) -> Self {
         SseBody {
             stream: LiveStream::new(resume, tail.is_some()),
+            _subscription: None,
             tail,
             stopping,
             clock,
@@ -402,6 +445,23 @@ fn stream_data(snapshot: &Value, tail: Option<&LiveTail>) -> Value {
         }
     }
     data
+}
+
+/// T106 (FR-114): the key `pending_answer` of each session of a snapshot whose terminal hook waits for the owner. A hook
+/// whose session is not in the snapshot is not shown (it ends by itself after its wait). The one place this text joins
+/// the page's data; the tail, the alert engine and the tray never see it.
+fn add_pending(data: &mut Value, pending: &HashMap<String, Value>) {
+    if pending.is_empty() {
+        return;
+    }
+    for session in data["sessions"].as_array_mut().into_iter().flatten() {
+        if let Some(found) = session["session_id"]
+            .as_str()
+            .and_then(|id| pending.get(id))
+        {
+            session["pending_answer"] = found.clone();
+        }
+    }
 }
 
 fn event_data(event: &Value) -> Value {
@@ -1218,6 +1278,229 @@ mod tests {
             snapshot["sessions"][0]["attention"][0]["tool"],
             "ExitPlanMode"
         );
+    }
+
+    // ---- T106: the answer bridge's `pending_answer` (FR-114, FR-115) ----------------------------------------------------
+
+    /// A hook for session `s1` that waits for the owner: a `Bash` permission with a planted command.
+    fn waiting_hook(bridge: &Arc<Bridge>) -> std::sync::mpsc::Receiver<String> {
+        use std::io::Write;
+        static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ep-t106-feed-{}-{}",
+            std::process::id() % 100_000,
+            N.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let socket = crate::answer_bridge::Socket::listen(&dir, Arc::clone(bridge)).unwrap();
+        let (done, reply) = std::sync::mpsc::channel::<String>();
+        let path = dir.join(crate::answer_bridge::SOCKET);
+        thread::spawn(move || {
+            let mut stream = std::os::unix::net::UnixStream::connect(path).unwrap();
+            let input = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash", "session_id": "s1",
+                               "tool_input": {"command": "PLANTED-T106-COMMAND"}});
+            writeln!(stream, "{input}").unwrap();
+            let mut line = String::new();
+            let _ = std::io::BufRead::read_line(&mut std::io::BufReader::new(stream), &mut line);
+            let _ = done.send(line);
+            drop(socket); // lives as long as the hook
+            let _ = std::fs::remove_dir_all(&dir);
+        });
+        reply
+    }
+
+    /// FR-114: a session whose hook waits gets `pending_answer` in the stream's snapshot (a new one is sent when the set
+    /// changes, and when it empties); the tail's own snapshot, the one the tray and the alerts read, never holds it.
+    #[test]
+    fn the_stream_adds_pending_answer_to_the_session_whose_hook_waits() {
+        let tmp = Temp::new("pending");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s1", "b1", "2026-01-20T00:00:05Z"));
+        tail.poll_once(&roots, NOW, None);
+        let bridge = Arc::new(Bridge::default());
+        let _open = bridge.subscribe(); // a live stream is open, so a hook is held
+        let mut stream = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let first = messages(&stream.step(Some(&tail), NOW));
+        assert!(
+            !first.last().unwrap().2["sessions"][0]
+                .as_object()
+                .unwrap()
+                .contains_key("pending_answer")
+        );
+        assert!(
+            stream.step(Some(&tail), NOW).is_empty(),
+            "nothing changed, nothing sent"
+        );
+
+        let reply = waiting_hook(&bridge);
+        for _ in 0..200 {
+            if !bridge.view().1.is_empty() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        let bytes = stream.step(Some(&tail), NOW);
+        let sent = messages(&bytes);
+        assert_eq!(
+            sent.last().unwrap().0,
+            "snapshot",
+            "a new snapshot for the new hook"
+        );
+        let pending = &sent.last().unwrap().2["sessions"][0]["pending_answer"];
+        assert_eq!(pending["kind"], "permission");
+        assert_eq!(pending["input"], "PLANTED-T106-COMMAND");
+        assert_eq!(pending["complete"], true);
+        assert!(pending.get("summary").is_none());
+        assert_eq!(pending["id"].as_str().unwrap().len(), 32);
+        assert!(
+            !tail.snapshot(NOW).to_string().contains("PLANTED"),
+            "the tail's snapshot holds no prompt text"
+        );
+        assert!(!tail.snapshot(NOW).to_string().contains("pending_answer"));
+        // another stream with no bridge never has it
+        let plain = String::from_utf8_lossy(&LiveStream::new(None, true).step(Some(&tail), NOW))
+            .into_owned();
+        assert!(!plain.contains("PLANTED") && !plain.contains("pending_answer"));
+        assert!(
+            stream.step(Some(&tail), NOW).is_empty(),
+            "no change, nothing sent"
+        );
+
+        // the owner hands it back: the card goes in the next snapshot
+        let id = pending["id"].as_str().unwrap().to_string();
+        assert!(bridge.release(&id));
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(sent.last().unwrap().0, "snapshot");
+        assert!(
+            !sent
+                .last()
+                .unwrap()
+                .2
+                .to_string()
+                .contains("pending_answer")
+        );
+        assert_eq!(
+            reply.recv_timeout(Duration::from_secs(5)).unwrap(),
+            "",
+            "the hook got no reply"
+        );
+    }
+
+    /// A hook of a session that is not in the snapshot is not shown (and no other session gets its card).
+    #[test]
+    fn a_hook_of_another_session_is_not_shown_on_this_one() {
+        let tmp = Temp::new("pending-other");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s2", "b1", "2026-01-20T00:00:05Z"));
+        tail.poll_once(&roots, NOW, None);
+        let bridge = Arc::new(Bridge::default());
+        let _open = bridge.subscribe();
+        let _reply = waiting_hook(&bridge); // session s1
+        for _ in 0..200 {
+            if !bridge.view().1.is_empty() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        let mut stream = LiveStream::new(None, true).with_answers(Arc::clone(&bridge));
+        let text = String::from_utf8_lossy(&stream.step(Some(&tail), NOW)).into_owned();
+        assert!(
+            !text.contains("pending_answer") && !text.contains("PLANTED"),
+            "{text}"
+        );
+        bridge.close(); // ends the hook, which removes its folder
+    }
+
+    /// F2: a hook is handed back (the terminal asks as usual) when the live snapshot does not list its session within the
+    /// one-second grace, and at once when no feed runs; it is held when the session is listed.
+    #[test]
+    fn a_hook_of_a_session_the_snapshot_does_not_list_is_handed_back_within_the_grace() {
+        let tmp = Temp::new("pending-unlisted");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s2", "b1", "2026-01-20T00:00:05Z"));
+        tail.poll_once(&roots, NOW, None);
+        let shared = Arc::new(Mutex::new(tail));
+        let clock: Clock = Arc::new(|| NOW);
+
+        // the snapshot lists s2 only: a hook of s1 never gets a card and its reply is empty
+        let bridge = Arc::new(Bridge::default());
+        bridge.set_live(Some(Arc::clone(&shared)), Arc::clone(&clock));
+        let _open = bridge.subscribe();
+        let reply = waiting_hook(&bridge);
+        assert_eq!(
+            reply.recv_timeout(Duration::from_secs(5)).unwrap(),
+            "",
+            "handed back, not held"
+        );
+        assert!(bridge.view().1.is_empty());
+
+        // no feed at all
+        let bridge = Arc::new(Bridge::default());
+        bridge.set_live(None, Arc::clone(&clock));
+        let _open = bridge.subscribe();
+        let reply = waiting_hook(&bridge);
+        assert_eq!(reply.recv_timeout(Duration::from_secs(5)).unwrap(), "");
+
+        // a session the snapshot lists is held
+        append(&tmp, &call_line("s1", "b2", "2026-01-20T00:00:05Z"));
+        shared.lock().unwrap().poll_once(&roots, NOW, None);
+        let bridge = Arc::new(Bridge::default());
+        bridge.set_live(Some(shared), clock);
+        let _open = bridge.subscribe();
+        let reply = waiting_hook(&bridge);
+        for _ in 0..200 {
+            if !bridge.view().1.is_empty() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(bridge.view().1.contains_key("s1"), "held for the owner");
+        bridge.close();
+        assert_eq!(reply.recv_timeout(Duration::from_secs(5)).unwrap(), "");
+    }
+
+    /// F2: the open streams are counted: one body counts while it lives, and the bridge knows when the last one is gone.
+    #[test]
+    fn an_open_live_body_counts_as_a_subscriber_until_it_is_dropped() {
+        let bridge = Arc::new(Bridge::default());
+        let stopping = Arc::new(AtomicBool::new(false));
+        let clock: Clock = Arc::new(|| NOW);
+        let runtime = tokio::runtime::Runtime::new().unwrap(); // a body's timer needs a runtime
+        let body = {
+            let _in = runtime.enter();
+            SseBody::new(None, None, stopping, clock).with_answers(Arc::clone(&bridge))
+        };
+        let raw = serde_json::json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
+            "session_id": "s1", "tool_input": {"command": "ls"}});
+        let dir =
+            std::env::temp_dir().join(format!("ep-t106-sub-{}", std::process::id() % 100_000));
+        let _ = std::fs::remove_dir_all(&dir);
+        let socket = crate::answer_bridge::Socket::listen(&dir, Arc::clone(&bridge)).unwrap();
+        let ask = |raw: &Value| {
+            let mut stream =
+                std::os::unix::net::UnixStream::connect(dir.join(crate::answer_bridge::SOCKET))
+                    .unwrap();
+            std::io::Write::write_all(&mut stream, format!("{raw}\n").as_bytes()).unwrap();
+            stream
+        };
+        // open: the item is registered (no listing set: any session)
+        let _held = ask(&raw);
+        for _ in 0..200 {
+            if !bridge.view().1.is_empty() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(bridge.view().1.len(), 1);
+        drop(body);
+        // closed: the next hook is handed back at once (its stream ends with no reply)
+        let mut late = ask(&raw);
+        let mut got = String::new();
+        late.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        std::io::Read::read_to_string(&mut late, &mut got).unwrap();
+        assert_eq!(got, "");
+        drop(socket);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Edge case: a change of the question text alone sends a new snapshot; no change sends nothing.
