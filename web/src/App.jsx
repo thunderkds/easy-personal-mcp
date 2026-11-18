@@ -17,6 +17,7 @@ import { ToastProvider } from './Toast.jsx'
 import UsageView from './UsageView.jsx'
 import WatchView from './WatchView.jsx'
 import WarningsPlanView from './WarningsPlanView.jsx'
+import WorkflowView from './WorkflowView.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
 
 // `scoped` views filter by the global Workspace/Account scope; the others ignore it.
@@ -42,7 +43,14 @@ const GROUPS = [
       { id: 'warnings', label: 'Warnings & plan', View: WarningsPlanView, scoped: true },
     ],
   },
-  { id: 'kit', label: '// kit', tabs: [{ id: 'kit', label: 'Kit', View: KitView, scoped: true }] },
+  {
+    id: 'kit',
+    label: '// kit',
+    tabs: [
+      { id: 'kit', label: 'Kit', View: KitView, scoped: true },
+      { id: 'workflow', label: 'Workflow', View: WorkflowView, scoped: true },
+    ],
+  },
   {
     id: 'connect',
     label: '// connect',

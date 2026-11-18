@@ -471,6 +471,47 @@ export const kitReportFiles = {
   truncated: false,
 }
 
+// The route's flows (PRD FR-117): the page holds no copy of them, so tests feed them from here.
+const kitStep = (id, name, parts, agents, stages, skills) => ({
+  id, name, parts, agents, signals: { stages, skills, agents: agents.filter((a) => a !== 'Supervisor'), tools: [], commands: [] },
+})
+const plainStep = (id, name, agents, signals) => ({ id, name, parts: [], agents, signals: { stages: [], skills: [], agents, tools: [], commands: [], ...signals } })
+export const workflow = {
+  flows: [
+    {
+      id: 'easy-kit',
+      name: 'Easy kit',
+      steps: [
+        kitStep('0', 'Stage 0 · Define', ['Requirements', 'Grilling', 'Direction'], ['Supervisor'], ['0.5'], ['brainstorming', 'ideate']),
+        kitStep('1', 'Stage 1 · Set up', ['Environment', 'Agent team'], ['Supervisor', 'common-infrastructure'], ['1', '1.5'], ['git-guardrails-claude-code', 'map-codebase', 'craft-agent']),
+        kitStep('2', 'Stage 2 · Plan', [], ['Supervisor'], ['2'], ['grill-with-docs', 'to-issues']),
+        kitStep('3', 'Stage 3 · Execute', [], ['common-infrastructure', 'backend-developer', 'frontend-developer'], ['3'], ['tdd', 'bugfix', 'diagnose', 'craft-spawn-prompt', 'migration-safety']),
+        kitStep('4', 'Stage 4 · Review', [], ['Supervisor', 'qa-expert'], ['4'], ['code-review', 'security-review', 'blast-radius', 'html-report']),
+        kitStep('5', 'Stage 5 · Integrate', [], ['qa-expert', 'Supervisor'], ['5'], ['verify', 'ship', 'delivery-report']),
+      ],
+      gates: [
+        { after: '2', before: '3', text: 'No TASK_GUIDE, no Stage 3' },
+        { after: '3', before: '4', text: 'Ready for Review starts the reviews' },
+        { after: '4', before: '5', text: 'Reviews before verify' },
+        { after: '5', before: null, text: 'Verify passes before merge' },
+      ],
+    },
+    {
+      id: 'plain',
+      name: 'Plain prompts (no kit)',
+      steps: [
+        plainStep('understand', 'Understand', ['Explore'], { tools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'] }),
+        plainStep('plan', 'Plan', ['Plan'], { tools: ['EnterPlanMode', 'ExitPlanMode', 'TodoWrite'] }),
+        plainStep('change', 'Change', [], { tools: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'] }),
+        plainStep('check', 'Check', [], { commands: ['cargo', 'npm', 'npx', 'pnpm', 'yarn', 'pytest', 'python', 'python3', 'go', 'make', 'uv', 'jest', 'vitest'] }),
+        plainStep('ship', 'Ship', [], { commands: ['git', 'gh'] }),
+      ],
+      gates: [],
+    },
+  ],
+  projects: {},
+}
+
 // T092: GET /api/agent-run, as `rust/crates/app/src/agent_routes.rs` answers it; `last` is the outcome record of the run before.
 export const agentRunOff = { enabled: false, account: null, claude_found: true, running: false, last: null }
 export const agentRunOn = (over = {}) => ({
@@ -503,6 +544,8 @@ export function fakeFetch(overrides = {}) {
       body = found
     } else if (path === '/api/plan') body = overrides.plan ?? plan
     else if (path === '/api/kit') body = overrides.kit ?? kit
+    else if (path === '/api/kit/workflow') body = overrides.workflow ?? workflow
+    else if (path === '/api/board') body = overrides.board // no board given: 404, as before
     else if (path === '/api/kit/workspaces') body = overrides.workspaceKit ?? workspaceKit
     else if (path === '/api/kit/report-files') {
       const given = overrides.kitReportFiles

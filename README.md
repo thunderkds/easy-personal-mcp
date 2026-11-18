@@ -164,7 +164,7 @@ The server also offers one prompt, `investigate`. In Claude Code, type `/mcp__ea
 easy-personal dashboard
 ```
 
-This runs an ingest, then starts the page on `127.0.0.1` with a free port. It prints a URL like `http://127.0.0.1:<port>/#<token>` and opens your browser. The token is new on every launch. Press Ctrl-C to stop. The tabs are Live, Board, Scheduled, Memory, Usage, Warnings & plan, Kit, Workspaces and Agents, plus a First run checklist.
+This runs an ingest, then starts the page on `127.0.0.1` with a free port. It prints a URL like `http://127.0.0.1:<port>/#<token>` and opens your browser. The token is new on every launch. Press Ctrl-C to stop. The tabs are Live, Board, Scheduled, Memory, Usage, Warnings & plan, Kit, Workflow, Workspaces and Agents, plus a First run checklist. The Rust app's **Workflow** tab (under `// kit`) draws a flow as one horizontal line of steps (name, parts, agents) with the checks between them. Two flows are built in: **Easy kit** (the kit's Stage 0 to Stage 5) and **Plain prompts (no kit)** (Understand, Plan, Change, Check, Ship). Each live session goes on one flow and step: Easy kit by its kit stage, any other flow by its newest matching call (since the page opened). Sub-agents seen in the last 5 minutes show on the steps that list them, and the Easy kit line shows the board counts of the chosen scope by status. It reads only the page's live stream and the board, and stores nothing.
 
 ### Memory view
 

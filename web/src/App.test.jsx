@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 import { act } from '@testing-library/react'
 import { readToken } from './api.js'
-import { agentRunOff, agentRunOn, fakeFetch, firstRun, workspaceOverrides } from './test/fixtures.js'
+import { agentRunOff, agentRunOn, fakeFetch, firstRun, workflow, workspaceOverrides } from './test/fixtures.js'
 
 beforeEach(() => {
   window.location.hash = '#secret-token'
@@ -49,7 +49,7 @@ it('the Usage period is app-wide: the rail card follows it, and it survives a vi
 it('lists the 7 views in the sidebar and marks only the active one', () => {
   render(<App />)
   const buttons = within(nav()).getAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'))
-  expect(buttons.map((b) => b.textContent)).toEqual(['Live', 'App sessions', 'Watch', 'Board', 'Scheduled', 'Memory', 'Usage', 'Warnings & plan', 'Kit', 'Workspaces', 'Agents', 'First run', 'Settings'])
+  expect(buttons.map((b) => b.textContent)).toEqual(['Live', 'App sessions', 'Watch', 'Board', 'Scheduled', 'Memory', 'Usage', 'Warnings & plan', 'Kit', 'Workflow', 'Workspaces', 'Agents', 'First run', 'Settings'])
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(within(nav()).getByRole('button', { name: 'Kit' })).toHaveAttribute('aria-current', 'page')
   expect(within(nav()).getByRole('button', { name: 'Usage' })).not.toHaveAttribute('aria-current')
@@ -102,7 +102,7 @@ describe('rail groups and First run (HUN-160)', () => {
     const inGroup = (id) => [...nav().querySelectorAll(`[data-group="${id}"] [aria-expanded] ~ .group-items button`)].map((b) => b.textContent)
     expect(inGroup('work')).toEqual(['Live', 'App sessions', 'Watch', 'Board', 'Scheduled', 'Memory'])
     expect(inGroup('usage')).toEqual(['Usage', 'Warnings & plan'])
-    expect(inGroup('kit')).toEqual(['Kit'])
+    expect(inGroup('kit')).toEqual(['Kit', 'Workflow'])
     expect(inGroup('connect')).toEqual(['Workspaces', 'Agents'])
     expect(inGroup('system')).toEqual(['First run', 'Settings'])
   })
@@ -235,6 +235,19 @@ it('shows the active view title in the top bar', async () => {
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(within(bar).getByText('Kit')).toBeInTheDocument()
   expect(await screen.findByRole('heading', { name: /^Kit by project/ })).toBeInTheDocument()
+})
+
+it('opens the Workflow tab from the kit group and reads the map, not the board (T108, FR-118)', async () => {
+  window.localStorage.setItem('easy-personal-scope', JSON.stringify({ workspace: 'work', account: '' }))
+  const f = fakeFetch({ workflow, board: { projects: [] }, workspaces: { workspaces: [{ id: 'w1', name: 'work', is_orphan: false, repos: [] }] }, accounts: { accounts: [] } })
+  vi.stubGlobal('fetch', f)
+  render(<App />)
+  fireEvent.click(within(nav()).getByRole('button', { name: 'Workflow' }))
+  expect(await screen.findByRole('heading', { name: 'Workflow' })).toBeInTheDocument()
+  expect(within(nav()).getByRole('button', { name: 'Workflow' })).toHaveAttribute('aria-current', 'page')
+  expect(await screen.findByText('Stage 3 · Execute')).toBeInTheDocument()
+  expect(f.calls.some((c) => c.url === '/api/kit/workflow')).toBe(true)
+  expect(f.calls.some((c) => c.url.startsWith('/api/board'))).toBe(false) // the view draws the flow only (redo 2)
 })
 
 it('has a menu button that toggles aria-expanded and closes after choosing a view', () => {

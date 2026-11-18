@@ -1,6 +1,6 @@
 //! The dashboard API's routes: the read routes `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
-//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
+//! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/workflow` (T108), `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
 //! `/api/board` and `/api/memory-graph` (T043), `/api/effectiveness` (T075: `since`, `until`, `workspace`, `account`), `/api/store/health` (T059, below), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
 //! and the seven store-only write routes of T048, which `writes.rs` serves. T050 adds the connector writes
@@ -264,6 +264,7 @@ pub fn routes() -> Router<Api> {
         .route("/api/kit", get(kit_projects))
         .route("/api/kit/workspaces", get(kit_workspaces))
         .route("/api/kit/reports", get(kit_reports))
+        .route("/api/kit/workflow", get(kit_workflow))
         .route("/api/kit/report-files", get(kit_report_files))
         .route("/api/kit/report-file", get(kit_report_file))
         .route("/api/reports", get(report_list))
@@ -470,6 +471,11 @@ async fn kit_reports(State(api): State<Api>, uri: Uri) -> Response {
         kit::report_folders(conn).map_err(metrics_failure)
     })
     .await
+}
+
+/// `GET /api/kit/workflow` (T108, FR-117): the built-in flows (easy-kit, plain); static, so no store is opened.
+async fn kit_workflow() -> Response {
+    respond(StatusCode::OK, &easy_personal_core::workflow::json())
 }
 
 /// `GET /api/kit/report-files` (T045): the files of one report folder, `workspace`, `repo_no` and `folder` from the query

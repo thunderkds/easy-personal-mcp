@@ -81,18 +81,10 @@ pub const RESUME_QUIET_S: i64 = 120;
 // fails to compile here instead of opening with a wrong flag.
 use crate::report_files::sys::{O_NOFOLLOW, O_NONBLOCK};
 
-/// FR-083: the kit stage of a skill (owner choice 2026-11-06); a skill not listed leaves the stage unchanged.
-fn stage_of(skill: &str) -> Option<&'static str> {
-    Some(match skill {
-        "brainstorming" | "ideate" => "0.5",
-        "git-guardrails-claude-code" | "map-codebase" => "1",
-        "craft-agent" => "1.5",
-        "grill-with-docs" | "to-issues" => "2",
-        "tdd" | "bugfix" | "diagnose" | "craft-spawn-prompt" | "migration-safety" => "3",
-        "code-review" | "security-review" | "blast-radius" | "html-report" => "4",
-        "verify" | "ship" | "delivery-report" => "5",
-        _ => return None,
-    })
+/// FR-083: the kit stage of a skill (owner choice 2026-11-06); a skill not listed leaves the stage unchanged. The map is
+/// the one table of `workflow.rs`, which `GET /api/kit/workflow` serves too (T108).
+pub(crate) fn stage_of(skill: &str) -> Option<&'static str> {
+    crate::workflow::stage_of(skill)
 }
 
 // ---- labels (FR-081) ------------------------------------------------------------------------------------------------

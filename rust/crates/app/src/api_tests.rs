@@ -1221,3 +1221,106 @@ async fn paused_through_the_route_stops_the_popup_but_the_list_still_has_the_ale
     assert_eq!(body["alerts"][0]["t"], 1_800_000_000);
     assert!(body["alerts"][0]["account"].is_null() && body["alerts"][0]["session"].is_null());
 }
+
+// ---- GET /api/kit/workflow (T108, FR-117) -----------------------------------------------------------------------------
+
+/// T108 AC 1: the two built-in flows, guarded like the other `/api/kit*` routes, read-only, and no store is opened.
+#[tokio::test]
+async fn kit_workflow_is_the_built_in_flows_guarded_read_only_and_reads_no_store() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counted = calls.clone();
+    let app = router(
+        TOKEN.into(),
+        PORT,
+        Api::new(
+            move || {
+                counted.fetch_add(1, Ordering::SeqCst);
+                Err(StoreError::NoStore)
+            },
+            || FROZEN_NOW,
+        ),
+    );
+    let (status, body) = get(&app, "/api/kit/workflow", false).await;
+    assert_eq!(status, 403);
+    assert_eq!(body, json!({"error": "forbidden"}));
+
+    let (status, body) = get(&app, "/api/kit/workflow", true).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        body.as_object().unwrap().keys().collect::<Vec<_>>(),
+        ["flows", "projects"]
+    );
+    assert_eq!(body["projects"], json!({}));
+    let flows = body["flows"].as_array().unwrap();
+    let ids: Vec<_> = flows.iter().map(|f| f["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["easy-kit", "plain"]);
+    for flow in flows {
+        assert_eq!(
+            flow.as_object().unwrap().keys().collect::<Vec<_>>(),
+            ["gates", "id", "name", "steps"]
+        );
+        for step in flow["steps"].as_array().unwrap() {
+            assert_eq!(
+                step.as_object().unwrap().keys().collect::<Vec<_>>(),
+                ["agents", "id", "name", "parts", "signals"]
+            );
+            assert_eq!(
+                step["signals"]
+                    .as_object()
+                    .unwrap()
+                    .keys()
+                    .collect::<Vec<_>>(),
+                ["agents", "commands", "skills", "stages", "tools"]
+            );
+        }
+    }
+    let kit = &flows[0];
+    let steps = kit["steps"].as_array().unwrap();
+    let step_ids: Vec<_> = steps.iter().map(|s| s["id"].as_str().unwrap()).collect();
+    assert_eq!(step_ids, ["0", "1", "2", "3", "4", "5"]);
+    assert_eq!(steps[0]["name"], "Stage 0 · Define");
+    assert_eq!(
+        steps[0]["parts"],
+        json!(["Requirements", "Grilling", "Direction"])
+    );
+    assert_eq!(steps[0]["signals"]["stages"], json!(["0.5"]));
+    assert_eq!(
+        steps[0]["signals"]["skills"],
+        json!(["brainstorming", "ideate"])
+    );
+    assert_eq!(
+        steps[3]["agents"],
+        json!([
+            "common-infrastructure",
+            "backend-developer",
+            "frontend-developer"
+        ])
+    );
+    let gates = kit["gates"].as_array().unwrap();
+    assert_eq!(
+        gates[0],
+        json!({"after": "2", "before": "3", "text": "No TASK_GUIDE, no Stage 3"})
+    );
+    assert_eq!(gates.len(), 4);
+    assert!(
+        gates[3]["before"].is_null(),
+        "the last gate has nothing after it"
+    );
+    let plain = &flows[1];
+    assert_eq!(plain["name"], "Plain prompts (no kit)");
+    assert_eq!(plain["steps"][3]["signals"]["commands"][0], "cargo");
+    assert_eq!(plain["gates"], json!([]));
+
+    for method in ["POST", "PUT", "PATCH", "DELETE"] {
+        let request = Request::builder()
+            .method(method)
+            .uri("/api/kit/workflow")
+            .header("host", format!("127.0.0.1:{PORT}"))
+            .header("x-dashboard-token", TOKEN)
+            .body(Body::empty())
+            .unwrap();
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), 405, "{method}");
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0, "no store is opened");
+}

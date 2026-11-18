@@ -148,6 +148,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/kit": ["", "?workspace=acme", "?account=1", "?account=nope", "?workspace=nope"],
     "/api/kit/workspaces": ["", "?since=2026-01-01&until=2027-01-01", "?account=1", "?account=nope", "?since=garbage"],
     "/api/kit/reports": [""],
+    "/api/kit/workflow": [""],  # T108: a constant table (skill names, agent names, gate texts); no file, store or message is read
     "/api/kit/report-files": ["", "?workspace=acme&repo_no=0&folder=reports", "?workspace=acme&repo_no=0&folder=..",
                               "?workspace=acme&repo_no=1e3&folder=reports"],
     "/api/kit/report-file": ["", "?workspace=acme&repo_no=0&folder=reports&path=index.html",
