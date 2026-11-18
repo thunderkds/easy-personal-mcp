@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import AnswerBridge from './AnswerBridge.jsx'
 import { getAgentRun, getJson, setAgentRunAccount } from './api.js'
 import Loading from './Loading.jsx'
 import { useNotify } from './Toast.jsx'
@@ -247,7 +248,7 @@ function AgentRunAccount({ initial, accounts, onOpenAgents }) {
 
 const load = () => Promise.all([getAgentRun(), getJson('/api/accounts?by=account')])
 
-/** The Settings view: one block, *Agent run account*. */
+/** The Settings view: *Agent run account* (T092) and *Answer terminal sessions from the app* (T107). */
 export default function SettingsView({ onOpenAgents }) {
   const state = useLoad(load, [])
   const [agentRun, accounts] = state.status === 'ready' ? state.data : []
@@ -262,6 +263,7 @@ export default function SettingsView({ onOpenAgents }) {
       )}
       {state.status === 'ready' && agentRun === null && <p className="muted">No settings are available in this version of the app.</p>}
       {state.status === 'ready' && agentRun && <AgentRunAccount initial={agentRun} accounts={accounts.accounts} onOpenAgents={onOpenAgents} />}
+      {state.status === 'ready' && <AnswerBridge accounts={accounts.accounts.filter(isChoice)} />}
     </main>
   )
 }

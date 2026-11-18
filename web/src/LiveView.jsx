@@ -2,6 +2,8 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 import { readToken } from './api.js'
 import Cost from './Cost.jsx'
 import { ago, compact, fmt } from './format.js'
+import { PendingAnswer, useNotices } from './PendingAnswer.jsx'
+import { readPrompt } from './PromptCard.jsx'
 
 export const FEED_MAX = 50 // oldest feed items beyond this are dropped
 const DEFAULT_WINDOW_S = 300
@@ -31,10 +33,11 @@ function fromSnapshot(s, old) {
     stage: s.stage ?? null, // the kit stage and its skill come from the server's snapshot (FR-083); the page never works one out
     stage_skill: s.stage_skill ?? null,
     attention: s.attention ?? [], // the server's states; the page never works one out itself
+    pending: readPrompt(s.pending_answer), // the prompt a terminal session waits on (T107, FR-114): the server's, shown as it came
     feed: old?.feed ?? [],
   }
   // A session the snapshot did not change keeps its object, so its memoized row does not draw again.
-  const same = old && SAME_KEYS.every((k) => old[k] === next[k]) && JSON.stringify(old.attention) === JSON.stringify(next.attention)
+  const same = old && SAME_KEYS.every((k) => old[k] === next[k]) && JSON.stringify(old.attention) === JSON.stringify(next.attention) && JSON.stringify(old.pending) === JSON.stringify(next.pending)
   return same ? old : next
 }
 
@@ -144,6 +147,7 @@ const sum = (list) =>
 
 const before = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const needsYou = (s) => statesOf(s).length > 0
+const asksYou = (s) => needsYou(s) || s.pending !== null // sorting only: a session with a prompt card is listed with the ones that need you
 
 /** account -> sessions: the ones needing you first, then the newest. Accounts in name order. */
 function group(sessions) {
@@ -153,7 +157,7 @@ function group(sessions) {
     .sort(before)
     .map((account) => ({
       account,
-      sessions: accounts[account].sort((a, b) => needsYou(b) - needsYou(a) || before(b.last_ts, a.last_ts) || before(a.session_id, b.session_id)),
+      sessions: accounts[account].sort((a, b) => asksYou(b) - asksYou(a) || before(b.last_ts, a.last_ts) || before(a.session_id, b.session_id)),
     }))
 }
 
@@ -253,7 +257,7 @@ function Bar({ label, text, ratio }) {
 
 /** One session: a button (arrow, id, project, states, time) with its three bars; open, its feed is drawn under the row in the same card.
  * Memoized: it draws again only when its own figures (or its open state) change. */
-const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onToggle, tokensPct, costPct, callsPct }) {
+const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onToggle, onEnd, notice, tokensPct, costPct, callsPct }) {
   const button = useRef(null)
   const states = statesOf(s)
   const idle = isIdle(s, now, windowS)
@@ -299,7 +303,13 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onT
         ))}
         <span className="count">{`${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`}</span>
       </button>
-      {!open && <Questions states={states} />}
+      {s.pending && <PendingAnswer key={s.pending.id} sessionId={s.session_id} prompt={s.pending} onEnd={onEnd} />}
+      {notice && (
+        <p role="status" className="live-notice">
+          {notice}
+        </p>
+      )}
+      {!open && !s.pending && <Questions states={states} />}
       <span className="live-bars">
         <Bar label="tokens" text={noSpace(tokens)} ratio={tokensPct} />
         <Bar
@@ -314,7 +324,7 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onT
           <button type="button" className="live-close" onClick={collapse}>
             Close
           </button>
-          <Questions states={states} />
+          {!s.pending && <Questions states={states} />}
           <Feed items={s.feed} />
         </div>
       )}
@@ -435,6 +445,7 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed }) {
   }, [wantedId, state.sessions, onWantedUsed])
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
   const groups = useMemo(() => group(sessions), [sessions])
+  const [notices, endPrompt] = useNotices(sessions)
   const needing = sessions.filter(needsYou).length
   const maxTokens = Math.max(0, ...sessions.map((s) => s.tokens_in + s.tokens_out))
   const maxCost = Math.max(0, ...sessions.map((s) => s.cost))
@@ -461,7 +472,7 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed }) {
         <h2 id="h-live-all">All sessions</h2>
         <Totals total={sum(sessions)} />
         <p className="footnote">
-          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; never other message or tool content.
+          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question's header and options, and a permission's tool name and its full tool input (the whole command, path or plan); never other message or tool content.
         </p>
       </section>
       {sessions.length === 0 && (
@@ -482,6 +493,8 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed }) {
                     open={s.session_id === openId}
                     reveal={s.session_id === revealId}
                     onToggle={onToggle}
+                    onEnd={endPrompt}
+                    notice={notices[s.session_id]}
                     tokensPct={share(s.tokens_in + s.tokens_out, maxTokens)}
                     costPct={share(s.cost, maxCost)}
                     callsPct={share(s.tool_calls, maxCalls)}
