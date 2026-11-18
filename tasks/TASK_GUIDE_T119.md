@@ -29,7 +29,7 @@ Owner 2026-11-18: "should check the live, cause i need the work like claude nati
 |---|---|---|
 | 1 | Filters above the list: *needs me*, *working*, *idle*, project, kind (terminal / app / headless); kept in `localStorage` (filters only, wrapped in try/catch); counts per filter | FR-128 |
 | 2 | Rename in the panel header: inline field, Enter saves (FR-127 route), Esc cancels, empty removes; the shown name falls back to Claude's name, then project + short id | FR-127 |
-| 3 | *Past* switch lists FR-126 sessions with the same filters + date range, *Load more*; opening one shows the read-only conversation (FR-123) with Resume / Fork (FR-112 flow) | FR-126, FR-128 |
+| 3 | *Past* switch lists FR-126 sessions with the same filters + date range, *Load more*; with `window.default: true` the list says "Showing the last 30 days" with a **Show older** control that sends an explicit `from` (T117 debate); opening one shows the read-only conversation (FR-123) with Resume / Fork (FR-112 flow) | FR-126, FR-128 |
 | 4 | `ux-evaluate` at 375 and 1280; tokens only; no horizontal page scroll | FR-128 |
 | 5 | `cd web && npx vitest run && npm run build`; `python3 scripts/check_static.py` ok | all |
 

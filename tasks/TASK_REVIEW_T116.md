@@ -37,7 +37,7 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 Mode: auto
 1. Queue for a busy terminal session, delivered by `hook ask` on the next Stop — FACT: PRD.md:344 "trace = **full transcript**, shown never stored; busy input = **queue until the turn end**"
 2. (Replaced by 3.) The plan's SIGTERM-only rule — now SIGTERM by default, SIGKILL only on an explicit Force stop
-3. Stop of a terminal session that survives SIGTERM: a separate **Force stop** (SIGKILL after a confirm, same pidfd and identity checks), never an automatic escalation — DEBATED: (c) Force stop (Advocate 1: separate Force stop after a confirm, mirrors Ctrl+C then kill -9; Advocate 2: separate Force stop, the owner decides, app sessions are different because the app owns them; Advocate 3: never escalate, SIGTERM only, smallest safe thing) ⚠ decided for you — please review
+3. Stop of a terminal session that survives SIGTERM: a separate **Force stop** (SIGKILL after its own confirm, same pidfd and identity checks), never an automatic escalation — DEBATED: (c) Force stop (Advocate 1: separate Force stop, the app does not own a terminal session's process, `session_procs.rs:11-16`; Advocate 2: separate Force stop, Stop stays a polite request as in Claude's own terminal, PRD FR-124 needed amending; Advocate 3: separate Force stop, already built with the same checks, smallest safe change) ⚠ decided for you — please review
 Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T116`); tests, code-review, security-review and the auto verify run follow when it reports
 Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
 Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
