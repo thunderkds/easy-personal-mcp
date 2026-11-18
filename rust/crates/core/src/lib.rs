@@ -29,6 +29,7 @@ pub mod store;
 pub mod store_health;
 pub mod suggestions;
 pub mod sync;
+pub mod transcript;
 pub mod workflow;
 pub mod workspaces;
 pub mod writer;

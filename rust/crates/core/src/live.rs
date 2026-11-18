@@ -569,7 +569,7 @@ fn asks(record: &Value) -> bool {
 // ---- hostile-safe reading -------------------------------------------------------------------------------------------
 
 /// Opens a file without following a symlink and without blocking (a FIFO); `Some` only for a regular file.
-fn open_regular(path: &Path) -> Option<(File, fs::Metadata)> {
+pub(crate) fn open_regular(path: &Path) -> Option<(File, fs::Metadata)> {
     let file = OpenOptions::new()
         .read(true)
         .custom_flags(O_NOFOLLOW | O_NONBLOCK)
@@ -579,7 +579,7 @@ fn open_regular(path: &Path) -> Option<(File, fs::Metadata)> {
     meta.is_file().then_some((file, meta))
 }
 
-enum Next {
+pub(crate) enum Next {
     Line(Vec<u8>),
     /// A line over [`MAX_LINE_BYTES`], its newline seen: its length.
     Skipped(u64),
@@ -588,7 +588,7 @@ enum Next {
 
 /// The next complete line, bounded: at most `MAX_LINE_BYTES + 1` bytes are held; a longer line is skipped to its
 /// newline with a small buffer. A last line without `\n` is not complete: `End`, and nothing moves into it.
-fn next_line<R: BufRead>(reader: &mut R) -> io::Result<Next> {
+pub(crate) fn next_line<R: BufRead>(reader: &mut R) -> io::Result<Next> {
     let mut buf = Vec::new();
     reader
         .by_ref()
