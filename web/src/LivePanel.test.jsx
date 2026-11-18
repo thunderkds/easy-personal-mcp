@@ -290,6 +290,25 @@ describe('the conversation (AC 2)', () => {
     expect(server.reads().filter((r) => r.search.startsWith('?before'))[0].search).toBe('?before=1000') // m100 is at offset 1000
   })
 
+  it('a trim at a tool entry whose result came on a later poll starts at the call\'s offset, not the result\'s', async () => {
+    vi.useFakeTimers()
+    const filler = Array.from({ length: MAX_KEPT - 3 }, (_, i) => entryUser(`f${i}`, { offset: 10_000 + i }))
+    const first = page([entryUser('gone one', { offset: 0 }), entryUser('gone two', { offset: 10 }), entryTool('t1', { result: null, offset: 100 }), ...filler], { start: 0, next: 50_000 })
+    const second = page([{ kind: 'tool', id: 't1', orphan: true, name: null, label: null, input: null, result: 'late', is_error: false, offset: 60_000 }, entryUser('new one', { offset: 60_010 }), entryUser('new two', { offset: 60_020 })], { next: 60_100 })
+    const server = liveServer({ pages: (q) => (q.has('before') ? page([entryUser('older', { offset: 0 })], { start: 0 }) : q.has('after') ? second : first) })
+    await open(server)
+    await settle()
+    await tick(TRANSCRIPT_POLL_MS) // the result joins the call and two entries come: MAX_KEPT + 2, the trim cuts at the tool entry
+    expect(within(log()).queryByText('gone two')).toBeNull()
+    expect(within(log()).getByRole('button', { name: /Bash · ls/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Load earlier' }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(server.reads().find((r) => r.search.startsWith('?before')).search).toBe('?before=100') // not 60000: the call is not drawn twice
+    expect(within(log()).getAllByRole('button', { name: /Bash · ls/ })).toHaveLength(1)
+  })
+
   it('a tool call joined across a Load earlier page: the call on the earlier page fills the result that was alone', async () => {
     const server = liveServer({
       pages: (q) =>

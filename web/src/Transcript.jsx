@@ -25,6 +25,9 @@ function joinTool(old, e) {
   out.orphan = old.orphan === true && e.orphan === true // the call was seen: no longer an orphan
   out.cut = old.cut === true || e.cut === true
   out.is_error = old.is_error === true || e.is_error === true
+  // The entry sits where its call is: the smaller offset of the two, so a trim at it (and Load earlier from it) never starts after the call.
+  const offsets = [old.offset, e.offset].filter((o) => typeof o === 'number')
+  if (offsets.length > 0) out.offset = Math.min(...offsets)
   return out
 }
 
