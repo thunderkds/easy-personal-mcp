@@ -223,6 +223,10 @@ pub fn routes() -> Router<Api> {
         .merge(session_names::routes()) // T117: PUT /api/sessions/{id}/name
         .route("/api/sessions/past", get(sessions_past)) // T117
         .route(LIVE_PATH, get(live))
+        .route(
+            "/api/live/sessions/{id}/transcript",
+            get(crate::transcript_route::get),
+        )
         .route("/api/usage/summary", get(summary))
         .route("/api/usage/breakdown", get(breakdown))
         .route("/api/usage/sessions", get(sessions))

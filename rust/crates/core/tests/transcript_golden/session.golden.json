@@ -1,0 +1,104 @@
+{
+  "complete": true,
+  "entries": [
+    {
+      "count": 2,
+      "offset": 0,
+      "type": "skipped"
+    },
+    {
+      "cut": false,
+      "offset": 420,
+      "text": "<typed text>",
+      "type": "user"
+    },
+    {
+      "cut": false,
+      "offset": 744,
+      "text": "<typed block>",
+      "type": "user"
+    },
+    {
+      "cut": false,
+      "offset": 1097,
+      "text": "<assistant text>",
+      "type": "assistant"
+    },
+    {
+      "cut": false,
+      "id": "toolu_01",
+      "input": "cd /work/demo && git status\\u{202e}",
+      "is_error": false,
+      "label": "git",
+      "name": "Bash",
+      "offset": 1643,
+      "result": "<output>\nline two",
+      "type": "tool"
+    },
+    {
+      "cut": false,
+      "id": "toolu_02",
+      "input": "{\n  \"file_path\": \"/work/demo/a.txt\"\n}",
+      "is_error": false,
+      "label": null,
+      "name": "Read",
+      "offset": 2170,
+      "result": "[image]",
+      "type": "tool"
+    },
+    {
+      "cut": false,
+      "id": "toolu_03",
+      "input": "{\n  \"q\": \"<text>\"\n}",
+      "is_error": true,
+      "label": {
+        "server": "demo",
+        "tool": "lookup"
+      },
+      "name": "mcp__demo__lookup",
+      "offset": 2170,
+      "result": "<block one>\n<block two>",
+      "type": "tool"
+    },
+    {
+      "count": 1,
+      "offset": 3207,
+      "type": "skipped"
+    },
+    {
+      "cut": false,
+      "offset": 4203,
+      "text": "<final answer>",
+      "type": "assistant"
+    },
+    {
+      "count": 1,
+      "offset": 4634,
+      "type": "skipped"
+    },
+    {
+      "cut": false,
+      "offset": 5101,
+      "text": "<reply from the app>",
+      "type": "reply"
+    },
+    {
+      "count": 1,
+      "offset": 5470,
+      "type": "skipped"
+    },
+    {
+      "cut": false,
+      "offset": 5920,
+      "text": "<answer to the reply>",
+      "type": "assistant"
+    },
+    {
+      "count": 2,
+      "offset": 6358,
+      "type": "skipped"
+    }
+  ],
+  "next": 7062,
+  "start": 0
+}

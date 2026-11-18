@@ -226,6 +226,22 @@ pub fn open_checked(path: &Path) -> Result<Connection, StoreError> {
     Ok(conn)
 }
 
+/// FR-123 (T115): the transcript file of a past session, read only: the newest `source_path` the store holds for the
+/// session id among its main-thread rows (`is_sidechain` not set). `None`: the store has no such session.
+pub fn session_transcript_path(
+    conn: &Connection,
+    session_id: &str,
+) -> rusqlite::Result<Option<String>> {
+    use rusqlite::OptionalExtension;
+    conn.query_row(
+        "SELECT source_path FROM events WHERE session_id = ?1 AND source = 'claude_code' \
+         AND COALESCE(is_sidechain, 0) = 0 ORDER BY ts_utc DESC, id DESC LIMIT 1",
+        [session_id],
+        |r| r.get(0),
+    )
+    .optional()
+}
+
 /// Report on the store at `path`: `State::Missing` when there is no file (nothing is created),
 /// `StoreError::Newer` when its `user_version` is above [`KNOWN_MIGRATION`].
 pub fn read_info(path: &Path) -> Result<StoreInfo, StoreError> {

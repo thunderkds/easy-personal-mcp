@@ -39,9 +39,9 @@ Mode: auto
 2. Full tool input and output shown, no redaction — FACT: PRD.md:344 "trace = **full transcript**, shown never stored; busy input = **queue until the turn end**"
 3. Tool result split across pages: orphan entry with the same id, the page merges by id field-wise (no held offset) — DEBATED: (a) orphan + merge (Advocate 1: orphan entry, server stateless, every record sent once; Advocate 2: orphan entry, a held offset would freeze the 2 s feed during a long Bash run; Advocate 3: hold `next` at the first unresolved call, with a cap) ⚠ decided for you — please review
 4. Answer gains `start` (offset of the first entry) for Load earlier — RULE: T118 contract gap; smallest addition to the FR-123 shape
-Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T115`); tests, code-review, security-review and the auto verify run follow when it reports
-Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
-Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
+Checks: tests `cargo test --workspace --no-fail-fast` — 1285 passed, 1 failed (`store_check` sigterm test, load-related; `--test store_check` alone 12 passed); leak gate `leak_rust.py` — 0 hits over 42 canaries, 1234 surfaces; reviews code-review — 0 P0/P1, 1 P2 + 3 P3 fixed in `ca9e153`, re-check of `ca9e153` no regression; security-review — no finding ≥ 8 (two same-user-write notes below the bar)
+Memory: memory/decisions.md — "2026-11-18 — Live like Claude: transcript on demand, queue, Stop/Force stop, past sessions, one panel" (+ MEMORY.md index line), `5c38bf4` on main
+Not done: merge (admin: after the auto verify pass); owner smoke test (open a running terminal session in Live and read its conversation); auto verify: pass
 
 
 <!-- template:
@@ -61,16 +61,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/src/transcript.rs` tests (15: pairing across records, cut at 16,000 while building, 500 entries / 2 MB body both directions, after/before paging, mid-line offset, skipped runs, far orphans, `start`), `rust/crates/core/tests/transcript_golden.rs` + `transcript_golden/session.jsonl` (every record kind of claude 2.1.327), `rust/crates/app/src/transcript_route.rs` tests (6: live file re-read each call, past path from the store, 404 one line for gone/unknown/hostile/outside-roots files, guard); `rust/parity/leak_rust.py` T115 canaries |
+| Verification command run | ☑ pass | at `ca9e153`: `cargo fmt --check` ok; clippy `-D warnings` workspace and `--features window` rc 0; `cargo test --workspace --no-fail-fast` 1285 passed / 1 failed (`store_check::sigterm_stops_like_ctrl_c_and_the_private_copy_is_removed`, load; alone `12 passed; 0 failed; 1 ignored`); `leak check: 0 hits over 42 canaries, 1234 surfaces, 2828649 bytes` |
+| Negative cases hold | ☑ pass | mutation: an added `eprintln!` of the entry text made the leak gate print `HIT T115 transcript_user … [serve stderr]` (reverted); hostile files (symlink, FIFO, directory, 32 MB line, `/etc/passwd`, `..`, `.txt`, symlinked folder outside the roots) → 404; no token / wrong token / wrong Host / foreign Origin / query token → 403 |
+| verify | ☑ pass | auto-run by hook, session 9cde4efc-3f82-4e1b-8602-083795893c8a, commit 3784378174060a0507d04f7548921e38280059f3, log .claude/verify-runs/T115-378437817406.log — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review and security-review on `main...T115` (transcript.rs, transcript_route.rs, live.rs helpers, store.rs lookup, api.rs route, leak gate) plus callers; re-check of the fix commit `ca9e153` |
+| Full smoke suite still green (no regression) | ☑ pass | Rust 1285 + the load-flaky `store_check` target green alone; leak 0 hits
+| **Companion score (easy-verifier)** | ☑ N/A | not run: independent code and security reviews used instead | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | server route only; the page is T118 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | server route only; the page is T118 |
+| **UI: Responsiveness at target viewports** | ☑ N/A | server route only; the page is T118 |
 
 ---
 
@@ -92,9 +92,15 @@ ls: cannot access 'rust/crates/core/src/transcript.rs': No such file or director
 (No transcript route and no parser: the Live view shows only tool labels for terminal sessions.)
 first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (`51834d8`, 2026-11-18T11:41:59Z):
+```
+$ grep -rn '/transcript' rust/crates/app/src/api.rs | head -2; ls rust/crates/core/src/transcript.rs
+rust/crates/app/src/api.rs:222:            "/api/live/sessions/{id}/transcript",
+rust/crates/core/src/transcript.rs
+```
+The route answers `{entries, next, start, complete}` for a live or past session (golden test `every_record_kind_gives_the_golden_entries`; route tests in `transcript_route.rs`).
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: the page can now read any session's whole conversation (messages, Claude's text, each tool call's input and result) on demand, without the app storing any of it.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
