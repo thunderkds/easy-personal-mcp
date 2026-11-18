@@ -54,7 +54,11 @@ pub(crate) type Stamp = Option<(u64, i64, u64)>;
 
 pub(crate) fn stamp(dir: &FsPath) -> Stamp {
     let meta = fs::symlink_metadata(dir.join(FILE)).ok()?;
-    Some((meta.ino(), meta.mtime_nsec() + meta.mtime() * 1_000_000_000, meta.len()))
+    Some((
+        meta.ino(),
+        meta.mtime_nsec() + meta.mtime() * 1_000_000_000,
+        meta.len(),
+    ))
 }
 
 /// The data folder the names live in (the store's folder), or `None` when the store path cannot be told.
@@ -112,7 +116,9 @@ pub(crate) fn clean(raw: &str) -> Option<String> {
     let text = clean_line(raw, usize::MAX);
     let text = text.trim();
     let chars = text.chars().count();
-    (1..=MAX_NAME_CHARS).contains(&chars).then(|| text.to_owned())
+    (1..=MAX_NAME_CHARS)
+        .contains(&chars)
+        .then(|| text.to_owned())
 }
 
 /// The names after setting (`Some`) or removing (`None`) one: the session's old entry goes, a new one is the newest, and
@@ -146,7 +152,9 @@ fn save(dir: &FsPath, names: &[(String, String)]) -> io::Result<()> {
         .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW)
         .open(&new)?;
-    let written = file.write_all(body.as_bytes()).and_then(|()| file.sync_all());
+    let written = file
+        .write_all(body.as_bytes())
+        .and_then(|()| file.sync_all());
     drop(file);
     written
         .and_then(|()| fs::rename(&new, dir.join(FILE)))
@@ -157,7 +165,9 @@ fn save(dir: &FsPath, names: &[(String, String)]) -> io::Result<()> {
 
 /// Sets or removes one name in the file in `dir`. A file that cannot be read starts again from no names.
 pub(crate) fn store_name(dir: &FsPath, id: &str, name: Option<String>) -> io::Result<()> {
-    let _one = WRITE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _one = WRITE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     save(dir, &with(load(dir), id, name))
 }
 

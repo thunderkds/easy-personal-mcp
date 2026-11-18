@@ -78,7 +78,15 @@ fn three(fx: &mut Fx) {
     fx.add(T1, "aaa", "/w/shop", "main", Some("cli"), Some("m1"), None);
     fx.add(T2, "aaa", "/w/shop", "main", Some("cli"), Some("m1"), None);
     fx.add(T3, "bbb", "/w/blog", "feat-x", Some("sdk-cli"), None, None);
-    fx.add(T4, "ccc", "/w/shop", "feat-y", Some("sdk-ts"), Some("m2"), None);
+    fx.add(
+        T4,
+        "ccc",
+        "/w/shop",
+        "feat-y",
+        Some("sdk-ts"),
+        Some("m2"),
+        None,
+    );
 }
 
 #[test]
@@ -91,12 +99,17 @@ fn lists_one_row_per_session_newest_last_first_with_metadata_only() {
     let a = &body["sessions"][2];
     assert_eq!(a["project"], "shop");
     assert_eq!(a["branch"], "main");
-    assert_eq!((a["first"].as_str(), a["last"].as_str()), (Some(T1), Some(T2)));
+    assert_eq!(
+        (a["first"].as_str(), a["last"].as_str()),
+        (Some(T1), Some(T2))
+    );
     assert_eq!(a["kind"], "terminal");
     assert_eq!(a["model"], "m1");
     assert_eq!(a["account"], "Claude default");
     let keys: Vec<_> = a.as_object().unwrap().keys().cloned().collect();
-    let mut want = ["id", "project", "branch", "first", "last", "kind", "account", "model"];
+    let mut want = [
+        "id", "project", "branch", "first", "last", "kind", "account", "model",
+    ];
     want.sort_unstable();
     let mut got = keys.clone();
     got.sort_unstable();
@@ -110,19 +123,72 @@ fn filters_by_project_branch_kind_and_dates() {
     let mut fx = Fx::new("filters");
     three(&mut fx);
     let f = |f: PastFilter| ids(&fx.past(f).unwrap()).join(",");
-    assert_eq!(f(PastFilter { project: Some("shop"), ..Default::default() }), "ccc,aaa");
-    assert_eq!(f(PastFilter { project: Some("/w/blog"), ..Default::default() }), "bbb");
-    assert_eq!(f(PastFilter { project: Some("hop"), ..Default::default() }), ""); // a folder name, not a suffix
-    assert_eq!(f(PastFilter { branch: Some("main"), ..Default::default() }), "aaa");
-    assert_eq!(f(PastFilter { kind: Some("headless"), ..Default::default() }), "ccc");
-    assert_eq!(f(PastFilter { kind: Some("terminal"), ..Default::default() }), "aaa");
     assert_eq!(
-        f(PastFilter { from: Some("2026-01-11T00:00:00Z"), to: Some("2026-01-12T00:00:00Z"), ..Default::default() }),
+        f(PastFilter {
+            project: Some("shop"),
+            ..Default::default()
+        }),
+        "ccc,aaa"
+    );
+    assert_eq!(
+        f(PastFilter {
+            project: Some("/w/blog"),
+            ..Default::default()
+        }),
         "bbb"
     );
-    assert_eq!(f(PastFilter { from: Some("2026-01-11T00:00:00Z"), ..Default::default() }), "ccc,bbb");
+    assert_eq!(
+        f(PastFilter {
+            project: Some("hop"),
+            ..Default::default()
+        }),
+        ""
+    ); // a folder name, not a suffix
+    assert_eq!(
+        f(PastFilter {
+            branch: Some("main"),
+            ..Default::default()
+        }),
+        "aaa"
+    );
+    assert_eq!(
+        f(PastFilter {
+            kind: Some("headless"),
+            ..Default::default()
+        }),
+        "ccc"
+    );
+    assert_eq!(
+        f(PastFilter {
+            kind: Some("terminal"),
+            ..Default::default()
+        }),
+        "aaa"
+    );
+    assert_eq!(
+        f(PastFilter {
+            from: Some("2026-01-11T00:00:00Z"),
+            to: Some("2026-01-12T00:00:00Z"),
+            ..Default::default()
+        }),
+        "bbb"
+    );
+    assert_eq!(
+        f(PastFilter {
+            from: Some("2026-01-11T00:00:00Z"),
+            ..Default::default()
+        }),
+        "ccc,bbb"
+    );
     // an empty value is no filter
-    assert_eq!(f(PastFilter { project: Some(""), kind: Some(""), ..Default::default() }), "ccc,bbb,aaa");
+    assert_eq!(
+        f(PastFilter {
+            project: Some(""),
+            kind: Some(""),
+            ..Default::default()
+        }),
+        "ccc,bbb,aaa"
+    );
 }
 
 #[test]
@@ -130,7 +196,12 @@ fn a_filter_value_is_a_value_never_sql_or_a_pattern() {
     let mut fx = Fx::new("inject");
     three(&mut fx);
     for p in ["x' OR '1'='1", "%", "_hop", "shop%"] {
-        let body = fx.past(PastFilter { project: Some(p), ..Default::default() }).unwrap();
+        let body = fx
+            .past(PastFilter {
+                project: Some(p),
+                ..Default::default()
+            })
+            .unwrap();
         assert!(ids(&body).is_empty(), "{p}");
     }
 }
@@ -148,14 +219,31 @@ fn account_filter_uses_the_scope_rules_and_the_label_is_shown() {
     fx.add(T1, "aaa", "/w/shop", "main", Some("cli"), None, Some(2));
     fx.add(T2, "bbb", "/w/shop", "main", Some("cli"), None, Some(1));
     fx.add(T3, "ccc", "/w/shop", "main", Some("cli"), None, None); // no account = the default one
-    let f = |a| ids(&fx.past(PastFilter { account: Some(a), ..Default::default() }).unwrap()).join(",");
+    let f = |a| {
+        ids(&fx
+            .past(PastFilter {
+                account: Some(a),
+                ..Default::default()
+            })
+            .unwrap())
+        .join(",")
+    };
     assert_eq!(f("work"), "aaa");
     assert_eq!(f("2"), "aaa");
     assert_eq!(f("home"), "ccc,bbb");
     let all = fx.past(PastFilter::default()).unwrap();
     let label = |i: usize| all["sessions"][i]["account"].as_str().unwrap().to_owned();
-    assert_eq!((label(0), label(1), label(2)), ("home".into(), "home".into(), "work".into()));
-    assert!(fx.past(PastFilter { account: Some("nope"), ..Default::default() }).is_err());
+    assert_eq!(
+        (label(0), label(1), label(2)),
+        ("home".into(), "home".into(), "work".into())
+    );
+    assert!(
+        fx.past(PastFilter {
+            account: Some("nope"),
+            ..Default::default()
+        })
+        .is_err()
+    );
 }
 
 #[test]
@@ -163,17 +251,44 @@ fn bad_filter_values_are_one_line_errors_that_hold_none_of_the_input() {
     let fx = Fx::new("bad");
     let secret = "sk-ant-LEAK\nsecond line";
     for f in [
-        PastFilter { kind: Some(secret), ..Default::default() },
-        PastFilter { from: Some(secret), ..Default::default() },
-        PastFilter { to: Some("yesterday"), ..Default::default() },
-        PastFilter { from: Some("2026-13-45"), ..Default::default() },
-        PastFilter { before: Some(secret), ..Default::default() },
-        PastFilter { before: Some("2026-01-10T10:00:00Z|bad id"), ..Default::default() },
-        PastFilter { project: Some(secret), ..Default::default() },
-        PastFilter { branch: Some(&"b".repeat(300)), ..Default::default() },
+        PastFilter {
+            kind: Some(secret),
+            ..Default::default()
+        },
+        PastFilter {
+            from: Some(secret),
+            ..Default::default()
+        },
+        PastFilter {
+            to: Some("yesterday"),
+            ..Default::default()
+        },
+        PastFilter {
+            from: Some("2026-13-45"),
+            ..Default::default()
+        },
+        PastFilter {
+            before: Some(secret),
+            ..Default::default()
+        },
+        PastFilter {
+            before: Some("2026-01-10T10:00:00Z|bad id"),
+            ..Default::default()
+        },
+        PastFilter {
+            project: Some(secret),
+            ..Default::default()
+        },
+        PastFilter {
+            branch: Some(&"b".repeat(300)),
+            ..Default::default()
+        },
     ] {
         let e = fx.past(f).unwrap_err();
-        assert!(!e.contains('\n') && !e.contains("LEAK") && !e.contains("yesterday"), "{e}");
+        assert!(
+            !e.contains('\n') && !e.contains("LEAK") && !e.contains("yesterday"),
+            "{e}"
+        );
         assert!(!e.is_empty());
     }
 }
@@ -183,15 +298,30 @@ fn pages_of_50_with_a_cursor_and_no_session_twice_or_missed() {
     let mut fx = Fx::new("pages");
     // 120 sessions; every third pair shares one `last` time, so the cursor must break ties by id
     for i in 0..120 {
-        let ts = format!("2026-02-01T00:{:02}:{:02}.000000Z", (i / 2) / 60, (i / 2) % 60);
-        fx.add(&ts, &format!("s{i:03}"), "/w/shop", "main", Some("cli"), None, None);
+        let ts = format!(
+            "2026-02-01T00:{:02}:{:02}.000000Z",
+            (i / 2) / 60,
+            (i / 2) % 60
+        );
+        fx.add(
+            &ts,
+            &format!("s{i:03}"),
+            "/w/shop",
+            "main",
+            Some("cli"),
+            None,
+            None,
+        );
     }
     let mut seen = Vec::new();
     let mut cursor: Option<String> = None;
     let mut pages = 0;
     loop {
         let body = fx
-            .past(PastFilter { before: cursor.as_deref(), ..Default::default() })
+            .past(PastFilter {
+                before: cursor.as_deref(),
+                ..Default::default()
+            })
             .unwrap();
         pages += 1;
         assert!(ids(&body).len() <= PAST_PAGE);
@@ -217,21 +347,47 @@ fn the_time_index_serves_a_dated_query_and_no_query_builds_an_index_or_reads_a_s
     let mut fx = Fx::new("plan");
     fx.conn.execute_batch("BEGIN").unwrap();
     for i in 0..100_000 {
-        let ts = format!("2026-03-{:02}T{:02}:{:02}:{:02}.000000Z", 1 + i % 28, (i / 60) % 24, i % 60, (i / 7) % 60);
-        fx.add(&ts, &format!("s{}", i % 3000), "/w/shop", "main", Some("cli"), Some("m"), None);
+        let ts = format!(
+            "2026-03-{:02}T{:02}:{:02}:{:02}.000000Z",
+            1 + i % 28,
+            (i / 60) % 24,
+            i % 60,
+            (i / 7) % 60
+        );
+        fx.add(
+            &ts,
+            &format!("s{}", i % 3000),
+            "/w/shop",
+            "main",
+            Some("cli"),
+            Some("m"),
+            None,
+        );
     }
     fx.conn.execute_batch("COMMIT").unwrap();
     let plan = |f: PastFilter| -> String {
         let (sql, params) = past_query(&fx.conn, f).unwrap();
-        let mut stmt = fx.conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
-        stmt.query_map(rusqlite::params_from_iter(&params), |r| r.get::<_, String>(3))
-            .unwrap()
-            .map(|r| r.unwrap())
-            .collect::<Vec<_>>()
-            .join(" | ")
+        let mut stmt = fx
+            .conn
+            .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+            .unwrap();
+        stmt.query_map(rusqlite::params_from_iter(&params), |r| {
+            r.get::<_, String>(3)
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>()
+        .join(" | ")
     };
-    let dated = plan(PastFilter { from: Some("2026-03-05"), to: Some("2026-03-06"), ..Default::default() });
-    assert!(dated.contains("SEARCH events USING INDEX events_ts_message"), "{dated}");
+    let dated = plan(PastFilter {
+        from: Some("2026-03-05"),
+        to: Some("2026-03-06"),
+        ..Default::default()
+    });
+    assert!(
+        dated.contains("SEARCH events USING INDEX events_ts_message"),
+        "{dated}"
+    );
     let all = plan(PastFilter::default());
     assert!(!all.contains("AUTOMATIC"), "{all}");
     println!("plan dated: {dated}\nplan all: {all}");

@@ -1346,8 +1346,16 @@ mod tests {
         store_name(&data.0, "s1", Some("Mine".into())).unwrap();
         let sent = messages(&stream.step(Some(&tail), NOW));
         assert_eq!(sent.len(), 1, "{sent:?}");
-        assert_eq!((sent[0].0.as_str(), &sent[0].2["sessions"][0]["name"]), ("snapshot", &json!("Mine")));
-        let mut keys: Vec<&str> = sent[0].2["sessions"][0].as_object().unwrap().keys().map(String::as_str).collect();
+        assert_eq!(
+            (sent[0].0.as_str(), &sent[0].2["sessions"][0]["name"]),
+            ("snapshot", &json!("Mine"))
+        );
+        let mut keys: Vec<&str> = sent[0].2["sessions"][0]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
         keys.sort_unstable();
         let mut want: Vec<&str> = SESSION_KEYS.to_vec();
         want.push("name");
@@ -1362,7 +1370,11 @@ mod tests {
 
         // a stream with no names folder never reads one
         let mut plain = LiveStream::new(None, true);
-        assert!(messages(&plain.step(Some(&tail), NOW))[0].2["sessions"][0].get("name").is_none());
+        assert!(
+            messages(&plain.step(Some(&tail), NOW))[0].2["sessions"][0]
+                .get("name")
+                .is_none()
+        );
     }
 
     // ---- T094: the question text (FR-106, DDR-0005) ------------------------------------------------------------

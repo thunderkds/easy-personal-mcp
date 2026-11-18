@@ -340,9 +340,11 @@ const KIND_SQL: &str = "CASE WHEN MAX(entrypoint) IS NULL THEN NULL WHEN MAX(ent
 
 fn filter_text<'a>(name: &str, value: Option<&'a str>) -> Result<Option<&'a str>> {
     match value.filter(|v| !v.is_empty()) {
-        Some(v) if v.len() > FILTER_MAX || v.chars().any(char::is_control) => Err(
-            MetricsError::Invalid(format!("{name} must be one line of at most {FILTER_MAX} bytes")),
-        ),
+        Some(v) if v.len() > FILTER_MAX || v.chars().any(char::is_control) => {
+            Err(MetricsError::Invalid(format!(
+                "{name} must be one line of at most {FILTER_MAX} bytes"
+            )))
+        }
         other => Ok(other),
     }
 }
@@ -453,7 +455,9 @@ pub fn past_query(conn: &Connection, filter: PastFilter) -> Result<(String, Vec<
     let mut having: Vec<&str> = Vec::new();
     let text_param = |v: &str| Sql::Text(v.to_owned());
     if let Some(p) = project {
-        having.push("(MAX(project_path) = ? OR substr(MAX(project_path), -length(?) - 1) = '/' || ?)");
+        having.push(
+            "(MAX(project_path) = ? OR substr(MAX(project_path), -length(?) - 1) = '/' || ?)",
+        );
         params.extend([text_param(p), text_param(p), text_param(p)]);
     }
     if let Some(b) = branch {
