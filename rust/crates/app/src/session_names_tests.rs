@@ -221,31 +221,86 @@ fn an_unusable_file_is_no_names_and_a_write_never_replaces_it() {
     assert_eq!(load(&t.0), [("ok".to_string(), "fresh".to_string())]);
 }
 
-/// One bad entry costs only itself: the others are shown, and the next write keeps them.
+/// A bad entry or an extra key: the good entries are shown, but a write is refused and the file is left as it was.
 #[test]
-fn a_bad_entry_is_skipped_and_the_good_ones_survive_a_write() {
+fn a_file_with_a_bad_entry_or_an_extra_key_is_shown_but_never_written_over() {
     let t = Temp::new();
-    let text = json!({"names": [
-        {"id": "good-1", "name": "one"},
-        {"id": "a b", "name": "bad id"},
-        {"id": "x"},
-        "not an object",
-        {"id": "x2", "name": ""},
-        {"id": "x3", "name": " padded "},
-        {"id": "x4", "name": "y".repeat(81)},
-        {"id": "good-2", "name": "two"},
-    ]});
-    fs::write(t.file(), text.to_string()).unwrap();
-    fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap(); // the umask may leave others write
-    let want = [
-        ("good-1".to_string(), "one".to_string()),
-        ("good-2".to_string(), "two".to_string()),
+    let good = |id: &str, name: &str| json!({"id": id, "name": name});
+    let cases = [
+        (
+            "bad id",
+            json!({"names": [good("good-1", "one"), good("a b", "x")]}),
+        ),
+        (
+            "no name",
+            json!({"names": [good("good-1", "one"), {"id": "x"}]}),
+        ),
+        (
+            "not an object",
+            json!({"names": [good("good-1", "one"), "text"]}),
+        ),
+        (
+            "empty name",
+            json!({"names": [good("good-1", "one"), good("x2", "")]}),
+        ),
+        (
+            "uncleaned name",
+            json!({"names": [good("good-1", "one"), good("x3", " padded ")]}),
+        ),
+        (
+            "long name",
+            json!({"names": [good("good-1", "one"), good("x4", &"y".repeat(81))]}),
+        ),
+        (
+            "extra key",
+            json!({"names": [good("good-1", "one")], "note": "mine"}),
+        ),
     ];
-    assert_eq!(load(&t.0), want);
+    for (why, text) in cases {
+        let text = text.to_string();
+        fs::write(t.file(), &text).unwrap();
+        fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap(); // the umask may leave others write
+        assert_eq!(
+            load(&t.0),
+            [("good-1".to_string(), "one".to_string())],
+            "{why}: good entries shown"
+        );
+        assert_eq!(load_map(&t.0).len(), 1, "{why}");
+        for name in [Some("three".to_string()), None] {
+            let e = store_name(&t.0, "good-3", name).unwrap_err();
+            assert_eq!(e.kind(), io::ErrorKind::InvalidData, "{why}");
+            assert_eq!(
+                fs::read_to_string(t.file()).unwrap(),
+                text,
+                "{why}: left as it was"
+            );
+        }
+    }
+    // the owner fixes the file: writes work again
+    fs::write(
+        t.file(),
+        json!({"names": [good("good-1", "one")]}).to_string(),
+    )
+    .unwrap();
+    fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap();
     store_name(&t.0, "good-3", Some("three".into())).unwrap();
-    let got = load(&t.0);
-    assert_eq!(got[..2], want);
-    assert_eq!(got.len(), 3);
+    assert_eq!(load(&t.0).len(), 2);
+}
+
+/// Through the route: a one-line 500, the file untouched, and the list still shows the good names.
+#[tokio::test]
+async fn a_put_over_a_file_with_a_bad_entry_is_a_500_and_leaves_it() {
+    let t = Temp::new();
+    let text = r#"{"names":[{"id":"s1","name":"kept"},{"id":"bad id","name":"x"}]}"#;
+    fs::write(t.file(), text).unwrap();
+    fs::set_permissions(t.file(), fs::Permissions::from_mode(0o600)).unwrap();
+    let app = t.app(true);
+    let (status, body) = put_name(&app, "s2", r#"{"name":"a","confirmed":true}"#).await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (StatusCode::INTERNAL_SERVER_ERROR, Some(UNUSABLE))
+    );
+    assert_eq!(fs::read_to_string(t.file()).unwrap(), text);
 }
 
 /// The parsed names are kept while the file's stamp is the same, and read again after any write.

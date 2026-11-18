@@ -6,12 +6,13 @@
 //!   past that drops the oldest. A write goes to a new owner-only (0600) temp file in the same folder, named with the
 //!   process id and a counter (`O_NOFOLLOW`, `O_EXCL`), is synced, then renamed over the old one, so a reader never sees
 //!   half a file.
-//! - **Read**: never an error; a bad entry (not an id and a clean name) is skipped, and a file that is *unusable* shows
+//! - **Read**: never an error; a bad entry (not an id and a clean name) is skipped for showing, and a file that is *unusable* shows
 //!   *no names*: a symlink, a file that is not the app user's or that others may write, one over [`MAX_FILE`] bytes, one
 //!   with more than [`MAX_NAMES`] entries, one that is not valid JSON of this shape. A missing file is no names too. The
 //!   parsed names are kept in memory while the file's [`stamp`] is the same.
 //! - **Write over an unusable file**: refused (500, one line), never rebuilt from nothing: the file may be the owner's
-//!   own, hand-edited or with a wrong mode. A missing file is made. The owner fixes or removes it.
+//!   own, hand-edited or with a wrong mode. That includes a file with a bad entry or a top-level key other than `names`:
+//!   its good entries are shown, but a write would drop the rest. A missing file is made. The owner fixes or removes it.
 //! - **Name**: 1..=[`MAX_NAME_CHARS`] characters after cleaning: line breaks and tabs become spaces, the hidden and
 //!   control characters of FR-092 are removed (`live::clean_line`), the ends are trimmed. A longer one is refused, not cut.
 //!   `null` removes the session's name. The text is the owner's own typing, not transcript text; it is shown in Live
@@ -44,7 +45,7 @@ pub(crate) const FILE: &str = "session_names.json";
 pub(crate) const MAX_NAMES: usize = 2_000;
 /// A name is 1 to this many characters after cleaning.
 pub(crate) const MAX_NAME_CHARS: usize = 80;
-/// A file bigger than this is not read (2,000 entries of the longest id and name are under 1 MB).
+/// A file bigger than this is not read (2,000 entries of the longest id and name are under 2 MiB).
 const MAX_FILE: u64 = 2 << 20;
 
 /// One writer at a time: a write reads the file, changes it and renames a new one over it.
@@ -80,13 +81,15 @@ pub(crate) fn dir_of(api: &Api) -> Option<PathBuf> {
 enum Held {
     Missing,
     Unusable,
-    Names(Vec<(String, String)>),
+    /// The good entries, and whether every entry was good and `names` was the only key: a file with a bad entry or an
+    /// extra key is shown (its good entries) but never written over, or the next write would delete what it holds.
+    Names(Vec<(String, String)>, bool),
 }
 
 /// The names, oldest first; empty for a file that is missing or not usable (see the module text).
 pub(crate) fn load(dir: &FsPath) -> Vec<(String, String)> {
     match read(dir) {
-        Held::Names(names) => names,
+        Held::Names(names, _) => names,
         Held::Missing | Held::Unusable => Vec::new(),
     }
 }
@@ -124,12 +127,12 @@ fn read(dir: &FsPath) -> Held {
         Err(_) => return Held::Unusable,
     };
     match parse(file) {
-        Some(names) => Held::Names(names),
+        Some((names, whole)) => Held::Names(names, whole),
         None => Held::Unusable,
     }
 }
 
-fn parse(file: fs::File) -> Option<Vec<(String, String)>> {
+fn parse(file: fs::File) -> Option<(Vec<(String, String)>, bool)> {
     let meta = file.metadata().ok()?;
     // SAFETY: `geteuid` has no preconditions and cannot fail.
     let me = unsafe { libc::geteuid() };
@@ -145,17 +148,18 @@ fn parse(file: fs::File) -> Option<Vec<(String, String)>> {
     if list.len() > MAX_NAMES {
         return None;
     }
-    // a bad entry is skipped, the rest are kept
-    Some(
-        list.iter()
-            .filter_map(|entry| {
-                let id = entry.get("id")?.as_str()?;
-                let name = entry.get("name")?.as_str()?;
-                (valid_session_id(id) && clean(name).as_deref() == Some(name))
-                    .then(|| (id.to_owned(), name.to_owned()))
-            })
-            .collect(),
-    )
+    // a bad entry is skipped for showing, and makes the file read-only for writes, like an extra top-level key
+    let names: Vec<(String, String)> = list
+        .iter()
+        .filter_map(|entry| {
+            let id = entry.get("id")?.as_str()?;
+            let name = entry.get("name")?.as_str()?;
+            (valid_session_id(id) && clean(name).as_deref() == Some(name))
+                .then(|| (id.to_owned(), name.to_owned()))
+        })
+        .collect();
+    let whole = names.len() == list.len() && top.len() == 1;
+    Some((names, whole))
 }
 
 /// The name as it is kept, or `None` when cleaning leaves nothing or more than [`MAX_NAME_CHARS`] characters.
@@ -221,9 +225,11 @@ pub(crate) fn store_name(dir: &FsPath, id: &str, name: Option<String>) -> io::Re
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let names = match read(dir) {
-        Held::Names(names) => names,
+        Held::Names(names, true) => names,
         Held::Missing => Vec::new(),
-        Held::Unusable => return Err(io::Error::from(io::ErrorKind::InvalidData)),
+        Held::Names(_, false) | Held::Unusable => {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
     };
     save(dir, &with(names, id, name))
 }
