@@ -37,24 +37,24 @@ Mode: auto
 2. Every reply route is sent with `confirmed: true` (watch and mark too), as FR-116 requires of every write route — FACT: PRD.md:213 "Every write route of FR-109..FR-114 keeps the NFR-008 guard and needs `confirmed: true` in its body"
 3. How the page knows a session is bridge-enabled (shows the *Reply from the app* toggle) — DEBATED: unsettled (Advocate 1: B, a server-computed per-session `reply_bridge` in the live snapshot, cites rust/crates/app/src/hooks_cmd.rs:503-504 vs rust/crates/core/src/live.rs:743 — labels come from different row sets, are not unique (schema_v11.sql:39), and the page reads `/api/hooks` once; Advocate 2: A, keep the page-side label match, cites web/src/LiveView.jsx:588 — a wrong match only shows a toggle that stores an unused mark, and B reopens the merged T111 server)
    → the owner chose **B** on 2026-11-18 ("Server flag (Recommended)"): the server adds `reply_bridge: true` per session in the live snapshot from the account's real hook status (by account id); the page uses it instead of the label match
-Checks: build `48c4377` (agent): vitest 37 files / 1293 passed, build ok, check_static ok; ux-evaluate (agent harness) pass except B-e body text 14 px (older, app-wide); security-review (independent, `c71ffdf..48c4377`): no finding at or above confidence 8; code-review (independent): 0 P0/P1, 1 P2 (the "text typed while the request is out" test types nothing), 5 P3 — all fixed in the fix round with decision 3
-Memory: nothing new yet
-Not done: build; Stage 4; auto verify; merge (admin: after the auto verify pass)
+Checks: build `48c4377` (agent): vitest 37 files / 1293 passed, build ok, check_static ok; ux-evaluate (agent harness) pass except B-e body text 14 px (older, app-wide); security-review (independent, `c71ffdf..48c4377`): no finding at or above confidence 8; code-review (independent): 0 P0/P1, 1 P2 (the "text typed while the request is out" test types nothing), 5 P3 — all fixed in `5664316` with decision 3 (server flag `babf7f7`); security-review of `139d60a..5664316`: no finding ≥ 8; Supervisor re-run at `5664316`: vitest 37 files / 1294 passed, build ok, check_static ok, `cargo test --workspace --no-fail-fast` 1263 passed / 0 failed, clippy `--features window` clean, leak 0 hits over 42 canaries, 1214 surfaces
+Memory: memory/decisions.md — reply to idle sessions entry: T112 server flag `reply_bridge` (owner choice) (written with the merge)
+Not done: merge (admin: after the auto verify pass); real-terminal smoke (owner, after installing the new package); accepted: `reply_bridge` does not check that the answer socket is open (a CLI install while the app runs shows the toggle; replies work after an app restart)
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/ReplyBox.test.jsx` (AC 1-7: last text, countdown, Enter/Shift+Enter/IME, 8,000 code points, Send 200/409/400/500, text not sent after 200, release, watch timer with fake timers, mark toggle from `reply_bridge`/`reply_marked`, no storage, no token in URL), `web/src/AnswerBridge.test.jsx` (AC 8 `on (no reply)`), `rust/crates/app/tests/answer_bridge.rs` `reply_bridge_follows_the_hook_status_of_the_sessions_account_by_id`, `rust/crates/core/src/live.rs` tail test. Run at `5664316`: `npx vitest run` → `Test Files  37 passed (37)` / `Tests  1294 passed (1294)`; `cargo test --workspace --no-fail-fast` → `passed 1263 failed 0` |
+| Verification command run | ☑ pass | `cd web && npx vitest run` → 1294 passed; `npm run build` → `✓ built in 138ms`; `python3 scripts/check_static.py` → `check_static: ok` |
+| Negative cases hold | ☑ pass | RED first: new ReplyBox tests failed (no `./ReplyBox.jsx`); fix round 5 failed / 41 passed before the fixes; server flag test failed with "the live stream never got there" with the src changes stashed; no toggle without `reply_bridge`, at your turn, or with an answer card |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review on `c71ffdf..48c4377` + callers; security-review on `c71ffdf..48c4377` and `139d60a..5664316`; server flag limited to `live.rs`, `hooks_cmd.rs`, `answer_bridge.rs`, `live_feed.rs`, `api.rs` (owner decision) |
+| Full smoke suite still green (no regression) | ☑ pass | web 1294 / 1294; Rust 1263 / 0; leak 0 hits |
+| **Companion score (easy-verifier)** | ☑ N/A | not run: low-signal on this repo (memory handoff 2026-11-14); independent code and security reviews used instead |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate (frontend agent, the real `LiveView` with fixture data): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f4cd3c0-cdf6-469c-a97f-525e670398f9/scratchpad/ux/hold-375.png`, `hold-1280.png`, `marked-375.png`, `marked-1280.png`, `sent-375.png`, `sent-1280.png`, `gone-375.png`, `gone-1280.png`; Supervisor read `hold-375.png` (last text wraps a 90-char token, box, Send, Hand back to terminal, "waits 1m 18s more", toggle) and `marked-1280.png` (pressed toggle + "marked: it waits for you at its next turn end"). Baseline B-e (14 px body) fail (older, app-wide) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | `appsession.css` uses `tokens.css` variables and the existing `.field`, `.field-error`, `.actions` classes only (code review); same accent, button style and radius as the prompt card |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280: no horizontal scroll, long token wraps, Send / Hand back / toggle ~44 px at 375 (shots above) |
 
 ---
 
@@ -75,9 +75,9 @@ ls: cannot access 'web/src/ReplyBox.jsx': No such file or directory
 ```
 (The server sends `pending_reply` and `reply_marked` since T111, but the page reads neither: no reply box, no *Reply from the app* toggle.)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (`5664316`): `npx vitest run` → 1294 passed; a session with `pending_reply` shows the reply box with the last text, Send, Hand back to terminal and the countdown; a marked idle session shows "marked: it waits for you at its next turn end" (`hold-375.png`, `marked-1280.png`).
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: from the Live view the owner can type a request into a terminal session that just went idle (or that they marked *Reply from the app*), and it continues in that same terminal session.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
