@@ -22,7 +22,8 @@ use crate::ingest::json::Value as Raw;
 use crate::live::{self, Next, call_label, clean_block, next_line};
 use serde_json::{Map, Value, json};
 use std::collections::{HashMap, VecDeque};
-use std::io::{BufRead, Seek, SeekFrom};
+use std::io::{BufRead, BufReader, Seek, SeekFrom};
+use std::path::Path;
 
 pub const TEXT_MAX_CHARS: usize = 16_000;
 pub const MAX_ENTRIES: usize = 500;
@@ -377,6 +378,14 @@ pub fn parse<R: BufRead + Seek>(reader: &mut R, window: Window) -> Result<Page, 
         next: at,
         complete,
     })
+}
+
+/// Opens the file with the live tail's rules (no symlink at the end, no blocking, a regular file judged on the open
+/// handle) and answers `window`. A file that is gone, unreadable, not regular or has an oversized line is
+/// [`Error::Unreadable`]. The file is read anew by every call: nothing is kept between calls.
+pub fn read(path: &Path, window: Window) -> Result<Page, Error> {
+    let (file, _) = live::open_regular(path).ok_or(Error::Unreadable)?;
+    parse(&mut BufReader::new(file), window)
 }
 
 #[cfg(test)]

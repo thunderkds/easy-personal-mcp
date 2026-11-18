@@ -218,6 +218,10 @@ impl Api {
 pub fn routes() -> Router<Api> {
     Router::new()
         .route(LIVE_PATH, get(live))
+        .route(
+            crate::transcript_route::PATH,
+            get(crate::transcript_route::get),
+        )
         .route("/api/usage/summary", get(summary))
         .route("/api/usage/breakdown", get(breakdown))
         .route("/api/usage/sessions", get(sessions))
