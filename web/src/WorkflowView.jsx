@@ -154,29 +154,43 @@ function usePanel() {
 }
 
 // The drawing (owner reference 2026-11-17): fixed node sizes, positions computed here so the edges meet the ports. The row wraps to the canvas width so the whole flow shows.
-const PAD = 16
-const GAP = 76 // between two cards of a row; a gate label sits on the edge in it
+const PAD = 20 // room round the graph for an edge to turn back on the first and last column
+const GAP = 132 // between two cards of a row; a gate pill sits on the edge in it
 const ROW = 112 // the height of one row
 const CARD = { w: 168, h: 52 }
 const START = { w: CARD.w, h: 64 }
 const END = { w: 8, h: 8 } // the end of the trailing edge a last gate sits on
-const PILL = { w: 60, h: 22 }
-const PILL_CHARS = 6
+const PILL = { w: 116, h: 34 } // a gate pill shows up to two lines of the gate's text
+const PILL_CHARS = 30
+const BEND = 28 // how far an edge pushes out of a port before it turns
+const PANEL_GAP = 4 // between a node and its panel
 const FALLBACK_WIDTH = 700 // the canvas width when it cannot be measured (tests, no layout)
 
 /** How many nodes fit in one row of a canvas `width` px wide (at least one). */
 export const columnsFor = (width) => Math.max(1, Math.floor((width - 2 * PAD + GAP) / (CARD.w + GAP)))
 
-const shortText = (text) => (text.length > PILL_CHARS ? `${text.slice(0, PILL_CHARS).trimEnd()}…` : text)
+/** The start of a gate's text that two lines of a pill hold, cut at a word. */
+function shortText(text) {
+  if (text.length <= PILL_CHARS) return text
+  const cut = text.slice(0, PILL_CHARS + 1)
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), 1)).trimEnd()}…`
+}
 /** The icon tile of a step card: its id when short ("3", "1.5"), else the first letter of its name. */
 const monogram = (step) => (step.id.length <= 3 ? step.id : step.name.charAt(0).toUpperCase())
 
-/** One cubic bezier from the right port of one node to the left port of the next; going down to the next row it is a smooth S. */
+/**
+ * One edge from the right port of a node to the left port of the next. Within a row it is one gentle cubic. To the next row it goes out of the right port, turns
+ * down and runs left through the gap between the two rows, then turns down again into the left port: it never crosses a card. The two halves meet in the middle of the gap.
+ */
 function curve(a, b) {
   const x1 = a.x + a.w
-  const down = b.row !== a.row
-  const dx = down ? 34 : (b.x - x1) / 2
-  return `M ${x1} ${a.cy} C ${x1 + dx} ${a.cy}, ${b.x - dx} ${b.cy}, ${b.x} ${b.cy}`
+  if (b.row === a.row) {
+    const dx = (b.x - x1) / 2
+    return `M ${x1} ${a.cy} C ${x1 + dx} ${a.cy}, ${b.x - dx} ${b.cy}, ${b.x} ${b.cy}`
+  }
+  const xm = (x1 + b.x) / 2
+  const ym = (a.cy + b.cy) / 2
+  return `M ${x1} ${a.cy} C ${x1 + BEND} ${a.cy}, ${x1 + BEND} ${ym}, ${xm} ${ym} C ${b.x - BEND} ${ym}, ${b.x - BEND} ${b.cy}, ${b.x} ${b.cy}`
 }
 
 /** The canvas width, kept up to date; `FALLBACK_WIDTH` when it has none. */
@@ -224,7 +238,34 @@ function Line({ flow, placed, working, live, panel, panelId }) {
   })
   const graphW = 2 * PAD + cols * CARD.w + (cols - 1) * GAP
   const graphH = (nodes.at(-1).row + 1) * ROW
-  const edges = nodes.slice(1).map((node, i) => ({ from: nodes[i], to: node, active: i === 0 ? here.length > 0 : node.active }))
+  const edges = nodes.slice(1).map((node, i) => ({ from: nodes[i], to: node, active: i === 0 ? here.some((r) => r.step) : node.active }))
+  const box = (node) => ({ left: node.x, top: node.y, width: node.w, height: node.h })
+  const start = nodes[0]
+  const end = nodes.find((node) => node.kind === 'end')
+  // A gate button sits in the card of its source step, so focus follows the flow; its offsets are relative to that card.
+  const gatesOf = (from) =>
+    edges
+      .filter((e) => e.from === from)
+      .flatMap((e) =>
+        e.to.gates.map((g, i) => {
+          const mx = (e.from.x + e.from.w + e.to.x) / 2
+          const my = (e.from.cy + e.to.cy) / 2 + (i - (e.to.gates.length - 1) / 2) * (PILL.h + 4)
+          return (
+            <button
+              key={g.key}
+              type="button"
+              className={`workflow-gate ${e.active ? 'active' : 'idle'}`}
+              style={{ left: mx - PILL.w / 2 - from.x, top: my - PILL.h / 2 - from.y, width: PILL.w, height: PILL.h }}
+              aria-label={`Gate · ${g.text}`}
+              aria-expanded={panel.open === g.key}
+              aria-controls={panel.open === g.key ? panelId : undefined}
+              {...panel.bind(g.key)}
+            >
+              <span aria-hidden="true">{shortText(g.text)}</span>
+            </button>
+          )
+        }),
+      )
   return (
     <div className="workflow-canvas" ref={canvas}>
       <div className="workflow-graph" style={{ width: graphW, height: graphH }}>
@@ -233,78 +274,59 @@ function Line({ flow, placed, working, live, panel, panelId }) {
             <path key={e.to.key} className={`workflow-edge ${e.active ? 'active' : 'idle'}`} data-to={e.to.key} d={curve(e.from, e.to)} />
           ))}
         </svg>
+        <div className="workflow-start" style={box(start)}>
+          <span className="workflow-start-title">Live sessions</span>
+          <span className="workflow-sub">{live ? `${sessions} live` : 'no live stream'}</span>
+          <span className="workflow-port right" aria-hidden="true" />
+        </div>
         <ol className="workflow-line" aria-label="Steps">
-          {nodes.map((node) => {
-            const box = { left: node.x, top: node.y, width: node.w, height: node.h }
-            if (node.kind === 'start') {
+          {nodes
+            .filter((node) => node.kind === 'step')
+            .map((node) => {
+              const { step, n } = node
               return (
-                <li key={node.key} className="workflow-start" style={box}>
-                  <span className="workflow-start-title">Live sessions</span>
-                  <span className="workflow-sub">{live ? `${sessions} live` : 'no live stream'}</span>
-                  <span className="workflow-port right" aria-hidden="true" />
+                <li key={node.key} className="workflow-node-item" style={box(node)}>
+                  <button
+                    type="button"
+                    className={`workflow-node${n > 0 ? ' working' : ''}`}
+                    aria-label={n > 0 ? `${step.name} · ${n} working` : step.name}
+                    aria-expanded={panel.open === node.key}
+                    aria-controls={panel.open === node.key ? panelId : undefined}
+                    {...panel.bind(node.key)}
+                  >
+                    <span className="workflow-port left" aria-hidden="true" />
+                    <span className="workflow-tile" aria-hidden="true">{monogram(step)}</span>
+                    <span className="workflow-text" aria-hidden="true">
+                      <span className="workflow-title">{step.name}</span>
+                      <span className="workflow-sub">{n > 0 ? `${n} working` : 'idle'}</span>
+                    </span>
+                    <span className="workflow-port right" aria-hidden="true" />
+                  </button>
+                  {gatesOf(node)}
                 </li>
               )
-            }
-            if (node.kind === 'end') return <li key={node.key} className="workflow-end" style={box} aria-hidden="true" />
-            const { step, n } = node
-            return (
-              <li key={node.key} className="workflow-node-item" style={box}>
-                <button
-                  type="button"
-                  className={`workflow-node${n > 0 ? ' working' : ''}`}
-                  aria-label={n > 0 ? `${step.name} · ${n} working` : step.name}
-                  aria-expanded={panel.open === node.key}
-                  aria-controls={panel.open === node.key ? panelId : undefined}
-                  {...panel.bind(node.key)}
-                >
-                  <span className="workflow-port left" aria-hidden="true" />
-                  <span className="workflow-tile" aria-hidden="true">{monogram(step)}</span>
-                  <span className="workflow-text" aria-hidden="true">
-                    <span className="workflow-title">{step.name}</span>
-                    <span className="workflow-sub">{n > 0 ? `${n} working` : 'idle'}</span>
-                  </span>
-                  <span className="workflow-port right" aria-hidden="true" />
-                </button>
-              </li>
-            )
-          })}
+            })}
         </ol>
-        {edges.flatMap((e) =>
-          e.to.gates.map((g, i) => {
-            const mx = (e.from.x + e.from.w + e.to.x) / 2
-            const my = (e.from.cy + e.to.cy) / 2 + (i - (e.to.gates.length - 1) / 2) * (PILL.h + 4)
-            return (
-              <button
-                key={g.key}
-                type="button"
-                className={`workflow-gate ${e.active ? 'active' : 'idle'}`}
-                style={{ left: mx - PILL.w / 2, top: my - PILL.h / 2, width: PILL.w, height: PILL.h }}
-                aria-label={`Gate · ${g.text}`}
-                aria-expanded={panel.open === g.key}
-                aria-controls={panel.open === g.key ? panelId : undefined}
-                {...panel.bind(g.key)}
-              >
-                <span aria-hidden="true">{shortText(g.text)}</span>
-              </button>
-            )
-          }),
-        )}
+        {end && <div className="workflow-end" style={box(end)} aria-hidden="true" />}
       </div>
     </div>
   )
 }
 
-/** The panel of the open node or gate: its working agents (project · agent · time), or the gate's text. It sits under the strip, clamped inside the column. */
+/** The panel of the open node or gate: its working agents (project · agent · time), or the gate's text. It sits just under its node, clamped inside the stage so it never widens the page. */
 function Panel({ id, open, flow, steps, gates, working, wrap }) {
   const ref = useRef(null)
-  const [left, setLeft] = useState(0)
   useLayoutEffect(() => {
     const anchor = open && wrap.current ? wrap.current.querySelector(`[data-key="${open}"]`) : null
-    if (!anchor || !ref.current) return
-    const box = wrap.current.getBoundingClientRect()
-    const at = anchor.getBoundingClientRect().left - box.left
-    setLeft(Math.max(0, Math.min(at, box.width - ref.current.offsetWidth)))
-  }, [open, wrap])
+    const el = ref.current
+    if (!anchor || !el) return
+    const stage = wrap.current.getBoundingClientRect()
+    const node = anchor.getBoundingClientRect()
+    el.style.left = '0px' // measure at the left edge: a panel pushed to the right shrinks to what is left of the stage
+    const at = Math.min(node.left - stage.left, stage.width - el.offsetWidth)
+    el.style.left = `${Math.max(0, at)}px`
+    el.style.top = `${Math.max(0, node.bottom - stage.top + PANEL_GAP)}px`
+  })
   if (!open) return null
   const [kind, which] = open.split(':')
   const step = kind === 'node' ? steps.find((s) => s.id === which) : null
@@ -312,7 +334,7 @@ function Panel({ id, open, flow, steps, gates, working, wrap }) {
   if (!step && !gate) return null
   const rows = step ? working.filter((r) => r.flow.id === flow.id && r.step?.id === step.id).sort(byWho) : []
   return (
-    <div id={id} ref={ref} role="region" aria-label={step ? `${step.name}: agents working` : 'Gate'} className="workflow-panel" style={{ left }}>
+    <div id={id} ref={ref} role="region" aria-label={step ? `${step.name}: agents working` : 'Gate'} className="workflow-panel">
       {gate && <p>{gate.text}</p>}
       {step && rows.length === 0 && <p className="muted">No agent working now.</p>}
       {step && rows.length > 0 && (

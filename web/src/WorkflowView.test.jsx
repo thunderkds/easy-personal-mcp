@@ -64,6 +64,13 @@ const [KIT, PLAIN] = workflow.flows
 const line = () => screen.getByRole('list', { name: 'Steps' })
 const graph = () => document.querySelector('.workflow-graph')
 const at = (li) => ({ left: parseFloat(li.style.left), top: parseFloat(li.style.top), width: parseFloat(li.style.width), height: parseFloat(li.style.height) })
+// Every drawn card in flow order: the start card, the step cards (the Steps list), the end marker. A gate sits inside its source step's card, so its own offsets are relative to it.
+const cards = () => [...graph().querySelectorAll('.workflow-start, .workflow-line > li, .workflow-end')]
+const absolute = (el) => {
+  const b = at(el)
+  const host = el.closest('li')
+  return host && host !== el ? { ...b, left: b.left + parseFloat(host.style.left), top: b.top + parseFloat(host.style.top) } : b
+}
 const gate = (text) => within(graph()).getByRole('button', { name: `Gate · ${text}` })
 const nodes = () => [...line().querySelectorAll('.workflow-node')]
 const nodeNames = () => nodes().map((n) => n.querySelector('.workflow-title')?.textContent ?? n.textContent)
@@ -276,7 +283,7 @@ describe('the flow picker and the line (AC4)', () => {
     snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }))
     for (const flow of [KIT.name, PLAIN.name]) {
       pick(flow)
-      expect(line().textContent).not.toMatch(/Requirements|Grilling|Environment|Agent team|Supervisor|qa-expert|common-infrastructure|Explore|waiting for|In Progress|Ready for Review|done$/)
+      expect(nodes().map((n) => n.textContent).join(' ')).not.toMatch(/Requirements|Grilling|Environment|Agent team|Supervisor|qa-expert|common-infrastructure|Explore|waiting for|In Progress|Ready for Review|done$/)
       expect(document.body.textContent).not.toMatch(/brainstorming|ideate|map-codebase|craft-agent|grill-with-docs|\btdd\b|bugfix|code-review|delivery-report|migration-safety/)
     }
     expect(f.calls.some((c) => c.url.startsWith('/api/board'))).toBe(false)
@@ -307,23 +314,44 @@ describe('the flow picker and the line (AC4)', () => {
 
 describe('the drawing (owner reference)', () => {
   const edge = (to) => document.querySelector(`.workflow-edge[data-to="${to}"]`)
+  const mid = (b) => b.top + b.height / 2
+  const nums = (el) => el.getAttribute('d').match(/-?\d+(?:\.\d+)?/g).map(Number)
+  // Every edge leaves the right port of its source and enters the left port of its target; one that changes row goes down through the gap between the two rows. Returns how many changed row.
+  const expectPortToPort = () => {
+    const boxes = cards().map(at)
+    const paths = [...document.querySelectorAll('.workflow-edge')]
+    expect(paths).toHaveLength(boxes.length - 1)
+    let down = 0
+    paths.forEach((path, i) => {
+      const [a, b] = [boxes[i], boxes[i + 1]]
+      const n = nums(path)
+      expect(n.slice(0, 2)).toEqual([a.left + a.width, a.top + a.height / 2])
+      expect(n.slice(-2)).toEqual([b.left, b.top + b.height / 2])
+      if (mid(b) !== mid(a)) {
+        down += 1
+        expect(n[7]).toBeGreaterThan(a.top + a.height) // the turn is below the source card ...
+        expect(n[7]).toBeLessThan(b.top) // ... and above the target card: it never crosses one
+      }
+    })
+    return down
+  }
 
   it('draws the start card with the count of live sessions placed on the flow, or "no live stream"', async () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
-    const start = line().querySelector('.workflow-start')
+    const start = graph().querySelector('.workflow-start')
     expect(start).toHaveTextContent('Live sessions')
     expect(start).toHaveTextContent('0 live')
     snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }), session('s2', { stage: '1' }), session('s3'))
-    expect(line().querySelector('.workflow-start')).toHaveTextContent('2 live') // s3 has no stage: it is on plain
+    expect(graph().querySelector('.workflow-start')).toHaveTextContent('2 live') // s3 has no stage: it is on plain
     pick('Plain prompts (no kit)')
-    expect(line().querySelector('.workflow-start')).toHaveTextContent('1 live')
+    expect(graph().querySelector('.workflow-start')).toHaveTextContent('1 live')
   })
 
   it('says "no live stream" on the start card outside a stream provider', async () => {
     await renderView({ live: false })
     await screen.findByText('Stage 3 · Execute')
-    expect(line().querySelector('.workflow-start')).toHaveTextContent('no live stream')
+    expect(graph().querySelector('.workflow-start')).toHaveTextContent('no live stream')
   })
 
   it('gives the edge into a working node the active class and the edge into an idle node the idle class', async () => {
@@ -343,12 +371,33 @@ describe('the drawing (owner reference)', () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
     const edges = () => [...document.querySelectorAll('.workflow-edge')]
-    expect(edges()).toHaveLength(line().querySelectorAll(':scope > li').length - 1)
+    expect(edges()).toHaveLength(cards().length - 1)
     expect(edges().every((p) => p.closest('svg').getAttribute('aria-hidden') === 'true')).toBe(true)
     expect(edge('node:0')).toHaveClass('idle')
     snapshot(session('s1', { stage: '3', stage_skill: 'tdd' }))
     await send(own('s1'))
     expect(edge('node:0')).toHaveClass('active')
+  })
+
+  it('keeps the start edge idle while the only working agent has no step yet', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    snapshot()
+    await send() // the two sentinel sessions work on easy-kit and plain with no step
+    await screen.findByText(/step not known yet/)
+    expect(edge('node:0')).toHaveClass('idle')
+    expect(document.querySelectorAll('.workflow-edge.active')).toHaveLength(0)
+    expect(document.querySelectorAll('.workflow-node.working')).toHaveLength(0)
+  })
+
+  it('lists only the steps in the Steps list: the start card and the end marker sit outside it', async () => {
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    expect(line().querySelectorAll(':scope > li')).toHaveLength(KIT.steps.length)
+    expect(line().querySelector('.workflow-start, .workflow-end')).toBeNull()
+    expect(graph().querySelector('.workflow-start')).not.toBeNull()
+    expect(graph().querySelector('.workflow-end')).not.toBeNull()
+    expect(within(line()).getAllByRole('listitem')).toHaveLength(KIT.steps.length)
   })
 
   it('takes the state of its edge: a gate on the edge into a working node is accent, the others idle', async () => {
@@ -361,18 +410,27 @@ describe('the drawing (owner reference)', () => {
     expect(gate('Reviews before verify')).toHaveClass('idle')
   })
 
-  it('wraps the row to the canvas width: 700 px gives three columns, the next row starts under the first', async () => {
-    expect(columnsFor(700)).toBe(3)
-    expect(columnsFor(339)).toBe(1)
-    expect(columnsFor(0)).toBe(1)
-    expect(columnsFor(1280)).toBe(5)
+  it('draws every edge from the right port of its source to the left port of its target, a same-row and a next-row one alike', async () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
-    const boxes = [...line().querySelectorAll(':scope > li')].map(at)
+    const boxes = cards().map(at)
+    expect(mid(boxes[1])).toBe(mid(boxes[0])) // start and Stage 0 share a row ...
+    expect(mid(boxes[2])).toBeGreaterThan(mid(boxes[1])) // ... Stage 1 is on the next one
+    expect(expectPortToPort()).toBeGreaterThan(0)
+  })
+
+  it('wraps the row to the canvas width: 700 px gives two columns, the next row starts under the first', async () => {
+    expect(columnsFor(700)).toBe(2)
+    expect(columnsFor(339)).toBe(1)
+    expect(columnsFor(0)).toBe(1)
+    expect(columnsFor(1280)).toBe(4)
+    await renderView()
+    await screen.findByText('Stage 3 · Execute')
+    const boxes = cards().map(at)
     const lefts = [...new Set(boxes.map((b) => b.left))]
-    expect(lefts).toHaveLength(3)
-    expect(boxes[3].left).toBe(boxes[0].left)
-    expect(boxes[3].top).toBeGreaterThan(boxes[0].top)
+    expect(lefts).toHaveLength(2)
+    expect(boxes[2].left).toBe(boxes[0].left)
+    expect(boxes[2].top).toBeGreaterThan(boxes[0].top)
     expect(parseFloat(graph().style.height)).toBeGreaterThanOrEqual(boxes.at(-1).top + boxes.at(-1).height)
     expect(parseFloat(graph().style.width)).toBeLessThanOrEqual(700)
   })
@@ -383,9 +441,10 @@ describe('the drawing (owner reference)', () => {
     try {
       await renderView()
       await screen.findByText('Stage 3 · Execute')
-      const boxes = [...line().querySelectorAll(':scope > li')].map(at)
+      const boxes = cards().map(at)
       expect(new Set(boxes.map((b) => b.left)).size).toBe(1)
       expect(boxes.every((b, i) => i === 0 || b.top > boxes[i - 1].top)).toBe(true)
+      expect(expectPortToPort()).toBe(boxes.length - 1) // one column: every edge changes row
     } finally {
       if (was) Object.defineProperty(HTMLElement.prototype, 'clientWidth', was)
       else delete HTMLElement.prototype.clientWidth
@@ -397,27 +456,35 @@ describe('the drawing (owner reference)', () => {
     await screen.findByText('Stage 3 · Execute')
     const pill = within(graph()).getByRole('button', { name: 'Gate · Ready for Review starts the reviews' })
     expect(pill.textContent.length).toBeLessThan('Ready for Review starts the reviews'.length)
+    expect(pill.textContent).toMatch(/^Ready for Review/) // the first words, not "Ready…"
+    expect(gate('No TASK_GUIDE, no Stage 3')).toHaveTextContent('No TASK_GUIDE, no Stage 3') // a short gate shows whole
+    expect(gate('Reviews before verify')).toHaveTextContent('Reviews before verify')
     fireEvent.click(pill)
     expect(panel()).toHaveTextContent('Ready for Review starts the reviews')
   })
 })
 
 describe('gates (AC7)', () => {
-  it('puts each gate as a focusable label on the edge after its step, not in the row, the last one on a short edge after Stage 5', async () => {
+  it('puts each gate as a focusable label on the edge after its step, right after that step in the DOM, the last one on a short edge after Stage 5', async () => {
     await renderView()
     await screen.findByText('Stage 3 · Execute')
-    expect(line().querySelectorAll('.workflow-gate')).toHaveLength(0) // a gate is no row node
     const marks = [...graph().querySelectorAll('.workflow-gate')]
     expect(marks.map((m) => m.getAttribute('aria-label'))).toEqual(KIT.gates.map((g) => `Gate · ${g.text}`))
     expect(marks.every((m) => m.tagName === 'BUTTON')).toBe(true)
+    // Tab order follows the flow: a gate comes straight after its source step and before the next step.
+    const order = [...graph().querySelectorAll('.workflow-node, .workflow-gate')].map((el) => el.getAttribute('aria-label'))
+    expect(order).toEqual([
+      'Stage 0 · Define', 'Stage 1 · Set up', 'Stage 2 · Plan', 'Gate · No TASK_GUIDE, no Stage 3', 'Stage 3 · Execute', 'Gate · Ready for Review starts the reviews',
+      'Stage 4 · Review', 'Gate · Reviews before verify', 'Stage 5 · Integrate', 'Gate · Verify passes before merge',
+    ])
     // The label sits on the middle of the edge between the two cards it sits between.
     const a = at(node('Stage 2 · Plan').closest('li'))
     const b = at(node('Stage 3 · Execute').closest('li'))
-    const m = at(gate('No TASK_GUIDE, no Stage 3'))
+    const m = absolute(gate('No TASK_GUIDE, no Stage 3'))
     expect(m.left + m.width / 2).toBeCloseTo((a.left + a.width + b.left) / 2)
     expect(m.top + m.height / 2).toBeCloseTo((a.top + a.height / 2 + b.top + b.height / 2) / 2)
     const last = at(node('Stage 5 · Integrate').closest('li'))
-    expect(at(gate('Verify passes before merge')).left).toBeGreaterThanOrEqual(last.left) // on the trailing edge, at the end
+    expect(absolute(gate('Verify passes before merge')).left).toBeGreaterThanOrEqual(last.left) // on the trailing edge, at the end
   })
 
   it('shows the gate text on hover, on focus and on a tap, and closes it on Escape', async () => {
@@ -511,6 +578,34 @@ describe('working nodes and the panel (AC5-AC7)', () => {
     fireEvent.mouseEnter(node('Stage 2 · Plan'))
     expect(panel()).toHaveTextContent(/no agent working/i)
     expect(within(panel()).queryAllByRole('listitem')).toHaveLength(0)
+  })
+
+  it('opens the panel under its node, clamped inside the stage, so it never widens the page', async () => {
+    const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON() {} })
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function box() {
+      if (this.classList.contains('workflow-stage')) return rect(10, 100, 343, 400) // a 375 px page: the stage is narrower than the graph
+      if (this.dataset?.key === 'node:4') return rect(300, 220, 168, 52) // a node near the right edge, in the stage's second half
+      if (this.dataset?.key === 'node:1') return rect(12, 150, 168, 52)
+      return rect(0, 0, 0, 0)
+    })
+    const was = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return this.classList?.contains('workflow-panel') ? 200 : 0 } })
+    try {
+      await renderView()
+      await screen.findByText('Stage 3 · Execute')
+      fireEvent.click(node('Stage 4 · Review'))
+      const open = panel()
+      expect(parseFloat(open.style.left)).toBe(143) // 343 - 200: inside the stage, not at the node's x of 290
+      expect(parseFloat(open.style.top)).toBeGreaterThan(220 - 100 + 52 - 1) // under the node (its bottom is 272, the stage's top is 100) ...
+      expect(parseFloat(open.style.top)).toBeLessThan(220 - 100 + 52 + 24) // ... close to it, not under the whole graph
+      fireEvent.click(node('Stage 4 · Review'))
+      fireEvent.click(node('Stage 1 · Set up'))
+      expect(parseFloat(panel().style.left)).toBe(2) // the node's own left (12 - 10) when it fits
+    } finally {
+      spy.mockRestore()
+      if (was) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', was)
+      else delete HTMLElement.prototype.offsetWidth
+    }
   })
 
   it('ties the node to its panel with aria-expanded', async () => {
