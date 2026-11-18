@@ -33,16 +33,12 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
-1. <what was decided> — RULE: <the rule>
-2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review
-4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
-Paused: <only when a stop that stays paused the task: which one, and why>
-Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
-Memory: <each entry the memory pass wrote, as `file — entry` | nothing new>
-Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | /verify (yours), with [admin] only after the one retry also ended blocked>
-
--->
+1. Build order: a spike on the installed `claude` before any FR text or build task (the design depends on how the terminal behaves while a Stop hook holds) — RULE: `tasks/TASK_GUIDE_T102.md:22` precedent ("Before any build task, prove on the installed `claude` … the routes FR-109..FR-114 depend on")
+2. Route: a `Stop` hook that blocks with the owner's text (option A); *Resume in app* stays for long conversations; tmux/terminal input stays out — FACT: PRD.md question 42 "Decided by the owner 2026-11-18"
+3. The hold rule (every turn end while a Live page watches, up to a cap; or only sessions the owner marked) is decided after the spike's facts, by a 3-Advocate Debate (Risk High), before T111/T112 are written
+Checks: spike not finished; its verification command and Stage 4 (code-review, security-review) run when it reports
+Memory: nothing new yet (the pass runs when the spike reports)
+Not done: spike running (backend agent); hold-rule Debate; T111/T112 guides; Stage 4 review and security review; merge (admin: after the auto verify pass)
 
 ## Evidence
 
