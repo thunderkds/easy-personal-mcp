@@ -18,6 +18,7 @@
 
 use crate::answer_bridge::{Bridge, Subscription};
 use crate::api::Clock;
+use crate::session_names;
 use axum::body::Bytes;
 use easy_personal_core::clock::now_micros;
 use easy_personal_core::live::{ACTIVE_WINDOW_S, LiveTail, OPEN_CALL_MINUTES};
@@ -29,6 +30,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::future::Future;
 use std::panic::{self, AssertUnwindSafe};
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
@@ -218,6 +220,10 @@ pub(crate) struct LiveStream {
     /// T106: the hooks waiting for an answer (`None`: no bridge), and the change counter the last snapshot had.
     answers: Option<Arc<Bridge>>,
     seen_answers: u64,
+    /// T117 (FR-127): the data folder whose `session_names.json` the snapshots read (`None`: no names), and the
+    /// names version the last snapshot had.
+    names_dir: Option<PathBuf>,
+    seen_names: session_names::Stamp,
 }
 
 impl LiveStream {
@@ -228,7 +234,25 @@ impl LiveStream {
             seen: None,
             answers: None,
             seen_answers: 0,
+            names_dir: None,
+            seen_names: None,
         }
+    }
+
+    /// T117 (FR-127): a snapshot also carries the owner's `name` of each session that has one, and is sent again when a
+    /// name changes.
+    pub(crate) fn with_names(mut self, dir: Option<PathBuf>) -> Self {
+        self.names_dir = dir;
+        self
+    }
+
+    /// The owner's names for a snapshot; the file's stamp is read first, so a write that lands meanwhile sends another one.
+    fn names(&mut self) -> Arc<HashMap<String, String>> {
+        let Some(dir) = self.names_dir.as_deref() else {
+            return Arc::default();
+        };
+        self.seen_names = session_names::stamp(dir);
+        session_names::load_map(dir)
     }
 
     /// T106: a snapshot also carries the sessions' `pending_answer`, and is sent again when the set of them changes.
@@ -252,11 +276,16 @@ impl LiveStream {
             });
             b.prune_marks(&listed);
         }
-        // the set of hooks is read (and cloned) only when its counter moved or a snapshot goes out anyway
-        let answers_moved = self
+        // what the page adds to a snapshot (the set of hooks, the owner's names) is read only when it moved or a snapshot
+        // goes out anyway
+        let overlay_moved = self
             .answers
             .as_ref()
-            .is_some_and(|b| b.version() != self.seen_answers);
+            .is_some_and(|b| b.version() != self.seen_answers)
+            || self
+                .names_dir
+                .as_deref()
+                .is_some_and(|dir| session_names::stamp(dir) != self.seen_names);
         if let (Some(t), Some(c)) = (tail, self.cursor)
             && (c > t.last_id() || t.rolled_past(c))
         {
@@ -269,9 +298,10 @@ impl LiveStream {
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, tail);
                 add_pending(&mut data, &pending, &replies, &marks, &self.bridged(tail));
+                add_names(&mut data, &self.names());
                 out.extend(sse("snapshot", &data, None));
             }
-            (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || answers_moved => {
+            (Some(cursor), Some(t)) if self.seen != Some(t.state_version()) || overlay_moved => {
                 let snapshot = t.snapshot(now); // attention changed: events up to its `last_id` first
                 let (answers_version, pending, replies, marks) = self.pending();
                 let upto = snapshot["last_id"].as_i64().unwrap_or(0);
@@ -285,6 +315,7 @@ impl LiveStream {
                 self.take(&snapshot, answers_version);
                 let mut data = stream_data(&snapshot, Some(t));
                 add_pending(&mut data, &pending, &replies, &marks, &self.bridged(tail));
+                add_names(&mut data, &self.names());
                 out.extend(sse("snapshot", &data, None));
             }
             _ => {}
@@ -356,6 +387,12 @@ impl SseBody {
     /// [`REPLY_EVERY`] (the first pass too), so a settings file changed by hand shows within that time.
     pub(crate) fn with_refresh(mut self, refresh: Arc<dyn Fn() + Send + Sync>) -> Self {
         self.refresh = Some(refresh);
+        self
+    }
+
+    /// T117 (FR-127): the data folder whose `session_names.json` the snapshots carry the names of.
+    pub(crate) fn with_names(mut self, dir: Option<PathBuf>) -> Self {
+        self.stream = self.stream.with_names(dir);
         self
     }
 
@@ -537,6 +574,19 @@ fn add_pending(
         // T112 (FR-122): a typed session of an account whose answer bridge is on can be replied to from the app
         if bridged.contains(&id) {
             session["reply_bridge"] = json!(true);
+        }
+    }
+}
+
+/// T117 (FR-127): the key `name` of each session of a snapshot the owner has named (`session_names.json`; the owner's
+/// own text, kept apart from `proc.name`, which is Claude Code's). A session with no name gets no key.
+fn add_names(data: &mut Value, names: &HashMap<String, String>) {
+    if names.is_empty() {
+        return;
+    }
+    for session in data["sessions"].as_array_mut().into_iter().flatten() {
+        if let Some(name) = session["session_id"].as_str().and_then(|id| names.get(id)) {
+            session["name"] = json!(name);
         }
     }
 }
@@ -1272,6 +1322,60 @@ mod tests {
             assert_eq!(kinds, [("snapshot", None)], "{resume:?}");
             assert_eq!(sent[0].2["last_id"], 1);
         }
+    }
+
+    /// T117 (FR-127): the owner's name is on the stream's snapshot (only for a session that has one), a write sends one
+    /// more snapshot and nothing else does, and a name of a session the snapshot does not list never goes out.
+    #[test]
+    fn the_owner_names_are_on_the_snapshot_and_a_change_sends_another() {
+        use crate::session_names::store_name;
+        let tmp = Temp::new("names");
+        let data = Temp::new("names-data");
+        let (mut tail, roots) = primed(&tmp);
+        append(&tmp, &call_line("s1", "b1", "2026-01-20T00:00:05Z"));
+        tail.poll_once(&roots, NOW, None);
+        store_name(&data.0, "other-session", Some("PLANTED-OTHER".into())).unwrap();
+        let mut stream = LiveStream::new(None, true).with_names(Some(data.0.clone()));
+        let first = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(first.len(), 1);
+        let session = &first[0].2["sessions"][0];
+        assert_eq!(session["session_id"], "s1");
+        assert!(session.get("name").is_none(), "no name, no key");
+        assert!(!first[0].2.to_string().contains("PLANTED-OTHER"));
+        assert!(stream.step(Some(&tail), NOW).is_empty());
+
+        store_name(&data.0, "s1", Some("Mine".into())).unwrap();
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert_eq!(
+            (sent[0].0.as_str(), &sent[0].2["sessions"][0]["name"]),
+            ("snapshot", &json!("Mine"))
+        );
+        let mut keys: Vec<&str> = sent[0].2["sessions"][0]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        let mut want: Vec<&str> = SESSION_KEYS.to_vec();
+        want.push("name");
+        want.sort_unstable();
+        assert_eq!(keys, want);
+        assert!(stream.step(Some(&tail), NOW).is_empty());
+
+        store_name(&data.0, "s1", None).unwrap();
+        let sent = messages(&stream.step(Some(&tail), NOW));
+        assert_eq!(sent.len(), 1);
+        assert!(sent[0].2["sessions"][0].get("name").is_none());
+
+        // a stream with no names folder never reads one
+        let mut plain = LiveStream::new(None, true);
+        assert!(
+            messages(&plain.step(Some(&tail), NOW))[0].2["sessions"][0]
+                .get("name")
+                .is_none()
+        );
     }
 
     // ---- T094: the question text (FR-106, DDR-0005) ------------------------------------------------------------

@@ -36,13 +36,13 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 
 Mode: auto
 1. Past sessions listed from the store's `events` metadata, no schema change — FACT: rust/crates/core/src/schema_v11.sql:79 "session_id                  TEXT,"
-2. Own names in one owner-only file `session_names.json` — RULE: FR-119 pattern (owner-only file, temp + rename)
-3. Past sessions with no `from`: default window of the last 30 days (ts index), stated in the answer; any explicit `from` lifts it — DEBATED: (c) 30-day default (Advocate 1: 30-day default, the only option within no-schema-change and fast at real scale; Advocate 2: 30-day default with a visible "Show older") ⚠ decided for you — please review
-4. Kind filter `terminal|headless` only; the page marks app sessions from its live app-session list — FACT: reviewer, real store 2026-11-18: entrypoints are only `cli`, `claude-desktop`, `sdk-cli` and empty, so app and headless runs cannot be told apart in the store
-Checks: Stage 3 in progress (agent building in worktree `easy-personal-mcp-wt/T117`); tests, code-review, security-review and the auto verify run follow when it reports
-Memory: not run yet — the memory pass runs at this task's close-out (task still In Progress)
-Not done: implementation (agent running); Stage 4 reviews; auto verify; merge
-
+2. Own names in one owner-only file `session_names.json` — FACT: PRD.md:225 "Names live in one owner-only file `session_names.json`"
+3. Past sessions with no `from`: default window of the last 30 days (ts index), stated in the answer (`window`); any explicit `from` lifts it — DEBATED: (c) 30-day default (Advocate 1: 30-day default, no session_id index so an undated page is a full scan, `sessions.rs:449-452`; Advocate 2: 30-day default, the owner wants recent sessions and the page must say "last 30 days" with a wider-range control) ⚠ decided for you — please review
+4. Kind filter `terminal|headless` only; the page marks app sessions from its live app-session list — FACT: memory/decisions.md:384 "Entrypoints in the store are only `cli`, `claude-desktop`, `sdk-cli`: app and headless runs cannot be told apart there"
+Checks: tests `cargo test --workspace --no-fail-fast` — 1283 passed, 2 failed (`store_check` signal tests, load-related; `--test store_check` alone 12 passed); leak gate — 0 hits over 42 canaries, 1266 surfaces; reviews code-review — 0 P0/P1, 4 P2 + 3 P3 fixed (`afa11e1`, `2909860`); security-review — no finding ≥ 8; real store timing: default 30-day window ~80 ms (release), whole store 1.18 s
+Memory: memory/decisions.md — "2026-11-18 — Live like Claude: transcript on demand, queue, Stop/Force stop, past sessions, one panel" (+ MEMORY.md index line), `5c38bf4` on main
+Not done: merge (admin: after the auto verify pass); owner smoke test (name a session and see it in Live); auto verify: pass
+Paused: done not moved — report incomplete: auto verify slot
 
 <!-- template:
 Mode: auto
@@ -61,16 +61,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/tests/past_sessions.rs` (8 + 1 ignored timing: cursor paging with ties over 120 sessions, filters, bad values 400, 30-day default window and `window` field, EXPLAIN asserts `SEARCH events USING INDEX events_ts_message`, kind terminal/headless), `rust/crates/app/src/session_names_tests.rs` (13: guard/confirmed, 1..80 chars, null removes, 0600 temp+rename, 2,000 cap, unusable file never written over, bad entry shown but never written over, unique temp names under 8 threads, stamp cache), live_feed name test; `leak_rust.py` `session_name` canary |
+| Verification command run | ☑ pass | at `2909860`: fmt + both clippy runs clean (agent); `cargo test --workspace --no-fail-fast` 1283 passed / 2 failed (`store_check` signal tests under load; alone `12 passed; 0 failed; 1 ignored`); `leak check: 0 hits over 42 canaries, 1266 surfaces, 2624311 bytes` |
+| Negative cases hold | ☑ pass | bad `kind`/`from`/`to`/`before`/`project`/`branch`/account → 400 with fixed text; `kind=app` → 400; no token / wrong Host / foreign Origin → 403; missing/false `confirmed`, unknown field → 400; a PUT over a corrupt, 0666 or bad-entry file → 500 `UNUSABLE` with the file bytes unchanged |
+| verify | ☑ pass | auto-run by hook, session a2f7e7fc-d1c3-4aa8-abbf-fa00d7e2bb18, commit 7ebe14846d31e7f843d73267ad3d099e0f3d389c, log .claude/verify-runs/T117-7ebe14846d31.log — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | code-review and security-review on `main...T117` (sessions.rs, session_names.rs, live_feed.rs, api.rs, tests, leak gate) + callers; re-check of `afa11e1`; real store read-only for timing |
+| Full smoke suite still green (no regression) | ☑ pass | Rust 1283 + `store_check` green alone; leak 0 hits
+| **Companion score (easy-verifier)** | ☑ N/A | not run: independent code and security reviews used instead | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | server routes only; the page is T119 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | server routes only; the page is T119 |
+| **UI: Responsiveness at target viewports** | ☑ N/A | server routes only; the page is T119 |
 
 ---
 
@@ -92,9 +92,16 @@ ls: cannot access 'rust/crates/app/src/session_names.rs': No such file or direct
 (No past-sessions route and no names: sessions older than the live hour cannot be opened from the app.)
 first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (`2909860`, 2026-11-18T11:53:55Z):
+```
+$ grep -rn 'sessions/past\|session_names' rust/crates/app/src/api.rs rust/crates/app/src/main.rs | head -3; ls rust/crates/app/src/session_names.rs
+rust/crates/app/src/main.rs:30:mod session_names;
+rust/crates/app/src/api.rs:37:use crate::{connector_writes, hooks_cmd, legacy, session_names, sync_apply, writes};
+rust/crates/app/src/api.rs:222:        .merge(session_names::routes()) // T117: PUT /api/sessions/{id}/name
+rust/crates/app/src/session_names.rs
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: the page can now list sessions older than the live hour (last 30 days by default, any range on request) and give any session the owner's own name.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]

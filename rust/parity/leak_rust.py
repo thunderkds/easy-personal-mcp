@@ -62,6 +62,7 @@ DATA_FILES = {
     "store.sqlite-wal",
     "store.sqlite-shm",
     "ingest.lock",
+    "session_names.json",  # T117 (FR-127): the owner's own session names, the one file they live in
 }  # all the data folder may hold
 CHILD_TIMEOUT = 60
 ALERTS_WANT = {"session_waiting": 4, "session_failing": 1}  # the alerts `plant_alerts` leaves (T085; T094 adds one waiting)
@@ -91,6 +92,9 @@ SESSION_PATTERNS = {
     "session_plan": "LEAKCANARY session plan {t}",
     "session_answer": "LEAKCANARY owner answer {t}",
     "session_note": "LEAKCANARY owner note {t}",
+    # T117 (FR-127): the owner's own name for a session. It may be on the guarded name / past answers (`SESSION_OK` labels, in
+    # `serve`) and in `session_names.json` (the one owner-only file it lives in); on no other surface (store, logs, MCP, CLI, alerts).
+    "session_name": "LEAKCANARY session name {t}",
 }
 # T106 (FR-114, FR-115, DDR-0006): strings of an answer-bridge conversation (a `hook ask` that waits for the owner). Each may be on
 # `GET /api/live` while its hook waits (the typed ones never are) and on `hook ask`'s stdout when the owner picked or typed it
@@ -191,6 +195,9 @@ API_CALLS: dict[str, list[str]] = {
     "/api/reply/release": [""],
     "/api/reply/watch": [""],
     "/api/reply/mark": [""],
+    "/api/sessions/past": ["", "?project=leak-check&kind=terminal&branch=main", "?from=2026-01-01&to=2027-01-01", "?kind=bad", "?kind=app", "?kind=headless", "?from=2000-01-01", "?from=2000-01-01&kind=terminal", "?from=garbage",
+                           "?to=garbage", "?before=garbage", "?before=2026-02-01T09%3A00%3A00Z%7Cx", "?account=nope", "?account=1", "?project=%0A"],  # T117
+    "/api/sessions/{id}/name": [""],  # T117: asked literally with GET (the 405); the PUT is in WRITE_CALLS / GUARD_CALLS
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -254,6 +261,12 @@ GUARD_CALLS = [
     ("app session query token", "GET", "/api/app-sessions?token=x", {"x-dashboard-token": None}),
     ("app session prompt route no bearer", "POST", "/app-session-mcp/x", {"x-dashboard-token": None}),  # 401: its own secret
     ("app session prompt route get", "GET", "/app-session-mcp/x", {"x-dashboard-token": None}),
+    ("past sessions no token", "GET", "/api/sessions/past", {"x-dashboard-token": None}),  # T117
+    ("past sessions write method", "POST", "/api/sessions/past", {}),
+    ("session name no token", "PUT", "/api/sessions/x/name", {"x-dashboard-token": None}),
+    ("session name foreign origin", "PUT", "/api/sessions/x/name", {"Origin": "http://evil.invalid"}),
+    ("session name wrong host", "PUT", "/api/sessions/x/name", {"Host": "localhost:1"}),
+    ("session name write method", "DELETE", "/api/sessions/x/name", {}),
     ("app session prompt route foreign host", "POST", "/app-session-mcp/x", {"Host": "evil.invalid:80"}),
 ]
 # The write routes (T048) with a body: (label, method, path, body). `{key}` is the planted API key: a refused write must not
@@ -317,6 +330,16 @@ WRITE_CALLS = [
     ("agent stop key as field", "POST", "/api/agent-run/stop", '{"{key}":1}'),
     ("agent stop accepted", "POST", "/api/agent-run/stop", '{}'),
     # T103: the agent run setting is off in this run's data folder, so a start is a 403 after its checks, and nothing starts
+    # T117: the name route; a refused call must not echo the key, and the file the accepted ones make holds only harmless text
+    ("session name key as id, unconfirmed", "PUT", "/api/sessions/{key}/name", '{"name":"x"}'),  # a confirmed one would be a valid id and be kept
+    ("session name key as id, bad shape", "PUT", "/api/sessions/{key}%20x/name", '{"name":"x","confirmed":true}'),
+    ("session name key as confirmed", "PUT", "/api/sessions/x/name", '{"name":"x","confirmed":"{key}"}'),
+    ("session name key as type", "PUT", "/api/sessions/x/name", '{"name":["{key}"],"confirmed":true}'),
+    ("session name key as field", "PUT", "/api/sessions/x/name", '{"name":"x","{key}":1,"confirmed":true}'),
+    ("session name key not JSON", "PUT", "/api/sessions/x/name", '{{key}'),
+    ("session name too long", "PUT", "/api/sessions/x/name", '{"name":"' + "y" * 81 + '","confirmed":true}'),
+    ("session name accepted", "PUT", "/api/sessions/leak-check/name", '{"name":"leak check name","confirmed":true}'),
+    ("session name removed", "PUT", "/api/sessions/leak-check/name", '{"name":null,"confirmed":true}'),
     ("app session start key as repo", "POST", "/api/app-sessions", '{"repo":"{key}","workspace":"acme","model":"default","mode":"default","worktree":false,"prompt":"x","confirmed":true}'),
     ("app session start key as workspace", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"{key}","model":"default","mode":"default","worktree":false,"prompt":"x","confirmed":true}'),
     ("app session start key as model", "POST", "/api/app-sessions", '{"repo":"/r","workspace":"acme","model":"{key}","mode":"default","worktree":false,"prompt":"x","confirmed":true}'),
@@ -668,7 +691,7 @@ def app_sessions(run: "Run", checks: list[str], canaries: Canaries) -> None:
                     break
                 time.sleep(0.2)
             seen = json.dumps(view, ensure_ascii=False)
-            want = [n for n in s.values if n not in ("session_tool_secret",)]
+            want = [n for n in s.values if n not in ("session_tool_secret", "session_name")]
             missing = [n for n in want if s.values[n] not in seen]
             checks.append(f"check app session text on the guarded routes  {'ok' if not missing else 'FAILED'} ({len(want) - len(missing)} of {len(want)} planted texts, the tool secret not among them)")
             checks.append(f"check app session tool input and output absent  {'ok' if s.values['session_tool_secret'] not in seen else 'FAILED'}")
@@ -1005,7 +1028,7 @@ def serve(run: Run, checks: list[str], key: str) -> None:
     static.mkdir()
     (static / "index.html").write_text("<!doctype html><title>leak check</title>\n")
     rust_routes = set()
-    for source in ("api.rs", "server.rs", "app_session_routes.rs"):
+    for source in ("api.rs", "server.rs", "app_session_routes.rs", "session_names.rs"):
         rust_routes |= set(
             API_ROUTE.findall((RUST / "crates" / "app" / "src" / source).read_text())
         )
@@ -1065,6 +1088,22 @@ def serve(run: Run, checks: list[str], key: str) -> None:
             run.add(f"api write {label} {method} {path} -> {status}", blob)
             if label == "workspace add":
                 checks.append(f"check api workspace add works        {'ok' if status == 201 else 'FAILED'} (status {status})")
+        # T117 (FR-127): the owner's name for the template session is the one planted string allowed on the guarded name and past
+        # answers (`SESSION_OK`); the past list must show it (positive control), and nowhere else may it be found
+        name = run.s.values["session_name"]
+        status, blob = request(port, "PUT", f"/api/sessions/{CONTROL}/name", base, json.dumps({"name": name, "confirmed": True}).encode())
+        run.add(f"{SESSION_OK}name put -> {status}", blob)
+        status, blob = request(port, "GET", "/api/sessions/past?from=2000-01-01", base)  # an explicit `from` lifts the 30-day default
+        run.add(f"{SESSION_OK}past list -> {status}", blob)
+        shown = status == 200 and any(x.get("id") == CONTROL and x.get("name") == name for x in json.loads(blob.split(b"\n\n", 1)[1]).get("sessions", []))
+        checks.append(f"check past list shows the owner's name   {'ok' if shown else 'FAILED'} (status {status})")
+        status, blob = request(port, "GET", "/api/sessions/past", base)
+        run.add(f"{SESSION_OK}past list default window -> {status}", blob)
+        window = json.loads(blob.split(b"\n\n", 1)[1]).get("window", {}) if status == 200 else {}
+        checks.append(f"check past list default window says so   {'ok' if window.get('default') is True and window.get('from') else 'FAILED'} (status {status})")
+        status, blob = request(port, "GET", "/api/sessions/past?kind=app", base)
+        run.add(f"api GET /api/sessions/past?kind=app (refused) -> {status}", blob)
+        checks.append(f"check past kind=app is refused (400)     {'ok' if status == 400 else 'FAILED'} (status {status})")
         run.add("serve stdout (first line, token inside)", first + lines.buf)
     finally:
         rc = run.stop("serve", proc, kids, signal.SIGINT)

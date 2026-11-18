@@ -34,7 +34,7 @@ use crate::agent_routes::{self, Agent};
 use crate::alerts::Shared as Alerts;
 use crate::answer_bridge::{self, Bridge, SocketCell};
 use crate::live_feed::{LIVE_PATH, SharedTail, SseBody, resume_id};
-use crate::{connector_writes, hooks_cmd, legacy, sync_apply, writes};
+use crate::{connector_writes, hooks_cmd, legacy, session_names, sync_apply, writes};
 use axum::Router;
 use axum::body::Body;
 use axum::extract::State;
@@ -59,7 +59,9 @@ use easy_personal_core::report_files::{self, ReportError, parse_repo_no};
 use easy_personal_core::reports::{self, ReportsError};
 use easy_personal_core::rules::{self, RulesError, ScopedRulesError, evaluate_scoped};
 use easy_personal_core::scope::Scope;
-use easy_personal_core::sessions::{session_outliers_scoped, session_timeline_scoped};
+use easy_personal_core::sessions::{
+    PastFilter, past_sessions, session_outliers_scoped, session_timeline_scoped,
+};
 use easy_personal_core::store::{self, StoreError};
 use easy_personal_core::store_health;
 use easy_personal_core::suggestions::{self, ViewError};
@@ -217,6 +219,8 @@ impl Api {
 
 pub fn routes() -> Router<Api> {
     Router::new()
+        .merge(session_names::routes()) // T117: PUT /api/sessions/{id}/name
+        .route("/api/sessions/past", get(sessions_past)) // T117
         .route(LIVE_PATH, get(live))
         .route("/api/usage/summary", get(summary))
         .route("/api/usage/breakdown", get(breakdown))
@@ -360,7 +364,9 @@ async fn live(State(api): State<Api>, headers: HeaderMap) -> Response {
         }
     };
     let again = api.clone();
+    let names = session_names::dir_of(&api); // T117
     let body = SseBody::new(resume, api.live, api.stopping, api.clock)
+        .with_names(names)
         .with_answers(api.answers)
         .with_refresh(Arc::new(move || hooks_cmd::refresh_reply_accounts(&again)));
     (
@@ -401,6 +407,27 @@ async fn sessions(State(api): State<Api>, uri: Uri) -> Response {
             q.scope(),
         )
         .map_err(metrics_failure)
+    })
+    .await
+}
+
+/// `GET /api/sessions/past?project=&branch=&from=&to=&kind=&account=&before=` (T117, FR-126): one page of past sessions from
+/// the store's metadata (`sessions::past_sessions`), each with the owner's name from `session_names.json` (or `null`).
+async fn sessions_past(State(api): State<Api>, uri: Uri) -> Response {
+    let dir = session_names::dir_of(&api);
+    serve(api, uri, move |conn, q, now| {
+        let filter = PastFilter {
+            project: q.get("project"),
+            branch: q.get("branch"),
+            from: q.get("from"),
+            to: q.get("to"),
+            kind: q.get("kind"),
+            account: q.get("account"),
+            before: q.get("before"),
+        };
+        let mut body = past_sessions(conn, filter, now).map_err(metrics_failure)?;
+        session_names::attach(&mut body, dir.as_deref());
+        Ok(body)
     })
     .await
 }
