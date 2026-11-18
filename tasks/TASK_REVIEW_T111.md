@@ -68,8 +68,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Supervisor, before any T111 implementation commit; worktree `T111` at `4948ba2`):
+```
+$ date -u; git log -1 --oneline; grep -n '"/api/reply' -r rust/crates/app/src
+$ echo '{"session_id":"x","hook_event_name":"Stop","stop_hook_active":false,"transcript_path":"/nonexistent"}' | /usr/bin/easy-personal-rs hook ask; echo "exit $?"
+2026-11-18T04:37:57Z
+4948ba2 T111: guide, review file and PRD FR-121/FR-122 from main
+(no /api/reply route)
+exit 0, stdout empty
+```
+(No `/api/reply*` route exists, and `hook ask` ignores a `Stop` input: an idle terminal session cannot get a request from the app.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
