@@ -1,11 +1,11 @@
 //! `GET /api/live/sessions/{id}/transcript?after=<offset>` or `?before=<offset>` (T115, FR-123, DDR-0007): the conversation
-//! of one session, `{entries, next, complete}`, parsed by the core (`transcript.rs`). **The fifth exception of NFR-002**:
+//! of one session, `{entries, next, start, complete}`, parsed by the core (`transcript.rs`). **The fifth exception of NFR-002**:
 //! the answer's body is the only place the message text, tool input and tool output go. The file is opened anew for
 //! every request with the live tail's open rules and nothing is kept, logged or counted (no log line here has any text).
 //!
 //! The file is the one the live tail read for the session (`session_origin`, a T105 resume included), else the newest
-//! main-thread `source_path` the store holds for it (a past session, read only). The id never joins a path: it only
-//! keys the tail and the store. A session neither knows is a 404 `no such session`; a file that is gone, a symlink,
+//! main-thread `source_path` the store holds for it (a past session, read only) when it lies under an account's `projects`
+//! folder. The id never joins a path: it only keys the tail and the store. A session neither knows is a 404 `no such session`; a file that is gone, a symlink,
 //! not regular, unreadable or with an oversized line is a 404 `the transcript cannot be read`, never a 500.
 //! No `after` and no `before` is the first view: the newest entries. The guard in `server.rs` covers the route.
 
@@ -15,6 +15,7 @@ use axum::extract::{Path, State};
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
+use easy_personal_core::live::account_roots;
 use easy_personal_core::store::{self, session_transcript_path};
 use easy_personal_core::transcript::{self, Window};
 use serde_json::json;
@@ -59,6 +60,32 @@ fn fail(status: StatusCode, text: &str) -> Response {
     answer(status, &error_body(text))
 }
 
+/// A past session: the store's newest main-thread `source_path` for it, and whether it may be opened. A store row is data any
+/// writer could have changed, so the path must be an absolute `*.jsonl` whose folder, once symlinks are resolved, lies under
+/// the `projects` folder of a confirmed Claude account (the folders the live tail and the ingest read, with the ingest's
+/// `EASY_PERSONAL_CLAUDE_PROJECTS` override). `None`: the store has no such session.
+fn past(api: &Api, id: &str) -> Option<(String, bool)> {
+    let conn = store::open_checked(&(api.store_path)().ok()?).ok()?;
+    let path = session_transcript_path(&conn, id).ok().flatten()?;
+    let projects = std::env::var_os("EASY_PERSONAL_CLAUDE_PROJECTS")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from);
+    let roots = account_roots(&conn, projects.as_deref()).unwrap_or_default();
+    let file = std::path::Path::new(&path);
+    let inside = file.is_absolute()
+        && file.extension().is_some_and(|e| e == "jsonl")
+        && file
+            .parent()
+            .and_then(|dir| dir.canonicalize().ok())
+            .is_some_and(|dir| {
+                roots
+                    .iter()
+                    .filter_map(|root| root.projects.canonicalize().ok())
+                    .any(|root| dir.starts_with(root))
+            });
+    Some((path, inside))
+}
+
 pub(crate) async fn get(State(api): State<Api>, Path(id): Path<String>, uri: Uri) -> Response {
     let Some(id) = ResumeId::new(&id) else {
         return fail(StatusCode::NOT_FOUND, UNKNOWN);
@@ -68,24 +95,21 @@ pub(crate) async fn get(State(api): State<Api>, Path(id): Path<String>, uri: Uri
     };
     let from_tail = api.live_session_origin(id.as_str()).map(|(path, _)| path);
     let outcome = tokio::task::spawn_blocking(move || {
-        let path = match from_tail {
-            Some(path) => Some(path),
-            None => (api.store_path)()
-                .ok()
-                .and_then(|file| store::open_checked(&file).ok())
-                .and_then(|conn| session_transcript_path(&conn, id.as_str()).ok().flatten()),
+        let (path, trusted) = match from_tail {
+            Some(path) => (path, true), // the file the live tail itself read
+            None => match past(&api, id.as_str()) {
+                Some(found) => found,
+                None => return fail(StatusCode::NOT_FOUND, UNKNOWN),
+            },
         };
-        let Some(path) = path.map(PathBuf::from) else {
-            return fail(StatusCode::NOT_FOUND, UNKNOWN);
-        };
-        // a path of the store is a row any writer could have changed: only an absolute `*.jsonl` is opened
-        if !path.is_absolute() || path.extension().is_none_or(|e| e != "jsonl") {
+        if !trusted {
             return fail(StatusCode::NOT_FOUND, UNREADABLE);
         }
-        match transcript::read(&path, window) {
+        match transcript::read(&PathBuf::from(path), window) {
             Ok(page) => answer(
                 StatusCode::OK,
-                &json!({"entries": page.entries, "next": page.next, "complete": page.complete}),
+                &json!({"entries": page.entries, "next": page.next, "start": page.start,
+                        "complete": page.complete}),
             ),
             Err(_) => fail(StatusCode::NOT_FOUND, UNREADABLE),
         }
@@ -278,7 +302,15 @@ mod tests {
         assert_eq!(status, 400);
     }
 
-    /// A temp copy of the parity store whose first Claude session id points at `file`.
+    /// The `projects/p` folder of the confirmed account `past_store` adds (its folder is the temp folder).
+    fn projects(temp: &Temp) -> PathBuf {
+        let dir = temp.0.join("projects/p");
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A temp copy of the parity store with one confirmed Claude account (folder: the temp folder, so its `projects` folder
+    /// is `projects(temp)`), whose first Claude session id points at `file`.
     fn past_store(temp: &Temp, file: &std::path::Path) -> (PathBuf, String) {
         let path = temp.0.join("store.sqlite");
         std::fs::copy(
@@ -287,6 +319,11 @@ mod tests {
         )
         .unwrap();
         let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute(
+            "INSERT INTO agent_accounts (provider, folder, label, status) VALUES ('claude', ?1, 'T115', 'confirmed')",
+            [temp.0.display().to_string()],
+        )
+        .unwrap();
         let id: String = conn
             .query_row(
                 "SELECT session_id FROM events WHERE source = 'claude_code' AND COALESCE(is_sidechain,0) = 0 LIMIT 1",
@@ -305,7 +342,7 @@ mod tests {
     #[tokio::test]
     async fn a_past_session_is_read_from_the_stores_newest_main_thread_path() {
         let temp = Temp::new();
-        let file = temp.0.join("past.jsonl");
+        let file = projects(&temp).join("past.jsonl");
         std::fs::write(&file, line("user", "from the past")).unwrap();
         let (store, id) = past_store(&temp, &file);
         let (app, _) = app(store, None);
@@ -315,9 +352,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_symlink_a_non_regular_file_an_oversized_line_and_a_foreign_path_are_404_never_500() {
+    async fn a_symlink_a_non_regular_file_an_oversized_line_and_a_path_outside_the_account_folders_are_404_never_500()
+     {
         let temp = Temp::new();
-        let real = temp.0.join("real.jsonl");
+        let dir = projects(&temp);
+        let real = dir.join("real.jsonl");
         std::fs::write(&real, line("user", "x")).unwrap();
         let (store, id) = past_store(&temp, &real);
         let conn = rusqlite::Connection::open(&store).unwrap();
@@ -329,7 +368,7 @@ mod tests {
             .unwrap();
         };
         let (app, _) = app(store.clone(), None);
-        let fifo = temp.0.join("fifo.jsonl");
+        let fifo = dir.join("fifo.jsonl");
         assert!(
             std::process::Command::new("mkfifo")
                 .arg(&fifo)
@@ -337,11 +376,11 @@ mod tests {
                 .unwrap()
                 .success()
         );
-        let link = temp.0.join("link.jsonl");
+        let link = dir.join("link.jsonl");
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        let folder = temp.0.join("dir.jsonl");
+        let folder = dir.join("dir.jsonl");
         std::fs::create_dir(&folder).unwrap();
-        let huge = temp.0.join("huge.jsonl");
+        let huge = dir.join("huge.jsonl");
         let mut big = vec![b'x'; easy_personal_core::live::MAX_LINE_BYTES + 5];
         big.push(b'\n');
         std::fs::write(&huge, big).unwrap();
@@ -350,7 +389,7 @@ mod tests {
             fifo.display().to_string(),
             folder.display().to_string(),
             huge.display().to_string(),
-            temp.0.join("gone.jsonl").display().to_string(),
+            dir.join("gone.jsonl").display().to_string(),
             "relative/x.jsonl".to_string(),
             "/etc/passwd".to_string(),
         ] {
@@ -362,8 +401,31 @@ mod tests {
                 "{target}"
             );
         }
+        // a `.jsonl` outside every account folder (a row any writer could have changed), a folder symlinked out, and a file
+        // that is not `*.jsonl` inside
+        let outside = temp.0.join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join("x.jsonl"), line("user", "OUTSIDE")).unwrap();
+        std::os::unix::fs::symlink(&outside, dir.join("out")).unwrap();
+        std::fs::write(dir.join("notes.txt"), line("user", "TXT")).unwrap();
+        for target in [
+            outside.join("x.jsonl"),
+            dir.join("out/x.jsonl"),
+            dir.join("notes.txt"),
+            dir.join("../../outside/x.jsonl"),
+        ] {
+            point(&target.display().to_string());
+            let (status, body) = get(&app, &url(&id, ""), &OK).await;
+            assert_eq!(
+                (status.as_u16(), body),
+                (404, json!({"error": UNREADABLE})),
+                "{target:?}"
+            );
+        }
         point(&real.display().to_string());
-        assert_eq!(get(&app, &url(&id, ""), &OK).await.0, 200);
+        let (status, body) = get(&app, &url(&id, ""), &OK).await;
+        assert_eq!(status, 200);
+        assert_eq!(body["start"], 0);
     }
 
     #[tokio::test]

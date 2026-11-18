@@ -14,7 +14,7 @@ fn dir() -> PathBuf {
 fn answer(window: Window) -> Value {
     let bytes = std::fs::read(dir().join("session.jsonl")).unwrap();
     let page = parse(&mut Cursor::new(bytes), window).unwrap();
-    json!({"entries": page.entries, "next": page.next, "complete": page.complete})
+    json!({"entries": page.entries, "next": page.next, "start": page.start, "complete": page.complete})
 }
 
 #[test]
