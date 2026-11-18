@@ -550,6 +550,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   const selected = openId === null ? null : (entries.find((e) => e.key === openId || e.s.session_id === openId) ?? null)
   useEffect(() => {
     if (openId !== null && !selected && (apps !== null || !selectedApp)) setOpenId(null) // the open session left the list: nothing is drawn for it
+    else if (selected && selected.key !== openId) setOpenId(selected.key) // a row opened before the app list answered: its key became `app:<id>`; the open id follows, so Back closes it and the list is read each second
   }, [openId, selected, apps, selectedApp])
   useEffect(() => {
     // The session the app asked for (the page's start address): select it once, as soon as it is in the list. The page gives up after 10 s.

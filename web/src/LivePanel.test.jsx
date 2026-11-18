@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LiveView from './LiveView.jsx'
-import { TRANSCRIPT_POLL_MS } from './Transcript.jsx'
+import { MAX_KEPT, TRANSCRIPT_POLL_MS } from './Transcript.jsx'
 import { BRIDGE_OFF, QUEUE_NOTE } from './Composer.jsx'
 import { FORCE_WAIT_MS, STILL_RUNNING, STOP_SENT } from './SessionPanel.jsx'
 import { FakeEventSource, entryAssistant, entryReply, entrySkipped, entryTool, entryUser, liveRow, liveServer, page, snapshot, stream } from './test/liveStream.js'
@@ -237,6 +237,106 @@ describe('the conversation (AC 2)', () => {
     expect(screen.queryByRole('log', { name: 'Conversation' })).toBeNull()
   })
 
+  it('a 404 (the file is gone) is not asked again; a network error is', async () => {
+    vi.useFakeTimers()
+    const server = liveServer({ pages: [page([entryUser('still here')])] })
+    await open(server)
+    await settle()
+    server.state.transcriptStatus = { status: 404, body: { error: 'that session\'s transcript cannot be read' } }
+    await tick(TRANSCRIPT_POLL_MS)
+    const asked = server.reads().length
+    expect(screen.getByText(/Cannot refresh the conversation right now/)).toBeInTheDocument()
+    await tick(TRANSCRIPT_POLL_MS * 5)
+    expect(server.reads()).toHaveLength(asked) // stopped
+    expect(within(log()).getByText('still here')).toBeInTheDocument()
+  })
+
+  it('a network error keeps being retried and the next good answer clears the note', async () => {
+    vi.useFakeTimers()
+    const server = liveServer({ pages: [page([entryUser('still here')])] })
+    await open(server)
+    await settle()
+    server.state.transcriptStatus = { status: 500, body: {} }
+    await tick(TRANSCRIPT_POLL_MS * 2)
+    expect(screen.getByText(/Cannot refresh the conversation right now/)).toBeInTheDocument()
+    server.state.transcriptStatus = null
+    await tick(TRANSCRIPT_POLL_MS)
+    expect(screen.queryByText(/Cannot refresh the conversation right now/)).toBeNull()
+  })
+
+  it('a poll with no new entry leaves the drawn entries as they are (same nodes)', async () => {
+    vi.useFakeTimers()
+    const server = liveServer({ pages: [page([entryUser('one'), entryAssistant('two')], { next: 10 }), page([], { next: 10 })] })
+    await open(server)
+    await settle()
+    const before = [...log().querySelectorAll('li')]
+    await tick(TRANSCRIPT_POLL_MS * 3)
+    expect(server.reads().length).toBeGreaterThan(2)
+    const after = [...log().querySelectorAll('li')]
+    expect(after).toHaveLength(before.length)
+    after.forEach((li, i) => expect(li).toBe(before[i]))
+  })
+
+  it('only the newest MAX_KEPT entries are kept, and Load earlier starts at the first one kept', async () => {
+    const entries = Array.from({ length: MAX_KEPT + 100 }, (_, i) => entryUser(`m${i}`, { offset: i * 10 }))
+    const server = liveServer({ pages: (q) => (q.has('before') ? page([entryUser('older', { offset: 0 })], { start: 0 }) : page(entries, { start: 0, next: 99999 })) })
+    await open(server)
+    await within(log()).findByText(`m${MAX_KEPT + 99}`)
+    expect(log().querySelectorAll('.turn-user')).toHaveLength(MAX_KEPT)
+    expect(within(log()).queryByText('m99')).toBeNull()
+    expect(within(log()).getByText('m100')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Load earlier' }))
+    await within(log()).findByText('older')
+    expect(server.reads().filter((r) => r.search.startsWith('?before'))[0].search).toBe('?before=1000') // m100 is at offset 1000
+  })
+
+  it('a tool call joined across a Load earlier page: the call on the earlier page fills the result that was alone', async () => {
+    const server = liveServer({
+      pages: (q) =>
+        q.has('before')
+          ? page([entryUser('older', { offset: 0 }), entryTool('t9', { result: null, offset: 5 })], { start: 0 })
+          : page([{ kind: 'tool', id: 't9', orphan: true, name: null, label: null, input: null, result: 'late output', is_error: false, offset: 400 }], { start: 400, next: 900 }),
+    })
+    await open(server)
+    fireEvent.click(await screen.findByRole('button', { name: 'Load earlier' }))
+    await within(log()).findByText('older')
+    expect(within(log()).getAllByRole('button', { name: /Bash|result of an earlier call/ })).toHaveLength(1)
+    const fold = within(log()).getByRole('button', { name: /Bash · ls/ })
+    fireEvent.click(fold)
+    expect(within(log()).getByLabelText('Input of Bash · ls')).toHaveTextContent('ls -la')
+    expect(within(log()).getByLabelText('Result of Bash · ls')).toHaveTextContent('late output')
+  })
+
+  it('an answer for session A that comes after the owner switched to B does not show in B', async () => {
+    const A = 'aaaaaaaa-1111-2222'
+    const B = 'bbbbbbbb-3333-4444'
+    const base = liveServer({ pages: (q) => page([entryUser('placeholder')]) })
+    let releaseA
+    const heldA = new Promise((resolve) => {
+      releaseA = resolve
+    })
+    vi.stubGlobal('fetch', async (url, init) => {
+      const path = new URL(String(url), 'http://127.0.0.1').pathname
+      if (path === `/api/live/sessions/${A}/transcript`) {
+        await heldA
+        return { ok: true, status: 200, json: async () => page([entryUser('text of A')]) }
+      }
+      if (path === `/api/live/sessions/${B}/transcript`) return { ok: true, status: 200, json: async () => page([entryUser('text of B')]) }
+      return base(url, init)
+    })
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([liveRow(A, { project: 'alpha' }), liveRow(B, { project: 'beta' })]))
+    fireEvent.click(document.getElementById(`live-row-${A}`))
+    fireEvent.click(document.getElementById(`live-row-${B}`))
+    expect(await screen.findByText('text of B')).toBeInTheDocument()
+    await act(async () => {
+      releaseA()
+      await Promise.resolve()
+    })
+    expect(within(log()).queryByText('text of A')).toBeNull()
+    expect(within(log()).getByText('text of B')).toBeInTheDocument()
+  })
+
   it('a failed refresh keeps what was shown and says so', async () => {
     vi.useFakeTimers()
     const server = liveServer({ pages: [page([entryUser('still here')])] })
@@ -328,6 +428,15 @@ describe('the composer by state (AC 4)', () => {
     act(() => stream().emit('snapshot', snapshot([liveRow(SID, { reply_bridge: true, proc: { busy: true } })])))
     expect(within(panel()).queryByText('wait for me')).toBeNull()
     expect(screen.getByRole('textbox', { name: /Queue a message/ })).toBeInTheDocument()
+  })
+
+  it('a queued text delivered while it is being edited ends the edit: the plain box comes back with no "Keep the queued text"', async () => {
+    await open(liveServer({ pages: [page([])] }), { reply_bridge: true, proc: { busy: true }, queued: { text: 'wait for me' } })
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Edit' }))
+    expect(screen.getByRole('button', { name: 'Keep the queued text' })).toBeInTheDocument()
+    act(() => stream().emit('snapshot', snapshot([liveRow(SID, { reply_bridge: true, proc: { busy: true } })])))
+    expect(screen.queryByRole('button', { name: 'Keep the queued text' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Queue' })).toBeInTheDocument()
   })
 
   it('Shift+Enter and an input method composition do not queue; an empty box cannot', async () => {
@@ -482,6 +591,17 @@ describe('Stop of a terminal session (AC 5)', () => {
     fireEvent.click(within(panel()).getByRole('button', { name: 'Keep waiting' }))
     expect(within(panel()).getByRole('button', { name: 'Force stop' })).toBeInTheDocument()
     expect(server.posts('/stop')).toHaveLength(1)
+  })
+
+  it('Esc while the Stop confirm is open closes the panel and posts nothing', async () => {
+    const server = liveServer({ pages: [page([])] })
+    await open(server)
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Stop' }))
+    const keep = within(panel()).getByRole('button', { name: 'Keep it running' })
+    keep.focus()
+    fireEvent.keyDown(keep, { key: 'Escape' })
+    expect(document.getElementById('live-panel')).toBeNull()
+    expect(server.posts('/stop')).toHaveLength(0)
   })
 
   it('a terminal session has Stop and Resume / Fork, and no Interrupt or Close', async () => {

@@ -94,7 +94,10 @@ export function QueueBox({ sessionId, queued }) {
   const [editing, setEditing] = useState(false)
   const out = useRef(false)
   const snap = queued?.text ?? null
-  useEffect(() => setLocal(undefined), [snap]) // the server's snapshot is the truth again once it changes
+  useEffect(() => {
+    setLocal(undefined) // the server's snapshot is the truth again once it changes
+    if (snap === null) setEditing(false) // delivered or gone: no edit of a text that is no longer queued
+  }, [snap])
   const shown = local !== undefined ? local : snap
   const count = chars(text)
   const tooLong = count > MAX_CHARS

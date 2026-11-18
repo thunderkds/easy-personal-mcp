@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { getTranscript } from './api.js'
 
 // The conversation of one open session (T118, FR-123, FR-128): read from the server on demand, every 2 s while this component is on the page, and
@@ -30,20 +30,40 @@ function joinTool(old, e) {
 
 /** New entries into the list. A tool entry whose id is already listed is merged in place, in either order of call and result. */
 function merge(old, incoming, tag, front) {
+  if (incoming.length === 0) return old
   const list = [...old]
   const fresh = []
+  let at = null // tool id -> index in `list`, built once and only when a tool entry comes
+  const byId = new Map() // tool id -> index in `fresh`
   for (const e of incoming) {
     if (e.kind !== 'tool' || !isName(e.id)) {
       fresh.push({ ...e, k: tag() })
       continue
     }
-    const at = list.findIndex((x) => x.kind === 'tool' && x.id === e.id)
-    const dup = fresh.findIndex((x) => x.kind === 'tool' && x.id === e.id)
-    if (at >= 0) list[at] = { ...joinTool(list[at], e), k: list[at].k }
-    else if (dup >= 0) fresh[dup] = { ...joinTool(fresh[dup], e), k: fresh[dup].k }
-    else fresh.push({ ...e, k: tag() })
+    if (at === null) {
+      at = new Map()
+      list.forEach((x, i) => x.kind === 'tool' && isName(x.id) && at.set(x.id, i))
+    }
+    if (at.has(e.id)) {
+      const i = at.get(e.id)
+      list[i] = { ...joinTool(list[i], e), k: list[i].k }
+    } else if (byId.has(e.id)) {
+      const i = byId.get(e.id)
+      fresh[i] = { ...joinTool(fresh[i], e), k: fresh[i].k }
+    } else {
+      byId.set(e.id, fresh.length)
+      fresh.push({ ...e, k: tag() })
+    }
   }
   return front ? [...fresh, ...list] : [...list, ...fresh]
+}
+
+export const MAX_KEPT = 2000 // the newest entries kept on the page; Load earlier reaches the rest from `start`
+/** The newest MAX_KEPT entries, cut at an entry that says its offset, and that offset: the new `start`. Without one the list is kept whole. */
+function trim(list) {
+  if (list.length <= MAX_KEPT) return null
+  for (let i = list.length - MAX_KEPT; i < list.length; i += 1) if (typeof list[i].offset === 'number') return { list: list.slice(i), start: list[i].offset }
+  return null
 }
 
 /** Where the page starts in the file: the answer's `start`, else the first entry's `offset`; null when neither is a number. */
@@ -57,11 +77,16 @@ function useTranscript(sessionId) {
   const tag = () => ++counter.current
   const earlierOut = useRef(false)
   const startRef = useRef(null)
+  const listRef = useRef([]) // the entries as last drawn
+  const loadedEarlier = useRef(false) // the owner asked for older entries: they are not trimmed away behind them
   useEffect(() => {
     let current = true
     let out = false
-    const fail = (e) =>
+    let timer = null
+    const fail = (e) => {
+      if (e?.status === 404 && timer !== null) clearInterval(timer) // the file is gone: asking again changes nothing; a network error is retried
       setState((s) => (s.status === 'ready' ? { ...s, stale: true } : { ...s, status: 'error', message: e?.message || 'The conversation cannot be read.' }))
+    }
     const tick = async () => {
       if (out) return
       out = true
@@ -72,14 +97,19 @@ function useTranscript(sessionId) {
         if (!page) return fail(new Error('The conversation came in a shape this page cannot read.'))
         if (typeof page.next === 'number') next.current = page.next
         if (first) startRef.current = startOf(page)
-        setState((s) => ({
-          status: 'ready',
-          message: '',
-          stale: false,
-          entries: first ? merge([], page.entries, tag, false) : merge(s.entries, page.entries, tag, false),
-          start: first ? startRef.current : s.start,
-          earlier: s.earlier,
-        }))
+        if (!first && page.entries.length === 0) {
+          // nothing new: the drawn state stays as it is (no new array, no new draw); only a stale note is cleared
+          setState((s) => (s.status === 'ready' && !s.stale ? s : { ...s, status: 'ready', message: '', stale: false }))
+          return
+        }
+        let list = first ? merge([], page.entries, tag, false) : merge(listRef.current, page.entries, tag, false)
+        const cut = loadedEarlier.current ? null : trim(list)
+        if (cut) {
+          list = cut.list
+          startRef.current = cut.start
+        }
+        listRef.current = list
+        setState((s) => ({ status: 'ready', message: '', stale: false, entries: list, start: startRef.current, earlier: s.earlier }))
       } catch (e) {
         if (current) fail(e)
       } finally {
@@ -87,7 +117,7 @@ function useTranscript(sessionId) {
       }
     }
     tick()
-    const timer = setInterval(tick, TRANSCRIPT_POLL_MS)
+    timer = setInterval(tick, TRANSCRIPT_POLL_MS)
     return () => {
       current = false
       clearInterval(timer)
@@ -103,7 +133,9 @@ function useTranscript(sessionId) {
       if (!page) throw new Error('The earlier part came in a shape this page cannot read.')
       const s = startOf(page)
       startRef.current = s !== null && s < startRef.current ? s : null
-      setState((s) => ({ ...s, entries: merge(s.entries, page.entries, tag, true), start: startRef.current, earlier: false, stale: false }))
+      loadedEarlier.current = true
+      listRef.current = merge(listRef.current, page.entries, tag, true)
+      setState((old) => ({ ...old, entries: listRef.current, start: startRef.current, earlier: false, stale: false }))
     } catch {
       setState((s) => ({ ...s, earlier: false, stale: true }))
     } finally {
@@ -153,7 +185,7 @@ function Tool({ e }) {
 
 const WHO = { user: 'You', reply: 'Reply from the app', assistant: 'Claude' }
 
-function Entry({ e }) {
+const Entry = memo(function Entry({ e }) {
   if (e.kind === 'user' || e.kind === 'reply' || e.kind === 'assistant')
     return (
       <li className={`turn turn-${e.kind}`}>
@@ -168,7 +200,7 @@ function Entry({ e }) {
     return <li className="turn muted turn-skipped">{n === 1 ? '1 other record' : `${n} other records`}</li>
   }
   return null // a kind this page does not know shows nothing
-}
+})
 
 /**
  * The log of one session. `children` is drawn while the conversation loads and when it cannot be read (a gone file, an older server): the panel gives the tool

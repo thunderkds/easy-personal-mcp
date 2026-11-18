@@ -528,6 +528,35 @@ describe('the app sessions in the list (FR-128 AC 1)', () => {
   })
 })
 
+describe('a row opened before the app list answered (T118 review)', () => {
+  it('its panel and Back agree once the list answers: Back closes it, and the list is then read each second', async () => {
+    vi.useFakeTimers()
+    const server = install({ sessions: [appSession({ id: 'a1', session_id: 'abcdef1234567890' })] })
+    const held = hold(server, (c) => c.method === 'GET' && c.path === '/api/app-sessions')
+    held.on = true
+    render(<LiveView appSessions />)
+    stream().emit('snapshot', snapshot([{ session_id: 'abcdef1234567890', account: 'Claude work', project: 'alpha', last_ts: new Date().toISOString(), tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0 }]))
+    fireEvent.click(document.getElementById('live-row-abcdef1234567890')) // before the first list answer: a plain terminal row
+    expect(screen.getByRole('region', { name: 'Session in alpha' })).toBeInTheDocument()
+    await act(async () => {
+      held.release()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.getByRole('button', { name: 'Interrupt' })).toBeInTheDocument() // it is the app session now
+    const row = document.getElementById('live-row-app:a1')
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+    const reads = () => server.calls.filter((c) => c.method === 'GET' && c.path === '/api/app-sessions').length
+    const before = reads()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_100)
+    })
+    expect(reads() - before).toBeGreaterThanOrEqual(3) // the panel is open: one read a second, not one per 5 s
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Back to sessions' }))
+    expect(screen.queryByRole('region', { name: /^Session in / })).toBeNull() // closed, not opened again
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+  })
+})
+
 describe('what the page never does (FR-115, FR-116)', () => {
   it('no URL it builds carries the token; the token is only in the header', async () => {
     const server = install({
