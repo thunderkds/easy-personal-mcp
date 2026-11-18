@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T110** — Reply to idle sessions 0 — spike: prove the Stop-hook reply on the installed `claude` | backend-developer | C2 | Risk: High | P1 | started 2026-11-18: worktree `easy-personal-mcp-wt/T110`, branch `T110` (spike; PRD question 42 decided by the owner)
 
 ### Ready for Review
 - [ ] **T108** — Kit workflow: flows drawn as a node graph (owner reference), working steps highlighted, hover panel | Frontend-Developer | C2 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T108.md` (2026-11-17); PRD FR-117, FR-118 | started 2026-11-17: worktree `easy-personal-mcp-wt/T108`, branch `T108`; redo 3 built + Stage 4 2026-11-18 (`3b83af8`): review 0 P0/P1, 3 P2 + 5 P3 fixed in `b29f133`; security scan clean; ux-evaluate pass (real app, 375/1280); vitest 1099 pass | auto verify pass (`3b83af8`); merged to `main` 2026-11-18 (`d48304a`, [admin]; App.test.jsx tab list conflict with T104 resolved, both tabs kept)
