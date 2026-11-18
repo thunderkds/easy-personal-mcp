@@ -41,7 +41,7 @@ Mode: auto
 4. Answer gains `start` (offset of the first entry) for Load earlier — RULE: T118 contract gap; smallest addition to the FR-123 shape
 Checks: tests `cargo test --workspace --no-fail-fast` — 1285 passed, 1 failed (`store_check` sigterm test, load-related; `--test store_check` alone 12 passed); leak gate `leak_rust.py` — 0 hits over 42 canaries, 1234 surfaces; reviews code-review — 0 P0/P1, 1 P2 + 3 P3 fixed in `ca9e153`, re-check of `ca9e153` no regression; security-review — no finding ≥ 8 (two same-user-write notes below the bar)
 Memory: memory/decisions.md — "2026-11-18 — Live like Claude: transcript on demand, queue, Stop/Force stop, past sessions, one panel" (+ MEMORY.md index line), `5c38bf4` on main
-Not done: merge (admin: after the auto verify pass); owner smoke test (open a running terminal session in Live and read its conversation); auto verify: runs next
+Not done: merge (admin: after the auto verify pass); owner smoke test (open a running terminal session in Live and read its conversation); auto verify: pass
 
 
 <!-- template:
