@@ -1,0 +1,207 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { getTranscript } from './api.js'
+
+// The conversation of one open session (T118, FR-123, FR-128): read from the server on demand, every 2 s while this component is on the page, and
+// held in React state only. Nothing of it goes to `localStorage`, a URL or the console (DDR-0007). Every text is React text, never HTML.
+export const TRANSCRIPT_POLL_MS = 2000
+export const CUT_NOTE = 'Cut at 16,000 characters'
+const NEAR_BOTTOM = 48 // px: a log scrolled further up than this is not pulled down by a new entry
+
+const isName = (v) => typeof v === 'string' && v !== ''
+const textOf = (v) => (typeof v === 'string' ? v : '')
+
+/** The call label as one line: a name, or "server · tool" for an MCP call; any other shape gives none. */
+function labelText(label) {
+  if (isName(label)) return label
+  if (label && typeof label === 'object' && isName(label.server) && isName(label.tool)) return `${label.server} · ${label.tool}`
+  return ''
+}
+
+/** New entries into the list. A tool call that is already listed (same id) is replaced in place: its result may have come since. */
+function merge(old, incoming, tag, front) {
+  const list = [...old]
+  const fresh = []
+  for (const e of incoming) {
+    const at = e.kind === 'tool' && isName(e.id) ? list.findIndex((x) => x.kind === 'tool' && x.id === e.id) : -1
+    if (at >= 0) list[at] = { ...e, k: list[at].k }
+    else fresh.push({ ...e, k: tag() })
+  }
+  return front ? [...fresh, ...list] : [...list, ...fresh]
+}
+
+const readPage = (page) => (page && typeof page === 'object' && Array.isArray(page.entries) ? page : null)
+
+function useTranscript(sessionId) {
+  const [state, setState] = useState({ status: 'loading', entries: [], start: null, message: '', stale: false, earlier: false })
+  const next = useRef(null) // the offset to poll from
+  const counter = useRef(0)
+  const tag = () => ++counter.current
+  const earlierOut = useRef(false)
+  const startRef = useRef(null)
+  useEffect(() => {
+    let current = true
+    let out = false
+    const fail = (e) =>
+      setState((s) => (s.status === 'ready' ? { ...s, stale: true } : { ...s, status: 'error', message: e?.message || 'The conversation cannot be read.' }))
+    const tick = async () => {
+      if (out) return
+      out = true
+      try {
+        const first = next.current === null
+        const page = readPage(await getTranscript(sessionId, first ? {} : { after: next.current }))
+        if (!current) return
+        if (!page) return fail(new Error('The conversation came in a shape this page cannot read.'))
+        if (typeof page.next === 'number') next.current = page.next
+        if (first) startRef.current = typeof page.start === 'number' ? page.start : null
+        setState((s) => ({
+          status: 'ready',
+          message: '',
+          stale: false,
+          entries: first ? merge([], page.entries, tag, false) : merge(s.entries, page.entries, tag, false),
+          start: first ? startRef.current : s.start,
+          earlier: s.earlier,
+        }))
+      } catch (e) {
+        if (current) fail(e)
+      } finally {
+        out = false
+      }
+    }
+    tick()
+    const timer = setInterval(tick, TRANSCRIPT_POLL_MS)
+    return () => {
+      current = false
+      clearInterval(timer)
+    }
+  }, [sessionId])
+  /** *Load earlier*: the entries before the first one shown. Offered only when the server said where the page starts. */
+  const loadEarlier = useCallback(async () => {
+    if (earlierOut.current || startRef.current === null) return
+    earlierOut.current = true
+    setState((s) => ({ ...s, earlier: true }))
+    try {
+      const page = readPage(await getTranscript(sessionId, { before: startRef.current }))
+      if (!page) throw new Error('The earlier part came in a shape this page cannot read.')
+      startRef.current = typeof page.start === 'number' && page.start < startRef.current ? page.start : null
+      setState((s) => ({ ...s, entries: merge(s.entries, page.entries, tag, true), start: startRef.current, earlier: false, stale: false }))
+    } catch {
+      setState((s) => ({ ...s, earlier: false, stale: true }))
+    } finally {
+      earlierOut.current = false
+    }
+  }, [sessionId])
+  return [state, loadEarlier]
+}
+
+/** A text block of one tool call: pre-wrapped React text that scrolls inside itself. */
+function Block({ text, label }) {
+  return (
+    <pre className="turn-pre" tabIndex={0} aria-label={label}>
+      {text}
+    </pre>
+  )
+}
+
+/** One tool call: folded to its label; a click opens its input and its result. */
+function Tool({ e }) {
+  const [open, setOpen] = useState(false)
+  const label = [isName(e.name) ? e.name : 'a tool', labelText(e.label)].filter(Boolean).join(' · ')
+  const input = textOf(e.input)
+  const result = textOf(e.result)
+  return (
+    <li className="turn turn-tool-call" data-error={e.is_error === true || undefined}>
+      <button type="button" className="turn-fold" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span className="live-arrow" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+        <span className="live-label">{label}</span>
+        {e.is_error === true && <span className="live-tag error">error</span>}
+      </button>
+      {open && (
+        <div className="turn-detail">
+          <span className="turn-who">Input</span>
+          {input ? <Block text={input} label={`Input of ${label}`} /> : <span className="muted">No input.</span>}
+          <span className="turn-who">Result</span>
+          {result ? <Block text={result} label={`Result of ${label}`} /> : <span className="muted">{e.result === null || e.result === undefined ? 'No result yet.' : 'Empty result.'}</span>}
+          {e.cut === true && <span className="muted turn-cut">{CUT_NOTE}</span>}
+        </div>
+      )}
+    </li>
+  )
+}
+
+const WHO = { user: 'You', reply: 'Reply from the app', assistant: 'Claude' }
+
+function Entry({ e }) {
+  if (e.kind === 'user' || e.kind === 'reply' || e.kind === 'assistant')
+    return (
+      <li className={`turn turn-${e.kind}`}>
+        <span className="turn-who">{WHO[e.kind]}</span>
+        <p className="turn-text">{textOf(e.text)}</p>
+        {e.cut === true && <span className="muted turn-cut">{CUT_NOTE}</span>}
+      </li>
+    )
+  if (e.kind === 'tool') return <Tool e={e} />
+  if (e.kind === 'skipped') {
+    const n = Number.isInteger(e.count) && e.count > 0 ? e.count : 1
+    return <li className="turn muted turn-skipped">{n === 1 ? '1 other record' : `${n} other records`}</li>
+  }
+  return null // a kind this page does not know shows nothing
+}
+
+/**
+ * The log of one session. `children` is drawn while the conversation loads and when it cannot be read (a gone file, an older server): the panel gives the tool
+ * calls seen since the page opened. Give it `key={sessionId}`.
+ */
+export default function Transcript({ sessionId, children }) {
+  const [t, loadEarlier] = useTranscript(sessionId)
+  const log = useRef(null)
+  const stick = useRef(true) // a log at the bottom follows new entries; one scrolled up stays where the owner left it
+  const last = t.entries.at(-1)?.k
+  useEffect(() => {
+    const el = log.current
+    if (el && stick.current) el.scrollTop = el.scrollHeight
+  }, [last])
+  if (t.status === 'loading')
+    return (
+      <>
+        <p role="status" className="muted">Loading the conversation</p>
+        {children}
+      </>
+    )
+  if (t.status === 'error')
+    return (
+      <>
+        <p role="status" className="muted">{`The conversation cannot be shown: ${t.message}`}</p>
+        {children}
+      </>
+    )
+  return (
+    <>
+      {t.stale && <p role="status" className="muted">Cannot refresh the conversation right now. Showing the last answer.</p>}
+      <ol
+        ref={log}
+        role="log"
+        aria-label="Conversation"
+        className="session-log"
+        tabIndex={0}
+        onScroll={(ev) => {
+          const el = ev.currentTarget
+          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM
+        }}
+      >
+        {t.start !== null && t.start > 0 && (
+          <li className="turn-earlier">
+            <button type="button" disabled={t.earlier} onClick={loadEarlier}>
+              Load earlier
+            </button>
+          </li>
+        )}
+        {t.entries.length === 0 && <li className="muted">Nothing yet.</li>}
+        {t.entries.map((e) => (
+          <Entry key={e.k} e={e} />
+        ))}
+      </ol>
+    </>
+  )
+}

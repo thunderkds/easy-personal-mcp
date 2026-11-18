@@ -637,8 +637,6 @@ main button.live-row:focus-visible { outline: none; }
 /* A row narrower than 28rem (a phone, or beside the open panel) stacks its three bars, one per line */
 @container (max-width: 28rem) { .live-bars { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); } .live-bar { grid-template-areas: 'label track num'; grid-template-columns: 4.75rem minmax(0, 1fr) minmax(3.5rem, auto); align-items: center; } }
 .live-arrow { font-family: var(--font-mono); color: var(--color-muted); }
-.live-expanded { position: relative; z-index: 1; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding-top: var(--space-2); border-top: 1px solid var(--color-divider); }
-.live-expanded .live-close { align-self: flex-end; min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
 .live-session[data-state='failing'] { border-color: var(--color-red); }
 .live-session[data-state='waiting'] { border-color: var(--color-accent); }
 .live-session[data-state='your_turn'] { border-color: var(--color-accent); }

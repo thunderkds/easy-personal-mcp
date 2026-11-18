@@ -614,7 +614,8 @@ describe('the session the page is asked for (T095, FR-108)', () => {
     expect(row(ID)).toHaveAttribute('aria-expanded', 'true')
     expect(row(OTHER)).not.toHaveAttribute('aria-current')
     expect(selected()).toHaveLength(1)
-    expect(within(document.getElementById(`live-feed-${ID}`)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+    expect(document.getElementById('live-panel')).not.toBeNull() // the one panel is open for it
+    expect(within(document.getElementById('live-panel')).getByRole('button', { name: 'Back to sessions' })).toBeInTheDocument()
   })
 
   it('AC5: the row is scrolled into view, once', () => {
@@ -804,6 +805,21 @@ describe('Settings and the first-open prompt (T092)', () => {
     expect(await screen.findByRole('heading', { name: 'Agent run account' })).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(window.localStorage.getItem(MARK)).toBeNull() // not answered: it may come back on another tab
+  })
+
+  it('T118 AC3: the one-time prompt waits while Live is open, so it never covers a question card there; it comes when another view opens', async () => {
+    const fetchStub = fakeFetch({ agentRun: agentRunOff })
+    vi.stubGlobal('fetch', fetchStub)
+    window.history.replaceState(null, '', '/?live=abcdef12#tok') // the app opens the window on Live (T096)
+    render(<App />)
+    expect(within(nav()).getByRole('button', { name: 'Live' })).toHaveAttribute('aria-current', 'page')
+    await waitFor(() => expect(fetchStub.calls.some((c) => c.url === '/api/agent-run')).toBe(true))
+    await act(async () => {})
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(window.localStorage.getItem(MARK)).toBeNull() // not answered: it waits
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Usage' }))
+    expect(await screen.findByRole('dialog', { name: 'Choose an account for agent runs' })).toBeInTheDocument()
+    window.history.replaceState(null, '', '/')
   })
 
   it('does not offer it with the mark set, with the setting on, or on a server without the route', async () => {

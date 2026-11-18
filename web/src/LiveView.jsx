@@ -1,11 +1,10 @@
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { getAppSessions, readToken } from './api.js'
 import Cost from './Cost.jsx'
-import { FORK_NOTE } from './NewSession.jsx'
 import { ago, compact, fmt } from './format.js'
-import { PendingAnswer, useNotices } from './PendingAnswer.jsx'
+import { useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
-import ReplyBox, { ReplyMark } from './ReplyBox.jsx'
+import SessionPanel, { STATES, folderName } from './SessionPanel.jsx'
 
 export const FEED_MAX = 50 // oldest feed items beyond this are dropped
 const DEFAULT_WINDOW_S = 300
@@ -20,7 +19,17 @@ const EMPTY = { sessions: {}, lastId: 0, windowS: DEFAULT_WINDOW_S }
 const priced = (cost) => cost !== null && cost !== undefined
 const hasTokens = (tokensIn, tokensOut) => (tokensIn ?? 0) + (tokensOut ?? 0) > 0
 
-const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced', 'stage', 'stage_skill', 'replyMarked', 'replyBridge']
+const SAME_KEYS = ['account', 'project', 'last_ts', 'tool_calls', 'tokens_in', 'tokens_out', 'cost', 'unpriced', 'stage', 'stage_skill', 'replyMarked', 'replyBridge', 'name', 'branch']
+
+const text = (v) => (typeof v === 'string' && v !== '' ? v : null)
+/** The process file's part of a snapshot row (T116, FR-124): `{busy, name}` or null. The server's word, shown as it came. */
+function readProc(p) {
+  return p && typeof p === 'object' ? { busy: p.busy === true, name: text(p.name) } : null
+}
+/** The text queued for a busy terminal session (T116, FR-125): `{text}` or null. */
+function readQueued(q) {
+  return q && typeof q === 'object' && typeof q.text === 'string' ? { text: q.text } : null
+}
 
 /** The hold of a terminal session at your turn (T111's `pending_reply`, FR-121): kept only when well formed. `until` is epoch seconds. */
 function readReply(r) {
@@ -46,10 +55,14 @@ function fromSnapshot(s, old) {
     reply: readReply(s.pending_reply), // the hold a terminal session at your turn waits in for the owner's text (T112, FR-122)
     replyMarked: s.reply_marked === true, // the owner marked it *Reply from the app*: the server's word
     replyBridge: s.reply_bridge === true, // all three hook entries of its account are on (T112): the server's word, never worked out here
+    proc: readProc(s.proc), // the session's process file: busy or idle, and Claude Code's own name (T116)
+    queued: readQueued(s.queued), // the text waiting for this session's turn end (T116)
+    name: text(s.name), // the owner's own name for the session (T117, FR-127); the page only shows it
+    branch: text(s.branch),
     feed: old?.feed ?? [],
   }
   // A session the snapshot did not change keeps its object, so its memoized row does not draw again.
-  const same = old && SAME_KEYS.every((k) => old[k] === next[k]) && JSON.stringify(old.attention) === JSON.stringify(next.attention) && JSON.stringify(old.pending) === JSON.stringify(next.pending) && JSON.stringify(old.reply) === JSON.stringify(next.reply)
+  const same = old && SAME_KEYS.every((k) => old[k] === next[k]) && JSON.stringify(old.attention) === JSON.stringify(next.attention) && JSON.stringify(old.pending) === JSON.stringify(next.pending) && JSON.stringify(old.reply) === JSON.stringify(next.reply) && JSON.stringify(old.proc) === JSON.stringify(next.proc) && JSON.stringify(old.queued) === JSON.stringify(next.queued)
   return same ? old : next
 }
 
@@ -159,17 +172,17 @@ const sum = (list) =>
 
 const before = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const needsYou = (s) => statesOf(s).length > 0
-const asksYou = (s) => needsYou(s) || s.pending !== null // sorting only: a session with a prompt card is listed with the ones that need you
+const asksYou = (e) => needsYou(e.s) || e.s.pending !== null || e.card // sorting only: a session with a prompt card is listed with the ones that need you
 
-/** account -> sessions: the ones needing you first, then the newest. Accounts in name order. */
-function group(sessions) {
+/** account -> entries: the ones needing you first, then the newest. Accounts in name order. */
+function group(entries) {
   const accounts = {}
-  for (const s of sessions) (accounts[s.account] ??= []).push(s)
+  for (const e of entries) (accounts[e.s.account] ??= []).push(e)
   return Object.keys(accounts)
     .sort(before)
     .map((account) => ({
       account,
-      sessions: accounts[account].sort((a, b) => asksYou(b) - asksYou(a) || before(b.last_ts, a.last_ts) || before(a.session_id, b.session_id)),
+      entries: accounts[account].sort((a, b) => asksYou(b) - asksYou(a) || before(b.s.last_ts, a.s.last_ts) || before(a.key, b.key)),
     }))
 }
 
@@ -267,47 +280,36 @@ function Bar({ label, text, ratio }) {
   )
 }
 
-/** A row that shows *Reply from the app*: the server says its account has the bridge on, no prompt card, not at your turn (unless marked). */
-const markable = (s) => s.replyBridge && !s.pending && (s.replyMarked || !s.attention.some((a) => a.state === 'your_turn'))
-
-/** One session: a button (arrow, id, project, states, time) with its three bars; open, its feed is drawn under the row in the same card.
+/** One session: a button (id, project, states, time) with its three bars. Selecting it opens its panel (FR-128); the row stays in the list.
  * Memoized: it draws again only when its own figures (or its open state) change. */
-const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onToggle, onEnd, notice, appId, onOpenApp, onResume, tokensPct, costPct, callsPct }) {
-  const button = useRef(null)
+const SessionRow = memo(function SessionRow({ s, k, now, windowS, open, reveal, card, onToggle, tokensPct, costPct, callsPct }) {
   const states = statesOf(s)
   const idle = isIdle(s, now, windowS)
-  const fork = now - Date.parse(s.last_ts) < QUIET_S * 1000 // a record in the last 2 minutes: the session may be open in a window
   const tokens = s.tokens_in + s.tokens_out
   const unknown = s.unpriced && s.cost === 0
-  const regionId = `live-feed-${s.session_id}`
-  const card = useRef(null)
+  const caption = s.appOnly ? s.appState : `${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`
+  const cardWaiting = (s.pending !== null || card) && !states.some((a) => a.state === 'waiting')
+  const li = useRef(null)
   useEffect(() => {
-    if (open && reveal) card.current?.scrollIntoView?.({ block: 'nearest' }) // only a session picked from the address is brought into view
+    if (open && reveal) li.current?.scrollIntoView?.({ block: 'nearest' }) // only a session picked from the address is brought into view
   }, [open, reveal])
-  const collapse = () => {
-    button.current?.focus() // the keyboard stays on the row
-    onToggle(s.session_id)
-  }
   return (
     <li
-      ref={card}
+      ref={li}
       className="live-session"
       data-idle={idle || undefined}
       data-state={states[0]?.state}
       data-open={open || undefined}
       onKeyDown={(e) => {
-        if (open && e.key === 'Escape') collapse()
+        if (open && e.key === 'Escape') onToggle(k) // the focus is on this row: the panel closes and the row keeps it
       }}
     >
-      <button ref={button} type="button" id={`live-row-${s.session_id}`} className="live-row" aria-expanded={open} aria-current={open ? 'true' : undefined} aria-controls={regionId} onClick={() => onToggle(s.session_id)}>
-        <span className="live-arrow" aria-hidden="true">
-          {open ? '▾' : '▸'}
-        </span>
-        <span className="live-id" title={s.session_id}>
-          {s.session_id.slice(0, ID_CHARS)}
+      <button type="button" id={`live-row-${k}`} className="live-row" aria-expanded={open} aria-current={open ? 'true' : undefined} aria-controls="live-panel" onClick={() => onToggle(k)}>
+        <span className="live-id" title={s.session_id ?? 'starting'}>
+          {(s.session_id ?? 'starting').slice(0, ID_CHARS)}
         </span>
         <span className="live-name" title={s.project}>
-          {s.project}
+          {s.name ?? s.project}
         </span>
         {s.stage !== null && (
           <span className="live-stage">{s.stage_skill ? `Stage ${s.stage} · ${s.stage_skill}` : `Stage ${s.stage}`}</span>
@@ -317,30 +319,14 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onT
             {pillText(a)}
           </span>
         ))}
-        <span className="count">{`${idle ? 'idle' : 'active'} · ${ago(s.last_ts, now)}`}</span>
+        {cardWaiting && (
+          <span className="live-pill" data-state="waiting" title="A question or permission waits for your answer in the panel">
+            answer needed
+          </span>
+        )}
+        <span className="count">{caption}</span>
       </button>
-      {s.pending && <PendingAnswer key={s.pending.id} sessionId={s.session_id} prompt={s.pending} onEnd={onEnd} />}
-      {s.reply && <ReplyBox key={s.reply.id} sessionId={s.session_id} reply={s.reply} open={open} />}
-      {!appId && markable(s) && <ReplyMark sessionId={s.session_id} marked={s.replyMarked} hold={s.reply !== null} />}
-      {notice && (
-        <p role="status" className="live-notice">
-          {notice}
-        </p>
-      )}
-      {appId && onOpenApp && (
-        <button type="button" className="live-open-app" onClick={() => onOpenApp(appId)}>
-          Open in app
-        </button>
-      )}
-      {!appId && onResume && (
-        <>
-          <button type="button" className="live-open-app" onClick={() => onResume({ id: s.session_id, project: s.project, account: s.account, fork })}>
-            {fork ? 'Fork in app' : 'Resume in app'}
-          </button>
-          {fork && <span className="muted live-fork-note">{FORK_NOTE}</span>}
-        </>
-      )}
-      {!open && !s.pending && <Questions states={states} />}
+      {!open && <Questions states={states} />}
       <span className="live-bars">
         <Bar label="tokens" text={noSpace(tokens)} ratio={tokensPct} />
         <Bar
@@ -350,15 +336,6 @@ const SessionRow = memo(function SessionRow({ s, now, windowS, open, reveal, onT
         />
         <Bar label="tool calls" text={fmt(s.tool_calls)} ratio={callsPct} />
       </span>
-      {open && (
-        <div id={regionId} className="live-expanded" role="region" aria-label={`Session ${s.session_id.slice(0, ID_CHARS)} tool calls`}>
-          <button type="button" className="live-close" onClick={collapse}>
-            Close
-          </button>
-          {!s.pending && <Questions states={states} />}
-          <Feed items={s.feed} />
-        </div>
-      )}
     </li>
   )
 })
@@ -433,92 +410,172 @@ export function LiveProvider({ children }) {
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>
 }
 
-/** `// work` › Live: active Claude Code sessions as rows with three bars; one open session shows its tool feed under its row. Metadata only.
- * Inside a LiveProvider it shows the page's stream; alone it opens its own. */
-export default function LiveView({ wantedId = null, onWantedUsed, onOpenAppSession, onResumeInApp }) {
+/** `// work` › Live: every session, app and terminal, as rows with three bars; the selected one opens one panel beside the list (FR-128). Inside a
+ * LiveProvider it shows the page's stream; alone it opens its own. `appSessions`: the server has app sessions, so they are listed with the rest. */
+export default function LiveView(props) {
   const shared = useContext(LiveContext)
-  return shared ? <Live {...shared} wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} onResumeInApp={onResumeInApp} /> : <OwnStream wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} onResumeInApp={onResumeInApp} />
+  return shared ? <Live {...shared} {...props} /> : <OwnStream {...props} />
 }
 
-const APP_IDS_REREAD_MS = 5000 // at most one more read per this long while a live row is not in the map
+const APPS_FAST_MS = 1000 // an app session's panel is open: its own stream is read again every second (FR-110)
+const APPS_IDLE_MS = 5000 // otherwise the list of app sessions is read this often
 
 /**
- * Live session id -> app session id, for the rows that are app sessions (T104). Read when the set of live sessions changes, and again (at most
- * once per 5 s) while a live row is unknown to the map: an app session gets its Claude session id after its first init, which can be after its
- * row appeared. Nothing is asked unless the page can open one.
+ * The app sessions as the server has them (T104, FR-109): read at once, then every second while an app session's panel is open and every 5 s
+ * otherwise. A failed read keeps the last answer and sets `stale`. `null` until the first read answered, and for a server with no such route.
  */
-function useAppSessionIds(enabled, liveIds) {
-  const key = liveIds.join(',')
-  const [ids, setIds] = useState(null) // null until the first read answered: a row is not known to be an app session or not
-  const known = useRef({})
-  const live = useRef(liveIds)
-  live.current = liveIds
+function useApps(enabled, fast) {
+  const [apps, setApps] = useState(null)
+  const [stale, setStale] = useState(false)
+  const last = useRef(null)
+  const generation = useRef(0) // bumped by every answer of our own: a read that started before it is older than the state and is dropped
   useEffect(() => {
     if (!enabled) return undefined
     let current = true
-    const read = () =>
-      getAppSessions().then(
-        (list) => {
-          if (!current || !list) return
-          known.current = Object.fromEntries(list.sessions.filter((a) => typeof a.session_id === 'string').map((a) => [a.session_id, a.id]))
-          setIds(known.current)
-        },
-        () => {},
-      )
+    let out = false
+    const read = async () => {
+      if (out) return
+      out = true
+      try {
+        const seen = generation.current
+        const list = await getAppSessions()
+        if (!current || !list || seen !== generation.current) return
+        setStale(false)
+        const body = JSON.stringify(list.sessions)
+        if (body !== last.current) {
+          last.current = body
+          setApps(list.sessions)
+        }
+      } catch {
+        if (current) setStale(true)
+      } finally {
+        out = false
+      }
+    }
     read()
-    const timer = setInterval(() => {
-      if (live.current.some((id) => !Object.hasOwn(known.current, id))) read()
-    }, APP_IDS_REREAD_MS)
+    const timer = setInterval(read, fast ? APPS_FAST_MS : APPS_IDLE_MS)
     return () => {
       current = false
       clearInterval(timer)
     }
-  }, [enabled, key])
-  return ids
+  }, [enabled, fast])
+  // An answer to our own request: take that session now, and let the next read replace the list.
+  const replace = useCallback((view) => {
+    generation.current += 1
+    last.current = null
+    setApps((list) => (list ?? []).some((a) => a.id === view.id) ? list.map((a) => (a.id === view.id ? view : a)) : [...(list ?? []), view])
+  }, [])
+  const remove = useCallback((id) => {
+    generation.current += 1
+    last.current = null
+    setApps((list) => (list ?? []).filter((a) => a.id !== id))
+  }, [])
+  return { apps, stale, replace, remove }
 }
 
-function OwnStream({ wantedId, onWantedUsed, onOpenAppSession, onResumeInApp }) {
+const appCard = (a) => a.items.some((i) => i.kind === 'prompt' && i.status === 'pending')
+
+/** The row of an app session the live tail does not list yet (it is starting, or it wrote nothing in the window): built from its own view. */
+function appOnly(a, seenAt) {
+  const base = fromSnapshot({ session_id: typeof a.session_id === 'string' ? a.session_id : null, account: a.account?.label ?? 'Default Claude Code account', project: folderName(a.folder) || 'session', last_ts: seenAt, tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0 })
+  return { ...base, appOnly: true, appState: STATES[a.state] ?? '' }
+}
+
+function OwnStream(props) {
   const [attempt, setAttempt] = useState(0)
   const [state, link] = useLive(attempt)
   const reconnect = useCallback(() => setAttempt((n) => n + 1), [])
-  return <Live state={state} link={link} reconnect={reconnect} wantedId={wantedId} onWantedUsed={onWantedUsed} onOpenAppSession={onOpenAppSession} onResumeInApp={onResumeInApp} />
+  return <Live state={state} link={link} reconnect={reconnect} {...props} />
 }
 
-function Live({ state, link, reconnect, wantedId, onWantedUsed, onOpenAppSession, onResumeInApp }) {
+function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessions = false, wantedApp = null, onWantedAppUsed, onResumeInApp, onOpenSettings }) {
   const [now, setNow] = useState(Date.now())
-  const [openId, setOpenId] = useState(null) // not kept across a reload
+  const [openId, setOpenId] = useState(null) // the panel's key: a live session id, or `app:<id>` for an app session; not kept across a reload
+  const openRef = useRef(null)
+  openRef.current = openId
+  const [focusPanel, setFocusPanel] = useState(false) // the panel was opened by the owner: the focus moves to its heading
+  const [backTo, setBackTo] = useState(null) // the panel was closed: the focus goes back to this row
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS)
     return () => clearInterval(timer)
   }, [])
   const [revealId, setRevealId] = useState(null) // the session picked from the address: the one row that scrolls into view
   const onToggle = useCallback(
-    (id) => {
-      setOpenId((current) => (current === id ? null : id))
+    (key) => {
+      if (openRef.current === key) {
+        setOpenId(null)
+        setBackTo(key)
+      } else {
+        setOpenId(key)
+        setFocusPanel(true)
+      }
       setRevealId(null)
       onWantedUsed?.() // the owner's own choice ends the wish: a wanted session listed later does not take the selection
     },
     [onWantedUsed],
   )
   useEffect(() => {
-    if (openId !== null && !state.sessions[openId]) setOpenId(null) // the open session left the list: nothing is drawn for it
-  }, [openId, state.sessions])
+    if (backTo === null) return
+    document.getElementById(`live-row-${backTo}`)?.focus()
+    setBackTo(null)
+  }, [backTo])
+  const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
+  const selectedApp = openId !== null && openId.startsWith('app:')
+  const { apps, stale, replace, remove } = useApps(appSessions, selectedApp)
+  const seen = useRef({}) // app session id -> when this page first saw it
+  const cache = useRef(new Map()) // app session id -> its row, kept while its words are the same, so its memoized row does not draw again
+  const entries = useMemo(() => {
+    const list = apps ?? []
+    const byClaudeId = new Map(list.filter((a) => typeof a.session_id === 'string').map((a) => [a.session_id, a]))
+    const used = new Set()
+    const out = sessions.map((s) => {
+      const a = byClaudeId.get(s.session_id)
+      if (a) used.add(a.id)
+      return { s, key: a ? `app:${a.id}` : s.session_id, app: a ?? null, card: a ? appCard(a) : false }
+    })
+    for (const a of list) {
+      if (used.has(a.id)) continue
+      const sig = JSON.stringify([a.account?.label, a.folder, a.state, a.session_id])
+      let row = cache.current.get(a.id)
+      if (!row || row.sig !== sig) {
+        seen.current[a.id] ??= new Date().toISOString()
+        row = { sig, s: appOnly(a, seen.current[a.id]) }
+        cache.current.set(a.id, row)
+      }
+      out.push({ s: row.s, key: `app:${a.id}`, app: a, card: appCard(a) })
+    }
+    return out
+  }, [sessions, apps])
+  const selected = openId === null ? null : (entries.find((e) => e.key === openId || e.s.session_id === openId) ?? null)
+  useEffect(() => {
+    if (openId !== null && !selected && (apps !== null || !selectedApp)) setOpenId(null) // the open session left the list: nothing is drawn for it
+  }, [openId, selected, apps, selectedApp])
   useEffect(() => {
     // The session the app asked for (the page's start address): select it once, as soon as it is in the list. The page gives up after 10 s.
-    if (wantedId && state.sessions[wantedId]) {
-      setOpenId(wantedId)
-      setRevealId(wantedId)
+    const hit = wantedId && entries.find((e) => e.s.session_id === wantedId)
+    if (hit) {
+      setOpenId(hit.key)
+      setRevealId(hit.key)
+      setFocusPanel(false)
       onWantedUsed?.()
     }
-  }, [wantedId, state.sessions, onWantedUsed])
-  const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
-  const groups = useMemo(() => group(sessions), [sessions])
+  }, [wantedId, entries, onWantedUsed])
+  useEffect(() => {
+    // The app session just started on the App sessions page: its panel opens here, once it is in the list.
+    if (wantedApp && entries.some((e) => e.key === `app:${wantedApp}`)) {
+      setOpenId(`app:${wantedApp}`)
+      setFocusPanel(true)
+      onWantedAppUsed?.()
+    }
+  }, [wantedApp, entries, onWantedAppUsed])
+  const groups = useMemo(() => group(entries), [entries])
   const [notices, endPrompt] = useNotices(sessions)
-  const appIds = useAppSessionIds(Boolean(onOpenAppSession || onResumeInApp), Object.keys(state.sessions).sort())
   const needing = sessions.filter(needsYou).length
-  const maxTokens = Math.max(0, ...sessions.map((s) => s.tokens_in + s.tokens_out))
-  const maxCost = Math.max(0, ...sessions.map((s) => s.cost))
-  const maxCalls = Math.max(0, ...sessions.map((s) => s.tool_calls))
+  const all = entries.map((e) => e.s)
+  const maxTokens = Math.max(0, ...all.map((s) => s.tokens_in + s.tokens_out))
+  const maxCost = Math.max(0, ...all.map((s) => s.cost))
+  const maxCalls = Math.max(0, ...all.map((s) => s.tool_calls))
+  const closePanel = useCallback(() => selected && onToggle(selected.key), [selected, onToggle])
   return (
     <main className="live">
       <div className="live-head">
@@ -539,42 +596,62 @@ function Live({ state, link, reconnect, wantedId, onWantedUsed, onOpenAppSession
       </div>
       <section className="card" aria-labelledby="h-live-all">
         <h2 id="h-live-all">All sessions</h2>
-        <Totals total={sum(sessions)} />
+        <Totals total={sum(all)} />
         <p className="footnote">
-          API-equivalent cost is tokens times the API price table, not what a subscription pays. Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question's header and options, and a permission's tool name and its full tool input (the whole command, path or plan); never other message or tool content.
+          API-equivalent cost is tokens times the API price table, not what a subscription pays. The list shows only tool names, skill, sub-agent, MCP and command names, counts and times, and the question a waiting session asks. Opening a session shows its conversation: your messages, Claude's text and each tool call with its input and result, read from Claude Code's own file while the panel is open and never stored.
         </p>
       </section>
-      {sessions.length === 0 && (
+      {entries.length === 0 && (
         <p className="muted">{`No active sessions. A session appears here when it wrote a record in the last ${Math.round(state.windowS / 60)} minutes.`}</p>
       )}
-      {sessions.length > 0 && (
-        <div className="live-sessions">
-          {groups.map((a, i) => (
-            <section key={a.account} aria-labelledby={`live-acc-${i}`}>
-              <h2 id={`live-acc-${i}`}>{a.account}</h2>
-              <ul className="live-list">
-                {a.sessions.map((s) => (
-                  <SessionRow
-                    key={s.session_id}
-                    s={s}
-                    now={now}
-                    windowS={state.windowS}
-                    open={s.session_id === openId}
-                    reveal={s.session_id === revealId}
-                    onToggle={onToggle}
-                    onEnd={endPrompt}
-                    notice={notices[s.session_id]}
-                    appId={appIds?.[s.session_id]}
-                    onOpenApp={onOpenAppSession}
-                    onResume={appIds ? onResumeInApp : undefined}
-                    tokensPct={share(s.tokens_in + s.tokens_out, maxTokens)}
-                    costPct={share(s.cost, maxCost)}
-                    callsPct={share(s.tool_calls, maxCalls)}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
+      {entries.length > 0 && (
+        <div className="live-split" data-open={selected ? 'true' : undefined}>
+          <div className="live-sessions">
+            {groups.map((a, i) => (
+              <section key={a.account} aria-labelledby={`live-acc-${i}`}>
+                <h2 id={`live-acc-${i}`}>{a.account}</h2>
+                <ul className="live-list">
+                  {a.entries.map((e) => (
+                    <SessionRow
+                      key={e.key}
+                      s={e.s}
+                      k={e.key}
+                      now={now}
+                      windowS={state.windowS}
+                      open={e.key === selected?.key}
+                      reveal={e.key === revealId}
+                      card={e.card}
+                      onToggle={onToggle}
+                      tokensPct={share(e.s.tokens_in + e.s.tokens_out, maxTokens)}
+                      costPct={share(e.s.cost, maxCost)}
+                      callsPct={share(e.s.tool_calls, maxCalls)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+          {selected && (
+            <div className="live-panel-col">
+              {stale && selected.app && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
+              <SessionPanel
+                key={selected.key}
+                s={selected.s}
+                app={selected.app}
+                now={now}
+                notice={notices[selected.s.session_id]}
+                lead={selected.s.pending === null ? <Questions states={statesOf(selected.s)} /> : null}
+                fallback={<Feed items={selected.s.feed} />}
+                onChange={replace}
+                onClosed={remove}
+                onEnd={endPrompt}
+                onResume={appSessions && apps !== null ? onResumeInApp : undefined}
+                onOpenSettings={onOpenSettings}
+                onBack={closePanel}
+                autoFocus={focusPanel}
+              />
+            </div>
+          )}
         </div>
       )}
     </main>

@@ -72,45 +72,46 @@ describe('Workspaces: New session', () => {
     expect(await screen.findByLabelText('Repo')).toHaveDisplayValue('/home/o/notes')
   })
 
-  it('the sidebar has App sessions under // work, and opening it by hand shows the page', async () => {
+  it('the sidebar has App sessions under // work, and opening it by hand shows New session and no session panel', async () => {
     vi.stubGlobal('fetch', both(appServer({ sessions: [appSession({ items: [] })] })))
     render(<App />)
     const nav = screen.getByRole('navigation', { name: 'Views' })
     fireEvent.click(within(nav).getByRole('button', { name: 'App sessions' }))
-    expect(await screen.findByRole('region', { name: /^Session in / })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'New session' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /^Session in / })).toBeNull() // the sessions are in Live
     expect(screen.queryByLabelText('Repo')).toBeNull() // no form unless asked for
   })
 })
 
-describe('Live: Open in app', () => {
+describe('Live: app sessions are listed with the rest (T118)', () => {
   const stream = () => FakeEventSource.instances.at(-1)
   const snapshot = (sessions) => ({ active_window_s: 300, last_id: 0, sessions })
 
-  it('an app session\'s row has Open in app; another row has none', async () => {
+  it('an app session\'s live row is its panel: the row opens the app controls, no second row, no Open in app button', async () => {
     vi.stubGlobal('fetch', appServer({ sessions: [appSession({ id: 'a1', session_id: 'abcdef1234567890' })] }))
-    const onOpen = vi.fn()
-    render(<LiveView onOpenAppSession={onOpen} />)
+    render(<LiveView appSessions />)
     stream().emit('snapshot', snapshot([row('abcdef1234567890'), row('99999999-terminal')]))
-    const mine = screen.getByText('abcdef12', { selector: '.live-id' }).closest('li')
-    const other = screen.getByText('99999999', { selector: '.live-id' }).closest('li')
-    const button = await within(mine).findByRole('button', { name: 'Open in app' })
-    expect(within(other).queryByRole('button', { name: 'Open in app' })).toBeNull()
-    fireEvent.click(button)
-    expect(onOpen).toHaveBeenCalledWith('a1')
+    await waitFor(() => expect(document.getElementById('live-row-app:a1')).not.toBeNull())
+    expect(document.querySelectorAll('.live-row')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Open in app' })).toBeNull()
+    fireEvent.click(document.getElementById('live-row-app:a1'))
+    expect(await screen.findByRole('button', { name: 'Interrupt' })).toBeInTheDocument()
+    fireEvent.click(document.getElementById('live-row-99999999-terminal'))
+    expect(screen.queryByRole('button', { name: 'Interrupt' })).toBeNull() // a terminal session has no Interrupt
   })
 
-  it('a row whose app session got its Claude session id later gets Open in app on a later read (at most one read per 5 s)', async () => {
+  it('a row whose app session got its Claude session id later becomes the app row on a later read (at most one read per 5 s)', async () => {
     vi.useFakeTimers()
     const server = appServer({ sessions: [appSession({ id: 'a1', session_id: null })] })
     vi.stubGlobal('fetch', server)
-    render(<LiveView onOpenAppSession={() => {}} />)
+    render(<LiveView appSessions />)
     stream().emit('snapshot', snapshot([row('abcdef1234567890')]))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
     const reads = () => server.calls.filter((c) => c.path === '/api/app-sessions').length
-    const first = reads() // the empty list, then the snapshot's set of rows: one read each
-    expect(screen.queryByRole('button', { name: 'Open in app' })).toBeNull()
+    const first = reads()
+    expect(document.querySelectorAll('.live-row')).toHaveLength(2) // the live row, and the app session that is still starting
     server.state.sessions = [appSession({ id: 'a1', session_id: 'abcdef1234567890' })]
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4_900)
@@ -120,35 +121,23 @@ describe('Live: Open in app', () => {
       await vi.advanceTimersByTimeAsync(200)
     })
     expect(reads()).toBe(first + 1)
-    expect(screen.getByRole('button', { name: 'Open in app' })).toBeInTheDocument()
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000)
-    })
-    expect(reads()).toBe(first + 1) // every live row is known: no more reads
+    expect(document.querySelectorAll('.live-row')).toHaveLength(1) // one session, one row
+    expect(document.getElementById('live-row-app:a1')).not.toBeNull()
   })
 
-  it('a terminal row that is no app session costs at most one read per 5 s', async () => {
+  it('with no app session on the machine Live costs at most one read per 5 s', async () => {
     vi.useFakeTimers()
     const server = appServer({ sessions: [] })
     vi.stubGlobal('fetch', server)
-    render(<LiveView onOpenAppSession={() => {}} />)
+    render(<LiveView appSessions />)
     stream().emit('snapshot', snapshot([row('99999999-terminal')]))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000)
     })
-    expect(server.calls.filter((c) => c.path === '/api/app-sessions').length).toBeLessThanOrEqual(2 + 4) // the two reads of the row set changing, then one per 5 s
+    expect(server.calls.filter((c) => c.path === '/api/app-sessions').length).toBeLessThanOrEqual(1 + 4)
   })
 
-  it('a click on Open in app does not open the row (it is above the row\'s click area)', async () => {
-    vi.stubGlobal('fetch', appServer({ sessions: [appSession({ id: 'a1', session_id: 'abcdef1234567890' })] }))
-    render(<LiveView onOpenAppSession={() => {}} />)
-    stream().emit('snapshot', snapshot([row('abcdef1234567890')]))
-    const mine = screen.getByText('abcdef12', { selector: '.live-id' }).closest('li')
-    fireEvent.click(await within(mine).findByRole('button', { name: 'Open in app' }))
-    expect(mine.querySelector('button.live-row')).toHaveAttribute('aria-expanded', 'false')
-  })
-
-  it('with no way to open one, Live asks the server for no app session', async () => {
+  it('with no app sessions in the app, Live asks the server for none', async () => {
     const server = appServer({ sessions: [appSession({ session_id: 'abcdef1234567890' })] })
     vi.stubGlobal('fetch', server)
     render(<LiveView />)
@@ -159,69 +148,97 @@ describe('Live: Open in app', () => {
 
   it('a server with no app session route leaves Live as it was', async () => {
     vi.stubGlobal('fetch', appServer({ list: null }))
-    render(<LiveView onOpenAppSession={() => {}} />)
+    render(<LiveView appSessions onResumeInApp={() => {}} />)
     stream().emit('snapshot', snapshot([row('abcdef1234567890')]))
     await screen.findByText('abcdef12', { selector: '.live-id' })
     await waitFor(() => expect(fetch.calls.length).toBeGreaterThan(0))
-    expect(screen.queryByRole('button', { name: 'Open in app' })).toBeNull()
+    fireEvent.click(document.querySelector('.live-row'))
+    expect(screen.queryByRole('button', { name: /in app$/ })).toBeNull()
   })
 
-  it('in the app: Open in app goes to the App sessions page with that session shown', async () => {
-    const server = appServer({ sessions: [appSession({ id: 'a1', session_id: 'abcdef1234567890', folder: '/work/one' }), appSession({ id: 'a2', session_id: 'zzzz', folder: '/work/two', items: [{ kind: 'assistant', text: 'second session text' }] })] })
-    vi.stubGlobal('fetch', both(server))
+  it('in the app: a session started on the App sessions page opens as a panel in Live', async () => {
+    const fresh = appSession({ id: 'a7', folder: '/work/company', state: 'working', session_id: null, items: [{ kind: 'user', text: 'fix it' }] })
+    const server = appServer({
+      routes: {
+        'POST /api/app-sessions': (_body, state) => {
+          state.sessions = [fresh]
+          return { status: 202, body: { id: 'a7' } }
+        },
+      },
+    })
+    vi.stubGlobal('fetch', both(server, workspaceOverrides({ workspaces: { workspaces: [{ id: 2, name: 'company', is_orphan: false, repos: ['/work/company'] }] } })))
     render(<App />)
     const nav = screen.getByRole('navigation', { name: 'Views' })
-    fireEvent.click(within(nav).getByRole('button', { name: 'Live' }))
-    await waitFor(() => expect(stream()).toBeDefined())
-    stream().emit('snapshot', snapshot([row('zzzz')]))
-    fireEvent.click(await screen.findByRole('button', { name: 'Open in app' }))
-    expect(await screen.findByText('second session text')).toBeInTheDocument()
-    expect(within(nav).getByRole('button', { name: 'App sessions' })).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(within(nav).getByRole('button', { name: 'App sessions' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'New session' }))
+    fireEvent.change(await screen.findByLabelText('First prompt'), { target: { value: 'fix it' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    expect(await screen.findByRole('heading', { name: 'Live' })).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: 'Live' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('region', { name: 'Session in company' })).toBeInTheDocument()
+    expect(await screen.findByText('fix it')).toBeInTheDocument()
   })
 })
 
-// T105 (FR-112): Resume in app / Fork in app on a Live row, Continue in app on a Workspaces repo.
+// T105 (FR-112): Resume in app / Fork in app in the Live panel, Continue in app on a Workspaces repo.
 describe('Live: Resume in app and Fork in app', () => {
   const stream = () => FakeEventSource.instances.at(-1)
   const snapshot = (sessions) => ({ active_window_s: 600, last_id: 0, sessions })
   const ago = (seconds) => new Date(Date.now() - seconds * 1000).toISOString()
   const FORK = 'The open window does not see a fork: it becomes a new session.'
   const li = (id) => screen.getByText(id.slice(0, 8), { selector: '.live-id' }).closest('li')
+  /** The buttons are in the session's panel: the row is opened first. */
+  const panelOf = (id) => {
+    const row = li(id).querySelector('button.live-row')
+    if (row.getAttribute('aria-expanded') !== 'true') fireEvent.click(row)
+    return within(document.getElementById('live-panel'))
+  }
 
   it('a quiet session (no record for 2 minutes) has Resume in app and no note', async () => {
     vi.stubGlobal('fetch', appServer())
     const onResume = vi.fn()
-    render(<LiveView onResumeInApp={onResume} />)
+    render(<LiveView appSessions onResumeInApp={onResume} />)
     stream().emit('snapshot', snapshot([row('99999999-terminal', { last_ts: ago(121), account: 'Claude work', project: 'alpha' })]))
-    const button = await within(li('99999999-terminal')).findByRole('button', { name: 'Resume in app' })
-    expect(within(li('99999999-terminal')).queryByRole('button', { name: 'Fork in app' })).toBeNull()
+    await waitFor(() => expect(fetch.calls.length).toBeGreaterThan(0))
+    const panel = await waitFor(() => {
+      const p = panelOf('99999999-terminal')
+      p.getByRole('button', { name: 'Resume in app' })
+      return p
+    })
+    expect(panel.queryByRole('button', { name: 'Fork in app' })).toBeNull()
     expect(screen.queryByText(FORK)).toBeNull()
-    fireEvent.click(button)
+    fireEvent.click(panel.getByRole('button', { name: 'Resume in app' }))
     expect(onResume).toHaveBeenCalledWith({ id: '99999999-terminal', project: 'alpha', account: 'Claude work', fork: false })
   })
 
   it('a session with a record in the last 2 minutes has Fork in app and the fixed note', async () => {
     vi.stubGlobal('fetch', appServer())
     const onResume = vi.fn()
-    render(<LiveView onResumeInApp={onResume} />)
+    render(<LiveView appSessions onResumeInApp={onResume} />)
     stream().emit('snapshot', snapshot([row('88888888-terminal', { last_ts: ago(119) })]))
-    const mine = li('88888888-terminal')
-    const button = await within(mine).findByRole('button', { name: 'Fork in app' })
-    expect(within(mine).queryByRole('button', { name: 'Resume in app' })).toBeNull()
-    expect(within(mine).getByText(FORK)).toBeInTheDocument()
-    fireEvent.click(button)
+    await waitFor(() => expect(fetch.calls.length).toBeGreaterThan(0))
+    const panel = await waitFor(() => {
+      const p = panelOf('88888888-terminal')
+      p.getByRole('button', { name: 'Fork in app' })
+      return p
+    })
+    expect(panel.queryByRole('button', { name: 'Resume in app' })).toBeNull()
+    expect(panel.getByText(FORK)).toBeInTheDocument()
+    fireEvent.click(panel.getByRole('button', { name: 'Fork in app' }))
     expect(onResume).toHaveBeenCalledWith({ id: '88888888-terminal', project: 'alpha', account: 'Claude work', fork: true })
   })
 
   it('the button follows the clock: a row that was active is a Resume once 2 minutes have passed', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', appServer())
-    render(<LiveView onResumeInApp={() => {}} />)
+    render(<LiveView appSessions onResumeInApp={() => {}} />)
     stream().emit('snapshot', snapshot([row('77777777-terminal', { last_ts: ago(100) })]))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
-    expect(screen.getByRole('button', { name: 'Fork in app' })).toBeInTheDocument()
+    const panel = panelOf('77777777-terminal')
+    expect(panel.getByRole('button', { name: 'Fork in app' })).toBeInTheDocument()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000) // the page works out "now" again every 15 s
     })
@@ -229,22 +246,24 @@ describe('Live: Resume in app and Fork in app', () => {
     expect(screen.queryByText(FORK)).toBeNull()
   })
 
-  it('an app session\'s row has Open in app and neither of these; no handler or no app session route: no button', async () => {
+  it('an app session\'s panel has neither of these; no handler or no app session route: no button', async () => {
     vi.stubGlobal('fetch', appServer({ sessions: [appSession({ id: 'a1', session_id: 'abcdef1234567890' })] }))
-    const { unmount } = render(<LiveView onResumeInApp={() => {}} onOpenAppSession={() => {}} />)
+    const { unmount } = render(<LiveView appSessions onResumeInApp={() => {}} />)
     stream().emit('snapshot', snapshot([row('abcdef1234567890', { last_ts: ago(300) })]))
-    await within(li('abcdef1234567890')).findByRole('button', { name: 'Open in app' })
+    await waitFor(() => expect(document.getElementById('live-row-app:a1')).not.toBeNull())
+    fireEvent.click(document.getElementById('live-row-app:a1'))
+    await screen.findByRole('button', { name: 'Interrupt' })
     expect(screen.queryByRole('button', { name: /^(Resume|Fork) in app$/ })).toBeNull()
     unmount()
     vi.stubGlobal('fetch', appServer({ list: null }))
-    render(<LiveView onResumeInApp={() => {}} />)
+    render(<LiveView appSessions onResumeInApp={() => {}} />)
     stream().emit('snapshot', snapshot([row('66666666-terminal', { last_ts: ago(300) })]))
     await screen.findByText('66666666', { selector: '.live-id' })
     await waitFor(() => expect(fetch.calls.length).toBeGreaterThan(0))
-    expect(screen.queryByRole('button', { name: /in app$/ })).toBeNull()
+    expect(panelOf('66666666-terminal').queryByRole('button', { name: /in app$/ })).toBeNull()
   })
 
-  it('before the app sessions are known a row has no button, so an app session never flashes Resume', async () => {
+  it('before the app sessions are known a panel has no button, so an app session never flashes Resume', async () => {
     let release
     const held = new Promise((resolve) => {
       release = resolve
@@ -254,21 +273,13 @@ describe('Live: Resume in app and Fork in app', () => {
       await held
       return server(url, init)
     })
-    render(<LiveView onResumeInApp={() => {}} onOpenAppSession={() => {}} />)
+    render(<LiveView appSessions onResumeInApp={() => {}} />)
     stream().emit('snapshot', snapshot([row('abcdef1234567890', { last_ts: ago(300) })]))
     await screen.findByText('abcdef12', { selector: '.live-id' })
-    expect(screen.queryByRole('button', { name: /in app$/ })).toBeNull()
+    expect(panelOf('abcdef1234567890').queryByRole('button', { name: /in app$/ })).toBeNull()
     release()
-    expect(await screen.findByRole('button', { name: 'Open in app' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Interrupt' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^(Resume|Fork) in app$/ })).toBeNull()
-  })
-
-  it('a click on the button does not open the row', async () => {
-    vi.stubGlobal('fetch', appServer())
-    render(<LiveView onResumeInApp={() => {}} />)
-    stream().emit('snapshot', snapshot([row('99999999-terminal', { last_ts: ago(300) })]))
-    fireEvent.click(await within(li('99999999-terminal')).findByRole('button', { name: 'Resume in app' }))
-    expect(li('99999999-terminal').querySelector('button.live-row')).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('in the app: Resume in app opens the App sessions page with the Resume form for that session, named by short id and project', async () => {
@@ -279,6 +290,7 @@ describe('Live: Resume in app and Fork in app', () => {
     fireEvent.click(within(nav).getByRole('button', { name: 'Live' }))
     await waitFor(() => expect(stream()).toBeDefined())
     stream().emit('snapshot', snapshot([row('99999999-terminal', { last_ts: ago(300), project: 'alpha' })]))
+    fireEvent.click(document.getElementById('live-row-99999999-terminal'))
     fireEvent.click(await screen.findByRole('button', { name: 'Resume in app' }))
     expect(await screen.findByRole('heading', { name: 'Resume session' })).toBeInTheDocument()
     expect(within(nav).getByRole('button', { name: 'App sessions' })).toHaveAttribute('aria-current', 'page')
@@ -298,6 +310,7 @@ describe('Live: Resume in app and Fork in app', () => {
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('button', { name: 'Live' }))
     await waitFor(() => expect(stream()).toBeDefined())
     stream().emit('snapshot', snapshot([row('88888888-terminal', { last_ts: ago(10) })]))
+    fireEvent.click(document.getElementById('live-row-88888888-terminal'))
     fireEvent.click(await screen.findByRole('button', { name: 'Fork in app' }))
     expect(await screen.findByRole('heading', { name: 'Fork session' })).toBeInTheDocument()
     expect(screen.getByText(FORK, { selector: '.prompt-cut' })).toBeInTheDocument()

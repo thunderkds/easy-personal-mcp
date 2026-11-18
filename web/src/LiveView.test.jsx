@@ -72,7 +72,7 @@ const openRow = (idPrefix) => {
 const barOf = (idPrefix, name) => within(card(idPrefix)).getByRole('img', { name })
 const feedLisOf = (idPrefix) => {
   openRow(idPrefix)
-  return [...card(idPrefix).querySelectorAll('.live-feed > li')]
+  return [...document.querySelectorAll('#live-panel .live-feed > li')] // the feed is in the one panel (T118)
 }
 const feedOf = (idPrefix) => feedLisOf(idPrefix).map((li) => li.textContent)
 const hhmmss = (ts) => {
@@ -295,7 +295,7 @@ describe('rows (FR-072)', () => {
     const items = [...document.querySelectorAll('.live-feed > li')].map((li) => li.textContent)
     expect(items).toHaveLength(1)
     expect(items[0]).toContain('Edit')
-    expect(card('aaaaaaaa').querySelector('.live-feed')).not.toBeNull()
+    expect(document.querySelector('#live-panel .live-feed')).not.toBeNull()
   })
 
   it('AC7: when the open session leaves the list nothing is drawn for it and the open id resets', () => {
@@ -305,7 +305,7 @@ describe('rows (FR-072)', () => {
     expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
     stream().emit('snapshot', snapshot([session('bbbbbbbb-2', { project: 'beta' })], 2))
     expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
-    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
     // the id was reset: the session coming back is closed, not re-opened by a stale id
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })], 3))
     expect(rowButton('aaaaaaaa')).toHaveAttribute('aria-expanded', 'false')
@@ -317,7 +317,7 @@ describe('rows (FR-072)', () => {
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 1))
     openRow('aaaaaaaa')
     stream().emit('snapshot', snapshot([], 2))
-    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
     expect(screen.getByText(/No active sessions/)).toBeInTheDocument()
   })
 
@@ -329,7 +329,7 @@ describe('rows (FR-072)', () => {
     send(live('bbbbbbbb-2', { tool: 'Read' }))
     stream().drop(0)
     stream().open()
-    expect(within(card('bbbbbbbb')).getByRole('region', { name: /Session bbbbbbbb/ })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Session in beta' })).toBeInTheDocument()
     expect(feedOf('bbbbbbbb')).toHaveLength(1)
   })
 
@@ -415,30 +415,30 @@ describe('inline expand (FR-085)', () => {
   }
   const key = (el, key) => fireEvent.keyDown(el, { key })
 
-  it('AC1: a row is a native button; a click expands its feed inside its own card; aria-expanded and aria-controls follow', () => {
+  it('AC1: a row is a native button; a click opens the one panel; aria-expanded and aria-controls follow', () => {
     two()
     const a = rowButton('aaaaaaaa')
     expect(a.tagName).toBe('BUTTON') // Enter and Space click a native button
     expect(a).toHaveAttribute('type', 'button')
     expect(a).toHaveAttribute('aria-expanded', 'false')
-    expect(document.querySelector('.live-feed')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
 
     fireEvent.click(a)
     expect(a).toHaveAttribute('aria-expanded', 'true')
-    const region = screen.getByRole('region', { name: /Session aaaaaaaa/ })
+    const region = screen.getByRole('region', { name: 'Session in alpha' })
     expect(a.getAttribute('aria-controls')).toBe(region.id)
-    expect(region.id).not.toBe('')
-    expect(card('aaaaaaaa').contains(region)).toBe(true) // the same li as the row
-    expect(card('aaaaaaaa').querySelector('.live-feed')).not.toBeNull()
+    expect(region.id).toBe('live-panel')
+    expect(card('aaaaaaaa').contains(region)).toBe(false) // the panel is beside the list, not inside the row (FR-128)
+    expect(region.closest('.live-split')).not.toBeNull()
     expect(within(region).getByRole('list', { name: /Tool calls, newest first/ })).toBeInTheDocument()
-    expect(within(region).queryByText('Tokens in')).toBeNull() // the row bars carry the totals: the area shows only the feed
+    expect(within(region).queryByText('Tokens in')).toBeNull() // the row bars carry the totals
 
-    fireEvent.click(a) // the same row again collapses it
+    fireEvent.click(a) // the same row again closes it
     expect(a).toHaveAttribute('aria-expanded', 'false')
-    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
   })
 
-  it('AC1: opening another row closes the first; at most one .live-feed and one aria-live region', () => {
+  it('AC1: opening another row switches the panel; at most one panel, one .live-feed and one aria-live region', () => {
     two()
     const a = rowButton('aaaaaaaa')
     const b = rowButton('bbbbbbbb')
@@ -446,39 +446,53 @@ describe('inline expand (FR-085)', () => {
     fireEvent.click(b)
     expect(a).toHaveAttribute('aria-expanded', 'false')
     expect(b).toHaveAttribute('aria-expanded', 'true')
+    expect(document.querySelectorAll('#live-panel')).toHaveLength(1)
     expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
     expect(document.querySelectorAll('[aria-live]')).toHaveLength(1)
-    expect(card('bbbbbbbb').querySelector('.live-feed')).not.toBeNull()
-    expect(card('aaaaaaaa').querySelector('.live-feed')).toBeNull()
+    expect(screen.getByRole('region', { name: 'Session in beta' })).toBeInTheDocument()
   })
 
-  it('AC2: Escape on the row collapses it and the focus stays on the row button', () => {
+  it('AC2: Escape on the row closes the panel and the focus stays on the row button', () => {
     two()
     const a = rowButton('aaaaaaaa')
     fireEvent.click(a)
     a.focus()
     key(a, 'Escape')
     expect(a).toHaveAttribute('aria-expanded', 'false')
-    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
     expect(a).toHaveFocus()
   })
 
-  it('AC2: Escape from inside the expanded area, and its Close control, collapse it and put the focus on that row button', () => {
+  it('AC7 (T118): Escape from inside the panel, and its Back button, close it and put the focus on that row button', () => {
     two()
     const a = rowButton('aaaaaaaa')
     fireEvent.click(a)
-    const close = within(card('aaaaaaaa')).getByRole('button', { name: 'Close' })
-    close.focus()
-    key(close, 'Escape')
+    const back = within(screen.getByRole('region', { name: 'Session in alpha' })).getByRole('button', { name: 'Back to sessions' })
+    back.focus()
+    key(back, 'Escape')
     expect(a).toHaveAttribute('aria-expanded', 'false')
     expect(a).toHaveFocus()
 
     fireEvent.click(a)
     ;(document.activeElement ?? document.body).blur()
-    fireEvent.click(within(card('aaaaaaaa')).getByRole('button', { name: 'Close' }))
+    fireEvent.click(within(screen.getByRole('region', { name: 'Session in alpha' })).getByRole('button', { name: 'Back to sessions' }))
     expect(a).toHaveAttribute('aria-expanded', 'false')
-    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
     expect(a).toHaveFocus()
+  })
+
+  it('AC7 (T118): Escape in a box that holds text does not close the panel and lose what was typed', () => {
+    render(<LiveView />)
+    stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { reply_bridge: true })]))
+    fireEvent.click(rowButton('aaaaaaaa'))
+    const box = screen.getByRole('textbox', { name: /Queue a message/ })
+    fireEvent.change(box, { target: { value: 'half a thought' } })
+    key(box, 'Escape')
+    expect(document.getElementById('live-panel')).not.toBeNull()
+    expect(box).toHaveValue('half a thought')
+    fireEvent.change(box, { target: { value: '' } })
+    key(box, 'Escape')
+    expect(document.getElementById('live-panel')).toBeNull()
   })
 
   it('AC2: Escape with nothing open does nothing', () => {
@@ -487,11 +501,11 @@ describe('inline expand (FR-085)', () => {
     a.focus()
     key(a, 'Escape')
     expect(a).toHaveAttribute('aria-expanded', 'false')
-    expect(document.querySelector('.live-expanded')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
     expect(rows()).toHaveLength(2)
   })
 
-  it('AC2: another key does not collapse an open row', () => {
+  it('AC2: another key does not close an open panel', () => {
     two()
     const a = rowButton('aaaaaaaa')
     fireEvent.click(a)
@@ -499,19 +513,18 @@ describe('inline expand (FR-085)', () => {
     expect(a).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('AC3: no side panel and no two-column grid; opening a row leaves a sibling row\'s markup unchanged and does not draw it again', () => {
+  it('AC3: the panel sits beside the list in one grid; opening a row leaves a sibling row\'s markup unchanged and does not draw it again', () => {
     render(<LiveView />)
     const quiet = new Date(Date.now() - 60_000).toISOString()
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta', last_ts: quiet })]))
     const siblingBefore = card('bbbbbbbb').outerHTML
     ago.mockClear()
     fireEvent.click(rowButton('aaaaaaaa'))
-    expect(document.querySelector('.live-panel')).toBeNull()
-    expect(document.getElementById('live-panel')).toBeNull()
-    expect(document.querySelector('[data-panel]')).toBeNull()
+    expect(document.querySelector('.live-split')).toHaveAttribute('data-open', 'true')
+    expect(document.querySelector('.live-split > .live-panel-col > #live-panel')).not.toBeNull()
     expect(card('bbbbbbbb').outerHTML).toBe(siblingBefore)
     expect(ago.mock.calls.map(([ts]) => ts)).not.toContain(quiet) // the sibling did not draw again
-    expect(rows()[0].closest('.live-sessions')).toBe(rows()[1].closest('.live-sessions')) // one list, one width
+    expect(rows()[0].closest('.live-sessions')).toBe(rows()[1].closest('.live-sessions')) // one list
   })
 
   it('AC3: a live event for the open session draws only its row', () => {
@@ -525,17 +538,13 @@ describe('inline expand (FR-085)', () => {
     expect(feedOf('aaaaaaaa')[0]).toContain('Edit')
   })
 
-  it('AC4: the row shows an arrow, closed then open, hidden from assistive technology', () => {
+  it('AC4: the selected row says so with aria-current, and no other row does', () => {
     two()
-    const arrow = (idPrefix) => rowButton(idPrefix).querySelector('.live-arrow')
-    expect(arrow('aaaaaaaa')).toHaveAttribute('aria-hidden', 'true')
-    expect(arrow('aaaaaaaa').textContent).toBe('▸')
-    expect(arrow('bbbbbbbb').textContent).toBe('▸')
+    expect(rowButton('aaaaaaaa')).not.toHaveAttribute('aria-current')
     fireEvent.click(rowButton('aaaaaaaa'))
-    expect(arrow('aaaaaaaa').textContent).toBe('▾')
-    expect(arrow('aaaaaaaa')).toHaveAttribute('aria-hidden', 'true')
-    expect(arrow('bbbbbbbb').textContent).toBe('▸')
-    expect(screen.queryByRole('button', { name: /▸|▾/ })).toBeNull() // the arrow is not part of the accessible name
+    expect(rowButton('aaaaaaaa')).toHaveAttribute('aria-current', 'true')
+    expect(card('aaaaaaaa')).toHaveAttribute('data-open', 'true')
+    expect(rowButton('bbbbbbbb')).not.toHaveAttribute('aria-current')
   })
 
   it('AC5: an MCP call shows only "server · tool", never the raw name; the raw name is in the row title; the time is HH:MM:SS 24 h', () => {
@@ -653,14 +662,14 @@ describe('feed', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { tool_calls: 7 })]))
     openRow('aaaaaaaa')
-    expect(within(card('aaaaaaaa')).getByText('No tool calls seen since this page opened.')).toBeInTheDocument()
+    expect(within(document.getElementById('live-panel')).getByText('No tool calls seen since this page opened.')).toBeInTheDocument()
   })
 
   it('announces new items politely and labels the feed', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     openRow('aaaaaaaa')
-    const feed = within(card('aaaaaaaa')).getByRole('list', { name: /Tool calls, newest first/ })
+    const feed = within(document.getElementById('live-panel')).getByRole('list', { name: /Tool calls, newest first/ })
     expect(feed).toHaveAttribute('aria-live', 'polite')
   })
 
@@ -1123,16 +1132,16 @@ describe('kit stage chip and call labels (FR-084)', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     const note = screen.getByText(/tokens times the API price table/).textContent
-    expect(note).toMatch(/tool names, skill, sub-agent, MCP and command names, counts and times are shown/)
-    expect(note).toMatch(/never other message or tool content/)
+    expect(note).toMatch(/shows only tool names, skill, sub-agent, MCP and command names, counts and times/)
+    expect(note).toMatch(/never stored/)
   })
 
-  it('T095 AC6, T107 AC3: the footnote names the texts it shows: the question a waiting session asks, and the prompt of a terminal session you can answer', () => {
+  it('T118 (NFR-002, fifth exception): the footnote says the open panel shows the conversation, tool input and result, and that nothing is stored', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
-    expect(screen.getByText(/tokens times the API price table/).textContent).toContain(
-      'Only tool names, skill, sub-agent, MCP and command names, counts and times are shown, and the question a waiting session asks; for a terminal session you can answer from here, also its question\'s header and options, and a permission\'s tool name and its full tool input (the whole command, path or plan); never other message or tool content.',
-    )
+    const note = screen.getByText(/tokens times the API price table/).textContent
+    expect(note).toContain('and the question a waiting session asks')
+    expect(note).toContain('Opening a session shows its conversation: your messages, Claude\'s text and each tool call with its input and result, read from Claude Code\'s own file while the panel is open and never stored.')
   })
 
   it('a long label and a long sub-agent type are cut with an ellipsis in their one-line cell (FR-085)', () => {
@@ -1183,10 +1192,12 @@ describe('design', () => {
     expect(liveCss).toMatch(/\.live-bar-num \{[^}]*white-space: nowrap/) // a number never breaks across two lines
   })
 
-  it('has no side-panel grid: the list keeps one width whether a session is open or not (FR-085)', () => {
-    expect(liveCss).not.toMatch(/data-panel/)
-    expect(liveCss).not.toMatch(/\.live-panel|\.live-body/)
-    expect(liveCss).toMatch(/\.live-expanded \{[^}]*position: relative[^}]*z-index: 1/) // above the row's click overlay
+  it('lays the panel beside the list from 40rem of the Live view and instead of it below that (FR-128)', () => {
+    const panelCss = readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
+    expect(panelCss).toMatch(/\.live-split\[data-open\] \.live-sessions \{ display: none; \}/) // narrow: the panel instead of the list
+    expect(panelCss).toMatch(/@container live \(min-width: 40rem\) \{[^@]*\.live-split\[data-open\] \{ grid-template-columns: minmax\(16rem, 2fr\) minmax\(0, 3fr\)/)
+    expect(panelCss).toMatch(/\.session-back \{ display: none; \}/) // wide: the list is still there, so no Back button
+    expect(liveCss).not.toMatch(/\.live-expanded/)
   })
 
   it('keeps every text color of the view at 4.5:1 or more on the card and page backgrounds', () => {
@@ -1265,7 +1276,7 @@ describe('your turn and the question text (T095, FR-108)', () => {
     expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?'])
     expect(card('aaaaaaaa').querySelector('button.live-row')?.textContent).not.toContain('A?') // a button holds no list: the questions sit under it
     openRow('aaaaaaaa')
-    const panel = within(card('aaaaaaaa')).getByRole('region')
+    const panel = screen.getByRole('region', { name: 'Session in alpha' })
     expect(questionsIn(panel)).toEqual(['A?', 'B?'])
     expect(questionsIn(card('bbbbbbbb'))).toEqual([])
     expect(pills('bbbbbbbb')).toEqual(['waiting for you: question'])
@@ -1276,11 +1287,11 @@ describe('your turn and the question text (T095, FR-108)', () => {
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1', { attention: [waitingWith(['A?', 'B?'])] })]))
     expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?'])
     openRow('aaaaaaaa')
-    expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?']) // once, not four
-    expect(questionsIn(within(card('aaaaaaaa')).getByRole('region'))).toEqual(['A?', 'B?'])
+    expect(questionsIn(card('aaaaaaaa'))).toEqual([]) // open: the questions are in the panel only
+    expect(questionsIn(screen.getByRole('region', { name: 'Session in alpha' }))).toEqual(['A?', 'B?']) // once, not twice
     fireEvent.click(rowButton('aaaaaaaa'))
     expect(questionsIn(card('aaaaaaaa'))).toEqual(['A?', 'B?'])
-    expect(card('aaaaaaaa').querySelector('[role=region]')).toBeNull()
+    expect(document.getElementById('live-panel')).toBeNull()
   })
 
   it('AC4: markup in a question is text, never an element', () => {
