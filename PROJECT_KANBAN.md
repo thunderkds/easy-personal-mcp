@@ -9,9 +9,9 @@
 ## Board
 
 ### Todo
-- [ ] **T112** — Reply to idle sessions 2 — the reply box and *Reply from the app* in the Live view | frontend-developer | C2 | Risk: Medium | P1
 
 ### In Progress
+- [ ] **T112** — Reply to idle sessions 2 — the reply box and *Reply from the app* in the Live view | frontend-developer | C2 | Risk: Medium | P1 | started 2026-11-18: worktree `easy-personal-mcp-wt/T112`, branch `T112` from `T111`; Depends on T111; PRD FR-122
 
 ### Ready for Review
 - [ ] **T111** — Reply to idle sessions 1 — `hook ask` on `Stop`, the hold, `/api/reply*`, `pending_reply` | backend-developer | C3 | Risk: High | P1 | started 2026-11-18: worktree `easy-personal-mcp-wt/T111`, branch `T111` from `T110` (spike findings); Depends on T110; PRD FR-121; built + Stage 4 2026-11-18 (`2eb8a28`): code-review 0 P0/P1/P2, 3 P3 fixed (`4d2807e`); security-review no finding ≥ 8 (twice); Debate `reply_marked` A (3 Advocates); Rust 1261 / 0, leak 0 hits
