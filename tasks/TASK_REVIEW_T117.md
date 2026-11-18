@@ -30,6 +30,8 @@ numbered decision, `Checks:`, `Memory:`, the `Not done:` auto verify slot with i
 naming the merge — no `<...>` left (`docs/claude-md/tracks.md` `### Auto close-out`).
 With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pass`, Notes `/verify by the user, session <id>, commit <sha>`.
 
+-->
+
 ## Auto decisions
 
 Mode: auto
@@ -39,8 +41,10 @@ Mode: auto
 4. Kind filter `terminal|headless` only; the page marks app sessions from its live app-session list — FACT: reviewer, real store 2026-11-18: entrypoints are only `cli`, `claude-desktop`, `sdk-cli` and empty, so app and headless runs cannot be told apart in the store
 Checks: tests `cargo test --workspace --no-fail-fast` — 1283 passed, 2 failed (`store_check` signal tests, load-related; `--test store_check` alone 12 passed); leak gate — 0 hits over 42 canaries, 1266 surfaces; reviews code-review — 0 P0/P1, 4 P2 + 3 P3 fixed (`afa11e1`, `2909860`); security-review — no finding ≥ 8; real store timing: default 30-day window ~80 ms (release), whole store 1.18 s
 Memory: memory/decisions.md — "2026-11-18 — Live like Claude: transcript on demand, queue, Stop/Force stop, past sessions, one panel" (+ MEMORY.md index line), `5c38bf4` on main
-Not done: owner smoke test (name a session and see it in Live); auto verify: runs next
+Not done: merge (admin: after the auto verify pass); owner smoke test (name a session and see it in Live); auto verify: runs next
 
+
+<!-- template:
 Mode: auto
 1. <what was decided> — RULE: <the rule>
 2. <what was decided> — FACT: <path>:<line> "<quoted text>"
