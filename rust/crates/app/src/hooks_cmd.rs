@@ -715,6 +715,9 @@ pub(crate) fn refresh_reply_accounts(api: &Api) {
         .filter_map(|a| a.id.parse().ok())
         .collect();
     api.answers.set_reply_accounts(on);
+    // T116 (FR-124): the same accounts' folders are where the session process files are read from
+    api.answers
+        .set_account_dirs(rows.iter().map(|a| a.folder.clone()).collect());
 }
 
 fn listening(api: &Api) -> bool {

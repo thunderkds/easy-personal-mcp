@@ -34,6 +34,7 @@ use crate::agent_routes::{self, Agent};
 use crate::alerts::Shared as Alerts;
 use crate::answer_bridge::{self, Bridge, SocketCell};
 use crate::live_feed::{LIVE_PATH, SharedTail, SseBody, resume_id};
+use crate::session_procs;
 use crate::{connector_writes, hooks_cmd, legacy, sync_apply, writes};
 use axum::Router;
 use axum::body::Body;
@@ -303,6 +304,11 @@ pub fn routes() -> Router<Api> {
         .route("/api/reply/release", post(answer_bridge::reply_release))
         .route("/api/reply/watch", post(answer_bridge::reply_watch))
         .route("/api/reply/mark", post(answer_bridge::reply_mark))
+        .route("/api/reply/queue", post(answer_bridge::reply_queue))
+        .route(
+            "/api/live/sessions/{id}/stop",
+            post(session_procs::stop_session),
+        )
 }
 
 /// `GET /api/alerts` (T074, FR-097): `{alerts, paused}`, the last 50 alerts newest first. It reads no store and writes nothing.

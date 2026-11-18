@@ -40,6 +40,7 @@
 
 use crate::api::{self, Api, Clock};
 use crate::live_feed::SharedTail;
+use crate::session_procs::ProcInfo;
 use crate::writes::{fail, parse, raw_body};
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
@@ -431,6 +432,15 @@ pub(crate) enum AnswerError {
     Incomplete,
 }
 
+/// FR-125: whether the owner can queue text for a session.
+enum Queueable {
+    Yes,
+    /// 404: not in the live list.
+    NotListed,
+    /// 409: listed, but not typed work of an account whose bridge is on.
+    NotBridged,
+}
+
 /// FR-121: one `Stop` hook the app holds for the owner's reply.
 struct Hold {
     id: String,
@@ -452,6 +462,13 @@ struct Held {
     /// T112: the ids of the accounts whose hook status is `on` (the `Stop` entry too), and when it was last read.
     reply_accounts: HashSet<i64>,
     reply_checked: Option<Instant>,
+    /// T116 (FR-124): the Claude accounts' config folders (read with the accounts above), the process files read from them
+    /// and when, by session id.
+    account_dirs: Vec<PathBuf>,
+    procs: HashMap<String, ProcInfo>,
+    procs_checked: Option<Instant>,
+    /// T116 (FR-125): the text the owner queued for a busy terminal session, by session id; in memory, dropped at app exit.
+    queued: HashMap<String, String>,
     answered: VecDeque<String>,
     /// Counts every change of the set, so the live stream sends a new snapshot.
     version: u64,
@@ -611,6 +628,7 @@ impl Bridge {
         let mut state = self.lock();
         state.closed = true;
         state.marked.clear();
+        state.queued.clear();
         if !state.pending.is_empty() || !state.holds.is_empty() {
             state.pending.clear();
             state.holds.clear();
@@ -797,18 +815,141 @@ impl Bridge {
         true
     }
 
-    /// Is any session marked? (A stream looks at the live list only then.)
+    /// Is any session marked or has a queued text? (A stream looks at the live list only then.)
     pub(crate) fn has_marks(&self) -> bool {
-        !self.lock().marked.is_empty()
+        let state = self.lock();
+        !state.marked.is_empty() || !state.queued.is_empty()
     }
 
-    /// FR-121: drops the marks of sessions that are not in `listed` (the live list), so a session that left it never comes
-    /// back marked.
+    /// FR-121, FR-125: drops the marks and queued texts of sessions that are not in `listed` (the live list), so a session
+    /// that left it never comes back marked or with a text waiting.
     pub(crate) fn prune_marks(&self, listed: &HashSet<String>) {
         let mut state = self.lock();
-        let before = state.marked.len();
+        let before = state.marked.len() + state.queued.len();
         state.marked.retain(|s| listed.contains(s));
-        if state.marked.len() != before {
+        state.queued.retain(|s, _| listed.contains(s));
+        if state.marked.len() + state.queued.len() != before {
+            state.version += 1;
+        }
+    }
+
+    // ---- T116: process files and the queue ----
+
+    /// FR-124: the folders the process files are read from (the confirmed Claude accounts', as `hooks_cmd` read them).
+    pub(crate) fn set_account_dirs(&self, dirs: Vec<PathBuf>) {
+        self.lock().account_dirs = dirs;
+    }
+
+    /// The folders to read the process files of, when they were not read for `every` (once); `None` when it is not due or
+    /// no folder is known yet.
+    pub(crate) fn procs_due(&self, every: Duration) -> Option<Vec<PathBuf>> {
+        let mut state = self.lock();
+        if state.account_dirs.is_empty() || state.procs_checked.is_some_and(|t| t.elapsed() < every)
+        {
+            return None;
+        }
+        state.procs_checked = Some(Instant::now());
+        Some(state.account_dirs.clone())
+    }
+
+    /// FR-124: the process files as just read. A change moves the counter, so the streams send a new snapshot.
+    pub(crate) fn set_procs(&self, procs: HashMap<String, ProcInfo>) {
+        let mut state = self.lock();
+        if state.procs != procs {
+            state.procs = procs;
+            state.version += 1;
+        }
+    }
+
+    /// FR-124: the process file of a session.
+    pub(crate) fn proc_of(&self, session_id: &str) -> Option<ProcInfo> {
+        self.lock().procs.get(session_id).cloned()
+    }
+
+    /// FR-124: does the live tail know the session as an app session (an `sdk` entrypoint)?
+    pub(crate) fn is_app_session(&self, session_id: &str) -> bool {
+        let listing = self.listing.lock().unwrap_or_else(PoisonError::into_inner);
+        let Listing::Tail(tail, _) = &*listing else {
+            return false;
+        };
+        let tail = tail.lock().unwrap_or_else(PoisonError::into_inner);
+        tail.session_typed(session_id) == Some(false)
+    }
+
+    /// FR-124, FR-125: per session id, the page's `proc` `{busy, name}`, and the queued text. Read under one lock.
+    pub(crate) fn view_session_extras(&self) -> (HashMap<String, Value>, HashMap<String, String>) {
+        let state = self.lock();
+        let procs = state
+            .procs
+            .iter()
+            .map(|(id, p)| (id.clone(), json!({"busy": p.busy, "name": p.name})))
+            .collect();
+        (procs, state.queued.clone())
+    }
+
+    /// FR-125: can text be queued for `session_id`? The session must be in the live list, be typed work and belong to an
+    /// account whose bridge is `on` (its `Stop` entry is what delivers the text).
+    fn queue_target(&self, session_id: &str) -> Queueable {
+        let listing = self.listing.lock().unwrap_or_else(PoisonError::into_inner);
+        match &*listing {
+            Listing::Any => Queueable::Yes,
+            Listing::Nothing => Queueable::NotListed,
+            Listing::Tail(tail, clock) => {
+                let tail = tail.lock().unwrap_or_else(PoisonError::into_inner);
+                let in_list = tail.snapshot(clock())["sessions"]
+                    .as_array()
+                    .is_some_and(|all| all.iter().any(|s| s["session_id"] == session_id));
+                if !in_list {
+                    return Queueable::NotListed;
+                }
+                let account = tail.reply_accounts().get(session_id).copied();
+                if account.is_some_and(|a| self.lock().reply_accounts.contains(&a)) {
+                    Queueable::Yes
+                } else {
+                    Queueable::NotBridged
+                }
+            }
+        }
+    }
+
+    /// FR-125: queues `text` for `session_id` (a newer text replaces the older one), or with `None` cancels it. Cancelling
+    /// always works.
+    fn queue(&self, session_id: &str, text: Option<String>) -> Queueable {
+        let Some(text) = text else {
+            let mut state = self.lock();
+            if state.queued.remove(session_id).is_some() {
+                state.version += 1;
+            }
+            return Queueable::Yes;
+        };
+        let target = self.queue_target(session_id);
+        if matches!(target, Queueable::Yes) {
+            let mut state = self.lock();
+            if state.closed {
+                return Queueable::NotListed;
+            }
+            state.queued.insert(session_id.to_string(), text);
+            state.version += 1;
+        }
+        target
+    }
+
+    /// A test's way to queue text without a live list.
+    #[cfg(test)]
+    pub(crate) fn queue_for_test(&self, session_id: &str, text: &str) {
+        self.queue(session_id, Some(text.to_string()));
+    }
+
+    /// FR-125: the text queued for `session_id`, left in place until [`Bridge::unqueue`].
+    fn queued_text(&self, session_id: &str) -> Option<String> {
+        self.lock().queued.get(session_id).cloned()
+    }
+
+    /// FR-125: drops the queued text after it was written to the hook's socket; not when the owner has replaced it since.
+    fn unqueue(&self, session_id: &str, text: &str) {
+        let mut state = self.lock();
+        if state.queued.get(session_id).is_some_and(|t| t == text) {
+            state.queued.remove(session_id);
             state.version += 1;
         }
     }
@@ -858,7 +999,7 @@ impl Bridge {
 
 // ---- the socket's checks ----
 
-fn own_uid() -> u32 {
+pub(crate) fn own_uid() -> u32 {
     // SAFETY: `geteuid` has no arguments and cannot fail.
     unsafe { libc::geteuid() }
 }
@@ -1071,6 +1212,9 @@ fn serve_hook(mut stream: UnixStream, bridge: &Bridge) -> Option<()> {
         return None;
     }
     let input: Value = serde_json::from_slice(&read_line(&stream, REQUEST_WAIT)?).ok()?;
+    if let Some(sent) = queued_for(&mut stream, &input, bridge) {
+        return sent;
+    }
     let (id, receiver, reply) = if text(&input, "hook_event_name") == Some("Stop") {
         let (id, receiver) = hold_for(&input, bridge)?;
         let reply = hold_wait(&stream, &receiver, bridge, &id);
@@ -1086,6 +1230,28 @@ fn serve_hook(mut stream: UnixStream, bridge: &Bridge) -> Option<()> {
     let written = write_line(&mut stream, &delivery.line);
     let _ = delivery.ack.send(written.is_some()); // the route answers 200 only for a line that was written
     written
+}
+
+/// FR-125: a `Stop` input (`stop_hook_active` false) of a session with a queued text is answered at once with the block
+/// JSON: no Live stream and no hold needed. `None`: nothing is queued for it (the usual path goes on); `Some`: it was answered,
+/// and whether the text was written. The text leaves the queue only after the socket took it (a hook that Esc just killed
+/// loses nothing), and not when the owner replaced it meanwhile.
+fn queued_for(stream: &mut UnixStream, input: &Value, bridge: &Bridge) -> Option<Option<()>> {
+    if text(input, "hook_event_name") != Some("Stop")
+        || input.get("stop_hook_active") != Some(&Value::Bool(false))
+    {
+        return None;
+    }
+    let session = text(input, "session_id").filter(|s| !s.is_empty() && s.len() <= ID_MAX)?;
+    let queued = bridge.queued_text(session)?;
+    let written = write_line(
+        stream,
+        &json!({"decision": "block", "reason": queued}).to_string(),
+    );
+    if written.is_some() {
+        bridge.unqueue(session, &queued);
+    }
+    Some(written)
 }
 
 fn write_line(stream: &mut UnixStream, line: &str) -> Option<()> {
@@ -1430,6 +1596,46 @@ pub(crate) async fn reply_mark(State(api): State<Api>, req: Request) -> Response
         ok()
     } else {
         fail(StatusCode::NOT_FOUND, NOT_LISTED)
+    }
+}
+
+/// `POST /api/reply/queue` `{session_id, text, confirmed: true}`: the text goes to a busy terminal session at its next turn
+/// end (its `Stop` hook gets the block JSON at once); one text per session, a newer one replaces it. `text: null` cancels.
+/// 200; 400 a bad body or a text that is empty or over 8,000 characters; 404 the session is not in the live list; 409 it is
+/// not typed work of an account whose answer bridge is on.
+pub(crate) async fn reply_queue(State(api): State<Api>, req: Request) -> Response {
+    let (id, body) = match key_body(req, "session_id").await {
+        Ok(parts) => parts,
+        Err(answer) => return answer,
+    };
+    if let Err(answer) = only(&body, &["session_id", "text", "confirmed"]) {
+        return answer;
+    }
+    let text = match body.get("text") {
+        Some(Value::Null) => None,
+        Some(Value::String(text)) => {
+            if let Err(why) = check_reply_text(text) {
+                return fail(StatusCode::BAD_REQUEST, why);
+            }
+            Some(text.clone())
+        }
+        _ => return fail(StatusCode::BAD_REQUEST, "text must be a string or null"),
+    };
+    let id = match session_id(id) {
+        Ok(id) => id,
+        Err(answer) => return answer,
+    };
+    let bridge = Arc::clone(&api.answers);
+    let done = tokio::task::spawn_blocking(move || bridge.queue(&id, text))
+        .await
+        .unwrap_or(Queueable::NotListed);
+    match done {
+        Queueable::Yes => ok(),
+        Queueable::NotListed => fail(StatusCode::NOT_FOUND, NOT_LISTED),
+        Queueable::NotBridged => fail(
+            StatusCode::CONFLICT,
+            "that session cannot take a queued text: it needs the answer bridge's Stop entry (Settings, answer bridge)",
+        ),
     }
 }
 
@@ -2764,5 +2970,153 @@ mod tests {
         for hook in hooks {
             assert_eq!(hook.join().unwrap(), None);
         }
+    }
+
+    // ---- T116: the queue (FR-125) ----
+
+    /// AC 4, 5, 6: one text per session (a newer replaces it), `None` cancels, a session that is not listed is refused, a
+    /// text queued for a session leaves with the live list (`prune_marks`) and with the app (`close`).
+    #[test]
+    fn a_queued_text_is_replaced_cancelled_pruned_and_dropped_at_exit() {
+        let bridge = Bridge::default();
+        assert!(matches!(
+            bridge.queue("s1", Some("one".into())),
+            Queueable::Yes
+        ));
+        assert!(matches!(
+            bridge.queue("s1", Some("two".into())),
+            Queueable::Yes
+        ));
+        assert!(matches!(
+            bridge.queue("s2", Some("other".into())),
+            Queueable::Yes
+        ));
+        assert_eq!(bridge.queued_text("s1").as_deref(), Some("two"));
+        assert!(
+            bridge.has_marks(),
+            "a stream looks at the live list for a queue too"
+        );
+        let before = bridge.version();
+        assert!(matches!(bridge.queue("s1", None), Queueable::Yes));
+        assert!(bridge.version() > before);
+        assert_eq!(bridge.queued_text("s1"), None);
+        assert!(
+            matches!(bridge.queue("never", None), Queueable::Yes),
+            "cancelling nothing is fine"
+        );
+        assert_eq!(bridge.view_session_extras().1["s2"], "other");
+        // a session that left the live list takes its text with it
+        bridge.prune_marks(&HashSet::from(["s9".to_string()]));
+        assert_eq!(bridge.queued_text("s2"), None);
+        assert!(!bridge.has_marks());
+        // not listed: refused, nothing queued; cancel still works
+        *bridge.listing.lock().unwrap() = Listing::Nothing;
+        assert!(matches!(
+            bridge.queue("s3", Some("x".into())),
+            Queueable::NotListed
+        ));
+        assert_eq!(bridge.queued_text("s3"), None);
+        *bridge.listing.lock().unwrap() = Listing::Any;
+        bridge.queue("s4", Some("x".into()));
+        bridge.close();
+        assert_eq!(bridge.queued_text("s4"), None, "dropped with the app");
+        assert!(
+            matches!(bridge.queue("s5", Some("x".into())), Queueable::NotListed),
+            "a closed bridge takes none"
+        );
+    }
+
+    /// AC 5: a `Stop` (`stop_hook_active` false) of a session with a queued text prints exactly the block JSON at once, with no
+    /// Live stream and no hold, and the text is gone after; a second `Stop` is the T111 path (handed back, no stream); an
+    /// active turn gets nothing and the text stays.
+    #[test]
+    fn a_stop_hook_gets_the_queued_text_at_once_without_a_stream_or_a_hold() {
+        let mut world = World::new("queue-stop", WAIT);
+        drop(world.stream.take()); // no page is connected
+        world.bridge.queue("s1", Some("/go on\n  \"two\" é".into()));
+        world.bridge.queue("other", Some("not mine".into()));
+        let before = world.bridge.version();
+        let began = Instant::now();
+        assert_eq!(
+            world.hook(&stop_input("s1", true, "x")).join().unwrap(),
+            None,
+            "an active turn is never answered"
+        );
+        assert_eq!(
+            world.bridge.queued_text("s1").as_deref(),
+            Some("/go on\n  \"two\" é")
+        );
+        let out = world.hook(&stop_input("s1", false, "x")).join().unwrap();
+        assert_eq!(
+            out.as_deref(),
+            Some(r#"{"decision":"block","reason":"/go on\n  \"two\" é"}"#)
+        );
+        assert!(
+            began.elapsed() < Duration::from_secs(2),
+            "{:?}",
+            began.elapsed()
+        );
+        assert_eq!(world.bridge.queued_text("s1"), None, "delivered once");
+        assert_eq!(
+            world.bridge.queued_text("other").as_deref(),
+            Some("not mine")
+        );
+        assert!(world.bridge.version() > before, "the page learns it left");
+        assert_eq!(world.bridge.view_all().2.len(), 0, "no hold was made");
+        assert_eq!(
+            world.hook(&stop_input("s1", false, "x")).join().unwrap(),
+            None
+        );
+    }
+
+    /// AC 5: the text leaves the queue only after the socket took it: a hook that is gone loses nothing; and a text the
+    /// owner replaced meanwhile is not dropped by the delivery of the older one.
+    #[test]
+    fn the_queued_text_stays_when_the_write_fails_or_it_was_replaced() {
+        let bridge = Bridge::default();
+        bridge.queue("s1", Some("keep me".into()));
+        let (mut ours, theirs) = UnixStream::pair().unwrap();
+        drop(theirs);
+        let sent = queued_for(&mut ours, &stop_input("s1", false, "x"), &bridge);
+        assert_eq!(sent, Some(None), "answered, but nobody got it");
+        assert_eq!(bridge.queued_text("s1").as_deref(), Some("keep me"));
+        assert_eq!(
+            queued_for(&mut ours, &stop_input("none", false, "x"), &bridge),
+            None
+        );
+        bridge.unqueue("s1", "older text");
+        assert_eq!(bridge.queued_text("s1").as_deref(), Some("keep me"));
+        bridge.unqueue("s1", "keep me");
+        assert_eq!(bridge.queued_text("s1"), None);
+    }
+
+    /// AC 2: the page's extras hold `{busy, name}` of a process file and nothing else of it.
+    #[test]
+    fn the_session_extras_carry_busy_and_name_only() {
+        let bridge = Bridge::default();
+        let before = bridge.version();
+        let info = |busy: bool| ProcInfo {
+            pid: 7,
+            proc_start: "5".into(),
+            busy,
+            name: Some("fix bug".into()),
+            kind: Some("interactive".into()),
+            entrypoint: Some("cli".into()),
+        };
+        bridge.set_procs(HashMap::from([("s1".to_string(), info(true))]));
+        assert!(bridge.version() > before);
+        let (procs, queued) = bridge.view_session_extras();
+        assert_eq!(procs["s1"], json!({"busy": true, "name": "fix bug"}));
+        assert!(queued.is_empty());
+        let same = bridge.version();
+        bridge.set_procs(HashMap::from([("s1".to_string(), info(true))]));
+        assert_eq!(bridge.version(), same, "no change, no new snapshot");
+        assert_eq!(bridge.proc_of("s1").unwrap().pid, 7);
+        assert!(bridge.proc_of("nobody").is_none());
+        // due: not before a folder is known, then once per interval
+        assert!(bridge.procs_due(Duration::from_secs(60)).is_none());
+        bridge.set_account_dirs(vec![PathBuf::from("/x")]);
+        assert!(bridge.procs_due(Duration::from_secs(60)).is_some());
+        assert!(bridge.procs_due(Duration::from_secs(60)).is_none());
     }
 }
