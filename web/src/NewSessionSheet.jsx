@@ -97,6 +97,9 @@ export default function NewSessionSheet({ form, onStarted, onCancel, onOpenSetti
   }
   return (
     <div ref={box} tabIndex={-1} className="new-session-sheet" role="group" aria-label="Session form">
+      <p className="muted">
+        A session started here is Claude Code on this machine, run from Live like any other session. What you type and what Claude answers is kept in memory only: it is dropped when you close an ended session and when the app exits.
+      </p>
       {body}
     </div>
   )

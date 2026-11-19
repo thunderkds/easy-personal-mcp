@@ -646,7 +646,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     }
   }, [wantedId, entries, onWantedUsed])
   useEffect(() => {
-    // The app session just started on the App sessions page: its panel opens here, once it is in the list.
+    // The app session just started from the New session sheet: its panel opens here, once it is in the list.
     if (wantedApp && entries.some((e) => e.key === `app:${wantedApp}`)) {
       setView('live')
       setOpenId(`app:${wantedApp}`)
