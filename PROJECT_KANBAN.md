@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T121** — UX audit and fix pass, whole app | frontend-developer | C3 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T121`, branch `T121` from `main`
 
 ### Ready for Review
 
