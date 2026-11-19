@@ -68,12 +68,20 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (verbatim prior content at `f12606f`, captured 2026-11-19 before any implementation commit; the change is CSS, so the prior rules are quoted, plus screenshots):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+`web/src/tokens.css`:
+```
+  /* All text is Plex Mono (T120); system monospace fonts are the fallback. --font-sans stays only so a stale reference still resolves. */
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-sans: var(--font-mono);
+```
+`web/src/app.css`: `body { ... font-family: var(--font-mono); ... }`, `.sidebar nav button { ... font-family: var(--font-mono); ... }`, `.field input/select { ... font-family: var(--font-mono); ... }`, `code, pre, kbd, samp { font-family: var(--font-mono); }`; no `font-variant-numeric` rule anywhere.
+Screenshots at 375 and 1280 (mock data), all pages, in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/t123/before/` (usage, live-list, live-panel-busy, past-list, past-panel, settings, memory, workflow, board, ...). Everything in them is Plex Mono.
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**AFTER** (verbatim new content): `--font-sans: 'Inter', system-ui, sans-serif;` in tokens.css with three Inter `@font-face` (400/500/600, latin woff2); app.css `body { font-family: var(--font-sans); font-variant-numeric: tabular-nums; ... }`, `.sidebar nav button` and the form controls back to `var(--font-sans)`; tables, ids, KPIs, labels, code stay `var(--font-mono)`. Screenshots at 375 and 1280 in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/t123/after/`: text is Inter, ids/labels/tables Plex Mono; no horizontal page scroll, no text under 12 px, same overflow lists as before.
+
+**DELTA**: Body text, nav, buttons and form fields now read in Inter (with equal-width digits) while ids, commands, tables and labels keep Plex Mono.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T123.jsonl`, never the
 implementing agent alone]

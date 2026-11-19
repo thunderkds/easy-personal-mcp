@@ -3,7 +3,8 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums; /* digits of equal width everywhere in Inter text, so live and columnar numbers do not jiggle (T123) */
   font-size: var(--fs-body);
   color: var(--color-text);
   background-color: var(--color-bg);
@@ -13,7 +14,7 @@ ul, ol { padding: 0; list-style: none; }
 a { color: var(--color-link); text-decoration: none; }
 a:hover { color: var(--color-link-hover); }
 input, select, textarea, button { font: inherit; }
-code, pre, kbd, samp { font-family: var(--font-mono); } /* the browser default would be its own monospace face, not Plex Mono (T120) */
+code, pre, kbd, samp { font-family: var(--font-mono); } /* the browser default would be its own monospace face, not Plex Mono */
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 /* Shell: sidebar + content */
@@ -51,7 +52,7 @@ code, pre, kbd, samp { font-family: var(--font-mono); } /* the browser default w
   border-radius: var(--radius-sm);
   background: none;
   color: var(--color-nav);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-body);
   text-align: left;
   cursor: pointer;
@@ -178,7 +179,7 @@ main section.notice { flex-direction: row; flex-wrap: wrap; align-items: center;
   border-radius: var(--radius-sm);
   background: var(--color-input);
   color: var(--color-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--fs-control);
 }
 .field textarea { height: auto; padding: var(--space-2) 10px; }
