@@ -120,7 +120,7 @@ main button.turn-fold:hover { background: none; }
 .live-head .periods { align-self: center; }
 .live-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); min-width: 0; }
 .live-filters .periods, .live-filters .board-filter { min-width: 0; max-width: 100%; }
-.live-filters select, .live-filters input, .session-rename input { box-sizing: border-box; max-width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-input); color: var(--color-text); font-family: var(--font-sans); font-size: var(--fs-control); }
+.live-filters select, .live-filters input, .session-rename input { box-sizing: border-box; max-width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-input); color: var(--color-text); font-family: var(--font-mono); font-size: var(--fs-control); }
 .live-filters input[type='text'] { width: 12rem; }
 .past { min-width: 0; }
 .past-window { margin: 0; overflow-wrap: anywhere; }

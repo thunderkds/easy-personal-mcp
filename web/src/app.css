@@ -3,7 +3,7 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: var(--fs-body);
   color: var(--color-text);
   background-color: var(--color-bg);
@@ -13,6 +13,7 @@ ul, ol { padding: 0; list-style: none; }
 a { color: var(--color-link); text-decoration: none; }
 a:hover { color: var(--color-link-hover); }
 input, select, textarea, button { font: inherit; }
+code, pre, kbd, samp { font-family: var(--font-mono); } /* the browser default would be its own monospace face, not Plex Mono (T120) */
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 /* Shell: sidebar + content */
@@ -50,7 +51,7 @@ input, select, textarea, button { font: inherit; }
   border-radius: var(--radius-sm);
   background: none;
   color: var(--color-nav);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: var(--fs-body);
   text-align: left;
   cursor: pointer;
@@ -170,7 +171,7 @@ main section.notice { flex-direction: row; flex-wrap: wrap; align-items: center;
   border-radius: var(--radius-sm);
   background: var(--color-input);
   color: var(--color-text);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: var(--fs-control);
 }
 .field textarea { height: auto; padding: var(--space-2) 10px; }
@@ -304,7 +305,7 @@ main .kpi { display: flex; flex-direction: column; gap: var(--space-2); padding:
 .split-unknown { background: var(--color-dot); }
 .split-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: var(--space-3) 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--color-secondary); }
 .split-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; }
-.day-labels { display: flex; gap: 10px; margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); }
+.day-labels { display: flex; gap: 10px; margin-top: 6px; font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .day-labels span { flex: 1; min-width: 0; text-align: center; }
 .bar-rows { display: flex; flex-direction: column; gap: var(--space-3); font-size: var(--fs-cell); }
 .bar-row { display: flex; flex-direction: column; gap: 6px; }
@@ -486,12 +487,12 @@ main button.ws-file-name:hover { background: none; color: var(--color-link-hover
 
 /* Right rail */
 .rail-card { gap: var(--space-3); padding: var(--space-5); }
-.rail-card > h2 { font-size: 0.875rem; }
+.rail-card > h2 { font-size: var(--fs-body); }
 .rail-card .ring { align-self: center; }
 .ring { display: block; width: 7rem; height: 7rem; }
 .ring-track { stroke: var(--color-track); stroke-width: 8; }
 .ring-value { stroke: var(--color-accent); stroke-width: 8; filter: var(--glow-line); }
-.ring-text { fill: var(--color-accent); font-family: var(--font-mono); font-size: 17px; font-weight: 500; }
+.ring-text { fill: var(--color-accent); font-family: var(--font-mono); font-size: var(--fs-h2); font-weight: 500; }
 .rail-note { line-height: 1.5; overflow-wrap: anywhere; }
 .rail-list { display: flex; flex-direction: column; gap: 10px; font-size: var(--fs-cell); line-height: 1.45; }
 ol.rail-list { counter-reset: rail; }
@@ -574,7 +575,7 @@ main.memory { max-width: none; }
 .memory-edge[data-active] { stroke: var(--color-accent); stroke-width: 1.5; }
 .memory-node { cursor: pointer; outline: none; }
 .memory-node circle { stroke: var(--color-bg); stroke-width: 2; }
-.memory-node text { fill: var(--color-secondary); font-family: var(--font-mono); font-size: 13px; pointer-events: none; }
+.memory-node text { fill: var(--color-secondary); font-family: var(--font-mono); font-size: var(--fs-cell); pointer-events: none; }
 .memory-node-kit circle { fill: var(--color-accent); }
 .memory-node-claude circle { fill: var(--color-amber); }
 .memory-node-dangling circle { fill: none; stroke: var(--color-muted); stroke-dasharray: 3 2; }
@@ -583,7 +584,7 @@ main.memory { max-width: none; }
 .memory-body[data-wide] { grid-template-columns: minmax(0, 1fr); } /* ring 4 needs the width: the panels go under the graph */
 @media (min-width: 40rem) { .memory-body[data-wide] .memory-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 .memory-mark circle { fill: var(--color-red); stroke: var(--color-bg); stroke-width: 1; }
-.memory-node .memory-mark text { fill: var(--color-bg); font-size: 11px; font-weight: 600; }
+.memory-node .memory-mark text { fill: var(--color-bg); font-size: var(--fs-label); font-weight: 600; }
 .memory-side { display: grid; gap: var(--space-4); min-width: 0; }
 .memory-cited { margin: var(--space-2) 0 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-secondary); }
 .memory-easy { min-width: 0; font-family: var(--font-mono); font-size: var(--fs-note); }
@@ -699,7 +700,7 @@ main button.live-row:focus-visible { outline: none; }
 }
 .toast-error { border-color: var(--color-red); }
 .toast-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-control); }
-.toast-close { flex: none; width: 1.75rem; height: 1.75rem; border: 0; border-radius: var(--radius-sm); background: none; color: var(--color-secondary); font-size: 1.125rem; line-height: 1; cursor: pointer; }
+.toast-close { flex: none; width: 1.75rem; height: 1.75rem; border: 0; border-radius: var(--radius-sm); background: none; color: var(--color-secondary); font-size: var(--fs-h2); line-height: 1; cursor: pointer; }
 .toast-close:hover { background: var(--color-selected); color: var(--color-heading); }
 @media (max-width: 39.999rem) {
   .toast-host { left: var(--space-4); width: auto; }
