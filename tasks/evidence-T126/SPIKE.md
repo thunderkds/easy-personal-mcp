@@ -87,3 +87,18 @@ effortLevel, source:"agent"})`), so the tool output is the CLI's own effort for 
    (`claude --help`: `--effort <level>`). The request never carries a `source` field (the binary has a branch that persists
    `effortLevel` into user settings when `source: "userSettings"` is given: the app never sends it).
 5. Effort has no echo: the app shows the level it last sent with a `success`, never a value read back.
+
+## Run 4 (Stage 4 re-spike, 2026-11-19T23:38Z, Supervisor) — the levels runs 2-3 did not send
+
+Asked by the T126 Stage 4 Debate (all three Advocates): `medium` and a set-back to `low` were never sent mid-session.
+Same method (scratchpad temp `git init` folder, same env scrub, `--model sonnet --effort high --allowedTools "Bash(printenv:*)"`),
+Claude Code **2.1.329**. Process closed by the script (exit 0); none left.
+
+| Sent | Answer | `CLAUDE_EFFORT` in the next turn's Bash tool |
+|---|---|---|
+| started with `--effort high` | — | `high` |
+| `effortLevel: "medium"` | `success` | **`medium`** |
+| `effortLevel: "low"` | `success` | **`low`** |
+
+So all five levels of the fixed list (`low`, `medium`, `high`, `xhigh`, `max`) are seen to apply mid-session, raising and lowering.
+
