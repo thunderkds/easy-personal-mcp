@@ -131,6 +131,8 @@ main button.turn-fold:hover { background: none; }
 main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
 @media (max-width: 39.999rem) {
   .live-filters .periods button, .live-filters select, .live-filters input, .session-rename input, main button.session-rename-button { min-height: 44px; }
+  .live-head .periods button, .past > .live-split > .live-sessions > button, .live-filters .link-button, .past-window .link-button { min-height: 44px; }
+  .past-window .link-button { display: inline-flex; align-items: center; }
   .live-filters .board-filter { flex: 1 1 100%; }
   .live-filters input[type='text'] { width: 100%; }
 }
