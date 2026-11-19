@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { getJson } from './api.js'
 import { ago, compact, fmt, percent } from './format.js'
 import { useLoad } from './useLoad.js'
@@ -218,6 +218,20 @@ function EasyMemoryPanel({ data }) {
   )
 }
 
+/** The graph's card. Below the width the labels need, the card scrolls sideways (T121 F14); it starts with the centre of the graph in view. */
+function GraphCard({ children }) {
+  const ref = useRef(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el && el.scrollWidth > el.clientWidth) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2
+  }, [])
+  return (
+    <div className="memory-graph" ref={ref}>
+      {children}
+    </div>
+  )
+}
+
 function ProjectGraph({ project }) {
   const [selectedId, setSelectedId] = useState(null)
   const state = useLoad(() => getJson(`/api/memory-graph?project=${encodeURIComponent(project)}`), [project])
@@ -237,9 +251,9 @@ function ProjectGraph({ project }) {
   return (
     <>
       <div className="memory-body" data-wide={ordered.some((n) => n.ring === EASY_RING) || undefined}>
-        <div className="memory-graph">
+        <GraphCard>
           <RingsGraph nodes={shown} edges={edges} selectedId={selectedId} onSelect={setSelectedId} title={`Memory graph of ${name}`} />
-        </div>
+        </GraphCard>
         <div className="memory-side">
           <Panel node={selected} />
           {easy && <EasyMemoryPanel data={easy} />}

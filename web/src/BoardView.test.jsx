@@ -138,6 +138,13 @@ describe('columns (AC4)', () => {
     expect(css).toMatch(/\.board-title \{[^}]*-webkit-line-clamp: 3/)
   })
 
+  it('shows the Done toggle as a button with a chevron, so it reads as openable (T121 F16)', async () => {
+    await renderView()
+    const toggle = within(column('Done')).getByRole('button', { name: /Done/ })
+    expect(toggle.querySelector('.board-chevron')).not.toBeNull()
+    expect(toggle).toHaveAccessibleName('Done (41)')
+  })
+
   it('keeps Done collapsed with its exact count, and expands to the last 5 with a way to see all', async () => {
     await renderView()
     expect(within(column('Done')).getByRole('heading', { level: 2 })).toHaveTextContent('Done (41)')
