@@ -2,6 +2,8 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 import { getAppSessions, readToken } from './api.js'
 import Cost from './Cost.jsx'
 import { ago, compact, fmt } from './format.js'
+import FilterBar, { kindOf, loadFilters, passes, saveFilters } from './LiveFilters.jsx'
+import PastSessions from './PastSessions.jsx'
 import { useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
 import SessionPanel, { STATES, folderName } from './SessionPanel.jsx'
@@ -173,7 +175,18 @@ const sum = (list) =>
 
 const before = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const needsYou = (s) => statesOf(s).length > 0
-const asksYou = (e) => needsYou(e.s) || e.s.pending !== null || e.card // sorting only: a session with a prompt card is listed with the ones that need you
+const asksYou = (e) => needsYou(e.s) || e.s.pending !== null || e.card // a session with a prompt card is listed with the ones that need you, and counts for the *needs me* filter
+
+/**
+ * The state filter's word for one listed session (FR-128). Needs me: a state, or a prompt waiting in the panel. Otherwise working or idle: an app
+ * session by its own state; a terminal session by its process file's busy flag, else by the active window the row's caption uses.
+ */
+export function statusOf(e, now, windowS) {
+  if (asksYou(e)) return 'needs'
+  if (e.app) return e.app.state === 'working' || e.app.state === 'stopping' ? 'working' : 'idle'
+  if (e.s.proc) return e.s.proc.busy ? 'working' : 'idle'
+  return isIdle(e.s, now, windowS) ? 'idle' : 'working'
+}
 
 /** account -> entries: the ones needing you first, then the newest. Accounts in name order. */
 function group(entries) {
@@ -310,7 +323,7 @@ const SessionRow = memo(function SessionRow({ s, k, now, windowS, open, reveal, 
           {(s.session_id ?? 'starting').slice(0, ID_CHARS)}
         </span>
         <span className="live-name" title={s.project}>
-          {s.name ?? s.project}
+          {s.name ?? s.proc?.name ?? s.project}
         </span>
         {s.stage !== null && (
           <span className="live-stage">{s.stage_skill ? `Stage ${s.stage} · ${s.stage_skill}` : `Stage ${s.stage}`}</span>
@@ -501,6 +514,17 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     return () => clearInterval(timer)
   }, [])
   const [revealId, setRevealId] = useState(null) // the session picked from the address: the one row that scrolls into view
+  const [view, setView] = useState('live') // `live`: the list of running sessions; `past`: the sessions of the store (T119, FR-128)
+  const [filters, setFilters] = useState(loadFilters) // state, project and kind of the list: kept in localStorage, those three values only
+  const filtersRef = useRef(filters)
+  const changeFilters = useCallback((patch) => {
+    const next = { ...filtersRef.current, ...patch }
+    filtersRef.current = next
+    setFilters(next)
+    saveFilters(next)
+  }, [])
+  const [renamed, setRenamed] = useState({}) // session id -> the name the server just accepted (null: removed), until the snapshot says the same (FR-127)
+  const onRenamed = useCallback((id, name) => setRenamed((old) => ({ ...old, [id]: name })), [])
   const onToggle = useCallback(
     (key) => {
       if (openRef.current === key) {
@@ -529,7 +553,8 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     const list = apps ?? []
     const byClaudeId = new Map(list.filter((a) => typeof a.session_id === 'string').map((a) => [a.session_id, a]))
     const used = new Set()
-    const out = sessions.map((s) => {
+    const out = sessions.map((live) => {
+      const s = live.session_id in renamed ? { ...live, name: renamed[live.session_id] } : live
       const a = byClaudeId.get(s.session_id)
       if (a) used.add(a.id)
       return { s, key: a ? `app:${a.id}` : s.session_id, app: a ?? null, card: a ? appCard(a) : false }
@@ -543,9 +568,20 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         row = { sig, s: appOnly(a, seen.current[a.id]) }
         cache.current.set(a.id, row)
       }
-      out.push({ s: row.s, key: `app:${a.id}`, app: a, card: appCard(a) })
+      const s = typeof a.session_id === 'string' && a.session_id in renamed ? { ...row.s, name: renamed[a.session_id] } : row.s
+      out.push({ s, key: `app:${a.id}`, app: a, card: appCard(a) })
     }
     return out
+  }, [sessions, apps, renamed])
+  useEffect(() => {
+    // A name the snapshot now carries is no longer held here: the stream is the page's one source again. A name held for a session that is in neither
+    // the stream nor the app session list is let go too, so it cannot come back with the session after the server changed it.
+    setRenamed((old) => {
+      const byId = new Map(sessions.map((x) => [x.session_id, x.name]))
+      const appIds = new Set((apps ?? []).map((a) => a.session_id))
+      const keep = Object.entries(old).filter(([id, name]) => (byId.has(id) ? byId.get(id) !== name : appIds.has(id)))
+      return keep.length === Object.keys(old).length ? old : Object.fromEntries(keep)
+    })
   }, [sessions, apps])
   const selected = openId === null ? null : (entries.find((e) => e.key === openId || e.s.session_id === openId) ?? null)
   useEffect(() => {
@@ -556,6 +592,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     // The session the app asked for (the page's start address): select it once, as soon as it is in the list. The page gives up after 10 s.
     const hit = wantedId && entries.find((e) => e.s.session_id === wantedId)
     if (hit) {
+      setView('live')
       setOpenId(hit.key)
       setRevealId(hit.key)
       setFocusPanel(false)
@@ -565,14 +602,18 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   useEffect(() => {
     // The app session just started on the App sessions page: its panel opens here, once it is in the list.
     if (wantedApp && entries.some((e) => e.key === `app:${wantedApp}`)) {
+      setView('live')
       setOpenId(`app:${wantedApp}`)
       setFocusPanel(true)
       onWantedAppUsed?.()
     }
   }, [wantedApp, entries, onWantedAppUsed])
-  const groups = useMemo(() => group(entries), [entries])
+  const facts = useMemo(() => entries.map((e) => ({ state: statusOf(e, now, state.windowS), project: e.s.project ?? '', kind: kindOf(e.s, e.app) })), [entries, now, state.windowS])
+  const openKey = selected?.key ?? null
+  const groups = useMemo(() => group(entries.filter((e, i) => e.key === openKey || passes(facts[i], filters))), [entries, facts, filters, openKey]) // the open session's row stays listed, whatever the filters say
+  const shown = groups.reduce((n, g) => n + g.entries.length, 0)
   const [notices, endPrompt] = useNotices(sessions)
-  const needing = sessions.filter(needsYou).length
+  const needing = entries.filter(asksYou).length // the rule of the *Needs me* filter: a state, a prompt in the panel, or a prompt card
   const all = entries.map((e) => e.s)
   const maxTokens = Math.max(0, ...all.map((s) => s.tokens_in + s.tokens_out))
   const maxCost = Math.max(0, ...all.map((s) => s.cost))
@@ -582,12 +623,23 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     <main className="live">
       <div className="live-head">
         <h1>Live</h1>
+        <div className="periods" role="group" aria-label="View">
+          <button type="button" aria-pressed={view === 'live'} onClick={() => setView('live')}>
+            Live
+          </button>
+          <button type="button" aria-pressed={view === 'past'} onClick={() => setView('past')}>
+            Past
+          </button>
+        </div>
         {needing > 0 && (
           <p role="status" className="live-need">
             {needing === 1 ? '1 session needs you' : `${needing} sessions need you`}
           </p>
         )}
       </div>
+      {view === 'past' && <PastSessions filters={filters} onFilters={changeFilters} onResume={appSessions && apps !== null ? onResumeInApp : undefined} />}
+      {view === 'live' && (
+        <>
       <div className="live-status">
         <p role="status">{STATUS[link]}</p>
         {link === 'closed' && (
@@ -609,6 +661,12 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
       {entries.length > 0 && (
         <div className="live-split" data-open={selected ? 'true' : undefined}>
           <div className="live-sessions">
+            <FilterBar facts={facts} filters={filters} onChange={changeFilters} />
+            {shown === 0 && (
+              <p role="status" className="muted">
+                No sessions match these filters.
+              </p>
+            )}
             {groups.map((a, i) => (
               <section key={a.account} aria-labelledby={`live-acc-${i}`}>
                 <h2 id={`live-acc-${i}`}>{a.account}</h2>
@@ -649,12 +707,15 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                 onEnd={endPrompt}
                 onResume={appSessions && apps !== null ? onResumeInApp : undefined}
                 onOpenSettings={onOpenSettings}
+                onRenamed={onRenamed}
                 onBack={closePanel}
                 autoFocus={focusPanel}
               />
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </main>
   )

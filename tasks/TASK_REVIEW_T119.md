@@ -48,16 +48,50 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/LiveFilters.test.jsx` (20 tests, AC 1), `web/src/LiveRename.test.jsx` (AC 2), `web/src/PastSessions.test.jsx` (35 tests, AC 3: date range, Load more, 30-day note + Show older, read-only conversation, Resume / Fork). Filters: needs me / working / idle, project, kind, counts, `localStorage` (filters only, throwing storage, bad shapes). |
+| Verification command run | ☑ pass | 2026-11-19 03:49 UTC at `ef5c5ef` (after the Stage 4 fixes): `Test Files  42 passed (42)`, `Tests  1417 passed (1417)`; `npm run build` `✓ built in 143ms`; `check_static: ok`. (Baseline before: 39 files, 1347 tests.) |
+| Negative cases hold | ☑ pass | Mutations on the code, each caught by a named test, code restored after (`git status` clean of the mutated file): `to` sent without +1 day (date range test fails), no stale-answer guard (older filter test fails), no explicit `from` on Show older (2 tests fail), window note always off (3 fail), no de-dup on Load more (1 fails), filters not written to `localStorage` (2 fail), a kind count that does not ignore its own filter (1 fails, test added for it). Stage 4 fixes, same method: no held panel session (1 fails), the rows dropped while the next list loads (1 fails), the held rename never released for an id in neither list (1 fails), the heading on the old `needsYou` rule (1 fails). One mutation survives: removing `setFocusPanel(false)` (see the Stage 4 section: it is a guard, the panel no longer remounts). |
+| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed: `LiveView.jsx` (hub: App mounts it; all Live tests ran: 42 files), `SessionPanel.jsx`, `api.js`, `appsession.css`, the four new components. Not touched: `rust/**`, `src/easy_personal/**`. Edge Case Checklist: gone file shown as the route's one line (Transcript error branch, tested); names and text are React text, never HTML (tested with `<b>`); 375 px wraps, code blocks scroll inside themselves (screenshots); names file limits are the server's (80 chars `maxLength`, refusal line shown). |
+| Full smoke suite still green (no regression) | ☑ pass | Full web suite 1410/1410; build and `check_static.py` ok. |
+| **Companion score (easy-verifier)** | ☑ N/A | Not run by the implementing agent. |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate on real headless-Chrome screenshots at 375 and 1280 (table below). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | New CSS (`web/src/appsession.css`, T119 block) uses only `var(--...)` tokens (`grep -n "#[0-9a-f]\{3,6\}" ` on the block: none). Reused `.periods`, `.board-filter`, `.link-button`, `.live-row`, `.session-*`. |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375: `scrollWidth 375 == clientWidth 375` on live list, live panel, Past list, Past panel, rename field; 1280: no overflow. Touch targets measured in the page at 375: none under 44 px (after one fix, below). |
+
+### ux-evaluate (no UX rows in the guide: baseline checks only)
+
+Screenshots (scratch, not committed): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t119/shots/` (`live-list`, `live-panel`, `live-filter-working`, `live-nomatch`, `past-list`, `past-older`, `past-panel`, `past-rename`, each `-375.png` and `-1280.png`). Served by a fixture mock of the Rust routes (no real sessions); driven by Chrome DevTools.
+
+First run failed B-d at 375: Live / Past switch, Show older, Clear filters, Load more were 32 px high. Fixed in CSS (`ae8397e`), screenshots taken again, in-page measure now empty.
+
+| # | Flow / state | Width | Verdict | Reason |
+|---|---|---|---|---|
+| B-a | Live list, Past list | 375 / 1280 | pass | The rows (whole-card targets) and the Live/Past switch are in view at the top; Resume in app is the first action in a past panel |
+| B-b | all | 375 / 1280 | pass | Title and switch, then filters, then list, then panel; one reading order |
+| B-c | all | 375 / 1280 | pass | Filters group on one row at 1280 and stack at 375; same card gaps as T118 |
+| B-d | all | 375 | pass | In-page measure of buttons, selects, inputs at 375 (rows excluded: the whole card is their target): none under 44 px |
+| B-e | all | 375 | fail (older) | Body text measures 12.5 px at 375; the app's `--fs-*` tokens are this size on every page, so it is not caused by T119 |
+| B-f | list empty, no match, loading, error | 375 / 1280 | pass | "No sessions match these filters." with Clear filters is on screen (`live-nomatch-375.png`); Past empty, loading, error and "cannot be listed" states are asserted in `PastSessions.test.jsx`, not shot |
+| B-g | rename, Load more, Show older | 375 / 1280 | pass | Show older changes the note to "Showing sessions since 2000-01-01. Last 30 days" (`past-older-*.png`); the rename field says "Enter saves. Esc cancels. Empty removes the name." |
+| B-h | all | 375 | pass | No horizontal scroll, nothing clipped; the panel takes the full width with Back |
+| B-i | all | 375 / 1280 | pass | Same accent, buttons and radius as the rest of Live |
+
+ux-evaluate: 8 pass, 1 fail (older), 0 not checked, 0 not checkable. Overall: pass for T119's change; B-e is app-wide.
+
+### Stage 4 review fixes (`ef5c5ef`, test first: 7 new or changed tests were red before)
+- P2 `PastSessions.jsx`: a filter change no longer empties the list. The rows stay while the next list loads, the open panel is kept from the last listed session while loading or on an error, and it closes only when a *ready* list lacks the session. The panel is not remounted: focus stays on the Kind select (test), the conversation is read once, an open rename field keeps its text. `setFocusPanel(false)` after the first focus is added as a guard; no test fails without it now, because nothing remounts the panel any more.
+- P3-1 a stored `app` kind: Past's Kind select now shows it (one extra option, "App (kept from the Live list; no filter here)", only then) and choosing All kinds clears it; the store is still asked for no kind.
+- P3-2 the date note reads "Showing the 30 days up to and including {to}."
+- P3-3 `LiveView.jsx`: a held rename is dropped when its id is in neither the snapshot nor the app session list (test: the session leaves and comes back with no name).
+- P3-4 the "N sessions need you" heading counts with the *Needs me* rule (`asksYou` over the listed entries), so a prompt waiting in the panel counts in both (test).
+
+### Cut list (server shapes, accepted by the Supervisor 2026-11-19)
+- No *App* kind and no *needs me / working / idle* in Past: `GET /api/sessions/past` takes `kind=terminal|headless` only (the store cannot tell an app session from a headless run); those states are live.
+- The past row has the owner's name only, no Claude name (the store holds none).
+- No per-filter counts in Past: the list is paged on the server.
+- The project and kind filters are shared by Live and Past (one `localStorage` key, three values); the date range is not kept.
+- Rename shows on a server with no names route too; it answers its one refusal line.
 
 ---
 
@@ -68,20 +102,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE** (Supervisor, before any T119 implementation commit; `main` at `ddb947f`, the branch point):
+**BEFORE** (frontend-developer, before any T119 implementation commit; `main` at `8c8c121`, the worktree's branch point):
 ```
-$ date -u; git log -1 --oneline; grep -ln 'PastSessions\|renameSession' web/src/*.jsx web/src/api.js | wc -l; ls web/src/PastSessions.jsx
-2026-11-18T10:15:50Z
-ddb947f Plan: Live like Claude (question 45, FR-123..FR-128, DDR-0007, T115-T119)
+$ date -u; git log -1 --oneline; grep -ln 'PastSessions\|renameSession' web/src/*.jsx web/src/api.js | wc -l; ls web/src/PastSessions.jsx; (cd web && npm test)
+Thu Nov 19 03:20:44 AM UTC 2026
+8c8c121 Board + memory: T114 merged; T102-T112 rows moved to Done; T114 guide
 0
 ls: cannot access 'web/src/PastSessions.jsx': No such file or directory
+ Test Files  39 passed (39)
+      Tests  1347 passed (1347)
 ```
-(No filters, names or past sessions in the Live view.)
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+(No filters, names or past sessions in the Live view; the baseline suite is 39 files, 1347 tests, all green.)
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (frontend-developer, `T119` at `ae8397e`):
+```
+$ date -u; git log -1 --oneline; ls web/src/PastSessions.jsx web/src/LiveFilters.jsx web/src/SessionName.jsx; (cd web && npm test) | grep -E "Test Files|Tests "; (cd web && npm run build) | tail -1; python3 scripts/check_static.py
+Thu Nov 19 03:42:45 AM UTC 2026
+ae8397e T119: 44px touch targets at 375 for the Live/Past switch, Show older, Clear filters
+ Test Files  42 passed (42)
+      Tests  1410 passed (1410)
+✓ built in 150ms
+check_static: ok
+```
+(The three components exist; the Live view has the filter bar with counts, the Live | Past switch and the inline rename.)
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: In the Live view an owner can filter by needs me / working / idle, project and kind (kept across reloads), name a session inline, and switch to Past to find an older session by project, kind and date range, open its read-only conversation and Resume or Fork it.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**WITNESS**: [filled by the hook from `memory/event-trace/T119.jsonl`, not by the implementing agent]

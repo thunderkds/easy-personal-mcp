@@ -115,3 +115,20 @@ export async function getTranscript(sessionId, { after, before } = {}) {
 export const stopSession = (sessionId, { force = false } = {}) => sendJson('POST', `/api/live/sessions/${encodeURIComponent(sessionId)}/stop`, force ? { confirmed: true, force: true } : { confirmed: true })
 /** Queue a text for a busy terminal session's next turn end (FR-125); a second call replaces it, `null` cancels. */
 export const queueReply = (sessionId, text) => sendJson('POST', '/api/reply/queue', { session_id: sessionId, text, confirmed: true })
+
+/**
+ * One page of past sessions (FR-126): `{sessions, next, window}`. `params` holds the filters the route takes (`project`, `branch`, `from`, `to`, `kind`, `before`);
+ * an empty one is left out. The query holds only the owner's filter values and a cursor, never text of a session. A refusal (400) throws with the server's one line.
+ */
+export async function getPastSessions(params = {}) {
+  const query = new URLSearchParams(Object.entries(params).filter(([, v]) => typeof v === 'string' && v !== '')).toString()
+  const path = `/api/sessions/past${query ? `?${query}` : ''}`
+  const response = await fetch(path, { headers: { 'X-Dashboard-Token': readToken() } })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw failure(typeof data.error === 'string' && data.error ? data.error : `The past sessions cannot be listed (status ${response.status}).`, response.status)
+  }
+  return response.json()
+}
+/** Name a session (FR-127), or remove its name with `null` (the caller has been confirmed by the owner's Enter). Answers `{id, name}`; a refusal throws with the server's line. */
+export const renameSession = (sessionId, name) => sendJson('PUT', `/api/sessions/${encodeURIComponent(sessionId)}/name`, { name, confirmed: true })

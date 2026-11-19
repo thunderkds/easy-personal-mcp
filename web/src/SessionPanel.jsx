@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { answerAppPrompt, closeAppSession, interruptAppSession, stopAppSession, stopSession } from './api.js'
 import Composer, { why } from './Composer.jsx'
 import { ago } from './format.js'
+import { kindOf } from './LiveFilters.jsx'
 import { FORK_NOTE } from './NewSession.jsx'
 import { PendingAnswer } from './PendingAnswer.jsx'
 import PromptCard, { readPrompt } from './PromptCard.jsx'
+import SessionName, { titleOf } from './SessionName.jsx'
 import Transcript from './Transcript.jsx'
 
 // The one panel of the Live view (T118, FR-128): header, the conversation, the cards pinned above the composer, the composer and the controls,
@@ -239,17 +241,18 @@ export const folderName = (folder) => String(folder ?? '').split('/').filter(Boo
  * `s`: the live session (an app session with no live row yet is built from its own view, `s.appOnly`). `app`: that app session's view, else null.
  * `now`: the clock the times are worked out against. `fallback`: drawn when the conversation cannot be read. `lead`: drawn above the conversation.
  * `onChange(view)` and `onClosed(id)` take an app session's answers; `onEnd` is the terminal prompt's; `onResume({id, project, account, fork})`.
+ * `onRenamed(id, name)`: the server's answer to a rename (the owner's name, or null when it was removed).
  * `onBack` closes the panel (Esc and the Back button); the row takes the focus back. `autoFocus`: move the focus to the heading when the panel opens.
  */
-export default function SessionPanel({ s, app, now, notice, fallback, lead, onChange, onClosed, onEnd, onResume, onOpenSettings, onBack, autoFocus = false }) {
+export default function SessionPanel({ s, app, now, notice, fallback, lead, onChange, onClosed, onEnd, onResume, onOpenSettings, onRenamed, onBack, autoFocus = false }) {
   const heading = useRef(null)
   useEffect(() => {
     if (autoFocus) heading.current?.focus()
   }, [autoFocus])
   const pending = app ? app.items.filter((item) => item.kind === 'prompt' && item.status === 'pending') : []
   const project = s.appOnly ? folderName(app?.folder) || 'session' : s.project
-  const title = s.name || s.proc?.name || project
   const id = s.session_id ?? app?.session_id ?? null
+  const title = titleOf({ name: s.name, claudeName: s.proc?.name, project, id }) // the owner's name, else Claude's, else the project and short id (FR-127)
   const ended = app ? isEnded(app) : false
   const appState = app ? (ended ? `${STATES.ended}${app.reason ? `: ${app.reason}` : ''}` : (STATES[app.state] ?? '')) : ''
   const termState = s.proc ? (s.proc.busy ? 'busy' : 'idle') : ''
@@ -270,15 +273,13 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
         <button type="button" className="session-back" onClick={onBack}>
           Back to sessions
         </button>
-        <h2 ref={heading} tabIndex={-1} className="session-title" title={title}>
-          {title}
-        </h2>
+        <SessionName id={id} name={s.name} title={title} headingRef={heading} onSaved={(name) => id && onRenamed?.(id, name)} />
       </div>
       <dl className="session-facts">
         <dt>Project</dt>
         <dd>{project}</dd>
         <dt>Kind</dt>
-        <dd>{app ? 'app' : typeof s.entrypoint === 'string' && s.entrypoint.startsWith('sdk') ? 'headless' : 'terminal'}</dd>
+        <dd>{kindOf(s, app)}</dd>
         <dt>Session</dt>
         <dd className="mono">{id ?? 'starting'}</dd>
         <dt>Account</dt>
