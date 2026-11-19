@@ -68,10 +68,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-19T10:23:38Z, main 3a769df, before any T122 commit; mock data, headless Chrome; screenshots in /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/t122/before/ : live-nofilter, live-filtered, past at 375 and 1280):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+375 Live no filter: bar 343x254. State grid 2x2 of 167x44 buttons; label+select "Project" 343x66 (select 44 high, y132); label+select "Kind" 343x66 (select y210); first control below the bar at y254. No Clear control.
+375 Live filtered (working/orderly/terminal): bar 343x310; same stack, plus "Clear filters" link-button 125x44 mounted at y266 (bar grew 56 px).
+375 Past: Project/Kind/From/To each a full-width 343x66 label block, "Clear filters" link at y312; bar 343x356.
+1280 Live no filter: State buttons 32 high (x264..747); Project select 206x36 and Kind select 158x36 on a second line (y74), labels stacked above (y52); bar 666x110. No Clear control.
+1280 Live filtered: Project 158x36 jumps to the first row at x767 (bar 696x128), Kind select 158x36 and "Clear filters" 125x32 on the second row (y70/y92): the row reflows when a filter is set.
+1280 Past: Project input 192x36, Kind select 129x36, From/To 164x36, "Clear filters" 125x32 on row 2; labels stacked above.
+
+**AFTER** (screenshots in /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/t122/after/ : live-nofilter, live-filtered, past at 375 and 1280): State and Kind are two matching segmented groups (State 483 px wide, Kind 483 px wide at 1280, 40 px high each; 2x2 grids of 167x44 buttons at 375); Project is a token-chevron select with its label inline (285x40 at 1280, 176x44 at 375, label visually hidden there), and "Clear filters" (155x40 / 155x44) sits beside it, always present, disabled and muted when nothing is filtered. Setting a filter changes no control's position or size (before: the row reflowed and a link mounted). 375: no horizontal scroll, every control >= 44 px, bar 343x264. Past: only the select chevron changed.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 

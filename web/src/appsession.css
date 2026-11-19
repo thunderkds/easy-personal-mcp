@@ -120,7 +120,8 @@ main button.turn-fold:hover { background: none; }
 .live-head .periods { align-self: center; }
 .live-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); min-width: 0; }
 .live-filters .periods, .live-filters .board-filter { min-width: 0; max-width: 100%; }
-.live-filters select, .live-filters input, .session-rename input { box-sizing: border-box; max-width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-input); color: var(--color-text); font-family: var(--font-mono); font-size: var(--fs-control); }
+.live-filters select, .live-filters input, .session-rename input { box-sizing: border-box; max-width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-input); color: var(--color-text); font-family: var(--font-sans); font-size: var(--fs-control); }
+.live-filters select { appearance: none; padding-right: 32px; background-image: linear-gradient(45deg, transparent 50%, var(--color-secondary) 50%), linear-gradient(135deg, var(--color-secondary) 50%, transparent 50%); background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat; cursor: pointer; } /* T122: no OS arrow; a token-coloured chevron drawn with two gradients */
 .live-filters input[type='text'] { width: 12rem; }
 .past { min-width: 0; }
 .past-window { margin: 0; overflow-wrap: anywhere; }
@@ -137,6 +138,20 @@ main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); fo
   .live-filters input[type='text'] { width: 100%; }
 }
 
+/* T122: the Live bar is State, Kind, Project and Clear in one wrapping row, every control the height of the segmented groups (40 px; 44 px at a phone) */
+.live-filters-bar { align-items: stretch; gap: var(--space-3); }
+.live-filters-bar .periods { align-self: stretch; }
+.live-filters-bar .periods button { white-space: nowrap; }
+.filter-project { display: flex; align-items: center; gap: var(--space-2); flex: 1 1 14rem; min-width: 0; max-width: 22rem; font-size: var(--fs-label); color: var(--color-muted); }
+.live-filters-bar select { flex: 1 1 auto; align-self: stretch; width: 100%; min-height: 40px; height: auto; }
+main button.filter-clear { flex: none; min-height: 40px; padding: 0 14px; border-radius: var(--radius); font-family: var(--font-sans); }
+main button.filter-clear:disabled { color: var(--color-faint); border-color: var(--color-border); }
+@media (max-width: 39.999rem) {
+  .filter-project { flex: 1 1 0; max-width: none; }
+  .filter-project span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } /* the select says "All projects"; the label stays for assistive tech */
+  main button.filter-clear, .live-filters-bar select { min-height: 44px; }
+}
+
 /* T121 drops */
 .composer { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .composer:focus { outline: none; }
@@ -151,6 +166,6 @@ main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); fo
   /* T121 round 2, N7: the composer stays in view at the bottom of the panel while its conversation scrolls by */
   .session-panel > .composer { position: sticky; bottom: 0; z-index: 1; margin-inline: calc(-1 * var(--space-5)); margin-bottom: calc(-1 * var(--space-5)); padding: var(--space-3) var(--space-5) var(--space-5); background: var(--color-bg); border-top: 1px solid var(--color-border); }
   /* N8: the state filter as a tidy 2 x 2, left aligned */
-  .live-filters .periods[aria-label='State'] { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
-  .live-filters .periods[aria-label='State'] button { justify-content: flex-start; text-align: left; }
+  .live-filters .periods[aria-label='State'], .live-filters .periods[aria-label='Kind'] { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .live-filters .periods[aria-label='State'] button, .live-filters .periods[aria-label='Kind'] button { justify-content: flex-start; text-align: left; }
 }
