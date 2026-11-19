@@ -20,7 +20,8 @@ const rows = () => [
 const rowEl = (id) => document.getElementById(`live-row-${id}`)
 const listed = () => [...document.querySelectorAll('.live-row .live-id')].map((e) => e.textContent).sort()
 const bar = () => screen.getByRole('group', { name: 'Filter sessions' })
-const stateBtn = (name) => within(bar()).getByRole('button', { name })
+const stateBtn = (name) => within(within(bar()).getByRole('group', { name: 'State' })).getByRole('button', { name })
+const kindBtn = (name) => within(within(bar()).getByRole('group', { name: 'Kind' })).getByRole('button', { name })
 
 beforeEach(() => {
   window.location.hash = '#secret-token'
@@ -75,8 +76,8 @@ describe('counts and state filters (AC 1)', () => {
     expect(stateBtn('Working (1)')).toBeInTheDocument()
     expect(stateBtn('Needs me (0)')).toBeInTheDocument()
     fireEvent.click(stateBtn('Working (1)'))
-    expect(within(screen.getByLabelText('Kind')).getByRole('option', { name: 'Headless (1)' })).toBeInTheDocument()
-    expect(within(screen.getByLabelText('Kind')).getByRole('option', { name: 'Terminal (0)' })).toBeInTheDocument()
+    expect(kindBtn('Headless (1)')).toBeInTheDocument()
+    expect(kindBtn('Terminal (0)')).toBeInTheDocument()
     expect(within(screen.getByLabelText('Project')).getByRole('option', { name: 'alpha (1)' })).toBeInTheDocument() // a project's count is what choosing it would list under the state and kind chosen
   })
 })
@@ -88,19 +89,24 @@ describe('project and kind (AC 1)', () => {
     expect(options).toEqual(['All projects', 'alpha (3)', 'beta (2)'])
   })
 
-  it('Kind: terminal, app and headless, with counts', () => {
+  it('Kind: All, Terminal, App and Headless buttons with counts; the pressed one is the choice', () => {
     mount()
-    const options = within(screen.getByLabelText('Kind')).getAllByRole('option').map((o) => o.textContent)
-    expect(options).toEqual(['All kinds', 'Terminal (4)', 'App (0)', 'Headless (1)'])
-    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'headless' } })
+    const names = within(screen.getByRole('group', { name: 'Kind' })).getAllByRole('button').map((o) => o.textContent)
+    expect(names).toEqual(['All (5)', 'Terminal (4)', 'App (0)', 'Headless (1)'])
+    expect(kindBtn('All (5)')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(kindBtn('Headless (1)'))
     expect(listed()).toEqual(['cccccccc'])
+    expect(kindBtn('Headless (1)')).toHaveAttribute('aria-pressed', 'true')
+    expect(kindBtn('All (5)')).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(kindBtn('All (5)'))
+    expect(listed()).toHaveLength(5)
   })
 
   it('a filter\'s own count ignores itself: with Headless chosen, Terminal still counts what choosing it would list', () => {
     mount()
-    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'headless' } })
-    expect(within(screen.getByLabelText('Kind')).getByRole('option', { name: 'Terminal (4)' })).toBeInTheDocument()
-    expect(within(screen.getByLabelText('Kind')).getByRole('option', { name: 'Headless (1)' })).toBeInTheDocument()
+    fireEvent.click(kindBtn('Headless (1)'))
+    expect(kindBtn('Terminal (4)')).toBeInTheDocument()
+    expect(kindBtn('All (5)')).toBeInTheDocument()
     expect(within(screen.getByLabelText('Project')).getByRole('option', { name: 'beta (1)' })).toBeInTheDocument()
     expect(stateBtn('Working (1)')).toBeInTheDocument()
   })
@@ -108,8 +114,8 @@ describe('project and kind (AC 1)', () => {
   it('a session of the app (listed from the app session list) is kind app', async () => {
     vi.stubGlobal('fetch', appServer({ sessions: [appSession({ id: 'a1', session_id: 'bbbbbbbb-2' })] }))
     mount(rows(), { appSessions: true })
-    await waitFor(() => expect(within(screen.getByLabelText('Kind')).getByRole('option', { name: 'App (1)' })).toBeInTheDocument())
-    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'app' } })
+    await waitFor(() => expect(kindBtn('App (1)')).toBeInTheDocument())
+    fireEvent.click(kindBtn('App (1)'))
     expect(listed()).toEqual(['bbbbbbbb'])
   })
 
@@ -121,7 +127,33 @@ describe('project and kind (AC 1)', () => {
     expect(screen.getByText('No sessions match these filters.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(listed()).toHaveLength(5)
-    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeDisabled()
+    expect(stateBtn('All (5)')).toHaveAttribute('aria-pressed', 'true')
+    expect(kindBtn('All (5)')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText('Project')).toHaveValue('')
+  })
+
+  it('Clear filters is the same DOM node with and without a filter: disabled when nothing is filtered, enabled after one is set (T122)', () => {
+    mount()
+    const clear = screen.getByRole('button', { name: 'Clear filters' })
+    expect(clear).toBeDisabled()
+    fireEvent.click(kindBtn('Headless (1)'))
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBe(clear)
+    expect(clear).toBeEnabled()
+    fireEvent.click(clear)
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBe(clear)
+    expect(clear).toBeDisabled()
+    expect(listed()).toHaveLength(5)
+  })
+
+  it('Clear filters resets state, project and kind together (T122)', () => {
+    mount()
+    fireEvent.click(stateBtn('Working (2)'))
+    fireEvent.change(screen.getByLabelText('Project'), { target: { value: 'beta' } })
+    fireEvent.click(kindBtn('Headless (1)'))
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(JSON.parse(window.localStorage.getItem(KEY))).toEqual({ state: 'all', project: '', kind: '' })
+    expect(listed()).toHaveLength(5)
   })
 
   it('an open panel stays when its row no longer matches', async () => {
@@ -139,7 +171,7 @@ describe('kept in localStorage (AC 1)', () => {
     const first = mount()
     fireEvent.click(stateBtn('Working (2)'))
     fireEvent.change(screen.getByLabelText('Project'), { target: { value: 'beta' } })
-    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'headless' } })
+    fireEvent.click(kindBtn('Headless (1)'))
     expect(JSON.parse(window.localStorage.getItem(KEY))).toEqual({ state: 'working', project: 'beta', kind: 'headless' })
     expect(window.localStorage.length).toBe(1)
     first.unmount()
@@ -161,7 +193,7 @@ describe('kept in localStorage (AC 1)', () => {
     window.localStorage.setItem(KEY, JSON.stringify({ state: 'sideways', project: 7, kind: 'headless', extra: 'x' }))
     mount()
     expect(stateBtn('All (1)')).toBeInTheDocument()
-    expect(screen.getByLabelText('Kind')).toHaveValue('headless')
+    expect(kindBtn('Headless (1)')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByLabelText('Project')).toHaveValue('')
   })
 

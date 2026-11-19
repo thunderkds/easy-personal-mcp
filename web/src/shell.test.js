@@ -81,7 +81,7 @@ describe('toast host and loading pill placement (HUN-202, FR-065)', () => {
   })
 })
 
-describe('Plex Mono everywhere and larger text (T120, T121)', () => {
+describe('Inter for text, Plex Mono for ids and labels, larger text (T120, T121, T123)', () => {
   const appsession = readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
   const watch = readFileSync(resolve(process.cwd(), 'src/watch.css'), 'utf8')
   const sheets = { 'app.css': css, 'appsession.css': appsession, 'watch.css': watch }
@@ -97,23 +97,49 @@ describe('Plex Mono everywhere and larger text (T120, T121)', () => {
     expect(Math.min(...order)).toBeGreaterThanOrEqual(24) // nothing under 12 px (24/32 rem), labels included
   })
 
-  it('draws every page font from the mono token: no family literal, no --font-sans user', () => {
-    expect(tokens).toMatch(/--font-sans:\s*var\(--font-mono\);/)
-    for (const [file, text] of Object.entries(sheets)) {
-      expect(text, file).not.toMatch(/font-family:\s*(?!var\(--font-mono\))\S/)
-      expect(text, file).not.toContain('var(--font-sans)')
-    }
-    expect(rule('body')).toContain('font-family: var(--font-mono)')
+  it('draws every page font from the two family tokens: no family literal; text is Inter, ids/labels/code stay Plex Mono (T123)', () => {
+    expect(tokens).toMatch(/--font-sans:\s*'Inter', system-ui, sans-serif;/)
+    expect(tokens).toMatch(/--font-mono:\s*'IBM Plex Mono', ui-monospace/)
+    for (const [file, text] of Object.entries(sheets)) expect(text, file).not.toMatch(/font-family:\s*(?!var\(--font-(?:mono|sans)\))\S/)
+    expect(rule('body')).toContain('font-family: var(--font-sans)')
+    expect(rule('.sidebar nav button')).toContain('font-family: var(--font-sans)')
+    expect(rule('.scope select, .board-filter select, .actions select, .field input, .field select, .field textarea, .repo-row input')).toContain('font-family: var(--font-sans)')
+    for (const sel of ['.mono', '.badge', '.kpi-value', '.count', '.sort', '.ring-text', '.trend']) expect(rule(sel), sel).toContain('font-family: var(--font-mono)') // mono before T120, mono now
+    expect(rule('table')).toContain('font-family: var(--font-mono)')
     expect(css).toMatch(/\ncode, pre, kbd, samp \{ font-family: var\(--font-mono\); \}/) // no browser-default monospace face
   })
 
+  it('sets Live prose in Inter and keeps ids, labels, tool input and chips in Plex Mono (T123 follow-up)', () => {
+    const inSession = (selector) => appsession.match(new RegExp(`(?:^|\\n)${selector.replace(/\./g, '\\.')}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    for (const sel of ['.live-notice', '.session-state', '.reply-sent', '.reply-left, .reply-count, .reply-marked', '.turn-cut, .turn-skipped, .queue-note', '.session-rename-hint']) expect(inSession(sel), sel).toContain('font-family: var(--font-sans)')
+    for (const sel of ['.live-need', '.live-status', '.live-row .count']) expect(rule(sel), sel).toContain('font-family: var(--font-sans)')
+    for (const sel of ['.prompt-header', '.prompt-summary', '.turn-tool', '.turn-pre', '.turn-who', '.session-facts dt', '.session-tab-name', '.session-title']) expect(inSession(sel), sel).toContain('font-family: var(--font-mono)')
+    for (const sel of ['.live-id', '.live-name', '.live-pill', '.live-stage', '.live-bar', '.count']) expect(rule(sel), sel).toContain('font-family: var(--font-mono)')
+  })
+
+  it('sets tabular figures once, on body, so every number in Inter text lines up and does not jiggle when it changes (T123)', () => {
+    expect(rule('body')).toContain('font-variant-numeric: tabular-nums')
+  })
   it('hard-codes no font size in any sheet except tokens.css (SVG text included)', () => {
     for (const [file, text] of Object.entries(sheets)) expect(text, file).not.toMatch(/font-size:\s*[\d.]+(?:px|rem)/)
   })
 
-  it('ships real Plex Mono 400, 500 and 600 faces and no Plex Sans, so 600 is never a faked bold', () => {
-    for (const w of [400, 500, 600]) expect(tokens).toMatch(new RegExp(`'IBM Plex Mono'[^}]*font-weight: ${w};[^}]*ibm-plex-mono-latin-${w}-normal\\.woff2`))
+  it('ships real Inter and Plex Mono 400, 500 and 600 faces and no Plex Sans, so 600 is never a faked bold (T123)', () => {
+    for (const [family, file] of [['Inter', 'inter'], ['IBM Plex Mono', 'ibm-plex-mono']]) {
+      for (const w of [400, 500, 600]) {
+        expect(tokens).toMatch(new RegExp(`'${family}'[^}]*font-weight: ${w};[^}]*${file}-latin-${w}-normal\\.woff2`))
+        const bytes = readFileSync(resolve(process.cwd(), `src/fonts/${file}-latin-${w}-normal.woff2`))
+        expect(bytes.subarray(0, 4).toString('latin1'), `${file} ${w}`).toBe('wOF2') // a real woff2, not a stub or an HTML error page
+        expect(bytes.length, `${file} ${w}`).toBeGreaterThan(10000)
+      }
+    }
     expect(tokens).not.toContain('IBM Plex Sans')
+  })
+
+  it('self-hosts Inter with its OFL notice and no runtime font dependency (T123)', () => {
+    expect(readFileSync(resolve(process.cwd(), 'src/fonts/OFL-Inter.txt'), 'utf8')).toMatch(/Inter Project Authors[\s\S]*SIL OPEN FONT LICENSE Version 1\.1/)
+    expect(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')).not.toMatch(/fontsource/)
+    expect(tokens).not.toMatch(/url\(['"]?https?:/)
   })
 })
 

@@ -1,16 +1,19 @@
 /* Design tokens (dark only, Graphite Mint): every color, font, size and space in the page comes from here.
    This is the only file that may hold a color literal. */
 
-/* IBM Plex Mono, self-hosted (SIL OFL 1.1, see fonts/OFL.txt). Latin subset; 400, 500 and 600 are real faces, so no weight is a browser-faked bold. No request leaves the machine. */
+/* Inter and IBM Plex Mono, self-hosted (SIL OFL 1.1, see fonts/OFL-Inter.txt and fonts/OFL.txt). Inter carries the text (T123), Plex Mono the ids, code and labels. Latin subset; 400, 500 and 600 are real faces, so no weight is a browser-faked bold. No request leaves the machine. */
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('./fonts/inter-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('./fonts/inter-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('./fonts/inter-latin-600-normal.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('./fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('./fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 600; font-display: swap; src: url('./fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); }
 
 :root {
   color-scheme: dark;
-  /* All text is Plex Mono (T120); system monospace fonts are the fallback. --font-sans stays only so a stale reference still resolves. */
+  /* Text is Inter (T123); ids, commands, code, tables and the design's mono labels are Plex Mono. System fonts are the fallback. */
+  --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
-  --font-sans: var(--font-mono);
 
   /* Type sizes (T121): reading text (note, cell, control, body) is 16 px, labels and small 14 px, headings above 16 px */
   --fs-label: 0.875rem;
