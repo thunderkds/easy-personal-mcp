@@ -36,6 +36,11 @@ main .session-tabs button[aria-current='true'] { border-color: var(--color-accen
 .session-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-4); margin: 0; }
 .session-facts dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .session-facts dd { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-cell); color: var(--color-heading); }
+.session-facts select { max-width: 100%; } /* T126: Model / Mode / Effort pickers */
+.session-facts .steer-bypass, .session-facts dd[role='alert'] { grid-column: 1 / -1; }
+.session-facts dd[role='alert'] { color: var(--color-red); } /* the CLI's refusal line keeps the error colour over `.session-facts dd` */
+.actions > .context-use { flex-basis: 100%; } /* the Context numbers sit under the buttons, never beside them */
+.session-facts .check { display: flex; align-items: flex-start; gap: var(--space-2); min-height: 44px; }
 .changed-files { display: flex; flex-direction: column; gap: 2px; }
 .session-state { margin: 0; font-family: var(--font-sans); font-size: var(--fs-cell); font-weight: 500; color: var(--color-secondary); }
 .session-state[data-state='waiting'] { color: var(--color-amber); }
