@@ -53,7 +53,8 @@ Mode: auto
 4. Resume/Fork while the sheet is open replaces the typed form; no New session button on the retired Python server — SAFER OPTION: both keep FR-133 as written and add no state; recorded as P3, not built ⚠ decided for you — please review
 Checks: tests `npx vitest run` — 43 files, 1470/1470 pass (Supervisor re-run after fixes); mutation (todo reader + ?app-sessions disabled) — 5 red, restored green; reviews code-review — 0 P0/P1/P2, 2 P3; security-review — no finding >= 8; real run `npm run build` — printed `check_static: ok` (implementer run)
 Memory: memory/decisions.md — 2026-11-20 — T124-T128 Live like Claude 2 resumed and Stage 4 under [admin] (T128: New session sheet in Live, App sessions tab gone)
-Not done: merge (admin: after the auto verify pass); auto verify: running
+Not done: merge (admin: after the auto verify pass); auto verify: pass (session 0f9be0a6-a34d-48ee-9ebc-49921e3c7354, commit 18ff1bc, log .claude/verify-runs/T128-18ff1bce4cbe.log)
+Paused: done not moved — Gate 5: no test run in memory/event-trace/T128.jsonl; report incomplete: auto verify slot
 
 ## Evidence
 
@@ -62,7 +63,7 @@ Not done: merge (admin: after the auto verify pass); auto verify: running
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/AppSessionEntry.test.jsx` (AC 1,2,3,5), `web/src/LivePanel.test.jsx` (AC 4), `web/src/NewSessionSheet.test.jsx`, `web/src/App.test.jsx` (nav) |
 | Verification command run | ☑ pass | `npx vitest run`: Test Files 43 passed (43), Tests 1470 passed (1470); `npm run build`: built in 394ms, `check_static: ok` (rc=0) |
 | Negative cases hold | ☑ pass | mutation `git diff --stat`: web/src/App.jsx 2 +-, web/src/Transcript.jsx 2 +- (todo reader returns null; ?app-sessions mapping removed) → `Tests 5 failed | 83 passed (88)` in LivePanel/AppSessionEntry tests; restored with `git checkout`, suite green 1470/1470 |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
+| verify | ☑ pass | auto-run by hook, session 0f9be0a6-a34d-48ee-9ebc-49921e3c7354, commit 18ff1bce4cbe360a3a215e332126528f11ca5ad3, log .claude/verify-runs/T128-18ff1bce4cbe.log — pass; done not moved: Gate 5: no test run in memory/event-trace/T128.jsonl |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...T128` web/src (App, LiveView, NewSessionSheet, Transcript, appsession.css) + their callers (App.jsx View props) and tests; Rust and Python untouched, not reviewed |
 | Full smoke suite still green (no regression) | ☑ pass | `npx vitest run` 43 files, 1470/1470 after the Stage 4 fixes (`51b2a1e`) |
 | **Companion score (easy-verifier)** | ☑ N/A | easy-verifier refuses repo paths since 2026-11-01 (memory/learnings.md, easy-verifier registered); advisory only |
