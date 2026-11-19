@@ -9,6 +9,7 @@ const SIZE = 640
 const SIZE_WIDE = 800 // room for ring 4 and its labels; used only when a ring 4 node exists, so other graphs keep their canvas
 const RADII = [0, 115, 200, 265, 335] // ring 0 = MEMORY.md, 1 = cold files, 2 = records and Claude notes, 3 = unresolved links, 4 = easy-memory cited files
 const EASY_RING = 4
+const HIT_R = 28 // an invisible circle round each node: 56 units, at the smallest scale (0.8) 45 px, so a node is a 44 px target (T121 N4)
 const CITED_MIN = 7 // radius of an easy-memory node cited once
 const CITED_MAX = 12
 const LABEL_LIMIT = 60 // above this many drawn nodes only the inner rings are labelled
@@ -86,6 +87,7 @@ export function RingsGraph({ nodes, edges, selectedId, onSelect, title = 'Memory
             }
           }}
         >
+          <circle className="memory-hit" cx={round(n.x)} cy={round(n.y)} r={HIT_R} />
           <circle cx={round(n.x)} cy={round(n.y)} r={nodeRadius(n)} />
           {isMarked(n) && (
             <g className={`memory-mark memory-mark-${n.stale}`} role="img" aria-label={STALE[n.stale]}>

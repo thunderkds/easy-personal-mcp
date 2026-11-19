@@ -576,7 +576,7 @@ main.workflow { min-width: 0; max-width: none; }
 .workflow-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; } /* T121 F13: two lines, not three letters and an ellipsis */
 .workflow-end { position: absolute; border: 1px solid var(--color-muted); background: var(--color-bg); }
 .workflow-graph .workflow-gate { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0 var(--space-1); border: 1px solid var(--color-control); border-radius: var(--radius); background: var(--color-bg); color: var(--color-muted); font-family: var(--font-mono); font-size: var(--fs-label); line-height: 1.15; font-weight: 400; text-align: center; overflow: hidden; cursor: pointer; }
-.workflow-gate span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.workflow-gate span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; } /* T121 N6: three lines, like the stage titles wrap to two */
 .workflow-graph .workflow-gate.active { border-color: var(--color-accent); color: var(--color-accent); }
 .workflow-graph .workflow-gate:hover { background: var(--color-selected); }
 .workflow-panel { position: absolute; z-index: 2; top: 0; left: 0; width: max-content; max-width: min(22rem, 100%); padding: var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius); background: var(--color-raised); color: var(--color-text); font-size: var(--fs-note); overflow-wrap: anywhere; }
@@ -617,6 +617,7 @@ main.memory { max-width: none; }
 .memory-spark rect { fill: var(--color-accent); }
 .memory-node[data-selected] text { fill: var(--color-heading); }
 .memory-node[data-selected] circle, .memory-node:focus-visible circle { stroke: var(--color-heading); stroke-width: 3; stroke-dasharray: none; }
+.memory-node circle.memory-hit { fill: transparent; stroke: none; } /* T121 N4: an invisible larger target, never drawn */
 .memory-panel { min-width: 0; overflow-wrap: anywhere; }
 .memory-path { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-link); }
 .memory-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-secondary); }
@@ -801,7 +802,10 @@ ul.unassigned > li { display: flex; flex-wrap: wrap; align-items: center; justif
 /* T121 F4, F17: touch targets of 44 px at phone width, tokens only; desktop unchanged. The rules that set min-height 0 on purpose (rows that are a whole card, folds, sort heads) keep it. */
 @media (max-width: 39.999rem) {
   main button, .agent-dialog button, .periods button, main select, main input:not([type='checkbox'], [type='radio']), .sidebar nav button, .scope select { min-height: 44px; }
-  main summary { display: flex; align-items: center; min-height: 44px; }
+  main summary { display: list-item; min-height: 44px; padding-block: var(--space-2); } /* list-item keeps the disclosure triangle (a flex summary loses it) */
+  main label:has(> input[type='checkbox']), main label:has(> input[type='radio']) { display: flex; align-items: center; gap: var(--space-2); min-height: 44px; }
+  main input[type='checkbox'], main input[type='radio'] { flex: none; width: 1.25rem; height: 1.25rem; accent-color: var(--color-accent); }
+  .family a { display: flex; align-items: center; min-height: 44px; }
   .periods { display: flex; align-self: stretch; }
   .periods button { flex: 1 1 auto; padding: 0 var(--space-2); white-space: nowrap; }
 }
@@ -810,8 +814,19 @@ ul.unassigned > li { display: flex; flex-wrap: wrap; align-items: center; justif
 .status-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
 .topbar-scope + .status-chips { margin-left: 0; }
 @media (max-width: 63.999rem) { /* T121 F2: one row that scrolls sideways, not three rows */
-  .status-chips { flex: 1 1 100%; flex-wrap: nowrap; margin-left: 0; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+  .status-chips {
+    flex: 1 1 100%; flex-wrap: nowrap; margin-left: 0; min-width: 0; overflow-x: auto; scrollbar-width: none;
+    /* T121 N1: an edge fade on the side that has more chips to scroll to, as on .table-wrap */
+    background:
+      linear-gradient(to right, var(--color-bg) 30%, transparent) left center / 2rem 100% no-repeat local,
+      linear-gradient(to left, var(--color-bg) 30%, transparent) right center / 2rem 100% no-repeat local,
+      linear-gradient(to right, var(--color-accent-line), transparent) left center / 0.75rem 100% no-repeat scroll,
+      linear-gradient(to left, var(--color-accent-line), transparent) right center / 0.75rem 100% no-repeat scroll;
+  }
+  .status-chips::-webkit-scrollbar { display: none; }
   .status-chip { flex: none; }
+  .status-chip.tone-red { order: -2; } /* the most urgent chip is the first one in view: red, then amber, then the rest in their order */
+  .status-chip.tone-amber { order: -1; }
 }
 @media (max-width: 39.999rem) { /* T121 F4: 44 px touch targets */
   .menu-button { width: 44px; height: 44px; }
