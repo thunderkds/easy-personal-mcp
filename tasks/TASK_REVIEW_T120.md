@@ -48,16 +48,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/shell.test.js` (new describe "Plex Mono everywhere and one step larger text (T120)", 4 tests). Red against the prior CSS (stash of tokens.css/app.css/appsession.css): 4 failed / 12 passed; green after: 16 passed |
+| Verification command run | ☑ pass | `cd web && npx vitest run` → Test Files 42 passed (42), Tests 1421 passed (1421) (baseline 1417 + 4 new); `npm run build` ✓ built; `python3 scripts/check_static.py` → `check_static: ok`; `pytest tests/test_web_toolchain.py` 16 passed |
+| Negative cases hold | ☑ pass | the 4 new tests fail on the base CSS (see first row); no existing test needed a change |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | 3 stylesheets + the font folder; every view is affected visually, so Usage, Live (list, panel, Past list, Past panel), Settings, Warnings and Memory were shot at 375 and 1280. Not reviewed: Kit, Workflow, Workspaces, Agents, Board, Scheduled, Watch, First run (same tokens, no layout rule changed) |
+| Full smoke suite still green (no regression) | ☑ pass | the whole vitest suite: 42 files / 1421 tests |
+| **Companion score (easy-verifier)** | ☑ N/A | not run (frontend agent; Supervisor decides) |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | before/after screenshots in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t120/shots-before` and `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t120/shots-after` (usage, live-list, live-panel, past-list, past-panel, settings, warnings, memory; each -375 and -1280). Frontend agent read them; verdict table in the final report. B-e: body 15 px < the skill's 16 px bar, still fail (owner chose 15) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | computed in headless Chrome: body `15px`, the only text family `"IBM Plex Mono"` on every shot (before: Plex Sans + Plex Mono, body 14px); 4 new tests pin tokens (no family literal, no px/rem font size outside tokens.css, scale 15/14 in 1/32 rem, real 400/500/600 faces) |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280: `scrollWidth == clientWidth` on every shot (no horizontal page scroll). The By tool and By model tables still scroll inside their card at 375 as before (wider with mono: right edge 572 vs 539 px) |
 
 ---
 
@@ -68,12 +68,35 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (captured 2026-11-19, before any implementation commit; base `e4e2778`; verbatim from `web/src/tokens.css`):
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+```css
+--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+--font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+--fs-label: 0.71875rem;  --fs-small: 0.75rem;  --fs-note: 0.78125rem;  --fs-cell: 0.8125rem;
+--fs-control: 0.84375rem;  --fs-body: 0.875rem;  --fs-card-title: 0.90625rem;  --fs-section: 0.9375rem;
+--fs-brand: 1rem;  --fs-h2: 1.0625rem;  --fs-kpi: 1.625rem;  --fs-h1: 1.75rem;
+/* @font-face: IBM Plex Sans 400/500/600, IBM Plex Mono 400/500 (no Mono 600) */
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Hard-coded font sizes outside the tokens (`app.css`): `.day-labels` 11px (l.307), `.rail-card > h2` 0.875rem (l.489), `.ring-text` 17px (l.494), `.memory-node text` 13px (l.577), `.memory-mark text` 11px + weight 600 (l.586), `.toast-close` 1.125rem (l.702). `body` and 2 more rules use `var(--font-sans)` (app.css l.6, 53, 173).
+
+Before screenshots (fixture-mock of the app routes, headless Chrome via DevTools): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t120/shots-before/{usage,live-list,live-panel,past-list,past-panel,settings,warnings}-{375,1280}.png`. Measured: computed body font-size `14px`, families `"IBM Plex Sans"` + `"IBM Plex Mono"`; no horizontal page scroll at 375 or 1280.
+
+**AFTER** (verbatim from `web/src/tokens.css` and the shots):
+
+```css
+--font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+--font-sans: var(--font-mono);
+--fs-label: 0.78125rem;  --fs-small: 0.8125rem;  --fs-note: 0.84375rem;  --fs-cell: 0.875rem;
+--fs-control: 0.90625rem;  --fs-body: 0.9375rem;  --fs-card-title: 0.96875rem;  --fs-section: 1rem;
+--fs-brand: 1.0625rem;  --fs-h2: 1.125rem;  --fs-kpi: 1.75rem;  --fs-h1: 1.875rem;
+/* @font-face: IBM Plex Mono 400, 500, 600 (600 is the genuine file from the npm package @fontsource/ibm-plex-mono 5.3.0); Plex Sans removed */
+```
+
+Measured on the after shots: body `15px`, only family `"IBM Plex Mono"`, no horizontal page scroll at 375 and 1280.
+
+**DELTA**: The whole dashboard reads in IBM Plex Mono at one step larger text (body 15 px), with a real semibold face for headings.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T120.jsonl`, never the
 implementing agent alone]

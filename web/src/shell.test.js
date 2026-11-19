@@ -80,3 +80,38 @@ describe('toast host and loading pill placement (HUN-202, FR-065)', () => {
     expect(css).toMatch(/@media \(min-width: 64rem\)\s*\{\s*\.loading-pill\s*\{\s*left: calc\(50% \+ var\(--sidebar-width\) \/ 2\);/)
   })
 })
+
+describe('Plex Mono everywhere and one step larger text (T120)', () => {
+  const appsession = readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
+  const watch = readFileSync(resolve(process.cwd(), 'src/watch.css'), 'utf8')
+  const sheets = { 'app.css': css, 'appsession.css': appsession, 'watch.css': watch }
+  const rem32 = (name) => Math.round(parseFloat(tokens.match(new RegExp(`--fs-${name}:\\s*([\\d.]+)rem`))[1]) * 32)
+  const SIZES = { label: 23, small: 24, note: 25, cell: 26, control: 27, body: 28, 'card-title': 29, section: 30, brand: 32, h2: 34, kpi: 52, h1: 56 } // the 14 px scale, in 1/32 rem
+
+  it('sets body text to 15 px and scales every size token by 15/14, rounded to 1/32 rem, keeping their order', () => {
+    expect(tokens).toMatch(/--fs-body:\s*0\.9375rem;/)
+    for (const [name, old] of Object.entries(SIZES)) expect(rem32(name)).toBe(Math.round((old * 15) / 14))
+    const order = Object.keys(SIZES).map(rem32)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    expect(new Set(order).size).toBe(order.length)
+  })
+
+  it('draws every page font from the mono token: no family literal, no --font-sans user', () => {
+    expect(tokens).toMatch(/--font-sans:\s*var\(--font-mono\);/)
+    for (const [file, text] of Object.entries(sheets)) {
+      expect(text, file).not.toMatch(/font-family:\s*(?!var\(--font-mono\))\S/)
+      expect(text, file).not.toContain('var(--font-sans)')
+    }
+    expect(rule('body')).toContain('font-family: var(--font-mono)')
+    expect(css).toMatch(/\ncode, pre, kbd, samp \{ font-family: var\(--font-mono\); \}/) // no browser-default monospace face
+  })
+
+  it('hard-codes no font size in any sheet except tokens.css (SVG text included)', () => {
+    for (const [file, text] of Object.entries(sheets)) expect(text, file).not.toMatch(/font-size:\s*[\d.]+(?:px|rem)/)
+  })
+
+  it('ships real Plex Mono 400, 500 and 600 faces and no Plex Sans, so 600 is never a faked bold', () => {
+    for (const w of [400, 500, 600]) expect(tokens).toMatch(new RegExp(`'IBM Plex Mono'[^}]*font-weight: ${w};[^}]*ibm-plex-mono-latin-${w}-normal\\.woff2`))
+    expect(tokens).not.toContain('IBM Plex Sans')
+  })
+})
