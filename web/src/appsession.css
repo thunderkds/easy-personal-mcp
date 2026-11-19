@@ -136,3 +136,14 @@ main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); fo
   .live-filters .board-filter { flex: 1 1 100%; }
   .live-filters input[type='text'] { width: 100%; }
 }
+
+/* T121 drops */
+.composer { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.composer:focus { outline: none; }
+.live-rows { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.live-rows > section { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.live-need { min-height: 1.5em; }
+.live-head .live-need:empty { visibility: hidden; }
+.live-about > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--color-muted); }
+.live-about > .footnote { margin: var(--space-2) 0 0; }
+.live-session { cursor: pointer; }

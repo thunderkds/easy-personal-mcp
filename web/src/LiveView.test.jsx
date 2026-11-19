@@ -298,13 +298,15 @@ describe('rows (FR-072)', () => {
     expect(document.querySelector('#live-panel .live-feed')).not.toBeNull()
   })
 
-  it('AC7: when the open session leaves the list nothing is drawn for it and the open id resets', () => {
+  it('AC7 (T121, FR-072): when the open session leaves the list its panel stays and says it is no longer active; Back closes it and resets the open id', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })], 1))
     openRow('aaaaaaaa')
-    expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
+    const panelNode = document.getElementById('live-panel')
     stream().emit('snapshot', snapshot([session('bbbbbbbb-2', { project: 'beta' })], 2))
-    expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
+    expect(document.getElementById('live-panel')).toBe(panelNode) // T121 (F6): the panel no longer closes by itself
+    expect(within(panelNode).getByText(/no longer active/)).toBeInTheDocument()
+    fireEvent.click(within(panelNode).getByRole('button', { name: 'Back to sessions' }))
     expect(document.getElementById('live-panel')).toBeNull()
     // the id was reset: the session coming back is closed, not re-opened by a stale id
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })], 3))
@@ -312,12 +314,12 @@ describe('rows (FR-072)', () => {
     expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
   })
 
-  it('AC7: the last session leaving draws no expanded area; the empty notice shows', () => {
+  it('AC7 (T121): the last session leaving keeps its panel saying no longer active, and the empty notice shows', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 1))
     openRow('aaaaaaaa')
     stream().emit('snapshot', snapshot([], 2))
-    expect(document.getElementById('live-panel')).toBeNull()
+    expect(within(document.getElementById('live-panel')).getByText(/no longer active/)).toBeInTheDocument()
     expect(screen.getByText(/No active sessions/)).toBeInTheDocument()
   })
 

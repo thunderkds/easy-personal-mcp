@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { queueReply, sendAppMessage } from './api.js'
 import { MAX_BYTES, SIZE_HINT, byteLength } from './NewSession.jsx'
 import ReplyBox, { MAX_CHARS, ReplyMark } from './ReplyBox.jsx'
@@ -18,8 +18,10 @@ export const why = (error, fallback = FAILED) => ((error.status === 400 || error
 const isSend = (e) => e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 // 229: Safari ends a composition with keyCode 229 and isComposing false
 
 /** The message box of an app session: Enter sends. Text that starts with `/` goes as typed (a slash command). */
-export function MessageBox({ session, onChange }) {
-  const [text, setText] = useState('')
+export function MessageBox({ session, onChange, text: held, onText }) {
+  const [own, setOwn] = useState('')
+  const text = held ?? own // T121: the composer holds the text, so a change of state does not throw it away
+  const setText = onText ?? setOwn
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const open = useRef(false)
@@ -86,8 +88,10 @@ const chars = (text) => Array.from(text).length
  * The queue of a busy terminal session (FR-125): one text, kept by the app in memory until the session's next turn end. `queued` is the snapshot's
  * `{text}` or null. After a request the box shows the answer at once and goes back to the snapshot when it changes.
  */
-export function QueueBox({ sessionId, queued }) {
-  const [text, setText] = useState('')
+export function QueueBox({ sessionId, queued, text: held, onText }) {
+  const [own, setOwn] = useState('')
+  const text = held ?? own
+  const setText = onText ?? setOwn
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [local, setLocal] = useState(undefined) // undefined: follow the snapshot; null or a text: what our last request left
@@ -205,33 +209,69 @@ const markable = (s) => s.replyBridge && !s.pending && (s.replyMarked || !s.atte
  * A terminal session with no process file is taken as busy unless the server says it waits for you.
  */
 export default function Composer({ s, app, onChange, onOpenSettings }) {
-  if (app) return <MessageBox session={app} onChange={onChange} />
-  if (s.appOnly) return null
-  const mark = markable(s) ? <ReplyMark sessionId={s.session_id} marked={s.replyMarked} hold={s.reply !== null} /> : null
-  if (s.reply)
-    return (
-      <>
-        <ReplyBox key={s.reply.id} sessionId={s.session_id} reply={s.reply} open />
-        {mark}
-      </>
-    )
-  if (!s.replyBridge)
-    return (
-      <p className="muted composer-off">
-        {BRIDGE_OFF}{' '}
-        {onOpenSettings && (
-          <button type="button" className="link-button" onClick={onOpenSettings}>
-            Open Settings
-          </button>
-        )}
-      </p>
-    )
+  // T121 (F5): the text lives here, not in the box of the moment, so working -> idle -> your turn -> working keeps what the owner typed; the focus
+  // follows it into the next box (or stays on the composer while no box is shown).
+  const [text, setText] = useState('')
+  const wrap = useRef(null)
+  const mode = useRef(null)
+  const hadFocus = useRef(false)
   const yourTurn = s.attention.some((a) => a.state === 'your_turn')
   const busy = s.proc ? s.proc.busy === true : !yourTurn
+  const now = app ? 'app' : s.appOnly ? 'none' : s.reply ? 'reply' : !s.replyBridge ? 'off' : busy ? 'queue' : 'idle'
+  if (now !== mode.current) {
+    hadFocus.current = Boolean(wrap.current && wrap.current.contains(document.activeElement)) // read before the old box leaves the page
+    mode.current = now
+  }
+  useLayoutEffect(() => {
+    if (!hadFocus.current) return
+    hadFocus.current = false
+    const at = document.activeElement
+    if (at && at !== document.body && !wrap.current?.contains(at)) return // the owner moved on: never take the focus back
+    const box = wrap.current?.querySelector('textarea:not(:disabled)')
+    ;(box ?? wrap.current)?.focus()
+  }, [now])
+  const box = { text, onText: setText }
+  let body = null
+  if (app) body = <MessageBox session={app} onChange={onChange} {...box} />
+  else if (s.appOnly) return null
+  else {
+    const mark = markable(s) ? <ReplyMark sessionId={s.session_id} marked={s.replyMarked} hold={s.reply !== null} /> : null
+    if (s.reply)
+      body = (
+        <>
+          <ReplyBox key={s.reply.id} sessionId={s.session_id} reply={s.reply} open {...box} />
+          {mark}
+        </>
+      )
+    else if (!s.replyBridge)
+      body = (
+        <p className="muted composer-off">
+          {BRIDGE_OFF}{' '}
+          {onOpenSettings && (
+            <button type="button" className="link-button" onClick={onOpenSettings}>
+              Open Settings
+            </button>
+          )}
+        </p>
+      )
+    else
+      body = (
+        <>
+          {busy ? (
+            <QueueBox sessionId={s.session_id} queued={s.queued} {...box} />
+          ) : (
+            <p className="muted">
+              This session is idle. A reply goes in at its next turn end: mark it below.
+              {text !== '' && ' Your text is kept: it comes back in the box when the session works again or waits for your reply.'}
+            </p>
+          )}
+          {mark}
+        </>
+      )
+  }
   return (
-    <>
-      {busy ? <QueueBox sessionId={s.session_id} queued={s.queued} /> : <p className="muted">This session is idle. A reply goes in at its next turn end: mark it below.</p>}
-      {mark}
-    </>
+    <div className="composer" ref={wrap} tabIndex={-1}>
+      {body}
+    </div>
   )
 }

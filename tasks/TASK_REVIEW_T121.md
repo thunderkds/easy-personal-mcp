@@ -48,9 +48,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | AC 3 (drops, F5-F11, F20): `web/src/LiveDrop.test.jsx` (12 tests: working -> idle -> needs you -> ended on one open panel, same panel node, typed text and focus kept; a quiet session's panel survives another session's change; id -> `app:<id>` keeps the panel node and text; order held under the pointer and under the focus; Working filter keeps a hovered row; new row goes last; need line same node; footnote in closed details; card click opens; 2 negative focus/text cases). Green: `Tests  12 passed (12)`. Other ACs: [other slices] |
 | Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| Negative cases hold | ☐ pass / ☐ fail | AC 3 red run of `LiveDrop.test.jsx` on `2306a30` (before any drop fix): `Tests  10 failed (10)` — panel closed on leave ("Unable to find ... region Session in"), F10 "expected <section id=live-panel> to be <section id=live-panel>" (remounted), keyboard hold "expected [aaaaaaaa, …] to deeply equal [bbbbbbbb, …]" (re-sorted), need line / details / card click null or not expanded; full output in the section *AC 3 red run* below. The 2 negative tests (focus moved out is not taken back; no 'text is kept' claim with no text) pass on the fixed tree. Other ACs: [other slices] |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -112,3 +112,54 @@ Not findings (mock artefacts): the transcript is drawn twice in the panel shots 
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T121.jsonl`, never the
 implementing agent alone]
+
+## AC 3 — drops on status change (slice: Composer / LiveView / SessionPanel)
+
+Fixed: F5, F6, F7, F8, F9, F10, F11, F20. Full suite after: `Test Files  43 passed (43)`, `Tests  1433 passed (1433)`; `npm run build` ok; `check_static: ok`.
+
+**F6 rule change (Supervisor decision, approved; FR-072 "the panel says it is no longer active").** The open panel no longer closes when its session leaves the snapshot: it keeps the last known entry, says *This session is no longer active*, hides Stop / Interrupt / Close, the cards and the composer, and Back closes it; an app session the owner closes with *Close* still closes the panel. Earlier tests that pinned the old rule, rewritten to the new one:
+- `web/src/LiveView.test.jsx` — `AC7: when the open session leaves the list nothing is drawn…` -> `AC7 (T121, FR-072): … its panel stays and says it is no longer active; Back closes it and resets the open id`; `AC7: the last session leaving draws no expanded area…` -> `AC7 (T121): the last session leaving keeps its panel saying no longer active, and the empty notice shows`.
+- `web/src/App.test.jsx` — `AC5: a selected session that leaves the list clears the selection…` -> `AC5 (T121, FR-072): … has no row left; its panel says it is no longer active; no error`.
+- `web/src/LivePanel.test.jsx` — `a session that leaves the list within 5 s never offers Force stop`: now asserts the panel says no longer active and has no Stop, instead of the panel being gone.
+
+Also changed for F9: the *need you* line keeps one node; it carries `role="status"` only while the count is above 0 (LiveView.test AC4 counts one status region at zero).
+
+### AC 3 red run
+
+`cd web && npx vitest run src/LiveDrop.test.jsx` on `2306a30`, before the fixes:
+
+```
+     × working -> idle -> needs you -> ended: the same panel node; the typed text and the focus are kept; ended says no longer active 212ms
+     × another session changing state does not close or redraw the open panel of a quiet one 83ms
+     × the app list answering after the stream (id -> app:<id>) keeps the same panel node and text 65ms
+     × while the pointer is on the list a re-sort or a new state keeps the order; leaving it lets the list sort again 12ms
+     × the keyboard focus on a row holds the order too, until the focus leaves the list 17ms
+     × with Working set, a hovered row whose session goes idle stays listed until the pointer leaves 13ms
+     × a row added while the pointer is on the list goes at the end, the others keep their place 10ms
+     × the "need you" line is always drawn: the same node with 0 and with 1 7ms
+     × the footnote of the totals is folded in a closed details 8ms
+     × a click anywhere on the row card opens it, not only on its first line 9ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/LiveDrop.test.jsx > the open panel stays put (F5, F6) > working -> idle -> needs you -> ended: the same panel node; the typed text and the focus are kept; ended says no longer active
+TestingLibraryElementError: Unable to find an element with the text: /Your text is kept/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  src/LiveDrop.test.jsx > the open panel stays put (F5, F6) > another session changing state does not close or redraw the open panel of a quiet one
+TestingLibraryElementError: Unable to find an accessible element with the role "region" and name `/^Session in /`
+ FAIL  src/LiveDrop.test.jsx > the panel is not remounted when its row key changes (F10) > the app list answering after the stream (id -> app:<id>) keeps the same panel node and text
+AssertionError: expected <section id="live-panel" …(2)>…(6)</section> to be <section id="live-panel" …(2)>…(9)</section> // Object.is equality
+ FAIL  src/LiveDrop.test.jsx > rows do not move or vanish under the pointer (F7, F8) > while the pointer is on the list a re-sort or a new state keeps the order; leaving it lets the list sort again
+Error: Unable to fire a "pointerenter" event - please provide a DOM element.
+ FAIL  src/LiveDrop.test.jsx > rows do not move or vanish under the pointer (F7, F8) > the keyboard focus on a row holds the order too, until the focus leaves the list
+AssertionError: expected [ 'aaaaaaaa-1111-2222', …(1) ] to deeply equal [ 'bbbbbbbb-3333-4444', …(1) ]
+ FAIL  src/LiveDrop.test.jsx > rows do not move or vanish under the pointer (F7, F8) > with Working set, a hovered row whose session goes idle stays listed until the pointer leaves
+Error: Unable to fire a "pointerenter" event - please provide a DOM element.
+ FAIL  src/LiveDrop.test.jsx > rows do not move or vanish under the pointer (F7, F8) > a row added while the pointer is on the list goes at the end, the others keep their place
+Error: Unable to fire a "pointerenter" event - please provide a DOM element.
+ FAIL  src/LiveDrop.test.jsx > the head and the list do not jump (F9, F11, F20) > the "need you" line is always drawn: the same node with 0 and with 1
+AssertionError: expected null not to be null
+ FAIL  src/LiveDrop.test.jsx > the head and the list do not jump (F9, F11, F20) > the footnote of the totals is folded in a closed details
+AssertionError: expected null not to be null
+ FAIL  src/LiveDrop.test.jsx > the head and the list do not jump (F9, F11, F20) > a click anywhere on the row card opens it, not only on its first line
+Error: [2mexpect([22m[31melement[39m[2m).toHaveAttribute([22m[32m[32m"aria-expanded"[32m[39m[2m, [22m[32m[32m"true"[32m[39m[2m) // element.getAttribute("aria-expanded") === "true"[22m
+      Tests  10 failed (10)
+```
+

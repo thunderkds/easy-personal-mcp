@@ -721,12 +721,13 @@ describe('the session the page is asked for (T095, FR-108)', () => {
     expect(row(ID)).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('AC5: a selected session that leaves the list clears the selection and shows no error', () => {
+  it('AC5 (T121, FR-072): a selected session that leaves the list has no row left; its panel says it is no longer active; no error', () => {
     startOn(`/?live=${ID}#tok`)
     render(<App />)
     snapshot(one(ID, 'alpha'), one(OTHER, 'beta'))
     snapshot(one(OTHER, 'beta'))
     expect(selected()).toHaveLength(0)
+    expect(document.getElementById('live-panel')).toHaveTextContent('no longer active')
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
