@@ -11,11 +11,11 @@
 ### Todo
 
 ### In Progress
-- [ ] **T121** — UX audit and fix pass, whole app | frontend-developer | C3 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T121`, branch `T121` from `main`
 
 ### Ready for Review
 
 ### Done
+- [x] **T121** — UX audit and fix pass, whole app | frontend-developer | C3 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T121`, branch `T121` from `main`; audit 20 findings (3 P1, 11 P2, 6 P3) + 10 after-run; built in two parallel slices (drops `T121`, layout `T121-ui`) after the first agent hit the 90-call limit; 2 fix rounds; F6 rule changed (gone session keeps its panel, FR-072); code-review 0 P0/P1 (4 P2 + 2 P3 fixed); security-review no finding >= 8; vitest 1444/1444 (2 load flakes seen once: LiveRename, WorkspacesView); verify PASS; merged ([admin])
 - [x] **T120** — Mono font and one step larger text, whole app | frontend-developer | C1 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T120`, branch `T120` from `main`; built 2026-11-19 (`165f3bd`): Plex Mono 400/500/600 (600 from @fontsource/ibm-plex-mono 5.3.0, registry sha512 checked), --fs-* x15/14; review 0 P0/P1/P2; vitest 1421/1421; verify PASS; merged ([admin]); B-e 15 px < 16 px bar accepted (owner chose one step)
 - [x] **T119** — Live like Claude 5 — filters, names, past sessions | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T119.md`; FR-128; Depends on T117, T118; started 2026-11-19: worktree `easy-personal-mcp-wt/T119`, branch `T119` from `main`; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T119`, branch `T119` from `main` (`8c8c121`); built + Stage 4 2026-11-19 (`713454d`): code-review 0 P0/P1, 1 P2 + 4 P3 fixed (`ef5c5ef`); security-review no finding ≥ 8; vitest 1417/1417; verify PASS; merged `40c512d` ([admin])
 - [x] **T112** — Reply to idle sessions 2 — the reply box and *Reply from the app* in the Live view | frontend-developer | C2 | Risk: Medium | P1 | started 2026-11-18: worktree `easy-personal-mcp-wt/T112`, branch `T112` from `T111`; Depends on T111; PRD FR-122; built + Stage 4 2026-11-18 (`a3ad637`): code-review 0 P0/P1, 1 P2 + 5 P3 fixed (`5664316`); security-review no finding ≥ 8 (twice); owner chose the server flag `reply_bridge` (`babf7f7`); web 1294, Rust 1263 / 0, leak 0 hits | auto verify pass (`a3ad637`); merged to `main` 2026-11-18 (`cd27c37`, [admin]); .deb rebuilt | Done 2026-11-18: merged to `main` (ancestor), verify row pass; row moved by Supervisor (stale Ready for Review)
