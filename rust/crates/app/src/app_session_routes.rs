@@ -18,8 +18,8 @@ use crate::agent_routes::{blocking, data_dir, object};
 use crate::agent_run::{Runner, Setting};
 use crate::api::{Api, INTERNAL, respond};
 use crate::app_session::{
-    self as app, Account, Answer, AnswerError, MODELS, MODES, Plan, Resume, ResumeId, Session,
-    StartError, TOOL,
+    self as app, Account, Answer, AnswerError, EFFORTS, MODELS, MODES, Plan, Resume, ResumeId,
+    Session, StartError, SteerError, TOOL,
 };
 use crate::writes::{fail, parse};
 use axum::Router;
@@ -65,6 +65,10 @@ pub(crate) fn routes() -> Router<Api> {
         .route("/api/app-sessions/{id}/stop", post(stop))
         .route("/api/app-sessions/{id}/answer", post(answer))
         .route("/api/app-sessions/{id}/close", post(close))
+        .route("/api/app-sessions/{id}/model", post(set_model))
+        .route("/api/app-sessions/{id}/mode", post(set_mode))
+        .route("/api/app-sessions/{id}/effort", post(set_effort))
+        .route("/api/app-sessions/{id}/context", get(context))
         .route(
             "/app-session-mcp/{id}",
             post(mcp_post).get(mcp_other).delete(mcp_other),
@@ -154,6 +158,7 @@ struct Form {
     target: Target,
     account: Option<String>,
     model: &'static str,
+    effort: &'static str,
     mode: &'static str,
     prompt: String,
 }
@@ -241,6 +246,10 @@ fn form(body: &Map<String, Value>) -> Result<Form, Response> {
         target,
         account,
         model: listed("model", &MODELS)?,
+        effort: match body.get("effort") {
+            None => "default",
+            Some(_) => listed("effort", &EFFORTS)?,
+        },
         mode: listed("mode", &MODES)?,
         prompt: text_field(body, "prompt", MAX_PROMPT)?,
     })
@@ -427,6 +436,7 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
             "workspace",
             "account",
             "model",
+            "effort",
             "mode",
             "worktree",
             "prompt",
@@ -505,6 +515,7 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
             resume,
             account,
             model: form.model,
+            effort: form.effort,
             mode: form.mode,
             worktree,
             prompt: form.prompt,
@@ -654,6 +665,116 @@ async fn answer(State(api): State<Api>, Path(id): Path<String>, req: Request) ->
             ),
             Err(AnswerError::Bad(text)) => fail(StatusCode::BAD_REQUEST, text),
             Err(AnswerError::Incomplete) => fail(StatusCode::CONFLICT, INCOMPLETE),
+        }
+    })
+    .await
+}
+
+// ---- steering a going session (T126, FR-131) ----------------------------------------------------------------------------
+
+/// One value of a fixed list, or 400.
+fn pick(
+    body: &Map<String, Value>,
+    key: &str,
+    list: &[&'static str],
+) -> Result<&'static str, Response> {
+    body.get(key)
+        .and_then(Value::as_str)
+        .and_then(|text| list.iter().find(|item| **item == text).copied())
+        .ok_or_else(|| {
+            fail(
+                StatusCode::BAD_REQUEST,
+                &format!("{key} must be one of the listed values"),
+            )
+        })
+}
+
+/// A steering refusal: an ended session 409, no answer in time 504, the CLI's own line 409.
+fn steer_fail(error: SteerError) -> Response {
+    match error {
+        SteerError::Ended => fail(StatusCode::CONFLICT, ENDED),
+        SteerError::NoAnswer => fail(
+            StatusCode::GATEWAY_TIMEOUT,
+            "the session did not answer within 10 s; nothing was changed",
+        ),
+        SteerError::Refused(text) => fail(StatusCode::CONFLICT, &text),
+    }
+}
+
+/// Sends one steering request to session `id` (on a blocking thread: it waits for the CLI) and answers its view.
+async fn steer(
+    api: Api,
+    id: String,
+    send: impl FnOnce(&Session) -> Result<(), SteerError> + Send + 'static,
+) -> Response {
+    blocking(move || {
+        let session = match found(&api, &id) {
+            Ok(session) => session,
+            Err(answer) => return answer,
+        };
+        match send(&session) {
+            Ok(()) => respond(StatusCode::OK, &view(&session)),
+            Err(error) => steer_fail(error),
+        }
+    })
+    .await
+}
+
+/// `POST /api/app-sessions/{id}/model` `{model, confirmed: true}`: `set_model` with a model of the fixed list.
+async fn set_model(State(api): State<Api>, Path(id): Path<String>, req: Request) -> Response {
+    let model = match write_body(req, &["model"])
+        .await
+        .and_then(|b| pick(&b, "model", &MODELS))
+    {
+        Ok(model) => model,
+        Err(answer) => return answer,
+    };
+    steer(api, id, move |s| s.set_model(model, app::CONTROL_WAIT)).await
+}
+
+/// `POST /api/app-sessions/{id}/mode` `{mode, confirmed: true, confirmed_bypass?}`: `set_permission_mode`;
+/// `bypassPermissions` also needs `confirmed_bypass: true` (the page's second confirm).
+async fn set_mode(State(api): State<Api>, Path(id): Path<String>, req: Request) -> Response {
+    let body = match write_body(req, &["mode", "confirmed_bypass"]).await {
+        Ok(body) => body,
+        Err(answer) => return answer,
+    };
+    let mode = match pick(&body, "mode", &MODES) {
+        Ok(mode) => mode,
+        Err(answer) => return answer,
+    };
+    if mode == "bypassPermissions" && body.get("confirmed_bypass") != Some(&Value::Bool(true)) {
+        return fail(
+            StatusCode::BAD_REQUEST,
+            "bypassPermissions needs confirmed_bypass: true",
+        );
+    }
+    steer(api, id, move |s| s.set_mode(mode, app::CONTROL_WAIT)).await
+}
+
+/// `POST /api/app-sessions/{id}/effort` `{effort, confirmed: true}`: `apply_flag_settings {effortLevel}` with a level of
+/// the fixed list (not `default`: a start choice only).
+async fn set_effort(State(api): State<Api>, Path(id): Path<String>, req: Request) -> Response {
+    let effort = match write_body(req, &["effort"])
+        .await
+        .and_then(|b| pick(&b, "effort", &EFFORTS[1..]))
+    {
+        Ok(effort) => effort,
+        Err(answer) => return answer,
+    };
+    steer(api, id, move |s| s.set_effort(effort, app::CONTROL_WAIT)).await
+}
+
+/// `GET /api/app-sessions/{id}/context`: the CLI's `get_context_usage`, numbers only.
+async fn context(State(api): State<Api>, Path(id): Path<String>) -> Response {
+    blocking(move || {
+        let session = match found(&api, &id) {
+            Ok(session) => session,
+            Err(answer) => return answer,
+        };
+        match session.context(app::CONTROL_WAIT) {
+            Ok(numbers) => respond(StatusCode::OK, &numbers),
+            Err(error) => steer_fail(error),
         }
     })
     .await
@@ -809,7 +930,7 @@ mod tests {
     use super::*;
     use crate::agent_routes::Agent;
     use crate::agent_run::tests::{Fake, runs, serial};
-    use crate::app_session::tests::CHAT;
+    use crate::app_session::tests::{CHAT, STEER};
     use crate::server::router;
     use axum::body::Body;
     use axum::http::Request as HttpRequest;
@@ -1349,6 +1470,193 @@ mod tests {
         });
     }
 
+    // ---- T126 (FR-131): model, mode, effort and context of a going session ----
+
+    #[test]
+    fn model_mode_effort_and_context_steer_a_going_session_from_fixed_lists_only() {
+        let _serial = serial();
+        block(async {
+            let w = world("steer", STEER);
+            let id = w.begin(json!({"model": "opus[1m]", "effort": "low"})).await;
+            until("started", || w.fake.root.join("log/pid").exists());
+            let argv = w.fake.argv();
+            assert!(argv.windows(2).any(|p| p == ["--model", "opus[1m]"]));
+            assert!(argv.windows(2).any(|p| p == ["--effort", "low"]));
+            let path = |action: &str| format!("/api/app-sessions/{id}/{action}");
+            let (status, view) = w
+                .post(
+                    &path("model"),
+                    &json!({"model": "sonnet", "confirmed": true}),
+                )
+                .await;
+            assert_eq!(status, 200, "{view}");
+            assert_eq!(view["model"], "sonnet");
+            let (status, view) = w
+                .post(&path("mode"), &json!({"mode": "plan", "confirmed": true}))
+                .await;
+            assert_eq!((status.as_u16(), &view["mode"]), (200, &json!("plan")));
+            let (status, view) = w
+                .post(
+                    &path("effort"),
+                    &json!({"effort": "max", "confirmed": true}),
+                )
+                .await;
+            assert_eq!((status.as_u16(), &view["effort"]), (200, &json!("max")));
+            let sent_before = w.fake.log("stdin").lines().count();
+            // values off the lists, a missing confirm, an unknown field, and bypass without its own confirm: 400, nothing sent
+            for (action, body) in [
+                ("model", json!({"model": "gpt-9", "confirmed": true})),
+                ("model", json!({"model": "haiku[1m]", "confirmed": true})),
+                (
+                    "model",
+                    json!({"model": "--dangerously-skip-permissions", "confirmed": true}),
+                ),
+                ("model", json!({"model": "$(id)", "confirmed": true})),
+                ("model", json!({"model": 3, "confirmed": true})),
+                ("model", json!({"model": "opus"})),
+                ("model", json!({"model": "opus", "confirmed": false})),
+                ("model", json!({"model": "opus", "confirmed": true, "x": 1})),
+                ("mode", json!({"mode": "yolo", "confirmed": true})),
+                (
+                    "mode",
+                    json!({"mode": "bypassPermissions", "confirmed": true}),
+                ),
+                (
+                    "mode",
+                    json!({"mode": "bypassPermissions", "confirmed": true, "confirmed_bypass": "yes"}),
+                ),
+                ("effort", json!({"effort": "turbo", "confirmed": true})),
+                ("effort", json!({"effort": "default", "confirmed": true})),
+                ("effort", json!({"effort": null, "confirmed": true})),
+            ] {
+                let (status, answer) = w.post(&path(action), &body).await;
+                assert_eq!(status, 400, "{action} {body}: {answer}");
+            }
+            assert_eq!(
+                w.fake.log("stdin").lines().count(),
+                sent_before,
+                "nothing sent"
+            );
+            // the CLI refuses: its line comes back and the header keeps the mode
+            let (status, answer) = w
+                .post(
+                    &path("mode"),
+                    &json!({"mode": "bypassPermissions", "confirmed": true, "confirmed_bypass": true}),
+                )
+                .await;
+            assert_eq!(status, 409, "{answer}");
+            assert!(
+                answer["error"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Cannot set permission mode"),
+                "{answer}"
+            );
+            assert_eq!(w.session(&id).await["mode"], "plan");
+            // context: numbers only
+            let (status, context) = w.call("GET", &path("context"), None, "").await;
+            assert_eq!(status, 200, "{context}");
+            assert_eq!(
+                (&context["used"], &context["limit"]),
+                (&json!(27501), &json!(1000000))
+            );
+            assert!(!context.to_string().contains("SECRET"));
+            // an unknown session, then an ended one
+            let (status, _) = w
+                .post(
+                    "/api/app-sessions/nope/model",
+                    &json!({"model": "opus", "confirmed": true}),
+                )
+                .await;
+            assert_eq!(status, 404);
+            let (status, _) = w
+                .call("GET", "/api/app-sessions/nope/context", None, "")
+                .await;
+            assert_eq!(status, 404);
+            w.post(&path("stop"), &json!({"confirmed": true})).await;
+            w.until_state(&id, "ended").await;
+            let (status, _) = w
+                .post(&path("model"), &json!({"model": "opus", "confirmed": true}))
+                .await;
+            assert_eq!(status, 409);
+            let (status, _) = w.call("GET", &path("context"), None, "").await;
+            assert_eq!(status, 409);
+        });
+    }
+
+    #[test]
+    fn the_steering_routes_keep_the_guard() {
+        let _serial = serial();
+        block(async {
+            let w = world("steer-guard", STEER);
+            let id = w.begin(json!({})).await;
+            let routes = [
+                ("POST", "model", r#"{"model":"opus","confirmed":true}"#),
+                ("POST", "mode", r#"{"mode":"plan","confirmed":true}"#),
+                ("POST", "effort", r#"{"effort":"high","confirmed":true}"#),
+                ("GET", "context", ""),
+            ];
+            for (method, action, body) in routes {
+                for refusal in ["no token", "wrong token", "wrong host", "foreign origin"] {
+                    let host = if refusal == "wrong host" {
+                        "evil.example:80".to_string()
+                    } else {
+                        format!("127.0.0.1:{PORT}")
+                    };
+                    let mut request = HttpRequest::builder()
+                        .method(method)
+                        .uri(format!("/api/app-sessions/{id}/{action}"))
+                        .header("content-type", "application/json")
+                        .header("host", host);
+                    request = match refusal {
+                        "no token" => request,
+                        "wrong token" => request.header("x-dashboard-token", "nope"),
+                        "foreign origin" => request
+                            .header("x-dashboard-token", TOKEN)
+                            .header("origin", "http://evil.example"),
+                        _ => request.header("x-dashboard-token", TOKEN),
+                    };
+                    let (status, answer) = w.send(request.body(Body::from(body)).unwrap()).await;
+                    assert_eq!(status, 403, "{method} {action} {refusal}");
+                    assert_eq!(answer, json!({"error": "forbidden"}));
+                }
+            }
+            let sent = w.fake.log("stdin");
+            assert!(
+                !sent.contains("control_request"),
+                "a refused request sends nothing"
+            );
+            assert_eq!(w.session(&id).await["effort"], "default");
+        });
+    }
+
+    #[test]
+    fn the_start_form_takes_a_listed_effort_or_none_and_refuses_any_other() {
+        let _serial = serial();
+        block(async {
+            let w = world("effort", KEEP);
+            for extra in [
+                json!({"effort": "turbo"}),
+                json!({"effort": "--model"}),
+                json!({"effort": "low high"}),
+                json!({"effort": 3}),
+                json!({"model": "haiku[1m]"}),
+            ] {
+                let (status, body) = w.post("/api/app-sessions", &w.form(extra.clone())).await;
+                assert_eq!(status, 400, "{extra}: {body}");
+            }
+            assert!(!w.fake.root.join("log/pid").exists(), "nothing was started");
+            let id = w.begin(json!({"model": "opusplan"})).await;
+            let view = w.session(&id).await;
+            assert_eq!(
+                (&view["model"], &view["effort"]),
+                (&json!("opusplan"), &json!("default"))
+            );
+            until("started", || w.fake.root.join("log/pid").exists());
+            assert!(!w.fake.argv().iter().any(|a| a == "--effort"));
+        });
+    }
+
     #[test]
     fn a_fifth_concurrent_session_is_409_with_a_fixed_message() {
         let _serial = serial();
@@ -1394,6 +1702,7 @@ mod tests {
                     "account",
                     "branch",
                     "changed_files",
+                    "effort",
                     "folder",
                     "id",
                     "items",
