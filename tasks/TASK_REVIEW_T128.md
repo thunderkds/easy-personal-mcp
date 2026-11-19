@@ -52,22 +52,23 @@ Mode: auto
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>
+Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); no test run in memory/event-trace/T128.jsonl — write /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID with the task ID (minimal-track step 1): `mkdir -p /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d && printf '%s\n%s\n' "T128" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID`, then rerun the task's tests so the trace records them under the task, then stop; Risk Medium: decision 1 (`SAFER OPTION`) is a choice — it is flagged ⚠ — so it must be `DEBATED` with exactly 2 Advocates named; Risk Medium: decision 2 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 2 Advocates named; extended track, but the trace has no `code-review` Skill call (Stage 4 runs in auto mode); Risk Medium, but the trace has no `security-review` Skill call [report 21ff6162254c]
 
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/AppSessionEntry.test.jsx` (AC 1,2,3,5), `web/src/LivePanel.test.jsx` (AC 4), `web/src/NewSessionSheet.test.jsx`, `web/src/App.test.jsx` (nav) |
+| Verification command run | ☑ pass | `npx vitest run`: Test Files 43 passed (43), Tests 1470 passed (1470); `npm run build`: built in 394ms, `check_static: ok` (rc=0) |
 | Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate on the built bundle with a stubbed API (scratch, not committed): U1 pass (New session in the Live header at 1280 and 375, no scroll), U2 pass (form drawn in place, no dialog; the Which colour? card stays fully visible below it), U3 pass (TodoWrite: done struck through, in progress bold with half mark, pending open circle). Screenshots in the session scratchpad ux/: a-1280, a-375, b2-1280, c-1280, c-375 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | New CSS in `web/src/appsession.css` uses var(--color-*), var(--space-*), var(--fs-cell), var(--font-*) only; no raw colours |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280 px: no horizontal overflow seen; the New session button gets min-height 44px at 375 (CSS rule added, not measured with tap_probe) |
 
 ---
 
@@ -87,9 +88,15 @@ af4aa48 Board + memory: T122, T123 Done (merged); font decision
 0
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (worktree branch T128, implementer; the two counts are `grep -c` of 'New session' in LiveView.jsx and 'TodoWrite' in Transcript.jsx):
+```
+2026-11-19T22:42:08Z
+4fe6226 Plan: Live like Claude 2 (question 46, FR-129..FR-133, DDR-0008, T124-T128)
+3
+3
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: From Live the owner can open the New session form in place (also for Resume / Fork / Continue), start a session and see its panel open, and a TodoWrite call reads as a checklist; the App sessions tab is gone and its old address opens Live.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T128.jsonl`, never the
 implementing agent alone]

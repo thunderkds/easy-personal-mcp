@@ -4,10 +4,11 @@ import App from './App.jsx'
 import LiveView from './LiveView.jsx'
 import { ToastProvider } from './Toast.jsx'
 import WorkspacesView from './WorkspacesView.jsx'
-import { agentRunOn, fakeFetch, workspaceOverrides } from './test/fixtures.js'
-import { appServer, appSession } from './test/appSessions.js'
+import { OFF } from './NewSessionSheet.jsx'
+import { agentRunOff, agentRunOn, fakeFetch, workspaceOverrides } from './test/fixtures.js'
+import { appServer, appSession, questionPrompt } from './test/appSessions.js'
 
-// The two entry points of the app session page (T104): a workspace card on Workspaces, and an app session's row on Live.
+// The entry points of the New session form (T104; T128: it is drawn in Live): the Live header, a workspace card on Workspaces, Resume / Fork in a Live panel.
 
 class FakeEventSource {
   static instances = []
@@ -60,26 +61,137 @@ describe('Workspaces: New session', () => {
     expect(screen.queryByRole('button', { name: 'New session' })).toBeNull()
   })
 
-  it('in the app: the button opens the App sessions page with the New session form on that workspace', async () => {
+  it('in the app: the button opens Live with the New session form on that workspace (no tab of its own)', async () => {
     vi.stubGlobal('fetch', both(appServer(), workspaceOverrides({ workspaces: { workspaces: [{ id: 2, name: 'company', is_orphan: false, repos: ['/work/company', '/work/company-web'] }, { id: 3, name: 'home', is_orphan: false, repos: ['/home/o/notes'] }] } })))
     render(<App />)
     const nav = screen.getByRole('navigation', { name: 'Views' })
     fireEvent.click(within(nav).getByRole('button', { name: 'Workspaces' }))
     const home = await screen.findByRole('region', { name: 'home' })
     fireEvent.click(within(home).getByRole('button', { name: 'New session' }))
-    expect(await screen.findByRole('heading', { name: 'App sessions' })).toBeInTheDocument()
-    expect(within(nav).getByRole('button', { name: 'App sessions' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { name: 'Live' })).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: 'Live' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).queryByRole('button', { name: 'App sessions' })).toBeNull()
     expect(await screen.findByLabelText('Repo')).toHaveDisplayValue('/home/o/notes')
   })
 
-  it('the sidebar has App sessions under // work, and opening it by hand shows New session and no session panel', async () => {
+  it('the sidebar has no App sessions tab; its old address (?app-sessions) opens Live with no form', async () => {
+    window.history.replaceState(null, '', '/?app-sessions#secret-token')
     vi.stubGlobal('fetch', both(appServer({ sessions: [appSession({ items: [] })] })))
     render(<App />)
     const nav = screen.getByRole('navigation', { name: 'Views' })
-    fireEvent.click(within(nav).getByRole('button', { name: 'App sessions' }))
-    expect(await screen.findByRole('button', { name: 'New session' })).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: /^Session in / })).toBeNull() // the sessions are in Live
+    expect(within(nav).queryByRole('button', { name: 'App sessions' })).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Live' })).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: 'Live' })).toHaveAttribute('aria-current', 'page')
+    expect(window.location.search).toBe('') // read once and removed, like ?live
+    expect(window.location.hash).toBe('#secret-token')
     expect(screen.queryByLabelText('Repo')).toBeNull() // no form unless asked for
+  })
+})
+
+describe('Live: New session (T128, FR-133)', () => {
+  const stream = () => FakeEventSource.instances.at(-1)
+  const snapshot = (sessions) => ({ active_window_s: 300, last_id: 0, sessions })
+  const company = { workspaces: { workspaces: [{ id: 2, name: 'company', is_orphan: false, repos: ['/work/company'] }] } }
+  const goLive = async () => {
+    render(<App />)
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('button', { name: 'Live' }))
+    return screen.findByRole('button', { name: 'New session' })
+  }
+  const fillAndStart = async (text) => {
+    fireEvent.change(await screen.findByLabelText('First prompt'), { target: { value: text } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+  }
+
+  it('the Live header has New session; it opens the form in place, in Live, not in another tab', async () => {
+    vi.stubGlobal('fetch', both(appServer(), workspaceOverrides(company)))
+    const button = await goLive()
+    expect(button.closest('.live-head')).not.toBeNull() // in the header: visible without scrolling
+    expect(screen.queryByLabelText('First prompt')).toBeNull()
+    fireEvent.click(button)
+    expect(await screen.findByRole('heading', { name: 'New session' })).toBeInTheDocument()
+    expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Live' })).toBeInTheDocument() // still in Live
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(button).toBeDisabled() // one form at a time
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByLabelText('First prompt')).toBeNull()
+    expect(button).toBeEnabled()
+  })
+
+  it('on start the new session panel is selected', async () => {
+    const fresh = appSession({ id: 'a7', folder: '/work/company', state: 'working', session_id: null, items: [{ kind: 'user', text: 'fix it' }] })
+    const server = appServer({
+      routes: {
+        'POST /api/app-sessions': (_body, state) => {
+          state.sessions = [fresh]
+          return { status: 202, body: { id: 'a7' } }
+        },
+      },
+    })
+    vi.stubGlobal('fetch', both(server, workspaceOverrides(company)))
+    fireEvent.click(await goLive())
+    await fillAndStart('fix it')
+    expect(await screen.findByRole('region', { name: 'Session in company' })).toBeInTheDocument()
+    expect(await screen.findByText('fix it')).toBeInTheDocument()
+    expect(screen.queryByLabelText('First prompt')).toBeNull() // the form closed
+    expect(document.getElementById('live-row-app:a7')).toHaveAttribute('aria-expanded', 'true')
+    expect(server.posts('/api/app-sessions')[0].body).toMatchObject({ repo: '/work/company', workspace: 'company', confirmed: true })
+  })
+
+  it('the panel opens at once, not at the next 5 s read of the app session list', async () => {
+    const fresh = appSession({ id: 'a7', folder: '/work/company', state: 'working', session_id: null, items: [] })
+    const server = appServer({ routes: { 'POST /api/app-sessions': (_body, state) => ((state.sessions = [fresh]), { status: 202, body: { id: 'a7' } }) } })
+    vi.stubGlobal('fetch', both(server, workspaceOverrides(company)))
+    fireEvent.click(await goLive())
+    await fillAndStart('go')
+    await waitFor(() => expect(document.getElementById('live-row-app:a7')).toHaveAttribute('aria-expanded', 'true'), { timeout: 2000 })
+  })
+
+  it('a waiting question card stays on the page while the form is open: no dialog, the card is not removed or hidden', async () => {
+    const waiting = appSession({ id: 'a1', state: 'waiting', session_id: 'abcdef1234567890', items: [questionPrompt()] })
+    vi.stubGlobal('fetch', both(appServer({ sessions: [waiting] }), workspaceOverrides(company)))
+    const button = await goLive()
+    stream().emit('snapshot', snapshot([row('abcdef1234567890')]))
+    fireEvent.click(await waitFor(() => document.getElementById('live-row-app:a1') ?? Promise.reject(new Error('row'))))
+    expect(await screen.findByText('Which colour?')).toBeVisible()
+    fireEvent.click(button)
+    await screen.findByLabelText('First prompt')
+    expect(screen.getByText('Which colour?')).toBeVisible()
+    expect(screen.getByRole('radio', { name: /Red/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Send answer' })).toBeInTheDocument()
+    expect(document.querySelector('dialog, [role="dialog"], [role="alertdialog"], [aria-modal="true"]')).toBeNull()
+    expect(screen.getByRole('main')).not.toHaveAttribute('inert')
+    expect(screen.getByRole('main')).not.toHaveAttribute('aria-hidden')
+  })
+
+  it('no button on a server that has no app sessions', async () => {
+    vi.stubGlobal('fetch', both(appServer({ list: null })))
+    render(<App />)
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('button', { name: 'Live' }))
+    await screen.findByRole('heading', { name: 'Live' })
+    await waitFor(() => expect(fetch.calls.length).toBeGreaterThan(0))
+    expect(screen.queryByRole('button', { name: 'New session' })).toBeNull()
+  })
+
+  it('off (no agent run account): the sheet says why, links to Settings and has no form', async () => {
+    vi.stubGlobal('fetch', both(appServer({ agentRun: agentRunOff }), { agentRun: agentRunOff }))
+    fireEvent.click(await goLive())
+    expect(await screen.findByText(OFF, { exact: false })).toBeInTheDocument()
+    expect(screen.queryByLabelText('First prompt')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }))
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+  })
+
+  it('opened again for Resume while the New session form is open, the form is the Resume one (it is not kept)', async () => {
+    vi.stubGlobal('fetch', both(appServer(), workspaceOverrides(company)))
+    fireEvent.click(await goLive())
+    expect(await screen.findByRole('heading', { name: 'New session' })).toBeInTheDocument()
+    stream().emit('snapshot', snapshot([row('99999999-terminal', { last_ts: new Date(Date.now() - 300_000).toISOString() })]))
+    fireEvent.click(document.getElementById('live-row-99999999-terminal'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Resume in app' }))
+    expect(await screen.findByRole('heading', { name: 'Resume session' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'New session' })).toBeNull()
   })
 })
 
@@ -154,30 +266,6 @@ describe('Live: app sessions are listed with the rest (T118)', () => {
     await waitFor(() => expect(fetch.calls.length).toBeGreaterThan(0))
     fireEvent.click(document.querySelector('.live-row'))
     expect(screen.queryByRole('button', { name: /in app$/ })).toBeNull()
-  })
-
-  it('in the app: a session started on the App sessions page opens as a panel in Live', async () => {
-    const fresh = appSession({ id: 'a7', folder: '/work/company', state: 'working', session_id: null, items: [{ kind: 'user', text: 'fix it' }] })
-    const server = appServer({
-      routes: {
-        'POST /api/app-sessions': (_body, state) => {
-          state.sessions = [fresh]
-          return { status: 202, body: { id: 'a7' } }
-        },
-      },
-    })
-    vi.stubGlobal('fetch', both(server, workspaceOverrides({ workspaces: { workspaces: [{ id: 2, name: 'company', is_orphan: false, repos: ['/work/company'] }] } })))
-    render(<App />)
-    const nav = screen.getByRole('navigation', { name: 'Views' })
-    fireEvent.click(within(nav).getByRole('button', { name: 'App sessions' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'New session' }))
-    fireEvent.change(await screen.findByLabelText('First prompt'), { target: { value: 'fix it' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
-    expect(await screen.findByRole('heading', { name: 'Live' })).toBeInTheDocument()
-    expect(within(nav).getByRole('button', { name: 'Live' })).toHaveAttribute('aria-current', 'page')
-    expect(await screen.findByRole('region', { name: 'Session in company' })).toBeInTheDocument()
-    expect(await screen.findByText('fix it')).toBeInTheDocument()
   })
 })
 
@@ -282,7 +370,7 @@ describe('Live: Resume in app and Fork in app', () => {
     expect(screen.queryByRole('button', { name: /^(Resume|Fork) in app$/ })).toBeNull()
   })
 
-  it('in the app: Resume in app opens the App sessions page with the Resume form for that session, named by short id and project', async () => {
+  it('in the app: Resume in app opens the Resume form inside Live for that session, named by short id and project', async () => {
     const server = appServer()
     vi.stubGlobal('fetch', both(server))
     render(<App />)
@@ -293,8 +381,8 @@ describe('Live: Resume in app and Fork in app', () => {
     fireEvent.click(document.getElementById('live-row-99999999-terminal'))
     fireEvent.click(await screen.findByRole('button', { name: 'Resume in app' }))
     expect(await screen.findByRole('heading', { name: 'Resume session' })).toBeInTheDocument()
-    expect(within(nav).getByRole('button', { name: 'App sessions' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByText('99999999')).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: 'Live' })).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByRole('group', { name: 'Session form' })).getByText('99999999')).toBeInTheDocument()
     expect(screen.queryByLabelText('Repo')).toBeNull()
     fireEvent.change(screen.getByLabelText('First prompt'), { target: { value: 'carry on' } })
     fireEvent.click(screen.getByRole('button', { name: 'Review' }))

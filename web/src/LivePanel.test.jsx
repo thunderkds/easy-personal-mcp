@@ -136,6 +136,83 @@ describe('the conversation (AC 2)', () => {
     expect(within(log()).queryByText('total 0')).toBeNull()
   })
 
+  describe('TodoWrite as a checklist (T128, FR-133)', () => {
+    const todoInput = (todos) => JSON.stringify({ todos }, null, 2)
+    const todoTool = (input, over = {}) => entryTool('td1', { name: 'TodoWrite', label: null, input, result: 'Todos have been modified successfully', ...over })
+
+    it('draws one row per todo with a mark for pending, in progress and done, and no JSON', async () => {
+      const todos = [
+        { content: 'Write the test', status: 'completed', activeForm: 'Writing the test' },
+        { content: 'Make it pass', status: 'in_progress', activeForm: 'Making it pass' },
+        { content: 'Ship it', status: 'pending', activeForm: 'Shipping it' },
+      ]
+      await open(liveServer({ pages: [page([todoTool(todoInput(todos))])] }))
+      const list = await within(log()).findByRole('list', { name: 'Todo list' })
+      expect(within(list).getAllByRole('listitem').map((li) => [li.getAttribute('data-status'), li.textContent])).toEqual([
+        ['completed', '●Write the test'],
+        ['in_progress', '◐Make it pass'],
+        ['pending', '○Ship it'],
+      ])
+      expect(within(list).getByRole('img', { name: 'done' })).toHaveTextContent('●')
+      expect(within(list).getByRole('img', { name: 'in progress' })).toHaveTextContent('◐')
+      expect(within(list).getByRole('img', { name: 'pending' })).toHaveTextContent('○')
+      expect(within(log()).queryByText(/"todos"/)).toBeNull()
+      expect(within(log()).queryByLabelText(/^Input of/)).toBeNull()
+    })
+
+    it('the checklist is there without opening the fold; the fold still opens the result', async () => {
+      await open(liveServer({ pages: [page([todoTool(todoInput([{ content: 'One', status: 'pending', activeForm: 'Doing one' }]))])] }))
+      await within(log()).findByRole('list', { name: 'Todo list' })
+      const fold = within(log()).getByRole('button', { name: /TodoWrite/ })
+      expect(fold).toHaveAttribute('aria-expanded', 'false')
+      fireEvent.click(fold)
+      expect(within(log()).getByLabelText('Result of TodoWrite')).toHaveTextContent('Todos have been modified successfully')
+      expect(within(log()).queryByLabelText('Input of TodoWrite')).toBeNull()
+    })
+
+    it('a todo text is React text, never HTML', async () => {
+      await open(liveServer({ pages: [page([todoTool(todoInput([{ content: '<img src=x onerror=alert(1)> <b>bold</b>', status: 'pending', activeForm: 'x' }]))])] }))
+      await within(log()).findByRole('list', { name: 'Todo list' })
+      expect(within(log()).getByText('<img src=x onerror=alert(1)> <b>bold</b>')).toBeInTheDocument()
+      expect(log().querySelector('img[src="x"], b')).toBeNull()
+    })
+
+    it.each([
+      ['text that is not JSON', 'not json'],
+      ['a cut JSON text', '{\n  "todos": [\n    {"content": "a", "stat'],
+      ['JSON of another shape', JSON.stringify({ todo: [] })],
+      ['todos that are not a list', JSON.stringify({ todos: 'x' })],
+      ['a todo with an unknown status', JSON.stringify({ todos: [{ content: 'a', status: 'blocked' }] })],
+      ['a todo with no text', JSON.stringify({ todos: [{ content: '', status: 'pending' }] })],
+      ['a todo that is not an object', JSON.stringify({ todos: ['a'] })],
+      ['a hidden character shown as an escape (not valid JSON)', '{\n  "todos": [{"content": "a \\u{202e} b", "status": "pending"}]\n}'],
+    ])('falls back to the JSON text for %s', async (_name, input) => {
+      await open(liveServer({ pages: [page([todoTool(input)])] }))
+      const fold = await within(log()).findByRole('button', { name: /TodoWrite/ })
+      expect(within(log()).queryByRole('list', { name: 'Todo list' })).toBeNull()
+      fireEvent.click(fold)
+      expect(within(log()).getByLabelText('Input of TodoWrite').textContent).toBe(input)
+    })
+
+    it('an input that has not arrived yet (a result alone) falls back, and a later whole call turns it into a checklist', async () => {
+      await open(liveServer({ pages: [page([{ kind: 'tool', id: 'td1', orphan: true, name: null, label: null, input: null, result: 'ok', is_error: false }])] }))
+      await within(log()).findByText('result of an earlier call')
+      expect(within(log()).queryByRole('list', { name: 'Todo list' })).toBeNull()
+    })
+
+    it('only a tool called TodoWrite is a checklist: another tool with the same JSON stays JSON', async () => {
+      await open(liveServer({ pages: [page([entryTool('x1', { name: 'Other', label: null, input: todoInput([{ content: 'a', status: 'pending' }]) })])] }))
+      await within(log()).findByRole('button', { name: /Other/ })
+      expect(within(log()).queryByRole('list', { name: 'Todo list' })).toBeNull()
+    })
+
+    it('an empty list says so', async () => {
+      await open(liveServer({ pages: [page([todoTool(todoInput([]))])] }))
+      const list = await within(log()).findByRole('list', { name: 'Todo list' })
+      expect(within(list).getByText('The list is empty.')).toBeInTheDocument()
+    })
+  })
+
   describe('a result and its call, in either order (T115 orphan results)', () => {
     const fold = (re) => within(log()).getByRole('button', { name: re })
     const detail = (name, re) => within(log()).getByLabelText(`${name} of ${re}`)

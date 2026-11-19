@@ -49,7 +49,7 @@ it('the Usage period is app-wide: the rail card follows it, and it survives a vi
 it('lists the 7 views in the sidebar and marks only the active one', () => {
   render(<App />)
   const buttons = within(nav()).getAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'))
-  expect(buttons.map((b) => b.textContent)).toEqual(['Live', 'App sessions', 'Watch', 'Board', 'Scheduled', 'Memory', 'Usage', 'Warnings & plan', 'Kit', 'Workflow', 'Workspaces', 'Agents', 'First run', 'Settings'])
+  expect(buttons.map((b) => b.textContent)).toEqual(['Live', 'Watch', 'Board', 'Scheduled', 'Memory', 'Usage', 'Warnings & plan', 'Kit', 'Workflow', 'Workspaces', 'Agents', 'First run', 'Settings'])
   fireEvent.click(within(nav()).getByRole('button', { name: 'Kit' }))
   expect(within(nav()).getByRole('button', { name: 'Kit' })).toHaveAttribute('aria-current', 'page')
   expect(within(nav()).getByRole('button', { name: 'Usage' })).not.toHaveAttribute('aria-current')
@@ -100,7 +100,7 @@ describe('rail groups and First run (HUN-160)', () => {
   it('puts each view in its group', () => {
     render(<App />)
     const inGroup = (id) => [...nav().querySelectorAll(`[data-group="${id}"] [aria-expanded] ~ .group-items button`)].map((b) => b.textContent)
-    expect(inGroup('work')).toEqual(['Live', 'App sessions', 'Watch', 'Board', 'Scheduled', 'Memory'])
+    expect(inGroup('work')).toEqual(['Live', 'Watch', 'Board', 'Scheduled', 'Memory'])
     expect(inGroup('usage')).toEqual(['Usage', 'Warnings & plan'])
     expect(inGroup('kit')).toEqual(['Kit', 'Workflow'])
     expect(inGroup('connect')).toEqual(['Workspaces', 'Agents'])
