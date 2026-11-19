@@ -115,3 +115,22 @@ main button.turn-fold:hover { background: none; }
   .session-back { min-height: 44px; }
 }
 .live-session[data-open] { box-shadow: inset 3px 0 0 var(--color-accent); } /* the row whose panel is open, beyond the lighter background and never by colour alone: aria-current is on its button */
+
+/* The Live / Past switch, the filters above the list and the rename field (T119, FR-127, FR-128): tokens only, nothing wider than its column */
+.live-head .periods { align-self: center; }
+.live-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); min-width: 0; }
+.live-filters .periods, .live-filters .board-filter { min-width: 0; max-width: 100%; }
+.live-filters select, .live-filters input, .session-rename input { box-sizing: border-box; max-width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-input); color: var(--color-text); font-family: var(--font-sans); font-size: var(--fs-control); }
+.live-filters input[type='text'] { width: 12rem; }
+.past { min-width: 0; }
+.past-window { margin: 0; overflow-wrap: anywhere; }
+.past-window .link-button { display: inline; }
+.session-rename { display: flex; flex-direction: column; gap: var(--space-1); flex: 1 1 14rem; min-width: 0; }
+.session-rename input { width: 100%; }
+.session-rename-hint { font-family: var(--font-mono); font-size: var(--fs-note); overflow-wrap: anywhere; }
+main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
+@media (max-width: 39.999rem) {
+  .live-filters .periods button, .live-filters select, .live-filters input, .session-rename input, main button.session-rename-button { min-height: 44px; }
+  .live-filters .board-filter { flex: 1 1 100%; }
+  .live-filters input[type='text'] { width: 100%; }
+}

@@ -63,3 +63,35 @@ export function liveServer({ pages = [page([])], stop = () => ({}), queue = () =
   fn.reads = () => state.calls.filter((c) => c.method === 'GET' && c.path.endsWith('/transcript'))
   return fn
 }
+
+/**
+ * T119: a fetch for the Live view's filters, names and Past list. It wraps `liveServer` (the transcript, Stop and queue routes) and adds
+ * `GET /api/sessions/past` (`state.past(searchParams)`: `{sessions, next, window}` or `{status, body}`) and `PUT /api/sessions/{id}/name`
+ * (`state.rename(id, body)`). Every call is in `calls`.
+ */
+export function pastServer({ past = () => ({ sessions: [], next: null, window: { from: null, to: null, default: true } }), rename = (id, body) => ({ id, name: body.name }), ...rest } = {}) {
+  const inner = liveServer(rest)
+  const state = { ...inner.state, past, rename }
+  const fn = async (url, init = {}) => {
+    const u = new URL(String(url), 'http://127.0.0.1')
+    const method = init.method ?? 'GET'
+    const body = init.body ? JSON.parse(init.body) : undefined
+    const send = (a) => (a && typeof a.status === 'number' ? reply(a.status, a.body) : reply(200, a))
+    if (method === 'GET' && u.pathname === '/api/sessions/past') {
+      state.calls.push({ method, path: u.pathname, search: u.search, url: String(url), init, body, params: u.searchParams })
+      return send(await state.past(u.searchParams))
+    }
+    const named = /^\/api\/sessions\/([^/]+)\/name$/.exec(u.pathname)
+    if (method === 'PUT' && named) {
+      state.calls.push({ method, path: u.pathname, search: u.search, url: String(url), init, body })
+      return send(await state.rename(decodeURIComponent(named[1]), body))
+    }
+    return inner(url, init)
+  }
+  fn.state = state
+  fn.calls = state.calls
+  fn.pasts = () => state.calls.filter((c) => c.method === 'GET' && c.path === '/api/sessions/past')
+  fn.renames = () => state.calls.filter((c) => c.method === 'PUT' && c.path.endsWith('/name'))
+  fn.reads = inner.reads
+  return fn
+}
