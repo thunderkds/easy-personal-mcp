@@ -12,19 +12,19 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
   --font-sans: var(--font-mono);
 
-  /* Type sizes: the design's px / 16, one step up (x 15/14, rounded to 1/32 rem; body 15 px) */
-  --fs-label: 0.78125rem;
-  --fs-small: 0.8125rem;
-  --fs-note: 0.84375rem;
-  --fs-cell: 0.875rem;
-  --fs-control: 0.90625rem;
-  --fs-body: 0.9375rem;
-  --fs-card-title: 0.96875rem;
-  --fs-section: 1rem;
-  --fs-brand: 1.0625rem;
-  --fs-h2: 1.125rem;
-  --fs-kpi: 1.75rem;
-  --fs-h1: 1.875rem;
+  /* Type sizes (T121): reading text (note, cell, control, body) is 16 px, labels and small 14 px, headings above 16 px */
+  --fs-label: 0.875rem;
+  --fs-small: 0.875rem;
+  --fs-note: 1rem;
+  --fs-cell: 1rem;
+  --fs-control: 1rem;
+  --fs-body: 1rem;
+  --fs-card-title: 1.0625rem;
+  --fs-section: 1.125rem;
+  --fs-brand: 1.1875rem;
+  --fs-h2: 1.25rem;
+  --fs-kpi: 1.875rem;
+  --fs-h1: 2rem;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;

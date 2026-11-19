@@ -136,3 +136,21 @@ main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); fo
   .live-filters .board-filter { flex: 1 1 100%; }
   .live-filters input[type='text'] { width: 100%; }
 }
+
+/* T121 drops */
+.composer { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.composer:focus { outline: none; }
+.live-rows { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.live-rows > section { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.live-need { min-height: 1.5em; }
+.live-head .live-need:empty { visibility: hidden; }
+.live-about > summary { cursor: pointer; display: list-item; box-sizing: border-box; min-height: 44px; padding-block: 10px; color: var(--color-muted); } /* list-item keeps the disclosure triangle */
+.live-about > .footnote { margin: var(--space-2) 0 0; }
+.live-session { cursor: pointer; }
+@media (max-width: 767px) {
+  /* T121 round 2, N7: the composer stays in view at the bottom of the panel while its conversation scrolls by */
+  .session-panel > .composer { position: sticky; bottom: 0; z-index: 1; margin-inline: calc(-1 * var(--space-5)); margin-bottom: calc(-1 * var(--space-5)); padding: var(--space-3) var(--space-5) var(--space-5); background: var(--color-bg); border-top: 1px solid var(--color-border); }
+  /* N8: the state filter as a tidy 2 x 2, left aligned */
+  .live-filters .periods[aria-label='State'] { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .live-filters .periods[aria-label='State'] button { justify-content: flex-start; text-align: left; }
+}

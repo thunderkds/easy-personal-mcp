@@ -157,11 +157,11 @@ function usePanel() {
 const PAD = 20 // room round the graph for an edge to turn back on the first and last column
 const GAP = 132 // between two cards of a row; a gate pill sits on the edge in it
 const ROW = 112 // the height of one row
-const CARD = { w: 168, h: 52 }
+const CARD = { w: 200, h: 68 } // the title wraps to two lines (T121 F13)
 const START = { w: CARD.w, h: 64 }
 const END = { w: 8, h: 8 } // the end of the trailing edge a last gate sits on
-const PILL = { w: 116, h: 34 } // a gate pill shows up to two lines of the gate's text
-const PILL_CHARS = 30
+const PILL = { w: 124, h: 52 } // a gate pill shows up to three lines of the gate's text (T121 N6)
+const PILL_CHARS = 34
 const BEND = 28 // how far an edge pushes out of a port before it turns
 const PANEL_GAP = 4 // between a node and its panel
 const FALLBACK_WIDTH = 700 // the canvas width when it cannot be measured (tests, no layout)

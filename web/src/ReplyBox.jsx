@@ -22,8 +22,10 @@ const left = (until, now) => {
 }
 
 /** `reply`: the snapshot's `pending_reply` `{id, until, last}`. `open`: the row is open. */
-export default function ReplyBox({ sessionId, reply, open }) {
-  const [text, setText] = useState('')
+export default function ReplyBox({ sessionId, reply, open, text: held, onText }) {
+  const [own, setOwn] = useState('')
+  const text = held ?? own // T121: the composer may hold the text, so a change of state keeps it
+  const setText = onText ?? setOwn
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)

@@ -100,6 +100,7 @@ function Column({ status, tasks, showProject }) {
       <h2 id={headingId}>
         {collapsible ? (
           <button type="button" className="board-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+            <span className="board-chevron" aria-hidden="true" />
             {title}
           </button>
         ) : (

@@ -93,6 +93,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+const linkStatus = () => within(document.querySelector('.live-status')).getByRole('status') // T121: the need line is a status region too
+
 describe('connection', () => {
   it('opens one EventSource on /api/live with the dashboard token as ?token=', () => {
     render(<LiveView />)
@@ -108,25 +110,25 @@ describe('connection', () => {
 
   it('AC3: a drop shows reconnecting, keeps what is on the page, and open brings it back', () => {
     render(<LiveView />)
-    expect(screen.getByRole('status')).toHaveTextContent('Connecting')
+    expect(linkStatus()).toHaveTextContent('Connecting')
     stream().open()
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1111', { tool_calls: 2 })]))
-    expect(screen.getByRole('status')).toHaveTextContent('Live')
+    expect(linkStatus()).toHaveTextContent('Live')
     stream().drop(0)
-    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting')
+    expect(linkStatus()).toHaveTextContent('Reconnecting')
     expect(card('aaaaaaaa')).toBeInTheDocument()
     stream().open()
-    expect(screen.getByRole('status')).toHaveTextContent('Live')
+    expect(linkStatus()).toHaveTextContent('Live')
     expect(FakeEventSource.instances).toHaveLength(1) // the browser resumes by itself: one stream, no second one
   })
 
   it('a stream the browser closed says so and offers a manual reconnect', () => {
     render(<LiveView />)
     stream().drop(2)
-    expect(screen.getByRole('status')).toHaveTextContent('closed')
+    expect(linkStatus()).toHaveTextContent('closed')
     fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }))
     expect(FakeEventSource.instances).toHaveLength(2)
-    expect(screen.getByRole('status')).toHaveTextContent('Connecting')
+    expect(linkStatus()).toHaveTextContent('Connecting')
   })
 })
 
@@ -298,13 +300,15 @@ describe('rows (FR-072)', () => {
     expect(document.querySelector('#live-panel .live-feed')).not.toBeNull()
   })
 
-  it('AC7: when the open session leaves the list nothing is drawn for it and the open id resets', () => {
+  it('AC7 (T121, FR-072): when the open session leaves the list its panel stays and says it is no longer active; Back closes it and resets the open id', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })], 1))
     openRow('aaaaaaaa')
-    expect(document.querySelectorAll('.live-feed')).toHaveLength(1)
+    const panelNode = document.getElementById('live-panel')
     stream().emit('snapshot', snapshot([session('bbbbbbbb-2', { project: 'beta' })], 2))
-    expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
+    expect(document.getElementById('live-panel')).toBe(panelNode) // T121 (F6): the panel no longer closes by itself
+    expect(within(panelNode).getByText(/no longer active/)).toBeInTheDocument()
+    fireEvent.click(within(panelNode).getByRole('button', { name: 'Back to sessions' }))
     expect(document.getElementById('live-panel')).toBeNull()
     // the id was reset: the session coming back is closed, not re-opened by a stale id
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1'), session('bbbbbbbb-2', { project: 'beta' })], 3))
@@ -312,12 +316,12 @@ describe('rows (FR-072)', () => {
     expect(document.querySelectorAll('.live-feed')).toHaveLength(0)
   })
 
-  it('AC7: the last session leaving draws no expanded area; the empty notice shows', () => {
+  it('AC7 (T121): the last session leaving keeps its panel saying no longer active, and the empty notice shows', () => {
     render(<LiveView />)
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')], 1))
     openRow('aaaaaaaa')
     stream().emit('snapshot', snapshot([], 2))
-    expect(document.getElementById('live-panel')).toBeNull()
+    expect(within(document.getElementById('live-panel')).getByText(/no longer active/)).toBeInTheDocument()
     expect(screen.getByText(/No active sessions/)).toBeInTheDocument()
   })
 
@@ -925,7 +929,8 @@ describe('attention (FR-050)', () => {
     expect(screen.getByText('1 session needs you').closest('[role="status"]')).not.toBeNull()
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     expect(screen.queryByText(/need/)).toBeNull()
-    expect(screen.getAllByRole('status')).toHaveLength(1) // only the link status is left
+    expect(document.querySelector('.live-need')).toHaveTextContent('') // T121 round 2: the need line stays a status region, empty at zero
+    expect(screen.getAllByRole('status')).toHaveLength(2) // the link status and the empty need line
   })
 
   it('AC5: in an account a row with a state comes first; ties keep the newest first', () => {

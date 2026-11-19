@@ -594,7 +594,8 @@ describe('Stop of a terminal session (AC 5)', () => {
     act(() => stream().emit('snapshot', snapshot([])))
     await tick(FORCE_WAIT_MS * 2)
     expect(screen.queryByRole('button', { name: 'Force stop' })).toBeNull()
-    expect(document.getElementById('live-panel')).toBeNull()
+    expect(within(panel()).getByText(/no longer active/)).toBeInTheDocument() // T121 (F6): the panel stays, says so, and drops Stop
+    expect(within(panel()).queryByRole('button', { name: 'Stop' })).toBeNull()
   })
 
   it('"Keep waiting" in the force confirm posts nothing and goes back to Force stop', async () => {

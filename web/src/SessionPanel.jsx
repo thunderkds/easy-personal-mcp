@@ -107,7 +107,7 @@ const FORCE_NOTE = 'Force stop ends it at once and may leave the last transcript
 /**
  * Stop of a terminal session: one confirm that names the project and the short id, then the server's checks (SIGTERM). If the session is still
  * listed 5 s after a Stop that was accepted, it says so and offers Force stop, with its own confirm. A refusal shows the server's one line.
- * The panel closes when the session leaves the list, which ends the wait.
+ * When the session leaves the list the panel says it is no longer active and Stop goes, which ends the wait (T121).
  */
 function StopTerminal({ s }) {
   const [step, setStep] = useState('idle') // idle | confirm | sent | still | force
@@ -243,8 +243,9 @@ export const folderName = (folder) => String(folder ?? '').split('/').filter(Boo
  * `onChange(view)` and `onClosed(id)` take an app session's answers; `onEnd` is the terminal prompt's; `onResume({id, project, account, fork})`.
  * `onRenamed(id, name)`: the server's answer to a rename (the owner's name, or null when it was removed).
  * `onBack` closes the panel (Esc and the Back button); the row takes the focus back. `autoFocus`: move the focus to the heading when the panel opens.
+ * `gone` (T121, FR-072): the session left the live list; the panel stays with what it last had, says so, and drops its controls and composer.
  */
-export default function SessionPanel({ s, app, now, notice, fallback, lead, onChange, onClosed, onEnd, onResume, onOpenSettings, onRenamed, onBack, autoFocus = false }) {
+export default function SessionPanel({ s, app, now, notice, fallback, lead, onChange, onClosed, onEnd, onResume, onOpenSettings, onRenamed, onBack, autoFocus = false, gone = false }) {
   const heading = useRef(null)
   useEffect(() => {
     if (autoFocus) heading.current?.focus()
@@ -325,14 +326,19 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
           </>
         )}
       </dl>
-      {(app ? appState : termState) && (
+      {gone && (
+        <p role="status" className="session-state session-gone">
+          This session is no longer active: it left the live list. Go back to sessions to close this panel.
+        </p>
+      )}
+      {!gone && (app ? appState : termState) && (
         <p role="status" className="session-state" data-state={app ? app.state : s.proc?.busy ? 'working' : 'idle'}>
           {app ? appState : termState}
         </p>
       )}
       <div className="actions">
-        {app && <AppControls app={app} onChange={onChange} onClosed={onClosed} />}
-        {!app && id && <StopTerminal s={s} />}
+        {app && !gone && <AppControls app={app} onChange={onChange} onClosed={onClosed} />}
+        {!app && id && !gone && <StopTerminal s={s} />}
         {!app && id && onResume && (
           <button type="button" onClick={() => onResume({ id, project: s.project, account: s.account, fork })}>
             {fork ? 'Fork in app' : 'Resume in app'}
@@ -353,7 +359,7 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
           ))}
         </ol>
       )}
-      {(s.pending || pending.length > 0 || notice) && (
+      {!gone && (s.pending || pending.length > 0 || notice) && (
         <div className="session-prompts">
           {s.pending && <PendingAnswer key={s.pending.id} sessionId={s.session_id} prompt={s.pending} onEnd={onEnd} />}
           {pending.map((item, i) => (
@@ -367,7 +373,7 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
         </div>
       )}
       {ended && <p className="muted">The session has ended. Close it to drop its text from this page.</p>}
-      <Composer s={s} app={app} onChange={onChange} onOpenSettings={onOpenSettings} />
+      {!gone && <Composer s={s} app={app} onChange={onChange} onOpenSettings={onOpenSettings} />}
     </section>
   )
 }

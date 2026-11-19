@@ -81,19 +81,20 @@ describe('toast host and loading pill placement (HUN-202, FR-065)', () => {
   })
 })
 
-describe('Plex Mono everywhere and one step larger text (T120)', () => {
+describe('Plex Mono everywhere and larger text (T120, T121)', () => {
   const appsession = readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
   const watch = readFileSync(resolve(process.cwd(), 'src/watch.css'), 'utf8')
   const sheets = { 'app.css': css, 'appsession.css': appsession, 'watch.css': watch }
   const rem32 = (name) => Math.round(parseFloat(tokens.match(new RegExp(`--fs-${name}:\\s*([\\d.]+)rem`))[1]) * 32)
-  const SIZES = { label: 23, small: 24, note: 25, cell: 26, control: 27, body: 28, 'card-title': 29, section: 30, brand: 32, h2: 34, kpi: 52, h1: 56 } // the 14 px scale, in 1/32 rem
+  const SIZES = { label: 28, small: 28, note: 32, cell: 32, control: 32, body: 32, 'card-title': 34, section: 36, brand: 38, h2: 40, kpi: 60, h1: 64 } // in 1/32 rem (round 2: reading text is 16 px, labels 14 px)
 
-  it('sets body text to 15 px and scales every size token by 15/14, rounded to 1/32 rem, keeping their order', () => {
-    expect(tokens).toMatch(/--fs-body:\s*0\.9375rem;/)
-    for (const [name, old] of Object.entries(SIZES)) expect(rem32(name)).toBe(Math.round((old * 15) / 14))
+  it('sets reading text (note, cell, control, body) to 16 px and labels to 14 px, headings above body, sizes never decreasing in scale order (T121)', () => {
+    expect(tokens).toMatch(/--fs-body:\s*1rem;/)
+    for (const [name, size] of Object.entries(SIZES)) expect(rem32(name), name).toBe(size)
     const order = Object.keys(SIZES).map(rem32)
     expect(order).toEqual([...order].sort((a, b) => a - b))
-    expect(new Set(order).size).toBe(order.length)
+    for (const name of ['card-title', 'section', 'brand', 'h2', 'kpi', 'h1']) expect(rem32(name), name).toBeGreaterThan(rem32('body'))
+    expect(Math.min(...order)).toBeGreaterThanOrEqual(24) // nothing under 12 px (24/32 rem), labels included
   })
 
   it('draws every page font from the mono token: no family literal, no --font-sans user', () => {
@@ -113,5 +114,33 @@ describe('Plex Mono everywhere and one step larger text (T120)', () => {
   it('ships real Plex Mono 400, 500 and 600 faces and no Plex Sans, so 600 is never a faked bold', () => {
     for (const w of [400, 500, 600]) expect(tokens).toMatch(new RegExp(`'IBM Plex Mono'[^}]*font-weight: ${w};[^}]*ibm-plex-mono-latin-${w}-normal\\.woff2`))
     expect(tokens).not.toContain('IBM Plex Sans')
+  })
+})
+
+describe('round 2 layout rules (T121)', () => {
+  const at = (re) => expect(css).toMatch(re)
+
+  it('orders the status chips by urgency at narrow widths: red, then amber, the rest in their order, one row, no scrollbar', () => {
+    const narrow = css.slice(css.indexOf('@media (max-width: 63.999rem) { /* T121 F2'), css.indexOf('@media (max-width: 39.999rem) { /* T121 F4'))
+    expect(narrow).toMatch(/\.status-chip\.tone-red \{ order: -2; \}/)
+    expect(narrow).toMatch(/\.status-chip\.tone-amber \{ order: -1; \}/)
+    expect(narrow).toMatch(/scrollbar-width: none/)
+    expect(narrow).toMatch(/::-webkit-scrollbar \{ display: none; \}/)
+    expect(narrow).toMatch(/overflow-x: auto/)
+    expect(narrow).toMatch(/linear-gradient\(to left/) // the edge fade
+  })
+
+  it('keeps the disclosure triangle on a summary at phone width (list-item, not flex)', () => {
+    const phone = css.slice(css.indexOf('/* T121 F4, F17'), css.indexOf('/* Top bar status chips'))
+    expect(phone).toMatch(/main summary \{ display: list-item; min-height: 44px;/)
+    expect(phone).not.toMatch(/main summary \{ display: flex/)
+  })
+
+  it('makes a checkbox row and a drawer family link 44 px at phone width, the box itself 1.25 rem', () => {
+    const phone = css.slice(css.indexOf('/* T121 F4, F17'), css.indexOf('/* Top bar status chips'))
+    expect(phone).toMatch(/main label:has\(> input\[type='checkbox'\]\)[^}]*min-height: 44px/)
+    expect(phone).toMatch(/main input\[type='checkbox'\][^}]*width: 1\.25rem; height: 1\.25rem; accent-color: var\(--color-accent\)/)
+    expect(phone).toMatch(/\.family a \{[^}]*min-height: 44px/)
+    at(/\.workflow-gate span \{[^}]*-webkit-line-clamp: 3/)
   })
 })

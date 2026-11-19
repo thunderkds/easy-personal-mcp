@@ -188,15 +188,30 @@ export function statusOf(e, now, windowS) {
   return isIdle(e.s, now, windowS) ? 'idle' : 'working'
 }
 
-/** account -> entries: the ones needing you first, then the newest. Accounts in name order. */
-function group(entries) {
+/** The id a row keeps while its key changes from the Claude id to `app:<id>` (T121). */
+const rowId = (e) => e.s.session_id ?? e.key
+
+/** The focus came from the keyboard (`:focus-visible`); a browser that cannot tell is taken as yes. */
+function keyboardFocus(el) {
+  try {
+    return el.matches(':focus-visible')
+  } catch {
+    return true
+  }
+}
+
+/** account -> entries: the ones needing you first, then the newest. Accounts in name order. `held` (T121, F7): row id -> place while the pointer or
+ * the focus is on the list; those rows keep their order, rows new to the list come after them. */
+function group(entries, held = null) {
   const accounts = {}
   for (const e of entries) (accounts[e.s.account] ??= []).push(e)
+  const fresh = (a, b) => asksYou(b) - asksYou(a) || before(b.s.last_ts, a.s.last_ts) || before(a.key, b.key)
+  const place = (e) => held?.get(rowId(e)) ?? Infinity
   return Object.keys(accounts)
     .sort(before)
     .map((account) => ({
       account,
-      entries: accounts[account].sort((a, b) => asksYou(b) - asksYou(a) || before(b.s.last_ts, a.s.last_ts) || before(a.key, b.key)),
+      entries: accounts[account].sort((a, b) => (held ? place(a) - place(b) || 0 : 0) || fresh(a, b)),
     }))
 }
 
@@ -314,6 +329,10 @@ const SessionRow = memo(function SessionRow({ s, k, now, windowS, open, reveal, 
       data-idle={idle || undefined}
       data-state={states[0]?.state}
       data-open={open || undefined}
+      onClick={(e) => {
+        if (String(window.getSelection?.() ?? '') !== '') return // the owner selected text on the card: that is not a click to open
+        if (!e.target.closest('button, a, input, textarea, select, summary')) onToggle(k) // T121 (F20): the whole card opens the row; the button keeps the keyboard
+      }}
       onKeyDown={(e) => {
         if (open && e.key === 'Escape') onToggle(k) // the focus is on this row: the panel closes and the row keeps it
       }}
@@ -507,8 +526,10 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   const [openId, setOpenId] = useState(null) // the panel's key: a live session id, or `app:<id>` for an app session; not kept across a reload
   const openRef = useRef(null)
   openRef.current = openId
+  const [opened, setOpened] = useState(0) // T121 (F10): the panel's key; it changes only when a session is opened, never when its row key changes
   const [focusPanel, setFocusPanel] = useState(false) // the panel was opened by the owner: the focus moves to its heading
   const [backTo, setBackTo] = useState(null) // the panel was closed: the focus goes back to this row
+  const quietFocus = useRef(false)
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS)
     return () => clearInterval(timer)
@@ -532,6 +553,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         setBackTo(key)
       } else {
         setOpenId(key)
+        setOpened((n) => n + 1)
         setFocusPanel(true)
       }
       setRevealId(null)
@@ -541,7 +563,9 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   )
   useEffect(() => {
     if (backTo === null) return
+    quietFocus.current = true // our own focus move: it does not hold the list order (T121 round 2)
     document.getElementById(`live-row-${backTo}`)?.focus()
+    quietFocus.current = false
     setBackTo(null)
   }, [backTo])
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
@@ -583,9 +607,14 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
       return keep.length === Object.keys(old).length ? old : Object.fromEntries(keep)
     })
   }, [sessions, apps])
-  const selected = openId === null ? null : (entries.find((e) => e.key === openId || e.s.session_id === openId) ?? null)
+  const kept = useRef(null) // T121 (F6): the open session as last listed, so its panel stays when the session leaves the list (FR-072)
+  const last = kept.current && (kept.current.key === openId || kept.current.s.session_id === openId) ? kept.current : null
+  const listed = openId === null ? null : (entries.find((e) => e.key === openId || e.s.session_id === openId || (last?.s.session_id && e.s.session_id === last.s.session_id)) ?? null)
+  if (listed) kept.current = listed
+  const gone = openId !== null && !listed && last !== null // it left the list: the panel says so, read-only, until Back
+  const selected = listed ?? (gone ? last : null)
   useEffect(() => {
-    if (openId !== null && !selected && (apps !== null || !selectedApp)) setOpenId(null) // the open session left the list: nothing is drawn for it
+    if (openId !== null && !selected && (apps !== null || !selectedApp)) setOpenId(null) // never listed while open: nothing to draw
     else if (selected && selected.key !== openId) setOpenId(selected.key) // a row opened before the app list answered: its key became `app:<id>`; the open id follows, so Back closes it and the list is read each second
   }, [openId, selected, apps, selectedApp])
   useEffect(() => {
@@ -594,6 +623,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     if (hit) {
       setView('live')
       setOpenId(hit.key)
+      setOpened((n) => n + 1)
       setRevealId(hit.key)
       setFocusPanel(false)
       onWantedUsed?.()
@@ -604,13 +634,27 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     if (wantedApp && entries.some((e) => e.key === `app:${wantedApp}`)) {
       setView('live')
       setOpenId(`app:${wantedApp}`)
+      setOpened((n) => n + 1)
       setFocusPanel(true)
       onWantedAppUsed?.()
     }
   }, [wantedApp, entries, onWantedAppUsed])
   const facts = useMemo(() => entries.map((e) => ({ state: statusOf(e, now, state.windowS), project: e.s.project ?? '', kind: kindOf(e.s, e.app) })), [entries, now, state.windowS])
   const openKey = selected?.key ?? null
-  const groups = useMemo(() => group(entries.filter((e, i) => e.key === openKey || passes(facts[i], filters))), [entries, facts, filters, openKey]) // the open session's row stays listed, whatever the filters say
+  // T121 (F7, F8): while the pointer or the focus is on the rows, the rows already shown keep their place and stay listed whatever the filters say.
+  const [hold, setHold] = useState({ pointer: false, focus: false })
+  const holding = hold.pointer || hold.focus
+  const shownIds = useRef([])
+  const groups = useMemo(() => {
+    const held = holding ? new Map(shownIds.current.map((id, i) => [id, i])) : null
+    return group(entries.filter((e, i) => e.key === openKey || held?.has(rowId(e)) || passes(facts[i], filters)), held) // the open session's row stays listed, whatever the filters say
+  }, [entries, facts, filters, openKey, holding])
+  shownIds.current = groups.flatMap((g) => g.entries.map(rowId))
+  const rowsBox = useRef(null)
+  useEffect(() => {
+    // A focused row that left the page sends no blur: let go of the hold once the focus is no longer on the rows (T121 round 2).
+    if (hold.focus && !rowsBox.current?.contains(document.activeElement)) setHold((h) => ({ ...h, focus: false }))
+  }, [groups, hold.focus])
   const shown = groups.reduce((n, g) => n + g.entries.length, 0)
   const [notices, endPrompt] = useNotices(sessions)
   const needing = entries.filter(asksYou).length // the rule of the *Needs me* filter: a state, a prompt in the panel, or a prompt card
@@ -619,6 +663,13 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   const maxCost = Math.max(0, ...all.map((s) => s.cost))
   const maxCalls = Math.max(0, ...all.map((s) => s.tool_calls))
   const closePanel = useCallback(() => selected && onToggle(selected.key), [selected, onToggle])
+  const onClosed = useCallback(
+    (id) => {
+      remove(id)
+      if (openRef.current === `app:${id}`) setOpenId(null) // the owner closed it: the panel goes, it does not stay as "no longer active"
+    },
+    [remove],
+  )
   return (
     <main className="live">
       <div className="live-head">
@@ -631,11 +682,9 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
             Past
           </button>
         </div>
-        {needing > 0 && (
-          <p role="status" className="live-need">
-            {needing === 1 ? '1 session needs you' : `${needing} sessions need you`}
-          </p>
-        )}
+        <p role="status" className="live-need">
+          {needing === 0 ? '' : needing === 1 ? '1 session needs you' : `${needing} sessions need you`}
+        </p>
       </div>
       {view === 'past' && <PastSessions filters={filters} onFilters={changeFilters} onResume={appSessions && apps !== null ? onResumeInApp : undefined} />}
       {view === 'live' && (
@@ -651,14 +700,17 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
       <section className="card" aria-labelledby="h-live-all">
         <h2 id="h-live-all">All sessions</h2>
         <Totals total={sum(all)} />
-        <p className="footnote">
+        <details className="live-about">
+          <summary>What these numbers and this page show</summary>
+          <p className="footnote">
           API-equivalent cost is tokens times the API price table, not what a subscription pays. The list shows only tool names, skill, sub-agent, MCP and command names, counts and times, and the question a waiting session asks. Opening a session shows its conversation: your messages, Claude's text and each tool call with its input and result, read from Claude Code's own file while the panel is open and never stored.
-        </p>
+          </p>
+        </details>
       </section>
       {entries.length === 0 && (
         <p className="muted">{`No active sessions. A session appears here when it wrote a record in the last ${Math.round(state.windowS / 60)} minutes.`}</p>
       )}
-      {entries.length > 0 && (
+      {(entries.length > 0 || selected) && (
         <div className="live-split" data-open={selected ? 'true' : undefined}>
           <div className="live-sessions">
             <FilterBar facts={facts} filters={filters} onChange={changeFilters} />
@@ -667,13 +719,26 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                 No sessions match these filters.
               </p>
             )}
+            <div
+              className="live-rows"
+              onPointerEnter={() => setHold((h) => ({ ...h, pointer: true }))}
+              onPointerLeave={() => setHold((h) => ({ ...h, pointer: false }))}
+              ref={rowsBox}
+              onFocus={(e) => {
+                if (quietFocus.current || !keyboardFocus(e.target)) return // only the keyboard's focus holds the order; a click or Back does not
+                setHold((h) => (h.focus ? h : { ...h, focus: true }))
+              }}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) setHold((h) => ({ ...h, focus: false }))
+              }}
+            >
             {groups.map((a, i) => (
               <section key={a.account} aria-labelledby={`live-acc-${i}`}>
                 <h2 id={`live-acc-${i}`}>{a.account}</h2>
                 <ul className="live-list">
                   {a.entries.map((e) => (
                     <SessionRow
-                      key={e.key}
+                      key={rowId(e)}
                       s={e.s}
                       k={e.key}
                       now={now}
@@ -690,20 +755,22 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                 </ul>
               </section>
             ))}
+            </div>
           </div>
           {selected && (
             <div className="live-panel-col">
               {stale && selected.app && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
               <SessionPanel
-                key={selected.key}
+                key={opened}
                 s={selected.s}
+                gone={gone}
                 app={selected.app}
                 now={now}
                 notice={notices[selected.s.session_id]}
                 lead={selected.s.pending === null ? <Questions states={statesOf(selected.s)} /> : null}
                 fallback={<Feed items={selected.s.feed} />}
                 onChange={replace}
-                onClosed={remove}
+                onClosed={onClosed}
                 onEnd={endPrompt}
                 onResume={appSessions && apps !== null ? onResumeInApp : undefined}
                 onOpenSettings={onOpenSettings}
