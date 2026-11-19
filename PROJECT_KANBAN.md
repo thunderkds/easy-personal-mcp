@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T123** — Inter for text, Plex Mono only for ids, code and labels | frontend-developer | C1 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T123`, branch `T123` from `main`; parallel with T122
 - [ ] **T122** — Live filter bar — Project, Kind and Clear filters | frontend-developer | C1 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T122`, branch `T122` from `main`
 
 ### Ready for Review
