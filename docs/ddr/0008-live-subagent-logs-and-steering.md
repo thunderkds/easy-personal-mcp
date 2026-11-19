@@ -11,7 +11,7 @@ On 2026-11-19 the owner asked to do everything from the Live view: "prompt, choo
 ## Decision
 1. **Same exception, same rules.** DDR-0007's fifth NFR-002 exception covers a session's sub-agent transcripts: read on demand through the existing transcript route (`?agent=<id>`), shown, never stored; same caps and paging. Debate: Advocate 1 (same rules) and Advocate 3 (smallest safe: one parameter on the existing route) against Advocate 2 (a narrower sixth exception). Settled by the owner's written rule "parity, not narrowing" (memory `owner-wants-parity-not-narrowing.md`); Advocate 2 conceded its live-only limit.
 2. **Meta file: ids only.** The listing reads `agentType`, `toolUseId`, `spawnDepth` and `finished`; `description` stays never read (FR-082; Advocates 2 and 3). The sub-agent's prompt is already the first entry of its own transcript.
-3. **Steering uses the CLI's own control requests** (`set_model`, `set_permission_mode`, `get_context_usage`); values from fixed lists only (FR-116).
+3. **Steering uses the CLI's own control requests** (`set_model`, `set_permission_mode`, `get_context_usage`, and `apply_flag_settings {effortLevel}` for effort, proven by the T126 spike in `tasks/evidence-T126/SPIKE.md`; no `source`, so nothing is written to settings); values from fixed lists only (FR-116). The effort shown is the last level the CLI accepted: it has no read-back.
 4. **Allow always passes the CLI's own suggestion back unchanged.** The app never builds or writes a permission rule; Claude Code writes it where its suggestion says.
 
 ## Alternatives considered
