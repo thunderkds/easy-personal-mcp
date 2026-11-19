@@ -17,7 +17,7 @@
 .prompt-summary { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-bg); font-family: var(--font-mono); font-size: var(--fs-cell); color: var(--color-text); white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 .prompt-cut { margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-amber); border-radius: var(--radius-sm); font-size: var(--fs-note); font-weight: 500; color: var(--color-amber); overflow-wrap: anywhere; }
 .prompt-note input { width: 100%; box-sizing: border-box; }
-.live-notice { margin: 0; font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-accent); overflow-wrap: anywhere; }
+.live-notice { margin: 0; font-family: var(--font-sans); font-size: var(--fs-note); color: var(--color-accent); overflow-wrap: anywhere; }
 
 /* The fixed note of Fork in app (the Live panel); Workspaces: Continue in app per repo (T105) */
 .live-fork-note { margin: 0; font-size: var(--fs-note); overflow-wrap: anywhere; }
@@ -37,7 +37,7 @@ main .session-tabs button[aria-current='true'] { border-color: var(--color-accen
 .session-facts dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .session-facts dd { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-cell); color: var(--color-heading); }
 .changed-files { display: flex; flex-direction: column; gap: 2px; }
-.session-state { margin: 0; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-secondary); }
+.session-state { margin: 0; font-family: var(--font-sans); font-size: var(--fs-cell); font-weight: 500; color: var(--color-secondary); }
 .session-state[data-state='waiting'] { color: var(--color-amber); }
 .session-state[data-state='working'] { color: var(--color-accent); }
 .session-log { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; max-height: 65vh; overflow-y: auto; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-input); }
@@ -62,9 +62,9 @@ main .session-tabs button[aria-current='true'] { border-color: var(--color-accen
 .reply-box textarea { width: 100%; box-sizing: border-box; resize: vertical; }
 .reply-box p, .reply-mark p { margin: 0; }
 .reply-last { max-height: 12rem; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); color: var(--color-muted); }
-.reply-sent { font-family: var(--font-mono); font-size: var(--fs-note); color: var(--color-accent); }
+.reply-sent { font-family: var(--font-sans); font-size: var(--fs-note); color: var(--color-accent); }
 .reply-actions { align-items: center; }
-.reply-left, .reply-count, .reply-marked { font-family: var(--font-mono); font-size: var(--fs-note); overflow-wrap: anywhere; }
+.reply-left, .reply-count, .reply-marked { font-family: var(--font-sans); font-size: var(--fs-note); overflow-wrap: anywhere; }
 .reply-mark { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
 main button.reply-toggle { min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
 main button.reply-toggle[aria-pressed='true'] { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); }
@@ -96,7 +96,7 @@ main button.turn-fold:hover { background: none; }
 .turn-tool-call { flex-direction: column; align-items: stretch; }
 .turn-detail { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding-left: var(--space-4); }
 .turn-pre { box-sizing: border-box; max-width: 100%; max-height: 16rem; margin: 0; padding: var(--space-2) var(--space-3); overflow: auto; border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-bg); font-family: var(--font-mono); font-size: var(--fs-cell); color: var(--color-text); white-space: pre-wrap; overflow-wrap: anywhere; }
-.turn-cut, .turn-skipped, .queue-note { font-family: var(--font-mono); font-size: var(--fs-note); overflow-wrap: anywhere; }
+.turn-cut, .turn-skipped, .queue-note { font-family: var(--font-sans); font-size: var(--fs-note); overflow-wrap: anywhere; }
 .turn-reply .turn-who { color: var(--color-secondary); }
 .turn-earlier { display: flex; justify-content: center; }
 .queue-box, .queue-shown { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
@@ -128,7 +128,7 @@ main button.turn-fold:hover { background: none; }
 .past-window .link-button { display: inline; }
 .session-rename { display: flex; flex-direction: column; gap: var(--space-1); flex: 1 1 14rem; min-width: 0; }
 .session-rename input { width: 100%; }
-.session-rename-hint { font-family: var(--font-mono); font-size: var(--fs-note); overflow-wrap: anywhere; }
+.session-rename-hint { font-family: var(--font-sans); font-size: var(--fs-note); overflow-wrap: anywhere; }
 main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
 @media (max-width: 39.999rem) {
   .live-filters .periods button, .live-filters select, .live-filters input, .session-rename input, main button.session-rename-button { min-height: 44px; }

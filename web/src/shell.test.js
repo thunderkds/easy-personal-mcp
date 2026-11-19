@@ -109,6 +109,14 @@ describe('Inter for text, Plex Mono for ids and labels, larger text (T120, T121,
     expect(css).toMatch(/\ncode, pre, kbd, samp \{ font-family: var\(--font-mono\); \}/) // no browser-default monospace face
   })
 
+  it('sets Live prose in Inter and keeps ids, labels, tool input and chips in Plex Mono (T123 follow-up)', () => {
+    const inSession = (selector) => appsession.match(new RegExp(`(?:^|\\n)${selector.replace(/\./g, '\\.')}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    for (const sel of ['.live-notice', '.session-state', '.reply-sent', '.reply-left, .reply-count, .reply-marked', '.turn-cut, .turn-skipped, .queue-note', '.session-rename-hint']) expect(inSession(sel), sel).toContain('font-family: var(--font-sans)')
+    for (const sel of ['.live-need', '.live-status', '.live-row .count']) expect(rule(sel), sel).toContain('font-family: var(--font-sans)')
+    for (const sel of ['.prompt-header', '.prompt-summary', '.turn-tool', '.turn-pre', '.turn-who', '.session-facts dt', '.session-tab-name', '.session-title']) expect(inSession(sel), sel).toContain('font-family: var(--font-mono)')
+    for (const sel of ['.live-id', '.live-name', '.live-pill', '.live-stage', '.live-bar', '.count']) expect(rule(sel), sel).toContain('font-family: var(--font-mono)')
+  })
+
   it('sets tabular figures once, on body, so every number in Inter text lines up and does not jiggle when it changes (T123)', () => {
     expect(rule('body')).toContain('font-variant-numeric: tabular-nums')
   })

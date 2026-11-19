@@ -83,5 +83,7 @@ Screenshots at 375 and 1280 (mock data), all pages, in `/tmp/claude-1000/-home-h
 
 **DELTA**: Body text, nav, buttons and form fields now read in Inter (with equal-width digits) while ids, commands, tables and labels keep Plex Mono.
 
+**AFTER2** (follow-up, after T122 merged into the branch): Live prose moved to `var(--font-sans)`: `.live-notice`, `.session-state`, `.reply-sent`, `.reply-left/.reply-count/.reply-marked`, `.turn-cut/.turn-skipped/.queue-note`, `.session-rename-hint` (appsession.css); `.live-need`, `.live-status`, `.live-row .count` (app.css). Kept mono: `.prompt-header`, `.prompt-summary`, `.turn-tool`, `.turn-pre`, `.turn-who`, `.session-facts dt`, `.session-tab-name`, `.session-title`, `.live-id`, `.live-name`, `.live-pill`, `.live-stage`, `.live-bar`, `.count`. Pinned by a shell.test.js test (red against the old CSS, green now). Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/t123/after2/` (live list, panel busy and your turn, Past; 375 and 1280): no horizontal scroll, no text under 12 px.
+
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T123.jsonl`, never the
 implementing agent alone]
