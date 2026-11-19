@@ -77,10 +77,23 @@ describe('status chips (T068)', () => {
     expect(chip('1 waiting')).toBeInTheDocument()
   })
 
-  it('shows a grey 0 active and no waiting chip when no session is live', () => {
+  it('shows a grey 0 active and a neutral 0 waiting chip when no session is live (the chip is always there, so the bar never shifts)', () => {
     show({ context: live([]) })
     expect(chip('0 active')).toHaveAttribute('data-on', 'false')
-    expect(screen.queryByText(/waiting/)).not.toBeInTheDocument()
+    expect(chip('0 waiting')).toHaveClass('tone-faint')
+    expect(chip('0 waiting')).not.toHaveClass('tone-amber')
+  })
+
+  it('keeps the same waiting chip element when the count changes from 0 to 1', () => {
+    const { rerender } = show({ context: live([session('a')]) })
+    const before = chip('0 waiting')
+    rerender(
+      <LiveContext.Provider value={live([session('a', [waiting])])}>
+        <StatusChips steps={[]} health={undefined} accounts={undefined} onOpenLive={() => {}} />
+      </LiveContext.Provider>,
+    )
+    expect(chip('1 waiting')).toBe(before)
+    expect(before).toHaveClass('tone-amber')
   })
 
   it('does not count a session past the active window as active', () => {

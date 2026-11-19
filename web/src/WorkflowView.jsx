@@ -157,7 +157,7 @@ function usePanel() {
 const PAD = 20 // room round the graph for an edge to turn back on the first and last column
 const GAP = 132 // between two cards of a row; a gate pill sits on the edge in it
 const ROW = 112 // the height of one row
-const CARD = { w: 168, h: 52 }
+const CARD = { w: 200, h: 68 } // the title wraps to two lines (T121 F13)
 const START = { w: CARD.w, h: 64 }
 const END = { w: 8, h: 8 } // the end of the trailing edge a last gate sits on
 const PILL = { w: 116, h: 34 } // a gate pill shows up to two lines of the gate's text

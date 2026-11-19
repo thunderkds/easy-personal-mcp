@@ -73,8 +73,8 @@ export default function StatusChips({ steps, health, accounts, onOpenLive }) {
           {`${active} active`}
         </button>
       )}
-      {waiting > 0 && (
-        <button type="button" className="status-chip tone-amber" title="Sessions waiting for you" onClick={onOpenLive}>
+      {sessions && (
+        <button type="button" className={`status-chip ${waiting > 0 ? 'tone-amber' : 'tone-faint'}`} title="Sessions waiting for you" onClick={onOpenLive}>
           <Warning />
           {`${waiting} waiting`}
         </button>

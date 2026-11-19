@@ -63,6 +63,13 @@ code, pre, kbd, samp { font-family: var(--font-mono); } /* the browser default w
 .badge { margin-left: auto; font-family: var(--font-mono); font-size: var(--fs-label); font-weight: 400; color: var(--color-muted); text-shadow: none; }
 .chevron { flex: none; }
 .group-toggle[aria-expanded='false'] .chevron { transform: rotate(-90deg); }
+@media (min-width: 64rem) and (max-height: 62rem) { /* T121 F19: on a laptop screen the whole nav fits, Settings included, instead of being its own scroll box */
+  .sidebar { gap: 14px; padding-block: var(--space-3); }
+  .sidebar nav { gap: 8px; }
+  .nav-group, .group-items { gap: 0; }
+  .sidebar nav button { padding-block: 4px; }
+  .sidebar nav .group-toggle { padding-bottom: 4px; }
+}
 .dot { flex: none; width: 7px; height: 7px; border-radius: 2px; background: var(--color-dot); }
 [aria-current='page'] > .dot { background: var(--color-accent); box-shadow: var(--glow-dot); }
 .family { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding: var(--space-3) var(--space-2) 0; border-top: 1px solid var(--color-divider); font-size: var(--fs-note); }
@@ -239,7 +246,15 @@ main button.danger:disabled { color: var(--color-faint); }
 .who svg { flex: none; color: var(--color-muted); }
 
 /* Tables */
-.table-wrap { overflow-x: auto; }
+.table-wrap {
+  overflow-x: auto;
+  /* T121 F18: an edge shadow shows on the side that has more to scroll to (the covers are the page colour and scroll with the content) */
+  background:
+    linear-gradient(to right, var(--color-bg) 30%, transparent) left center / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--color-bg) 30%, transparent) right center / 2rem 100% no-repeat local,
+    linear-gradient(to right, var(--color-accent-line), transparent) left center / 0.75rem 100% no-repeat scroll,
+    linear-gradient(to left, var(--color-accent-line), transparent) right center / 0.75rem 100% no-repeat scroll;
+}
 table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--fs-cell); }
 th, td { padding: 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--color-divider); }
 thead th { padding: var(--space-2) 10px; font-size: var(--fs-label); font-weight: 500; color: var(--color-muted); white-space: normal; border-bottom-color: var(--color-border); }
@@ -433,6 +448,7 @@ li[data-state='done'] .first-run-state { color: var(--color-link); }
 .first-run-command { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 10px 10px 10px var(--space-4); background: var(--color-input); border: 1px solid var(--color-control); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-control); }
 .first-run-command code { min-width: 0; overflow-x: auto; white-space: nowrap; }
 .first-run-command button { flex: none; }
+@media (max-width: 39.999rem) { .first-run-command code { overflow-x: visible; white-space: pre-wrap; overflow-wrap: anywhere; } } /* T121 F15: the command wraps, no scrollbar over its text */
 .first-run-prompt { color: var(--color-accent); }
 .first-run-recheck { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); font-size: var(--fs-cell); color: var(--color-secondary); }
 main.first-run button.solid { border-color: transparent; background: var(--color-accent); color: var(--color-input); box-shadow: var(--glow-box); font-weight: 500; }
@@ -529,6 +545,10 @@ main .board-column { padding: var(--space-3); border: 1px solid var(--color-bord
 .board-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .board-kind { text-transform: lowercase; }
 main .board-toggle { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.board-column .board-toggle { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); } /* T121 F16: looks like what it is, a button that opens */
+.board-column .board-toggle:hover { background: var(--color-raised); }
+.board-chevron { flex: none; width: 0.5em; height: 0.5em; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); }
+.board-toggle[aria-expanded='true'] .board-chevron { transform: rotate(45deg) translate(-1px, -1px); }
 
 /* Workflow view (T108, FR-118): the chosen flow is one line of nodes joined by arrows; a node with an agent working is highlighted; hover, focus or a tap opens its panel under the line. Nodes share the column width; only the strip scrolls, when the column is narrower than the nodes' minimum. Layout only, existing tokens */
 main.workflow { min-width: 0; max-width: none; }
@@ -553,7 +573,7 @@ main.workflow { min-width: 0; max-width: none; }
 .workflow-line .workflow-node.working .workflow-sub, .workflow-line .workflow-node.working .workflow-port { color: var(--color-accent); border-color: var(--color-accent); }
 .workflow-tile { flex: none; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-secondary); font-family: var(--font-mono); font-size: var(--fs-label); }
 .workflow-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
-.workflow-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; } /* T121 F13: two lines, not three letters and an ellipsis */
 .workflow-end { position: absolute; border: 1px solid var(--color-muted); background: var(--color-bg); }
 .workflow-graph .workflow-gate { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0 var(--space-1); border: 1px solid var(--color-control); border-radius: var(--radius); background: var(--color-bg); color: var(--color-muted); font-family: var(--font-mono); font-size: var(--fs-label); line-height: 1.15; font-weight: 400; text-align: center; overflow: hidden; cursor: pointer; }
 .workflow-gate span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
@@ -569,7 +589,7 @@ main.memory { max-width: none; }
 .memory-body { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--space-5); align-items: start; }
 @media (max-width: 63.999rem) { .memory-body { grid-template-columns: minmax(0, 1fr); } }
 .memory-graph { min-width: 0; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-input); }
-.memory-svg { display: block; width: 100%; min-width: 20rem; max-width: 40rem; height: auto; margin-inline: auto; }
+.memory-svg { display: block; width: 100%; min-width: 32rem; max-width: 40rem; height: auto; margin-inline: auto; }
 .memory-ring { fill: none; stroke: var(--color-control); stroke-dasharray: 2 4; }
 .memory-edge { stroke: var(--color-control); stroke-width: 1; }
 .memory-edge[data-active] { stroke: var(--color-accent); stroke-width: 1.5; }
@@ -580,7 +600,7 @@ main.memory { max-width: none; }
 .memory-node-claude circle { fill: var(--color-amber); }
 .memory-node-dangling circle { fill: none; stroke: var(--color-muted); stroke-dasharray: 3 2; }
 .memory-node-easy_memory circle { fill: var(--color-heading); }
-.memory-svg[data-wide] { max-width: 48rem; }
+.memory-svg[data-wide] { min-width: 40rem; max-width: 48rem; } /* T121 F14: never drawn below 0.8 of its size, so a 15 px label stays 12 px; the card scrolls sideways instead */
 .memory-body[data-wide] { grid-template-columns: minmax(0, 1fr); } /* ring 4 needs the width: the panels go under the graph */
 @media (min-width: 40rem) { .memory-body[data-wide] .memory-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 .memory-mark circle { fill: var(--color-red); stroke: var(--color-bg); stroke-width: 1; }
@@ -616,7 +636,8 @@ main.live { max-width: none; }
 .live-totals dt { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
 .live-totals dd { font-size: var(--fs-body); color: var(--color-heading); overflow-wrap: anywhere; }
 /* HUN-213 (FR-072): one row per session, one side panel for the open one; the panel sits below the rows under 48rem (768 px) */
-.live-sessions { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; max-height: 70vh; overflow-y: auto; padding-right: var(--space-2); }
+.live-sessions { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+@media (min-width: 64rem) { .live-sessions { max-height: 70vh; overflow-y: auto; padding-right: var(--space-2); } } /* T121 F12: a second scroll box only where the list sits beside the panel */
 .live-sessions > section { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .live-list { display: flex; flex-direction: column; gap: var(--space-2); }
 .live-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-cell); font-weight: 500; color: var(--color-link); }
@@ -777,9 +798,26 @@ ul.unassigned { display: flex; flex-direction: column; gap: var(--space-3); }
 ul.unassigned > li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); min-width: 0; padding-top: var(--space-3); border-top: 1px solid var(--color-divider); }
 .unassigned-info { display: flex; flex-direction: column; gap: var(--space-1); flex: 1 1 16rem; min-width: 0; }
 
+/* T121 F4, F17: touch targets of 44 px at phone width, tokens only; desktop unchanged. The rules that set min-height 0 on purpose (rows that are a whole card, folds, sort heads) keep it. */
+@media (max-width: 39.999rem) {
+  main button, .agent-dialog button, .periods button, main select, main input:not([type='checkbox'], [type='radio']), .sidebar nav button, .scope select { min-height: 44px; }
+  main summary { display: flex; align-items: center; min-height: 44px; }
+  .periods { display: flex; align-self: stretch; }
+  .periods button { flex: 1 1 auto; padding: 0 var(--space-2); white-space: nowrap; }
+}
+
 /* Top bar status chips (T068, plan G1): live, waiting, last ingest, 5h limit. Sizes follow the Graphite Mint header. */
 .status-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
 .topbar-scope + .status-chips { margin-left: 0; }
+@media (max-width: 63.999rem) { /* T121 F2: one row that scrolls sideways, not three rows */
+  .status-chips { flex: 1 1 100%; flex-wrap: nowrap; margin-left: 0; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+  .status-chip { flex: none; }
+}
+@media (max-width: 39.999rem) { /* T121 F4: 44 px touch targets */
+  .menu-button { width: 44px; height: 44px; }
+  .status-chips .status-chip { height: 44px; }
+  main button.ws-report-toggle, main.first-run button.tall { min-height: 44px; }
+}
 .status-chip {
   display: inline-flex;
   align-items: center;

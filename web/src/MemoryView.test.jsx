@@ -63,6 +63,12 @@ describe('rings layout (AC4)', () => {
     expect(html()).toBe(golden)
   })
 
+  it('is never drawn below 0.8 of its size, so a label stays 12 px at phone width (T121 F14)', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')
+    expect(css).toMatch(/\.memory-svg \{[^}]*min-width: 32rem/) // 640 x 0.8 = 512 px = 32 rem
+    expect(css).toMatch(/\.memory-svg\[data-wide\] \{[^}]*min-width: 40rem/) // 800 x 0.8 = 640 px = 40 rem
+  })
+
   it('does not depend on the order the nodes arrive in', () => {
     const a = renderToStaticMarkup(<RingsGraph nodes={nodes} edges={edges} selectedId={null} onSelect={() => {}} />)
     const b = renderToStaticMarkup(<RingsGraph nodes={[...nodes].reverse()} edges={edges} selectedId={null} onSelect={() => {}} />)
