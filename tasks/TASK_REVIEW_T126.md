@@ -53,15 +53,16 @@ Mode: auto
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>
+Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); no test run in memory/event-trace/T126.jsonl — write /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID with the task ID (minimal-track step 1): `mkdir -p /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d && printf '%s\n%s\n' "T126" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID`, then rerun the task's tests so the trace records them under the task, then stop; Risk High: decision 1 (`SAFER OPTION`) is a choice — it is flagged ⚠ — so it must be `DEBATED` with exactly 3 Advocates named; Risk High: decision 2 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 3 Advocates named; Risk High: decision 3 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 3 Advocates named; Risk High, but no decision was DEBATED with 3 Advocates; extended track, but the trace has no `code-review` Skill call (Stage 4 runs in auto mode); Risk High, but the trace has no `security-review` Skill call [report 70c2a4049643]
 
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass / ☐ fail | AC 1: `tasks/evidence-T126/SPIKE.md` (real CLI 2.1.328). AC 2, 3: `rust/crates/app/src/app_session.rs` `model_mode_and_effort_are_control_requests_and_only_the_clis_success_changes_the_header`, `the_context_answer_is_numbers_only`; `rust/crates/app/src/app_session_routes.rs` `model_mode_effort_and_context_steer_a_going_session_from_fixed_lists_only`. AC 4: `the_argv_adds_a_listed_effort_and_each_listed_model_as_one_word_and_nothing_for_default`, `the_start_form_takes_a_listed_effort_or_none_and_refuses_any_other`, `web/src/NewSession.test.jsx`. AC 5, U1, U2: `web/src/LiveSteer.test.jsx` (8 tests). AC 6: `the_steering_routes_keep_the_guard`, leak gate |
+| Verification command run | ☑ pass / ☐ fail | 2026-11-19T22:47Z on `839ed22`: `cargo fmt --check` ok; both clippy runs `Finished` with no warnings; leak: `leak check: 0 hits over 42 canaries, 1314 surfaces, 2854281 bytes` (run as `env -u CLAUDE_CONFIG_DIR <repo>/.venv/bin/python parity/leak_rust.py`: system python3 has no `mcp`, and the gate refuses a real CLAUDE_CONFIG_DIR); web: `Test Files 44 passed (44)`, `Tests 1457 passed (1457)`; `✓ built`; `check_static: ok`. Rust `cargo test --workspace --no-fail-fast` (22:50Z): `1335 passed, 2 failed`. The 2 failures are debug-build timing tests in `crates/core` (`live_parity.rs` `pairing_100k_calls_is_fast`, `memgraph_parity.rs` `two_hundred_thousand_links_are_counted_in_time`); `crates/core` is untouched by T126. In an earlier full run, `answer_bridge.rs` hit its 15 s stream deadline twice under load and passed 18/18 when run alone. The timing tests were not rerun alone (agent step limit): Supervisor to confirm |
+| Negative cases hold | ☑ pass / ☐ fail | Mutation `web/src/api.js` `setAppMode` always sends `confirmed_bypass: true` (`git diff --stat`: `web/src/api.js` changed): `× any other mode is sent at once, with no bypass confirm in the body`, `Tests 1 failed / 7 passed (8)`; restored: `Tests 8 passed (8)`. The mutation first survived the 7 inherited tests, so this test was added. Server negatives (off-list values 400 with nothing sent, bypass without `confirmed_bypass` 400, 403 guard) are in the Rust tests above |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -88,9 +89,19 @@ af4aa48 Board + memory: T122, T123 Done (merged); font decision
 61:pub(crate) const MODELS: [&str; 4] = ["default", "opus", "sonnet", "haiku"];
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (backend-developer, branch `T126` at `839ed22`; same command, `-A3` added to show the wider list):
+```
+$ date -u +%Y-%m-%dT%H:%M:%SZ; git log -1 --oneline; grep -n 'set_model\|set_permission_mode\|--effort' -r rust/crates/app/src web/src | wc -l; grep -n -A3 'pub(crate) const MODELS' rust/crates/app/src/app_session.rs
+2026-11-19T22:53:46Z
+839ed22 T126: Model / Mode / Effort pickers and Context in a running app session's header; Effort on the New session form
+23
+62:pub(crate) const MODELS: [&str; 7] = [
+63-    "default",
+64-    "opus",
+65-    "sonnet",
+```
+(the list continues `haiku`, `opusplan`, `opus[1m]`, `sonnet[1m]`; `haiku[1m]` is left out because the CLI refuses it, per `tasks/evidence-T126/SPIKE.md`)
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner can now switch a running app session's model, permission mode and effort from the panel header, and read its context use. The CLI's own answer is shown, and a refusal puts the picker back with the CLI's line. The owner can also start a session with an effort level and a wider model list.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T126.jsonl`, never the
-implementing agent alone]
+**WITNESS**: AFTER captured by backend-developer (T126 resume) at 2026-11-19T22:53:46Z; tool calls are recorded under T126 in `memory/event-trace/T126.jsonl` (spawn binding). Independent witness: Supervisor at Stage 4/5.
