@@ -81,19 +81,20 @@ describe('toast host and loading pill placement (HUN-202, FR-065)', () => {
   })
 })
 
-describe('Plex Mono everywhere and one step larger text (T120)', () => {
+describe('Plex Mono everywhere and larger text (T120, T121)', () => {
   const appsession = readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
   const watch = readFileSync(resolve(process.cwd(), 'src/watch.css'), 'utf8')
   const sheets = { 'app.css': css, 'appsession.css': appsession, 'watch.css': watch }
   const rem32 = (name) => Math.round(parseFloat(tokens.match(new RegExp(`--fs-${name}:\\s*([\\d.]+)rem`))[1]) * 32)
   const SIZES = { label: 23, small: 24, note: 25, cell: 26, control: 27, body: 28, 'card-title': 29, section: 30, brand: 32, h2: 34, kpi: 52, h1: 56 } // the 14 px scale, in 1/32 rem
 
-  it('sets body text to 15 px and scales every size token by 15/14, rounded to 1/32 rem, keeping their order', () => {
-    expect(tokens).toMatch(/--fs-body:\s*0\.9375rem;/)
-    for (const [name, old] of Object.entries(SIZES)) expect(rem32(name)).toBe(Math.round((old * 15) / 14))
+  it('sets body text to 16 px and scales every size token by 16/14, rounded to 1/32 rem, keeping their order (T121)', () => {
+    expect(tokens).toMatch(/--fs-body:\s*1rem;/)
+    for (const [name, old] of Object.entries(SIZES)) expect(rem32(name)).toBe(Math.round((old * 16) / 14))
     const order = Object.keys(SIZES).map(rem32)
     expect(order).toEqual([...order].sort((a, b) => a - b))
     expect(new Set(order).size).toBe(order.length)
+    expect(Math.min(...order)).toBeGreaterThanOrEqual(24) // nothing under 12 px (24/32 rem), labels included
   })
 
   it('draws every page font from the mono token: no family literal, no --font-sans user', () => {
