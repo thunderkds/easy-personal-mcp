@@ -69,6 +69,16 @@ describe('rings layout (AC4)', () => {
     expect(css).toMatch(/\.memory-svg\[data-wide\] \{[^}]*min-width: 40rem/) // 800 x 0.8 = 640 px = 40 rem
   })
 
+  it('gives every node an invisible hit circle of r 28 (45 px at the smallest scale), never drawn (T121 N4)', () => {
+    const { container } = render(<RingsGraph nodes={nodes} edges={edges} selectedId={null} onSelect={() => {}} />)
+    for (const g of container.querySelectorAll('.memory-node')) {
+      const hit = g.querySelector('circle.memory-hit')
+      expect(hit).not.toBeNull()
+      expect(hit.getAttribute('r')).toBe('28')
+    }
+    expect(readFileSync(resolve(process.cwd(), 'src/app.css'), 'utf8')).toMatch(/circle\.memory-hit \{ fill: transparent; stroke: none; \}/)
+  })
+
   it('does not depend on the order the nodes arrive in', () => {
     const a = renderToStaticMarkup(<RingsGraph nodes={nodes} edges={edges} selectedId={null} onSelect={() => {}} />)
     const b = renderToStaticMarkup(<RingsGraph nodes={[...nodes].reverse()} edges={edges} selectedId={null} onSelect={() => {}} />)

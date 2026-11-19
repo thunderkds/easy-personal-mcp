@@ -294,3 +294,18 @@ Red run of the 4 new LiveDrop tests on `20a118f`, before the fixes:
 ```
 
 Green: `npx vitest run` → `Test Files  43 passed (43)`, `Tests  1440 passed (1440)` (one run showed WorkspacesView.test "AC4: the Confirm/Cancel plan…" failing under load; it passes alone, 52/52, and in the next full run); `npm run build` ok; `check_static: ok`. Shots (mock, headless Chrome) in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/shots-r2b/`: no horizontal scroll at 375 or 1280.
+
+## Round 2 — layout
+
+Evidence: fixture mock + headless Chrome, 375 and 1280, logs `ux-t121/r2.log`, `r2b.log`, `r2c.log` in the Supervisor scratchpad; full suite 43 files / 1440 tests, build, check_static ok.
+
+| Item | Cause | Fix | Evidence |
+|---|---|---|---|
+| N2 size | only `--fs-body` was 16 px; note/cell/control were 14.5 to 15.5 px | note, cell, control = 1rem; small, label = 0.875rem; card-title 1.0625, section 1.125, brand 1.1875, h2 1.25, kpi 1.875, h1 2 (`tokens.css`); `shell.test.js` pins the scale, order, headings above body, nothing under 12 px | r2.log: the only sizes under 16 px are 14 px (labels), e.g. usage-1280 76 nodes; no hscroll at 375 or 1280 |
+| N1 chips | 588 px of chips in a 343 px row, urgent ones last, scrollbar over the first chip | below 64rem: `order` -2 red, -1 amber, scrollbar hidden, edge fade as on `.table-wrap` | `crops/r2-usage-top.png`: `5h 92%` first, then `1 waiting`, then `ingest` fading out |
+| P2 summary | `main summary { display: flex }` removed the triangle | `display: list-item; min-height: 44px; padding-block` | `shell.test.js`; r2.log tapUnder44 empty on usage |
+| N3 checkboxes | 13 px box in a 20 px label | at 375: label row `min-height: 44px`, box 1.25 rem, accent token | agents-375: inputs 20x20 in 44 px rows |
+| N5 family links | 19 px high | `.family a { min-height: 44px }` at 375 | menu-open-375 tapUnder44 `[]` |
+| N6 gate labels | pill 116x34 held two lines | pill 124x52, three lines, wrap anywhere, cut at 34 chars | `crops/r2-wf1280.png`: "No TASK_GUIDE, no Stage 3" whole |
+| N4 graph nodes | hit area was the circle plus label (27 to 33 px) | invisible `r=28` hit circle per node (45 px at the smallest scale 0.8); golden SVG updated | MemoryView.test (every node has it); memory-375 tapUnder44 no `g` entries |
+| N10 top bar | 139 px at 375 (title row, scope row, 44 px chip row) | left as is | not cheap without moving the scope line |
