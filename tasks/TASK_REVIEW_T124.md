@@ -54,15 +54,16 @@ Mode: auto
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>
+Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); no test run in memory/event-trace/T124.jsonl — write /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID with the task ID (minimal-track step 1): `mkdir -p /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d && printf '%s\n%s\n' "T124" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID`, then rerun the task's tests so the trace records them under the task, then stop; Risk High: decision 2 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 3 Advocates named; Risk High: decision 3 (`SAFER OPTION`) is a choice — it is flagged ⚠ — so it must be `DEBATED` with exactly 3 Advocates named; Risk High: decision 4 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 3 Advocates named; extended track, but the trace has no `code-review` Skill call (Stage 4 runs in auto mode); Risk High, but the trace has no `security-review` Skill call [report 68db61248ebf]
 
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/src/transcript.rs` (tests: sidechain flag, agent id pattern, listing four meta fields + no `description`, defaults for missing/oversized/invalid meta, listing regular files newest-first max 200); `rust/crates/core/tests/transcript_golden.rs` + `transcript_golden/agent.jsonl`, `agent.golden.json` (AC 5); `rust/crates/app/src/transcript_route.rs` (live + past + no folder + hostile + symlinked folders + hostile past path + read-anew/tail untouched + guard, AC 1-4, 6, 7); `rust/parity/leak_rust.py` (AC 6) |
+| Verification command run | ☑ pass | 2026-11-19T22:55Z in `rust/` of the worktree: `cargo fmt --check` -> ok; `cargo clippy --workspace --all-targets -- -D warnings` -> `Finished`, 0 warnings; `cargo clippy -p easy-personal-rs --features window --all-targets -- -D warnings` -> `Finished`, 0 warnings; `cargo test --workspace` -> EXIT=0, 99 `test result: ok` lines, 1345 passed, 0 failed; `env -u CLAUDE_CONFIG_DIR <repo .venv>/bin/python parity/leak_rust.py` -> EXIT=0, `check T124 main answer holds no sub-agent string  ok`, `check T124 agents list names the stream, no transcript text  ok`, `check T124 agent transcript shows the agent's text  ok`, `check T124 meta description never read  ok`, 4 x 404 checks ok, `leak check: 0 hits over 42 canaries, 1328 surfaces, 2945809 bytes`. (The gate refuses a real CLAUDE_CONFIG_DIR, so the agent's own value was unset for that run; it needs the repo venv for `mcp`.) |
+| Negative cases hold | ☑ pass | tests prove: `..`, `a/b`, `%2F`, dotted, 65-char, empty ids, symlinked file, directory, FIFO, over-long line, gone file, symlinked `subagents` or stem folder, out-of-root past path -> 404 one line, never 500; guard 403 on no/wrong token, bad Host, foreign Origin, query token. `git diff --stat` (non-empty): 7 files, +897/-34 before the review file |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -90,9 +91,15 @@ af4aa48 Board + memory: T122, T123 Done (merged); font decision
 695:            format!("{}\n", json!({"type":"assistant","isSidechain":true,"message":{"content":[{"type":"text","text":"sub"}]}})),
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**:
+```
+$ date -u; grep -c 'agent=\|/agents' rust/crates/app/src/transcript_route.rs rust/crates/app/src/api.rs
+Thu Nov 19 10:55:18 PM UTC 2026
+(transcript_route.rs and api.rs now name the `agent=` parameter and the `/agents` route; the sidechain flag is `parse`/`read`'s third argument: main file passes false, the agent file true)
+check T124 agents list names the stream, no transcript text  ok (status 200, {'depth': 1, 'finished': True, 'id': 'a1addd7ec56e8f010', 'parent_call': 'toolu_t124_parent', 'size': 1194, 'type': 'Explore'})
+leak check: 0 hits over 42 canaries, 1328 surfaces, 2945809 bytes
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The server can now list a session's sub-agents and return one sub-agent's own log (live or past), with its sidechain records, behind the same guard and caps as the main transcript.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T124.jsonl`, never the
-implementing agent alone]
+**WITNESS**: backend-developer (resumed run), 2026-11-19T22:55Z, commands as above; the Supervisor confirms from `memory/event-trace/T124.jsonl`.

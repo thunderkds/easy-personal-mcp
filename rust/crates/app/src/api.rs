@@ -227,6 +227,10 @@ pub fn routes() -> Router<Api> {
             "/api/live/sessions/{id}/transcript",
             get(crate::transcript_route::get),
         )
+        .route(
+            "/api/live/sessions/{id}/agents", // T124 (FR-129)
+            get(crate::transcript_route::agents),
+        )
         .route("/api/usage/summary", get(summary))
         .route("/api/usage/breakdown", get(breakdown))
         .route("/api/usage/sessions", get(sessions))
