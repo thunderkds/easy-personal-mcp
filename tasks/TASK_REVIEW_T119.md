@@ -68,16 +68,17 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE** (Supervisor, before any T119 implementation commit; `main` at `ddb947f`, the branch point):
+**BEFORE** (frontend-developer, before any T119 implementation commit; `main` at `8c8c121`, the worktree's branch point):
 ```
-$ date -u; git log -1 --oneline; grep -ln 'PastSessions\|renameSession' web/src/*.jsx web/src/api.js | wc -l; ls web/src/PastSessions.jsx
-2026-11-18T10:15:50Z
-ddb947f Plan: Live like Claude (question 45, FR-123..FR-128, DDR-0007, T115-T119)
+$ date -u; git log -1 --oneline; grep -ln 'PastSessions\|renameSession' web/src/*.jsx web/src/api.js | wc -l; ls web/src/PastSessions.jsx; (cd web && npm test)
+Thu Nov 19 03:20:44 AM UTC 2026
+8c8c121 Board + memory: T114 merged; T102-T112 rows moved to Done; T114 guide
 0
 ls: cannot access 'web/src/PastSessions.jsx': No such file or directory
+ Test Files  39 passed (39)
+      Tests  1347 passed (1347)
 ```
-(No filters, names or past sessions in the Live view.)
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+(No filters, names or past sessions in the Live view; the baseline suite is 39 files, 1347 tests, all green.)
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
