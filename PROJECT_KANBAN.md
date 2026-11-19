@@ -9,8 +9,13 @@
 ## Board
 
 ### Todo
+- [ ] **T125** — Live like Claude 2b — sub-agent logs in the panel | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T125.md`; FR-130; Depends on T124
 
 ### In Progress
+- [ ] **T124** — Live like Claude 2a — sub-agent logs (server) | backend-developer | C2 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T124.md`; FR-129, question 46, DDR-0008; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T124`, branch `T124` from `main`
+- [ ] **T126** — Live like Claude 2c — steer an app session (model, mode, effort, context) | backend-developer → frontend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T126.md`; FR-131; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T126`, branch `T126` from `main`
+- [ ] **T127** — Live like Claude 2d — allow always and plan cards | backend-developer → frontend-developer | C2 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T127.md`; FR-132; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T127`, branch `T127` from `main`
+- [ ] **T128** — Live like Claude 2e — New session in Live, todo checklist | frontend-developer | C1 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T128.md`; FR-133; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T128`, branch `T128` from `main`
 
 ### Ready for Review
 
