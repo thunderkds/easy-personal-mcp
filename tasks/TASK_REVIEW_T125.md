@@ -47,8 +47,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ## Auto decisions
 
 Mode: auto
-1. Sub-agent log opens inside the same panel with a breadcrumb, not a new tab or window — SAFER OPTION: keeps FR-128's one-panel rule ⚠ decided for you — please review
-2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md` row 4
+1. Sub-agent log opens inside the same panel under a breadcrumb — RULE: `PRD.md:229` "Opening one shows its conversation with the same view as the main thread"
+2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>

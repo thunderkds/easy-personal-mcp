@@ -47,8 +47,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ## Auto decisions
 
 Mode: auto
-1. App sessions tab removed from navigation, its URL opens Live — SAFER OPTION: FR-128 already made Live the one place; a dead tab would split it again ⚠ decided for you — please review
-2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md` row 4
+1. App sessions tab removed from navigation, its URL opens Live — RULE: `PRD.md:232` "the App sessions tab is removed from the navigation (its URL opens Live)"
+2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>

@@ -47,8 +47,8 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ## Auto decisions
 
 Mode: auto
-1. Allow always sends back only the CLI's own suggestion, by index, unchanged; the app writes no settings file — RULE: docs/ddr/0008-live-subagent-logs-and-steering.md decision 4
-2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md` row 4
+1. Allow always answers only by the index of a suggestion the CLI offered for that prompt, sent back unchanged; no editable rule, all destinations kept — DEBATED: index only (Advocate 1: index only, the app never builds a rule; Advocate 2: an editable rule and destination for parity, conceding it reverses FR-132; Advocate 3: index only, rejecting both the editable rule and session-only filtering); settled by `PRD.md:231` "the app never makes or edits a rule itself, and Claude Code writes it" ⚠ decided for you — please review
+2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>

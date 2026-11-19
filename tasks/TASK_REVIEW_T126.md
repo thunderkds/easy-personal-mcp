@@ -47,9 +47,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ## Auto decisions
 
 Mode: auto
-1. Effort mid-session only if the spike proves `apply_flag_settings` applies it; else start-only — SAFER OPTION: no undocumented control request is relied on without evidence ⚠ decided for you — please review
-2. Model list = aliases + opusplan + accepted [1m] variants, fixed on the server — RULE: PRD.md FR-116 "No route lets the page name the program or free arguments"
-3. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md` row 4
+1. Effort mid-session only if the spike proves `apply_flag_settings {effortLevel}` applies; else a start choice only (`--effort`) — DEBATED: spike-gated (Advocate 1: build it mid-session, gated on the spike, for parity; Advocate 2: start-only now, no undocumented request without evidence; Advocate 3: start-only, mid-session later only if a spike proves it); settled by `PRD.md:230` "Effort is sent mid-session only if the CLI accepts it (spike: `apply_flag_settings`), else it is a start choice only" ⚠ decided for you — please review
+2. Model list fixed on the server (aliases + opusplan + accepted [1m] variants) — RULE: `PRD.md:215` "No route lets the page name the program or free arguments"
+3. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>

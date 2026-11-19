@@ -47,10 +47,10 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ## Auto decisions
 
 Mode: auto
-1. Sub-agent transcripts shown under the same rules as the main thread (extend the fifth NFR-002 exception) — DEBATED: same rules (Advocate 1: same rules, parity; Advocate 2: a narrower sixth exception, conceded its live-only limit; Advocate 3: same rules through one `agent=` parameter); settled by the owner's written rule `memory/owner-wants-parity-not-narrowing.md` ⚠ decided for you — please review
-2. Meta `description` never read; listing reads only agentType, toolUseId, spawnDepth, finished — RULE: PRD.md FR-082 "`description` never" (Advocates 2 and 3)
-3. Reuse the existing transcript route with `agent=` plus one listing route (nested and still-running agents need ids before their call has a result) — SAFER OPTION: smallest route surface that still finds running and nested agents ⚠ decided for you — please review
-4. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md` row 4 (take the recommended direction under [admin])
+1. Sub-agent transcripts shown under the same rules as the main thread (DDR-0007's fifth NFR-002 exception extended, FR-123 caps) — DEBATED: same rules (Advocate 1: same rules, the owner's parity rule and one code path to audit; Advocate 2: a tighter cap inside the fifth exception, conceding the owner already chose same rules; Advocate 3: same rules through one `agent` parameter on the existing route, no new open code) ⚠ decided for you — please review
+2. Meta `description` never read; the listing reads only agentType, toolUseId, spawnDepth, finished — RULE: `PRD.md:181` "(no other meta field is read; `description` never)"
+3. `agent=` on the existing route plus one listing route — RULE: `PRD.md:228` "`GET /api/live/sessions/{id}/agents` (NFR-008 guard) lists the session's sub-agent streams"
+4. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>
