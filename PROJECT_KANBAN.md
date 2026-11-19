@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T120** — Mono font and one step larger text, whole app | frontend-developer | C1 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T120`, branch `T120` from `main`
 
 ### Ready for Review
 
