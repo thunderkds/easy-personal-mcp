@@ -27,7 +27,8 @@ pub(crate) fn keep(raw: Option<&Value>) -> Vec<Value> {
 fn lands(destination: &str) -> Option<&'static str> {
     match destination {
         "session" => Some("this session"),
-        "localSettings" | "projectSettings" => Some("this project"),
+        "localSettings" => Some("this project (just you)"),
+        "projectSettings" => Some("this project (shared)"), // the committed project file, not only the owner's
         "userSettings" => Some("you, everywhere"),
         _ => None,
     }
@@ -138,12 +139,13 @@ mod tests {
         assert_eq!(
             seen,
             vec![
-                json!({"index": 0, "where": "this project", "summary": "don't ask again for Bash(git status:*)"}),
+                json!({"index": 0, "where": "this project (just you)", "summary": "don't ask again for Bash(git status:*)"}),
                 json!({"index": 1, "where": "this session", "summary": "switch to acceptEdits mode"}),
                 json!({"index": 2, "where": "you, everywhere", "summary": "add the folder /work/a"}),
             ]
         );
-        assert_eq!(lands("projectSettings"), Some("this project"));
+        assert_eq!(lands("projectSettings"), Some("this project (shared)"));
+        assert_eq!(lands("localSettings"), Some("this project (just you)"));
         assert_eq!(accept_edits(&kept), Some(&kept[1]));
     }
 

@@ -2304,7 +2304,7 @@ mod tests {
         assert_eq!(
             shown["suggestions"],
             json!([
-                {"index": 0, "where": "this project", "summary": "don't ask again for Bash(git status:*)"},
+                {"index": 0, "where": "this project (just you)", "summary": "don't ask again for Bash(git status:*)"},
                 {"index": 1, "where": "this session", "summary": "switch to acceptEdits mode"},
             ])
         );
