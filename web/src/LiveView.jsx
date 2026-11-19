@@ -191,6 +191,15 @@ export function statusOf(e, now, windowS) {
 /** The id a row keeps while its key changes from the Claude id to `app:<id>` (T121). */
 const rowId = (e) => e.s.session_id ?? e.key
 
+/** The focus came from the keyboard (`:focus-visible`); a browser that cannot tell is taken as yes. */
+function keyboardFocus(el) {
+  try {
+    return el.matches(':focus-visible')
+  } catch {
+    return true
+  }
+}
+
 /** account -> entries: the ones needing you first, then the newest. Accounts in name order. `held` (T121, F7): row id -> place while the pointer or
  * the focus is on the list; those rows keep their order, rows new to the list come after them. */
 function group(entries, held = null) {
@@ -321,6 +330,7 @@ const SessionRow = memo(function SessionRow({ s, k, now, windowS, open, reveal, 
       data-state={states[0]?.state}
       data-open={open || undefined}
       onClick={(e) => {
+        if (String(window.getSelection?.() ?? '') !== '') return // the owner selected text on the card: that is not a click to open
         if (!e.target.closest('button, a, input, textarea, select, summary')) onToggle(k) // T121 (F20): the whole card opens the row; the button keeps the keyboard
       }}
       onKeyDown={(e) => {
@@ -519,6 +529,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   const [opened, setOpened] = useState(0) // T121 (F10): the panel's key; it changes only when a session is opened, never when its row key changes
   const [focusPanel, setFocusPanel] = useState(false) // the panel was opened by the owner: the focus moves to its heading
   const [backTo, setBackTo] = useState(null) // the panel was closed: the focus goes back to this row
+  const quietFocus = useRef(false)
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS)
     return () => clearInterval(timer)
@@ -552,7 +563,9 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   )
   useEffect(() => {
     if (backTo === null) return
+    quietFocus.current = true // our own focus move: it does not hold the list order (T121 round 2)
     document.getElementById(`live-row-${backTo}`)?.focus()
+    quietFocus.current = false
     setBackTo(null)
   }, [backTo])
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
@@ -637,6 +650,11 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     return group(entries.filter((e, i) => e.key === openKey || held?.has(rowId(e)) || passes(facts[i], filters)), held) // the open session's row stays listed, whatever the filters say
   }, [entries, facts, filters, openKey, holding])
   shownIds.current = groups.flatMap((g) => g.entries.map(rowId))
+  const rowsBox = useRef(null)
+  useEffect(() => {
+    // A focused row that left the page sends no blur: let go of the hold once the focus is no longer on the rows (T121 round 2).
+    if (hold.focus && !rowsBox.current?.contains(document.activeElement)) setHold((h) => ({ ...h, focus: false }))
+  }, [groups, hold.focus])
   const shown = groups.reduce((n, g) => n + g.entries.length, 0)
   const [notices, endPrompt] = useNotices(sessions)
   const needing = entries.filter(asksYou).length // the rule of the *Needs me* filter: a state, a prompt in the panel, or a prompt card
@@ -664,7 +682,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
             Past
           </button>
         </div>
-        <p role={needing > 0 ? 'status' : undefined} className="live-need">
+        <p role="status" className="live-need">
           {needing === 0 ? '' : needing === 1 ? '1 session needs you' : `${needing} sessions need you`}
         </p>
       </div>
@@ -705,7 +723,11 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
               className="live-rows"
               onPointerEnter={() => setHold((h) => ({ ...h, pointer: true }))}
               onPointerLeave={() => setHold((h) => ({ ...h, pointer: false }))}
-              onFocus={() => setHold((h) => (h.focus ? h : { ...h, focus: true }))}
+              ref={rowsBox}
+              onFocus={(e) => {
+                if (quietFocus.current || !keyboardFocus(e.target)) return // only the keyboard's focus holds the order; a click or Back does not
+                setHold((h) => (h.focus ? h : { ...h, focus: true }))
+              }}
               onBlur={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget)) setHold((h) => ({ ...h, focus: false }))
               }}
@@ -716,7 +738,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                 <ul className="live-list">
                   {a.entries.map((e) => (
                     <SessionRow
-                      key={e.key}
+                      key={rowId(e)}
                       s={e.s}
                       k={e.key}
                       now={now}

@@ -155,11 +155,39 @@ describe('rows do not move or vanish under the pointer (F7, F8)', () => {
     vi.stubGlobal('fetch', liveServer())
     render(<LiveView />)
     show(liveRow(A, { last_ts: ts(60) }), liveRow(B, { last_ts: ts(10) }))
+    const matches = Element.prototype.matches
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (q) {
+      return q === ':focus-visible' ? this === document.activeElement : matches.call(this, q) // jsdom has no input modality: this focus is the keyboard's
+    })
     act(() => rowEl(A).focus())
     show(liveRow(A, { last_ts: ts(1) }), liveRow(B, { last_ts: ts(10) }))
     expect(order()).toEqual([B, A])
     act(() => rowEl(A).blur())
     expect(order()).toEqual([A, B])
+    Element.prototype.matches.mockRestore()
+  })
+
+  it('Back puts the focus on the row without holding the list: a row that became the newest moves up (round 2)', () => {
+    vi.stubGlobal('fetch', liveServer({ pages: [page([])] }))
+    render(<LiveView />)
+    show(liveRow(A, { last_ts: ts(10) }), liveRow(B, { last_ts: ts(60) }))
+    fireEvent.click(rowEl(A))
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Back to sessions' }))
+    expect(rowEl(A)).toHaveFocus()
+    show(liveRow(A, { last_ts: ts(10) }), liveRow(B, { last_ts: ts(1) }))
+    expect(order()).toEqual([B, A])
+  })
+
+  it('the focused row leaving the list lets go of the hold: the list sorts again (round 2)', () => {
+    const C = 'cccccccc-5555-6666'
+    vi.stubGlobal('fetch', liveServer())
+    render(<LiveView />)
+    show(liveRow(A, { last_ts: ts(60) }), liveRow(B, { last_ts: ts(30) }), liveRow(C, { last_ts: ts(10) }))
+    expect(order()).toEqual([C, B, A])
+    act(() => rowEl(B).focus())
+    show(liveRow(A, { last_ts: ts(60) }), liveRow(C, { last_ts: ts(10) })) // B left with the focus on it: no blur comes
+    show(liveRow(A, { last_ts: ts(1) }), liveRow(C, { last_ts: ts(10) }))
+    expect(order()).toEqual([A, C])
   })
 
   it('with Working set, a hovered row whose session goes idle stays listed until the pointer leaves', () => {
@@ -204,6 +232,23 @@ describe('the head and the list do not jump (F9, F11, F20)', () => {
     const about = screen.getByText(/API-equivalent cost is tokens times/).closest('details')
     expect(about).not.toBeNull()
     expect(about.open).toBe(false)
+  })
+
+  it('a click that ends a text selection on the card does not open it (round 2)', () => {
+    vi.stubGlobal('fetch', liveServer())
+    render(<LiveView />)
+    show(liveRow(A))
+    vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => 'alpha', isCollapsed: false })
+    fireEvent.click(rowEl(A).closest('li').querySelector('.live-bars'))
+    expect(rowEl(A)).toHaveAttribute('aria-expanded', 'false')
+    window.getSelection.mockRestore()
+  })
+
+  it('the need line is a status region at every count (round 2)', () => {
+    vi.stubGlobal('fetch', liveServer())
+    render(<LiveView />)
+    show(liveRow(A))
+    expect(document.querySelector('.live-need')).toHaveAttribute('role', 'status')
   })
 
   it('a click anywhere on the row card opens it, not only on its first line', () => {

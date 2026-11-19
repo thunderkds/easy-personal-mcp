@@ -93,6 +93,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+const linkStatus = () => within(document.querySelector('.live-status')).getByRole('status') // T121: the need line is a status region too
+
 describe('connection', () => {
   it('opens one EventSource on /api/live with the dashboard token as ?token=', () => {
     render(<LiveView />)
@@ -108,25 +110,25 @@ describe('connection', () => {
 
   it('AC3: a drop shows reconnecting, keeps what is on the page, and open brings it back', () => {
     render(<LiveView />)
-    expect(screen.getByRole('status')).toHaveTextContent('Connecting')
+    expect(linkStatus()).toHaveTextContent('Connecting')
     stream().open()
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1111', { tool_calls: 2 })]))
-    expect(screen.getByRole('status')).toHaveTextContent('Live')
+    expect(linkStatus()).toHaveTextContent('Live')
     stream().drop(0)
-    expect(screen.getByRole('status')).toHaveTextContent('Reconnecting')
+    expect(linkStatus()).toHaveTextContent('Reconnecting')
     expect(card('aaaaaaaa')).toBeInTheDocument()
     stream().open()
-    expect(screen.getByRole('status')).toHaveTextContent('Live')
+    expect(linkStatus()).toHaveTextContent('Live')
     expect(FakeEventSource.instances).toHaveLength(1) // the browser resumes by itself: one stream, no second one
   })
 
   it('a stream the browser closed says so and offers a manual reconnect', () => {
     render(<LiveView />)
     stream().drop(2)
-    expect(screen.getByRole('status')).toHaveTextContent('closed')
+    expect(linkStatus()).toHaveTextContent('closed')
     fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }))
     expect(FakeEventSource.instances).toHaveLength(2)
-    expect(screen.getByRole('status')).toHaveTextContent('Connecting')
+    expect(linkStatus()).toHaveTextContent('Connecting')
   })
 })
 
@@ -927,7 +929,8 @@ describe('attention (FR-050)', () => {
     expect(screen.getByText('1 session needs you').closest('[role="status"]')).not.toBeNull()
     stream().emit('snapshot', snapshot([session('aaaaaaaa-1')]))
     expect(screen.queryByText(/need/)).toBeNull()
-    expect(screen.getAllByRole('status')).toHaveLength(1) // only the link status is left
+    expect(document.querySelector('.live-need')).toHaveTextContent('') // T121 round 2: the need line stays a status region, empty at zero
+    expect(screen.getAllByRole('status')).toHaveLength(2) // the link status and the empty need line
   })
 
   it('AC5: in an account a row with a state comes first; ties keep the newest first', () => {

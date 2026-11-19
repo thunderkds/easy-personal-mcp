@@ -268,3 +268,29 @@ Error: [2mexpect([22m[31melement[39m[2m).toHaveAttribute([22m[32m[32m"ar
       Tests  10 failed (10)
 ```
 
+
+## AC 3 — Round 2 (code review P2/P3 + after-run N7/N8)
+
+| Item | Cause | Fix | Test |
+|---|---|---|---|
+| P2-1 Back/Esc focus held the order | `backTo` focuses the row inside `.live-rows`; `onFocus` set the hold for mouse users too | the hold takes only keyboard focus (`:focus-visible`, a browser that cannot tell counts as yes) and never our own Back focus (`quietFocus` ref) | LiveDrop "Back puts the focus on the row without holding the list…" |
+| P2-2 hold stuck after the focused row left | an unmounted row sends no blur; rows were keyed by `e.key`, which flips id ↔ `app:<id>` | rows keyed by `rowId(e)` (session id, else key); an effect on every `groups` change lets go of the focus hold when `document.activeElement` is not in `.live-rows` | LiveDrop "the focused row leaving the list lets go of the hold…" |
+| P2-3 summary lost its triangle | `.live-about > summary { display: flex }` | `display: list-item`, `min-height: 44px`, `padding-block: 10px` (triangle back, see shot below) | CSS, shot |
+| P3-a card click with a text selection | the card's click opened the row | skip when `getSelection()` is non-empty | LiveDrop "a click that ends a text selection on the card does not open it" |
+| P3-b need line role | role only when count > 0 | always `role="status"`. This really clashed with 3 tests that used a single `getByRole('status')`: LiveView.test AC3 drop / closed-stream now read the link status through `linkStatus()` (the `.live-status` region); AC4 now expects 2 status regions at zero (link + empty need line) | LiveDrop "the need line is a status region at every count"; LiveView.test AC3, closed stream, AC4 |
+| N7 composer below the fold at 375 | composer is the last child of a long panel | under 768 px `.session-panel > .composer` is `position: sticky; bottom: 0` with `--color-bg`, a top border, and the card padding pulled to the edges; 1280 unchanged | CSS; shot `…/ux-t121/shots-r2b/live-panel-busy-375.png` (full-page shot, so the stick itself shows only when scrolling) |
+| N8 filter chips 3+1 at 375 | flex wrap of `.periods` | under 768 px the State group is a 2×2 grid, left aligned | shot `…/ux-t121/shots-r2b/live-list-375.png`: All / Needs me, Working / Idle |
+| N9 | — | accepted as the F6 rule, no change | — |
+
+Red run of the 4 new LiveDrop tests on `20a118f`, before the fixes:
+
+```
+     × Back puts the focus on the row without holding the list: a row that became the newest moves up (round 2) 35ms
+     × the focused row leaving the list lets go of the hold: the list sorts again (round 2) 22ms
+     × a click that ends a text selection on the card does not open it (round 2) 14ms
+     × the need line is a status region at every count (round 2) 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 12 passed (16)
+```
+
+Green: `npx vitest run` → `Test Files  43 passed (43)`, `Tests  1440 passed (1440)` (one run showed WorkspacesView.test "AC4: the Confirm/Cancel plan…" failing under load; it passes alone, 52/52, and in the next full run); `npm run build` ok; `check_static: ok`. Shots (mock, headless Chrome) in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/shots-r2b/`: no horizontal scroll at 375 or 1280.
