@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-18
+**Last updated**: 2026-11-19
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -11,7 +11,7 @@
 ### Todo
 
 ### In Progress
-- [ ] **T119** — Live like Claude 5 — filters, names, past sessions | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T119.md`; FR-128; Depends on T117, T118; started 2026-11-19: worktree `easy-personal-mcp-wt/T119`, branch `T119` from `main`
+- [ ] **T119** — Live like Claude 5 — filters, names, past sessions | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T119.md`; FR-128; Depends on T117, T118; started 2026-11-19: worktree `easy-personal-mcp-wt/T119`, branch `T119` from `main`; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T119`, branch `T119` from `main` (`8c8c121`)
 
 ### Ready for Review
 
