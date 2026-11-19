@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T122** — Live filter bar — Project, Kind and Clear filters | frontend-developer | C1 | Risk: Medium | P1; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T122`, branch `T122` from `main`
 
 ### Ready for Review
 
