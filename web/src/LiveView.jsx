@@ -574,13 +574,15 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     return out
   }, [sessions, apps, renamed])
   useEffect(() => {
-    // A name the snapshot now carries is no longer held here: the stream is the page's one source again.
+    // A name the snapshot now carries is no longer held here: the stream is the page's one source again. A name held for a session that is in neither
+    // the stream nor the app session list is let go too, so it cannot come back with the session after the server changed it.
     setRenamed((old) => {
       const byId = new Map(sessions.map((x) => [x.session_id, x.name]))
-      const keep = Object.entries(old).filter(([id, name]) => !byId.has(id) || byId.get(id) !== name)
+      const appIds = new Set((apps ?? []).map((a) => a.session_id))
+      const keep = Object.entries(old).filter(([id, name]) => (byId.has(id) ? byId.get(id) !== name : appIds.has(id)))
       return keep.length === Object.keys(old).length ? old : Object.fromEntries(keep)
     })
-  }, [sessions])
+  }, [sessions, apps])
   const selected = openId === null ? null : (entries.find((e) => e.key === openId || e.s.session_id === openId) ?? null)
   useEffect(() => {
     if (openId !== null && !selected && (apps !== null || !selectedApp)) setOpenId(null) // the open session left the list: nothing is drawn for it
@@ -611,7 +613,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   const groups = useMemo(() => group(entries.filter((e, i) => e.key === openKey || passes(facts[i], filters))), [entries, facts, filters, openKey]) // the open session's row stays listed, whatever the filters say
   const shown = groups.reduce((n, g) => n + g.entries.length, 0)
   const [notices, endPrompt] = useNotices(sessions)
-  const needing = sessions.filter(needsYou).length
+  const needing = entries.filter(asksYou).length // the rule of the *Needs me* filter: a state, a prompt in the panel, or a prompt card
   const all = entries.map((e) => e.s)
   const maxTokens = Math.max(0, ...all.map((s) => s.tokens_in + s.tokens_out))
   const maxCost = Math.max(0, ...all.map((s) => s.cost))

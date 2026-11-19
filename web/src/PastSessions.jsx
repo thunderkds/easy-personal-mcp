@@ -43,7 +43,7 @@ function usePast(query) {
   useEffect(() => {
     const mine = ++generation.current
     if (queryRef.current === null) return setState({ ...LOADING, status: 'ready' }) // no query to ask (the dates are the wrong way round)
-    setState(LOADING)
+    setState((old) => ({ ...old, status: 'loading', next: null, error: '', more: false, moreError: '' })) // the rows stay while the next list loads: an open panel is not torn down
     getPastSessions(queryRef.current)
       .then((raw) => {
         if (mine !== generation.current) return
@@ -180,14 +180,20 @@ export default function PastSessions({ filters, onFilters, onResume }) {
     const timer = setTimeout(() => onFilters({ project: clean }), TYPING_MS)
     return () => clearTimeout(timer)
   }, [typed, filters.project, onFilters])
-  const kind = PAST_KINDS.includes(filters.kind) ? filters.kind : ''
+  const kind = PAST_KINDS.includes(filters.kind) ? filters.kind : '' // the kind asked of the store; the Live list's `app` is no kind here
   const backwards = isDay(from) && isDay(to) && from > to
   const query = { project: filters.project, kind, from: isDay(from) ? from : older ? ALL_TIME_FROM : '', to: isDay(to) ? nextDay(to) : '' }
   const [list, loadMore, rename] = usePast(backwards ? null : query)
-  const selected = openId === null ? null : (list.sessions.find((x) => x.id === openId) ?? null)
+  const listed = openId === null ? null : (list.sessions.find((x) => x.id === openId) ?? null)
+  const held = useRef(null) // the open session as last listed: the panel stays up while the next list loads or fails
+  if (listed) held.current = listed
+  const selected = listed ?? (openId !== null && list.status !== 'ready' && held.current?.id === openId ? held.current : null)
   useEffect(() => {
-    if (openId !== null && list.status === 'ready' && !selected) setOpenId(null) // the filters moved on: the open session is not in the list now
-  }, [openId, selected, list.status])
+    if (openId !== null && list.status === 'ready' && !listed) setOpenId(null) // the filters moved on: a list that came back has not the open session
+  }, [openId, listed, list.status])
+  useEffect(() => {
+    if (focusPanel) setFocusPanel(false) // the panel has taken the focus once (its own effect ran first): a later draw of it never takes it again
+  }, [focusPanel])
   useEffect(() => {
     if (backTo === null) return
     document.getElementById(`past-row-${backTo}`)?.focus()
@@ -222,8 +228,9 @@ export default function PastSessions({ filters, onFilters, onResume }) {
             </label>
             <label className="board-filter">
               Kind
-              <select value={kind} onChange={(e) => onFilters({ kind: e.target.value })}>
+              <select value={filters.kind === 'app' ? 'app' : kind} onChange={(e) => onFilters({ kind: e.target.value })}>
                 <option value="">All kinds</option>
+                {filters.kind === 'app' && <option value="app">App (kept from the Live list; no filter here)</option>}
                 {PAST_KINDS.map((k) => (
                   <option key={k} value={k}>
                     {k}
@@ -252,7 +259,7 @@ export default function PastSessions({ filters, onFilters, onResume }) {
           )}
           {!backwards && list.status === 'ready' && list.window?.default === true && (
             <p role="status" className="muted past-window">
-              {to !== '' && isDay(to) ? `Showing the 30 days before ${to}.` : WINDOW_NOTE}{' '}
+              {to !== '' && isDay(to) ? `Showing the 30 days up to and including ${to}.` : WINDOW_NOTE}{' '}
               <button type="button" className="link-button" onClick={() => setOlder(true)}>
                 Show older
               </button>

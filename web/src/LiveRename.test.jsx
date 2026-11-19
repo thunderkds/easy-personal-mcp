@@ -186,6 +186,18 @@ describe('rename in the panel header (AC 2)', () => {
     expect(heading()).toHaveTextContent('y')
   })
 
+  it('a held name is released when its session leaves the list: it does not come back with the session', async () => {
+    await open(pastServer())
+    fireEvent.click(renameButton())
+    type('temporary')
+    enter()
+    await waitFor(() => expect(rowEl()).toHaveTextContent('temporary'))
+    stream().emit('snapshot', snapshot([])) // the session is gone
+    stream().emit('snapshot', snapshot([liveRow(SID)])) // it is back, and the server has no name for it
+    expect(rowEl()).not.toHaveTextContent('temporary')
+    expect(rowEl()).toHaveTextContent('alpha')
+  })
+
   it('a session with no Claude session id yet has no Rename (the route needs one)', async () => {
     const app = appServer({ sessions: [appSession({ id: 'a9', session_id: null, state: 'working' })] })
     vi.stubGlobal('fetch', async (url, init) => (String(url).startsWith('/api/app-sessions') ? app(url, init) : { ok: false, status: 404, json: async () => ({}) }))

@@ -190,3 +190,12 @@ describe('kept in localStorage (AC 1)', () => {
     expect(JSON.parse(window.localStorage.getItem(KEY))).toEqual({ state: 'all', project: '', kind: '' })
   })
 })
+
+describe('one rule for who needs you (Stage 4 review)', () => {
+  const permission = { id: 'p2', kind: 'permission', tool: 'Bash', input: 'git status', complete: true }
+  it('a session with a prompt waiting in its panel counts in the heading and in the Needs me filter alike', () => {
+    mount([liveRow('aaaaaaaa-1', { pending_answer: permission }), liveRow('bbbbbbbb-2', { proc: { busy: true, name: null } })])
+    expect(stateBtn('Needs me (1)')).toBeInTheDocument()
+    expect(screen.getByText('1 session needs you')).toBeInTheDocument()
+  })
+})

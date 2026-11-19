@@ -118,7 +118,7 @@ describe('the 30-day window and Show older (AC 3)', () => {
     const server = pastServer({ past: () => answer([past(A)]) })
     await openPast(server)
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-11-10' } })
-    expect(await screen.findByText('Showing the 30 days before 2026-11-10.', { exact: false })).toBeInTheDocument()
+    expect(await screen.findByText('Showing the 30 days up to and including 2026-11-10.', { exact: false })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Show older' }))
     await waitFor(() => expect(lastParams(server).get('from')).toBe(ALL_TIME_FROM))
   })
@@ -164,14 +164,18 @@ describe('the filters (AC 1, AC 3)', () => {
     expect(JSON.parse(window.localStorage.getItem(FILTERS))).toEqual({ state: 'all', project: 'alpha', kind: 'headless' })
   })
 
-  it('starts with the stored project and kind; a stored kind the store does not know (app) is no filter here', async () => {
+  it('starts with the stored project; a stored kind the store does not know (app) asks for no kind, is shown as such, and All kinds clears it', async () => {
     window.localStorage.setItem(FILTERS, JSON.stringify({ state: 'working', project: 'beta', kind: 'app' }))
     const server = pastServer({ past: () => answer([]) })
     await openPast(server)
     expect(lastParams(server).get('project')).toBe('beta')
     expect(lastParams(server).has('kind')).toBe(false)
     expect(screen.getByLabelText('Project')).toHaveValue('beta')
+    expect(screen.getByLabelText('Kind')).toHaveValue('app') // the select says what is stored, so All kinds is a change
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: '' } })
     expect(screen.getByLabelText('Kind')).toHaveValue('')
+    expect(JSON.parse(window.localStorage.getItem(FILTERS)).kind).toBe('')
+    expect(within(screen.getByLabelText('Kind')).queryByRole('option', { name: /App/ })).toBeNull()
   })
 
   it('a state filter is a live thing: Past has none', async () => {
@@ -342,5 +346,69 @@ describe('rename in Past (AC 2)', () => {
     fireEvent.keyDown(within(panel()).getByLabelText('Name'), { key: 'Enter' })
     await waitFor(() => expect(within(rowEl(A)).getByText('alpha')).toBeInTheDocument())
     expect(s.renames()[1].body).toEqual({ name: null, confirmed: true })
+  })
+})
+
+describe('a filter change with a past session open (Stage 4 review)', () => {
+  const open = async (over = {}) => {
+    const s = pastServer({ past: (p) => answer(p.get('kind') === 'terminal' ? [past(B)] : [past(A, { name: 'my review' }), past(B)]), pages: [page([entryUser('hello')])], ...over })
+    await openPast(s)
+    fireEvent.click(rowEl(A))
+    await within(panel()).findByText('hello')
+    return s
+  }
+
+  it('keeps the panel mounted, the focus where the owner is, and reads the conversation once', async () => {
+    const s = await open()
+    const node = panel()
+    const reads = s.reads().length
+    const select = screen.getByLabelText('Kind')
+    select.focus()
+    fireEvent.change(select, { target: { value: 'headless' } })
+    await waitFor(() => expect(lastParams(s).get('kind')).toBe('headless'))
+    await waitFor(() => expect(screen.queryByText('Loading past sessions')).toBeNull())
+    expect(panel()).toBe(node)
+    expect(select).toHaveFocus()
+    expect(s.reads().length).toBe(reads)
+  })
+
+  it('keeps an open rename field through a filter change', async () => {
+    const s = await open()
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Rename' }))
+    fireEvent.change(within(panel()).getByLabelText('Name'), { target: { value: 'half typed' } })
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'headless' } })
+    await waitFor(() => expect(lastParams(s).get('kind')).toBe('headless'))
+    await waitFor(() => expect(screen.queryByText('Loading past sessions')).toBeNull())
+    expect(within(panel()).getByLabelText('Name')).toHaveValue('half typed')
+  })
+
+  it('keeps the panel and the rows while the next list is loading; the panel closes only when a ready list lacks the session', async () => {
+    let release
+    await open({ past: (p) => (p.get('kind') === 'terminal' ? new Promise((r) => (release = r)) : answer([past(A), past(B)])) })
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'terminal' } })
+    await waitFor(() => expect(screen.getByText('Loading past sessions')).toBeInTheDocument())
+    expect(panel()).toBeInTheDocument()
+    expect(shown()).toEqual(['aaaaaaaa', 'bbbbbbbb']) // the rows of the last list stay while the next one loads
+    await act(async () => release(answer([past(B)])))
+    await waitFor(() => expect(screen.queryByRole('region', { name: /^Past session in / })).toBeNull()) // ready and it is not in the list
+    expect(shown()).toEqual(['bbbbbbbb'])
+  })
+
+  it('an error on the next list keeps the panel', async () => {
+    await open({ past: (p) => (p.get('kind') === 'terminal' ? { status: 500, body: {} } : answer([past(A), past(B)])) })
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'terminal' } })
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(panel()).toBeInTheDocument()
+  })
+
+  it('a remount of the panel does not take the focus: only opening a row does', async () => {
+    await open()
+    expect(within(panel()).getByRole('heading', { level: 2 })).toHaveFocus()
+    const box = screen.getByLabelText('Project')
+    box.focus()
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'headless' } })
+    box.focus()
+    await waitFor(() => expect(screen.queryByText('Loading past sessions')).toBeNull())
+    expect(box).toHaveFocus()
   })
 })
