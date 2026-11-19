@@ -9,9 +9,9 @@
 ## Board
 
 ### Todo
-- [ ] **T119** — Live like Claude 5 — filters, names, past sessions | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T119.md`; FR-128; Depends on T117, T118
 
 ### In Progress
+- [ ] **T119** — Live like Claude 5 — filters, names, past sessions | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T119.md`; FR-128; Depends on T117, T118; started 2026-11-19: worktree `easy-personal-mcp-wt/T119`, branch `T119` from `main`
 
 ### Ready for Review
 
