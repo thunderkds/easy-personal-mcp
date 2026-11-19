@@ -250,7 +250,7 @@ describe('AC2: the card on a session with pending_answer', () => {
   })
 
   it('a pending_answer of a shape it does not know draws no card', () => {
-    show([session('aaaaaaaa-1', { id: 'x', kind: 'plan', text: 'x' })])
+    show([session('aaaaaaaa-1', { id: 'x', kind: 'unknown', text: 'x' })])
     expect(document.querySelector('.prompt-card')).toBeNull()
   })
 

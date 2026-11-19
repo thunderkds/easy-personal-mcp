@@ -52,22 +52,23 @@ Mode: auto
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>
+Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); no test run in memory/event-trace/T127.jsonl — write /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID with the task ID (minimal-track step 1): `mkdir -p /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d && printf '%s\n%s\n' "T127" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID`, then rerun the task's tests so the trace records them under the task, then stop; Risk High: decision 1 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 3 Advocates named; Risk High: decision 2 (`RULE`) is a choice — its RULE cites no written rule (`path:line`, `path § <heading>` or `docs/claude-md/tracks.md` `### <section>`) — so it must be `DEBATED` with exactly 3 Advocates named; Risk High, but no decision was DEBATED with 3 Advocates; extended track, but the trace has no `code-review` Skill call (Stage 4 runs in auto mode); Risk High, but the trace has no `security-review` Skill call [report d721b944faa2]
 
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/src/permission_suggestions.rs` (4), `rust/crates/app/src/app_session.rs` (4: suggestion unchanged, forged/misplaced, none, plan accept-edits), `rust/crates/app/src/app_session_routes.rs` (1: HTTP, forged index 400), `rust/crates/app/src/answer_bridge.rs` (4: hook output by index, none, terminal plan, cut plan); `web/src/PromptCard.test.jsx` (5), `web/src/LiveAppPanel.test.jsx` (answerBody), `web/src/LiveAnswer.test.jsx` |
+| Verification command run | ☑ pass | 2026-11-19T22:47Z in the worktree. `cargo fmt --check` clean; `cargo clippy --workspace --all-targets -- -D warnings` and `-p easy-personal-rs --features window` clean; `cargo test --workspace`: 1344 passed, 0 failed; `leak_rust.py` (parity venv python, `env -u CLAUDE_CONFIG_DIR`): `leak check: 0 hits over 42 canaries, 1306 surfaces, 2852094 bytes`; `npx vitest run`: `Test Files 43 passed (43) / Tests 1455 passed (1455)`; `npm run build` built; `check_static: ok` |
+| Negative cases hold | ☑ pass | forged index (2, 7, -1, "0", 1.5, usize::MAX), suggestion with deny, suggestion with accept_edits, accept_edits on a non-plan, suggestion on a plan, a cut input or plan, no suggestions: all refused (400 / Incomplete) and the prompt stays pending (tests listed above). `git diff --stat`: 11 files changed, 913 insertions |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | prompt build and answer in `app_session.rs`, `app_session_routes.rs`, `answer_bridge.rs`; cards in `PromptCard.jsx`, `SessionPanel.jsx`, `api.js`; Stage 4 is the Supervisor's |
+| Full smoke suite still green (no regression) | ☑ pass | the whole Rust workspace and the whole web suite, counts above |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate steps by hand (a sub-agent has no Skill tool): throwaway Vite harness of the three cards, screenshots read at 375 and 1280 (harness deleted; scratch `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/b0e607b5-0126-47ad-b65d-c4fbbbdebda6/scratchpad/ux/cards-375.png`, `cards-1280.png`). U1 pass: buttons read "Allow and don't ask again for Bash(git status:*) — this project" and "… — you, everywhere". U2 pass: a terminal plan card shows the numbered plan text in the plan box with Approve / Approve and auto-accept edits (this session) / Keep planning / Answer in terminal, no JSON |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | the new buttons use the card's existing button style; no new CSS |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280: no horizontal overflow; long button labels wrap onto two lines at 375 and stay one line at 1280; wrapped buttons are about 40px tall at 375 (the card's existing button style, unchanged) |
 
 ---
 
@@ -86,9 +87,13 @@ af4aa48 Board + memory: T122, T123 Done (merged); font decision
 0
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**:
+```
+$ date -u; grep -rn 'permission_suggestions\|updatedPermissions' rust/crates/app/src web/src | wc -l
+Thu Nov 19 10:47:12 PM UTC 2026
+23
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: From a Live prompt card the owner can now allow a tool and have Claude Code remember it ("don't ask again", with where the rule lands on the button), and approve a plan with edits auto-accepted, for app and terminal sessions; a terminal plan reads as a plan.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T127.jsonl`, never the
-implementing agent alone]
+**WITNESS**: resumed backend/frontend agent ran the Verification Command in this worktree on 2026-11-19 (output above); `memory/event-trace/T127.jsonl` was not present in the worktree when this was written, so the Supervisor confirms it from the trace.

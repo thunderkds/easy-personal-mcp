@@ -21,6 +21,21 @@ export const PLAN_NO_DETAIL = 'No plan text came with this request \u2014 keep p
 
 const text = (v) => (typeof v === 'string' ? v : '')
 
+// FR-132: the CLI's own "don't ask again" suggestions, as the server shows them: `{index, where, summary}`. The page names one by its
+// index and sends nothing else of it, so a rule is never built here. Only what can be drawn is kept; none gives no button.
+export const ACCEPT_EDITS = 'Approve and auto-accept edits (this session)'
+function readSuggestions(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .filter((x) => x && Number.isInteger(x.index) && x.index >= 0 && typeof x.where === 'string' && x.where !== '' && typeof x.summary === 'string' && x.summary !== '')
+    .slice(0, 8)
+    .map((x) => ({ index: x.index, where: x.where, summary: x.summary }))
+}
+const withSuggestions = (prompt, list) => {
+  const suggestions = readSuggestions(list)
+  return suggestions.length > 0 ? { ...prompt, suggestions } : prompt
+}
+
 const readOptions = (list) => (Array.isArray(list) ? list.map((o) => ({ label: text(o?.label), description: text(o?.description) })) : [])
 function readQuestions(list, multiOf) {
   if (!Array.isArray(list) || list.length === 0) return null
@@ -32,26 +47,28 @@ function readQuestions(list, multiOf) {
 function readAppPrompt(raw) {
   if (typeof raw.prompt_id !== 'string' || raw.prompt_id === '') return null
   const id = raw.prompt_id
-  if (raw.type === 'plan') return { id, kind: 'plan', plan: text(raw.plan), complete: raw.complete === true }
+  if (raw.type === 'plan') return { id, kind: 'plan', plan: text(raw.plan), complete: raw.complete === true, ...(raw.accept_edits === true ? { acceptEdits: true } : {}) }
   if (raw.type === 'question') {
     const questions = readQuestions(raw.questions, (q) => q?.multiSelect === true)
     return questions ? { id, kind: 'question', questions } : null
   }
   if (raw.type !== 'tool') return null
   const full = typeof raw.input === 'string'
-  return { id, kind: 'permission', tool: text(raw.tool), input: full ? raw.input : text(raw.summary), complete: full && raw.complete === true }
+  return withSuggestions({ id, kind: 'permission', tool: text(raw.tool), input: full ? raw.input : text(raw.summary), complete: full && raw.complete === true }, raw.suggestions)
 }
 
 /**
  * The prompt of a `pending_answer` or of an app session's card, checked: `{id, kind: 'question', questions: [{question, header, multi,
- * options: [{label, description}]}]}`, `{id, kind: 'permission', tool, input, complete}` or `{id, kind: 'plan', plan, complete}`. Anything else
+ * options: [{label, description}]}]}`, `{id, kind: 'permission', tool, input, complete, suggestions?}` or `{id, kind: 'plan', plan, complete,
+ * acceptEdits?}` (a terminal plan arrives as `kind: 'plan'` too). Anything else
  * gives null, and no card is drawn.
  */
 export function readPrompt(raw) {
   if (!raw || typeof raw !== 'object') return null
   if (raw.kind === 'prompt') return readAppPrompt(raw)
   if (typeof raw.id !== 'string' || raw.id === '') return null
-  if (raw.kind === 'permission') return { id: raw.id, kind: 'permission', tool: text(raw.tool), input: text(raw.input), complete: raw.complete === true }
+  if (raw.kind === 'permission') return withSuggestions({ id: raw.id, kind: 'permission', tool: text(raw.tool), input: text(raw.input), complete: raw.complete === true }, raw.suggestions)
+  if (raw.kind === 'plan') return { id: raw.id, kind: 'plan', plan: text(raw.plan), complete: raw.complete === true, ...(raw.accept_edits === true ? { acceptEdits: true } : {}) }
   if (raw.kind !== 'question') return null
   const questions = readQuestions(raw.questions, (q) => q?.multi_select === true)
   return questions ? { id: raw.id, kind: 'question', questions } : null
@@ -116,7 +133,8 @@ function Question({ q, n, choice, disabled, onChange }) {
 /**
  * `prompt`: from `readPrompt`. `busy`: a request is out, every control is off. `error`: the text of the last failure.
  * `onAnswer(fields)`: `{answers: [{selected, other?}]}` (positions of the chosen options) or `{decision: 'allow' | 'deny', message?}`
- * (a plan: Approve is allow, Keep planning is deny). `onRelease()`: hand the prompt back to the terminal; a card with none is an app
+ * (a plan: Approve is allow, Keep planning is deny); an allow may add `suggestion` (the index of one of the card's suggestions) or, for a
+ * plan, `accept_edits: true` (FR-132). `onRelease()`: hand the prompt back to the terminal; a card with none is an app
  * session's. Give the card `key={prompt.id}` so a new prompt starts empty.
  */
 export default function PromptCard({ prompt, busy = false, error = '', onAnswer, onRelease }) {
@@ -128,7 +146,7 @@ export default function PromptCard({ prompt, busy = false, error = '', onAnswer,
     onAnswer({
       answers: choices.map((c) => ({ selected: [...c.picked].sort((a, b) => a - b), ...(c.otherOn && c.other.trim() ? { other: c.other.trim() } : {}) })),
     })
-  const decide = (decision) => onAnswer(decision === 'deny' && note.trim() ? { decision, message: note.trim() } : { decision })
+  const decide = (decision, extra = {}) => onAnswer(decision === 'deny' && note.trim() ? { decision, message: note.trim() } : { decision, ...extra })
   const noteField = (label) => (
     <label htmlFor={noteId} className="field prompt-note">
       {label}
@@ -174,6 +192,12 @@ export default function PromptCard({ prompt, busy = false, error = '', onAnswer,
                 Allow
               </button>
             )}
+            {allow &&
+              (prompt.suggestions ?? []).map((x) => (
+                <button key={x.index} type="button" disabled={busy} onClick={() => decide('allow', { suggestion: x.index })}>
+                  {`Allow and ${x.summary} \u2014 ${x.where}`}
+                </button>
+              ))}
             <button type="button" className={allow ? undefined : 'primary'} disabled={busy} onClick={() => decide('deny')}>
               Deny
             </button>
@@ -197,9 +221,15 @@ export default function PromptCard({ prompt, busy = false, error = '', onAnswer,
                 Approve
               </button>
             )}
+            {approve && prompt.acceptEdits && (
+              <button type="button" disabled={busy} onClick={() => decide('allow', { accept_edits: true })}>
+                {ACCEPT_EDITS}
+              </button>
+            )}
             <button type="button" className={approve ? undefined : 'primary'} disabled={busy} onClick={() => decide('deny')}>
               Keep planning
             </button>
+            {release}
           </div>
         </>
       )}

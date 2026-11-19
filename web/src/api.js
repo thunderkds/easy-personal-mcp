@@ -64,7 +64,7 @@ export async function getHooks() {
 /** Turn the bridge on or off for one account (the caller has shown the entries and been confirmed). Answers that account's row. */
 export const setHooks = (account, on) => sendJson('PUT', '/api/hooks', { account: String(account), on, confirmed: true })
 
-/** Answer a prompt of a terminal session (FR-114): `fields` is `{answers: [{selected, other}]}` for a question or `{decision, message}` for a permission. */
+/** Answer a prompt of a terminal session (FR-114): `fields` is `{answers: [{selected, other}]}` for a question or `{decision, message, suggestion?, accept_edits?}` for a permission or a plan (FR-132). */
 export const answerPrompt = (id, fields) => sendJson('POST', '/api/answer', { ...fields, id, confirmed: true })
 /** Hand a prompt back to the terminal. */
 export const releasePrompt = (id) => sendJson('POST', '/api/answer/release', { id, confirmed: true })
@@ -82,7 +82,7 @@ const appPath = (id, action) => `/api/app-sessions/${encodeURIComponent(id)}/${a
 export const sendAppMessage = (id, text) => sendJson('POST', appPath(id, 'message'), { text, confirmed: true })
 export const interruptAppSession = (id) => sendJson('POST', appPath(id, 'interrupt'), { confirmed: true })
 export const stopAppSession = (id) => sendJson('POST', appPath(id, 'stop'), { confirmed: true })
-/** Answer a prompt card: `{behavior: 'allow' | 'deny', updatedInput?: {answers}, message?}`. */
+/** Answer a prompt card: `{behavior: 'allow' | 'deny', updatedInput?: {answers}, message?, suggestion?, accept_edits?}`. */
 export const answerAppPrompt = (id, promptId, fields) => sendJson('POST', appPath(id, 'answer'), { ...fields, prompt_id: promptId, confirmed: true })
 /** Close the panel of an ended session: its text is dropped on the server. */
 export const closeAppSession = (id) => sendJson('POST', appPath(id, 'close'), { confirmed: true })

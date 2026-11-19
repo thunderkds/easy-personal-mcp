@@ -209,3 +209,72 @@ describe('plan card', () => {
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
   })
 })
+
+// FR-132: the CLI's own "don't ask again" suggestions, and a plan approved with edits on.
+describe('allow and do not ask again (FR-132)', () => {
+  const offered = [
+    { index: 0, where: 'this project', summary: "don't ask again for Bash(git status:*)" },
+    { index: 2, where: 'you, everywhere', summary: "don't ask again for Bash(git:*)" },
+  ]
+
+  it('names each suggestion and where its rule lands on the button, and sends only its index', () => {
+    for (const raw of [toolCard({ suggestions: offered }), terminalPermission({ suggestions: offered })]) {
+      const onAnswer = vi.fn()
+      const { unmount } = render(<PromptCard prompt={readPrompt(raw)} onAnswer={onAnswer} />)
+      fireEvent.click(screen.getByRole('button', { name: "Allow and don't ask again for Bash(git status:*) — this project" }))
+      expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'allow', suggestion: 0 })
+      fireEvent.click(screen.getByRole('button', { name: "Allow and don't ask again for Bash(git:*) — you, everywhere" }))
+      expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'allow', suggestion: 2 })
+      fireEvent.click(screen.getByRole('button', { name: 'Allow' }))
+      expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'allow' }) // the plain Allow is still there and carries no suggestion
+      unmount()
+    }
+  })
+
+  it('no suggestions, or ones it cannot draw, give no extra button and the shape stays as before', () => {
+    expect(readPrompt(toolCard())).toEqual({ id: 'p1', kind: 'permission', tool: 'Bash', input: 'rm -rf /tmp/x', complete: true })
+    for (const suggestions of [undefined, [], 'x', [{ index: -1, where: 'a', summary: 'b' }, { index: 1, where: '', summary: 'b' }, { index: 1, where: 'a' }, null]]) {
+      const { unmount } = render(<PromptCard prompt={readPrompt(terminalPermission({ suggestions }))} onAnswer={() => {}} onRelease={() => {}} />)
+      expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Allow', 'Deny', 'Answer in terminal'])
+      unmount()
+    }
+  })
+
+  it('an incomplete card offers no always-allow either, and Deny sends no suggestion', () => {
+    const onAnswer = vi.fn()
+    render(<PromptCard prompt={readPrompt(toolCard({ complete: false, suggestions: offered }))} onAnswer={onAnswer} />)
+    expect(screen.queryByRole('button', { name: /don't ask again/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Deny' }))
+    expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'deny' })
+  })
+
+  it('a terminal plan is a plan card, not JSON; Approve and auto-accept edits only when the server said so', () => {
+    const plan = { id: 'a5', kind: 'plan', plan: '1. do it\n2. test it', complete: true, accept_edits: true }
+    expect(readPrompt(plan)).toEqual({ id: 'a5', kind: 'plan', plan: '1. do it\n2. test it', complete: true, acceptEdits: true })
+    const onAnswer = vi.fn()
+    const onRelease = vi.fn()
+    const { unmount } = render(<PromptCard prompt={readPrompt(plan)} onAnswer={onAnswer} onRelease={onRelease} />)
+    expect(screen.getByRole('region', { name: 'Plan from a terminal session' })).toBeInTheDocument()
+    expect(document.querySelector('.prompt-summary').textContent).toBe('1. do it\n2. test it')
+    fireEvent.click(screen.getByRole('button', { name: 'Approve and auto-accept edits (this session)' }))
+    expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'allow', accept_edits: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'allow' })
+    fireEvent.click(screen.getByRole('button', { name: 'Answer in terminal' }))
+    expect(onRelease).toHaveBeenCalledOnce()
+    unmount()
+    render(<PromptCard prompt={readPrompt({ ...plan, accept_edits: false })} onAnswer={onAnswer} onRelease={onRelease} />)
+    expect(screen.queryByRole('button', { name: /auto-accept/ })).toBeNull()
+  })
+
+  it('an app plan card offers it when the server says so, and never for a plan that cannot be approved', () => {
+    const onAnswer = vi.fn()
+    const { unmount } = render(<PromptCard prompt={readPrompt(planCard({ accept_edits: true }))} onAnswer={onAnswer} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Approve and auto-accept edits (this session)' }))
+    expect(onAnswer).toHaveBeenLastCalledWith({ decision: 'allow', accept_edits: true })
+    expect(screen.queryByRole('button', { name: 'Answer in terminal' })).toBeNull()
+    unmount()
+    render(<PromptCard prompt={readPrompt(planCard({ accept_edits: true, complete: false }))} onAnswer={onAnswer} />)
+    expect(screen.queryByRole('button', { name: /auto-accept/ })).toBeNull()
+  })
+})

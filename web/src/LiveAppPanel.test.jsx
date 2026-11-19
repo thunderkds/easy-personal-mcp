@@ -374,6 +374,14 @@ describe('prompt cards (AC 3)', () => {
     expect(answered(server)[0].body.updatedInput).toEqual({ answers: { 'Which colour?': 'Green' } })
   })
 
+  it('answerBody sends a permission suggestion by index and a plan\'s accept_edits, and nothing else of them (FR-132)', () => {
+    const prompt = { id: 'p', kind: 'permission', tool: 'Bash', input: 'ls', complete: true }
+    expect(answerBody(prompt, { decision: 'allow', suggestion: 0 })).toEqual({ behavior: 'allow', suggestion: 0 })
+    expect(answerBody(prompt, { decision: 'allow', suggestion: 'x', rules: [{ toolName: 'Bash' }] })).toEqual({ behavior: 'allow' })
+    expect(answerBody({ id: 'p', kind: 'plan' }, { decision: 'allow', accept_edits: true })).toEqual({ behavior: 'allow', accept_edits: true })
+    expect(answerBody({ id: 'p', kind: 'plan' }, { decision: 'deny', message: 'no' })).toEqual({ behavior: 'deny', message: 'no' })
+  })
+
   it('answerBody joins a multi-select by ", " and puts Other last', () => {
     const prompt = readPrompt(questionPrompt({ questions: [{ question: 'Pick', header: '', multiSelect: true, options: [{ label: 'A', description: '' }, { label: 'B', description: '' }] }] }))
     expect(answerBody(prompt, { answers: [{ selected: [0, 1], other: 'C' }] })).toEqual({ behavior: 'allow', updatedInput: { answers: { Pick: 'A, B, C' } } })
