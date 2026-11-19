@@ -55,9 +55,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☑ fail / ☐ N/A | ux-evaluate after-run, 44 shots + 4 live-change shots in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/shots-after/`: B-a..B-i table in *Demonstration AFTER*; Overall fail (open N1, N3, N4, N5, N7; N2 Supervisor call). F1-F20: 17 fixed, 3 partial, 0 not fixed |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass / ☐ fail / ☐ N/A | measured in the page (computed styles, `after-final.log`): body 16 px, smallest text 13 px, no text under 12 px on any of 44 shots; one accent green for actions, one button style; no source edited by this run. Caveat N2 (most text 13 to 15.5 px) |
+| **UI: Responsiveness at target viewports** | ☐ pass / ☑ fail / ☐ N/A | 375 and 1280, every view: no horizontal page scroll (`hscroll: false` on 44 of 44 shots); 375 targets under 44 px: 155 -> 44 log entries, left checkbox labels 97x20 (Agents), memory nodes 27-33 px, drawer family links 19 px; 375 chip row scrolls sideways and hides the plan-limit chip (N1) |
+| **AC 2: size (tokens, floor, B-e at 375)** | ☑ pass (AC wording) / ☐ fail | `body` 16 px on 44 of 44 shots; smallest text 13 px, `under12` empty everywhere (`/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/after-final.log`). Literal B-e reading on running text is open: N2 |
+| **AC 4: every P1 and P2 audit finding fixed or written up** | ☐ pass / ☑ fail | Of the audit's P1/P2: F1 partial (N2), F4 partial (N3-N5), F2-F3, F5-F7, F8-F14 fixed (F8, F10 by test only). New P2 open: N1 (plan-limit chip off screen at 375), N2, N3 |
+| **AC 5: ux-evaluate after-run, every view at 375 and 1280** | ☐ pass / ☑ fail | table in *Demonstration AFTER*: no horizontal page scroll; touch targets not all >= 44 px at 375 (N3, N4, N5); B-f/B-g not checked (read-only mock) |
 
 ---
 
@@ -106,9 +109,111 @@ Counts: P1 3 (F1, F5, F6), P2 11 (F2-F4, F7-F14), P3 6 (F15-F20). Per view: all 
 Not findings (mock artefacts): the transcript is drawn twice in the panel shots because the mock answers every poll with the same entries; the Watch graphs are short because the fixture has 5 samples.
 
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (ux-evaluate after-run, AC 5; tree `4438247` = layout slice + drops slice combined; run 2026-11-19, no source edited):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+Method: the same fixture mock as BEFORE (`/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/mock.py`, served from `src/easy_personal/dashboard/static` of this tree on port 8793, stopped after the run), the same shoot script (`shoot_ui.py`, headless Chrome through DevTools, full-page, 375 and 1280, every view). 44 screenshots plus 2 live-change shots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/shots-after/<view>-<375|1280>.png`; measurement log `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/after-final.log` (same JSON line per shot as `before.log`). Two extra probes (no code touched): `live_change.py` (opens the busy session's panel, types text, focuses the box, then drives `/__state?phase=` 2 -> 0 -> 3 -> 2 -> 4 -> 0 and reads the DOM after each) and `probe_after.py` / `probe_after2.py` (rect measurements of the leftovers, a real mouse click on a card). Screenshots read through montages in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/ux-t121/mont/`.
+
+Measured, before -> after (`before.log` vs `after-final.log`):
+
+| Measure | BEFORE | AFTER |
+|---|---|---|
+| `body` font size, every shot | 15 px | **16 px** |
+| smallest text on any view | 12.5 px | **13 px** (nothing under 12 px: `under12` empty on all 44 shots) |
+| text nodes under 15 px: usage-1280 / live-list-1280 / past-list-375 | 194/239, 98/127, 189/191 | 179/239, 77/128, 84/191 |
+| text nodes under 16 px (same shots) | 222/239, 120/127, 189/191 | 194/239, 98/128, 189/191 (see N2) |
+| horizontal page scroll (43 and 44 shots) | none | **none** (`hscroll: false` on every shot) |
+| elements past the right edge at 375 | n/a | only the status-chip row (scrolls inside its own box, see N1) |
+| top bar height at 375 | about 150 px | 113 px (139 px with the scope line); chips on one row, 44 px each |
+| targets under 44 px at 375, entries in the log (cap 12 per shot) | 155 | 44 (left: see below) |
+
+Live state-change run (panel open on session `bbbbbbbb`, typed `half typed reply` into its box, focus in the box; the mock moves sessions working -> your turn -> idle -> ended -> back). Result at 375 and at 1280, read from the DOM after every change:
+
+```
+phase 0 -> 2 (needs you)   panel kept, same node (marker kept), text kept, focus kept (TEXTAREA), Stop still there; chips "1 waiting" -> "2 waiting", top bar height 113 -> 113 (375) / 56 -> 56 (1280)
+phase 2 -> 0 -> 3 -> 2     the same; "N sessions need you" line changes 2 -> 3 -> 2 in place
+phase 4 (session ended)    panel kept, same node, says "This session is no longer active", no Stop, row removed from the list
+phase 4 -> 0 (returns)     panel kept, same node; the box is empty again (the composer is hidden while the session is ended, see N9)
+list order across 0/2/0/3/2 (1280): app:ap1, aaaaaaaa, bbbbbbbb, cccccccc, dddddddd every time; no row moved
+```
+Shots: `shots-after/livechange-ph2-375.png`, `livechange-ph4-375.png`, `livechange-ph2-1280.png`, `livechange-ph4-1280.png` (1280 ph4 read in `mont/d4.png`: "This session is no longer active: it left the live list. Go back to sessions to close this panel."). The scroll offset moved by 12 to 120 px between changes only because the mock re-sends the same transcript on every poll and the page grows (BEFORE note: mock artefact), not through the panel.
+
+Card as the target (F20): idle row `dddddddd` card is 343 x 112; a real mouse click at the card's bottom edge (`Input.dispatchMouseEvent`) opened the panel (`aria-expanded="true"`); `elementFromPoint` at three points of the card returns the row button each time. The button's own text line is still 19 px high (`BUTTON.live-row 317x19`); the card is the target.
+
+#### ux-evaluate verdict table (no UX rows in the guide: baseline checks B-a..B-i, per view, 375 / 1280)
+
+Each cell is the nine letters a..i as `P` pass, `F` fail, `-` not applicable at that width. B-d is judged at 375 only (`-` at 1280). Common to every view, not repeated below: B-b P, B-c P, B-i P (one green action colour; amber and red only mean state; one button style and radius), B-e P on the token definition of AC 2 (body 16 px, floor 13 px, contrast clearly readable on the dark ground; running text is 14.5 to 15.5 px, see N2), B-f and B-g `not checked: the mock has data on every view and no mutation was run, so the empty, loading, error and success states and the feedback after an action were not reached; only the live-stream states (connected, working, needs you, idle, ended -> "no longer active") were seen`, which is why those two letters read `N` below.
+
+| View | 375 | 1280 | Notes (screenshot in `shots-after/`) |
+|---|---|---|---|
+| Usage | a P, d P, h F, rest as common | all P except f, g N | h at 375 is N1 (chip row clipped); `usage-375.png` |
+| Warnings and plan | `h F`, rest as common | pass | `warnings-375.png`; Run investigate and Copy are 44 px |
+| Kit | `h F` | pass | `kit-375.png`; Show 2 more / Show details 44 px |
+| Workflow | `h F`, d P | pass | stage names whole (F13 fixed) but gate labels cut: N6 |
+| Workspaces | `h F`, d P | pass | |
+| Agents | **`d F`**, `h F` | pass | checkbox labels 97 x 20 (input 13 x 13): N3. Rename / Ignore / By account 44 px |
+| First run | `h F`, d P | pass | copy command wraps whole, Copy and Check again 44 px |
+| Settings | `h F`, d P | pass | |
+| Watch | `h F`, d P | pass | graphs short: fixture has 5 samples |
+| Board | `h F`, d P | pass | `Done (41)` shows a chevron and a border (F16) |
+| Scheduled | `h F`, d P | pass | table scrolls in its box with a right-edge fade (F18, partial) |
+| Memory | **`d F`**, `h F` | pass | graph labels 12 px effective (was about 7); node hit areas 27 to 33 px high (circle 13 to 19 px): N4 |
+| App sessions | `h F`, d P | pass | New session button in view at both widths (B-a P) |
+| New session | `h F`, d P | pass | worktree checkbox 13 x 13 inside a 4-line label (tall enough); selects 44 px |
+| Live list | `h F`, d P, **a P** | pass | first card starts at about 845 px of 900 (was about 1000), footnote folded (F11); filters 44 px; N8 |
+| Live panel (busy / your turn / app / ended) | **`a F`**, `h F`, d P | a P | Queue / Reply box sits 1500 to 1800 px down at 375: N7 (older). 1280 panel is beside the list, in view |
+| Past list | `h F`, d P | pass | row buttons 42 to 43 px, whole card is the target (same component as Live, F20 verified on Live only) |
+| Past panel | `h F`, d P | pass | Resume / Fork 44 px |
+| Menu drawer (375) | **`d F`**, h P | - | Easy Kit / Easy Memory / Easy Verifier links 183 x 19: N5; drawer scrolls (1325 in 900) |
+
+ux-evaluate (letters judged across 19 view rows x 2 widths): B-a 1 view fail (Live panel at 375), B-b/B-c/B-i pass everywhere, B-d fail on 3 views at 375 (Agents, Memory, menu drawer), B-e pass on the AC 2 definition (N2 raises the literal reading), B-f/B-g not checked (mock), B-h fail at 375 on every view with the chip row (N1), pass at 1280. Overall: **fail** (open: N1, N3, N4, N5, N7; N2 is a Supervisor call).
+
+#### Audit findings F1 to F20, after
+
+| ID | Verdict | Evidence |
+|---|---|---|
+| F1 size | **fixed at token level, partial in effect** | body 16 px on all 44 shots, floor 13 px; most text nodes still 13 to 15.5 px (N2) |
+| F2 chips on 3 rows | **fixed** | one row, 44 px each, top bar 113 px (was about 150); `live-list-375.png` vs `shots-before/live-list-375.png`. New side effect N1 |
+| F3 *N waiting* chip mounts | **fixed** | chip always there; top bar 113 -> 113 px at 375 and 56 -> 56 px at 1280 between 1 and 2 waiting (live-change run) |
+| F4 targets under 44 px | **mostly fixed** | menu button 44 x 44, chips, period and view switches, filters, Agents / Copy / Check again / Rename / Ignore / Review buttons all 44 px; log entries 155 -> 44. Left: checkbox labels (N3), memory nodes (N4), drawer family links (N5) |
+| F5 composer swap loses text and focus | **fixed** | working -> your turn: first box value `half typed reply`, focus on it, same panel node (live-change run, both widths) |
+| F6 panel closes on its own | **fixed** | ended: panel stays, says no longer active, Stop hidden; also kept while another session changed (phase 2 -> 0 -> 3) |
+| F7 re-sort under the pointer | **fixed (order held)** | order identical across five changes at 1280; the pointer-hold and focus-hold rules are covered by `LiveDrop.test.jsx`, not re-shot here (no pointer was moved over the list) |
+| F8 Working / Idle filter row vanishes | **fixed by test only** | not re-shot; `LiveDrop.test.jsx` covers it |
+| F9 *need you* line mounts | **fixed** | the line stays; no jump at 375 across 2 -> 3 -> 2 |
+| F10 panel key `id` -> `app:<id>` | **fixed by test only** | `app:ap1` row present from the first paint in the shots; `LiveDrop.test.jsx` covers the key change |
+| F11 list under a 12-line footnote | **fixed** | footnote folded under "What these numbers and this page show"; first card at about 845 px |
+| F12 inner 70vh scroll box at 375 | **fixed at 375** | `live-list-375.png` has no inner scrollbar; at 1280 the list is its own scroll column beside the panel (desktop two-column, by design) |
+| F13 Workflow names cut | **fixed** | `Stage 0 · Define`, `Stage 1 · Set up` whole at 375 and 1280. Gate labels still cut: N6 |
+| F14 memory labels 7 px | **fixed** | text 15 px x 0.8 = 12 px effective at 375 (log probe); labels still end in an ellipsis for long names |
+| F15 copy command cut | **fixed** | `$ easy-personal ingest` wraps whole with Copy beside it (`first-run-375.png`) |
+| F16 Done (41) looks plain | **fixed** | bordered button with a chevron at both widths |
+| F17 period switch wraps | **fixed** | `Last 7 days | Last 30 days | All time` on one row at 375 |
+| F18 wide tables | **partial** | still scroll in their card (By tool, Scheduled, Effectiveness); a right-edge fade now shows there is more; last columns still off screen until scrolled |
+| F19 sidebar scrolls, Settings under fold | **fixed at 1280 x 900** | `sidebar` scrollHeight = clientHeight = 900 on every 1280 shot, Settings and the family links visible. At 375 the drawer scrolls (1325 in 900) by design, see N5 |
+| F20 idle Live row 18 px | **fixed (card target)** | card 343 x 112, real click at its bottom edge opened the panel; the text line alone is still 19 px high |
+
+Counts: fixed 17 (F2, F3, F5-F17, F19, F20; F8 and F10 by test only), partial 3 (F1, F4, F18), not fixed 0.
+
+#### New findings (not fixed, per the brief)
+
+| ID | View | Width | What is wrong | Evidence | Sev |
+|---|---|---|---|---|---|
+| N1 | top bar, every view | 375 | The chip row is 588 px of content in a 343 px box that scrolls sideways: the red plan-limit chip (`5h 92%`, left 489, right 604 on a 359 px screen) is entirely off screen and the ingest chip is cut; a scrollbar thumb is drawn over the bottom of the first chip. The most urgent chip is the one hidden. B-h (clipped controls) fails on every view | `probe_after.py` CHIPS: `scrollWidth 588, clientWidth 343, overflow-x auto`; `shots-after/live-list-375.png`, `usage-375.png` (grey bar under "3 active") | P2 |
+| N2 | all views | 375 / 1280 | Only the `body` element is 16 px. Running text is 14.5 to 15.5 px (`main p`) and 85 percent of the text nodes are 13 to 15.5 px (usage-375 162 of 188 under 16, past-list-375 189 of 191, usage-1280 194 of 239). The owner said "the size is small"; on the screen it still reads close to before (usage-1280 under 15 px: 194 -> 179 of 239). The AC 2 wording is met, the B-e literal reading ("body at least 16 px", paragraph text included) is not. Supervisor call: raise the secondary tokens or accept | `after-final.log` `sizes` per shot, `mainP` | P2 |
+| N3 | Agents, any checkbox list | 375 | The checkbox is 13 x 13 inside a label 97 x 20: B-d (44 px) fails; ten of them on Agents (`company`, `side` per account) | `probe_after.py` CHECKBOX; `agents-375.png` | P2 |
+| N4 | Memory | 375 | Node hit areas are 27 to 33 px high (the dot is 13 to 19 px); the graph canvas is 640 px wide in a 343 px box, so nodes at the edges (`tokens.cs…`, `0001.md`, `app`) are cut until panned | `probe_after.py` MEMNODES (`g` 86x33, 65x27, 58x27 ...); `memory-375.png` | P3 |
+| N5 | menu drawer | 375 | `Easy Kit`, `Easy Memory`, `Easy Verifier` links are 183 x 19 (the rest of the drawer is 44 px) | `probe_after.py` SIDEBAR; `menu-open-375.png` | P3 |
+| N6 | Workflow | 375 / 1280 | Gate labels are still cut with an ellipsis (`No TASK_GUIDE,…`, `Ready for Review start…`) | `workflow-375.png`, `workflow-1280.png` (`mont/d1.png`) | P3 |
+| N7 | Live panel (terminal) | 375 | The Queue / Reply box is 1500 to 1800 px down the page (after the metadata list and the whole transcript), so the primary action is far below the fold (B-a). Older than this task (BEFORE shots show the same order) | `live-panel-busy-375.png`, `live-panel-yourturn-375.png` | P3 (older) |
+| N8 | Live list | 375 | The four filter chips wrap 3 + 1: `Idle (2)` sits alone and centred on a second row | `live-list-375.png` | P3 |
+| N9 | Live panel | 375 / 1280 | When the session ends the composer is hidden, so the typed text is gone when the session comes back (box empty again at phase 4 -> 0). By design of the F6 rule (the panel says no longer active and hides the composer) but the text of a half written reply is lost with it | live-change run phase 4 -> 0: `ta ""` | P3 |
+| N10 | top bar | 375 | Still 113 to 139 px of a 900 px screen (13 to 15 percent) with a sticky bar; 139 px on the views that add the scope line | `after-final.log` `topH` | P3 |
+
+Not findings (mock artefacts, as in BEFORE): the transcript is drawn several times in the panel shots; the Watch graphs are short.
+Not covered: B-f / B-g on empty, loading, error and success states and on mutating actions (the mock is read-only); the F7 and F8 pointer-hold behaviours were not re-shot (tests only); no `rust/` or real-data run.
+
+
+**DELTA**: Text is one step larger (body 16 px, floor 13 px), the top bar is one 44 px row instead of three, every main button and row is a 44 px target, and an open Live panel (typed text, focus, scroll, row order) now stays put while sessions move working -> your turn -> idle -> ended, saying *no longer active* instead of closing; what is left is the plan-limit chip hidden on the phone bar (N1), small checkbox and memory-node targets (N3, N4) and the text-size call (N2).
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T121.jsonl`, never the
 implementing agent alone]
