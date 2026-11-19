@@ -77,7 +77,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 1280 Live filtered: Project 158x36 jumps to the first row at x767 (bar 696x128), Kind select 158x36 and "Clear filters" 125x32 on the second row (y70/y92): the row reflows when a filter is set.
 1280 Past: Project input 192x36, Kind select 129x36, From/To 164x36, "Clear filters" 125x32 on row 2; labels stacked above.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (screenshots in /tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/7f3f564e-a23f-434b-8267-534730790636/scratchpad/t122/after/ : live-nofilter, live-filtered, past at 375 and 1280): State and Kind are two matching segmented groups (State 483 px wide, Kind 483 px wide at 1280, 40 px high each; 2x2 grids of 167x44 buttons at 375); Project is a token-chevron select with its label inline (285x40 at 1280, 176x44 at 375, label visually hidden there), and "Clear filters" (155x40 / 155x44) sits beside it, always present, disabled and muted when nothing is filtered. Setting a filter changes no control's position or size (before: the row reflowed and a link mounted). 375: no horizontal scroll, every control >= 44 px, bar 343x264. Past: only the select chevron changed.
 
 **DELTA**: [one sentence — what a user can now do that they could not before]
 
