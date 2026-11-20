@@ -1,6 +1,6 @@
 # 0006. Write sessions: the app becomes a second front end to the owner's Claude Code (CLI parity)
 
-**Status**: Accepted
+**Status**: Accepted · item 4 "an embedded PTY" amended by DDR-0009 (2026-11-20)
 **Date**: 2026-11-17
 **Deciders**: thunderkds (owner), Supervisor
 **Related**: FR-109..FR-116 · NFR-002, NFR-003, NFR-008 · FR-101, FR-102, FR-106 · US-041, US-042 · DDR-0001, DDR-0005 · PRD questions 36-43 · `BRAINSTORMING_LOG_WRITESESSIONS.md`
