@@ -48,16 +48,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/BoardView.test.jsx` (describe "Run button (T131)": AC1-AC8, 18 cases incl. 4 server-error codes) |
+| Verification command run | ☑ pass | `cd web && npm test -- --run`: Test Files 46 passed (46), Tests 1531 passed (1531); `npm run build`: built in 197ms. `npm run lint`: **no `lint` script exists in `web/package.json`** (npm: Missing script: "lint"), so it could not be run |
+| Negative cases hold | ☑ pass | Red run before the implementation (commit b3945f6, BoardView unchanged): `Tests 17 failed \| 34 passed (51)`; after: `51 passed`. Covered: off, no repo, orphan-only repo, two repos, route 404 (no button), workspaces 404, double click, 403/409/400/500 and network error, same id in two projects, huge title |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `BoardView.jsx`, `BoardView.test.jsx`, `app.css` (board block). `App.jsx` needs no change: it already passes `onOpenAppSession` and `onOpenSettings` to every view. Not touched: `rust/**`, `NewSession.jsx` |
+| Full smoke suite still green (no regression) | ☑ pass | 46 files, 1531 tests passed |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate on a scratch probe page (real BoardView + app.css, mocked API; scratch files deleted, never committed): screenshots at 375 and 1280 in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/8fb95ba1-34f5-47f8-bde4-9f115f127e09/scratchpad/ux/` (`ok-`, `off-`, `norepo-`, `fail-` + `375.png`/`1280.png`). Cards keep id, title, project meta; Run sits last in the card |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Run uses the existing `main button` style; new CSS (`.board-run`, `.board-reason`, `.board-off`) uses tokens only; the existing "board CSS has no raw colour" test still passes |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280 viewed: no horizontal overflow, Run 44 px tall at 375 (existing mobile `main button` rule), "Open Settings" link has a 44 px tap area at 375 |
 
 ---
 
@@ -82,9 +82,22 @@ $ npx vitest run src/BoardView.test.jsx
 
 BoardView has no Run button and never calls `/api/app-sessions`.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: captured 2026-11-20 in `web/` after commit 141246c:
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ grep -n "startAppSession\|export const NO_REPO\|export const AMBIGUOUS" src/BoardView.jsx
+2:import { getAgentRun, getJson, startAppSession } from './api.js'
+26:export const NO_REPO = 'Add this repo to a workspace to run it'
+27:export const AMBIGUOUS = 'Two workspace repos share this name'
+109:      const answer = await startAppSession({
+$ npx vitest run src/BoardView.test.jsx
+      Tests  51 passed (51)
+$ npm test -- --run
+ Test Files  46 passed (46)
+      Tests  1531 passed (1531)
+```
+
+**DELTA**: From a Todo, In Progress, Ready for Review or Blocked card the owner can start a Claude app session on that task with one click, and lands in Live on it.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T131.jsonl`, never the
 implementing agent alone]
