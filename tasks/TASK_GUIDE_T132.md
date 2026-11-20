@@ -63,12 +63,12 @@ Rust: route + core tests on a temp agent root; leak gate. Web: vitest for ACs 6â
 
 ## Verification Command
 ```bash
-cd rust && cargo test --workspace && cargo clippy --workspace -- -D warnings && cd ../web && npm test -- --run && npm run lint && npm run build
+cd rust && cargo test --workspace && cargo clippy --workspace -- -D warnings && cd ../web && npm test -- --run && npm run build   # web/ has no lint script (found at T131 Stage 4)
 ```
 
 ## Completion checklist
 - [ ] Implementation done
-- [ ] Lint passes
+- [ ] Lint passes (clippy for rust/; N/A for web/: no lint script)
 - [ ] Tests pass
 - [ ] Smoke test confirmed
 - [ ] `memory/` updated (Supervisor)
