@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Conversation from './SubAgents.jsx'
 
@@ -21,28 +21,40 @@ async function show(read) {
   return screen.getByRole('log', { name: 'Conversation' })
 }
 
+const CANNOT = /entries cannot be shown on this page/
+const shownText = (e) => ['user', 'reply', 'assistant'].includes(e.kind)
+const toolName = (e) => e.kind === 'tool' && typeof e.name === 'string' && e.name !== ''
+
 describe('the page over the route\'s own answer', () => {
-  it('draws the main thread: the typed text, the assistant text, the reply, the tool calls and the skipped run', async () => {
-    const answer = golden('session')
+  it.each(['session', 'agent'])('draws every entry of the %s golden answer: its exact text and its tool names, and no cannot-show line', async (name) => {
+    const answer = golden(name)
     const log = await show(answer)
-    for (const e of answer.entries.filter((x) => x.kind === 'user' || x.kind === 'assistant' || x.kind === 'reply')) expect(log).toHaveTextContent(e.text)
-    expect(log).toHaveTextContent('Bash')
-    expect(log).toHaveTextContent('Read')
-    expect(log).toHaveTextContent('2 other records')
-    expect(log.children.length).toBeGreaterThan(0)
+    expect(log.textContent).not.toMatch(CANNOT)
+    expect(answer.entries.some(shownText)).toBe(true)
+    expect(answer.entries.some(toolName)).toBe(true)
+    for (const e of answer.entries.filter(shownText)) expect(log).toHaveTextContent(e.text)
+    for (const e of answer.entries.filter(toolName)) expect(within(log).getAllByText(new RegExp(`^${e.name}`)).length).toBeGreaterThan(0)
   })
 
-  it('draws a sub-agent log', async () => {
-    const answer = golden('agent')
-    const log = await show(answer)
-    for (const e of answer.entries.filter((x) => x.kind === 'user' || x.kind === 'assistant')) expect(log).toHaveTextContent(e.text)
-    expect(log).toHaveTextContent('Agent')
+  it('draws the skipped run of the main thread', async () => {
+    const log = await show(golden('session'))
+    expect(log).toHaveTextContent('2 other records')
   })
 })
 
 describe('entries that cannot be drawn (AC 5)', () => {
-  it('say so in one line, never an empty box', async () => {
+  const known = (text, k) => ({ kind: 'user', text, offset: k })
+
+  it('a mixed list draws what it can and counts the rest', async () => {
+    const log = await show({ entries: [known('first known', 1), { kind: 'brand-new', text: 'x', offset: 2 }, { kind: 'assistant', text: 'second known', offset: 3 }], next: 10, complete: true })
+    expect(log).toHaveTextContent('first known')
+    expect(log).toHaveTextContent('second known')
+    expect(log).toHaveTextContent('1 of 3 entries cannot be shown on this page.')
+  })
+
+  it('a list where none can be drawn says M of M, never an empty box', async () => {
     const log = await show({ entries: [{ type: 'user', text: 'old shape' }, { kind: 'brand-new', text: 'x' }], next: 10, complete: true })
-    expect(log).toHaveTextContent('This page cannot show these entries')
+    expect(log).toHaveTextContent('2 of 2 entries cannot be shown on this page.')
+    expect(log).not.toHaveTextContent('old shape')
   })
 })

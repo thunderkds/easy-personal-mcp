@@ -235,7 +235,7 @@ const WHO = { user: 'You', reply: 'Reply from the app', assistant: 'Claude' }
 
 const SPAWNS = ['Agent', 'Task'] // the tool names whose call starts a sub-agent (FR-130)
 const KINDS = ['user', 'reply', 'assistant', 'tool', 'skipped'] // the entry kinds the route gives (`kind`, FR-123); any other draws nothing
-export const UNDRAWABLE = 'This page cannot show these entries: their shape is not one it knows.'
+export const undrawable = (n, m) => `${n} of ${m} entries cannot be shown on this page.` // AC 5: entries whose kind this page does not know
 
 const Entry = memo(function Entry({ e, log, onOpenLog }) {
   if (e.kind === 'user' || e.kind === 'reply' || e.kind === 'assistant')
@@ -265,6 +265,7 @@ export default function Transcript({ sessionId, agent, logs, onOpenLog, children
   const log = useRef(null)
   const stick = useRef(true) // a log at the bottom follows new entries; one scrolled up stays where the owner left it
   const last = t.entries.at(-1)?.k
+  const unknown = t.entries.filter((e) => !KINDS.includes(e.kind)).length
   useEffect(() => {
     const el = log.current
     if (el && stick.current) el.scrollTop = el.scrollHeight
@@ -305,7 +306,7 @@ export default function Transcript({ sessionId, agent, logs, onOpenLog, children
           </li>
         )}
         {t.entries.length === 0 && <li className="muted">Nothing yet.</li>}
-        {t.entries.length > 0 && !t.entries.some((e) => KINDS.includes(e.kind)) && <li className="muted">{UNDRAWABLE}</li>}
+        {unknown > 0 && <li className="muted">{undrawable(unknown, t.entries.length)}</li>}
         {t.entries.map((e) => (
           <Entry key={e.k} e={e} log={e.kind === 'tool' && SPAWNS.includes(e.name) && isName(e.id) ? logs?.get(e.id) : undefined} onOpenLog={onOpenLog} />
         ))}
