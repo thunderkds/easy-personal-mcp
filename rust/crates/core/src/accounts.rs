@@ -507,10 +507,22 @@ pub fn ignore(conn: &Connection, reference: &str, agent_root: &Path) -> Done<Val
 }
 
 /// A folder for [`add`] after its filesystem work: the folder (resolved, UTF-8, an existing directory) and the path
-/// `_find` resolves for it afterwards.
+/// `_find` resolves for it afterwards. `made` is set only for a folder [`create`] made: unless [`add`] stores it, the
+/// folder is removed when this value is dropped (a refused or failed store, a request that ended early).
 pub struct Folder {
     name: String,
     key: PathBuf,
+    made: Option<PathBuf>,
+}
+
+impl Drop for Folder {
+    /// Only what `create` made: its `settings.json`, then the then-empty folder (`remove_dir`, never recursive).
+    fn drop(&mut self) {
+        if let Some(dir) = self.made.take() {
+            let _ = fs::remove_file(dir.join("settings.json"));
+            let _ = fs::remove_dir(dir);
+        }
+    }
 }
 
 /// The first half of `add`: the checks that need no store, and every resolution of a path. A route does this before it
@@ -532,23 +544,87 @@ pub fn prepare_add(path: &Value) -> Done<Folder> {
     Ok(Folder {
         name: name.to_string(),
         key,
+        made: None,
     })
+}
+
+const MAX_NAME: usize = 30;
+
+/// A new account's name: 1 to 30 of `a-z`, `0-9`, `-`, not starting with `-` (`^[a-z0-9][a-z0-9-]{0,29}$`).
+fn valid_name(name: &Value) -> Option<&str> {
+    let name = name.as_str()?;
+    let mut bytes = name.bytes();
+    let first = bytes.next()?;
+    let plain = |b: u8| b.is_ascii_lowercase() || b.is_ascii_digit();
+    (name.len() <= MAX_NAME && plain(first) && bytes.all(|b| plain(b) || b == b'-')).then_some(name)
+}
+
+/// Makes a new Claude account folder `<agent root>/.claude-<name>` and returns it for [`add`] (T132). The name is checked
+/// before anything is touched. `create_dir` (not `create_dir_all`) makes the folder 0700: a missing agent root is an
+/// error, and any existing path (folder, file, dangling link) is a 409 that changes nothing. `settings.json` is `{}`,
+/// created new, 0600. Like [`prepare_add`] it needs no store: a route runs it before the write lock. The result removes
+/// the folder it made unless [`add`] stores it.
+pub fn create(agent_root: &Path, name: &Value) -> Done<Folder> {
+    use std::io::Write;
+    use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+    let Some(name) = valid_name(name) else {
+        return Err(refuse(
+            400,
+            "name must be 1 to 30 characters: a-z, 0-9 and -, not starting with -",
+        ));
+    };
+    let dir = agent_root.join(format!(".claude-{name}"));
+    let failed = || {
+        refuse(
+            500,
+            "the account folder could not be created; nothing was changed",
+        )
+    };
+    match fs::DirBuilder::new().mode(0o700).create(&dir) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            return Err(refuse(409, "a folder with that name already exists"));
+        }
+        Err(_) => return Err(failed()),
+    }
+    // from here the folder is ours: `Folder` removes it on any failure
+    let mut folder = Folder {
+        name: String::new(),
+        key: PathBuf::new(),
+        made: Some(dir.clone()),
+    };
+    let settings = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(dir.join("settings.json"))
+        .and_then(|mut file| file.write_all(b"{}"));
+    settings.map_err(|_| failed())?;
+    let made = prepare_add(&Value::String(dir.to_string_lossy().into_owned()))?;
+    (folder.name, folder.key) = (made.name.clone(), made.key.clone());
+    Ok(folder)
 }
 
 /// `add`: a folder by hand, anywhere; it must exist and pass the content check. A new one starts `detected`
 /// (`confirmed` as "Claude default" for the agent root's own `.claude`); one already stored is returned as it is.
 pub fn add(conn: &Connection, folder: Done<Folder>, agent_root: &Path) -> Done<Value> {
-    let Folder { name, key } = folder?;
-    let Some(provider) = crate::ingest::accounts::provider_of(Path::new(&name)) else {
+    let mut folder = folder?;
+    let Some(provider) = crate::ingest::accounts::provider_of(Path::new(&folder.name)) else {
         return Err(refuse(
             400,
             "not an agent folder: no projects/, settings.json or config.toml",
         ));
     };
     let tx = begin(conn)?;
-    crate::ingest::accounts::insert(&tx, provider, &name, name == default_folder(agent_root))?;
+    crate::ingest::accounts::insert(
+        &tx,
+        provider,
+        &folder.name,
+        folder.name == default_folder(agent_root),
+    )?;
     tx.commit()?;
-    let id = find_folder(conn, &key)?.ok_or_else(|| refuse(404, "no such account"))?;
+    folder.made = None; // stored: the folder stays whatever happens next
+    let id = find_folder(conn, &folder.key)?.ok_or_else(|| refuse(404, "no such account"))?;
     get(conn, id, agent_root)
 }
 
@@ -653,5 +729,151 @@ mod read_json_tests {
         std::fs::write(&file, "null").unwrap();
         assert!(read_json(&file, 1 << 20).is_none(), "null is no file");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod create_tests {
+    use super::*;
+    use std::os::unix::fs::{MetadataExt, symlink};
+
+    fn root(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "easy-personal-rs-t132-{tag}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::canonicalize(dir).unwrap()
+    }
+
+    fn status(err: WriteFail) -> (u16, String) {
+        match err {
+            WriteFail::Refused { status, text } => (status, text),
+            other => panic!("not a refusal: {other:?}"),
+        }
+    }
+
+    fn listing(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// AC 1: every bad name is a 400 and nothing is made.
+    #[test]
+    fn a_bad_name_is_400_before_any_filesystem_work() {
+        let root = root("bad");
+        let long = "a".repeat(31);
+        let bad = [
+            json!(""),
+            json!(".."),
+            json!("../x"),
+            json!("a/b"),
+            json!("A"),
+            json!("-a"),
+            json!("a b"),
+            json!("a_b"),
+            json!("é"),
+            json!("a\0"),
+            json!("a\n"),
+            json!(long),
+            json!(5),
+            json!(null),
+            json!(["a"]),
+        ];
+        for name in bad {
+            let got = create(&root, &name)
+                .err()
+                .unwrap_or_else(|| panic!("{name}"));
+            assert_eq!(status(got).0, 400, "{name}");
+        }
+        assert!(listing(&root).is_empty(), "something was made");
+        // the longest and the shortest good names
+        for name in ["a".repeat(30), "0".into(), "a-b-9".into()] {
+            drop(create(&root, &json!(name)).unwrap());
+        }
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// AC 2: the folder is 0700, settings.json is `{}` 0600, and the folder is a Claude account for `add`.
+    #[test]
+    fn the_folder_and_settings_are_made_with_private_modes() {
+        let root = root("make");
+        let mut folder = create(&root, &json!("work")).unwrap();
+        folder.made = None; // keep it for the checks
+        let dir = root.join(".claude-work");
+        assert_eq!(fs::metadata(&dir).unwrap().mode() & 0o7777, 0o700);
+        let settings = dir.join("settings.json");
+        assert_eq!(fs::metadata(&settings).unwrap().mode() & 0o7777, 0o600);
+        assert_eq!(fs::read_to_string(&settings).unwrap(), "{}");
+        assert_eq!(listing(&dir), ["settings.json"]);
+        assert_eq!(folder.name, dir.to_str().unwrap());
+        assert_eq!(crate::ingest::accounts::provider_of(&dir), Some("claude"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// AC 3: a directory, a file and a dangling link at the name are 409 and stay as they were.
+    #[test]
+    fn an_existing_path_is_409_and_nothing_changes() {
+        let root = root("exists");
+        fs::create_dir(root.join(".claude-dir")).unwrap();
+        fs::write(root.join(".claude-dir/keep"), "owner data").unwrap();
+        fs::write(root.join(".claude-file"), "owner file").unwrap();
+        symlink(root.join("nowhere"), root.join(".claude-link")).unwrap();
+        let before = listing(&root);
+        for name in ["dir", "file", "link"] {
+            let got = create(&root, &json!(name)).err().unwrap();
+            assert_eq!(status(got).0, 409, "{name}");
+        }
+        assert_eq!(listing(&root), before);
+        assert_eq!(
+            fs::read_to_string(root.join(".claude-dir/keep")).unwrap(),
+            "owner data"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join(".claude-file")).unwrap(),
+            "owner file"
+        );
+        assert!(fs::symlink_metadata(root.join(".claude-link")).is_ok());
+        assert!(!root.join("nowhere").exists(), "the link was followed");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A missing agent root is not made: an error, and no row or folder.
+    #[test]
+    fn a_missing_agent_root_is_an_error_and_is_not_created() {
+        let root = root("noroot");
+        let missing = root.join("absent");
+        let got = create(&missing, &json!("work")).err().unwrap();
+        assert_eq!(status(got).0, 500);
+        assert!(!missing.exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// AC 4: a folder never handed to a successful `add` is removed when it is dropped (the store failed, or the request
+    /// ended), and only that folder: its neighbours stay.
+    #[test]
+    fn a_failure_after_the_folder_is_made_removes_only_that_folder() {
+        let root = root("undo");
+        fs::create_dir(root.join(".claude-other")).unwrap();
+        fs::write(root.join(".claude-other/settings.json"), "{}").unwrap();
+        // a connection with no tables: the insert fails after the folder exists
+        let conn = Connection::open_in_memory().unwrap();
+        let folder = create(&root, &json!("work"));
+        assert!(root.join(".claude-work/settings.json").is_file());
+        assert!(add(&conn, folder, &root).is_err());
+        assert_eq!(listing(&root), [".claude-other"]);
+        assert_eq!(
+            fs::read_to_string(root.join(".claude-other/settings.json")).unwrap(),
+            "{}"
+        );
+        // never reaching `add` (a busy store, a panic) undoes it the same way
+        drop(create(&root, &json!("again")).unwrap());
+        assert_eq!(listing(&root), [".claude-other"]);
+        let _ = fs::remove_dir_all(&root);
     }
 }

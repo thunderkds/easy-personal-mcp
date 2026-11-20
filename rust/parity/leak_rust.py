@@ -183,6 +183,7 @@ API_CALLS: dict[str, list[str]] = {
     "/api/workspaces": [""],
     "/api/workspaces/unassigned": [""],
     "/api/workspaces/{id}": [""],  # asked literally with GET (the 405); the writes are in WRITE_CALLS and GUARD_CALLS
+    "/api/accounts/create": [""],  # T132: asked with GET (the 405); the writes are in GUARD_CALLS, WRITE_CALLS and `connectors()`
     "/api/accounts/{id}/confirm": [""],
     "/api/accounts/{id}/ignore": [""],
     "/api/accounts/{id}/workspaces": [""],
@@ -258,6 +259,7 @@ GUARD_CALLS = [
     ("workspace edit no token", "PATCH", "/api/workspaces/2", {"x-dashboard-token": None}),
     ("workspace delete foreign origin", "DELETE", "/api/workspaces/2", {"Origin": "http://evil.invalid"}),
     ("account add no token", "POST", "/api/accounts", {"x-dashboard-token": None}),
+    ("account create no token", "POST", "/api/accounts/create", {"x-dashboard-token": None}),
     ("account confirm wrong host", "POST", "/api/accounts/1/confirm", {"Host": "localhost:1"}),
     ("account ignore no token", "POST", "/api/accounts/1/ignore", {"x-dashboard-token": None}),
     ("account workspaces foreign origin", "PUT", "/api/accounts/1/workspaces", {"Origin": "http://evil.invalid"}),
@@ -296,6 +298,7 @@ GUARD_CALLS = [
     ("report file write method", "POST", "/api/kit/report-file?workspace=acme&repo_no=0&folder=reports&path=index.html", {}),
     ("report files no token", "GET", "/api/kit/report-files?workspace=acme&repo_no=0&folder=reports", {"x-dashboard-token": None}),
     ("account add without a body", "POST", "/api/accounts", {}),
+    ("account create without a body", "POST", "/api/accounts/create", {}),
     ("sync apply without a body", "POST", "/api/sync", {}),
     ("account workspaces without a body", "PUT", "/api/accounts/1/workspaces", {}),
     ("dirs write method", "POST", "/api/dirs", {}),
@@ -375,6 +378,9 @@ WRITE_CALLS = [
     ("account add key as path", "POST", "/api/accounts", '{"path":"{key}"}'),
     ("account add key as absolute path", "POST", "/api/accounts", '{"path":"/{key}"}'),
     ("account add key as type", "POST", "/api/accounts", '{"path":["{key}"]}'),
+    ("account create key as name", "POST", "/api/accounts/create", '{"name":"{key}"}'),
+    ("account create key as type", "POST", "/api/accounts/create", '{"name":["{key}"]}'),
+    ("account create key as field", "POST", "/api/accounts/create", '{"name":"leak-field","{key}":1}'),
     ("account confirm key as type", "POST", "/api/accounts/1/confirm", '{"label":["{key}"]}'),
     ("account confirm unknown", "POST", "/api/accounts/999/confirm", '{"label":"{key}"}'),
     ("account confirm key as id", "POST", "/api/accounts/{key}/confirm", '{"label":"x"}'),
@@ -1914,6 +1920,7 @@ def connectors(run: Run, checks: list[str], canaries: Canaries) -> None:
             call(f"add {label}", "POST", "/api/connectors", body)
         account = call("account add", "POST", "/api/accounts", {"path": str(hostile)})
         aid = account.get("id", 0)
+        call("account create", "POST", "/api/accounts/create", {"name": "leak-new"})
         call("account confirm", "POST", f"/api/accounts/{aid}/confirm", {"label": "Leak work"})
         call("account picks", "PUT", f"/api/accounts/{aid}/workspaces", {"workspaces": ["leak-conn"]})
         call("sync plan", "GET", "/api/sync")

@@ -512,6 +512,11 @@ fn write_routes(home: &Home) -> Vec<(&'static str, String, Value)> {
         ),
         (
             "POST",
+            "/api/accounts/create".into(),
+            json!({"name": "guarded-new"}),
+        ),
+        (
+            "POST",
             "/api/accounts/2/confirm".into(),
             json!({"label": "Guarded"}),
         ),
@@ -1049,4 +1054,194 @@ fn a_writer_that_holds_the_store_for_longer_than_five_seconds_gives_a_fixed_busy
     holder.execute_batch("ROLLBACK").unwrap();
     let got = server.json("POST", "/api/workspaces", &json!({"name": "waits"}));
     assert_eq!(got.status, 201);
+}
+
+// ---- T132: POST /api/accounts/create (a temp agent root only; never the owner's ~/.claude*) ----
+
+fn listing(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    names
+}
+
+/// ACs 1 and 2: 201 and the account row (`detected`, listed), the folder 0700 with `settings.json` `{}` 0600.
+#[test]
+fn create_makes_the_folder_and_answers_201_with_a_detected_row() {
+    use std::os::unix::fs::MetadataExt;
+    let home = Home::rich(&[]);
+    let server = Server::start(&home);
+    let got = server.json("POST", "/api/accounts/create", &json!({"name": "new-1"}));
+    assert_eq!(got.status, 201, "{}", got.body);
+    let dir = std::fs::canonicalize(home.dir.join("agent-root"))
+        .unwrap()
+        .join(".claude-new-1");
+    let row = got.json();
+    assert_eq!(row["folder"], dir.to_str().unwrap());
+    assert_eq!(row["status"], "detected");
+    assert_eq!(row["provider"], "claude");
+    assert_eq!(row["label"], Value::Null);
+    assert_eq!(row["config_dir_env"], dir.to_str().unwrap());
+    assert_eq!(row["is_default"], false);
+    assert_eq!(row["workspaces"], json!([]));
+    assert_eq!(std::fs::metadata(&dir).unwrap().mode() & 0o7777, 0o700);
+    let settings = dir.join("settings.json");
+    assert_eq!(std::fs::metadata(&settings).unwrap().mode() & 0o7777, 0o600);
+    assert_eq!(std::fs::read_to_string(&settings).unwrap(), "{}");
+    assert_eq!(listing(&dir), ["settings.json"]);
+    // the same row as the list shows, once
+    let list = server
+        .send("GET", "/api/accounts?by=account", None, b"")
+        .json();
+    let rows: Vec<&Value> = list["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|a| a["folder"] == row["folder"])
+        .collect();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["id"], row["id"]);
+    assert_eq!(rows[0]["status"], "detected");
+}
+
+/// AC 1: a bad name or body is a 400 before anything is made, and the answer is the account routes' `{"error": text}`.
+#[test]
+fn create_refuses_a_bad_name_before_any_filesystem_work() {
+    let home = Home::rich(&[]);
+    let server = Server::start(&home);
+    let (root, bytes) = (home.dir.join("agent-root"), home.bytes());
+    let before = listing(&root);
+    let name_text = "name must be 1 to 30 characters: a-z, 0-9 and -, not starting with -";
+    for name in [
+        json!(""),
+        json!(".."),
+        json!("../x"),
+        json!("a/b"),
+        json!("Work"),
+        json!("-a"),
+        json!("a".repeat(31)),
+        json!(7),
+        json!(null),
+        json!(["a"]),
+    ] {
+        let got = server.json("POST", "/api/accounts/create", &json!({"name": name}));
+        assert_eq!(
+            (got.status, got.json()),
+            (400, json!({"error": name_text})),
+            "{name}"
+        );
+    }
+    let got = server.json("POST", "/api/accounts/create", &json!({}));
+    assert_eq!((got.status, got.error()), (400, name_text.to_string()));
+    let got = server.json(
+        "POST",
+        "/api/accounts/create",
+        &json!({"name": "ok", "path": "/x"}),
+    );
+    assert_eq!(
+        (got.status, got.json()),
+        (400, json!({"error": "body must have only name"}))
+    );
+    let got = server.send(
+        "POST",
+        "/api/accounts/create",
+        Some("application/json"),
+        b"{nope",
+    );
+    assert_eq!(
+        (got.status, got.error()),
+        (400, "body must be JSON".to_string())
+    );
+    assert_eq!(listing(&root), before, "a refused request made something");
+    assert_eq!(home.bytes(), bytes);
+}
+
+/// AC 3: a folder, a file or a dangling link at the name is 409 and stays exactly as it was.
+#[test]
+fn create_over_an_existing_path_is_409_and_changes_nothing() {
+    let home = Home::rich(&[]);
+    let root = home.dir.join("agent-root");
+    std::fs::create_dir(root.join(".claude-taken")).unwrap();
+    std::fs::write(root.join(".claude-taken/keep"), "owner data").unwrap();
+    std::fs::write(root.join(".claude-afile"), "owner file").unwrap();
+    std::os::unix::fs::symlink(home.dir.join("nowhere-at-all"), root.join(".claude-alink"))
+        .unwrap();
+    let server = Server::start(&home);
+    let (before, bytes) = (listing(&root), home.bytes());
+    for name in ["taken", "afile", "alink", "work"] {
+        let got = server.json("POST", "/api/accounts/create", &json!({"name": name}));
+        assert_eq!(
+            (got.status, got.json()),
+            (
+                409,
+                json!({"error": "a folder with that name already exists"})
+            ),
+            "{name}"
+        );
+    }
+    assert_eq!(listing(&root), before);
+    assert_eq!(
+        std::fs::read_to_string(root.join(".claude-taken/keep")).unwrap(),
+        "owner data"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join(".claude-afile")).unwrap(),
+        "owner file"
+    );
+    assert!(!home.dir.join("nowhere-at-all").exists());
+    assert_eq!(home.bytes(), bytes);
+}
+
+/// AC 4 over the wire: the store refuses (a newer schema), so the folder the request made is removed again; the
+/// neighbours stay.
+#[test]
+fn create_removes_its_folder_when_the_store_refuses() {
+    let home = Home::rich(&[]);
+    Connection::open(home.store())
+        .unwrap()
+        .execute_batch("PRAGMA user_version = 12")
+        .unwrap();
+    let root = home.dir.join("agent-root");
+    let before = listing(&root);
+    let server = Server::start(&home);
+    let got = server.json("POST", "/api/accounts/create", &json!({"name": "fresh"}));
+    assert_eq!(got.status, 503, "{}", got.body);
+    assert_eq!(listing(&root), before, "the folder it made is still there");
+}
+
+/// AC 5: removing a made account (`/ignore`) keeps the folder, hides nothing else, and a second create of the name is 409.
+#[test]
+fn a_created_account_can_be_removed_and_restored_and_its_folder_is_kept() {
+    let home = Home::rich(&[]);
+    let server = Server::start(&home);
+    let row = server
+        .json("POST", "/api/accounts/create", &json!({"name": "again"}))
+        .json();
+    let id = row["id"].as_i64().unwrap();
+    let got = server.json(
+        "POST",
+        &format!("/api/accounts/{id}/confirm"),
+        &json!({"label": "Again"}),
+    );
+    assert_eq!(got.status, 200, "{}", got.body);
+    let got = server.json("POST", &format!("/api/accounts/{id}/ignore"), &json!({}));
+    assert_eq!(
+        (got.status, got.json()["status"].clone()),
+        (200, json!("ignored"))
+    );
+    assert!(
+        home.dir
+            .join("agent-root/.claude-again/settings.json")
+            .is_file()
+    );
+    let got = server.json("POST", "/api/accounts/create", &json!({"name": "again"}));
+    assert_eq!(got.status, 409);
+    let got = server.json(
+        "POST",
+        &format!("/api/accounts/{id}/confirm"),
+        &json!({"label": "Again"}),
+    );
+    assert_eq!(got.json()["status"], "confirmed");
 }

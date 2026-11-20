@@ -28,6 +28,7 @@ function stub({ write = () => ({}), plan = PLAN, overrides = {} } = {}) {
 }
 const writes = (fn) => fn.mock.calls.filter(([, init]) => init?.method).map(([url, init]) => [init.method, url, JSON.parse(init.body)])
 const row = (name) => screen.getByRole('listitem', { name })
+const openRemoved = () => fireEvent.click(screen.getByRole('button', { name: /^Removed \(\d+\)$/ }))
 
 beforeEach(() => {
   window.location.hash = '#secret-token'
@@ -230,6 +231,7 @@ describe('re-choose and rename (HUN-114)', () => {
   it('AC1: an ignored row offers Use this account, then the Name form, then confirms with the label', async () => {
     const fn = providerStub()
     render(<AgentsView />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Removed (2)' }))
     const r = await screen.findByRole('listitem', { name: 'Claude wife' })
     expect(within(r).queryByLabelText('Name')).toBeNull()
     fireEvent.click(within(r).getByRole('button', { name: 'Use this account' }))
@@ -255,6 +257,7 @@ describe('re-choose and rename (HUN-114)', () => {
       return inner(url, init)
     })
     render(<AgentsView />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Removed (2)' }))
     const r = await screen.findByRole('listitem', { name: 'Claude wife' })
     fireEvent.click(within(r).getByRole('button', { name: 'Use this account' }))
     fireEvent.change(within(r).getByLabelText('Name'), { target: { value: 'Wife Claude' } })
@@ -264,11 +267,12 @@ describe('re-choose and rename (HUN-114)', () => {
     expect(within(row6).getByText('easy-personal ingest')).toBeInTheDocument()
   })
 
-  it('AC2: a confirmed non-default row has Rename and Ignore; Rename confirms with the new label', async () => {
+  it('AC2: a confirmed non-default row has Rename and Remove; Rename confirms with the new label', async () => {
     const fn = providerStub()
     render(<AgentsView />)
     const r = await screen.findByRole('listitem', { name: 'Claude personal' })
-    expect(within(r).getByRole('button', { name: 'Ignore' })).toBeInTheDocument()
+    expect(within(r).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+    expect(within(r).queryByRole('button', { name: 'Ignore' })).toBeNull()
     fireEvent.click(within(r).getByRole('button', { name: 'Rename' }))
     const name = within(r).getByLabelText('Name')
     expect(name).toHaveValue('Claude personal')
@@ -277,11 +281,11 @@ describe('re-choose and rename (HUN-114)', () => {
     await waitFor(() => expect(writes(fn)).toContainEqual(['POST', '/api/accounts/2/confirm', { label: 'Personal' }]))
   })
 
-  it('AC2: Ignore on a confirmed row posts to ignore', async () => {
+  it('T132 AC7: Remove on a confirmed row posts to ignore', async () => {
     const fn = providerStub()
     render(<AgentsView />)
     const r = await screen.findByRole('listitem', { name: 'Claude personal' })
-    fireEvent.click(within(r).getByRole('button', { name: 'Ignore' }))
+    fireEvent.click(within(r).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(writes(fn)).toContainEqual(['POST', '/api/accounts/2/ignore', {}]))
   })
 
@@ -297,24 +301,26 @@ describe('re-choose and rename (HUN-114)', () => {
     expect(writes(fn)).toHaveLength(0)
   })
 
-  it('AC3 (default): the default account can be renamed but has no Ignore button', async () => {
+  it('AC3 (default): the default account can be renamed but has no Ignore or Remove button', async () => {
     providerStub()
     render(<AgentsView />)
     const r = await screen.findByRole('listitem', { name: 'Claude default' })
     expect(within(r).getByRole('button', { name: 'Rename' })).toBeInTheDocument()
     expect(within(r).queryByRole('button', { name: 'Ignore' })).toBeNull()
+    expect(within(r).queryByRole('button', { name: 'Remove' })).toBeNull()
   })
 
   it('AC3 (provider): By provider shows the same actions', async () => {
     const fn = providerStub()
     render(<AgentsView />)
     fireEvent.click(screen.getByRole('button', { name: 'By provider' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Removed (2)' }))
     const wife = await screen.findByRole('listitem', { name: 'Claude wife' })
     expect(within(wife).getByRole('button', { name: 'Use this account' })).toBeInTheDocument()
     const personal = screen.getByRole('listitem', { name: 'Claude personal' })
     expect(within(personal).getByRole('button', { name: 'Rename' })).toBeInTheDocument()
-    expect(within(personal).getByRole('button', { name: 'Ignore' })).toBeInTheDocument()
-    expect(within(screen.getByRole('listitem', { name: 'Claude default' })).queryByRole('button', { name: 'Ignore' })).toBeNull()
+    expect(within(personal).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+    expect(within(screen.getByRole('listitem', { name: 'Claude default' })).queryByRole('button', { name: 'Remove' })).toBeNull()
     fireEvent.click(within(screen.getByRole('listitem', { name: '.codex-old' })).getByRole('button', { name: 'Use this account' }))
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Codex old' } })
     fireEvent.click(screen.getByRole('button', { name: 'Confirm & name' }))
@@ -325,14 +331,14 @@ describe('re-choose and rename (HUN-114)', () => {
     providerStub()
     render(<AgentsView />)
     const r = await screen.findByRole('listitem', { name: 'Claude gone' })
-    for (const name of ['Use this account', 'Rename', 'Ignore']) expect(within(r).queryByRole('button', { name })).toBeNull()
+    for (const name of ['Use this account', 'Rename', 'Ignore', 'Remove']) expect(within(r).queryByRole('button', { name })).toBeNull()
   })
 
   it('AC7: a refused action shows the server text in an error toast, not inline in the row', async () => {
     providerStub((m, p) => (p.endsWith('/ignore') ? new Error('the default account cannot be ignored') : {}))
     render(<AgentsView />)
     const r = await screen.findByRole('listitem', { name: 'Claude personal' })
-    fireEvent.click(within(r).getByRole('button', { name: 'Ignore' }))
+    fireEvent.click(within(r).getByRole('button', { name: 'Remove' }))
     expect(await toasts().findByRole('alert')).toHaveTextContent('the default account cannot be ignored')
     expect(within(r).queryByRole('alert')).toBeNull()
   })
@@ -489,5 +495,208 @@ describe('Agents toasts and form hints (HUN-200)', () => {
     expect(await within(r).findByRole('button', { name: 'Reviewing…' })).toBeDisabled()
     release()
     expect(await within(r).findByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+  })
+})
+
+// T132: create a new account, remove (= ignore) an account, restore it from "Removed (N)".
+describe('new account and remove (T132)', () => {
+  const NEW_FOLDER = '/home/o/.claude-side'
+  const created = { id: 8, provider: 'claude', label: '', folder: NEW_FOLDER, status: 'detected', config_dir_env: null, workspaces: [], is_default: false }
+
+  /** One mutable account list behind both groupings; `create` answers POST /api/accounts/create (a row, or an Error for 400/409). */
+  function listStub({ start = withExtra, create = () => created } = {}) {
+    let list = start
+    const fn = stub({
+      write: (method, path, body) => {
+        if (path === '/api/accounts/create') {
+          const out = create(body)
+          if (!(out instanceof Error)) list = [...list, out]
+          return out
+        }
+        const m = path.match(/^\/api\/accounts\/(\d+)\/ignore$/)
+        if (m) list = list.map((a) => (a.id === Number(m[1]) ? { ...a, status: 'ignored' } : a))
+        return {}
+      },
+    })
+    const inner = fn.getMockImplementation()
+    fn.mockImplementation(async (url, init = {}) => {
+      const u = new URL(String(url), 'http://127.0.0.1')
+      if (u.pathname === '/api/accounts' && !init.method) {
+        const by = u.searchParams.get('by')
+        const body = by === 'provider' ? { by, providers: Object.groupBy(list, (a) => a.provider) } : { by, accounts: list }
+        return { ok: true, status: 200, json: async () => body }
+      }
+      return inner(url, init)
+    })
+    return fn
+  }
+  const nameField = () => screen.getByLabelText('New account name')
+  const createButton = () => screen.getByRole('button', { name: 'Create' })
+
+  it('AC6: the form sits above the list, with a hint, and Create is off until the name is valid', async () => {
+    listStub()
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    expect(within(screen.getByRole('region', { name: 'New account' })).getByText(/lower-case letters, digits and dashes/i)).toBeInTheDocument()
+    expect(createButton()).toBeDisabled()
+    fireEvent.change(nameField(), { target: { value: 'side' } })
+    expect(createButton()).toBeEnabled()
+    expect(nameField().compareDocumentPosition(screen.getByRole('listitem', { name: 'Claude default' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it.each(['Side', 'a b', '-side', 'a/b', '..', 'x'.repeat(31), 'é'])('AC6: %j is refused inline and nothing is sent', async (value) => {
+    const fn = listStub()
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    fireEvent.change(nameField(), { target: { value } })
+    expect(nameField()).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText(/use only lower-case letters, digits and dashes/i)).toBeInTheDocument()
+    expect(createButton()).toBeDisabled()
+    fireEvent.submit(nameField().closest('form'))
+    expect(writes(fn)).toHaveLength(0)
+  })
+
+  it.each(['a', 'side', 'my-acct-2', '0', 'x'.repeat(30)])('AC6: %j is accepted', async (value) => {
+    listStub()
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    fireEvent.change(nameField(), { target: { value } })
+    expect(nameField()).not.toHaveAttribute('aria-invalid', 'true')
+    expect(createButton()).toBeEnabled()
+  })
+
+  it('AC6: Create posts the name, shows the sign-in command, and the new account shows its Name field', async () => {
+    const fn = listStub()
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    fireEvent.change(nameField(), { target: { value: 'side' } })
+    fireEvent.click(createButton())
+    await waitFor(() => expect(writes(fn)).toContainEqual(['POST', '/api/accounts/create', { name: 'side' }]))
+    const signIn = await screen.findByTestId('signin-command')
+    expect(within(signIn).getByText(`CLAUDE_CONFIG_DIR=${NEW_FOLDER} claude`)).toBeInTheDocument()
+    expect(signIn).toHaveTextContent('/login')
+    const r = await screen.findByRole('listitem', { name: '.claude-side' })
+    expect(r).toHaveAttribute('data-status', 'detected')
+    expect(within(r).getByLabelText('Name')).toBeInTheDocument()
+    expect(nameField()).toHaveValue('')
+  })
+
+  it('AC6: the sign-in command copies as one line; a folder with a space or quote is single-quoted', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    listStub({ create: () => ({ ...created, folder: "/home/o x/it's/.claude-side" }) })
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    fireEvent.change(nameField(), { target: { value: 'side' } })
+    fireEvent.click(createButton())
+    const signIn = await screen.findByTestId('signin-command')
+    fireEvent.click(within(signIn).getByRole('button', { name: 'Copy' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("CLAUDE_CONFIG_DIR='/home/o x/it'\\''s/.claude-side' claude"))
+    expect(await within(signIn).findByText('Copied')).toBeInTheDocument()
+  })
+
+  it('AC6: a folder with a hidden character gets no command and no Copy button', async () => {
+    listStub({ create: () => ({ ...created, folder: '/home/o/.claude-side\u202e' }) })
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    fireEvent.change(nameField(), { target: { value: 'side' } })
+    fireEvent.click(createButton())
+    const signIn = await screen.findByTestId('signin-command')
+    expect(within(signIn).queryByRole('button', { name: 'Copy' })).toBeNull()
+    expect(signIn).toHaveTextContent(/copy is off/i)
+  })
+
+  it.each([
+    ['409', 'a folder or file named .claude-side already exists'],
+    ['400', 'name must be lower-case letters, digits and dashes'],
+  ])('AC6: a %s answer shows the server text in an error toast, with no sign-in block and no reload', async (_code, message) => {
+    const fn = listStub({ create: () => new Error(message) })
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    fireEvent.change(nameField(), { target: { value: 'side' } })
+    fireEvent.click(createButton())
+    expect(await toasts().findByRole('alert')).toHaveTextContent(message)
+    expect(screen.queryByTestId('signin-command')).toBeNull()
+    expect(nameField()).toHaveValue('side')
+    expect(createButton()).toBeEnabled()
+    expect(fn.mock.calls.filter(([u]) => new URL(String(u), 'http://x').pathname === '/api/accounts')).toHaveLength(1)
+  })
+
+  it('AC6: a double click sends one request', async () => {
+    const fn = listStub()
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    fireEvent.change(nameField(), { target: { value: 'side' } })
+    const button = createButton()
+    fireEvent.click(button)
+    fireEvent.click(button)
+    await screen.findByTestId('signin-command')
+    expect(writes(fn).filter(([, u]) => u === '/api/accounts/create')).toHaveLength(1)
+  })
+
+  it('AC7: a detected account keeps Ignore; a confirmed non-default one shows Remove, not Ignore; the default shows neither', async () => {
+    listStub({ start: [...withExtra, created] })
+    render(<AgentsView />)
+    const detected = await screen.findByRole('listitem', { name: '.claude-side' })
+    expect(within(detected).getByRole('button', { name: 'Ignore' })).toBeInTheDocument()
+    expect(within(detected).queryByRole('button', { name: 'Remove' })).toBeNull()
+    const confirmed = screen.getByRole('listitem', { name: 'Claude personal' })
+    expect(within(confirmed).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+    expect(within(confirmed).queryByRole('button', { name: 'Ignore' })).toBeNull()
+    const def = screen.getByRole('listitem', { name: 'Claude default' })
+    expect(within(def).queryByRole('button', { name: /^(Remove|Ignore)$/ })).toBeNull()
+  })
+
+  it('AC8: ignored accounts are out of the main list; "Removed (N)" is collapsed and lists them with Use this account', async () => {
+    listStub()
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    expect(screen.queryByRole('listitem', { name: 'Claude wife' })).toBeNull()
+    expect(screen.queryByRole('listitem', { name: '.codex-old' })).toBeNull()
+    const toggle = screen.getByRole('button', { name: 'Removed (2)' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    openRemoved()
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const list = screen.getByRole('list', { name: 'Removed accounts' })
+    for (const name of ['Claude wife', '.codex-old']) {
+      expect(within(within(list).getByRole('listitem', { name })).getByRole('button', { name: 'Use this account' })).toBeInTheDocument()
+    }
+    expect(screen.getAllByRole('listitem', { name: 'Claude wife' })).toHaveLength(1)
+    fireEvent.click(toggle)
+    expect(screen.queryByRole('listitem', { name: 'Claude wife' })).toBeNull()
+  })
+
+  it('AC8: no ignored accounts means no toggle', async () => {
+    listStub({ start: accountList })
+    render(<AgentsView />)
+    await screen.findByRole('listitem', { name: 'Claude default' })
+    expect(screen.queryByRole('button', { name: /^Removed/ })).toBeNull()
+  })
+
+  it('AC8: By provider lists the ignored accounts of every provider in one Removed section, not under their provider', async () => {
+    listStub()
+    render(<AgentsView />)
+    fireEvent.click(screen.getByRole('button', { name: 'By provider' }))
+    await screen.findByRole('heading', { name: 'claude' })
+    expect(screen.queryByRole('listitem', { name: 'Claude wife' })).toBeNull()
+    openRemoved()
+    expect(screen.getByRole('button', { name: 'Removed (2)' })).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Removed accounts' })).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getAllByRole('listitem', { name: 'Claude wife' })).toHaveLength(1)
+  })
+
+  it('AC7 + AC8: Remove moves the row into Removed (N), and Use this account brings it back through the confirm flow', async () => {
+    const fn = listStub({ start: accountList.map((a) => ({ ...a, is_default: a.id === 1 })) })
+    render(<AgentsView />)
+    fireEvent.click(within(await screen.findByRole('listitem', { name: 'Claude personal' })).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(writes(fn)).toContainEqual(['POST', '/api/accounts/2/ignore', {}]))
+    const toggle = await screen.findByRole('button', { name: 'Removed (1)' })
+    expect(screen.queryByRole('listitem', { name: 'Claude personal' })).toBeNull()
+    fireEvent.click(toggle)
+    const r = within(screen.getByRole('list', { name: 'Removed accounts' })).getByRole('listitem', { name: 'Claude personal' })
+    fireEvent.click(within(r).getByRole('button', { name: 'Use this account' }))
+    fireEvent.change(within(r).getByLabelText('Name'), { target: { value: 'Claude personal' } })
+    fireEvent.click(within(r).getByRole('button', { name: 'Confirm & name' }))
+    await waitFor(() => expect(writes(fn)).toContainEqual(['POST', '/api/accounts/2/confirm', { label: 'Claude personal' }]))
   })
 })

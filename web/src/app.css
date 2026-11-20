@@ -219,6 +219,7 @@ main button.sort { min-height: 0; padding: 0; border: 0; }
 .group > * + * { margin-top: var(--space-2); }
 .form-actions { margin-top: var(--space-4); } /* the workspace form's Save / Back sit a gap below the Repos buttons */
 .field label.required::after { content: ' *'; color: var(--color-accent); }
+form.new-account { display: flex; flex-direction: column; gap: var(--space-3); } /* T132 */
 .hint { display: block; color: var(--color-muted); font-size: var(--fs-note); }
 .field-error { display: block; color: var(--color-red); font-size: var(--fs-note); }
 .field input[aria-invalid='true'] { border-color: var(--color-red); }

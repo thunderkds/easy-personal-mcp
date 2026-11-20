@@ -5,12 +5,13 @@ import { ago, fmt, limitTone, localTime, until } from './format.js'
 import { Progress } from './Widgets.jsx'
 import Loading from './Loading.jsx'
 import { useNotify } from './Toast.jsx'
+import { SignInCommand } from './CopyCommand.jsx'
 
 const NOT_APPLIED = ['refused', 'skipped']
 
 /**
  * Name and status actions of one account. Detected: name it or ignore it. Ignored: choose it again.
- * Confirmed: rename it, or ignore it (not the default account: the server refuses that).
+ * Confirmed: rename it, or remove it (the same `ignore` call; not the default account: the server refuses that).
  */
 function AccountActions({ account, onChanged }) {
   const { status, is_default: isDefault } = account
@@ -31,7 +32,7 @@ function AccountActions({ account, onChanged }) {
   }
   const ignore = (
     <button type="button" disabled={busy} onClick={() => act('ignore', {})}>
-      Ignore
+      {status === 'confirmed' ? 'Remove' : 'Ignore'}
     </button>
   )
   return (
@@ -278,6 +279,26 @@ function AccountRow({ account, workspaces, onChanged, justConfirmed }) {
   )
 }
 
+/** T132: the removed (ignored) accounts, collapsed. Use this account brings one back through the confirm flow. */
+function Removed({ accounts, workspaces, onChanged }) {
+  const [shown, setShown] = useState(false)
+  if (accounts.length === 0) return null
+  return (
+    <div className="board-unlisted">
+      <button type="button" className="board-toggle" aria-expanded={shown} onClick={() => setShown(!shown)}>
+        {`Removed (${accounts.length})`}
+      </button>
+      {shown && (
+        <ul className="entries agent-cards" aria-label="Removed accounts">
+          {accounts.map((a) => (
+            <AccountRow key={a.id} account={a} workspaces={workspaces} onChanged={onChanged} justConfirmed={false} />
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function Accounts({ by, workspaces, onChanged, confirmedIds }) {
   const state = useLoad(() => getJson(`/api/accounts?by=${by}`))
   if (state.status === 'loading') return <Loading label="Loading agent accounts" />
@@ -287,20 +308,87 @@ function Accounts({ by, workspaces, onChanged, confirmedIds }) {
         Could not load agent accounts: {state.message}
       </p>
     )
-  const groups =
+  const listed = (accounts) => accounts.filter((a) => a.status !== 'ignored')
+  const all = by === 'provider' ? Object.values(state.data.providers).flat() : state.data.accounts
+  const groups = (
     by === 'provider'
-      ? Object.entries(state.data.providers).map(([title, accounts]) => ({ title, accounts }))
-      : [{ title: null, accounts: state.data.accounts }]
-  return groups.map((g) => (
-    <section key={g.title ?? 'all'} aria-label={g.title ?? 'Agent accounts'}>
-      {g.title && <h2>{g.title}</h2>}
-      <ul className="entries agent-cards">
-        {g.accounts.map((a) => (
-          <AccountRow key={a.id} account={a} workspaces={workspaces} onChanged={onChanged} justConfirmed={confirmedIds.includes(a.id)} />
-        ))}
-      </ul>
+      ? Object.entries(state.data.providers).map(([title, accounts]) => ({ title, accounts: listed(accounts) }))
+      : [{ title: null, accounts: listed(state.data.accounts) }]
+  ).filter((g) => g.title === null || g.accounts.length > 0)
+  return (
+    <>
+      {groups.map((g) => (
+        <section key={g.title ?? 'all'} aria-label={g.title ?? 'Agent accounts'}>
+          {g.title && <h2>{g.title}</h2>}
+          <ul className="entries agent-cards">
+            {g.accounts.map((a) => (
+              <AccountRow key={a.id} account={a} workspaces={workspaces} onChanged={onChanged} justConfirmed={confirmedIds.includes(a.id)} />
+            ))}
+          </ul>
+        </section>
+      ))}
+      <Removed accounts={all.filter((a) => a.status === 'ignored')} workspaces={workspaces} onChanged={onChanged} />
+    </>
+  )
+}
+
+const NAME_RULE = /^[a-z0-9][a-z0-9-]{0,29}$/
+
+/** T132: make a new account folder (the app creates it), then show how to sign in. The new account is listed as detected: name it there. */
+function NewAccount({ onCreated }) {
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [made, setMade] = useState(null) // the row the server answered
+  const notify = useNotify()
+  const name = value.trim()
+  const invalid = name !== '' && !NAME_RULE.test(name)
+  async function create(e) {
+    e.preventDefault()
+    if (busy || !NAME_RULE.test(name)) return
+    setBusy(true)
+    try {
+      const row = await sendJson('POST', '/api/accounts/create', { name })
+      setMade(row)
+      setValue('')
+      onCreated()
+    } catch (err) {
+      notify('error', `Could not complete: ${err.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section aria-label="New account">
+      <h2>New account</h2>
+      <form className="new-account" onSubmit={create}>
+        <div className="field">
+          <label htmlFor="new-account-name">New account name</label>
+          <input
+            id="new-account-name"
+            value={value}
+            autoComplete="off"
+            aria-invalid={invalid}
+            aria-describedby={invalid ? 'new-account-error' : 'new-account-hint'}
+            onChange={(e) => setValue(e.target.value)}
+          />
+          <span id="new-account-hint" className="hint">
+            Lower-case letters, digits and dashes, up to 30 characters. The folder is named .claude-name.
+          </span>
+          {invalid && (
+            <span id="new-account-error" className="field-error">
+              Use only lower-case letters, digits and dashes, starting with a letter or digit, up to 30 characters.
+            </span>
+          )}
+        </div>
+        <div className="actions">
+          <button type="submit" disabled={busy || name === '' || invalid}>
+            {busy ? 'Creating…' : 'Create'}
+          </button>
+        </div>
+      </form>
+      {made && <SignInCommand folder={made.folder} />}
     </section>
-  ))
+  )
 }
 
 export default function AgentsView({ onAccountsChanged }) {
@@ -328,6 +416,12 @@ export default function AgentsView({ onAccountsChanged }) {
           Could not load workspaces: {ws.message}
         </p>
       )}
+      <NewAccount
+        onCreated={() => {
+          setVersion((v) => v + 1)
+          onAccountsChanged?.()
+        }}
+      />
       {ws.status !== 'loading' && (
         <Accounts
           key={`${by}-${version}`}
