@@ -11,9 +11,9 @@
 ### Todo
 
 ### In Progress
-- [ ] **T125** — Live like Claude 2b — sub-agent logs in the panel | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T125.md`; FR-130; Depends on T124; started 2026-11-20: worktree `easy-personal-mcp-wt/T125`, branch `T125` from `main` (`e39d05f`, T124 merged)
 
 ### Ready for Review
+- [ ] **T125** — Live like Claude 2b — sub-agent logs in the panel | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T125.md`; FR-130; Depends on T124; started 2026-11-20: worktree `easy-personal-mcp-wt/T125`, branch `T125` from `main` (`e39d05f`, T124 merged); built (`ef0fb56`) + Stage 4: code-review 1 P1 (owner publish bug) + 2 P2 fixed (`b424dbc`), focus race fixed (`9f616f6`); Debate 2 Advocates agreed (Path A, client-side nesting); security-review no finding >= 8; vitest 1508/1508
 
 ### Done
 - [x] **T126** — Live like Claude 2c — steer an app session (model, mode, effort, context) | backend-developer → frontend-developer | C3 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T126.md`; FR-131; started 2026-11-19 ([admin]): worktree `easy-personal-mcp-wt/T126`, branch `T126` from `main`; resumed 2026-11-20 ([admin]); built (`98fdf25`, `839ed22`) + Stage 4: code-review 0 P0/P1, P2 fixed (DDR-0008); Debate settled by a run-4 re-spike (medium, low apply mid-session) and FR-131; security-review no finding >= 8; Rust 1335 + 2 load timeouts (pass alone), web 1457; auto verify pass; merged to main 2026-11-20 (10bb5a6, [admin]); main after all four: Rust 1364/0, web 1484/1484, leak 0 hits
