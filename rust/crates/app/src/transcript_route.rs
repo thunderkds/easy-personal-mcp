@@ -583,6 +583,24 @@ mod tests {
             .map(|e| &e["text"])
             .collect();
         assert_eq!(texts, [&json!("agent prompt"), &json!("agent says")]);
+        // T129: the page reads the kind of an entry from `kind` (never `type`), in a sub-agent's log and in the main thread
+        let kinds = |body: &Value| -> Vec<(Value, Value)> {
+            body["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|e| (e["kind"].clone(), e["type"].clone()))
+                .collect()
+        };
+        assert_eq!(
+            kinds(&body),
+            [
+                (json!("user"), Value::Null),
+                (json!("assistant"), Value::Null)
+            ]
+        );
+        let (_, main_body) = get(&app, &url(SID, ""), &OK).await;
+        assert!(kinds(&main_body).contains(&(json!("user"), Value::Null)));
         // paging works as for the main file
         let next = body["next"].as_u64().unwrap();
         let (_, body) = get(&app, &agent_url(SID, AGENT, &format!("&after={next}")), &OK).await;

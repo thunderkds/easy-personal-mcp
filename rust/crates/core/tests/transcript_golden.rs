@@ -36,7 +36,7 @@ fn the_first_view_is_the_whole_file_and_a_later_poll_gets_orphans() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|e| e["type"].as_str().unwrap())
+        .map(|e| e["kind"].as_str().unwrap())
         .collect();
     for kind in ["user", "reply", "assistant", "tool", "skipped"] {
         assert!(kinds.contains(&kind), "{kind} missing in {kinds:?}");
@@ -94,8 +94,29 @@ fn a_sub_agent_file_gives_the_golden_entries_and_the_main_flag_still_drops_its_r
         .as_array()
         .unwrap()
         .iter()
-        .map(|e| e["type"].as_str().unwrap())
+        .map(|e| e["kind"].as_str().unwrap())
         .collect();
     assert_eq!(kinds, ["skipped"]);
     assert_eq!(dropped["entries"][0]["count"], 8);
+}
+
+/// T129: the page (web/src/Transcript.jsx) reads an entry's kind from `kind`. The first version of the route keyed it `type`, so
+/// every conversation drew an empty box. Every entry of a main file and of a sub-agent's file names its kind in `kind` and has no `type`.
+#[test]
+fn every_entry_names_its_kind_in_kind_and_never_in_type() {
+    for (name, got) in [
+        ("main", answer(Window::Before(u64::MAX))),
+        ("agent", agent_answer(Window::Before(u64::MAX), true)),
+    ] {
+        let entries = got["entries"].as_array().unwrap();
+        assert!(!entries.is_empty(), "{name}");
+        for e in entries {
+            assert!(
+                ["user", "reply", "assistant", "tool", "skipped"]
+                    .contains(&e["kind"].as_str().unwrap_or("")),
+                "{name}: {e}"
+            );
+            assert!(e.get("type").is_none(), "{name}: {e}");
+        }
+    }
 }

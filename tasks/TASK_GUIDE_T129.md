@@ -24,6 +24,10 @@
 - Likely divergence point (from code reading, not proven): (a) the app starts `claude -p --input-format stream-json --output-format stream-json --verbose … --permission-prompt-tool … --mcp-config …` with `CLAUDE_CONFIG_DIR` = the account's folder (`app_session.rs` `argv`, `child_env`); the transcript is written (if at all) under that account's `projects/`, which the transcript route may not resolve for an app session (`transcript_route.rs` `main_file`: live tail origin, else the store's past path), and the page renders an empty log instead of a "cannot be shown" line; or (b) Claude Code does not persist this run at all (a `-p` stream-json run, the cwd, or the session id differ from what the app shows), so there is nothing to read or resume.
 - Recent context: T124 (agent= and the listing on the transcript route), T125 (`Conversation` wraps `Transcript` in the panel), T126 (`--effort`, steering), T127 (prompt answers), T128 (New session sheet in Live) all merged 2026-11-20. T118 made the transcript route the panel's only conversation source for a session with an id.
 
+### Mental model update (diagnosis, owner-approved 2026-11-20)
+- Diagnosis (`ca1175f`) disproved (a) and (b): Claude Code saves the app session under the account's `projects/` and `--resume` works; the route resolves it and answers 200. Proven cause: the route's entries are keyed `type` (`rust/crates/core/src/transcript.rs`), the page reads `kind` (`web/src/Transcript.jsx`), so every entry draws nothing — in every conversation view (terminal, past, sub-agent logs), since T118.
+- Owner decision 2026-11-20 ("go with both"): fix on the route side (entries carry `kind`; the agents listing keeps `type` = agent type); add a contract test that renders the page over the Rust golden answer; AC 5 one-line message when entries exist but none draws. AC 4: the session is saved and resumable; not appearing in the terminal `/resume` list is Claude Code's own picker, no code change.
+
 ### Intake
 - Trigger: Live → New session → folder `idea-ladder`, account `hung`, model opus, mode dontAsk, effort medium → Start (owner's first prompt) → open the new session's panel.
 - Severity: P1 (blocking: an app session cannot be followed or used).
@@ -34,14 +38,17 @@
 - Risk: High
 
 ### Diagnosis Gates (Pillar 1 — must pass before any fix)
-- [ ] Phase 1 feedback loop built and running (a real `claude` app-session start in a scratchpad temp repo, plus a vitest/route test that shows the empty box)
-- [ ] Bug reproduces deterministically on the loop
-- [ ] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
-- [ ] Correct hypothesis identified via Phase 4 instrumentation
+- [x] Phase 1 feedback loop built and running (a real `claude` app-session start in a scratchpad temp repo through the app's own `Sessions::start`, the route over the file it wrote, and a vitest over the route's real answer shape)
+- [x] Bug reproduces deterministically on the loop (2026-11-20T03:14-03:15Z; see `tasks/TASK_REVIEW_T129.md` Repro loop)
+- [ ] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model) — NOT consistent: the proven cause is a third one (below); stopped for the Supervisor
+- [x] Correct hypothesis identified via Phase 4 instrumentation (H3, see Attempts Log)
 
 ### Attempts Log (filled live during diagnosis — required if >1 hypothesis tested)
 | # | Hypothesis | Predicted signal | Actual result | Verdict |
 |---|---|---|---|---|
+| 1 | (b) Claude Code does not persist an app session (`-p` stream-json run) | no `<id>.jsonl` under the account's `projects/<cwd>/`; `--resume <id>` fails | Real run through `Sessions::start` (haiku, dontAsk, effort medium, scratchpad repo, account `CLAUDE_CONFIG_DIR` kept): the app view got `session_id` 8715b26e-…; `projects/<munged cwd>/8715b26e-….jsonl` exists, 31 records, `entrypoint: sdk-cli`; `claude -p --resume 8715b26e-…` answered "Your previous message was: "Reply with the single word OK."" | Disproven |
+| 2 | (a) the transcript route does not resolve an app session's file, so the page draws an empty log instead of "cannot be shown" | route 404 or no origin from the live tail | The live tail read the file (`session_origin` = the `.jsonl` and the repo folder); `GET /api/live/sessions/<id>/transcript` answered 200 with entries (user "Reply with the single word OK.", assistant "OK", skipped runs). A 404 would have drawn "The conversation cannot be shown", so the route resolves | Disproven |
+| 3 | The route's entries name their kind in `type`; the page reads `kind` | every entry from the real route has `type` and no `kind`; the page draws an `<ol role=log>` with 0 children (no "Loading", no "cannot be shown", no "Nothing yet" because `entries.length > 0`) | Rust debug test: every entry `keys=[cut, offset, text, type]`, `kind=null`. Vitest over core's golden answer (14 entries): `log <ol> children: 0, innerHTML: ""`, `getByText('<typed text>')` fails. `Transcript.jsx` `Entry` returns `null` for an unknown kind | Proven |
 
 **Stuck checkpoint** (if 2 consecutive hypotheses disproven):
 - [ ] 3 options presented (next hypothesis / widen scope / abandon+escalate)
@@ -49,16 +56,16 @@
 - [ ] User's explicit go-ahead: ___
 
 ### Fix Gates (Pillar 2)
-- [ ] Regression test written before the fix (or no-seam documented)
-- [ ] Fix applied; regression test passes
-- [ ] Phase 1 loop no longer reproduces the bug
-- [ ] Fix matches the "correct behaviour" definition from the mental model
+- [x] Regression test written before the fix (or no-seam documented)
+- [x] Fix applied; regression test passes
+- [x] Phase 1 loop no longer reproduces the bug
+- [x] Fix matches the "correct behaviour" definition from the mental model
 
 ### Cleanup Checklist (Pillar 3)
-- [ ] All [DEBUG-...] instrumentation removed (grep verified)
-- [ ] Throwaway prototypes deleted
-- [ ] Correct hypothesis stated in commit message
-- [ ] Post-mortem: what would have prevented this?
+- [x] All [DEBUG-...] instrumentation removed (grep verified)
+- [x] Throwaway prototypes deleted
+- [x] Correct hypothesis stated in commit message
+- [x] Post-mortem: a web test that reads the Rust golden answer (added) instead of a hand-made fixture
 
 ## Dependencies & Reachability
 **Depends on**: none (T124–T128 merged)
