@@ -47,27 +47,29 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ## Auto decisions
 
 Mode: auto
-1. App sessions tab removed from navigation, its URL opens Live — RULE: `PRD.md:232` "the App sessions tab is removed from the navigation (its URL opens Live)"
-2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
-Checks: <filled at Stage 4/5>
-Memory: <filled before stop>
-Not done: merge (admin: after the auto verify pass); auto verify: <result>
-
+1. App sessions tab removed from navigation, its URL opens Live — FACT: PRD.md:232 "the App sessions tab is removed from the navigation (its URL opens Live)"
+2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — DEBATED: Path A (Advocate 1: Path A, the only path whose Start/Read bullets cover T128, BRAINSTORMING_LOG_LIVE2.md:32-33; Advocate 2: Path A over keeping the tab, with three losses to patch: privacy line, stale PRD FR-128 wording, stale LiveView comment) ⚠ decided for you — please review
+3. Advocate 2's three losses fixed in Stage 4 (`51b2a1e`): memory-only line restored in NewSessionSheet, PRD FR-128 wording aligned with FR-133, LiveView comment — RULE: `.claude/skills/code-review/SKILL.md` § Phase 4 — Apply Safe Fixes
+4. Resume/Fork while the sheet is open replaces the typed form; no New session button on the retired Python server — SAFER OPTION: both keep FR-133 as written and add no state; recorded as P3, not built ⚠ decided for you — please review
+Checks: tests `npx vitest run` — 43 files, 1470/1470 pass (Supervisor re-run after fixes); mutation (todo reader + ?app-sessions disabled) — 5 red, restored green; reviews code-review — 0 P0/P1/P2, 2 P3; security-review — no finding >= 8; real run `npm run build` — printed `check_static: ok` (implementer run)
+Memory: memory/decisions.md — 2026-11-20 — T124-T128 Live like Claude 2 resumed and Stage 4 under [admin] (T128: New session sheet in Live, App sessions tab gone)
+Not done: merge (admin: after the auto verify pass); auto verify: pass (session 0f9be0a6-a34d-48ee-9ebc-49921e3c7354, commit 18ff1bc, log .claude/verify-runs/T128-18ff1bce4cbe.log)
+Paused: done not moved — Gate 5: no test run in memory/event-trace/T128.jsonl; report incomplete: auto verify slot
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/AppSessionEntry.test.jsx` (AC 1,2,3,5), `web/src/LivePanel.test.jsx` (AC 4), `web/src/NewSessionSheet.test.jsx`, `web/src/App.test.jsx` (nav) |
+| Verification command run | ☑ pass | `npx vitest run`: Test Files 43 passed (43), Tests 1470 passed (1470); `npm run build`: built in 394ms, `check_static: ok` (rc=0) |
+| Negative cases hold | ☑ pass | mutation `git diff --stat`: web/src/App.jsx 2 +-, web/src/Transcript.jsx 2 +- (todo reader returns null; ?app-sessions mapping removed) → `Tests 5 failed | 83 passed (88)` in LivePanel/AppSessionEntry tests; restored with `git checkout`, suite green 1470/1470 |
+| verify | ☑ pass | auto-run by hook, session 0f9be0a6-a34d-48ee-9ebc-49921e3c7354, commit 18ff1bce4cbe360a3a215e332126528f11ca5ad3, log .claude/verify-runs/T128-18ff1bce4cbe.log — pass; done not moved: Gate 5: no test run in memory/event-trace/T128.jsonl |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...T128` web/src (App, LiveView, NewSessionSheet, Transcript, appsession.css) + their callers (App.jsx View props) and tests; Rust and Python untouched, not reviewed |
+| Full smoke suite still green (no regression) | ☑ pass | `npx vitest run` 43 files, 1470/1470 after the Stage 4 fixes (`51b2a1e`) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier refuses repo paths since 2026-11-01 (memory/learnings.md, easy-verifier registered); advisory only |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate on the built bundle with a stubbed API (scratch, not committed): U1 pass (New session in the Live header at 1280 and 375, no scroll), U2 pass (form drawn in place, no dialog; the Which colour? card stays fully visible below it), U3 pass (TodoWrite: done struck through, in progress bold with half mark, pending open circle). Screenshots in the session scratchpad ux/: a-1280, a-375, b2-1280, c-1280, c-375 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | New CSS in `web/src/appsession.css` uses var(--color-*), var(--space-*), var(--fs-cell), var(--font-*) only; no raw colours |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280 px: no horizontal overflow seen; the New session button gets min-height 44px at 375 (CSS rule added, not measured with tap_probe) |
 
 ---
 
@@ -87,9 +89,14 @@ af4aa48 Board + memory: T122, T123 Done (merged); font decision
 0
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (worktree branch T128, implementer; the two counts are `grep -c` of 'New session' in LiveView.jsx and 'TodoWrite' in Transcript.jsx):
+```
+2026-11-19T22:42:08Z
+4fe6226 Plan: Live like Claude 2 (question 46, FR-129..FR-133, DDR-0008, T124-T128)
+3
+3
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: From Live the owner can open the New session form in place (also for Resume / Fork / Continue), start a session and see its panel open, and a TodoWrite call reads as a checklist; the App sessions tab is gone and its old address opens Live.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T128.jsonl`, never the
-implementing agent alone]
+**WITNESS**: `memory/event-trace/T128.jsonl` (126 records): implementer `npx vitest run` 2026-11-19T22:32:56Z; Supervisor session code-review Skill 2026-11-19T22:42:34Z, `npx vitest run` 22:43:46Z, security-review Skill 22:45:03Z, re-run after fixes and mutation check after 22:45Z.

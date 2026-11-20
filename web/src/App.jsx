@@ -1,7 +1,6 @@
 import { useCallback, useContext, useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import AgentsView from './AgentsView.jsx'
-import AppSessions from './AppSessions.jsx'
 import BoardView from './BoardView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
@@ -28,7 +27,6 @@ const GROUPS = [
     label: '// work',
     tabs: [
       { id: 'live', label: 'Live', View: LiveView },
-      { id: 'app-sessions', label: 'App sessions', View: AppSessions },
       { id: 'watch', label: 'Watch', View: WatchView },
       { id: 'board', label: 'Board', View: BoardView, scoped: true },
       { id: 'scheduled', label: 'Scheduled', View: JobsView },
@@ -81,9 +79,13 @@ const STORAGE_KEY = 'easy-personal-scope'
 const WANT_MS = 10_000 // a session asked for by the address is looked for this long after the first snapshot
 const SESSION_ID = /^[0-9a-f-]{1,64}$/i
 
-/** The page's start address: undefined without a `live` parameter, null with one that names no usable session, else the session id. */
+/**
+ * The page's start address: undefined without a `live` parameter, null with one that names no usable session, else the session id.
+ * `?app-sessions` is the address of the removed App sessions tab (T128, FR-133): it opens Live, with no session wanted.
+ */
 function readStart() {
   const params = new URLSearchParams(window.location.search)
+  if (params.has('app-sessions') && !params.has('live')) return null
   if (!params.has('live')) return undefined
   const id = params.get('live')
   return SESSION_ID.test(id) ? id : null
@@ -145,7 +147,7 @@ function Shell() {
   const [active, setActive] = useState(start === undefined ? 'usage' : 'live')
   const [wantedId, setWantedId] = useState(start ?? null) // the session to select; given up WANT_MS after the first snapshot, once selected, when the owner opens a row, or when Live is left
   const [menuOpen, setMenuOpen] = useState(false)
-  const [appTarget, setAppTarget] = useState(null) // what the App sessions page does when it opens: {newFor: workspace name}, {resume} or {continueIn} (T104)
+  const [appTarget, setAppTarget] = useState(null) // what the New session sheet in Live opens on: {newFor: workspace name}, {resume} or {continueIn} (T104, T128)
   const [wantedApp, setWantedApp] = useState(null) // an app session just started: Live opens its panel (T118, FR-128)
   const [chosen, setChosen] = useState(readScope)
   const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064); not remembered across reloads
@@ -219,7 +221,7 @@ function Shell() {
   const appTargetUsed = useCallback(() => setAppTarget(null), [])
   const openApp = useCallback((target) => {
     setAppTarget(target)
-    setActive('app-sessions')
+    setActive('live')
     setMenuOpen(false)
   }, [])
   const newAppSession = useCallback((workspace) => openApp({ newFor: workspace }), [openApp])

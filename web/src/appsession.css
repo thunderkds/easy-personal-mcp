@@ -26,7 +26,8 @@
 .repo-continue .mono { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-cell); }
 
 /* The page */
-.app-sessions { max-width: 60rem; }
+.new-session-sheet { min-width: 0; max-width: 60rem; } /* the New session form drawn in place in Live (T128); not a dialog */
+.new-session-sheet:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .session-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 main .session-tabs button { display: flex; align-items: center; gap: var(--space-2); max-width: 100%; }
 main .session-tabs button[aria-current='true'] { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); }
@@ -70,7 +71,7 @@ main button.reply-toggle { min-height: 0; padding: 0 var(--space-2); font-size: 
 main button.reply-toggle[aria-pressed='true'] { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); }
 
 @media (max-width: 39.999rem) {
-  .prompt-card button, .app-sessions button:not(.link-button), .app-sessions .check { min-height: 44px; }
+  .prompt-card button, .new-session-sheet button:not(.link-button), .new-session-sheet .check { min-height: 44px; }
   .session-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .session-facts dd { margin-bottom: var(--space-2); }
   .session-log { max-height: 55vh; }
@@ -117,7 +118,7 @@ main button.turn-fold:hover { background: none; }
 .live-session[data-open] { box-shadow: inset 3px 0 0 var(--color-accent); } /* the row whose panel is open, beyond the lighter background and never by colour alone: aria-current is on its button */
 
 /* The Live / Past switch, the filters above the list and the rename field (T119, FR-127, FR-128): tokens only, nothing wider than its column */
-.live-head .periods { align-self: center; }
+.live-head .periods, .live-head > .primary { align-self: center; }
 .live-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); min-width: 0; }
 .live-filters .periods, .live-filters .board-filter { min-width: 0; max-width: 100%; }
 .live-filters select, .live-filters input, .session-rename input { box-sizing: border-box; max-width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--color-control); border-radius: var(--radius-sm); background: var(--color-input); color: var(--color-text); font-family: var(--font-sans); font-size: var(--fs-control); }
@@ -132,7 +133,7 @@ main button.turn-fold:hover { background: none; }
 main button.session-rename-button { min-height: 0; padding: 0 var(--space-2); font-size: var(--fs-label); }
 @media (max-width: 39.999rem) {
   .live-filters .periods button, .live-filters select, .live-filters input, .session-rename input, main button.session-rename-button { min-height: 44px; }
-  .live-head .periods button, .past > .live-split > .live-sessions > button, .live-filters .link-button, .past-window .link-button { min-height: 44px; }
+  .live-head > button, .live-head .periods button, .past > .live-split > .live-sessions > button, .live-filters .link-button, .past-window .link-button { min-height: 44px; }
   .past-window .link-button { display: inline-flex; align-items: center; }
   .live-filters .board-filter { flex: 1 1 100%; }
   .live-filters input[type='text'] { width: 100%; }
@@ -169,3 +170,11 @@ main button.filter-clear:disabled { color: var(--color-faint); border-color: var
   .live-filters .periods[aria-label='State'], .live-filters .periods[aria-label='Kind'] { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .live-filters .periods[aria-label='State'] button, .live-filters .periods[aria-label='Kind'] button { justify-content: flex-start; text-align: left; }
 }
+
+/* A TodoWrite call as a checklist (T128, FR-133): one row per todo, the mark in front, tokens only */
+.turn-todos { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; margin: 0; padding: 0 0 0 var(--space-4); list-style: none; }
+.turn-todos li { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; font-family: var(--font-sans); font-size: var(--fs-cell); overflow-wrap: anywhere; }
+.turn-todo-mark { flex: none; font-family: var(--font-mono); color: var(--color-secondary); }
+.turn-todos li[data-status='in_progress'] .turn-todo-mark { color: var(--color-accent); }
+.turn-todos li[data-status='in_progress'] { color: var(--color-heading); font-weight: 500; }
+.turn-todos li[data-status='completed'] .turn-todo-text { color: var(--color-secondary); text-decoration: line-through; }

@@ -4,6 +4,7 @@ import Cost from './Cost.jsx'
 import { ago, compact, fmt } from './format.js'
 import FilterBar, { kindOf, loadFilters, passes, saveFilters } from './LiveFilters.jsx'
 import PastSessions from './PastSessions.jsx'
+import NewSessionSheet from './NewSessionSheet.jsx'
 import { useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
 import SessionPanel, { STATES, folderName } from './SessionPanel.jsx'
@@ -462,6 +463,7 @@ function useApps(enabled, fast) {
   const [stale, setStale] = useState(false)
   const last = useRef(null)
   const generation = useRef(0) // bumped by every answer of our own: a read that started before it is older than the state and is dropped
+  const [again, setAgain] = useState(0) // bumped by `reload`: the effect below starts over and reads at once (T128: a session was just started)
   useEffect(() => {
     if (!enabled) return undefined
     let current = true
@@ -491,7 +493,7 @@ function useApps(enabled, fast) {
       current = false
       clearInterval(timer)
     }
-  }, [enabled, fast])
+  }, [enabled, fast, again])
   // An answer to our own request: take that session now, and let the next read replace the list.
   const replace = useCallback((view) => {
     generation.current += 1
@@ -503,7 +505,8 @@ function useApps(enabled, fast) {
     last.current = null
     setApps((list) => (list ?? []).filter((a) => a.id !== id))
   }, [])
-  return { apps, stale, replace, remove }
+  const reload = useCallback(() => setAgain((n) => n + 1), [])
+  return { apps, stale, replace, remove, reload }
 }
 
 const appCard = (a) => a.items.some((i) => i.kind === 'prompt' && i.status === 'pending')
@@ -521,7 +524,7 @@ function OwnStream(props) {
   return <Live state={state} link={link} reconnect={reconnect} {...props} />
 }
 
-function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessions = false, wantedApp = null, onWantedAppUsed, onResumeInApp, onOpenSettings }) {
+function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessions = false, wantedApp = null, onWantedAppUsed, onResumeInApp, onOpenSettings, target = null, onTargetUsed, onOpenAppSession }) {
   const [now, setNow] = useState(Date.now())
   const [openId, setOpenId] = useState(null) // the panel's key: a live session id, or `app:<id>` for an app session; not kept across a reload
   const openRef = useRef(null)
@@ -570,7 +573,20 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   }, [backTo])
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
   const selectedApp = openId !== null && openId.startsWith('app:')
-  const { apps, stale, replace, remove } = useApps(appSessions, selectedApp)
+  const { apps, stale, replace, remove, reload } = useApps(appSessions, selectedApp)
+  // The New session sheet (T128, FR-133): `{workspace}`, `{resume}` or `{continueIn}` for NewSession, drawn in place above the list, never as a dialog (FR-128).
+  const [form, setForm] = useState(null)
+  const [formKey, setFormKey] = useState(0) // each opening is a new form: its fields are read once
+  const openForm = useCallback((next) => {
+    setForm(next)
+    setFormKey((n) => n + 1)
+  }, [])
+  useEffect(() => {
+    // What another page asked for (Workspaces: New session / Continue, a panel's Resume / Fork): the sheet opens with it, once.
+    if (!target) return
+    openForm({ workspace: target.newFor, resume: target.resume, continueIn: target.continueIn })
+    onTargetUsed?.()
+  }, [target, openForm, onTargetUsed])
   const seen = useRef({}) // app session id -> when this page first saw it
   const cache = useRef(new Map()) // app session id -> its row, kept while its words are the same, so its memoized row does not draw again
   const entries = useMemo(() => {
@@ -630,7 +646,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     }
   }, [wantedId, entries, onWantedUsed])
   useEffect(() => {
-    // The app session just started on the App sessions page: its panel opens here, once it is in the list.
+    // The app session just started from the New session sheet: its panel opens here, once it is in the list.
     if (wantedApp && entries.some((e) => e.key === `app:${wantedApp}`)) {
       setView('live')
       setOpenId(`app:${wantedApp}`)
@@ -682,10 +698,29 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
             Past
           </button>
         </div>
+        {appSessions && apps !== null && (
+          <button type="button" className="primary" disabled={form !== null} onClick={() => openForm({})}>
+            New session
+          </button>
+        )}
         <p role="status" className="live-need">
           {needing === 0 ? '' : needing === 1 ? '1 session needs you' : `${needing} sessions need you`}
         </p>
       </div>
+      {form && (
+        <NewSessionSheet
+          key={formKey}
+          form={form}
+          onStarted={(id) => {
+            setForm(null)
+            setView('live')
+            reload() // the new session is listed now, not at the next read
+            onOpenAppSession?.(id)
+          }}
+          onCancel={() => setForm(null)}
+          onOpenSettings={onOpenSettings}
+        />
+      )}
       {view === 'past' && <PastSessions filters={filters} onFilters={changeFilters} onResume={appSessions && apps !== null ? onResumeInApp : undefined} />}
       {view === 'live' && (
         <>

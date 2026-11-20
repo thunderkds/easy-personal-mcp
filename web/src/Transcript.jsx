@@ -157,9 +157,25 @@ function Block({ text, label }) {
   )
 }
 
-/** One tool call: folded to its label; a click opens its input and its result. */
+const TODO_MARK = { pending: ['○', 'pending'], in_progress: ['◐', 'in progress'], completed: ['●', 'done'] }
+
+/** The todos of a `TodoWrite` input (the server's pretty JSON text), or null when the text is anything else: the caller then shows the JSON (FR-133). */
+function readTodos(name, input) {
+  if (name !== 'TodoWrite' || typeof input !== 'string') return null
+  try {
+    const todos = JSON.parse(input)?.todos
+    if (!Array.isArray(todos)) return null
+    const ok = todos.every((t) => t && typeof t === 'object' && isName(t.content) && Object.hasOwn(TODO_MARK, t.status))
+    return ok ? todos.map((t) => ({ content: t.content, status: t.status })) : null
+  } catch {
+    return null // cut or escaped text is not JSON
+  }
+}
+
+/** One tool call: folded to its label; a click opens its input and its result. A TodoWrite call with a readable list shows it as a checklist, always. */
 function Tool({ e }) {
   const [open, setOpen] = useState(false)
+  const todos = readTodos(e.name, e.input)
   const orphan = e.orphan === true && !isName(e.name)
   const label = orphan ? 'result of an earlier call' : [isName(e.name) ? e.name : 'a tool', labelText(e.label)].filter(Boolean).join(' · ')
   const input = textOf(e.input)
@@ -173,10 +189,27 @@ function Tool({ e }) {
         <span className="live-label">{label}</span>
         {e.is_error === true && <span className="live-tag error">error</span>}
       </button>
+      {todos && (
+        <ul className="turn-todos" aria-label="Todo list">
+          {todos.length === 0 && <li className="muted">The list is empty.</li>}
+          {todos.map((t, i) => (
+            <li key={i} data-status={t.status}>
+              <span className="turn-todo-mark" role="img" aria-label={TODO_MARK[t.status][1]}>
+                {TODO_MARK[t.status][0]}
+              </span>
+              <span className="turn-todo-text">{t.content}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {open && (
         <div className="turn-detail">
-          <span className="turn-who">Input</span>
-          {input ? <Block text={input} label={`Input of ${label}`} /> : <span className="muted">No input.</span>}
+          {!todos && (
+            <>
+              <span className="turn-who">Input</span>
+              {input ? <Block text={input} label={`Input of ${label}`} /> : <span className="muted">No input.</span>}
+            </>
+          )}
           <span className="turn-who">Result</span>
           {result ? <Block text={result} label={`Result of ${label}`} /> : <span className="muted">{e.result === null || e.result === undefined ? 'No result yet.' : 'Empty result.'}</span>}
           {e.cut === true && <span className="muted turn-cut">{CUT_NOTE}</span>}
