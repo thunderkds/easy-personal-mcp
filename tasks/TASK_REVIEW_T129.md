@@ -33,16 +33,12 @@ With `/verify (yours)`, your pass goes in the `verify` row below: Result `☑ pa
 ## Auto decisions
 
 Mode: auto
-1. <what was decided> — RULE: <the rule>
-2. <what was decided> — FACT: <path>:<line> "<quoted text>"
-3. <what was decided> — DEBATED: <option> (Advocate 1: <its proposal>; Advocate 2: <its proposal>) ⚠ decided for you — please review
-4. <what was decided> — SAFER OPTION: <why> ⚠ decided for you — please review
-Paused: <only when a stop that stays paused the task: which one, and why>
-Checks: tests `<command>` — <result>; reviews <skill — result>; real run `<command>` — printed `<what it printed>` (auto-checked, not /verify)
-Memory: <each entry the memory pass wrote, as `file — entry` | nothing new>
-Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | /verify (yours), with [admin] only after the one retry also ended blocked>
-
--->
+1. Fix on the route side: entries carry `kind`; the `/agents` listing keeps `type` (agent type) — FACT: tasks/TASK_GUIDE_T129.md "Owner decision 2026-11-20 (\"go with both\"): fix on the route side (entries carry `kind`"
+2. AC 4: no code change; the session is saved under the account's folder and `claude --resume <id>` works; follow-ups recorded (copy-resume-command button with the account; app sessions labelled "headless" in Past) — DEBATED: no code in T129 (Advocate 1: no code, file a copy-resume-command follow-up; Advocate 2: no code, but add a follow-up and an owner smoke step, the picker cause is untested; Advocate 3: no code, smallest bugfix, T130 may replace app sessions) ⚠ decided for you — please review
+3. AC 5: the page counts entries it cannot draw and says `N of M entries cannot be shown on this page.` (a mix is the same page/route disagreement the bug was); the contract test asserts exact golden text and tool names — DEBATED: count (Advocate 1: count n of M, one line, also for a mix; Advocate 2: count, and the contract test was vacuous on `log.children.length`; Advocate 3: keep all-or-nothing); settled by tasks/TASK_GUIDE_T129.md AC 6 "Regression test(s) lock the cause" ⚠ decided for you — please review
+Checks: tests `cargo test --workspace --no-fail-fast` — on f40eb18 1364 passed + 1 load-timing flake (memgraph_parity two_hundred_thousand_links, passes alone 2/2, file not in the diff); `npm test` — 46 files, 1513/1513 after the Stage 4 round (a0a0209); `cargo test -p easy-personal-core --test transcript_golden` 4/4; reviews code-review — 0 P0/P1, 1 P2 fixed (vacuous contract assertion), cut list recorded; security-review — no finding >= 8 (independent reviewer); real run leak_rust.py — printed `leak check: 0 hits over 42 canaries, 1335 surfaces` (implementer)
+Memory: memory/learnings.md — 2026-11-20 — T129: route entries keyed `type` vs page `kind` hid 2 days behind consumer-written fixtures; contract tests read the producer's golden
+Not done: merge (admin: after the auto verify pass); auto verify: <result>
 
 ## Evidence
 
@@ -54,7 +50,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier refuses repo paths since 2026-11-01 (memory/learnings.md, easy-verifier registered); advisory only |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
