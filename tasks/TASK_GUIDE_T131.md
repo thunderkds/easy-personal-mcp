@@ -57,6 +57,13 @@ Path A (page-only): `BoardView` loads `/api/workspaces` and `/api/agent-run` bes
 ## Test plan
 Vitest for every AC with mocked fetch; `ux-evaluate` at 375/1280; `/verify` drives the real app: Run on a card in a temp workspace repo starts a session visible in Live (stop it after).
 
+**How `/verify` clicks Run without a real account or tokens** (used by the Supervisor's `/verify` 2026-11-20, PASS):
+1. Temp dir `$T`: `EASY_PERSONAL_HOME=$T/home` (copy of `rust/parity/store-v11.sqlite`), `EASY_PERSONAL_AGENT_ROOT=$T/agents` with `.claude/settings.json` = `{}`, and a git repo `$T/repos/demo` holding a `PROJECT_KANBAN.md` with one Todo task (e.g. `T900`) and one Done task.
+2. A stub `claude` first on `PATH` (`$T/bin/claude`): writes `"$@"` to `$T/claude-args`, then `exec cat > $T/claude-stdin`. The app finds `claude` on `PATH` only, so no real `claude` and no real account run.
+3. Store: point 3 fixture `events.project_path` rows at `$T/repos/demo` (the board lists projects with usage) and insert a workspace with that repo (`workspaces`, `workspace_repos`).
+4. `serve --no-ingest --static-dir ../src/easy_personal/dashboard/static` (the page builds there, not `web/dist`), run under `env -u CLAUDE_CONFIG_DIR`; then `POST /api/accounts {"path": "$T/agents/.claude"}` and `PUT /api/agent-run/setting {"account": "<id>", "confirmed": true}`.
+5. Drive the page in headless Chrome (CDP; no Playwright here): Board → `Run T900`. Expect: only the Todo card has Run; the stub's stdin holds the exact AC 3 prompt; its args carry no bypass mode; the app is on Live; `GET /api/app-sessions` lists the session. Then `POST /api/app-sessions/<id>/stop`, stop `serve`, and confirm no stub process is left.
+
 ## Verification Command
 ```bash
 cd web && npm test -- --run && npm run build   # web/ has no lint script (found at T131 Stage 4)
