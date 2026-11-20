@@ -9,9 +9,9 @@
 ## Board
 
 ### Todo
-- [ ] **T125** — Live like Claude 2b — sub-agent logs in the panel | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T125.md`; FR-130; Depends on T124
 
 ### In Progress
+- [ ] **T125** — Live like Claude 2b — sub-agent logs in the panel | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T125.md`; FR-130; Depends on T124; started 2026-11-20: worktree `easy-personal-mcp-wt/T125`, branch `T125` from `main` (`e39d05f`, T124 merged)
 
 ### Ready for Review
 
