@@ -35,6 +35,7 @@ Owner 2026-11-20: "from the board section, let add the button the can execute th
 | 7 | Same id in two projects stays tied to its own card's project ("All projects" view) | vitest |
 | 8 | UX: existing button style; card layout unchanged at 375 px and 1280 px | `ux-evaluate` screenshots |
 | 9 | Full web suite + build pass (web/ has no lint script) | `npm test`, `npm run build` in `web/` |
+| 10 | (Owner 2026-11-20: "highligh the button run") The Run button uses the app's existing accent style `className="primary"` (`main button.primary` in `app.css`: accent border, soft accent fill, accent text; disabled keeps the existing faint look). No new CSS rule or colour | vitest asserts the class; screenshot at 1280 |
 
 ## Approach
 Path A (page-only): `BoardView` loads `/api/workspaces` and `/api/agent-run` beside `/api/board`; a small pure helper `repoFor(project, workspaces)` → `{workspace, repo} | {reason}`; `Card` gets a Run button; `BoardView` takes an `onOpenSession(id)` prop that `App.jsx` wires to the Live view the same way Live's New session sheet does.
