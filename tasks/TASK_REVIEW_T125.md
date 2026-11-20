@@ -52,22 +52,23 @@ Mode: auto
 Checks: <filled at Stage 4/5>
 Memory: <filled before stop>
 Not done: merge (admin: after the auto verify pass); auto verify: <result>
+Paused: auto-mode check failed — no `Memory:` line in the report — run the memory pass before you stop and record it there (each entry written, or `Memory: nothing new`); no test run in memory/event-trace/T125.jsonl — write /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID with the task ID (minimal-track step 1): `mkdir -p /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d && printf '%s\n%s\n' "T125" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp/.claude/hooks/.state/active_task.d/$CLAUDE_CODE_SESSION_ID`, then rerun the task's tests so the trace records them under the task, then stop; extended track, but the trace has no `code-review` Skill call (Stage 4 runs in auto mode); Risk Medium, but the trace has no `security-review` Skill call [report 0e4eb120f790]
 
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/SubAgents.test.jsx` (21 tests: open log, nesting at depth 3, unknown parent, newest-200 cut, empty list, unknown meta, 5 s poll, breadcrumb back, per-file offsets, session switch, 404 one line, no-route, Live + Past panels, text not HTML); `web/src/LiveAnswer.test.jsx` (its fetch stub now also answers the new `/agents` read) |
+| Verification command run | ☑ pass | `npm test` (44 files): `Tests  1505 passed (1505)`; `npm run build`: `✓ built in 1.96s`; `python3 scripts/check_static.py`: `check_static: ok` (2026-11-20 ~01:39Z) |
+| Negative cases hold | ☑ pass | Mutation: `AGENTS_POLL_MS` 5000 → 2000 made `SubAgents.test.jsx` "reads the list ... every 5 s" fail (`Tests  1 failed \| 20 passed (21)`), then reverted (back to 5000, 21 passed). Before the stub change `LiveAnswer.test.jsx` had 7 red tests (the new `/agents` call was counted as an answer call) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
+| Full smoke suite still green (no regression) | ☑ pass | whole web suite 1505 / 1505 after the change (was 1484 before: +21 new) |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate by hand on a throw-away harness of the real `LiveView` with mocked routes (scratch dir, nothing committed): `main`, `log`, `nested` at 375 and 1280 in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/b0e607b5-0126-47ad-b65d-c4fbbbdebda6/scratchpad/ux/` (`main-375.png`, `main-1280.png`, `log-*.png`, `nested-*.png`) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | new CSS in `appsession.css` uses only existing tokens (`--space-*`, `--color-*`, `--fs-label` 0.875rem / `--fs-note` 1rem, `--font-mono`); buttons follow the `reply-toggle` pill pattern |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280 read: breadcrumb and list wrap, a 47-character type name wraps, no horizontal scrollbar at 375; buttons 44 px high at ≤ 40rem |
 
 ---
 
@@ -90,9 +91,16 @@ e39d05f Memory: T124-T128 merged
 0
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same command, on the branch after the implementation commit):
+```
+$ date -u; git log -1 --oneline; grep -rln 'Open log\|parent_call' web/src | wc -l
+2026-11-20T01:45:09Z
+ef0fb56 T125: sub-agent logs in the Live and Past panels (list, breadcrumb, Open log)
+4
+(web/src/api.js, web/src/Transcript.jsx, web/src/SubAgents.test.jsx, web/src/SubAgents.jsx)
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: In the Live panel and a past session the owner can click Open log on an Agent / Task call (or a row of the new Sub-agents list) to read that sub-agent's own conversation, move between main and nested sub-agents by a breadcrumb, and see which are running or finished; before, a sub-agent's work was not visible at all.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T125.jsonl`, never the
 implementing agent alone]
