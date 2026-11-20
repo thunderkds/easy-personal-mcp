@@ -104,7 +104,7 @@ Plus a real run: dashboard from the branch (HUN-242 merged into it) on a temp `E
 
 ## Approach
 
-**Vital slice**: make the HUN-241 `ReportFolders` item a disclosure button; a small `ReportFiles` child with its own `useLoad`-style fetch on first open; an `openReportFile` helper (window.open → fetch → blob → location); tests; styles. **Cut list**: no sort, no search, no download, no copy, no preview pane.
+**Vital slice**: make the HUN-241 `ReportFolders` item a disclosure button; a small `ReportFiles` child with its own `useLoad`-style fetch on first open; an `openReportFile` helper ([window.open](<http://window.open>) → fetch → blob → location); tests; styles. **Cut list**: no sort, no search, no download, no copy, no preview pane.
 
 ## Edge Case Checklist
 

@@ -128,10 +128,10 @@ Plus a real run: dashboard from the branch on a COPY of the owner store with HUN
 
 ## Completion Checklist
 
-- [x] Implementation done
-- [x] Tests written AND pass — output pasted into the review file's Evidence table
-- [x] UI Evidence rows filled
-- [x] Supervisor notified: task ready for Stage 4 review
+- [X] Implementation done
+- [X] Tests written AND pass — output pasted into the review file's Evidence table
+- [X] UI Evidence rows filled
+- [X] Supervisor notified: task ready for Stage 4 review
 
 ## Questions Log
 
