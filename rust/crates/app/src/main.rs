@@ -24,6 +24,7 @@ mod legacy;
 mod live_feed;
 mod mcp;
 mod mcp_http;
+mod permission_suggestions;
 mod sampler;
 mod schedule_cmd;
 mod server;

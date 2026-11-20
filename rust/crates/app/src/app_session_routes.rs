@@ -599,11 +599,25 @@ async fn close(State(api): State<Api>, Path(id): Path<String>, req: Request) -> 
     .await
 }
 
-/// `POST /api/app-sessions/{id}/answer` `{prompt_id, behavior: "allow"|"deny", updatedInput?, message?, confirmed: true}`.
-/// For a question, `updatedInput.answers` is the answer per question text (free text accepted); no other part of
-/// `updatedInput` reaches the child.
+/// `POST /api/app-sessions/{id}/answer` `{prompt_id, behavior: "allow"|"deny", updatedInput?, message?, suggestion?,
+/// accept_edits?, confirmed: true}`. For a question, `updatedInput.answers` is the answer per question text (free text
+/// accepted); no other part of `updatedInput` reaches the child. `suggestion` (FR-132, an allow only) is the index of one
+/// permission suggestion the card showed: the CLI's own entry goes back unchanged, a forged index is a 400.
+/// `accept_edits` approves a plan and leaves plan mode with edits accepted.
 async fn answer(State(api): State<Api>, Path(id): Path<String>, req: Request) -> Response {
-    let body = match write_body(req, &["prompt_id", "behavior", "updatedInput", "message"]).await {
+    let body = match write_body(
+        req,
+        &[
+            "prompt_id",
+            "behavior",
+            "updatedInput",
+            "message",
+            "suggestion",
+            "accept_edits",
+        ],
+    )
+    .await
+    {
         Ok(body) => body,
         Err(answer) => return answer,
     };
@@ -635,10 +649,30 @@ async fn answer(State(api): State<Api>, Path(id): Path<String>, req: Request) ->
         },
         Some(_) => return fail(StatusCode::BAD_REQUEST, "updatedInput must be an object"),
     };
+    let suggestion = match body.get("suggestion") {
+        None | Some(Value::Null) => None,
+        Some(Value::Number(n)) => match n.as_u64().and_then(|n| usize::try_from(n).ok()) {
+            Some(index) => Some(index),
+            None => return fail(StatusCode::BAD_REQUEST, "suggestion must be a position"),
+        },
+        Some(_) => return fail(StatusCode::BAD_REQUEST, "suggestion must be a position"),
+    };
+    let accept_edits = match body.get("accept_edits") {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(on)) => *on,
+        Some(_) => {
+            return fail(
+                StatusCode::BAD_REQUEST,
+                "accept_edits must be true or false",
+            );
+        }
+    };
     let answer = Answer {
         allow,
         answers,
         message,
+        suggestion,
+        accept_edits,
     };
     blocking(move || {
         let session = match found(&api, &id) {
@@ -1600,6 +1634,69 @@ mod tests {
             assert_eq!(
                 ask["updatedInput"]["answers"],
                 json!({"Which colour?": "Green"})
+            );
+        });
+    }
+
+    /// FR-132 over HTTP: the suggestion the CLI sent with the call goes back unchanged by index; a forged index, a bad type, a
+    /// suggestion with a deny and an extra field are 400s that leave the prompt waiting.
+    #[test]
+    fn an_always_allow_goes_back_by_index_and_a_forged_one_is_a_400() {
+        let _serial = serial();
+        block(async {
+            let w = world("always", KEEP);
+            let id = w.begin(json!({})).await;
+            let bearer = w.config(&id);
+            let rule = json!({"type": "addRules", "rules": [{"toolName": "Bash", "ruleContent": "touch:*"}],
+                              "behavior": "allow", "destination": "userSettings"});
+            let call = w.tool_call(
+                &id,
+                &bearer,
+                json!({"tool_name": "Bash", "tool_use_id": "toolu_s", "input": {"command": "touch x"},
+                       "permission_suggestions": [rule.clone()]}),
+            );
+            let owner = async {
+                let card = loop {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    let view = w.session(&id).await;
+                    if let Some(card) = view["items"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|i| i["kind"] == "prompt")
+                    {
+                        break card.clone();
+                    }
+                };
+                assert_eq!(
+                    card["suggestions"],
+                    json!([{"index": 0, "where": "you, everywhere", "summary": "don't ask again for Bash(touch:*)"}])
+                );
+                let prompt_id = card["prompt_id"].clone();
+                let path = format!("/api/app-sessions/{id}/answer");
+                for bad in [
+                    json!({"suggestion": 1}),
+                    json!({"suggestion": -1}),
+                    json!({"suggestion": "0"}),
+                    json!({"suggestion": 0, "behavior": "deny"}),
+                    json!({"suggestion": 0, "accept_edits": true}),
+                    json!({"rules": [rule.clone()]}),
+                    json!({"updatedPermissions": [rule.clone()]}),
+                ] {
+                    let mut body =
+                        json!({"prompt_id": prompt_id, "behavior": "allow", "confirmed": true});
+                    body.as_object_mut()
+                        .unwrap()
+                        .extend(bad.as_object().unwrap().clone());
+                    assert_eq!(w.post(&path, &body).await.0, 400, "{bad}");
+                }
+                let body = json!({"prompt_id": prompt_id, "behavior": "allow", "suggestion": 0, "confirmed": true});
+                assert_eq!(w.post(&path, &body).await.0, 200);
+            };
+            let (result, ()) = tokio::join!(call, owner);
+            assert_eq!(
+                result,
+                json!({"behavior": "allow", "updatedInput": {"command": "touch x"}, "updatedPermissions": [rule]})
             );
         });
     }

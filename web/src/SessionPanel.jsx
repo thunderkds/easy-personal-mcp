@@ -34,7 +34,13 @@ function labelText(label) {
 
 /** The answer fields of a prompt card as the route takes them: a question's answers by its text, else allow or deny with the note. */
 export function answerBody(prompt, fields) {
-  if (prompt.kind !== 'question') return { behavior: fields.decision, ...(fields.message ? { message: fields.message } : {}) }
+  if (prompt.kind !== 'question')
+    return {
+      behavior: fields.decision,
+      ...(fields.message ? { message: fields.message } : {}),
+      ...(Number.isInteger(fields.suggestion) ? { suggestion: fields.suggestion } : {}), // FR-132: the index of a suggestion the card showed
+      ...(fields.accept_edits === true ? { accept_edits: true } : {}),
+    }
   const answers = {}
   prompt.questions.forEach((q, i) => {
     const { selected, other } = fields.answers[i]

@@ -40,6 +40,7 @@
 
 use crate::api::{self, Api, Clock};
 use crate::live_feed::SharedTail;
+use crate::permission_suggestions as suggestions;
 use crate::session_procs::ProcInfo;
 use crate::writes::{fail, parse, raw_body};
 use axum::extract::{Request, State};
@@ -158,11 +159,15 @@ fn pre_tool_use_output(input: &Value, answers: Map<String, Value>) -> Value {
     json!({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "updatedInput": updated}})
 }
 
-/// PermissionRequest: allow, or deny with the owner's message.
-fn permission_output(allow: bool, message: Option<&str>) -> Value {
+/// PermissionRequest: allow, or deny with the owner's message. An allow may carry one of the CLI's own suggestions,
+/// unchanged, as `updatedPermissions` (FR-132): Claude Code writes the rule.
+fn permission_output(allow: bool, message: Option<&str>, always: Option<&Value>) -> Value {
     let mut decision = json!({"behavior": if allow { "allow" } else { "deny" }});
     if let Some(message) = message {
         decision["message"] = json!(message);
+    }
+    if let Some(suggestion) = always {
+        decision["updatedPermissions"] = json!([suggestion]);
     }
     json!({"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": decision}})
 }
@@ -202,8 +207,11 @@ enum Detail {
         asks: Vec<Ask>,
     },
     /// `complete`: the card shows the whole input. An allow of a cut input is refused (the owner could not read it all).
+    /// `suggestions`: the CLI's own, as it sent them (FR-132); an answer names one by index. `plan`: an `ExitPlanMode`.
     Permission {
         complete: bool,
+        suggestions: Vec<Value>,
+        plan: bool,
     },
 }
 
@@ -256,7 +264,9 @@ impl Prompt {
         let (shown, detail) = match (event, tool) {
             ("PreToolUse", "AskUserQuestion") => question(tool_input)?,
             ("PermissionRequest", "AskUserQuestion") => return None,
-            ("PermissionRequest", tool) => permission(tool, tool_input),
+            ("PermissionRequest", tool) => {
+                permission(tool, tool_input, input.get("permission_suggestions"))
+            }
             _ => return None,
         };
         Some(Prompt {
@@ -319,15 +329,38 @@ fn question(tool_input: &Value) -> Option<(Value, Detail)> {
 /// characters shown as escapes, no secret check, cut at [`INPUT_MAX`]). The input is the raw `command` of `Bash`, else the
 /// pretty JSON of the tool input (edit tools, `WebFetch`, MCP tools, `ExitPlanMode`: all of it). `complete` is `false`
 /// when the cut removed anything; an allow of such a prompt is refused (the owner must see what they allow).
-fn permission(tool: &str, tool_input: &Value) -> (Value, Detail) {
+fn permission(tool: &str, tool_input: &Value, offered: Option<&Value>) -> (Value, Detail) {
+    let kept = suggestions::keep(offered);
+    if tool == "ExitPlanMode" {
+        // FR-132: a plan reads as a plan, not as JSON; approving with edits on is offered only when the CLI offered it
+        let (plan, complete) = clean_block(text(tool_input, "plan").unwrap_or(""), INPUT_MAX);
+        let accept = suggestions::accept_edits(&kept).is_some();
+        return (
+            json!({"kind": "plan", "plan": plan, "complete": complete, "accept_edits": accept}),
+            Detail::Permission {
+                complete,
+                suggestions: kept,
+                plan: true,
+            },
+        );
+    }
     let raw = match (tool, text(tool_input, "command")) {
         ("Bash", Some(command)) => command.to_string(),
         _ => serde_json::to_string_pretty(tool_input).unwrap_or_default(),
     };
     let (input, complete) = clean_block(&raw, INPUT_MAX);
+    let mut shown = json!({"kind": "permission", "tool": clean_line(tool, TOOL_MAX), "input": input, "complete": complete});
+    let views = suggestions::views(&kept);
+    if !views.is_empty() {
+        shown["suggestions"] = Value::Array(views);
+    }
     (
-        json!({"kind": "permission", "tool": clean_line(tool, TOOL_MAX), "input": input, "complete": complete}),
-        Detail::Permission { complete },
+        shown,
+        Detail::Permission {
+            complete,
+            suggestions: kept,
+            plan: false,
+        },
     )
 }
 
@@ -392,12 +425,24 @@ fn question_reply(
     Ok(pre_tool_use_output(input, answers).to_string())
 }
 
-fn permission_reply(body: &Map<String, Value>, complete: bool) -> Result<String, AnswerError> {
+fn permission_reply(
+    body: &Map<String, Value>,
+    complete: bool,
+    kept: &[Value],
+    plan: bool,
+) -> Result<String, AnswerError> {
     let bad = AnswerError::Invalid;
-    if body
-        .keys()
-        .any(|k| !["id", "confirmed", "decision", "message"].contains(&k.as_str()))
-    {
+    if body.keys().any(|k| {
+        ![
+            "id",
+            "confirmed",
+            "decision",
+            "message",
+            "suggestion",
+            "accept_edits",
+        ]
+        .contains(&k.as_str())
+    }) {
         return Err(bad("unknown field"));
     }
     let allow = match body.get("decision").and_then(Value::as_str) {
@@ -412,10 +457,50 @@ fn permission_reply(body: &Map<String, Value>, complete: bool) -> Result<String,
         }
         Some(_) => return Err(bad("message must be a string, and only with deny")),
     };
+    let suggestion = match body.get("suggestion") {
+        None | Some(Value::Null) => None,
+        Some(Value::Number(n)) => Some(
+            n.as_u64()
+                .and_then(|n| usize::try_from(n).ok())
+                .ok_or(bad("suggestion must be a position"))?,
+        ),
+        Some(_) => return Err(bad("suggestion must be a position")),
+    };
+    let accept_edits = match body.get("accept_edits") {
+        None | Some(Value::Null) | Some(Value::Bool(false)) => false,
+        Some(Value::Bool(true)) => true,
+        Some(_) => return Err(bad("accept_edits must be true or false")),
+    };
+    if !allow && (suggestion.is_some() || accept_edits) {
+        return Err(bad("only an allow can carry a suggestion"));
+    }
     if allow && !complete {
         return Err(AnswerError::Incomplete); // fails closed: the item stays, deny and release still work
     }
-    Ok(permission_output(allow, message.as_deref()).to_string())
+    if suggestion.is_some() && accept_edits {
+        return Err(bad("choose one of suggestion and accept_edits"));
+    }
+    let mut chosen = None;
+    if let Some(index) = suggestion {
+        if plan {
+            return Err(bad("that prompt offers no suggestion"));
+        }
+        chosen = Some(
+            suggestions::offered(kept, index)
+                .ok_or(bad("that suggestion was not offered for this prompt"))?,
+        );
+    }
+    if accept_edits {
+        // the terminal has no other way to switch the mode: only the CLI's own suggestion
+        if !plan {
+            return Err(bad("accept_edits is for a plan"));
+        }
+        chosen = Some(
+            suggestions::accept_edits(kept)
+                .ok_or(bad("the terminal did not offer to accept edits"))?,
+        );
+    }
+    Ok(permission_output(allow, message.as_deref(), chosen).to_string())
 }
 
 // ---- what the app holds ----
@@ -982,7 +1067,11 @@ impl Bridge {
             Detail::Question { input, asks } => {
                 question_reply(input, asks, body).map_err(AnswerError::Invalid)
             }
-            Detail::Permission { complete } => permission_reply(body, *complete),
+            Detail::Permission {
+                complete,
+                suggestions,
+                plan,
+            } => permission_reply(body, *complete, suggestions, *plan),
         }?;
         let item = state.pending.remove(at);
         state.version += 1;
@@ -1790,18 +1879,18 @@ mod tests {
                 "updatedInput": {"questions": [{"question": "q?"}], "metadata": {"x": 1}, "answers": {"q?": "a, b"}}}})
         );
         assert_eq!(
-            permission_output(true, None),
+            permission_output(true, None, None),
             json!({"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow"}}})
         );
         assert_eq!(
-            permission_output(false, Some("no")),
+            permission_output(false, Some("no"), None),
             json!({"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "deny", "message": "no"}}})
         );
     }
 
     #[test]
     fn only_a_documented_hook_output_is_printable() {
-        assert!(is_hook_output(&permission_output(true, None)));
+        assert!(is_hook_output(&permission_output(true, None, None)));
         assert!(is_hook_output(&pre_tool_use_output(&json!({}), Map::new())));
         assert!(!is_hook_output(&json!({"decision": "block"})));
         assert!(!is_hook_output(
@@ -1918,7 +2007,7 @@ mod tests {
     }
 
     /// F1: every other tool shows its whole input as pretty JSON: edit tools (path, old, new, content), `WebFetch`, an MCP tool
-    /// and `ExitPlanMode` (the plan).
+    /// (`ExitPlanMode` is a plan card since FR-132).
     #[test]
     fn other_tools_show_their_whole_input_as_pretty_json() {
         for (tool, input, needles) in [
@@ -1941,11 +2030,6 @@ mod tests {
                 "mcp__x__y",
                 json!({"secret": "PLANTED-MCP", "n": 3}),
                 vec!["secret", "PLANTED-MCP", "3"],
-            ),
-            (
-                "ExitPlanMode",
-                json!({"plan": "1. do PLANTED-PLAN\n2. then more"}),
-                vec!["PLANTED-PLAN", "then more"],
             ),
             ("Bash", json!({"timeout": 5}), vec!["timeout"]), // no command string: the whole input shows
         ] {
@@ -2189,6 +2273,235 @@ mod tests {
             reply["hookSpecificOutput"]["decision"],
             json!({"behavior": "deny", "message": "not that"})
         );
+    }
+
+    fn offered_input(session: &str, tool: &str, tool_input: Value, offered: &Value) -> Value {
+        json!({"hook_event_name": "PermissionRequest", "tool_name": tool, "session_id": session,
+               "tool_input": tool_input, "permission_suggestions": offered})
+    }
+
+    fn rule_list() -> Value {
+        json!([
+            {"type": "addRules", "rules": [{"toolName": "Bash", "ruleContent": "git status:*"}], "behavior": "allow", "destination": "localSettings"},
+            {"type": "setMode", "mode": "acceptEdits", "destination": "session"},
+            {"type": "addRules", "rules": [{"toolName": "Bash"}], "behavior": "allow", "destination": "cliArg"},
+        ])
+    }
+
+    /// FR-132: the hook input's suggestions reach the card with where each lands, and an answer by index prints the CLI's own
+    /// entry, unchanged, as `updatedPermissions`.
+    #[test]
+    fn a_suggestion_goes_to_the_hook_output_unchanged_by_index() {
+        let world = World::new("always", WAIT);
+        let list = rule_list();
+        let hook = world.hook(&offered_input(
+            "s1",
+            "Bash",
+            json!({"command": "git status"}),
+            &list,
+        ));
+        let shown = world.waiting(1)["s1"].clone();
+        assert_eq!(
+            shown["suggestions"],
+            json!([
+                {"index": 0, "where": "this project (just you)", "summary": "don't ask again for Bash(git status:*)"},
+                {"index": 1, "where": "this session", "summary": "switch to acceptEdits mode"},
+            ])
+        );
+        let id = shown["id"].as_str().unwrap().to_string();
+        for forged in [json!(2), json!(7), json!(-1), json!("0"), json!(1.5)] {
+            let body = World::body(
+                json!({"id": id, "confirmed": true, "decision": "allow", "suggestion": forged}),
+            );
+            assert!(
+                matches!(
+                    world.bridge.answer(&id, &body),
+                    Err(AnswerError::Invalid(_))
+                ),
+                "{forged}"
+            );
+        }
+        let deny =
+            World::body(json!({"id": id, "confirmed": true, "decision": "deny", "suggestion": 0}));
+        assert!(matches!(
+            world.bridge.answer(&id, &deny),
+            Err(AnswerError::Invalid(_))
+        ));
+        let plan_only = World::body(
+            json!({"id": id, "confirmed": true, "decision": "allow", "accept_edits": true}),
+        );
+        assert!(matches!(
+            world.bridge.answer(&id, &plan_only),
+            Err(AnswerError::Invalid(_))
+        ));
+        assert_eq!(
+            world.bridge.view().1.len(),
+            1,
+            "every refusal left the item"
+        );
+        let body =
+            World::body(json!({"id": id, "confirmed": true, "decision": "allow", "suggestion": 0}));
+        assert_eq!(world.bridge.answer(&id, &body), Ok(()));
+        let reply: Value = serde_json::from_str(&hook.join().unwrap().unwrap()).unwrap();
+        assert_eq!(
+            reply["hookSpecificOutput"]["decision"],
+            json!({"behavior": "allow", "updatedPermissions": [list[0]]})
+        );
+        assert!(is_hook_output(&reply));
+    }
+
+    /// FR-132: a hook input with no suggestions (or an unusable list) gets no button, and a suggestion index is refused.
+    #[test]
+    fn no_suggestions_means_no_button() {
+        let world = World::new("nosug", WAIT);
+        for (n, offered) in [
+            json!([]),
+            json!("x"),
+            json!({"type": "addRules"}),
+            json!([{"type": "nope"}]),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let session = format!("s{n}");
+            let hook = world.hook(&offered_input(
+                &session,
+                "Bash",
+                json!({"command": "ls"}),
+                &offered,
+            ));
+            let shown = world.waiting(1)[&session].clone();
+            assert!(shown.get("suggestions").is_none(), "{offered}");
+            let id = shown["id"].as_str().unwrap().to_string();
+            let body = World::body(
+                json!({"id": id, "confirmed": true, "decision": "allow", "suggestion": 0}),
+            );
+            assert!(matches!(
+                world.bridge.answer(&id, &body),
+                Err(AnswerError::Invalid(_))
+            ));
+            assert!(world.bridge.release(&id));
+            assert_eq!(hook.join().unwrap(), None);
+        }
+    }
+
+    /// FR-132: a terminal `ExitPlanMode` is a plan card (the plan text, not JSON); Approve prints a plain allow, and
+    /// "approve and auto-accept edits" is offered only when the CLI offered a setMode `acceptEdits` suggestion.
+    #[test]
+    fn a_terminal_plan_is_a_plan_card_and_accepts_edits_only_when_the_cli_offered_it() {
+        let world = World::new("plan", WAIT);
+        let hook = world.hook(&offered_input(
+            "s1",
+            "ExitPlanMode",
+            json!({"plan": "1. do PLANTED-PLAN\n2. then more"}),
+            &rule_list(),
+        ));
+        let shown = world.waiting(1)["s1"].clone();
+        assert_eq!(
+            shown
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect::<std::collections::BTreeSet<_>>(),
+            ["accept_edits", "complete", "id", "kind", "plan"]
+                .into_iter()
+                .collect(),
+            "{shown}"
+        );
+        assert_eq!(shown["kind"], "plan");
+        assert_eq!(shown["plan"], "1. do PLANTED-PLAN\n2. then more");
+        assert_eq!(shown["accept_edits"], true);
+        let id = shown["id"].as_str().unwrap().to_string();
+        let by_index =
+            World::body(json!({"id": id, "confirmed": true, "decision": "allow", "suggestion": 1}));
+        assert!(
+            matches!(
+                world.bridge.answer(&id, &by_index),
+                Err(AnswerError::Invalid(_))
+            ),
+            "a plan names no index"
+        );
+        let body = World::body(
+            json!({"id": id, "confirmed": true, "decision": "allow", "accept_edits": true}),
+        );
+        assert_eq!(world.bridge.answer(&id, &body), Ok(()));
+        let reply: Value = serde_json::from_str(&hook.join().unwrap().unwrap()).unwrap();
+        assert_eq!(
+            reply["hookSpecificOutput"]["decision"],
+            json!({"behavior": "allow", "updatedPermissions": [rule_list()[1]]})
+        );
+
+        // not offered: hidden, and refused if asked for
+        let hook = world.hook(&offered_input(
+            "s2",
+            "ExitPlanMode",
+            json!({"plan": "go"}),
+            &json!([]),
+        ));
+        let shown = world.waiting(1)["s2"].clone();
+        assert_eq!(shown["accept_edits"], false);
+        let id = shown["id"].as_str().unwrap().to_string();
+        let body = World::body(
+            json!({"id": id, "confirmed": true, "decision": "allow", "accept_edits": true}),
+        );
+        assert!(matches!(
+            world.bridge.answer(&id, &body),
+            Err(AnswerError::Invalid(_))
+        ));
+        let plain = World::body(json!({"id": id, "confirmed": true, "decision": "allow"}));
+        assert_eq!(world.bridge.answer(&id, &plain), Ok(()));
+        let reply: Value = serde_json::from_str(&hook.join().unwrap().unwrap()).unwrap();
+        assert_eq!(
+            reply["hookSpecificOutput"]["decision"],
+            json!({"behavior": "allow"})
+        );
+
+        // Keep planning is a deny with the note
+        let hook = world.hook(&offered_input(
+            "s3",
+            "ExitPlanMode",
+            json!({"plan": "go"}),
+            &rule_list(),
+        ));
+        let id = world.waiting(1)["s3"]["id"].as_str().unwrap().to_string();
+        let body = World::body(
+            json!({"id": id, "confirmed": true, "decision": "deny", "message": "add tests"}),
+        );
+        assert_eq!(world.bridge.answer(&id, &body), Ok(()));
+        let reply: Value = serde_json::from_str(&hook.join().unwrap().unwrap()).unwrap();
+        assert_eq!(
+            reply["hookSpecificOutput"]["decision"],
+            json!({"behavior": "deny", "message": "add tests"})
+        );
+    }
+
+    /// FR-132, fails closed: a plan over the cap cannot be approved (with or without edits), but can be kept planning.
+    #[test]
+    fn a_cut_plan_cannot_be_approved() {
+        let world = World::new("cutplan", WAIT);
+        let long = "p".repeat(INPUT_MAX + 1);
+        let hook = world.hook(&offered_input(
+            "s1",
+            "ExitPlanMode",
+            json!({"plan": long}),
+            &rule_list(),
+        ));
+        let shown = world.waiting(1)["s1"].clone();
+        assert_eq!(shown["complete"], false);
+        let id = shown["id"].as_str().unwrap().to_string();
+        for extra in [json!({}), json!({"accept_edits": true})] {
+            let mut body = json!({"id": id, "confirmed": true, "decision": "allow"});
+            body.as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+            assert_eq!(
+                world.bridge.answer(&id, &World::body(body)),
+                Err(AnswerError::Incomplete)
+            );
+        }
+        assert!(world.bridge.release(&id));
+        assert_eq!(hook.join().unwrap(), None);
     }
 
     /// An answer that does not fit is a 400 and the item stays; then a good one goes.
@@ -2584,7 +2897,7 @@ mod tests {
         assert!(!is_stop_output(
             &json!({"decision": "block", "reason": "x", "continue": false})
         ));
-        assert!(!is_stop_output(&permission_output(true, None)));
+        assert!(!is_stop_output(&permission_output(true, None, None)));
         assert!(!is_hook_output(
             &json!({"decision": "block", "reason": "x"})
         ));

@@ -29,6 +29,7 @@
 
 use crate::agent_run::DROPPED;
 use crate::claude_cli::find_claude;
+use crate::permission_suggestions as suggestions;
 use crate::server::constant_time_eq;
 use easy_personal_core::ingest::json as pyjson;
 use easy_personal_core::live::{call_label, clean_block, hidden};
@@ -433,6 +434,9 @@ struct Prompt {
     tool: String,
     /// The tool's input as the child sent it: an allow gives it back (with the owner's `answers` for a question).
     input: Value,
+    /// The CLI's own permission suggestions for this prompt, unchanged (FR-132): an answer names one by its index and it
+    /// goes back as it came. Dropped with the input.
+    suggestions: Vec<Value>,
     /// What the page shows (cleaned and cut), without the raw input.
     card: Value,
     /// The card shows the whole input; an allow of a cut one is refused.
@@ -820,12 +824,25 @@ impl Session {
         };
         let id = random_hex(4)?;
         let (tx, rx) = watch::channel(None);
-        let (card, complete) = card(tool, &input);
+        let (mut card, complete) = card(tool, &input);
+        let suggestions = suggestions::keep(args.get("permission_suggestions"));
+        match card["type"].as_str() {
+            // a plan is approved with the session's edits on: through the CLI's own suggestion, else a mode request
+            Some("plan") => card["accept_edits"] = json!(true),
+            Some("tool") => {
+                let offered = suggestions::views(&suggestions);
+                if !offered.is_empty() {
+                    card["suggestions"] = Value::Array(offered);
+                }
+            }
+            _ => {}
+        }
         state.prompts.push(Prompt {
             id: id.clone(),
             tool_use_id: use_id,
             tool: cut(tool, 100),
             input,
+            suggestions,
             card,
             complete,
             calls: vec![call.clone()],
@@ -838,18 +855,43 @@ impl Session {
 
     /// The owner's answer to a pending prompt: `Ok` when it was the first.
     pub(crate) fn answer(&self, prompt_id: &str, answer: &Answer) -> Result<(), AnswerError> {
-        let mut state = lock(&self.state);
-        let Some(prompt) = state.prompts.iter_mut().find(|p| p.id == prompt_id) else {
-            return Err(AnswerError::Unknown);
+        let set_mode = {
+            let mut state = lock(&self.state);
+            let Some(prompt) = state.prompts.iter_mut().find(|p| p.id == prompt_id) else {
+                return Err(AnswerError::Unknown);
+            };
+            if prompt.status != Status::Pending {
+                return Err(AnswerError::Settled);
+            }
+            let (result, set_mode) = result_text(prompt, answer)?;
+            prompt.status = Status::Answered;
+            prompt.input = Value::Null; // the raw input is not kept past the answer
+            prompt.suggestions.clear();
+            prompt.tx.send_replace(Some(result));
+            set_mode
         };
-        if prompt.status != Status::Pending {
-            return Err(AnswerError::Settled);
+        if set_mode {
+            // a plan approved with edits on, and the CLI offered no suggestion for it: ask for the mode itself (FR-132)
+            let _ = self.set_permission_mode("acceptEdits");
         }
-        let result = result_text(prompt, answer)?;
-        prompt.status = Status::Answered;
-        prompt.input = Value::Null; // the raw input is not kept past the answer
-        prompt.tx.send_replace(Some(result));
         Ok(())
+    }
+
+    /// The stream-json `set_permission_mode` control request (a fixed mode word, never text from the page).
+    fn set_permission_mode(&self, mode: &'static str) -> Result<(), ()> {
+        let request = {
+            let mut state = lock(&self.state);
+            if state.phase == Phase::Ended {
+                return Err(());
+            }
+            state.requests += 1;
+            state.requests
+        };
+        self.send_line(&json!({
+            "type": "control_request",
+            "request_id": format!("req_{request}"),
+            "request": {"subtype": "set_permission_mode", "mode": mode},
+        }))
     }
 
     /// The MCP `notifications/cancelled` for the `tools/call` with JSON-RPC id `call`: the prompt that call was the last
@@ -876,6 +918,7 @@ fn deny_text(message: &str) -> String {
 fn cancel(prompt: &mut Prompt) {
     prompt.status = Status::Cancelled;
     prompt.input = Value::Null;
+    prompt.suggestions.clear();
     prompt.tx.send_replace(Some(deny_text(GONE)));
 }
 
@@ -960,11 +1003,16 @@ fn card(tool: &str, input: &Value) -> (Value, bool) {
 }
 
 /// The owner's answer, as the route parsed it.
+#[derive(Default)]
 pub(crate) struct Answer {
     pub allow: bool,
     /// For a question: the answer per question text.
     pub answers: Option<Map<String, Value>>,
     pub message: Option<String>,
+    /// FR-132, an allow only: the index of one suggestion the card showed ("don't ask again"). Never a rule from the page.
+    pub suggestion: Option<usize>,
+    /// FR-132, a plan approval only: leave plan mode with edits accepted.
+    pub accept_edits: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -977,15 +1025,44 @@ pub(crate) enum AnswerError {
     Incomplete,
 }
 
-/// The tool's documented result text. An allow gives the child's own input back; a question's `answers` (keyed by the
-/// question text) are added to it. Nothing else the page sends reaches the input.
-fn result_text(prompt: &Prompt, answer: &Answer) -> Result<String, AnswerError> {
+/// The tool's documented result text, and whether the session must be asked for `acceptEdits` after it (a plan approved
+/// with edits on, with no suggestion of the CLI's own to carry it). An allow gives the child's own input back; a question's
+/// `answers` (keyed by the question text) are added to it; a chosen suggestion goes back unchanged as the one
+/// `updatedPermissions` entry (FR-132). Nothing else the page sends reaches the input.
+fn result_text(prompt: &Prompt, answer: &Answer) -> Result<(String, bool), AnswerError> {
     if !answer.allow {
+        if answer.suggestion.is_some() || answer.accept_edits {
+            return Err(AnswerError::Bad("only an allow can carry a suggestion"));
+        }
         let note = answer.message.as_deref().filter(|m| !m.trim().is_empty());
-        return Ok(deny_text(note.unwrap_or(DENIED)));
+        return Ok((deny_text(note.unwrap_or(DENIED)), false));
     }
     if !prompt.complete {
         return Err(AnswerError::Incomplete); // fails closed: the owner must see what they allow
+    }
+    if answer.suggestion.is_some() && answer.accept_edits {
+        return Err(AnswerError::Bad(
+            "choose one of suggestion and accept_edits",
+        ));
+    }
+    let mut chosen = None;
+    let mut set_mode = false;
+    if let Some(index) = answer.suggestion {
+        if matches!(prompt.tool.as_str(), "AskUserQuestion" | "ExitPlanMode") {
+            return Err(AnswerError::Bad("that prompt offers no suggestion"));
+        }
+        chosen = Some(
+            suggestions::offered(&prompt.suggestions, index).ok_or(AnswerError::Bad(
+                "that suggestion was not offered for this prompt",
+            ))?,
+        );
+    }
+    if answer.accept_edits {
+        if prompt.tool != "ExitPlanMode" {
+            return Err(AnswerError::Bad("accept_edits is for a plan"));
+        }
+        chosen = suggestions::accept_edits(&prompt.suggestions);
+        set_mode = chosen.is_none();
     }
     let mut input = prompt.input.clone();
     if prompt.tool == "AskUserQuestion" {
@@ -1021,7 +1098,11 @@ fn result_text(prompt: &Prompt, answer: &Answer) -> Result<String, AnswerError> 
         }
         input["answers"] = Value::Object(keyed);
     }
-    Ok(json!({"behavior": "allow", "updatedInput": input}).to_string())
+    let mut result = json!({"behavior": "allow", "updatedInput": input});
+    if let Some(suggestion) = chosen {
+        result["updatedPermissions"] = json!([suggestion]);
+    }
+    Ok((result.to_string(), set_mode))
 }
 
 // ---- the registry -----------------------------------------------------------------------------------------------------
@@ -2075,6 +2156,7 @@ done"#;
                     allow: true,
                     answers: None,
                     message: None,
+                    ..Default::default()
                 },
             )
             .unwrap();
@@ -2097,7 +2179,8 @@ done"#;
                 &Answer {
                     allow: false,
                     answers: None,
-                    message: None
+                    message: None,
+                    ..Default::default()
                 }
             ),
             Err(AnswerError::Settled)
@@ -2108,7 +2191,8 @@ done"#;
                 &Answer {
                     allow: true,
                     answers: None,
-                    message: None
+                    message: None,
+                    ..Default::default()
                 }
             ),
             Err(AnswerError::Unknown)
@@ -2135,6 +2219,7 @@ done"#;
                     allow: false,
                     answers: None,
                     message: Some("not now".into()),
+                    ..Default::default()
                 },
             )
             .unwrap();
@@ -2162,6 +2247,7 @@ done"#;
             allow: true,
             answers: Some(Map::from_iter([("Other?".to_string(), json!("x"))])),
             message: None,
+            ..Default::default()
         };
         assert_eq!(
             session.answer(&id, &bad),
@@ -2171,6 +2257,7 @@ done"#;
             allow: true,
             answers: None,
             message: None,
+            ..Default::default()
         };
         assert!(matches!(
             session.answer(&id, &none),
@@ -2183,6 +2270,7 @@ done"#;
                     allow: true,
                     answers: Some(answers),
                     message: None,
+                    ..Default::default()
                 },
             )
             .unwrap();
@@ -2213,6 +2301,7 @@ done"#;
             allow: true,
             answers: None,
             message: None,
+            ..Default::default()
         }
     }
 
@@ -2221,6 +2310,7 @@ done"#;
             allow: false,
             answers: None,
             message: None,
+            ..Default::default()
         }
     }
 
@@ -2247,6 +2337,249 @@ done"#;
 
     const RESULT: &[u8] =
         br#"{"type":"result","subtype":"success","is_error":false,"num_turns":1}"#;
+
+    // ---- FR-132: allow and don't ask again, and a plan approved with edits on ----
+
+    /// A fake that logs each stdin line and answers none.
+    const SILENT: &str = r#"echo '{"type":"system","subtype":"init","session_id":"sess-1"}'
+while IFS= read -r line; do printf '%s\n' "$line" >> "$L/stdin"; done"#;
+
+    fn offer(tool: &str, input: Value, use_id: &str, suggestions: &Value) -> Value {
+        json!({"tool_name": tool, "input": input, "tool_use_id": use_id, "permission_suggestions": suggestions})
+    }
+
+    fn always(index: usize) -> Answer {
+        Answer {
+            allow: true,
+            suggestion: Some(index),
+            ..Default::default()
+        }
+    }
+
+    fn suggestion_list() -> Value {
+        json!([
+            {"type": "addRules", "rules": [{"toolName": "Bash", "ruleContent": "git status:*"}], "behavior": "allow", "destination": "localSettings"},
+            {"type": "setMode", "mode": "acceptEdits", "destination": "session"},
+            {"type": "addRules", "rules": [{"toolName": "Bash"}], "behavior": "allow", "destination": "cliArg"},
+        ])
+    }
+
+    #[test]
+    fn a_suggestion_the_cli_offered_goes_back_unchanged_as_updated_permissions() {
+        let _serial = serial();
+        let (_fake, s, session) = quiet();
+        let list = suggestion_list();
+        let input = json!({"command": "git status", "description": "d"});
+        let args = offer("Bash", input.clone(), "u1", &list);
+        let rx = session.open_prompt(&args, None, &json!(1)).unwrap();
+        let card = cards(&session)[0].clone();
+        assert_eq!(
+            card["suggestions"],
+            json!([
+                {"index": 0, "where": "this project (just you)", "summary": "don't ask again for Bash(git status:*)"},
+                {"index": 1, "where": "this session", "summary": "switch to acceptEdits mode"},
+            ]),
+            "the third has a destination the card cannot name: not offered"
+        );
+        let id = card["prompt_id"].as_str().unwrap().to_string();
+        assert_eq!(session.answer(&id, &always(0)), Ok(()));
+        let result = result_of(&rx);
+        assert_eq!(result["behavior"], "allow");
+        assert_eq!(result["updatedInput"], input);
+        assert_eq!(result["updatedPermissions"], json!([list[0]]));
+        assert_eq!(
+            result["updatedPermissions"][0], list[0],
+            "the CLI's entry, nothing added"
+        );
+        s.shutdown();
+    }
+
+    #[test]
+    fn a_forged_or_misplaced_suggestion_is_a_400_and_the_prompt_stays_pending() {
+        let _serial = serial();
+        let (_fake, s, session) = quiet();
+        let list = suggestion_list();
+        let rx = session
+            .open_prompt(
+                &offer("Bash", json!({"command": "ls"}), "u1", &list),
+                None,
+                &json!(1),
+            )
+            .unwrap();
+        let id = cards(&session)[0]["prompt_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        for index in [2, 3, 99, usize::MAX] {
+            assert!(
+                matches!(
+                    session.answer(&id, &always(index)),
+                    Err(AnswerError::Bad(_))
+                ),
+                "{index}"
+            );
+        }
+        let both = Answer {
+            accept_edits: true,
+            ..always(0)
+        };
+        assert!(matches!(
+            session.answer(&id, &both),
+            Err(AnswerError::Bad(_))
+        ));
+        let wrong_tool = Answer {
+            accept_edits: true,
+            ..allow()
+        };
+        assert!(
+            matches!(session.answer(&id, &wrong_tool), Err(AnswerError::Bad(_))),
+            "accept_edits is for a plan"
+        );
+        let denied = Answer {
+            allow: false,
+            ..always(0)
+        };
+        assert!(
+            matches!(session.answer(&id, &denied), Err(AnswerError::Bad(_))),
+            "only an allow carries one"
+        );
+        assert!(rx.borrow().is_none());
+        assert_eq!(cards(&session)[0]["status"], "pending");
+        assert_eq!(
+            session.answer(&id, &allow()),
+            Ok(()),
+            "a plain allow still works"
+        );
+        assert!(result_of(&rx).get("updatedPermissions").is_none());
+        s.shutdown();
+    }
+
+    #[test]
+    fn no_suggestion_means_no_button_and_a_question_or_plan_takes_none() {
+        let _serial = serial();
+        let (_fake, s, session) = quiet();
+        session
+            .open_prompt(&call("Bash", json!({"command": "ls"})), None, &json!(1))
+            .unwrap();
+        let id = cards(&session)[0]["prompt_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(cards(&session)[0].get("suggestions").is_none());
+        assert!(matches!(
+            session.answer(&id, &always(0)),
+            Err(AnswerError::Bad(_))
+        ));
+        // a question never shows one, whatever the child sends with it
+        let ask = json!({"questions": [{"question": "Q?", "header": "h", "options": [{"label": "A", "description": ""}]}]});
+        session
+            .open_prompt(
+                &offer("AskUserQuestion", ask, "u2", &suggestion_list()),
+                None,
+                &json!(2),
+            )
+            .unwrap();
+        assert!(cards(&session)[1].get("suggestions").is_none());
+        // a plan names no suggestion by index
+        session
+            .open_prompt(
+                &offer(
+                    "ExitPlanMode",
+                    json!({"plan": "1. do it"}),
+                    "u3",
+                    &suggestion_list(),
+                ),
+                None,
+                &json!(3),
+            )
+            .unwrap();
+        let plan = cards(&session)[2].clone();
+        assert!(plan.get("suggestions").is_none());
+        let id = plan["prompt_id"].as_str().unwrap().to_string();
+        assert!(matches!(
+            session.answer(&id, &always(1)),
+            Err(AnswerError::Bad(_))
+        ));
+        s.shutdown();
+    }
+
+    #[test]
+    fn a_plan_approved_with_edits_uses_the_cli_suggestion_or_asks_for_the_mode() {
+        let _serial = serial();
+        let fake = Fake::new("t127-plan", SILENT);
+        let s = sessions(&fake, 300);
+        let session = start(&s, &fake, "plan");
+        let accept = Answer {
+            accept_edits: true,
+            ..allow()
+        };
+        // offered: the CLI's own setMode entry carries it, and no mode request is sent
+        let list = suggestion_list();
+        let rx = session
+            .open_prompt(
+                &offer("ExitPlanMode", json!({"plan": "1. do it"}), "p1", &list),
+                None,
+                &json!(1),
+            )
+            .unwrap();
+        let card = cards(&session)[0].clone();
+        assert_eq!(card["accept_edits"], true);
+        assert_eq!(
+            session.answer(card["prompt_id"].as_str().unwrap(), &accept),
+            Ok(())
+        );
+        assert_eq!(result_of(&rx)["updatedPermissions"], json!([list[1]]));
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(!fake.log("stdin").contains("set_permission_mode"));
+        // not offered: the server sends the control request after the allow
+        let rx = session
+            .open_prompt(
+                &offer(
+                    "ExitPlanMode",
+                    json!({"plan": "2. again"}),
+                    "p2",
+                    &json!([]),
+                ),
+                None,
+                &json!(2),
+            )
+            .unwrap();
+        let id = cards(&session)[1]["prompt_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(session.answer(&id, &accept), Ok(()));
+        assert!(result_of(&rx).get("updatedPermissions").is_none());
+        assert_eq!(result_of(&rx)["behavior"], "allow");
+        until("the mode request", || {
+            fake.log("stdin").contains("set_permission_mode")
+        });
+        let sent: Value = serde_json::from_str(fake.log("stdin").lines().last().unwrap()).unwrap();
+        assert_eq!(
+            sent["request"],
+            json!({"subtype": "set_permission_mode", "mode": "acceptEdits"})
+        );
+        // a plain approval changes no mode
+        session
+            .open_prompt(
+                &call("ExitPlanMode", json!({"plan": "3."})),
+                None,
+                &json!(3),
+            )
+            .unwrap();
+        let id = cards(&session)[2]["prompt_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(session.answer(&id, &allow()), Ok(()));
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(
+            fake.log("stdin").lines().count(),
+            2,
+            "the first message and the one mode request"
+        );
+        s.shutdown();
+    }
 
     // ---- F1: the card of a tool shows its whole input ----
 
@@ -2424,6 +2757,7 @@ done"#;
                 pairs.iter().map(|(k, v)| (k.to_string(), json!(v))),
             )),
             message: None,
+            ..Default::default()
         };
         let rx = ask(vec![long.clone()], "u1", 1);
         let card = cards(&session)[0].clone();
