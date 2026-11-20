@@ -68,8 +68,10 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Supervisor, before any spike commit; docs-only task: verbatim prior content). `tasks/evidence-T130/SPIKE.md` does not exist; DDR-0006 line 37 reads:
+```
+| Embedded PTY running the real TUI | Full fidelity, but a terminal emulator in the app; cut list |
+```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
