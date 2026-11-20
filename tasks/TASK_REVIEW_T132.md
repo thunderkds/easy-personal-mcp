@@ -68,8 +68,13 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: (backend half, captured 2026-11-20T05:51:59Z on branch `T132` at `d5ec4d9`, before any implementation commit; `serve --no-ingest` of the debug binary over a temp `HOME`/`EASY_PERSONAL_HOME`/`EASY_PERSONAL_AGENT_ROOT`, guard headers satisfied)
+```
+POST /api/accounts/create {"name":"work"}
+HTTP/1.1 404 Not Found
+agent-root: .claude
+```
+The route does not exist: 404, and the agent root holds only `.claude`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
