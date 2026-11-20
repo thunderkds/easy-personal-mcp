@@ -230,6 +230,10 @@ API_CALLS: dict[str, list[str]] = {
     "/api/app-sessions/{id}/stop": [""],
     "/api/app-sessions/{id}/answer": [""],
     "/api/app-sessions/{id}/close": [""],
+    "/api/app-sessions/{id}/model": [""],  # T126: the steering writes asked literally with GET (the 405)
+    "/api/app-sessions/{id}/mode": [""],
+    "/api/app-sessions/{id}/effort": [""],
+    "/api/app-sessions/{id}/context": [""],  # T126: asked literally (a 404, no such session)
     "/api/hooks": [""],  # T106: the account list with the hook state and the entry text; nothing of a prompt
     "/api/answer": [""],  # T106: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
     "/api/answer/release": [""],  # T106: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS

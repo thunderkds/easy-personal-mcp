@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import NewSession, { BYPASS, BYPASS_NOTE, FORK_NOTE, MODELS, MODES, NOTE, STILL_ACTIVE, repoChoices } from './NewSession.jsx'
+import NewSession, { BYPASS, BYPASS_NOTE, EFFORTS, FORK_NOTE, MODELS, MODES, NOTE, STILL_ACTIVE, repoChoices } from './NewSession.jsx'
 import { appServer, workspaces } from './test/appSessions.js'
 
 const accounts = [
@@ -29,9 +29,12 @@ const fill = (text = 'fix the build') => fireEvent.change(screen.getByLabelText(
 describe('the form (AC 1)', () => {
   it('has the fixed model and mode lists of the server, nothing typed freely', () => {
     setup()
-    expect(options('Model')).toEqual(['default', 'opus', 'sonnet', 'haiku'])
+    expect(options('Model')).toEqual(['default', 'opus', 'sonnet', 'haiku', 'opusplan', 'opus[1m]', 'sonnet[1m]'])
+    expect(options('Effort')).toEqual(['default', 'low', 'medium', 'high', 'xhigh', 'max']) // T126: `--effort`, default = no flag
+    expect(EFFORTS).toEqual(options('Effort'))
+    expect(screen.getByLabelText('Effort')).toHaveValue('default')
     expect(options('Permission mode')).toEqual(['default', 'acceptEdits', 'auto', 'plan', 'dontAsk', 'bypassPermissions'])
-    expect(MODELS).toEqual(['default', 'opus', 'sonnet', 'haiku'])
+    expect(MODELS).toEqual(['default', 'opus', 'sonnet', 'haiku', 'opusplan', 'opus[1m]', 'sonnet[1m]'])
     expect(MODES).toEqual(['default', 'acceptEdits', 'auto', 'plan', 'dontAsk', 'bypassPermissions'])
     expect(screen.getByLabelText('Model').tagName).toBe('SELECT')
     expect(screen.getByLabelText('Permission mode').tagName).toBe('SELECT')
@@ -134,7 +137,7 @@ describe('the confirm step', () => {
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('a9'))
     const posts = server.posts('/api/app-sessions')
     expect(posts).toHaveLength(1)
-    expect(posts[0].body).toEqual({ repo: '/work/company', workspace: 'company', account: '2', model: 'opus', mode: 'default', worktree: true, prompt: 'hello <b>there</b>', confirmed: true })
+    expect(posts[0].body).toEqual({ repo: '/work/company', workspace: 'company', account: '2', model: 'opus', effort: 'default', mode: 'default', worktree: true, prompt: 'hello <b>there</b>', confirmed: true })
     expect(posts[0].init.headers['X-Dashboard-Token']).toBe('secret-token')
     expect(posts[0].url).toBe('/api/app-sessions') // no token, no text in the URL
   })
@@ -234,7 +237,7 @@ describe('resume mode: Resume in app and Fork in app', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('a9'))
     const body = server.posts('/api/app-sessions')[0].body
-    expect(body).toEqual({ resume: 'abcdef12-3456-7890', account: '1', model: 'opus', mode: 'default', prompt: 'carry on', confirmed: true })
+    expect(body).toEqual({ resume: 'abcdef12-3456-7890', account: '1', model: 'opus', effort: 'default', mode: 'default', prompt: 'carry on', confirmed: true })
   })
 
   it('a session of an account that is not confirmed here starts on the agent run account', () => {
@@ -339,7 +342,7 @@ describe('continue mode: Continue in app', () => {
     expect(screen.queryByText('Worktree', { selector: 'dt' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('a9'))
-    expect(server.posts('/api/app-sessions')[0].body).toEqual({ continue: true, repo: '/work/company-web', workspace: 'company', account: '2', model: 'default', mode: 'default', prompt: 'go on', confirmed: true })
+    expect(server.posts('/api/app-sessions')[0].body).toEqual({ continue: true, repo: '/work/company-web', workspace: 'company', account: '2', model: 'default', effort: 'default', mode: 'default', prompt: 'go on', confirmed: true })
   })
 
   it('a 409 for a folder that is still active shows the server\'s words and stays on Continue (the fix is to Fork from Live)', async () => {

@@ -1,10 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { startAppSession } from './api.js'
 
-// The New session form (T104, FR-109, FR-116). The lists are the server's fixed lists (`app_session.rs` MODELS, MODES); the server checks
+// The New session form (T104, FR-109, FR-116, FR-131). The lists are the server's fixed lists (`app_session.rs` MODELS, MODES, EFFORTS); the server checks
 // each field again. Nothing starts without the confirm step, and the bypass mode needs a second, explicit one. The first prompt is React
 // state only: it is sent once and never kept (FR-115).
-export const MODELS = ['default', 'opus', 'sonnet', 'haiku']
+export const MODELS = ['default', 'opus', 'sonnet', 'haiku', 'opusplan', 'opus[1m]', 'sonnet[1m]']
+export const EFFORTS = ['default', 'low', 'medium', 'high', 'xhigh', 'max'] // `--effort`; default = no flag
 export const MODES = ['default', 'acceptEdits', 'auto', 'plan', 'dontAsk', 'bypassPermissions']
 export const BYPASS = 'bypassPermissions'
 export const MAX_BYTES = 100_000 // the server's limit for a prompt or message: bytes of UTF-8, not characters
@@ -45,6 +46,7 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
     repo: Math.max(0, repos.findIndex((r) => r.workspace === initialWorkspace)),
     account: (resume && accountOptions.find((o) => o.label === resume.account)?.value) ?? (accountOptions.some((o) => o.value === defaultAccount) ? defaultAccount : (accountOptions[0]?.value ?? '')),
     model: 'default',
+    effort: 'default',
     mode: 'default',
     worktree: false,
     prompt: '',
@@ -69,7 +71,7 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
     setBusy(true)
     setError('')
     try {
-      const common = { account: fields.account === '' ? null : fields.account, model: fields.model, mode: fields.mode, prompt: fields.prompt }
+      const common = { account: fields.account === '' ? null : fields.account, model: fields.model, effort: fields.effort, mode: fields.mode, prompt: fields.prompt }
       const answer = await startAppSession(
         kind === 'resume'
           ? { resume: resume.id, ...(fork ? { fork: true } : {}), ...common }
@@ -155,6 +157,8 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
           <dd>{fields.mode}</dd>
           <dt>Model</dt>
           <dd>{fields.model}</dd>
+          <dt>Effort</dt>
+          <dd>{fields.effort}</dd>
           {kind === 'new' && (
             <>
               <dt>Worktree</dt>
@@ -231,6 +235,16 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
           Model
           <select id={`${id}-model`} value={fields.model} onChange={set('model')}>
             {MODELS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field" htmlFor={`${id}-effort`}>
+          Effort
+          <select id={`${id}-effort`} value={fields.effort} onChange={set('effort')}>
+            {EFFORTS.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

@@ -34,7 +34,7 @@ use crate::server::constant_time_eq;
 use easy_personal_core::ingest::json as pyjson;
 use easy_personal_core::live::{call_label, clean_block, hidden};
 use serde_json::{Map, Value, json};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, DirBuilder, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -58,8 +58,17 @@ const STOP_GRACE: Duration = Duration::from_secs(5);
 const POLL: Duration = Duration::from_millis(50);
 /// How often a going session checks that the setting is still on.
 const SETTING_EVERY: Duration = Duration::from_secs(1);
-/// The fixed lists of the form (FR-109); the first of each is "no flag".
-pub(crate) const MODELS: [&str; 4] = ["default", "opus", "sonnet", "haiku"];
+/// The fixed lists of the form (FR-109, FR-131); the first of each is "no flag". The models are the aliases the CLI
+/// accepted in the T126 spike (`tasks/evidence-T126/SPIKE.md`: it refuses `haiku[1m]`).
+pub(crate) const MODELS: [&str; 7] = [
+    "default",
+    "opus",
+    "sonnet",
+    "haiku",
+    "opusplan",
+    "opus[1m]",
+    "sonnet[1m]",
+];
 pub(crate) const MODES: [&str; 6] = [
     "default",
     "acceptEdits",
@@ -68,6 +77,11 @@ pub(crate) const MODES: [&str; 6] = [
     "dontAsk",
     "bypassPermissions",
 ];
+/// `--effort <level>` at the start, `apply_flag_settings {effortLevel}` mid-session (FR-131). The CLI answers success
+/// to a level it does not know and changes nothing (spike), so only these are ever sent.
+pub(crate) const EFFORTS: [&str; 6] = ["default", "low", "medium", "high", "xhigh", "max"];
+/// How long a steering request waits for its `control_response` (FR-131).
+pub(crate) const CONTROL_WAIT: Duration = Duration::from_secs(10);
 /// The permission tool's server name in `--mcp-config` and its tool: `mcp__easy-personal-app__permission_prompt`.
 pub(crate) const SERVER: &str = "easy-personal-app";
 pub(crate) const TOOL: &str = "permission_prompt";
@@ -184,6 +198,7 @@ pub(crate) struct Plan {
     pub resume: Option<Resume>,
     pub account: Option<Account>,
     pub model: &'static str,
+    pub effort: &'static str,
     pub mode: &'static str,
     pub worktree: bool,
     pub prompt: String,
@@ -226,6 +241,9 @@ pub(crate) fn argv(plan: &Plan, config: &Path) -> Vec<String> {
     }
     if plan.model != "default" {
         args.extend(["--model".into(), plan.model.into()]);
+    }
+    if plan.effort != "default" {
+        args.extend(["--effort".into(), plan.effort.into()]);
     }
     match plan.mode {
         "default" => {}
@@ -479,14 +497,28 @@ struct State {
     branch: Option<String>,
     cwd: PathBuf,
     requests: u64,
+    /// The header's model, mode and effort (FR-131): the plan's, then each one the CLI accepted.
+    model: &'static str,
+    mode: &'static str,
+    effort: &'static str,
+    /// Steering requests waiting for their `control_response`, by request id.
+    controls: HashMap<String, mpsc::SyncSender<Value>>,
+}
+
+/// Why a steering request changed nothing.
+pub(crate) enum SteerError {
+    /// The session has ended or is stopping.
+    Ended,
+    /// No `control_response` within the wait.
+    NoAnswer,
+    /// The CLI's own error line, cleaned to one line.
+    Refused(String),
 }
 
 pub(crate) struct Session {
     pub(crate) id: String,
     secret: String,
     account: Option<(String, String)>,
-    model: &'static str,
-    mode: &'static str,
     worktree: bool,
     /// The folder the plan was made for (a worktree's base repo, a resumed session's start folder).
     repo: PathBuf,
@@ -513,8 +545,6 @@ impl Session {
             id,
             secret,
             account: account.map(|a| (a.id.clone(), a.label.clone())),
-            model: plan.model,
-            mode: plan.mode,
             worktree: plan.worktree,
             repo: plan.repo.clone(),
             state: Mutex::new(State {
@@ -536,6 +566,10 @@ impl Session {
                 branch: None,
                 cwd: plan.repo.clone(),
                 requests: 0,
+                model: plan.model,
+                mode: plan.mode,
+                effort: plan.effort,
+                controls: HashMap::new(),
             }),
             stdin: Mutex::new(None),
             pgid: AtomicI32::new(0),
@@ -608,8 +642,9 @@ impl Session {
             "reason": state.reason,
             "session_id": state.claude_id,
             "account": self.account.as_ref().map(|(id, label)| json!({"id": id, "label": label})),
-            "model": self.model,
-            "mode": self.mode,
+            "model": state.model,
+            "mode": state.mode,
+            "effort": state.effort,
             "folder": state.folder,
             "worktree": self.worktree,
             "branch": state.branch,
@@ -688,6 +723,107 @@ impl Session {
         }))
     }
 
+    /// One steering `control_request` (FR-131): waits at most `wait` for the `control_response` with its id and gives the
+    /// CLI's `response` on success. Never retried; nothing is changed here.
+    fn control(&self, request: Value, wait: Duration) -> Result<Value, SteerError> {
+        let (tx, rx) = mpsc::sync_channel(1);
+        let id = {
+            let mut state = lock(&self.state);
+            if state.phase == Phase::Ended || state.stopping {
+                return Err(SteerError::Ended);
+            }
+            state.requests += 1;
+            let id = format!("req_{}", state.requests);
+            state.controls.insert(id.clone(), tx);
+            id
+        };
+        let sent = self.send_line(&json!({
+            "type": "control_request",
+            "request_id": id,
+            "request": request,
+        }));
+        let answer = sent.map(|()| rx.recv_timeout(wait));
+        lock(&self.state).controls.remove(&id);
+        match answer {
+            Ok(Ok(response)) if response["subtype"] == "success" => {
+                Ok(response["response"].clone())
+            }
+            Ok(Ok(response)) => Err(SteerError::Refused(one_line(
+                response["error"].as_str().unwrap_or("the CLI refused it"),
+                300,
+            ))),
+            Ok(Err(mpsc::RecvTimeoutError::Timeout)) => Err(SteerError::NoAnswer),
+            Ok(Err(mpsc::RecvTimeoutError::Disconnected)) | Err(()) => Err(SteerError::Ended),
+        }
+    }
+
+    /// `set_model` with a model of [`MODELS`]; the header shows it once the CLI said success.
+    pub(crate) fn set_model(&self, model: &'static str, wait: Duration) -> Result<(), SteerError> {
+        self.control(json!({"subtype": "set_model", "model": model}), wait)?;
+        lock(&self.state).model = model;
+        Ok(())
+    }
+
+    /// `set_permission_mode` with a mode of [`MODES`].
+    pub(crate) fn set_mode(&self, mode: &'static str, wait: Duration) -> Result<(), SteerError> {
+        self.control(
+            json!({"subtype": "set_permission_mode", "mode": mode}),
+            wait,
+        )?;
+        lock(&self.state).mode = mode;
+        Ok(())
+    }
+
+    /// `apply_flag_settings {effortLevel}` with a level of [`EFFORTS`] (applies from the next turn, spike). No `source`
+    /// field: the CLI would write it into the owner's settings file.
+    pub(crate) fn set_effort(
+        &self,
+        effort: &'static str,
+        wait: Duration,
+    ) -> Result<(), SteerError> {
+        let settings = json!({"effortLevel": effort});
+        self.control(
+            json!({"subtype": "apply_flag_settings", "settings": settings}),
+            wait,
+        )?;
+        lock(&self.state).effort = effort;
+        Ok(())
+    }
+
+    /// `get_context_usage`, numbers only: used, limit, percent, and per category its id, kind and tokens. The names of
+    /// the owner's MCP servers, skills and memory files in the CLI's answer stay here.
+    pub(crate) fn context(&self, wait: Duration) -> Result<Value, SteerError> {
+        let answer = self.control(
+            json!({"subtype": "get_context_usage", "detail": "summary"}),
+            wait,
+        )?;
+        let number = |v: &Value| {
+            if v.is_number() {
+                v.clone()
+            } else {
+                Value::Null
+            }
+        };
+        let categories: Vec<Value> = answer["categories"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|c| {
+                let id = safe_word(c["id"].as_str()?)?;
+                let kind = safe_word(c["kind"].as_str()?)?;
+                c["tokens"]
+                    .is_number()
+                    .then(|| json!({"id": id, "kind": kind, "tokens": c["tokens"]}))
+            })
+            .collect();
+        Ok(json!({
+            "used": number(&answer["totalTokens"]),
+            "limit": number(&answer["maxTokens"]),
+            "percent": number(&answer["percentage"]),
+            "categories": categories,
+        }))
+    }
+
     /// Asks the supervisor to end the process group (SIGTERM, then SIGKILL after the grace). The first reason wins.
     pub(crate) fn request_stop(&self, reason: &'static str) {
         let mut stop = lock(&self.stop);
@@ -708,7 +844,18 @@ impl Session {
             return;
         }
         match event["type"].as_str() {
+            Some("control_response") => {
+                let response = &event["response"];
+                if let Some(tx) = response["request_id"]
+                    .as_str()
+                    .and_then(|id| state.controls.remove(id))
+                {
+                    let _ = tx.try_send(response.clone());
+                }
+            }
+            Some("system") if event["subtype"] == "status" => sync_mode(&mut state, &event),
             Some("system") if event["subtype"] == "init" => {
+                sync_mode(&mut state, &event);
                 state.seen_init = true;
                 if state.claude_id.is_none() {
                     state.claude_id = event["session_id"].as_str().map(|s| cut(s, 100));
@@ -910,6 +1057,16 @@ impl Session {
 }
 
 /// What a prompt's waiting call is given when it is cancelled: a deny.
+/// The CLI's own permission mode from an `init` or `status` event, when it is a word of [`MODES`].
+fn sync_mode(state: &mut State, event: &Value) {
+    if let Some(mode) = event["permissionMode"]
+        .as_str()
+        .and_then(|m| MODES.iter().find(|x| **x == m).copied())
+    {
+        state.mode = mode;
+    }
+}
+
 fn deny_text(message: &str) -> String {
     json!({"behavior": "deny", "message": message}).to_string()
 }
@@ -1459,6 +1616,7 @@ fn supervise(
         });
         state.phase = Phase::Ended;
         state.outstanding = 0;
+        state.controls.clear(); // a waiting steering request answers "ended" at once
         for item in &mut state.items {
             if let Item::Tool { outcome, .. } = item
                 && *outcome == "running"
@@ -1492,12 +1650,29 @@ while IFS= read -r line; do
   esac
 done"#;
 
+    /// A fake `claude` that answers the steering control requests as 2.1.328 did in the T126 spike
+    /// (`tasks/evidence-T126/SPIKE.md`): success with the request's id; the CLI's error for `bypassPermissions` (with a
+    /// hidden character planted); a context answer with names that must not reach the page; no answer at all for `xhigh`.
+    pub(crate) const STEER: &str = r#"echo '{"type":"system","subtype":"init","session_id":"sess-1","permissionMode":"auto"}'
+while IFS= read -r line; do
+  printf '%s\n' "$line" >> "$L/stdin"
+  id=$(printf '%s' "$line" | sed -n 's/.*"request_id":"\([^"]*\)".*/\1/p')
+  case "$line" in
+    *bypassPermissions*) printf '{"type":"control_response","response":{"subtype":"error","request_id":"%s","error":"Cannot set permission mode to bypassPermissions because it is disabled\\u0007 by settings or configuration","error_code":"bypass_disabled"}}\n' "$id" ;;
+    *get_context_usage*) printf '{"type":"control_response","response":{"subtype":"success","request_id":"%s","response":{"totalTokens":27501,"maxTokens":1000000,"percentage":3,"model":"claude-haiku-5-5","categories":[{"id":"system_prompt","name":"System prompt","tokens":3543,"kind":"used"},{"id":"messages","name":"Messages","tokens":11477,"kind":"used"},{"id":"bad id; rm","tokens":"x","kind":"used"}],"mcpTools":[{"name":"mcp__SECRET-SERVER__x","tokens":5}],"skills":{"skillFrontmatter":[{"name":"SECRET-SKILL"}]}}}}\n' "$id" ;;
+    *'"xhigh"'*) ;;
+    *control_request*) printf '{"type":"control_response","response":{"subtype":"success","request_id":"%s"}}\n' "$id"
+                       case "$line" in *set_permission_mode*) echo '{"type":"system","subtype":"status","permissionMode":"bogus"}' ;; esac ;;
+  esac
+done"#;
+
     pub(crate) fn plan(repo: &Path, mode: &'static str, worktree: bool) -> Plan {
         Plan {
             repo: repo.to_path_buf(),
             resume: None,
             account: None,
             model: "default",
+            effort: "default",
             mode,
             worktree,
             prompt: "FIRST-PROMPT".into(),
@@ -1950,6 +2125,136 @@ done"#;
         assert!(!session.ended());
         session.message("after").unwrap(); // the next message is answered
         until("answered", || fake.log("stdin").lines().count() == 3);
+        s.shutdown();
+    }
+
+    // ---- T126 (FR-131): steering a going session ----
+
+    #[test]
+    fn the_argv_adds_a_listed_effort_and_each_listed_model_as_one_word_and_nothing_for_default() {
+        let config = Path::new("/data/app-sessions/x.mcp.json");
+        let mut p = plan(Path::new("/r"), "default", false);
+        let base = argv(&p, config);
+        assert!(!base.iter().any(|a| a == "--effort" || a == "--model"));
+        for effort in EFFORTS.iter().skip(1) {
+            p.effort = effort;
+            let got = argv(&p, config);
+            assert_eq!(got.len(), base.len() + 2, "{effort}");
+            assert!(got.windows(2).any(|w| w == ["--effort", effort]));
+        }
+        p.effort = "default";
+        for model in MODELS.iter().skip(1) {
+            p.model = model;
+            let got = argv(&p, config);
+            assert_eq!(got.len(), base.len() + 2, "{model}");
+            assert!(got.windows(2).any(|w| w == ["--model", model]));
+        }
+        assert!(MODELS.contains(&"opusplan") && MODELS.contains(&"sonnet[1m]"));
+        assert!(!MODELS.contains(&"haiku[1m]"), "the CLI refuses it (spike)");
+        assert_eq!(
+            EFFORTS,
+            ["default", "low", "medium", "high", "xhigh", "max"]
+        );
+    }
+
+    fn control_lines(fake: &Fake) -> Vec<Value> {
+        fake.log("stdin")
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(|v| v["type"] == "control_request")
+            .collect()
+    }
+
+    #[test]
+    fn model_mode_and_effort_are_control_requests_and_only_the_clis_success_changes_the_header() {
+        let _serial = serial();
+        let fake = Fake::new("t126-steer", STEER);
+        let s = sessions(&fake, 300);
+        let session = start(&s, &fake, "default");
+        let wait = Duration::from_secs(10);
+        // the CLI's own mode from its init event; a word off the list is never taken
+        until("init mode", || session.json(&[])["mode"] == "auto");
+        assert!(session.set_model("opus[1m]", wait).is_ok());
+        assert!(session.set_mode("plan", wait).is_ok());
+        assert!(session.set_effort("high", wait).is_ok());
+        let view = session.json(&[]);
+        assert_eq!(
+            (&view["model"], &view["mode"], &view["effort"]),
+            (&json!("opus[1m]"), &json!("plan"), &json!("high"))
+        );
+        let sent = control_lines(&fake);
+        assert_eq!(
+            sent[0]["request"],
+            json!({"subtype": "set_model", "model": "opus[1m]"})
+        );
+        assert_eq!(
+            sent[1]["request"],
+            json!({"subtype": "set_permission_mode", "mode": "plan"})
+        );
+        assert_eq!(
+            sent[2]["request"],
+            json!({"subtype": "apply_flag_settings", "settings": {"effortLevel": "high"}})
+        );
+        let ids: std::collections::HashSet<_> =
+            sent.iter().map(|v| v["request_id"].clone()).collect();
+        assert_eq!(ids.len(), 3, "one id per request");
+        // the CLI's error comes back as its own line, cleaned, and the mode stays
+        match session.set_mode("bypassPermissions", wait) {
+            Err(SteerError::Refused(text)) => {
+                assert!(
+                    text.starts_with("Cannot set permission mode to bypassPermissions"),
+                    "{text}"
+                );
+                assert!(!text.contains('\u{7}'));
+            }
+            _ => panic!("expected the CLI's refusal"),
+        }
+        assert_eq!(session.json(&[])["mode"], "plan");
+        // no answer: the wait ends, nothing changes
+        let t0 = Instant::now();
+        assert!(matches!(
+            session.set_effort("xhigh", Duration::from_millis(300)),
+            Err(SteerError::NoAnswer)
+        ));
+        assert!(t0.elapsed() < Duration::from_secs(2));
+        assert_eq!(session.json(&[])["effort"], "high");
+        // a session that ends while a request waits answers Ended at once
+        let waiting = {
+            let session = Arc::clone(&session);
+            std::thread::spawn(move || session.set_effort("xhigh", Duration::from_secs(15)))
+        };
+        std::thread::sleep(Duration::from_millis(200));
+        let t0 = Instant::now();
+        session.request_stop("stopped");
+        assert!(matches!(waiting.join().unwrap(), Err(SteerError::Ended)));
+        assert!(t0.elapsed() < Duration::from_secs(8));
+        until("ended", || session.ended());
+        assert!(matches!(
+            session.set_model("sonnet", wait),
+            Err(SteerError::Ended)
+        ));
+        s.shutdown();
+    }
+
+    #[test]
+    fn the_context_answer_is_numbers_only() {
+        let _serial = serial();
+        let fake = Fake::new("t126-ctx", STEER);
+        let s = sessions(&fake, 300);
+        let session = start(&s, &fake, "default");
+        let context = session.context(Duration::from_secs(10)).ok().unwrap();
+        assert_eq!(
+            context,
+            json!({"used": 27501, "limit": 1000000, "percent": 3, "categories": [
+                {"id": "system_prompt", "kind": "used", "tokens": 3543},
+                {"id": "messages", "kind": "used", "tokens": 11477},
+            ]})
+        );
+        assert!(!context.to_string().contains("SECRET"));
+        assert_eq!(
+            control_lines(&fake)[0]["request"],
+            json!({"subtype": "get_context_usage", "detail": "summary"})
+        );
         s.shutdown();
     }
 

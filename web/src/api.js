@@ -86,6 +86,17 @@ export const stopAppSession = (id) => sendJson('POST', appPath(id, 'stop'), { co
 export const answerAppPrompt = (id, promptId, fields) => sendJson('POST', appPath(id, 'answer'), { ...fields, prompt_id: promptId, confirmed: true })
 /** Close the panel of an ended session: its text is dropped on the server. */
 export const closeAppSession = (id) => sendJson('POST', appPath(id, 'close'), { confirmed: true })
+/** Steer a going app session (FR-131): each waits for the CLI's answer; a refusal throws with the CLI's own line. `bypass`: the second confirm was given. */
+export const setAppModel = (id, model) => sendJson('POST', appPath(id, 'model'), { model, confirmed: true })
+export const setAppMode = (id, mode, bypass = false) => sendJson('POST', appPath(id, 'mode'), bypass ? { mode, confirmed: true, confirmed_bypass: true } : { mode, confirmed: true })
+export const setAppEffort = (id, effort) => sendJson('POST', appPath(id, 'effort'), { effort, confirmed: true })
+/** The CLI's context use, numbers only: `{used, limit, percent, categories: [{id, kind, tokens}]}`. A refusal throws with the server's line. */
+export async function getAppContext(id) {
+  const response = await fetch(appPath(id, 'context'), { headers: { 'X-Dashboard-Token': readToken() } })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw failure(typeof data.error === 'string' && data.error ? data.error : `The context use cannot be read (status ${response.status}).`, response.status)
+  return data
+}
 
 /** Reply to an idle terminal session (FR-121, FR-122). Every write carries `confirmed: true` (FR-116). */
 export const sendReply = (id, text) => sendJson('POST', '/api/reply', { id, text, confirmed: true })

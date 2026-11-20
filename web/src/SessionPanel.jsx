@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { answerAppPrompt, closeAppSession, interruptAppSession, stopAppSession, stopSession } from './api.js'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { answerAppPrompt, closeAppSession, getAppContext, interruptAppSession, setAppEffort, setAppMode, setAppModel, stopAppSession, stopSession } from './api.js'
 import Composer, { why } from './Composer.jsx'
 import { ago } from './format.js'
 import { kindOf } from './LiveFilters.jsx'
-import { FORK_NOTE } from './NewSession.jsx'
+import { BYPASS, BYPASS_NOTE, EFFORTS, FORK_NOTE, MODELS, MODES } from './NewSession.jsx'
 import { PendingAnswer } from './PendingAnswer.jsx'
 import PromptCard, { readPrompt } from './PromptCard.jsx'
 import SessionName, { titleOf } from './SessionName.jsx'
@@ -199,6 +199,137 @@ function StopTerminal({ s }) {
   )
 }
 
+const STEER = {
+  model: { label: 'Model', list: MODELS, send: (id, v) => setAppModel(id, v) },
+  mode: { label: 'Mode', list: MODES, send: (id, v) => setAppMode(id, v, v === BYPASS) },
+  effort: { label: 'Effort', list: EFFORTS, send: (id, v) => setAppEffort(id, v) },
+}
+
+/**
+ * Model / Mode / Effort of a going app session (T126, FR-131), shown as pickers in the header. A change is sent at once (bypass only after the
+ * second confirm); the picker shows the new value while the CLI answers, then the server's view, or goes back with the CLI's line on a refusal.
+ * Effort `default` is the start choice "no flag": it cannot be chosen mid-session.
+ */
+function Steer({ app, onChange }) {
+  const [sending, setSending] = useState(null) // {key, value} while one request is out
+  const [bypass, setBypass] = useState(false) // the bypass question is open
+  const [sure, setSure] = useState(false)
+  const [error, setError] = useState('')
+  const send = async (key, value) => {
+    setSending({ key, value })
+    setError('')
+    try {
+      onChange(await STEER[key].send(app.id, value))
+    } catch (e) {
+      setError(`${STEER[key].label} not changed: ${why(e)}`)
+    } finally {
+      setSending(null)
+    }
+  }
+  const pick = (key) => (e) => {
+    const value = e.target.value
+    if (value === app[key]) return
+    if (key === 'mode' && value === BYPASS) {
+      setSure(false)
+      setBypass(true)
+      return
+    }
+    send(key, value)
+  }
+  return (
+    <>
+      {Object.entries(STEER).map(([key, { label, list }]) => (
+        <Fragment key={key}>
+          <dt>{label}</dt>
+          <dd>
+            <select aria-label={label} value={sending?.key === key ? sending.value : (app[key] ?? 'default')} disabled={sending !== null || bypass} onChange={pick(key)}>
+              {list.map((v) => (
+                <option key={v} value={v} disabled={key === 'effort' && v === 'default'}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </dd>
+        </Fragment>
+      ))}
+      {bypass && (
+        <dd className="steer-bypass">
+          <p className="prompt-cut">{BYPASS_NOTE}</p>
+          <label className="check">
+            <input type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} />I understand: no tool will ask me first
+          </label>
+          <span className="actions">
+            <button
+              type="button"
+              className="danger"
+              disabled={!sure}
+              onClick={() => {
+                setBypass(false)
+                send('mode', BYPASS)
+              }}
+            >
+              Switch to bypassPermissions
+            </button>
+            <button type="button" onClick={() => setBypass(false)}>
+              Cancel
+            </button>
+          </span>
+        </dd>
+      )}
+      {error && (
+        <dd role="alert" className="field-error">
+          {error}
+        </dd>
+      )}
+    </>
+  )
+}
+
+/** The CLI's context use on request (FR-131): numbers only. */
+function ContextUse({ app }) {
+  const [shown, setShown] = useState(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const n = (v) => (typeof v === 'number' ? v.toLocaleString('en-US') : '?')
+  const load = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      setShown(await getAppContext(app.id))
+    } catch (e) {
+      setError(why(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <button type="button" disabled={busy} aria-expanded={shown !== null} onClick={() => (shown ? setShown(null) : load())}>
+        Context
+      </button>
+      {error && (
+        <p role="alert" className="field-error">
+          {error}
+        </p>
+      )}
+      {shown && (
+        <section aria-label="Context use" className="context-use">
+          <p>
+            {n(shown.used)} of {n(shown.limit)} tokens ({n(shown.percent)}%)
+          </p>
+          <ul>
+            {(shown.categories ?? []).map((c) => (
+              <li key={c.id}>
+                {String(c.id).replaceAll('_', ' ')}: <span className="mono">{n(c.tokens)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  )
+}
+
 /** The three controls of an app session. `onChange(view)`: the session as the server now has it. */
 function AppControls({ app, onChange, onClosed }) {
   const [error, setError] = useState('')
@@ -227,6 +358,7 @@ function AppControls({ app, onChange, onClosed }) {
       <button type="button" className="danger" disabled={busy || ended || app.state === 'stopping'} onClick={() => act(() => stopAppSession(app.id), onChange)}>
         Stop
       </button>
+      {!ended && app.state !== 'stopping' && <ContextUse app={app} />}
       {ended && (
         <button type="button" disabled={busy} onClick={() => act(() => closeAppSession(app.id), () => onClosed(app.id))}>
           Close
@@ -299,10 +431,18 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
         )}
         {app && (
           <>
-            <dt>Model</dt>
-            <dd>{app.model}</dd>
-            <dt>Mode</dt>
-            <dd>{app.mode}</dd>
+            {!ended && !gone && app.state !== 'stopping' ? (
+              <Steer app={app} onChange={onChange} />
+            ) : (
+              <>
+                <dt>Model</dt>
+                <dd>{app.model}</dd>
+                <dt>Mode</dt>
+                <dd>{app.mode}</dd>
+                <dt>Effort</dt>
+                <dd>{app.effort ?? 'default'}</dd>
+              </>
+            )}
             <dt>Folder</dt>
             <dd className="mono">{app.folder}</dd>
             {app.worktree && (
