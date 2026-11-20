@@ -58,7 +58,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
 | **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
-| Repro loop | ☐ pass / ☐ fail | [command/observation that reproduced the bug before the fix] |
+| Repro loop | ☑ pass | 2026-11-20T03:14:11Z real claude 2.1.329 through the app's own `Sessions::start` (scratchpad `git init` repo, haiku, dontAsk, effort medium, account `CLAUDE_CONFIG_DIR` kept, stdin closed at `shutdown`, no process of mine left): app view `{"state":"idle","session_id":"8715b26e-fb03-493d-8d02-fe372db94d8b","items":[{"kind":"user","text":"Reply with the single word OK."},{"kind":"assistant","text":"OK"}]}`; file `projects/<munged cwd>/8715b26e-….jsonl records=31 entrypoint=sdk-cli`. 03:14:28Z `claude -p --resume 8715b26e-…` answered `Your previous message was: "Reply with the single word OK."` (saved, resumable). 03:14:46Z the route over that file: `GET .../transcript -> 200`, entries `[skipped, user, skipped, assistant, skipped, user, skipped, assistant, skipped]`, every entry `keys=[cut|count, offset, text, type]`, `kind=null`. 03:15:32Z `npx vitest run` of a throwaway test (`<Conversation>` over core's `transcript_golden/session.golden.json`, 14 entries): `log <ol> children: 0 innerHTML: ""`, `Unable to find an element with the text: <typed text>`. Throwaway code removed; patch kept outside the repo. |
 | Regression test | ☐ pass / ☐ fail | [test file path(s) added to lock the fix in] |
 | Smoke suite | ☐ pass / ☐ fail | [bug-specific smoke check beyond the full suite row above] |
 
@@ -71,8 +71,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE** (bugfix: see Phase 1 repro loop in the Evidence table — the same loop, captured before any fix commit): [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (bugfix: the Phase 1 repro loop in the Evidence table, captured 2026-11-20T03:14-03:15Z, before any fix commit): the route answers 200 with `type`-keyed entries; the page draws `<ol role="log">` with 0 children for 14 entries (`innerHTML: ""`), the owner's empty box.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 

@@ -34,14 +34,17 @@
 - Risk: High
 
 ### Diagnosis Gates (Pillar 1 — must pass before any fix)
-- [ ] Phase 1 feedback loop built and running (a real `claude` app-session start in a scratchpad temp repo, plus a vitest/route test that shows the empty box)
-- [ ] Bug reproduces deterministically on the loop
-- [ ] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model)
-- [ ] Correct hypothesis identified via Phase 4 instrumentation
+- [x] Phase 1 feedback loop built and running (a real `claude` app-session start in a scratchpad temp repo through the app's own `Sessions::start`, the route over the file it wrote, and a vitest over the route's real answer shape)
+- [x] Bug reproduces deterministically on the loop (2026-11-20T03:14-03:15Z; see `tasks/TASK_REVIEW_T129.md` Repro loop)
+- [ ] 3–5 ranked falsifiable hypotheses listed (consistent with confirmed mental model) — NOT consistent: the proven cause is a third one (below); stopped for the Supervisor
+- [x] Correct hypothesis identified via Phase 4 instrumentation (H3, see Attempts Log)
 
 ### Attempts Log (filled live during diagnosis — required if >1 hypothesis tested)
 | # | Hypothesis | Predicted signal | Actual result | Verdict |
 |---|---|---|---|---|
+| 1 | (b) Claude Code does not persist an app session (`-p` stream-json run) | no `<id>.jsonl` under the account's `projects/<cwd>/`; `--resume <id>` fails | Real run through `Sessions::start` (haiku, dontAsk, effort medium, scratchpad repo, account `CLAUDE_CONFIG_DIR` kept): the app view got `session_id` 8715b26e-…; `projects/<munged cwd>/8715b26e-….jsonl` exists, 31 records, `entrypoint: sdk-cli`; `claude -p --resume 8715b26e-…` answered "Your previous message was: "Reply with the single word OK."" | Disproven |
+| 2 | (a) the transcript route does not resolve an app session's file, so the page draws an empty log instead of "cannot be shown" | route 404 or no origin from the live tail | The live tail read the file (`session_origin` = the `.jsonl` and the repo folder); `GET /api/live/sessions/<id>/transcript` answered 200 with entries (user "Reply with the single word OK.", assistant "OK", skipped runs). A 404 would have drawn "The conversation cannot be shown", so the route resolves | Disproven |
+| 3 | The route's entries name their kind in `type`; the page reads `kind` | every entry from the real route has `type` and no `kind`; the page draws an `<ol role=log>` with 0 children (no "Loading", no "cannot be shown", no "Nothing yet" because `entries.length > 0`) | Rust debug test: every entry `keys=[cut, offset, text, type]`, `kind=null`. Vitest over core's golden answer (14 entries): `log <ol> children: 0, innerHTML: ""`, `getByText('<typed text>')` fails. `Transcript.jsx` `Entry` returns `null` for an unknown kind | Proven |
 
 **Stuck checkpoint** (if 2 consecutive hypotheses disproven):
 - [ ] 3 options presented (next hypothesis / widen scope / abandon+escalate)
