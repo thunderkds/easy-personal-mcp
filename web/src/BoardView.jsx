@@ -1,11 +1,16 @@
-import { useState } from 'react'
-import { getJson } from './api.js'
+import { useRef, useState } from 'react'
+import { getAgentRun, getJson, startAppSession } from './api.js'
 import { ago, fmt } from './format.js'
+import { MAX_BYTES, byteLength, repoChoices } from './NewSession.jsx'
+import { OFF } from './NewSessionSheet.jsx'
+import { useNotify } from './Toast.jsx'
 import { NO_SCOPE, scopedPath } from './Scope.jsx'
 import { useLoad } from './useLoad.js'
 import Loading from './Loading.jsx'
 
 const load = (scope) => getJson(scopedPath('/api/board', scope))
+// What the Run button needs, read once beside the board. Any failure means no Run button: the board itself still shows.
+const loadRun = () => Promise.all([getAgentRun(), getJson('/api/workspaces')]).then(([agentRun, list]) => (agentRun ? { agentRun, workspaces: list.workspaces } : null), () => null)
 
 // The kit's own status names, in board order (FR-038).
 const COLUMNS = ['Todo', 'In Progress', 'Ready for Review', 'Done', 'Closed (will not do)', 'Blocked']
@@ -17,6 +22,10 @@ const plural = (n, word) => `${fmt(n)} ${word}${n === 1 ? '' : 's'}`
 const newest = (times) => times.reduce((a, b) => (a > b ? a : b))
 const ALL = 'all'
 const CLOSED = ['Done', 'Closed (will not do)']
+const RUNNABLE = ['Todo', 'In Progress', 'Ready for Review', 'Blocked']
+export const NO_REPO = 'Add this repo to a workspace to run it'
+export const AMBIGUOUS = 'Two workspace repos share this name'
+const FAILED = 'Could not start the session. Try again.'
 
 /** A title as plain text: markdown emphasis and code marks removed, never parsed as markup. */
 const plain = (title) =>
@@ -25,6 +34,26 @@ const plain = (title) =>
     .replace(/__(.+?)__/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/(^|[^\w*])\*(\S(?:[^*]*\S)?)\*(?![\w*])/g, '$1$2')
+
+const baseName = (path) => path.split(/[\\/]/).filter(Boolean).at(-1)
+
+/** The one workspace repo whose folder name is the board project's: `{workspace, repo}`, else `{reason}` (none, or more than one). */
+export function repoFor(project, workspaces) {
+  const found = repoChoices(workspaces).filter((r) => baseName(r.repo) === project)
+  if (found.length === 0) return { reason: NO_REPO }
+  if (found.length > 1) return { reason: AMBIGUOUS }
+  return found[0]
+}
+
+/** The fixed first prompt; a title too long for the 100 000-byte limit is cut by whole characters. */
+export function promptFor(id, title) {
+  const head = `Work on task ${id}: `
+  const tail = `. Follow this project's workflow; its guide is tasks/TASK_GUIDE_${id}.md if that file exists.`
+  const room = MAX_BYTES - byteLength(head) - byteLength(tail)
+  let chars = Array.from(title)
+  while (byteLength(chars.join('')) > room) chars = chars.slice(0, Math.floor(chars.length * 0.9))
+  return head + chars.join('') + tail
+}
 
 /** Every board task with the project it belongs to; the key is project position + id, so the same id in two projects stays two cards. */
 function flatten(projects) {
@@ -66,7 +95,46 @@ function summarize(listed, now) {
   return `${plural(listed.length, 'project')} with a board · ${fmt(synced.length)} synced${pull}`
 }
 
-function Card({ task, showProject }) {
+function RunButton({ task, title, run, onStarted }) {
+  const notify = useNotify()
+  const [busy, setBusy] = useState(false)
+  const open = useRef(false) // one request at a time: a second click while one is out is dropped
+  const target = repoFor(task.project, run.workspaces)
+  const off = !run.agentRun.enabled
+  const start = async () => {
+    if (open.current || off || target.reason) return
+    open.current = true
+    setBusy(true)
+    try {
+      const answer = await startAppSession({
+        repo: target.repo,
+        workspace: target.workspace,
+        account: null,
+        model: 'default',
+        effort: 'default',
+        mode: 'default', // a one-click start never skips the permission prompts
+        prompt: promptFor(task.id, title),
+        worktree: false,
+      })
+      onStarted?.(answer.id)
+    } catch (e) {
+      notify('error', e.status && e.message ? e.message : FAILED)
+    } finally {
+      open.current = false
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="board-run">
+      <button type="button" aria-label={`Run ${task.id}`} aria-describedby={off ? 'board-run-off' : undefined} disabled={busy || off || Boolean(target.reason)} onClick={start}>
+        {busy ? 'Starting…' : 'Run'}
+      </button>
+      {target.reason && <span className="muted board-reason">{target.reason}</span>}
+    </div>
+  )
+}
+
+function Card({ task, showProject, run, onStarted }) {
   const id = `board-${task.pi}-${task.id}`
   const title = plain(task.title)
   return (
@@ -83,12 +151,13 @@ function Card({ task, showProject }) {
             {task.board && <span className="chip board-kind">{task.board}</span>}
           </p>
         )}
+        {run && RUNNABLE.includes(task.status) && <RunButton task={task} title={title} run={run} onStarted={onStarted} />}
       </article>
     </li>
   )
 }
 
-function Column({ status, tasks, showProject }) {
+function Column({ status, tasks, showProject, run, onStarted }) {
   const [open, setOpen] = useState(false)
   const [all, setAll] = useState(false)
   const collapsible = status === COLLAPSED
@@ -109,7 +178,7 @@ function Column({ status, tasks, showProject }) {
       </h2>
       <ul className="board-cards">
         {shown.map((t) => (
-          <Card key={`${t.pi}/${t.id}`} task={t} showProject={showProject} />
+          <Card key={`${t.pi}/${t.id}`} task={t} showProject={showProject} run={run} onStarted={onStarted} />
         ))}
       </ul>
       {collapsible && open && !all && tasks.length > PREVIEW && (
@@ -142,7 +211,7 @@ function Unlisted({ projects }) {
   )
 }
 
-function Board({ projects, gone }) {
+function Board({ projects, gone, run, onStarted, onOpenSettings }) {
   const [picked, setPicked] = useState(null)
   const now = Date.now()
   const listed = listBoards([...projects])
@@ -184,11 +253,21 @@ function Board({ projects, gone }) {
       <Unlisted projects={unlisted} />
       {gone > 0 && <p className="muted">{`${plural(gone, 'gone folder')} hidden`}</p>}
       {abstained > 0 && <p className="muted">{`${plural(abstained, 'row')} could not be read (unknown section or no task id).`}</p>}
+      {listed.length > 0 && run && !run.agentRun.enabled && (
+        <p className="muted board-off" id="board-run-off">
+          {OFF}{' '}
+          {onOpenSettings && (
+            <button type="button" className="link-button" onClick={onOpenSettings}>
+              Open Settings
+            </button>
+          )}
+        </p>
+      )}
       {listed.length > 0 && (
         <div className="board-scroll">
           <div className="board-columns">
             {COLUMNS.map((status) => (
-              <Column key={status} status={status} tasks={tasks.filter((t) => t.status === status)} showProject={everyone} />
+              <Column key={status} status={status} tasks={tasks.filter((t) => t.status === status)} showProject={everyone} run={run} onStarted={onStarted} />
             ))}
           </div>
         </div>
@@ -197,7 +276,10 @@ function Board({ projects, gone }) {
   )
 }
 
-export default function BoardView({ scope = NO_SCOPE }) {
+/** `onOpenAppSession(id)` opens Live on a session just started; `onOpenSettings()` is the link of the "app sessions are off" line. */
+export default function BoardView({ scope = NO_SCOPE, onOpenAppSession, onOpenSettings }) {
+  const runState = useLoad(loadRun, [])
+  const run = runState.status === 'ready' ? runState.data : null
   const state = useLoad(() => load(scope), [scope.workspace, scope.account])
   return (
     <main className="board">
@@ -209,7 +291,7 @@ export default function BoardView({ scope = NO_SCOPE }) {
         </p>
       )}
       {state.status === 'ready' &&
-        (state.data.projects.length === 0 ? <p className="muted">No projects with usage on this machine.</p> : <Board key={`${scope.workspace}/${scope.account}`} projects={state.data.projects} gone={Number(state.data.gone) || 0} />)}
+        (state.data.projects.length === 0 ? <p className="muted">No projects with usage on this machine.</p> : <Board key={`${scope.workspace}/${scope.account}`} projects={state.data.projects} gone={Number(state.data.gone) || 0} run={run} onStarted={onOpenAppSession} onOpenSettings={onOpenSettings} />)}
     </main>
   )
 }

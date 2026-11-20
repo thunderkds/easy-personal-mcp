@@ -544,6 +544,11 @@ main .board-column { padding: var(--space-3); border: 1px solid var(--color-bord
 .board-unlisted { display: flex; flex-direction: column; gap: var(--space-2); }
 .board-unlisted .board-toggle { align-self: flex-start; color: var(--color-link); text-decoration: underline; }
 .board-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.board-run { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); } /* T131: Run and, beside it, why it cannot */
+.board-reason { font-size: var(--fs-note); }
+.board-off .link-button { display: inline; min-height: 0; padding: 0; font-size: inherit; } /* the same inline link as in Settings */
+.board-off .link-button:hover { background: none; }
+@media (max-width: 39.999rem) { .board-off .link-button { display: inline-block; padding: 13px 0; margin: -13px 0; } } /* a 44 px tap area, the line does not grow */
 .board-kind { text-transform: lowercase; }
 main .board-toggle { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .board-column .board-toggle { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid var(--color-control); border-radius: var(--radius-sm); } /* T121 F16: looks like what it is, a button that opens */
