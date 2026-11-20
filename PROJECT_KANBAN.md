@@ -12,9 +12,9 @@
 
 ### In Progress
 - [ ] **T130** — Terminal in the app 0 — spike: the real claude in a PTY, drawn by xterm.js | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T130.md`; owner idea 2026-11-20 ("go with both"); reverses DDR-0006 cut item only after spike + DDR; started 2026-11-20: worktree `easy-personal-mcp-wt/T130`, branch `T130` from `main`
-- [ ] **T129** — Bug: an app session started from Live shows nothing and cannot be worked with | backend-developer | C2 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T129.md`; bugfix, mental model confirmed by owner 2026-11-20; started 2026-11-20: worktree `easy-personal-mcp-wt/T129`, branch `T129` from `main`
 
 ### Ready for Review
+- [ ] **T129** — Bug: an app session started from Live shows nothing and cannot be worked with | backend-developer | C2 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T129.md`; bugfix, mental model confirmed by owner 2026-11-20; started 2026-11-20: worktree `easy-personal-mcp-wt/T129`, branch `T129` from `main`; diagnosed (ca1175f): route entries keyed type, page read kind — every conversation view blank since T118; fixed (f40eb18, a0a0209); Stage 4: code-review 0 P0/P1, Debate 3 Advocates, security no finding >= 8; vitest 1513, Rust 1364 + 1 load flake
 
 ### Done
 - [x] **T125** — Live like Claude 2b — sub-agent logs in the panel | frontend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T125.md`; FR-130; Depends on T124; started 2026-11-20: worktree `easy-personal-mcp-wt/T125`, branch `T125` from `main` (`e39d05f`, T124 merged); built (`ef0fb56`) + Stage 4: code-review 1 P1 (owner publish bug) + 2 P2 fixed (`b424dbc`), focus race fixed (`9f616f6`); Debate 2 Advocates agreed (Path A, client-side nesting); security-review no finding >= 8; vitest 1508/1508; auto verify pass; merged to main 2026-11-20 (03a15e1, [admin]); main vitest 1508/1508
