@@ -52,6 +52,7 @@ Mode: auto
 Checks: tests `npm test` — 46 files, 1508/1508 in the T130 worktree (docs-only diff); reviews code-review — docs only, 0 P0/P1, 1 P2 owner note (spike traces in the account); security-review — no finding >= 8; real run spike bin + xterm page in the scratchpad — 7 of 7 questions GO (tasks/evidence-T130/SPIKE.md § Answers); `ps -eo pid,comm,args | awk '$2=="claude"' | grep -i scratch` — printed nothing (the guide's `pgrep -af claude | grep -c scratchpad` printed `7`: all 7 were this session's own tool shells, whose command line holds the scratchpad path; none was a spike `claude`, PTY or bridge process)
 Memory: nothing new (learning written after the owner decides on the build)
 Not done: merge (yours); owner answers to tasks/evidence-T130/SPIKE.md § Open questions, then a DDR; auto verify: <result>
+Paused: done not moved — Gate 5: the tests row is not `☑ pass` with pasted output; report incomplete: auto verify slot
 
 ## Evidence
 
@@ -60,7 +61,7 @@ Not done: merge (yours); owner answers to tasks/evidence-T130/SPIKE.md § Open q
 | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ N/A | spike: no app code or tests; the 7 questions are answered in `tasks/evidence-T130/SPIKE.md` |
 | Verification command run | ☑ pass | the guide's command printed `8` (count of GO in SPIKE.md) and `8` for the pgrep count; those 8 are only `zsh` shell wrappers whose command line holds the word claude and the scratchpad path, checked one by one through `/proc/<pid>/cmdline`: no bridge, no `claude` in the scratch repo, no `--resume`, no Chrome profile process (2026-11-20, after 04:12Z) |
 | Negative cases hold | ☑ pass | guard cases run against the bridge at 04:03Z: evil Origin 403, rebinding Host 403, wrong token closed with no data, no token 401 (SPIKE.md, routes table) |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
+| verify | ☑ pass | auto-run by hook, session 3b594ef9-5aaa-4861-a9b0-bad95304a6c9, commit 91d8269173e94e7df3aa966de2ffba591814cc45, log .claude/verify-runs/T130-91d8269173e9.log, skip (no runtime surface: tasks/TASK_REVIEW_T130.md, tasks/evidence-T130/SPIKE.md) — pass; done not moved: Gate 5: the tests row is not `☑ pass` with pasted output |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | the only repo change is `tasks/evidence-T130/SPIKE.md` (+ this file); `rust/**`, `web/**`, `src/**` untouched; no `~/.claude*` file read or written by the spike itself (only `claude`'s own writes into the account's folders, listed in SPIKE.md Risks) |
 | Full smoke suite still green (no regression) | ☑ N/A | no app code changed |
 | **Companion score (easy-verifier)** | ☑ N/A | docs/evidence-only spike, no code diff to score |
