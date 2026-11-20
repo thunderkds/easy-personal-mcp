@@ -12,7 +12,7 @@
 //!   (an `after` poll that starts after the call, or a *Load earlier* page that ends before the result) comes as a
 //!   `tool` with the same `id`, `orphan: true`, `name`, `label` and `input` `null`: the page merges by `id`;
 //! - `skipped` `{count}`: one entry for a run of other or unknown records (summary, system, attachment, a line that is not
-//!   JSON, a sub-agent record, an `isMeta` record that is not a hook reply). Never an error.
+//!   JSON, a sub-agent record of the main file, an `isMeta` record that is not a hook reply). Never an error.
 //!
 //! Every text is cut at [`TEXT_MAX_CHARS`] characters (`cut: true`), while it is built (a 5 MB tool input is never
 //! pretty-printed whole); hidden and control characters are visible escapes (`live::clean_block`, the FR-115 rule); nothing
@@ -27,7 +27,7 @@ use crate::ingest::json::Value as Raw;
 use crate::live::{self, Next, call_label, clean_block, next_line};
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 pub const TEXT_MAX_CHARS: usize = 16_000;
@@ -218,12 +218,13 @@ fn input_cap(name: &str, input: &Value) -> Cap {
 }
 
 /// The changes one line makes. `offset` is where the line starts.
-fn ops(offset: u64, line: &[u8]) -> Vec<Op> {
+fn ops(offset: u64, line: &[u8], sidechain: bool) -> Vec<Op> {
     let Ok(record) = serde_json::from_slice::<Value>(line) else {
         return vec![Op::Skip];
     };
     let (kind, content) = (record["type"].as_str(), &record["message"]["content"]);
-    if record["isSidechain"] == true || !matches!(kind, Some("user" | "assistant")) {
+    if (record["isSidechain"] == true && !sidechain) || !matches!(kind, Some("user" | "assistant"))
+    {
         return vec![Op::Skip];
     }
     let user = kind == Some("user");
@@ -360,7 +361,11 @@ impl Forward {
 }
 
 /// `After`: reads forward from `start` until the end or a cap (the record that would pass a cap starts the next page).
-fn read_after<R: BufRead + Seek>(reader: &mut R, start: u64) -> Result<Page, Error> {
+fn read_after<R: BufRead + Seek>(
+    reader: &mut R,
+    start: u64,
+    sidechain: bool,
+) -> Result<Page, Error> {
     reader
         .seek(SeekFrom::Start(start))
         .map_err(|_| Error::Unreadable)?;
@@ -372,7 +377,7 @@ fn read_after<R: BufRead + Seek>(reader: &mut R, start: u64) -> Result<Page, Err
             Next::Skipped(_) => return Err(Error::Unreadable),
             Next::End => break,
         };
-        let mut todo = ops(at, &line);
+        let mut todo = ops(at, &line, sidechain);
         fit_alone(&mut todo);
         let pending = usize::from(f.skipped.is_some());
         let held = f.entries.len() + pending;
@@ -553,7 +558,7 @@ impl Reverse {
 }
 
 /// `Before` and the first view: a byte scan for the line starts below `to`, then a newest-first parse until a cap.
-fn read_before<R: BufRead + Seek>(reader: &mut R, to: u64) -> Result<Page, Error> {
+fn read_before<R: BufRead + Seek>(reader: &mut R, to: u64, sidechain: bool) -> Result<Page, Error> {
     let (starts, next) = line_starts(reader, to)?;
     let mut rev = Reverse::default();
     let mut complete = true;
@@ -564,7 +569,7 @@ fn read_before<R: BufRead + Seek>(reader: &mut R, to: u64) -> Result<Page, Error
         let Next::Line(line) = next_line(reader).map_err(|_| Error::Unreadable)? else {
             return Err(Error::Unreadable); // the file shrank or changed under the read
         };
-        let mut todo = ops(at, &line);
+        let mut todo = ops(at, &line, sidechain);
         fit_alone(&mut todo);
         if rev.full(&todo) {
             complete = false;
@@ -584,25 +589,135 @@ fn read_before<R: BufRead + Seek>(reader: &mut R, to: u64) -> Result<Page, Error
 
 /// Answers `window` from `reader`, a transcript positioned anywhere (it is rewound). A line over the bound or a failed read
 /// is [`Error::Unreadable`]; a last line without its newline is not complete and is left for the next poll. An `After`
-/// that starts inside a line reads that line's tail as one skipped record.
-pub fn parse<R: BufRead + Seek>(reader: &mut R, window: Window) -> Result<Page, Error> {
+/// that starts inside a line reads that line's tail as one skipped record. `sidechain`: keep the `isSidechain` records (a
+/// sub-agent's own file, FR-129); the main file passes `false` and still drops them.
+pub fn parse<R: BufRead + Seek>(
+    reader: &mut R,
+    window: Window,
+    sidechain: bool,
+) -> Result<Page, Error> {
     let len = reader
         .seek(SeekFrom::End(0))
         .map_err(|_| Error::Unreadable)?;
     match window {
-        Window::After(n) if n <= len => read_after(reader, n),
+        Window::After(n) if n <= len => read_after(reader, n, sidechain),
         // the file is not the one the page followed: its first view again
-        Window::After(_) => read_before(reader, u64::MAX),
-        Window::Before(to) => read_before(reader, to),
+        Window::After(_) => read_before(reader, u64::MAX, sidechain),
+        Window::Before(to) => read_before(reader, to, sidechain),
     }
 }
 
 /// Opens the file with the live tail's rules (no symlink at the end, no blocking, a regular file judged on the open
 /// handle) and answers `window`. A file that is gone, unreadable, not regular or has an oversized line is
-/// [`Error::Unreadable`]. The file is read anew by every call: nothing is kept between calls.
-pub fn read(path: &Path, window: Window) -> Result<Page, Error> {
+/// [`Error::Unreadable`]. The file is read anew by every call: nothing is kept between calls. `sidechain` as in [`parse`].
+pub fn read(path: &Path, window: Window, sidechain: bool) -> Result<Page, Error> {
     let (file, _) = live::open_regular(path).ok_or(Error::Unreadable)?;
-    parse(&mut BufReader::new(file), window)
+    parse(&mut BufReader::new(file), window, sidechain)
+}
+
+/// FR-129: the most sub-agent streams one listing names, newest first.
+pub const AGENTS_MAX: usize = 200;
+/// A sub-agent's meta file is read only up to this size (the listing is the one place `*.meta.json` is read here).
+const AGENT_META_MAX_BYTES: u64 = 64 * 1024;
+
+/// FR-129: an agent id as the route and the listing accept it, `^[A-Za-z0-9]{1,64}$`.
+pub fn valid_agent_id(id: &str) -> bool {
+    (1..=64).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric())
+}
+
+/// `^[A-Za-z0-9_]{1,128}$`: the id of the `Agent` call that started a stream (`toolUseId` of its meta).
+fn valid_call_id(id: &[u8]) -> bool {
+    (1..=128).contains(&id.len()) && id.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
+/// What the meta file of one stream gives: `agentType` (FR-081 pattern, else "sub-agent"), `toolUseId`, `spawnDepth`,
+/// `finished`. **No other field is taken** (`description` is never read, FR-082); a missing, oversized, hostile or
+/// invalid meta gives the defaults.
+fn agent_meta(stream: &Path) -> (String, Option<String>, Option<i64>, bool) {
+    let none = (live::SUB_AGENT.to_owned(), None, None, false);
+    let (Some(stem), Some(dir)) = (stream.file_stem(), stream.parent()) else {
+        return none;
+    };
+    let mut name = stem.to_os_string();
+    name.push(".meta.json");
+    let Some((file, info)) = live::open_regular(&dir.join(name)) else {
+        return none;
+    };
+    if info.len() > AGENT_META_MAX_BYTES {
+        return none;
+    }
+    let mut raw = Vec::new();
+    if file
+        .take(AGENT_META_MAX_BYTES + 1)
+        .read_to_end(&mut raw)
+        .is_err()
+        || raw.len() as u64 > AGENT_META_MAX_BYTES
+    {
+        return none;
+    }
+    let Some(data) = crate::ingest::json::loads(&raw).filter(Raw::is_dict) else {
+        return none;
+    };
+    let call = data
+        .get("toolUseId")
+        .as_str()
+        .filter(|s| valid_call_id(s))
+        .map(|s| String::from_utf8_lossy(s).into_owned());
+    let depth = match data.get("spawnDepth") {
+        Raw::Int(n) => Some(*n),
+        _ => None,
+    };
+    let kind = live::safe(data.get("agentType")).unwrap_or_else(|| live::SUB_AGENT.to_owned());
+    (kind, call, depth, data.get("finished").is_true())
+}
+
+/// The listing of one session's `subagents` folder.
+#[derive(Debug, PartialEq)]
+pub struct Agents {
+    /// The newest [`AGENTS_MAX`] streams, each `{id, type, parent_call, depth, finished, size, modified}`.
+    pub agents: Vec<Value>,
+    /// How many streams the folder holds.
+    pub total: usize,
+}
+
+/// FR-129: the `agent-<id>.jsonl` regular files of `dir` (one level, a symlink or any other name is not listed), newest
+/// first by modification time. A folder that is gone or unreadable lists nothing.
+pub fn list_agents(dir: &Path) -> Agents {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Agents {
+            agents: Vec::new(),
+            total: 0,
+        };
+    };
+    let mut found = Vec::new();
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(id) = name
+            .to_str()
+            .and_then(|n| n.strip_prefix("agent-")?.strip_suffix(".jsonl"))
+            .filter(|id| valid_agent_id(id))
+        else {
+            continue;
+        };
+        let Ok(meta) = entry.metadata() else { continue };
+        if meta.file_type().is_symlink() || !meta.is_file() {
+            continue;
+        }
+        let modified = meta.modified().ok();
+        found.push((modified, id.to_owned(), meta.len(), entry.path()));
+    }
+    found.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    let total = found.len();
+    let agents = found
+        .into_iter()
+        .take(AGENTS_MAX)
+        .map(|(modified, id, size, path)| {
+            let (kind, call, depth, finished) = agent_meta(&path);
+            json!({"id": id, "type": kind, "parent_call": call, "depth": depth, "finished": finished,
+                   "size": size, "modified": modified.and_then(crate::kit::file_time).map(|t| t.1)})
+        })
+        .collect();
+    Agents { agents, total }
 }
 
 #[cfg(test)]
@@ -611,7 +726,7 @@ mod tests {
     use std::io::Cursor;
 
     fn page(text: &str, window: Window) -> Page {
-        parse(&mut Cursor::new(text.as_bytes().to_vec()), window).unwrap()
+        parse(&mut Cursor::new(text.as_bytes().to_vec()), window, false).unwrap()
     }
 
     fn types(p: &Page) -> Vec<String> {
@@ -845,7 +960,10 @@ mod tests {
     fn a_line_over_the_bound_is_unreadable() {
         let mut huge = Cursor::new(vec![b'x'; live::MAX_LINE_BYTES + 10]);
         huge.get_mut().push(b'\n');
-        assert_eq!(parse(&mut huge, Window::After(0)), Err(Error::Unreadable));
+        assert_eq!(
+            parse(&mut huge, Window::After(0), false),
+            Err(Error::Unreadable)
+        );
     }
 
     fn body(p: &Page) -> usize {
@@ -1003,6 +1121,210 @@ mod tests {
         assert_eq!(
             forward.entries[..first.entries.len().min(forward.entries.len())],
             first.entries[..first.entries.len().min(forward.entries.len())]
+        );
+    }
+
+    fn side(text: &str) -> String {
+        format!(
+            "{}\n",
+            json!({"type":"assistant","isSidechain":true,"agentId":"a1","message":{"content":[{"type":"text","text":text}]}})
+        )
+    }
+
+    #[test]
+    fn the_sidechain_flag_keeps_a_sub_agents_records_and_the_main_file_still_drops_them() {
+        let text = [user("p"), side("inside"), assistant_text("after")].concat();
+        let kept = parse(
+            &mut Cursor::new(text.as_bytes().to_vec()),
+            Window::Before(u64::MAX),
+            true,
+        )
+        .unwrap();
+        assert_eq!(types(&kept), ["user", "assistant", "assistant"]);
+        assert_eq!(kept.entries[1]["text"], "inside");
+        let main = page(&text, Window::Before(u64::MAX));
+        assert_eq!(types(&main), ["user", "skipped", "assistant"]);
+        // the forward read keeps them the same way
+        let forward = parse(
+            &mut Cursor::new(text.as_bytes().to_vec()),
+            Window::After(0),
+            true,
+        )
+        .unwrap();
+        assert_eq!(forward.entries, kept.entries);
+    }
+
+    #[test]
+    fn an_agent_id_is_letters_and_digits_up_to_64() {
+        for good in ["a1addd7ec56e8f010", "A", &"x".repeat(64)] {
+            assert!(valid_agent_id(good), "{good}");
+        }
+        for bad in [
+            "",
+            "..",
+            "a/b",
+            "a.b",
+            "a-b",
+            "a b",
+            "a\0",
+            "é",
+            &"x".repeat(65),
+        ] {
+            assert!(!valid_agent_id(bad), "{bad:?}");
+        }
+    }
+
+    struct Dir(std::path::PathBuf);
+
+    impl Dir {
+        fn new() -> Dir {
+            static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            let dir = std::env::temp_dir().join(format!(
+                "easy-personal-rs-t124-{}-{}",
+                std::process::id(),
+                N.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            ));
+            std::fs::create_dir_all(&dir).unwrap();
+            Dir(dir)
+        }
+    }
+
+    impl Drop for Dir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn put(dir: &Dir, name: &str, text: &str) {
+        std::fs::write(dir.0.join(name), text).unwrap();
+    }
+
+    #[test]
+    fn the_listing_reads_four_meta_fields_and_never_the_description() {
+        let dir = Dir::new();
+        put(&dir, "agent-aaa1.jsonl", "{}\n");
+        put(
+            &dir,
+            "agent-aaa1.meta.json",
+            &json!({"agentType":"Explore","description":"SECRET-DESC","toolUseId":"toolu_01AbC","spawnDepth":2,
+                    "finished":true,"model":"m","worktreePath":"/w"})
+            .to_string(),
+        );
+        let listing = list_agents(&dir.0);
+        assert_eq!(listing.total, 1);
+        let a = &listing.agents[0];
+        assert_eq!(
+            (
+                &a["id"],
+                &a["type"],
+                &a["parent_call"],
+                &a["depth"],
+                &a["finished"]
+            ),
+            (
+                &json!("aaa1"),
+                &json!("Explore"),
+                &json!("toolu_01AbC"),
+                &json!(2),
+                &json!(true)
+            )
+        );
+        assert_eq!(a["size"], 3);
+        assert!(a["modified"].as_str().is_some_and(|m| m.ends_with('Z')));
+        let mut keys: Vec<&String> = a.as_object().unwrap().keys().collect();
+        keys.sort();
+        assert_eq!(
+            keys,
+            [
+                "depth",
+                "finished",
+                "id",
+                "modified",
+                "parent_call",
+                "size",
+                "type"
+            ]
+        );
+        assert!(!json!(listing.agents).to_string().contains("SECRET-DESC"));
+    }
+
+    #[test]
+    fn a_missing_oversized_or_invalid_meta_gives_the_defaults() {
+        let dir = Dir::new();
+        for id in ["none", "big", "bad", "arr", "odd"] {
+            put(&dir, &format!("agent-{id}.jsonl"), "x\n");
+        }
+        put(
+            &dir,
+            "agent-big.meta.json",
+            &format!(
+                "{{\"agentType\":\"Plan\",\"pad\":\"{}\"}}",
+                "x".repeat(70_000)
+            ),
+        );
+        put(&dir, "agent-bad.meta.json", "not json");
+        put(&dir, "agent-arr.meta.json", "[1]");
+        put(
+            &dir,
+            "agent-odd.meta.json",
+            &json!({"agentType":"has space","toolUseId":"bad id!","spawnDepth":"2","finished":"yes"}).to_string(),
+        );
+        let listing = list_agents(&dir.0);
+        assert_eq!(listing.total, 5);
+        for a in &listing.agents {
+            assert_eq!(
+                (&a["type"], &a["parent_call"], &a["depth"], &a["finished"]),
+                (
+                    &json!("sub-agent"),
+                    &Value::Null,
+                    &Value::Null,
+                    &json!(false)
+                ),
+                "{a}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_listing_names_only_regular_agent_files_newest_first_at_most_200() {
+        let dir = Dir::new();
+        put(&dir, "agent-old.jsonl", "x\n");
+        put(&dir, "agent-new.jsonl", "x\n");
+        let old = std::fs::File::options()
+            .write(true)
+            .open(dir.0.join("agent-old.jsonl"))
+            .unwrap();
+        old.set_modified(std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000))
+            .unwrap();
+        put(&dir, "notes.txt", "x");
+        put(&dir, "agent-x.txt", "x");
+        put(&dir, "agent-.jsonl", "x");
+        put(&dir, "agent-a-b.jsonl", "x");
+        put(&dir, "agent-new.meta.json", "{}");
+        std::os::unix::fs::symlink(
+            dir.0.join("agent-new.jsonl"),
+            dir.0.join("agent-link.jsonl"),
+        )
+        .unwrap();
+        std::fs::create_dir(dir.0.join("agent-dir.jsonl")).unwrap();
+        let ids: Vec<Value> = list_agents(&dir.0)
+            .agents
+            .iter()
+            .map(|a| a["id"].clone())
+            .collect();
+        assert_eq!(ids, [json!("new"), json!("old")]);
+        for i in 0..210 {
+            put(&dir, &format!("agent-n{i:03}.jsonl"), "x\n");
+        }
+        let listing = list_agents(&dir.0);
+        assert_eq!((listing.agents.len(), listing.total), (AGENTS_MAX, 212));
+        // a folder that is not there lists nothing, never an error
+        assert_eq!(
+            list_agents(&dir.0.join("gone")),
+            Agents {
+                agents: Vec::new(),
+                total: 0
+            }
         );
     }
 }

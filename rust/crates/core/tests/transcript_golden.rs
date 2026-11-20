@@ -13,7 +13,7 @@ fn dir() -> PathBuf {
 
 fn answer(window: Window) -> Value {
     let bytes = std::fs::read(dir().join("session.jsonl")).unwrap();
-    let page = parse(&mut Cursor::new(bytes), window).unwrap();
+    let page = parse(&mut Cursor::new(bytes), window, false).unwrap();
     json!({"entries": page.entries, "next": page.next, "start": page.start, "complete": page.complete})
 }
 
@@ -59,4 +59,43 @@ fn the_first_view_is_the_whole_file_and_a_later_poll_gets_orphans() {
         (&orphan["orphan"], &orphan["name"], &orphan["result"]),
         (&json!(true), &Value::Null, &json!("<output>\nline two"))
     );
+}
+
+fn agent_answer(window: Window, sidechain: bool) -> Value {
+    let bytes = std::fs::read(dir().join("agent.jsonl")).unwrap();
+    let page = parse(&mut Cursor::new(bytes), window, sidechain).unwrap();
+    json!({"entries": page.entries, "next": page.next, "start": page.start, "complete": page.complete})
+}
+
+/// FR-129: a sub-agent's own file (every record `isSidechain: true`, an `agentId`, a nested `Agent` call) read with the
+/// flag gives its entries; the same bytes read as a main file give nothing but one skipped run.
+#[test]
+fn a_sub_agent_file_gives_the_golden_entries_and_the_main_flag_still_drops_its_records() {
+    let got = agent_answer(Window::Before(u64::MAX), true);
+    let path = dir().join("agent.golden.json");
+    if std::env::var_os("BLESS_TRANSCRIPT").is_some() {
+        std::fs::write(&path, serde_json::to_string_pretty(&got).unwrap() + "\n").unwrap();
+    }
+    let want: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(got, want);
+    assert_eq!(agent_answer(Window::After(0), true), got);
+    let nested = got["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "toolu_a02")
+        .unwrap();
+    assert_eq!(
+        (&nested["name"], &nested["result"], &nested["is_error"]),
+        (&json!("Agent"), &json!("<nested answer>"), &json!(false))
+    );
+    let dropped = agent_answer(Window::Before(u64::MAX), false);
+    let kinds: Vec<&str> = dropped["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["type"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, ["skipped"]);
+    assert_eq!(dropped["entries"][0]["count"], 8);
 }

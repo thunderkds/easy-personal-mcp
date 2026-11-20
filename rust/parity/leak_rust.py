@@ -112,8 +112,20 @@ TRANSCRIPT_PATTERNS = {
     "transcript_secret": "sk-ant-TCANARY{t}",  # in a tool's output: shown unredacted on the route (owner choice: parity), nowhere else
     "transcript_reply": "LEAKCANARY transcript reply {t}",
     "transcript_past": "LEAKCANARY transcript past {t}",
+    # T124 (FR-129, DDR-0008): a sub-agent's own file. Its strings may appear on the guarded `?agent=` answer only (not on the main
+    # answer, not on the `/agents` list); the meta file's `description` on no surface at all (FR-082: never read).
+    "transcript_agent_text": "LEAKCANARY transcript agent text {t}",
+    "transcript_agent_input": "LEAKCANARY transcript agent input {t}",
+    "transcript_agent_result": "LEAKCANARY transcript agent result {t}",
+    "transcript_agent_secret": "sk-ant-ACANARY{t}",
+    "transcript_agent_description": "LEAKCANARY transcript agent description {t}",
 }
-TRANSCRIPT_SHOWN = [n for n in TRANSCRIPT_PATTERNS if n not in ("transcript_thinking", "transcript_past")]  # on the live session's answer
+TRANSCRIPT_AGENT = [n for n in TRANSCRIPT_PATTERNS if n.startswith("transcript_agent_")]
+TRANSCRIPT_NOWHERE = ("transcript_thinking", "transcript_agent_description")  # not on the guarded answers either
+TRANSCRIPT_AGENT_SHOWN = [n for n in TRANSCRIPT_AGENT if n != "transcript_agent_description"]  # on the agent's answer
+TRANSCRIPT_SHOWN = [n for n in TRANSCRIPT_PATTERNS if n not in ("transcript_thinking", "transcript_past", *TRANSCRIPT_AGENT)]  # on the live session's answer
+TRANSCRIPT_AGENT_ID = "a1addd7ec56e8f010"
+TRANSCRIPT_AGENT_CALL = "toolu_t124_parent"
 TRANSCRIPT_LIVE_ID = "00000000-0000-4000-8000-0000000000c1"
 TRANSCRIPT_PAST_ID = "00000000-0000-4000-8000-0000000000c2"
 TRANSCRIPT_ALERTS_ID = "00000000-0000-4000-8000-0000000000c3"
@@ -200,7 +212,8 @@ API_CALLS: dict[str, list[str]] = {
     "/api/dirs": ["", "?path=%2F", "?path=%2Fproc%2Fself", "?path=%2Fdev", "?path=relative", "?path=%00", "?path=%2Ftmp%2F..%2Ftmp%2F"],
     "/api/jobs": [""],
     "/api/store/health": [""],  # T059: also over a store planted with canaries, in `store_check`
-    "/api/live/sessions/{id}/transcript": ["", "?after=x", "?before=x", "?after=1&before=2"],  # T115: asked literally (an id that is no id: the 404); the real ones are in `serve`
+    "/api/live/sessions/{id}/transcript": ["", "?after=x", "?before=x", "?after=1&before=2", "?agent=x", "?agent=..%2Fx", "?agent="],  # T115, T124: asked literally (an id that is no id: the 404); the real ones are in `serve`
+    "/api/live/sessions/{id}/agents": [""],  # T124 (FR-129): likewise; the real one is in `transcripts`
     "/api/live": [],  # a stream that never ends: read bounded by `live_first` (the first message, then close), T056
     "/api/machine": [""],  # T072: the in-memory machine status history; no store, no path
     "/api/effectiveness": ["", "?since=2026-01-01", "?workspace=acme", "?account=1", "?account=nope", "?since=garbage"],  # T075
@@ -266,6 +279,13 @@ GUARD_CALLS = [
     ("transcript wrong host", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {"Host": "localhost:1"}),
     ("transcript foreign origin", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {"Origin": "http://evil.invalid"}),
     ("transcript write method", "POST", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript", {}),
+    ("transcript agent no token", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript?agent={TRANSCRIPT_AGENT_ID}", {"x-dashboard-token": None}),  # T124
+    ("transcript agent wrong host", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/transcript?agent={TRANSCRIPT_AGENT_ID}", {"Host": "localhost:1"}),
+    ("agents no token", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/agents", {"x-dashboard-token": None}),
+    ("agents wrong token", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/agents", {"x-dashboard-token": "wrong"}),
+    ("agents wrong host", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/agents", {"Host": "localhost:1"}),
+    ("agents foreign origin", "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/agents", {"Origin": "http://evil.invalid"}),
+    ("agents write method", "POST", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/agents", {}),
     ("report id", "GET", "/api/reports/1", {}),
     ("report id too long", "GET", "/api/reports/1000000000000000000", {}),
     ("report write method", "DELETE", "/api/reports/1", {}),
@@ -856,6 +876,31 @@ def plant_transcripts(t: Canaries, projects: Path) -> None:
         transcript_lines(t, TRANSCRIPT_LIVE_ID, "/work/transcript", now - datetime.timedelta(minutes=2, seconds=30), True))
     (folder / f"{TRANSCRIPT_PAST_ID}.jsonl").write_text(
         transcript_lines(t, TRANSCRIPT_PAST_ID, "/work/transcript", now - datetime.timedelta(days=3), False))
+    plant_agent(t, folder / TRANSCRIPT_LIVE_ID / "subagents", now - datetime.timedelta(minutes=2))  # T124
+
+
+def plant_agent(t: Canaries, folder: Path, start: datetime.datetime) -> None:
+    """T124 (FR-129): a sub-agent of the live transcript session as Claude Code 2.1.328 writes it: `subagents/agent-<id>.jsonl`
+    (every record `isSidechain`, with an `agentId`) and `agent-<id>.meta.json` whose `description` holds a planted string that must
+    never be read. Its one tool call has its result, so no waiting or failing alert follows; no record has `usage`."""
+    v, n = t.values, [0]
+    folder.mkdir(parents=True)
+
+    def line(kind: str, content) -> str:
+        n[0] += 1
+        when = (start + datetime.timedelta(seconds=n[0])).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        return json.dumps({"isSidechain": True, "agentId": TRANSCRIPT_AGENT_ID, "entrypoint": "cli", "cwd": "/work/transcript",
+                           "sessionId": TRANSCRIPT_LIVE_ID, "version": "2.1.328", "timestamp": when, "type": kind,
+                           "message": {"role": kind, "content": content}}) + "\n"  # fmt: skip
+
+    (folder / f"agent-{TRANSCRIPT_AGENT_ID}.jsonl").write_text("".join([
+        line("user", v["transcript_agent_text"] + " prompt"),
+        line("assistant", [{"type": "tool_use", "id": "toolu_t124_1", "name": "Bash", "input": {"command": f'echo "{v["transcript_agent_input"]}"'}}]),
+        line("user", [{"type": "tool_result", "tool_use_id": "toolu_t124_1", "content": f'{v["transcript_agent_result"]} {v["transcript_agent_secret"]}'}]),
+    ]))  # fmt: skip
+    (folder / f"agent-{TRANSCRIPT_AGENT_ID}.meta.json").write_text(json.dumps({
+        "agentType": "Explore", "description": v["transcript_agent_description"], "model": "claude-fixture-model-1",
+        "toolUseId": TRANSCRIPT_AGENT_CALL, "spawnDepth": 1, "finished": True, "requestShape": "x", "isBuiltIn": True}))  # fmt: skip
 
 
 def plant(canaries: Canaries, root: Path, q: Canaries, t: Canaries) -> dict[str, Path]:
@@ -1229,6 +1274,7 @@ def transcripts(run: Run, checks: list[str], port: int, token: str) -> None:
             break
         time.sleep(0.25)
     run.add(f"{TRANSCRIPT_OK}live session -> {status}", blob)
+    blob_live = blob if status == 200 else b""
     t, shown = run.t, set()
     if status == 200:
         shown = {name for name, _ in t.find(blob)}
@@ -1250,6 +1296,35 @@ def transcripts(run: Run, checks: list[str], port: int, token: str) -> None:
     run.add(f"{TRANSCRIPT_OK}past session -> {status}", blob)
     found = {name for name, _ in t.find(blob)} if status == 200 else set()
     checks.append(f"check T115 transcript shows the past session's text  {'ok' if found == {'transcript_past'} else 'FAILED'} (status {status}, {sorted(found)})")
+    # T124 (FR-129): the main answer holds no sub-agent string (its sidechain records are dropped), the list names the stream
+    # and holds no transcript string, the `?agent=` answer holds the agent's strings and never the meta `description`
+    main_found = {name for name, _ in t.find(blob_live)} if blob_live else set()
+    checks.append(f"check T124 main answer holds no sub-agent string  {'ok' if blob_live and not main_found & set(TRANSCRIPT_AGENT) else 'FAILED'} ({sorted(main_found & set(TRANSCRIPT_AGENT))})")
+    status, blob = request(port, "GET", f"/api/live/sessions/{TRANSCRIPT_LIVE_ID}/agents", base)
+    run.add(f"{TRANSCRIPT_OK}agents list -> {status}", blob)
+    listed = body(blob) if status == 200 else {}
+    want = {"id": TRANSCRIPT_AGENT_ID, "type": "Explore", "parent_call": TRANSCRIPT_AGENT_CALL, "depth": 1, "finished": True}
+    row = (listed.get("agents") or [{}])[0]
+    ok = status == 200 and listed.get("total") == 1 and all(row.get(k) == v for k, v in want.items()) and not t.find(blob)
+    checks.append(f"check T124 agents list names the stream, no transcript text  {'ok' if ok else 'FAILED'} (status {status}, {row})")
+    status, blob = request(port, "GET", route(TRANSCRIPT_LIVE_ID, f"?agent={TRANSCRIPT_AGENT_ID}"), base)
+    run.add(f"{TRANSCRIPT_OK}agent transcript -> {status}", blob)
+    shown = {name for name, _ in t.find(blob)} if status == 200 else set()
+    missing = [n for n in TRANSCRIPT_AGENT_SHOWN if n not in shown]
+    checks.append(f"check T124 agent transcript shows the agent's text  {'ok' if status == 200 and not missing else 'FAILED'} (status {status}, missing {missing})")
+    checks.append(f"check T124 meta description never read  {'ok' if status == 200 and 'transcript_agent_description' not in shown else 'FAILED'}")
+    kinds = [e.get("type") for e in (body(blob) if status == 200 else {}).get("entries", [])]
+    checks.append(f"check T124 agent entries are user, tool  {'ok' if kinds == ['user', 'tool'] else 'FAILED'} ({kinds})")
+    unknown = "00000000-0000-4000-8000-0000000000f9"
+    for label, path, want in (
+        ("agent id with a slash", route(TRANSCRIPT_LIVE_ID, "?agent=a%2Fb"), 404),
+        ("agent id dotdot", route(TRANSCRIPT_LIVE_ID, "?agent=.."), 404),
+        ("agent id with no file", route(TRANSCRIPT_LIVE_ID, "?agent=nofile"), 404),
+        ("agents of an unknown session", f"/api/live/sessions/{unknown}/agents", 404),
+    ):
+        status, blob = request(port, "GET", path, base)
+        run.add(f"api transcript {label} -> {status}", blob)
+        checks.append(f"check T124 transcript {label} is {want}  {'ok' if status == want else 'FAILED'} (status {status})")
     for label, sid, query, headers, want in (
         ("query token", TRANSCRIPT_LIVE_ID, f"?token={token}", {"Host": base["Host"]}, 403),
         ("unknown id", "00000000-0000-4000-8000-0000000000f9", "", base, 404),
@@ -1269,7 +1344,7 @@ def transcript_scan(run: "Run") -> tuple[list[str], list[str]]:
             if label.startswith(TRANSCRIPT_OK):
                 text = as_text(blob)
                 for name, value in run.t.values.items():
-                    if name == "transcript_thinking":
+                    if name in TRANSCRIPT_NOWHERE:
                         for _, form in Canaries({name: value}).find(text):
                             hits.append(f"HIT T115 {name} as {form} in [{label}]: {excerpt(text, name, value, form)}")
                 continue

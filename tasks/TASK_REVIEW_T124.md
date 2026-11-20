@@ -47,29 +47,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 ## Auto decisions
 
 Mode: auto
-1. Sub-agent transcripts shown under the same rules as the main thread (DDR-0007's fifth NFR-002 exception extended, FR-123 caps) — DEBATED: same rules (Advocate 1: same rules, the owner's parity rule and one code path to audit; Advocate 2: a tighter cap inside the fifth exception, conceding the owner already chose same rules; Advocate 3: same rules through one `agent` parameter on the existing route, no new open code) ⚠ decided for you — please review
-2. Meta `description` never read; the listing reads only agentType, toolUseId, spawnDepth, finished — RULE: `PRD.md:181` "(no other meta field is read; `description` never)"
-3. `agent=` on the existing route plus one listing route — RULE: `PRD.md:228` "`GET /api/live/sessions/{id}/agents` (NFR-008 guard) lists the session's sub-agent streams"
-4. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
-Checks: <filled at Stage 4/5>
-Memory: <filled before stop>
-Not done: merge (admin: after the auto verify pass); auto verify: <result>
-
+1. Sub-agent transcripts shown under the same rules as the main thread (extend the fifth NFR-002 exception) — DEBATED: same rules (Advocate 1: same rules, parity; Advocate 2: a narrower sixth exception, conceded its live-only limit; Advocate 3: same rules through one `agent=` parameter); settled by the owner's written rule `memory/owner-wants-parity-not-narrowing.md` ⚠ decided for you — please review
+2. Meta `description` never read; listing reads only agentType, toolUseId, spawnDepth, finished — RULE: PRD.md:228 (FR-129) and docs/ddr/0008-live-subagent-logs-and-steering.md:13
+3. Reuse the existing transcript route with `agent=` plus one listing route (nested and still-running agents need ids before their call has a result) — DEBATED: `?agent=` + listing (Advocate 1: keep it, one guard/parser/caps, listing needed for nested and running agents; Advocate 2: keep it, but T125 must not reuse offsets across files and must treat a missing meta as unknown, and the log line 54 was stale; Advocate 3: keep it, smallest surface, a route family duplicates the guard and leak gate) ⚠ decided for you — please review
+4. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` (with the FR-129 narrowing) — DEBATED: Path A (Advocate 1: Path A, the only path for live, terminal and past sessions; Advocate 2: Path A, B breaks per-file paging, C covers app sessions only; Advocate 3: Path A as narrowed by PRD.md:228) ⚠ decided for you — please review
+5. Stage 4 fixes: stale log lines 29, 54 and the id pattern marked superseded (`6bc268c` + this commit) — RULE: `.claude/skills/code-review/SKILL.md` § Phase 4 — Apply Safe Fixes
+Checks: tests `cargo test --workspace --no-fail-fast` — 1345 passed / 0 failed (Supervisor); reviews code-review — 0 P0/P1, 1 P2 fixed, 1 P3 (T125: call the listing when the panel opens, not every 2 s); security-review — no finding >= 8 (independent opus reviewer); real run leak_rust.py — printed `leak check: 0 hits over 42 canaries, 1328 surfaces` (implementer)
+Memory: memory/decisions.md — 2026-11-20 — T124-T128 Live like Claude 2 resumed and Stage 4 under [admin] (T124: ?agent= + listing; notes for T125); memory/learnings.md — 2026-11-20 — leak_rust.py needs the main .venv python and env -u CLAUDE_CONFIG_DIR
+Not done: merge (admin: after the auto verify pass); auto verify: pass (commit cb52ed3, log .claude/verify-runs/T124-cb52ed360692.log)
+Paused: done not moved — report incomplete: auto verify slot
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/core/src/transcript.rs` (tests: sidechain flag, agent id pattern, listing four meta fields + no `description`, defaults for missing/oversized/invalid meta, listing regular files newest-first max 200); `rust/crates/core/tests/transcript_golden.rs` + `transcript_golden/agent.jsonl`, `agent.golden.json` (AC 5); `rust/crates/app/src/transcript_route.rs` (live + past + no folder + hostile + symlinked folders + hostile past path + read-anew/tail untouched + guard, AC 1-4, 6, 7); `rust/parity/leak_rust.py` (AC 6) |
+| Verification command run | ☑ pass | 2026-11-19T22:55Z in `rust/` of the worktree: `cargo fmt --check` -> ok; `cargo clippy --workspace --all-targets -- -D warnings` -> `Finished`, 0 warnings; `cargo clippy -p easy-personal-rs --features window --all-targets -- -D warnings` -> `Finished`, 0 warnings; `cargo test --workspace` -> EXIT=0, 99 `test result: ok` lines, 1345 passed, 0 failed; `env -u CLAUDE_CONFIG_DIR <repo .venv>/bin/python parity/leak_rust.py` -> EXIT=0, `check T124 main answer holds no sub-agent string  ok`, `check T124 agents list names the stream, no transcript text  ok`, `check T124 agent transcript shows the agent's text  ok`, `check T124 meta description never read  ok`, 4 x 404 checks ok, `leak check: 0 hits over 42 canaries, 1328 surfaces, 2945809 bytes`. (The gate refuses a real CLAUDE_CONFIG_DIR, so the agent's own value was unset for that run; it needs the repo venv for `mcp`.) |
+| Negative cases hold | ☑ pass | tests prove: `..`, `a/b`, `%2F`, dotted, 65-char, empty ids, symlinked file, directory, FIFO, over-long line, gone file, symlinked `subagents` or stem folder, out-of-root past path -> 404 one line, never 500; guard 403 on no/wrong token, bad Host, foreign Origin, query token. `git diff --stat` (non-empty): 7 files, +897/-34 before the review file |
+| verify | ☑ pass | auto-run by hook, session f6c9886f-8f84-42de-b2e0-2f7780f44d07, commit cb52ed360692474e733979a907885002e29673d1, log .claude/verify-runs/T124-cb52ed360692.log — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...T124`: transcript_route.rs, api.rs, core transcript.rs, golden test, leak_rust.py + callers of transcript::read; web untouched |
+| Full smoke suite still green (no regression) | ☑ pass | `cargo test --workspace --no-fail-fast` 1345 passed / 0 failed (Supervisor, 2026-11-20) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier refuses repo paths since 2026-11-01 (memory/learnings.md, easy-verifier registered); advisory only |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | backend-only task: no web file changed (`git diff --stat main...T124 -- web` is empty); the panel is T125 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | backend-only task: no CSS or component changed |
+| **UI: Responsiveness at target viewports** | ☑ N/A | backend-only task: nothing rendered changed |
 
 ---
 
@@ -90,9 +91,15 @@ af4aa48 Board + memory: T122, T123 Done (merged); font decision
 695:            format!("{}\n", json!({"type":"assistant","isSidechain":true,"message":{"content":[{"type":"text","text":"sub"}]}})),
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**:
+```
+$ date -u; grep -c 'agent=\|/agents' rust/crates/app/src/transcript_route.rs rust/crates/app/src/api.rs
+Thu Nov 19 10:55:18 PM UTC 2026
+(transcript_route.rs and api.rs now name the `agent=` parameter and the `/agents` route; the sidechain flag is `parse`/`read`'s third argument: main file passes false, the agent file true)
+check T124 agents list names the stream, no transcript text  ok (status 200, {'depth': 1, 'finished': True, 'id': 'a1addd7ec56e8f010', 'parent_call': 'toolu_t124_parent', 'size': 1194, 'type': 'Explore'})
+leak check: 0 hits over 42 canaries, 1328 surfaces, 2945809 bytes
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The server can now list a session's sub-agents and return one sub-agent's own log (live or past), with its sidechain records, behind the same guard and caps as the main transcript.
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/T124.jsonl`, never the
-implementing agent alone]
+**WITNESS**: backend-developer (resumed run), 2026-11-19T22:55Z, commands as above; the Supervisor confirms from `memory/event-trace/T124.jsonl`.

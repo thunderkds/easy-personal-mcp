@@ -1,0 +1,52 @@
+{
+  "complete": true,
+  "entries": [
+    {
+      "cut": false,
+      "offset": 0,
+      "text": "<sub-agent prompt>",
+      "type": "user"
+    },
+    {
+      "cut": false,
+      "offset": 383,
+      "text": "<agent text>",
+      "type": "assistant"
+    },
+    {
+      "cut": false,
+      "id": "toolu_a01",
+      "input": "{\n  \"file_path\": \"/work/demo/a.txt\"\n}",
+      "is_error": false,
+      "label": null,
+      "name": "Read",
+      "offset": 929,
+      "result": "<file text>",
+      "type": "tool"
+    },
+    {
+      "cut": false,
+      "id": "toolu_a02",
+      "input": "{\n  \"description\": \"<text>\",\n  \"prompt\": \"<nested prompt>\",\n  \"subagent_type\": \"Explore\"\n}",
+      "is_error": false,
+      "label": "Explore",
+      "name": "Agent",
+      "offset": 1907,
+      "result": "<nested answer>",
+      "type": "tool"
+    },
+    {
+      "count": 1,
+      "offset": 2493,
+      "type": "skipped"
+    },
+    {
+      "cut": false,
+      "offset": 2995,
+      "text": "<agent done>",
+      "type": "assistant"
+    }
+  ],
+  "next": 3472,
+  "start": 0
+}
