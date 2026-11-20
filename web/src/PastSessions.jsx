@@ -4,7 +4,7 @@ import { why } from './Composer.jsx'
 import { ago, localTime } from './format.js'
 import { isProjectFilter } from './LiveFilters.jsx'
 import SessionName, { ID_CHARS, titleOf } from './SessionName.jsx'
-import Transcript from './Transcript.jsx'
+import Conversation from './SubAgents.jsx'
 
 // The Past switch of the Live view (T119, FR-126, FR-128): sessions from the store's metadata, newest first, 50 a page, with the filters of the Live list that
 // fit a past session (project, kind), a date range and Load more. Opening one shows its conversation, read-only, from the same route as a live one (FR-123);
@@ -157,7 +157,7 @@ function PastPanel({ s, onBack, onResume, onRenamed, autoFocus }) {
           </button>
         </div>
       )}
-      <Transcript key={s.id} sessionId={s.id} />
+      <Conversation key={s.id} sessionId={s.id} />
     </section>
   )
 }

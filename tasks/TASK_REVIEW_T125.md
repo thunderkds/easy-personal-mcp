@@ -48,26 +48,29 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 Mode: auto
 1. Sub-agent log opens inside the same panel under a breadcrumb — RULE: `PRD.md:229` "Opening one shows its conversation with the same view as the main thread"
-2. Direction Path A of `BRAINSTORMING_LOG_LIVE2.md` — RULE: `docs/claude-md/tracks.md:239` "Take the recommended direction and list the alternatives in the report."
-Checks: <filled at Stage 4/5>
-Memory: <filled before stop>
-Not done: merge (admin: after the auto verify pass); auto verify: <result>
-
+2. Direction Path A, and depth >= 2 nesting found client-side by reading the newest page of the sub-agents one level up (server owner field left for a later FR-129 amendment) — DEBATED: Path A + client-side nesting (Advocate 1: keep it, depth-1-only breaks AC2 "any depth", a server field needs rust/** which the guide forbids; Advocate 2: keep it after hardening, found a publish bug, a cached failed read and an unbounded cache) ⚠ decided for you — please review
+3. Advocate 2's three defects fixed by the implementer (`b424dbc`, tests fail on the old code) and a focus race in SessionName.jsx that T125 made frequent fixed (`9f616f6`, useLayoutEffect) — RULE: `.claude/skills/code-review/SKILL.md` § Phase 4 — Apply Safe Fixes
+4. Not built (P3, recorded): Past sessions still read `/agents` every 5 s; a call older than the parent's newest page leaves the child at top level — DEBATED: keep one code path for Live and Past, keep the top-level fallback (Advocate 1: keep the build, the fallback is what FR-130 allows and Open log does not depend on nesting; Advocate 2: harden the scan, and let Past read `/agents` once since past files do not change) ⚠ decided for you — please review
+Checks: tests `npm test` — 45 files, 1508/1508 (Supervisor, after both fix rounds; implementer three runs in a row green); reviews code-review — 0 P0, 1 P1 fixed (publish bug), 2 P2 fixed, 2 P3; security-review — no finding >= 8 (independent reviewer); real run `npm run build` + `python3 scripts/check_static.py` — printed `check_static: ok` (implementer)
+Memory: memory/learnings.md — 2026-11-20 — T125: parent_call names the Agent call in the parent's log, not an agent id; a focus restore after an await belongs in a layout effect
+Not done: merge (yours); auto verify: pass (commit 8e3cdec, log .claude/verify-runs/T125-8e3cdecb4c0d.log)
+Paused: auto-mode check failed — 2 `DEBATED` line(s) need ≥4 Advocate `Agent` calls (description `Advocate <n>:` and a prompt starting `Using the repo, answer alone:`); the trace has 2 [report 0ae0c42196f8]
+Paused: done not moved — report incomplete: auto verify slot
 
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `web/src/SubAgents.test.jsx` (21 tests: open log, nesting at depth 3, unknown parent, newest-200 cut, empty list, unknown meta, 5 s poll, breadcrumb back, per-file offsets, session switch, 404 one line, no-route, Live + Past panels, text not HTML); `web/src/LiveAnswer.test.jsx` (its fetch stub now also answers the new `/agents` read) |
+| Verification command run | ☑ pass | Stage 4 fix rounds (2026-11-20): three `npm test` runs in a row after the focus fix, each `Test Files  45 passed (45)` / `Tests  1508 passed (1508)` (three times). `npm run build`: `✓ built`; `python3 scripts/check_static.py`: `check_static: ok`. `LiveRename.test.jsx` focus race: under 8 busy CPU loops the `useEffect` version failed 6 of 14 single runs of the test (2 of 16 in an earlier batch; main failed 1 of 6 in the same file); with `useLayoutEffect` in `SessionName.jsx` 0 of 14 and 0 of 16. |
+| Negative cases hold | ☑ pass | Mutation: `AGENTS_POLL_MS` 5000 → 2000 made `SubAgents.test.jsx` "reads the list ... every 5 s" fail (`Tests  1 failed \| 20 passed (21)`), then reverted (back to 5000, 21 passed). Before the stub change `LiveAnswer.test.jsx` had 7 red tests (the new `/agents` call was counted as an answer call); Stage 4 fix: the old `useOwners` (git HEAD ef0fb56) run against the new tests: `Tests  2 failed \| 22 passed (24)` (owner never published; read error cached), green with the fix |
+| verify | ☑ pass | auto-run by hook, session bdf6a362-adb8-47ad-b87a-e67d44bd3216, commit 8e3cdecb4c0d06c8f04a1f426ebf502981e2ecb2, log .claude/verify-runs/T125-8e3cdecb4c0d.log — pass |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `git diff main...T125`: SubAgents.jsx, Transcript.jsx, api.js, SessionPanel.jsx, PastSessions.jsx, SessionName.jsx, appsession.css + tests; rust untouched |
+| Full smoke suite still green (no regression) | ☑ pass | whole web suite 1505 / 1505 after the change (was 1484 before: +21 new) |
+| **Companion score (easy-verifier)** | ☑ N/A | easy-verifier refuses repo paths since 2026-11-01 (memory/learnings.md, easy-verifier registered); advisory only |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate by hand on a throw-away harness of the real `LiveView` with mocked routes (scratch dir, nothing committed): `main`, `log`, `nested` at 375 and 1280 in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/b0e607b5-0126-47ad-b65d-c4fbbbdebda6/scratchpad/ux/` (`main-375.png`, `main-1280.png`, `log-*.png`, `nested-*.png`) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | new CSS in `appsession.css` uses only existing tokens (`--space-*`, `--color-*`, `--fs-label` 0.875rem / `--fs-note` 1rem, `--font-mono`); buttons follow the `reply-toggle` pill pattern |
+| **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280 read: breadcrumb and list wrap, a 47-character type name wraps, no horizontal scrollbar at 375; buttons 44 px high at ≤ 40rem |
 
 ---
 
@@ -84,11 +87,22 @@ $ date -u; git log -1 --oneline; grep -rln 'Open log\|parent_call' web/src | wc 
 2026-11-19T11:18:19Z
 af4aa48 Board + memory: T122, T123 Done (merged); font decision
 0
+$ (re-run on the branch point after T124 merged)
+2026-11-20T01:32:25Z
+e39d05f Memory: T124-T128 merged
+0
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same command, on the branch after the implementation commit):
+```
+$ date -u; git log -1 --oneline; grep -rln 'Open log\|parent_call' web/src | wc -l
+2026-11-20T01:45:09Z
+ef0fb56 T125: sub-agent logs in the Live and Past panels (list, breadcrumb, Open log)
+4
+(web/src/api.js, web/src/Transcript.jsx, web/src/SubAgents.test.jsx, web/src/SubAgents.jsx)
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: In the Live panel and a past session the owner can click Open log on an Agent / Task call (or a row of the new Sub-agents list) to read that sub-agent's own conversation, move between main and nested sub-agents by a breadcrumb, and see which are running or finished; before, a sub-agent's work was not visible at all.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T125.jsonl`, never the
 implementing agent alone]

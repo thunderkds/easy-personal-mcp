@@ -73,7 +73,8 @@ function trim(list) {
 const startOf = (page) => (typeof page.start === 'number' ? page.start : typeof page.entries[0]?.offset === 'number' ? page.entries[0].offset : null)
 const readPage = (page) => (page && typeof page === 'object' && Array.isArray(page.entries) ? page : null)
 
-function useTranscript(sessionId) {
+/** `agent`: one sub-agent's log of the session (FR-130) instead of the main thread. Offsets belong to one file, so a new `agent` starts from nothing. */
+function useTranscript(sessionId, agent) {
   const [state, setState] = useState({ status: 'loading', entries: [], start: null, message: '', stale: false, earlier: false })
   const next = useRef(null) // the offset to poll from
   const counter = useRef(0)
@@ -86,6 +87,12 @@ function useTranscript(sessionId) {
     let current = true
     let out = false
     let timer = null
+    // a different file: nothing of the last one (offset, start, entries) is kept; a first mount is already clean and sets no state
+    next.current = null
+    startRef.current = null
+    listRef.current = []
+    loadedEarlier.current = false
+    setState((s) => (s.status === 'loading' && s.entries.length === 0 ? s : { status: 'loading', entries: [], start: null, message: '', stale: false, earlier: false }))
     const fail = (e) => {
       if (e?.status === 404 && timer !== null) clearInterval(timer) // the file is gone: asking again changes nothing; a network error is retried
       setState((s) => (s.status === 'ready' ? { ...s, stale: true } : { ...s, status: 'error', message: e?.message || 'The conversation cannot be read.' }))
@@ -95,7 +102,7 @@ function useTranscript(sessionId) {
       out = true
       try {
         const first = next.current === null
-        const page = readPage(await getTranscript(sessionId, first ? {} : { after: next.current }))
+        const page = readPage(await getTranscript(sessionId, first ? { agent } : { after: next.current, agent }))
         if (!current) return
         if (!page) return fail(new Error('The conversation came in a shape this page cannot read.'))
         if (typeof page.next === 'number') next.current = page.next
@@ -125,14 +132,14 @@ function useTranscript(sessionId) {
       current = false
       clearInterval(timer)
     }
-  }, [sessionId])
+  }, [sessionId, agent])
   /** *Load earlier*: the entries before the first one shown. Offered only when the server said where the page starts. */
   const loadEarlier = useCallback(async () => {
     if (earlierOut.current || startRef.current === null) return
     earlierOut.current = true
     setState((s) => ({ ...s, earlier: true }))
     try {
-      const page = readPage(await getTranscript(sessionId, { before: startRef.current }))
+      const page = readPage(await getTranscript(sessionId, { before: startRef.current, agent }))
       if (!page) throw new Error('The earlier part came in a shape this page cannot read.')
       const s = startOf(page)
       startRef.current = s !== null && s < startRef.current ? s : null
@@ -144,7 +151,7 @@ function useTranscript(sessionId) {
     } finally {
       earlierOut.current = false
     }
-  }, [sessionId])
+  }, [sessionId, agent])
   return [state, loadEarlier]
 }
 
@@ -173,7 +180,7 @@ function readTodos(name, input) {
 }
 
 /** One tool call: folded to its label; a click opens its input and its result. A TodoWrite call with a readable list shows it as a checklist, always. */
-function Tool({ e }) {
+function Tool({ e, log, onOpenLog }) {
   const [open, setOpen] = useState(false)
   const todos = readTodos(e.name, e.input)
   const orphan = e.orphan === true && !isName(e.name)
@@ -189,6 +196,11 @@ function Tool({ e }) {
         <span className="live-label">{label}</span>
         {e.is_error === true && <span className="live-tag error">error</span>}
       </button>
+      {log && (
+        <button type="button" className="turn-open" onClick={() => onOpenLog(log)}>
+          Open log
+        </button>
+      )}
       {todos && (
         <ul className="turn-todos" aria-label="Todo list">
           {todos.length === 0 && <li className="muted">The list is empty.</li>}
@@ -221,7 +233,9 @@ function Tool({ e }) {
 
 const WHO = { user: 'You', reply: 'Reply from the app', assistant: 'Claude' }
 
-const Entry = memo(function Entry({ e }) {
+const SPAWNS = ['Agent', 'Task'] // the tool names whose call starts a sub-agent (FR-130)
+
+const Entry = memo(function Entry({ e, log, onOpenLog }) {
   if (e.kind === 'user' || e.kind === 'reply' || e.kind === 'assistant')
     return (
       <li className={`turn turn-${e.kind}`}>
@@ -230,7 +244,7 @@ const Entry = memo(function Entry({ e }) {
         {e.cut === true && <span className="muted turn-cut">{CUT_NOTE}</span>}
       </li>
     )
-  if (e.kind === 'tool') return <Tool e={e} />
+  if (e.kind === 'tool') return <Tool e={e} log={log} onOpenLog={onOpenLog} />
   if (e.kind === 'skipped') {
     const n = Number.isInteger(e.count) && e.count > 0 ? e.count : 1
     return <li className="turn muted turn-skipped">{n === 1 ? '1 other record' : `${n} other records`}</li>
@@ -241,9 +255,11 @@ const Entry = memo(function Entry({ e }) {
 /**
  * The log of one session. `children` is drawn while the conversation loads and when it cannot be read (a gone file, an older server): the panel gives the tool
  * calls seen since the page opened. Give it `key={sessionId}`.
+ * `agent` (FR-130): the id of the sub-agent whose log this is, none for the main thread. `logs`: a Map from a call id to the sub-agent id that call started;
+ * an `Agent` / `Task` entry whose id is in it gets *Open log*, which calls `onOpenLog(agent id)`.
  */
-export default function Transcript({ sessionId, children }) {
-  const [t, loadEarlier] = useTranscript(sessionId)
+export default function Transcript({ sessionId, agent, logs, onOpenLog, children }) {
+  const [t, loadEarlier] = useTranscript(sessionId, agent)
   const log = useRef(null)
   const stick = useRef(true) // a log at the bottom follows new entries; one scrolled up stays where the owner left it
   const last = t.entries.at(-1)?.k
@@ -288,7 +304,7 @@ export default function Transcript({ sessionId, children }) {
         )}
         {t.entries.length === 0 && <li className="muted">Nothing yet.</li>}
         {t.entries.map((e) => (
-          <Entry key={e.k} e={e} />
+          <Entry key={e.k} e={e} log={e.kind === 'tool' && SPAWNS.includes(e.name) && isName(e.id) ? logs?.get(e.id) : undefined} onOpenLog={onOpenLog} />
         ))}
       </ol>
     </>
