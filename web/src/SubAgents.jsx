@@ -57,14 +57,14 @@ function useAgents(sessionId) {
   return state
 }
 
-/** The ids of the `Agent` / `Task` calls in the newest page of one sub-agent's log. A log that cannot be read has none. */
+/** The ids of the `Agent` / `Task` calls in the newest page of one sub-agent's log; `null` when the log cannot be read now (not cached: asked again next time). */
 async function callsIn(sessionId, agent) {
   try {
     const page = await getTranscript(sessionId, { agent })
     const entries = Array.isArray(page?.entries) ? page.entries : []
     return new Set(entries.filter((e) => e && e.kind === 'tool' && SPAWNS.includes(e.name) && isName(e.id)).map((e) => e.id))
   } catch {
-    return new Set()
+    return null
   }
 }
 
@@ -76,32 +76,39 @@ async function callsIn(sessionId, agent) {
 function useOwners(sessionId, agents) {
   const [owners, setOwners] = useState(() => new Map())
   const found = useRef(new Map()) // child id -> owner id: a call never moves to another log
-  const scanned = useRef(new Map()) // `${agent id}:${modified}` -> the call ids in that log as last read
-  const key = JSON.stringify(agents.map((a) => [a.id, a.parent_call, a.depth, a.modified]))
+  const scanned = useRef(new Map()) // parent id -> {modified, calls}: the call ids in that log as last read; one entry per log, replaced when it changed
   useEffect(() => {
     let current = true
+    // what was found is shown whether or not this run lives to its end: a later run skips the children already found
+    const publish = () => setOwners((shown) => (shown.size === found.current.size ? shown : new Map(found.current)))
     const deep = agents.filter((a) => isName(a.parent_call) && Number.isInteger(a.depth) && a.depth >= 2 && !found.current.has(a.id))
+    publish()
     if (deep.length === 0) return undefined
     ;(async () => {
       for (const child of deep) {
         for (const parent of agents) {
           if (parent.id === child.id || parent.depth !== child.depth - 1) continue
-          const at = `${parent.id}:${parent.modified}`
-          if (!scanned.current.has(at)) scanned.current.set(at, await callsIn(sessionId, parent.id))
+          let seen = scanned.current.get(parent.id)
+          if (!seen || seen.modified !== parent.modified) {
+            const calls = await callsIn(sessionId, parent.id)
+            if (calls === null) continue // cannot be read now: not cached, tried again on the next read of the list
+            seen = { modified: parent.modified, calls }
+            scanned.current.set(parent.id, seen)
+          }
           if (!current) return
-          if (scanned.current.get(at).has(child.parent_call)) {
+          if (seen.calls.has(child.parent_call)) {
             found.current.set(child.id, parent.id)
+            publish()
             break
           }
         }
       }
-      if (current) setOwners(new Map(found.current))
     })()
     return () => {
       current = false
     }
-    // `key` stands for the fields of `agents` this reads
-  }, [sessionId, key])
+    // `agents` is a new array on every read of the list (every 5 s): a log that could not be read is tried again then; one already read is not
+  }, [sessionId, agents])
   return owners
 }
 

@@ -408,3 +408,94 @@ describe('in the Live and Past panels (AC 4)', () => {
     expect(await screen.findByText('past main')).toBeInTheDocument()
   })
 })
+
+describe('finding the owners while the list changes (Stage 4 fixes)', () => {
+  const nestedUnder = (parentType, childType) => {
+    const tree = list().querySelector('.agent-tree')
+    const parent = [...tree.children].find((li) => li.querySelector(':scope > .agent-row .agent-type')?.textContent === parentType)
+    return parent?.querySelector(`:scope > .agent-children > li .agent-type`)?.textContent === childType
+  }
+
+  it('an owner that was found is shown even when the list changes while the scan waits and the next run has nothing left to find', async () => {
+    vi.useFakeTimers()
+    let release
+    const gate = new Promise((resolve) => (release = resolve))
+    let version = 1
+    const s = server({
+      agents: () =>
+        version === 1
+          ? { agents: [agent('p1', { type: 'Explore', parent_call: 't1' }), agent('p2', { type: 'Plan', parent_call: 't9', modified: 'm1' }), agent('c2', { type: 'Review', parent_call: 'toolu_2', depth: 2 }), agent('c3', { type: 'Lost', parent_call: 'toolu_3', depth: 2 })], total: 4 }
+          : { agents: [agent('p1', { type: 'Explore', parent_call: 't1' }), agent('p2', { type: 'Plan', parent_call: 't9', modified: 'm2' }), agent('c2', { type: 'Review', parent_call: 'toolu_2', depth: 2 })], total: 3 }, // c3 is cut, p2 changed
+      logs: { p1: page([spawn('toolu_2')]), p2: () => gate.then(() => page([])), c2: page([]), c3: page([]) },
+    })
+    vi.stubGlobal('fetch', s)
+    render(<Conversation key={SID} sessionId={SID} />)
+    await settle()
+    // c2 was found in p1's log while c3's scan waits on p2's log
+    expect(nestedUnder('Explore', 'Review')).toBe(true)
+    version = 2
+    await tick(AGENTS_POLL_MS) // the restarted run has no child left to find
+    expect(nestedUnder('Explore', 'Review')).toBe(true)
+    release()
+    await settle()
+    expect(nestedUnder('Explore', 'Review')).toBe(true)
+  })
+
+  it('a log that could not be read is tried again on the next read of the list (an error is not remembered); nothing is read again once the owner is known', async () => {
+    vi.useFakeTimers()
+    let fail = true
+    let modified = 'm1'
+    const s = server({
+      agents: () => ({ agents: [agent('p1', { type: 'Explore', parent_call: 't1', modified }), agent('c2', { type: 'Review', parent_call: 'toolu_2', depth: 2 })], total: 2 }),
+      logs: { p1: page([spawn('toolu_2')]) },
+    })
+    // while `fail` is set the log answers 500
+    const base = s
+    const wrapped = async (url, init) => {
+      const u = new URL(String(url), 'http://127.0.0.1')
+      if (u.searchParams.get('agent') === 'p1' && fail) {
+        base.calls.push({ path: u.pathname, search: u.search, params: u.searchParams, init })
+        return reply(500, { error: 'busy' })
+      }
+      return base(url, init)
+    }
+    wrapped.reads = base.reads
+    vi.stubGlobal('fetch', wrapped)
+    render(<Conversation key={SID} sessionId={SID} />)
+    await settle()
+    expect(nestedUnder('Explore', 'Review')).toBe(false)
+    expect(base.reads('p1')).toHaveLength(1)
+    fail = false
+    await tick(AGENTS_POLL_MS)
+    expect(base.reads('p1')).toHaveLength(2)
+    expect(nestedUnder('Explore', 'Review')).toBe(true)
+    await tick(AGENTS_POLL_MS) // read, nothing changed, owner known: no more reads
+    expect(base.reads('p1')).toHaveLength(2)
+    modified = 'm2'
+    await tick(AGENTS_POLL_MS) // changed, but the owner is known and a call never moves: still not read
+    expect(base.reads('p1')).toHaveLength(2)
+    expect(nestedUnder('Explore', 'Review')).toBe(true)
+  })
+
+  it('a changed log is read again for a child still without an owner, and the old read is replaced', async () => {
+    vi.useFakeTimers()
+    let modified = 'm1'
+    let has = false
+    const s = server({
+      agents: () => ({ agents: [agent('p1', { type: 'Explore', parent_call: 't1', modified }), agent('c2', { type: 'Review', parent_call: 'toolu_2', depth: 2 })], total: 2 }),
+      logs: { p1: () => page(has ? [spawn('toolu_2')] : []) },
+    })
+    vi.stubGlobal('fetch', s)
+    render(<Conversation key={SID} sessionId={SID} />)
+    await settle()
+    expect(s.reads('p1')).toHaveLength(1)
+    await tick(AGENTS_POLL_MS) // unchanged: not read again
+    expect(s.reads('p1')).toHaveLength(1)
+    expect(nestedUnder('Explore', 'Review')).toBe(false)
+    modified = 'm2'
+    has = true
+    await tick(AGENTS_POLL_MS)
+    expect(s.reads('p1')).toHaveLength(2)
+    expect(nestedUnder('Explore', 'Review')).toBe(true)
+  })
+})
