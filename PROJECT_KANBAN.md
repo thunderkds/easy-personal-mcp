@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md
-**Last updated**: 2026-11-19
+**Last updated**: 2026-11-20
 
 > Board cache, pulled from the board by `python3 scripts/board_sync.py pull`. Do not edit it by hand:
 > the board is the source of truth, and the next pull overwrites this file.
@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T129** — Bug: an app session started from Live shows nothing and cannot be worked with | backend-developer | C2 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T129.md`; bugfix, mental model confirmed by owner 2026-11-20; started 2026-11-20: worktree `easy-personal-mcp-wt/T129`, branch `T129` from `main`
 
 ### Ready for Review
 
