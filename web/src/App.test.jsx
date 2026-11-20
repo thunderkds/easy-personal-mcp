@@ -567,7 +567,7 @@ describe('grouped sidebar and right rail (HUN-121, HUN-126)', () => {
       expect(await screen.findByText('Claude personal', { selector: 'option' })).toBeInTheDocument()
       fireEvent.click(within(nav()).getByRole('button', { name: 'Agents' }))
       const row = await screen.findByRole('listitem', { name: 'Claude personal' })
-      fireEvent.click(within(row).getByRole('button', { name: 'Ignore' }))
+      fireEvent.click(within(row).getByRole('button', { name: 'Remove' }))
       await waitFor(() => expect(screen.queryByText('Claude personal', { selector: 'option' })).toBeNull())
       fireEvent.click(within(nav()).getByRole('button', { name: 'Usage' }))
       expect(await screen.findByText('1 agent account is ignored, so its usage is not counted.')).toBeInTheDocument()

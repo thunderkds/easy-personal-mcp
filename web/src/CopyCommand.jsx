@@ -95,3 +95,58 @@ export default function CopyCommand({ repos }) {
     </div>
   )
 }
+
+const PLAIN = /^[A-Za-z0-9_./:@%+=,-]+$/
+
+/**
+ * T132: the line that signs in to a new account folder: `CLAUDE_CONFIG_DIR=<folder> claude`.
+ * The folder is written as is when it holds only plain characters, else in single quotes (each `'` as `'\''`).
+ * Returns null for a folder the line cannot carry safely: empty, or holding a hidden or control character (see HIDDEN).
+ */
+export function signInLine(folder) {
+  if (typeof folder !== 'string' || folder === '' || HIDDEN.test(folder)) return null
+  return `CLAUDE_CONFIG_DIR=${PLAIN.test(folder) ? folder : `'${folder.replaceAll("'", "'\\''")}'`} claude`
+}
+
+/** The sign-in line of a new account with a Copy button, shown the way CopyCommand shows its line. It runs nothing and sends nothing. */
+export function SignInCommand({ folder }) {
+  const [outcome, setOutcome] = useState(null) // null | 'copied' | 'manual'
+  const manual = useRef(null)
+  useEffect(() => {
+    if (outcome === 'manual') {
+      manual.current?.focus()
+      manual.current?.select()
+    }
+  }, [outcome])
+  const line = signInLine(folder)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(line)
+      setOutcome('copied')
+    } catch {
+      setOutcome('manual')
+    }
+  }
+  return (
+    <div className="copy-command" data-testid="signin-command">
+      <p className="copy-command-title">Sign in to the new account</p>
+      {line === null ? (
+        <p className="muted">This folder path has a hidden or control character; copy is off.</p>
+      ) : (
+        <>
+          <p className="muted">Run this in a terminal, then type /login in Claude.</p>
+          <div className="copy-command-row">
+            <code>{line}</code>
+            <button type="button" onClick={copy}>
+              Copy
+            </button>
+          </div>
+          {outcome === 'manual' && <input ref={manual} className="mono" type="text" readOnly aria-label="Command to copy" value={line} />}
+          <p className="muted" aria-live="polite">
+            {outcome === 'copied' ? 'Copied' : outcome === 'manual' ? 'Copy it with Ctrl+C.' : ''}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}

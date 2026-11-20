@@ -76,6 +76,26 @@ agent-root: .claude
 ```
 The route does not exist: 404, and the agent root holds only `.claude`.
 
+**BEFORE (page)** (frontend-developer, `web/`, captured before any implementation commit):
+
+```
+2026-11-20T05:52:46Z
+$ grep -nE "New account|Remove|Removed" src/AgentsView.jsx
+(exit 1)
+$ grep -n "accounts/create" src/*.js src/*.jsx
+(exit 1)
+$ npx vitest run src/AgentsView.test.jsx
+ RUN  v5.0.5 /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T132-web/web
+
+
+ Test Files  1 passed (1)
+      Tests  39 passed (39)
+   Start at  12:52:46
+   Duration  2.06s (tests 54%, environment 20%, transform 19%, setup 4%, import 3%)
+```
+
+The Agents page has no New account form, no Remove button, no Removed section, and no call to `/api/accounts/create`.
+
 **AFTER**: (same probe, 2026-11-20T06:03:45Z, after the change)
 ```
 POST /api/accounts/create {"name":"work"}
