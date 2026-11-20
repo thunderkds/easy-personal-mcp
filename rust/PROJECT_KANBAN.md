@@ -1,5 +1,5 @@
 # PROJECT_KANBAN.md — Rust port (`rust/`)
-**Last updated**: 2026-11-17
+**Last updated**: 2026-11-20
 
 > Compact task board for the **Rust port** only, kept in `rust/` (Gate 4: a separate board file; the repo-root `PROJECT_KANBAN.md` is the Python app's Linear cache and is overwritten on every pull, so Rust tasks never go there). Guides live in the repo-root `tasks/` so the spawn hook finds them. Full context: `rust/PROJECT_SPEC.md`.
 > Task-to-task preconditions live in each guide's `Depends on:` field.
@@ -9,6 +9,8 @@
 ## Board
 
 ### Todo
+- [ ] **T131** — Board Run: one click on a task card starts an app session in its workspace repo (page-only, `default` mode, Live opens on it) | Frontend-Developer | C2 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T131.md` (2026-11-20); plan `BRAINSTORMING_LOG_BOARDRUN.md` Path A; owner: start immediately, existing styles
+- [ ] **T132** — Agents: create a new account (`POST /api/accounts/create`, `~/.claude-<name>`, sign-in command) and Remove (= ignore, collapsed "Removed (N)" with restore) | Backend-Developer, Frontend-Developer | C2 | Risk: High | P2 | guide `tasks/TASK_GUIDE_T132.md` (2026-11-20); plan `BRAINSTORMING_LOG_BOARDRUN.md` Path A (no schema); owner: create new, remove from app only
 - [ ] **T063** — Retire Python 6: remove the Python app (`src/easy_personal`, app tests, `pyproject.toml`, `uv.lock`), freeze goldens, change `scripts/check_static.py`; the repo's config and the kit stay | Common-Infrastructure | C2 | Risk: High | P3 | OWNER GATE: go-ahead after the T062 week; Depends on T062; plan `rust/docs/PYTHON_RETIREMENT_PLAN.md`; one commit, reversible by revert; GUIDE MUST INCLUDE (from T062, 2026-11-15): `connector sync` matches the launcher by file name only (`rust/crates/core/src/sync.rs` `points_at_launcher`), so connector entries made before the cutover keep running `~/.local/bin/easy-personal-launch` (Python). Before Python is removed, re-point every entry at the Rust launcher (remove and re-add, or `connector move` out and back), or every connector breaks
 
 - [x] **T076** — Watch 5: `tray` command (tray icon 4 states, native menu, alerts on, XDG autostart) | Backend-Developer | C3 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T076.md` (2026-11-15); Depends on T072-T074; HITL menu check; PRD FR-099 | owner OK'd menu rows + state rule 2026-11-15; Stage 4: code-review 0 P0/P1 (2 P2 fixed), security-review 0 P0/P1 (P2 icon PNG /tmp fallback fixed, lock symlink refusal added); `/verify` pass after fix round 1 (leak gate 0 hits, self-test ok, 24 tray/window tests); workspace 987 passed | code MERGED to `main` 2026-11-15 (`--no-ff`) | DONE 2026-11-15: Gate 6 visual row closed by the owner's verdict on the real tray ("76 is good to mark done")
