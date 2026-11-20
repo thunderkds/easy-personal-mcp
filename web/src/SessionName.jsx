@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { renameSession } from './api.js'
 import { why } from './Composer.jsx'
 
@@ -24,7 +24,7 @@ export default function SessionName({ id, name, title, headingRef, onSaved }) {
   const field = useRef(null)
   const button = useRef(null)
   const back = useRef(false) // the field was closed by the owner: the focus goes back to the Rename button
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (editing) field.current?.focus()
     else if (back.current) {
       back.current = false
