@@ -3,48 +3,48 @@
   "entries": [
     {
       "cut": false,
+      "kind": "user",
       "offset": 0,
-      "text": "<sub-agent prompt>",
-      "type": "user"
+      "text": "<sub-agent prompt>"
     },
     {
       "cut": false,
+      "kind": "assistant",
       "offset": 383,
-      "text": "<agent text>",
-      "type": "assistant"
+      "text": "<agent text>"
     },
     {
       "cut": false,
       "id": "toolu_a01",
       "input": "{\n  \"file_path\": \"/work/demo/a.txt\"\n}",
       "is_error": false,
+      "kind": "tool",
       "label": null,
       "name": "Read",
       "offset": 929,
-      "result": "<file text>",
-      "type": "tool"
+      "result": "<file text>"
     },
     {
       "cut": false,
       "id": "toolu_a02",
       "input": "{\n  \"description\": \"<text>\",\n  \"prompt\": \"<nested prompt>\",\n  \"subagent_type\": \"Explore\"\n}",
       "is_error": false,
+      "kind": "tool",
       "label": "Explore",
       "name": "Agent",
       "offset": 1907,
-      "result": "<nested answer>",
-      "type": "tool"
+      "result": "<nested answer>"
     },
     {
       "count": 1,
-      "offset": 2493,
-      "type": "skipped"
+      "kind": "skipped",
+      "offset": 2493
     },
     {
       "cut": false,
+      "kind": "assistant",
       "offset": 2995,
-      "text": "<agent done>",
-      "type": "assistant"
+      "text": "<agent done>"
     }
   ],
   "next": 3472,

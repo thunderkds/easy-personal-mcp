@@ -234,6 +234,8 @@ function Tool({ e, log, onOpenLog }) {
 const WHO = { user: 'You', reply: 'Reply from the app', assistant: 'Claude' }
 
 const SPAWNS = ['Agent', 'Task'] // the tool names whose call starts a sub-agent (FR-130)
+const KINDS = ['user', 'reply', 'assistant', 'tool', 'skipped'] // the entry kinds the route gives (`kind`, FR-123); any other draws nothing
+export const UNDRAWABLE = 'This page cannot show these entries: their shape is not one it knows.'
 
 const Entry = memo(function Entry({ e, log, onOpenLog }) {
   if (e.kind === 'user' || e.kind === 'reply' || e.kind === 'assistant')
@@ -303,6 +305,7 @@ export default function Transcript({ sessionId, agent, logs, onOpenLog, children
           </li>
         )}
         {t.entries.length === 0 && <li className="muted">Nothing yet.</li>}
+        {t.entries.length > 0 && !t.entries.some((e) => KINDS.includes(e.kind)) && <li className="muted">{UNDRAWABLE}</li>}
         {t.entries.map((e) => (
           <Entry key={e.k} e={e} log={e.kind === 'tool' && SPAWNS.includes(e.name) && isName(e.id) ? logs?.get(e.id) : undefined} onOpenLog={onOpenLog} />
         ))}

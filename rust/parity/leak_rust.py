@@ -1286,7 +1286,7 @@ def transcripts(run: Run, checks: list[str], port: int, token: str) -> None:
     checks.append(f"check T115 transcript shows the live session's text  {'ok' if status == 200 and not missing else 'FAILED'} (status {status}, {len(shown)} strings, missing {missing})")
     checks.append(f"check T115 thinking block not shown  {'ok' if status == 200 and 'transcript_thinking' not in shown else 'FAILED'}")
     got = body(blob) if status == 200 else {}
-    kinds = [e.get("type") for e in got.get("entries", [])]
+    kinds = [e.get("kind") for e in got.get("entries", [])]
     ok = status == 200 and got.get("complete") is True and {"user", "assistant", "tool", "reply"} <= set(kinds)
     checks.append(f"check T115 transcript entries are user, assistant, tool, reply  {'ok' if ok else 'FAILED'} ({kinds})")
     status, blob = request(port, "GET", route(TRANSCRIPT_LIVE_ID, f"?after={got.get('next', 0)}"), base)
@@ -1317,7 +1317,7 @@ def transcripts(run: Run, checks: list[str], port: int, token: str) -> None:
     missing = [n for n in TRANSCRIPT_AGENT_SHOWN if n not in shown]
     checks.append(f"check T124 agent transcript shows the agent's text  {'ok' if status == 200 and not missing else 'FAILED'} (status {status}, missing {missing})")
     checks.append(f"check T124 meta description never read  {'ok' if status == 200 and 'transcript_agent_description' not in shown else 'FAILED'}")
-    kinds = [e.get("type") for e in (body(blob) if status == 200 else {}).get("entries", [])]
+    kinds = [e.get("kind") for e in (body(blob) if status == 200 else {}).get("entries", [])]
     checks.append(f"check T124 agent entries are user, tool  {'ok' if kinds == ['user', 'tool'] else 'FAILED'} ({kinds})")
     unknown = "00000000-0000-4000-8000-0000000000f9"
     for label, path, want in (

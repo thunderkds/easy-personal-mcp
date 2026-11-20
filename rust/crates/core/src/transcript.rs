@@ -3,7 +3,7 @@
 //! and tool output are read, and they are held only while one answer is built. Nothing here stores, logs or caches
 //! them; the caller (`transcript_route.rs`) opens the file anew for every request.
 //!
-//! Entries, in file order, each a JSON object with a `type` and the byte `offset` of the line it came from:
+//! Entries, in file order, each a JSON object with a `kind` (never `type`: the page reads `kind`, T129) and the byte `offset` of the line it came from:
 //! - `user` `{text, cut}`: typed text (a string, or a `text` block of a block list);
 //! - `reply` `{text, cut}`: an `isMeta` record whose string starts with `Stop hook feedback:` (what the app sent, T110);
 //! - `assistant` `{text, cut}`: one `text` block; `thinking` blocks are not shown;
@@ -38,7 +38,7 @@ pub const ENTRY_OVERHEAD: usize = 8;
 /// Room kept for the answer's own keys (`entries`, `next`, `start`, `complete`).
 const ENVELOPE: usize = 1024;
 const BUDGET: usize = MAX_BYTES - ENVELOPE;
-/// A `skipped` entry: `{"count":N,"offset":N,"type":"skipped"}` and its overhead.
+/// A `skipped` entry: `{"count":N,"kind":"skipped","offset":N}` and its overhead.
 const SKIP_WEIGHT: usize = 64;
 const NAME_MAX_CHARS: usize = 100;
 const REPLY_LABEL: &str = "Stop hook feedback:";
@@ -148,7 +148,7 @@ fn text_entry(kind: &str, offset: u64, raw: &str) -> Option<Op> {
     }
     let (text, cut) = shown(raw);
     Some(entry(
-        json!({"type": kind, "offset": offset, "text": text, "cut": cut}),
+        json!({"kind": kind, "offset": offset, "text": text, "cut": cut}),
     ))
 }
 
@@ -258,7 +258,7 @@ fn ops(offset: u64, line: &[u8], sidechain: bool) -> Vec<Op> {
                 let input = &block["input"];
                 let (shown_input, input_cut) = input_cap(name, input).shown();
                 out.push(entry(json!({
-                    "type": "tool", "offset": offset,
+                    "kind": "tool", "offset": offset,
                     "id": block["id"].as_str().unwrap_or(""),
                     "name": clean_block(name, NAME_MAX_CHARS).0,
                     "label": label_of(name, input),
@@ -268,7 +268,7 @@ fn ops(offset: u64, line: &[u8], sidechain: bool) -> Vec<Op> {
             Some("tool_result") if user => {
                 let (text, cut) = result_cap(&block["content"]).shown();
                 out.push(entry(json!({
-                    "type": "tool", "offset": offset,
+                    "kind": "tool", "offset": offset,
                     "id": block["tool_use_id"].as_str().unwrap_or(""),
                     "name": Value::Null, "label": Value::Null, "input": Value::Null,
                     "result": text, "is_error": block["is_error"] == true, "cut": cut, "orphan": true,
@@ -299,7 +299,7 @@ fn is_orphan(entry: &Value) -> bool {
 }
 
 fn is_call(entry: &Value) -> bool {
-    entry["type"] == "tool" && !is_orphan(entry)
+    entry["kind"] == "tool" && !is_orphan(entry)
 }
 
 /// Puts the result of the `orphan` entry into the `call`; returns the bytes the call grows by.
@@ -314,7 +314,7 @@ fn fill(call: &mut Value, orphan: &Value) -> usize {
 }
 
 fn skipped(offset: u64, count: u64) -> Value {
-    json!({"type": "skipped", "offset": offset, "count": count})
+    json!({"kind": "skipped", "offset": offset, "count": count})
 }
 
 /// Forward reading: entries in file order, calls and results paired, runs of skipped records merged.
@@ -732,7 +732,7 @@ mod tests {
     fn types(p: &Page) -> Vec<String> {
         p.entries
             .iter()
-            .map(|e| e["type"].as_str().unwrap().to_string())
+            .map(|e| e["kind"].as_str().unwrap().to_string())
             .collect()
     }
 
