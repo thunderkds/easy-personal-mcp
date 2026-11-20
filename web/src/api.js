@@ -108,12 +108,12 @@ export const markReply = (sessionId, on) => sendJson('POST', '/api/reply/mark', 
 
 /**
  * One page of a session's transcript (FR-123): `{entries, next, complete}`. No offset reads the newest page; `after` is the byte offset to poll from
- * (the last answer's `next`), `before` the offset to page back from. The text is read on demand and shown only: the token goes in the header, the
+ * (the last answer's `next`), `before` the offset to page back from; `agent` reads that sub-agent's log instead of the main thread (FR-129). The text is read on demand and shown only: the token goes in the header, the
  * query holds only an offset. A refused read throws with the server's one line (404: the file is gone or cannot be read).
  */
-export async function getTranscript(sessionId, { after, before } = {}) {
-  const query = after !== undefined ? `?after=${Number(after)}` : before !== undefined ? `?before=${Number(before)}` : ''
-  const path = `/api/live/sessions/${encodeURIComponent(sessionId)}/transcript${query}`
+export async function getTranscript(sessionId, { after, before, agent } = {}) {
+  const query = [after !== undefined ? `after=${Number(after)}` : before !== undefined ? `before=${Number(before)}` : '', agent ? `agent=${encodeURIComponent(agent)}` : ''].filter(Boolean).join('&')
+  const path = `/api/live/sessions/${encodeURIComponent(sessionId)}/transcript${query ? `?${query}` : ''}`
   const response = await fetch(path, { headers: { 'X-Dashboard-Token': readToken() } })
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
@@ -121,6 +121,12 @@ export async function getTranscript(sessionId, { after, before } = {}) {
   }
   return response.json()
 }
+
+/**
+ * A session's sub-agent logs (FR-129, FR-130): `{agents: [{id, type, parent_call, depth, finished, size, modified}], total}`, the newest 200. Pass `agent` to
+ * `getTranscript` to read one of them. Offsets are per file: never reuse one file's `next` or `start` for another. A refusal throws with `status` (404: no such route or session).
+ */
+export const getAgents = (sessionId) => getJson(`/api/live/sessions/${encodeURIComponent(sessionId)}/agents`)
 
 /** Stop a terminal session (FR-124): SIGTERM after the server's checks; `force` sends SIGKILL (the caller has shown its own confirm). A refusal (409) throws with its one line. */
 export const stopSession = (sessionId, { force = false } = {}) => sendJson('POST', `/api/live/sessions/${encodeURIComponent(sessionId)}/stop`, force ? { confirmed: true, force: true } : { confirmed: true })

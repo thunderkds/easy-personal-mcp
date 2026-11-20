@@ -7,7 +7,7 @@ import { BYPASS, BYPASS_NOTE, EFFORTS, FORK_NOTE, MODELS, MODES } from './NewSes
 import { PendingAnswer } from './PendingAnswer.jsx'
 import PromptCard, { readPrompt } from './PromptCard.jsx'
 import SessionName, { titleOf } from './SessionName.jsx'
-import Transcript from './Transcript.jsx'
+import Conversation from './SubAgents.jsx'
 
 // The one panel of the Live view (T118, FR-128): header, the conversation, the cards pinned above the composer, the composer and the controls,
 // for an app session and for a terminal session alike. The text is React text, never HTML; it is held in React state only: nothing is written to
@@ -494,9 +494,9 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
       {!app && id && onResume && fork && <p className="muted live-fork-note">{FORK_NOTE}</p>}
       {lead}
       {id ? (
-        <Transcript key={id} sessionId={id}>
+        <Conversation key={id} sessionId={id}>
           {fallback}
-        </Transcript>
+        </Conversation>
       ) : (
         <ol role="log" aria-label="Conversation" className="session-log" tabIndex={0}>
           {(app?.items ?? []).length === 0 && <li className="muted">The conversation shows when Claude starts the session.</li>}

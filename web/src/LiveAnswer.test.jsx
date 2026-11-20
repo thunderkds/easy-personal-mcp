@@ -56,7 +56,7 @@ const show = (sessions) => {
 function stubFetch(routes = {}) {
   const calls = []
   const f = vi.fn(async (url, init = {}) => {
-    if (String(url).endsWith('/transcript')) return { ok: false, status: 404, json: async () => ({ error: 'no conversation in this test' }) } // the panel's own read: not one of the answer calls
+    if (String(url).endsWith('/transcript') || String(url).endsWith('/agents')) return { ok: false, status: 404, json: async () => ({ error: 'no conversation in this test' }) } // the panel's own reads (conversation, sub-agents): not one of the answer calls
     calls.push({ url: String(url), init, body: init.body ? JSON.parse(init.body) : undefined })
     const status = (url === '/api/answer' ? routes.answer : routes.release) ?? 200
     const error = { 400: 'choose an option or type an answer for every question', 404: 'no such question or permission is waiting', 409: 'already answered' }[status]
