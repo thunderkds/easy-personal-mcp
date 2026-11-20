@@ -11,7 +11,7 @@
 ### Todo
 
 ### In Progress
-- [ ] **T130** — Terminal in the app 0 — spike: the real claude in a PTY, drawn by xterm.js | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T130.md`; owner idea 2026-11-20 ("go with both"); reverses DDR-0006 cut item only after spike + DDR; started 2026-11-20: worktree `easy-personal-mcp-wt/T130`, branch `T130` from `main`
+- [ ] **T130** — Terminal in the app 0 — spike: the real claude in a PTY, drawn by xterm.js | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T130.md`; owner idea 2026-11-20 ("go with both"); reverses DDR-0006 cut item only after spike + DDR; started 2026-11-20: worktree `easy-personal-mcp-wt/T130`, branch `T130` from `main`; spike done (1e625ed): 7/7 GO, evidence tasks/evidence-T130/SPIKE.md; Stage 4: code-review docs only 0 P0/P1, security no finding >= 8; Ready for Review — next: owner answers the 6 open questions, then a DDR before any build
 
 ### Ready for Review
 - [x] **T129** — Bug: an app session started from Live shows nothing and cannot be worked with | backend-developer | C2 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T129.md`; bugfix, mental model confirmed by owner 2026-11-20; started 2026-11-20: worktree `easy-personal-mcp-wt/T129`, branch `T129` from `main`; diagnosed (ca1175f): route entries keyed type, page read kind — every conversation view blank since T118; fixed (f40eb18, a0a0209); Stage 4: code-review 0 P0/P1, Debate 3 Advocates, security no finding >= 8; vitest 1513, Rust 1364 + 1 load flake; auto verify pass (3a117e8); merged 779ca49 ([admin]) 2026-11-20; main: vitest 1513/1513, transcript_golden 4/4 — Done
