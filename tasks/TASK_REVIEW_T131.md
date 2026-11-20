@@ -68,8 +68,19 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE**: captured 2026-11-20T05:50:38Z in `web/` of the T131 worktree, before any implementation commit (HEAD `c820103`):
+
+```
+$ grep -nic "run" src/BoardView.jsx
+0
+$ grep -n "Run\|startAppSession\|app-sessions" src/BoardView.jsx
+(no match, exit 1)
+$ npx vitest run src/BoardView.test.jsx
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+```
+
+BoardView has no Run button and never calls `/api/app-sessions`.
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
 
