@@ -34,7 +34,7 @@ Owner 2026-11-20: "from the board section, let add the button the can execute th
 | 6 | One click = one session: the button is busy while the POST is out; a server error (403/409/4xx/5xx) shows its message in a toast, nothing is retried | vitest |
 | 7 | Same id in two projects stays tied to its own card's project ("All projects" view) | vitest |
 | 8 | UX: existing button style; card layout unchanged at 375 px and 1280 px | `ux-evaluate` screenshots |
-| 9 | Full web suite + lint + build pass | `npm test`, `npm run lint`, `npm run build` in `web/` |
+| 9 | Full web suite + build pass (web/ has no lint script) | `npm test`, `npm run build` in `web/` |
 
 ## Approach
 Path A (page-only): `BoardView` loads `/api/workspaces` and `/api/agent-run` beside `/api/board`; a small pure helper `repoFor(project, workspaces)` → `{workspace, repo} | {reason}`; `Card` gets a Run button; `BoardView` takes an `onOpenSession(id)` prop that `App.jsx` wires to the Live view the same way Live's New session sheet does.
@@ -58,12 +58,12 @@ Vitest for every AC with mocked fetch; `ux-evaluate` at 375/1280; `/verify` driv
 
 ## Verification Command
 ```bash
-cd web && npm test -- --run && npm run lint && npm run build
+cd web && npm test -- --run && npm run build   # web/ has no lint script (found at T131 Stage 4)
 ```
 
 ## Completion checklist
 - [ ] Implementation done
-- [ ] Lint passes
+- [ ] Lint passes (N/A: web/ has no lint script)
 - [ ] Tests pass
 - [ ] Smoke test confirmed
 - [ ] `memory/` updated (Supervisor)
