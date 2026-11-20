@@ -407,6 +407,29 @@ pub(crate) async fn account_add(State(api): State<Api>, req: Request) -> Respons
     .await
 }
 
+/// `POST /api/accounts/create` with `{"name": ...}` -> 201, the account row (T132). Makes `<agent root>/.claude-<name>`
+/// before the write lock is taken, then registers it as `POST /api/accounts` does. Any key but `name` (and the
+/// accepted boolean `confirm`) is a 400, so a typo is not silently dropped.
+pub(crate) async fn account_create(State(api): State<Api>, req: Request) -> Response {
+    account_write(
+        api,
+        req,
+        false,
+        StatusCode::CREATED,
+        |body| {
+            if body.keys().any(|key| key != "name" && key != "confirm") {
+                return Err(WriteFail::Refused {
+                    status: 400,
+                    text: "body must have only name".to_string(),
+                });
+            }
+            accounts::create(&agent_root(), body.get("name").unwrap_or(&Value::Null))
+        },
+        |conn, _, _, root, folder| accounts::add(conn, folder, root),
+    )
+    .await
+}
+
 /// `POST /api/accounts/{id}/confirm` with `{"label": ...}`.
 pub(crate) async fn account_confirm(State(api): State<Api>, req: Request) -> Response {
     account_write(

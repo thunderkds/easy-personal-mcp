@@ -290,6 +290,7 @@ pub fn routes() -> Router<Api> {
         )
         .route("/api/first-run", get(first_run_steps))
         .route("/api/accounts", get(account_list).post(writes::account_add))
+        .route("/api/accounts/create", post(writes::account_create))
         .route("/api/accounts/{id}/confirm", post(writes::account_confirm))
         .route("/api/accounts/{id}/ignore", post(writes::account_ignore))
         .route(

@@ -349,6 +349,8 @@ easy-personal account use 2 company personal
 
 `account ignore` refuses the default `~/.claude` account. The dashboard serves the same data at `/api/accounts`.
 
+On the Agents page, **New account** makes a Claude account for you: you give a name (lower-case letters, digits and `-`, up to 30, for example `work`), and the app makes the folder `~/.claude-work` (only you can open it) with an empty `settings.json`, then shows the command to sign in, `CLAUDE_CONFIG_DIR=~/.claude-work claude`. It refuses a name when anything already exists at that path, and it never changes an existing folder. If something fails after the folder is made, the app removes that folder again. **Remove** on a confirmed account is the same as `account ignore`: the account leaves the list (it waits under "Removed") and stops receiving connectors, but its folder and past usage stay, it is never found again by detection, and the default account cannot be removed. **Use this account** on a removed account brings it back. The route is `POST /api/accounts/create` with `{"name": "work"}` and needs the dashboard token like every write.
+
 ### Plan limits on the Agents page
 
 Claude Code never saves your plan limits (5-hour and 7-day usage) to disk. They exist only in the JSON that Claude Code sends to your status-line script on stdin. To show them on the Agents page, add this one line to your status-line script. Put it after the line that reads stdin into `$input`:

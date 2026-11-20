@@ -48,9 +48,9 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass (backend ACs 1-5, 9) | `rust/crates/core/src/accounts.rs` (`create_tests`, 5 tests), `rust/crates/app/tests/writes.rs` (5 `create_*` / `a_created_account_*` tests + the guard test now covers the route); AC 9 is the existing `rust/crates/app/tests/agent_run_routes.rs` `ignoring_the_agent_run_account_through_the_account_routes_turns_it_off_and_stops_the_run` and `rust/crates/app/tests/account_ignore_agent_run.rs` (passed in the workspace run). Web ACs 6-8: frontend agent |
+| Verification command run | ☑ pass (Rust half) | `cd rust && cargo test --workspace`: 99 suites, 1375 passed, 0 failed, 29 ignored; `cargo clippy --workspace -- -D warnings`: clean; `cargo fmt --check`: clean; `env -u CLAUDE_CONFIG_DIR parity/leak_rust.py`: `leak check: 0 hits over 42 canaries, 1343 surfaces, 2966680 bytes` (the run refuses while `CLAUDE_CONFIG_DIR` points at a real folder). Web commands: frontend agent |
+| Negative cases hold | ☑ pass | Red first: core tests failed to compile (no `create`). Mutation: `Folder::drop` made a no-op -> `create_removes_its_folder_when_the_store_refuses` FAILED (`the folder it made is still there`) and `a_failure_after_the_folder_is_made_removes_only_that_folder` FAILED; diff stat during the mutation was 4 files, 446 insertions; reverted, both pass |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
 | Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
@@ -76,9 +76,14 @@ agent-root: .claude
 ```
 The route does not exist: 404, and the agent root holds only `.claude`.
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: (same probe, 2026-11-20T06:03:45Z, after the change)
+```
+POST /api/accounts/create {"name":"work"}
+HTTP/1.1 201 Created
+agent-root: .claude .claude-work
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: (backend half) `POST /api/accounts/create {name}` now makes `<agent root>/.claude-<name>` and registers it, where before the route was a 404; the page half is the frontend agent's.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T132.jsonl`, never the
 implementing agent alone]
