@@ -11,6 +11,7 @@
 ### Todo
 
 ### In Progress
+- [ ] **T130** — Terminal in the app 0 — spike: the real claude in a PTY, drawn by xterm.js | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T130.md`; owner idea 2026-11-20 ("go with both"); reverses DDR-0006 cut item only after spike + DDR; started 2026-11-20: worktree `easy-personal-mcp-wt/T130`, branch `T130` from `main`
 - [ ] **T129** — Bug: an app session started from Live shows nothing and cannot be worked with | backend-developer | C2 | Risk: High | P1 | guide `tasks/TASK_GUIDE_T129.md`; bugfix, mental model confirmed by owner 2026-11-20; started 2026-11-20: worktree `easy-personal-mcp-wt/T129`, branch `T129` from `main`
 
 ### Ready for Review
