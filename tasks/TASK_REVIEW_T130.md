@@ -49,7 +49,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 Mode: auto
 1. Spike only: no app code; everything built lives in the session scratchpad; the repo change is the evidence file and this review — RULE: tasks/TASK_GUIDE_T130.md:17 "The spike writes **no app code**"
 2. No build starts from this spike: a build reverses DDR-0006's cut item and needs a DDR and the owner's answers first — FACT: tasks/TASK_GUIDE_T130.md:21 "This reverses DDR-0006's cut item \"Embedded PTY running the real TUI\" only after this spike and a DDR."
-Checks: tests `npm test` — 46 files, 1508/1508 in the T130 worktree (docs-only diff); reviews code-review — docs only, 0 P0/P1, 1 P2 owner note (spike traces in the account); security-review — no finding >= 8; real run spike bin + xterm page in the scratchpad — 7 of 7 questions GO (tasks/evidence-T130/SPIKE.md § Answers); `pgrep -af claude | grep -c scratchpad` — printed `0`
+Checks: tests `npm test` — 46 files, 1508/1508 in the T130 worktree (docs-only diff); reviews code-review — docs only, 0 P0/P1, 1 P2 owner note (spike traces in the account); security-review — no finding >= 8; real run spike bin + xterm page in the scratchpad — 7 of 7 questions GO (tasks/evidence-T130/SPIKE.md § Answers); `ps -eo pid,comm,args | awk '$2=="claude"' | grep -i scratch` — printed nothing (the guide's `pgrep -af claude | grep -c scratchpad` printed `7`: all 7 were this session's own tool shells, whose command line holds the scratchpad path; none was a spike `claude`, PTY or bridge process)
 Memory: nothing new (learning written after the owner decides on the build)
 Not done: merge (yours); owner answers to tasks/evidence-T130/SPIKE.md § Open questions, then a DDR; auto verify: <result>
 
