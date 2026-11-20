@@ -48,16 +48,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ N/A | spike: no app code or tests; the 7 questions are answered in `tasks/evidence-T130/SPIKE.md` |
+| Verification command run | ☑ pass | the guide's command printed `8` (count of GO in SPIKE.md) and `8` for the pgrep count; those 8 are only `zsh` shell wrappers whose command line holds the word claude and the scratchpad path, checked one by one through `/proc/<pid>/cmdline`: no bridge, no `claude` in the scratch repo, no `--resume`, no Chrome profile process (2026-11-20, after 04:12Z) |
+| Negative cases hold | ☑ pass | guard cases run against the bridge at 04:03Z: evil Origin 403, rebinding Host 403, wrong token closed with no data, no token 401 (SPIKE.md, routes table) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | the only repo change is `tasks/evidence-T130/SPIKE.md` (+ this file); `rust/**`, `web/**`, `src/**` untouched; no `~/.claude*` file read or written by the spike itself (only `claude`'s own writes into the account's folders, listed in SPIKE.md Risks) |
+| Full smoke suite still green (no regression) | ☑ N/A | no app code changed |
+| **Companion score (easy-verifier)** | ☑ N/A | docs/evidence-only spike, no code diff to score |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI shipped; throwaway screenshots stay in the scratchpad (`.../scratchpad/t130/shots/`) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI shipped |
+| **UI: Responsiveness at target viewports** | ☑ N/A | spike only: xterm reflowed at 1280, 768 and 375 px (SPIKE.md Q3) |
 
 ---
 
@@ -73,9 +73,18 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Embedded PTY running the real TUI | Full fidelity, but a terminal emulator in the app; cut list |
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (verbatim excerpt of `tasks/evidence-T130/SPIKE.md`):
+```
+| 1 | PTY starts the interactive `claude` and keeps it running | **GO** | ...
+| 2 | Typed input reaches it; it answers; its own permission dialog is answered by keystrokes | **GO** | ...
+| 3 | Renders correctly in xterm.js over a local bridge: colours, cursor, resize | **GO** | ...
+| 4 | Saved as an interactive session; `--resume <id> -p` resumes it | **GO** | ... every `entrypoint` = `cli` ...
+| 5 | Live sees it as a terminal session; the answer-bridge hooks fire | **GO** | ... all seven fields present; PermissionRequest, Stop, PreToolUse fired ...
+| 6 | Closing the PTY ends `claude` cleanly; nothing left; re-attach from an in-memory buffer | **GO** (conditional) | ...
+| 7 | Page cost of `xterm.js` + fit addon | **GO** (conditional) | ... 120,455 B gzip + 657 B ...
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner can now decide on a build with measured evidence: the real `claude` TUI runs in a Rust PTY and draws correctly in xterm.js (colours, cursor, resize, dialogs answered by keystrokes), Live would see it as a terminal session, and the evidence names what a build needs (WebSocket first-frame token, 1 MiB ring plus a resize nudge, lifecycle with the tray), the risks and six open questions; DDR-0006's cut item is reversed only after a DDR.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T130.jsonl`, never the
 implementing agent alone]
