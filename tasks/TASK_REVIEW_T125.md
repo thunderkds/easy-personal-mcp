@@ -84,6 +84,10 @@ $ date -u; git log -1 --oneline; grep -rln 'Open log\|parent_call' web/src | wc 
 2026-11-19T11:18:19Z
 af4aa48 Board + memory: T122, T123 Done (merged); font decision
 0
+$ (re-run on the branch point after T124 merged)
+2026-11-20T01:32:25Z
+e39d05f Memory: T124-T128 merged
+0
 ```
 
 **AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
