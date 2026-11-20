@@ -68,6 +68,26 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
+**BEFORE (page)** (frontend-developer, `web/`, captured before any implementation commit):
+
+```
+2026-11-20T05:52:46Z
+$ grep -nE "New account|Remove|Removed" src/AgentsView.jsx
+(exit 1)
+$ grep -n "accounts/create" src/*.js src/*.jsx
+(exit 1)
+$ npx vitest run src/AgentsView.test.jsx
+ RUN  v5.0.5 /home/hungnguyenhuu/workspace/pets/hungnguyen111/easy-personal-mcp-wt/T132-web/web
+
+
+ Test Files  1 passed (1)
+      Tests  39 passed (39)
+   Start at  12:52:46
+   Duration  2.06s (tests 54%, environment 20%, transform 19%, setup 4%, import 3%)
+```
+
+The Agents page has no New account form, no Remove button, no Removed section, and no call to `/api/accounts/create`.
+
 **BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
 first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
 
