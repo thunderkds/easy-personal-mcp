@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import BoardView from './BoardView.jsx'
+import BoardView, { AMBIGUOUS, NO_REPO } from './BoardView.jsx'
+import { OFF } from './NewSessionSheet.jsx'
+import { ToastProvider } from './Toast.jsx'
 
 // "Now" is pinned; only Date is faked so promises keep working.
 const NOW = new Date('2026-10-31T12:00:00Z')
@@ -39,21 +41,43 @@ const board = {
   ],
 }
 
-function stub(body = board, status = 200) {
-  const fn = vi.fn(async () => ({ ok: status === 200, status, json: async () => body }))
+// One answer per route: the board, the workspaces and the agent-run state that the Run button reads, and the start call.
+const workspaces = {
+  workspaces: [
+    { id: 1, name: 'orphan', is_orphan: true, repos: ['/home/me/easy-ctx'] },
+    { id: 2, name: 'acme', is_orphan: false, repos: ['/home/me/code/easy-personal', '/home/me/code/easy-ctx/'] },
+  ],
+}
+const agentRun = { enabled: true, account: null, claude_found: true, running: false, last: null }
+const reply = (status, body) => ({ ok: status < 400, status, json: async () => body })
+
+function stub(body = board, status = 200, extra = {}) {
+  const fn = vi.fn(async (url, init = {}) => {
+    if (url === '/api/workspaces') return extra.workspaces === 404 ? reply(404, {}) : reply(200, extra.workspaces ?? workspaces)
+    if (url === '/api/agent-run') return extra.agentRun === 404 ? reply(404, {}) : reply(200, extra.agentRun ?? agentRun)
+    if (url === '/api/app-sessions' && init.method === 'POST') return extra.start ? extra.start(init) : reply(202, { id: 'new-session-1' })
+    return reply(status, body)
+  })
   vi.stubGlobal('fetch', fn)
   return fn
 }
-async function renderView(body, scope) {
-  const fn = stub(body)
-  render(<BoardView scope={scope} />)
+const boardCalls = (fn) => fn.mock.calls.filter(([url]) => String(url).startsWith('/api/board'))
+const starts = (fn) => fn.mock.calls.filter(([url, init]) => url === '/api/app-sessions' && init?.method === 'POST')
+const view = (props) => (
+  <ToastProvider>
+    <BoardView {...props} />
+  </ToastProvider>
+)
+async function renderView(body, scope, extra) {
+  const fn = stub(body, 200, extra)
+  render(view({ scope }))
   await screen.findByRole('heading', { name: 'Board' })
   await screen.findByLabelText('project')
   return fn
 }
 async function renderView0(body) {
   stub(body)
-  render(<BoardView />)
+  render(view())
   await screen.findByRole('heading', { name: 'Board' })
   await screen.findByRole('button', { name: /without a board/ })
 }
@@ -61,6 +85,10 @@ const column = (name) => screen.getByRole('region', { name: new RegExp(`^${name}
 const cards = (name) => within(column(name)).queryAllByRole('article')
 const pick = (label) => fireEvent.change(screen.getByLabelText('project'), { target: { value: screen.getByRole('option', { name: label }).value } })
 const everyone = () => pick('All projects')
+const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+const runIn = (card) => within(card).queryByRole('button', { name: /^Run / })
+const prompt = (id, title) => `Work on task ${id}: ${title}. Follow this project's workflow; its guide is tasks/TASK_GUIDE_${id}.md if that file exists.`
+const sent = (fn) => JSON.parse(starts(fn)[0][1].body)
 
 beforeEach(() => {
   window.location.hash = '#secret-token'
@@ -214,11 +242,11 @@ describe('project picker and default (AC1)', () => {
 
   it('goes back to the default project when the scope changes and the picked one is gone', async () => {
     stub()
-    const { rerender } = render(<BoardView scope={{ workspace: 'a', account: '' }} />)
+    const { rerender } = render(view({ scope: { workspace: 'a', account: '' } }))
     await screen.findByLabelText('project')
     pick(/^easy-ctx/)
     expect(screen.getByLabelText('project')).toHaveDisplayValue(/^easy-ctx/)
-    rerender(<BoardView scope={{ workspace: 'b', account: '' }} />)
+    rerender(view({ scope: { workspace: 'b', account: '' } }))
     await vi.waitFor(() => expect(screen.getByLabelText('project')).toHaveDisplayValue(/^easy-personal/))
   })
 })
@@ -285,7 +313,7 @@ describe('header line and rows (FR-038)', () => {
 
   it('says so when there are no projects', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ projects: [] }) })))
-    render(<BoardView />)
+    render(view())
     expect(await screen.findByText('No projects with usage on this machine.')).toBeInTheDocument()
   })
 })
@@ -293,25 +321,202 @@ describe('header line and rows (FR-038)', () => {
 describe('requests (AC4)', () => {
   it('sends the workspace and account of the global scope, and loads again when they change', async () => {
     const fn = stub()
-    const { rerender } = render(<BoardView scope={{ workspace: 'acme', account: '' }} />)
+    const { rerender } = render(view({ scope: { workspace: 'acme', account: '' } }))
     await screen.findByRole('heading', { name: 'Board' })
     await screen.findByTestId('board-summary')
-    expect(fn.mock.calls.at(-1)[0]).toBe('/api/board?workspace=acme')
-    rerender(<BoardView scope={{ workspace: 'acme', account: '2' }} />)
-    await vi.waitFor(() => expect(fn.mock.calls.at(-1)[0]).toBe('/api/board?workspace=acme&account=2'))
+    expect(boardCalls(fn).at(-1)[0]).toBe('/api/board?workspace=acme')
+    rerender(view({ scope: { workspace: 'acme', account: '2' } }))
+    await vi.waitFor(() => expect(boardCalls(fn).at(-1)[0]).toBe('/api/board?workspace=acme&account=2'))
   })
 
   it('sends the token header and no body', async () => {
     const fn = await renderView()
-    expect(fn.mock.calls[0][0]).toBe('/api/board')
-    expect(fn.mock.calls[0][1].headers['X-Dashboard-Token']).toBe('secret-token')
+    expect(boardCalls(fn)[0][0]).toBe('/api/board')
+    expect(boardCalls(fn)[0][1].headers['X-Dashboard-Token']).toBe('secret-token')
+  })
+})
+
+describe('Run button (T131)', () => {
+  it('AC1: every Todo, In Progress, Ready for Review and Blocked card has Run; Done and Closed cards have none', async () => {
+    await renderView()
+    await screen.findAllByRole('button', { name: /^Run / })
+    for (const [name, n] of [['Todo', 2], ['In Progress', 1], ['Ready for Review', 1], ['Blocked', 1]]) {
+      expect(cards(name)).toHaveLength(n)
+      for (const card of cards(name)) expect(runIn(card)).not.toBeNull()
+    }
+    fireEvent.click(screen.getByRole('button', { name: /^Done/ }))
+    expect(cards('Done').length).toBeGreaterThan(0)
+    for (const card of [...cards('Done'), ...cards('Closed')]) expect(runIn(card)).toBeNull()
+  })
+
+  it('AC2, AC3, AC4: one click posts the fixed body for the matching workspace repo, then opens Live on the new id', async () => {
+    const onOpenAppSession = vi.fn()
+    const fn = stub()
+    render(view({ onOpenAppSession }))
+    const run = await within(await screen.findByRole('region', { name: /^Todo/ })).findAllByRole('button', { name: 'Run HUN-140' })
+    fireEvent.click(run[0])
+    await vi.waitFor(() => expect(onOpenAppSession).toHaveBeenCalledWith('new-session-1'))
+    expect(starts(fn)).toHaveLength(1)
+    const [, init] = starts(fn)[0]
+    expect(init.headers['X-Dashboard-Token']).toBe('secret-token')
+    expect(JSON.parse(init.body)).toEqual({
+      workspace: 'acme',
+      repo: '/home/me/code/easy-personal',
+      account: null,
+      model: 'default',
+      effort: 'default',
+      mode: 'default',
+      worktree: false,
+      prompt: prompt('HUN-140', 'Work board'),
+      confirmed: true,
+    })
+    expect(init.body).not.toContain('bypassPermissions')
+  })
+
+  it('AC3: the title goes through the plain-text step', async () => {
+    const one = { ...board.projects[0], tasks: [task('HUN-1', 'Fix `board.py` **now**', 'Todo')] }
+    const fn = await renderView({ projects: [one] })
+    fireEvent.click(await screen.findByRole('button', { name: 'Run HUN-1' }))
+    await vi.waitFor(() => expect(starts(fn)).toHaveLength(1))
+    expect(sent(fn).prompt).toBe(prompt('HUN-1', 'Fix board.py now'))
+  })
+
+  it('AC3: a huge title is cut so the whole prompt stays within 100 000 UTF-8 bytes, whole characters only, tail intact', async () => {
+    const one = { ...board.projects[0], tasks: [task('HUN-1', '😀'.repeat(60_000), 'Todo')] }
+    const fn = await renderView({ projects: [one] })
+    fireEvent.click(await screen.findByRole('button', { name: 'Run HUN-1' }))
+    await vi.waitFor(() => expect(starts(fn)).toHaveLength(1))
+    const text = sent(fn).prompt
+    expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(100_000)
+    expect(text.isWellFormed()).toBe(true)
+    expect(text.startsWith('Work on task HUN-1: 😀')).toBe(true)
+    expect(text.endsWith(". Follow this project's workflow; its guide is tasks/TASK_GUIDE_HUN-1.md if that file exists.")).toBe(true)
+  })
+
+  it('AC5: app sessions off: Run is disabled and the off text is visible once, with a Settings link', async () => {
+    const onOpenSettings = vi.fn()
+    stub(board, 200, { agentRun: { ...agentRun, enabled: false } })
+    render(view({ onOpenSettings }))
+    const run = await screen.findAllByRole('button', { name: /^Run / })
+    for (const button of run) expect(button).toBeDisabled()
+    expect(screen.getAllByText(new RegExp(OFF.slice(0, 20)))).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }))
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('AC5: a project in no workspace: Run is disabled and the reason is visible text on its cards', async () => {
+    await renderView(undefined, undefined, { workspaces: { workspaces: [{ id: 2, name: 'acme', is_orphan: false, repos: ['/home/me/code/other'] }] } })
+    const run = await screen.findAllByRole('button', { name: /^Run / })
+    for (const button of run) expect(button).toBeDisabled()
+    expect(within(cards('Todo')[0]).getByText(NO_REPO)).toBeInTheDocument()
+    expect(NO_REPO).toBe('Add this repo to a workspace to run it')
+  })
+
+  it('AC5: a repo kept only in the orphan workspace does not count', async () => {
+    await renderView(undefined, undefined, { workspaces: { workspaces: [{ id: 1, name: 'orphan', is_orphan: true, repos: ['/home/me/code/easy-personal'] }] } })
+    await screen.findAllByRole('button', { name: /^Run / })
+    expect(within(cards('Todo')[0]).getByText(NO_REPO)).toBeInTheDocument()
+  })
+
+  it('AC5: two workspace repos with the same folder name: Run is disabled and says so', async () => {
+    const two = { workspaces: [{ id: 2, name: 'acme', is_orphan: false, repos: ['/a/easy-personal'] }, { id: 3, name: 'home', is_orphan: false, repos: ['/b/easy-personal'] }] }
+    const fn = await renderView(undefined, undefined, { workspaces: two })
+    await screen.findAllByRole('button', { name: /^Run / })
+    expect(runIn(cards('Todo')[0])).toBeDisabled()
+    expect(within(cards('Todo')[0]).getByText(AMBIGUOUS)).toBeInTheDocument()
+    fireEvent.click(runIn(cards('Todo')[0]))
+    await settle()
+    expect(starts(fn)).toHaveLength(0)
+  })
+
+  it('AC5: app sessions not available (agent-run answers 404): no Run button, no reason text', async () => {
+    const fn = await renderView(undefined, undefined, { agentRun: 404 })
+    await vi.waitFor(() => expect(fn.mock.calls.some(([url]) => url === '/api/agent-run')).toBe(true))
+    await settle()
+    expect(screen.queryAllByRole('button', { name: /^Run / })).toHaveLength(0)
+    expect(screen.queryByText(OFF)).toBeNull()
+    expect(screen.queryByText(NO_REPO)).toBeNull()
+  })
+
+  it('AC5: the board still shows when the workspaces cannot be read, with no Run button', async () => {
+    await renderView(undefined, undefined, { workspaces: 404 })
+    await settle()
+    expect(screen.queryAllByRole('button', { name: /^Run / })).toHaveLength(0)
+    expect(cards('Todo')).toHaveLength(2)
+  })
+
+  it('AC6: one click is one session: the button is busy while the post is out, a second click sends nothing', async () => {
+    let finish
+    const onOpenAppSession = vi.fn()
+    const fn = stub(board, 200, { start: () => new Promise((resolve) => (finish = () => resolve(reply(202, { id: 's-9' })))) })
+    render(view({ onOpenAppSession }))
+    const run = (await screen.findAllByRole('button', { name: 'Run HUN-140' }))[0]
+    fireEvent.click(run)
+    await vi.waitFor(() => expect(run).toBeDisabled())
+    expect(run).toHaveTextContent('Starting')
+    fireEvent.click(run)
+    await settle()
+    expect(starts(fn)).toHaveLength(1)
+    finish()
+    await vi.waitFor(() => expect(onOpenAppSession).toHaveBeenCalledWith('s-9'))
+    expect(starts(fn)).toHaveLength(1)
+  })
+
+  it.each([
+    [403, 'App sessions are off. Choose an agent run account in Settings.'],
+    [409, 'a session is already running in this folder'],
+    [400, 'repo must be a repo of the workspace'],
+    [500, 'internal error'],
+  ])('AC6: a %s answer shows its message in a toast, opens nothing and is not retried', async (status, message) => {
+    const onOpenAppSession = vi.fn()
+    const fn = stub(board, 200, { start: () => reply(status, { error: message }) })
+    render(view({ onOpenAppSession }))
+    const run = (await screen.findAllByRole('button', { name: 'Run HUN-140' }))[0]
+    fireEvent.click(run)
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    await settle()
+    expect(starts(fn)).toHaveLength(1)
+    expect(onOpenAppSession).not.toHaveBeenCalled()
+    expect(run).toBeEnabled()
+  })
+
+  it('AC6: a failed request with no server message shows a fixed line', async () => {
+    stub(board, 200, { start: () => Promise.reject(new TypeError('network down')) })
+    render(view())
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Run HUN-140' }))[0])
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not start the session. Try again.')
+  })
+
+  it('AC7: the same id in two projects stays tied to its own card (All projects)', async () => {
+    const fn = await renderView()
+    everyone()
+    await screen.findAllByRole('button', { name: /^Run / })
+    const todo = cards('Todo')
+    expect(todo).toHaveLength(3)
+    fireEvent.click(runIn(todo[2]))
+    await vi.waitFor(() => expect(starts(fn)).toHaveLength(1))
+    expect(sent(fn)).toMatchObject({ workspace: 'acme', repo: '/home/me/code/easy-ctx/', prompt: prompt('HUN-140', 'Same id, other project') })
+    fireEvent.click(runIn(todo[0]))
+    await vi.waitFor(() => expect(starts(fn)).toHaveLength(2))
+    expect(JSON.parse(starts(fn)[1][1].body)).toMatchObject({ repo: '/home/me/code/easy-personal', prompt: prompt('HUN-140', 'Work board') })
+  })
+
+  it('AC10: the Run button uses the existing accent style (class primary)', async () => {
+    await renderView()
+    for (const run of await screen.findAllByRole('button', { name: /^Run / })) expect(run).toHaveClass('primary')
+  })
+
+  it('AC8: the card keeps its accessible name (id and title only)', async () => {
+    await renderView()
+    await screen.findAllByRole('button', { name: /^Run / })
+    expect(screen.getByRole('article', { name: 'HUN-140 Work board' })).toBe(cards('Todo')[0])
   })
 })
 
 describe('states', () => {
   it('shows a loading status and then an error alert', async () => {
     stub({}, 500)
-    render(<BoardView />)
+    render(view())
     expect(screen.getByRole('status')).toHaveTextContent('Loading board')
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load board')
   })
