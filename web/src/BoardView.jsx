@@ -126,7 +126,7 @@ function RunButton({ task, title, run, onStarted }) {
   }
   return (
     <div className="board-run">
-      <button type="button" aria-label={`Run ${task.id}`} aria-describedby={off ? 'board-run-off' : undefined} disabled={busy || off || Boolean(target.reason)} onClick={start}>
+      <button type="button" className="primary" aria-label={`Run ${task.id}`} aria-describedby={off ? 'board-run-off' : undefined} disabled={busy || off || Boolean(target.reason)} onClick={start}>
         {busy ? 'Starting…' : 'Run'}
       </button>
       {target.reason && <span className="muted board-reason">{target.reason}</span>}

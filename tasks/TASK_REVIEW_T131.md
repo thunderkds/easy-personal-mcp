@@ -55,6 +55,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | `BoardView.jsx`, `BoardView.test.jsx`, `app.css` (board block). `App.jsx` needs no change: it already passes `onOpenAppSession` and `onOpenSettings` to every view. Not touched: `rust/**`, `NewSession.jsx` |
 | Full smoke suite still green (no regression) | ☑ pass | 46 files, 1531 tests passed |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
+| **AC 10: Run button highlighted (class `primary`)** | ☑ pass | Test `AC10: the Run button uses the existing accent style (class primary)` was red before (`1 failed \| 51 passed (52)`), green after; whole web suite `46 files, 1532 tests passed`; `npm run build` built in 223ms. No new CSS rule or colour (`main button.primary` already in `app.css`). 1280 screenshot of the real BoardView + app.css with mocked API (scratch probe, deleted, not committed): `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/8fb95ba1-34f5-47f8-bde4-9f115f127e09/scratchpad/ux131/board-1280.png` shows accent border, soft accent fill, accent text on every enabled Run |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ pass | ux-evaluate on a scratch probe page (real BoardView + app.css, mocked API; scratch files deleted, never committed): screenshots at 375 and 1280 in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/8fb95ba1-34f5-47f8-bde4-9f115f127e09/scratchpad/ux/` (`ok-`, `off-`, `norepo-`, `fail-` + `375.png`/`1280.png`). Cards keep id, title, project meta; Run sits last in the card |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass | Run uses the existing `main button` style; new CSS (`.board-run`, `.board-reason`, `.board-off`) uses tokens only; the existing "board CSS has no raw colour" test still passes |
 | **UI: Responsiveness at target viewports** | ☑ pass | 375 and 1280 viewed: no horizontal overflow, Run 44 px tall at 375 (existing mobile `main button` rule), "Open Settings" link has a 44 px tap area at 375 |
@@ -95,6 +96,23 @@ $ npx vitest run src/BoardView.test.jsx
 $ npm test -- --run
  Test Files  46 passed (46)
       Tests  1531 passed (1531)
+```
+
+**BEFORE (AC 10)**: captured 2026-11-20T07:37:28Z in the T131 worktree, before the AC 10 implementation commit (the Run `<button>` has no `className`):
+
+```
+$ grep -n 'aria-label={`Run' web/src/BoardView.jsx
+129:      <button type="button" aria-label={`Run ${task.id}`} aria-describedby={off ? 'board-run-off' : undefined} disabled={busy || off || Boolean(target.reason)} onClick={start}>
+```
+
+**AFTER (AC 10)**: captured 2026-11-20 in the T131 worktree, after the AC 10 change:
+
+```
+$ grep -n 'aria-label={`Run' web/src/BoardView.jsx
+129:      <button type="button" className="primary" aria-label={`Run ${task.id}`} aria-describedby=...
+$ npx vitest run           # whole web suite
+ Test Files  46 passed (46)
+      Tests  1532 passed (1532)
 ```
 
 **DELTA**: From a Todo, In Progress, Ready for Review or Blocked card the owner can start a Claude app session on that task with one click, and lands in Live on it.

@@ -501,6 +501,11 @@ describe('Run button (T131)', () => {
     expect(JSON.parse(starts(fn)[1][1].body)).toMatchObject({ repo: '/home/me/code/easy-personal', prompt: prompt('HUN-140', 'Work board') })
   })
 
+  it('AC10: the Run button uses the existing accent style (class primary)', async () => {
+    await renderView()
+    for (const run of await screen.findAllByRole('button', { name: /^Run / })) expect(run).toHaveClass('primary')
+  })
+
   it('AC8: the card keeps its accessible name (id and title only)', async () => {
     await renderView()
     await screen.findAllByRole('button', { name: /^Run / })
