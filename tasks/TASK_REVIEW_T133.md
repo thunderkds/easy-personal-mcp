@@ -44,6 +44,18 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Auto decisions
+
+Mode: auto
+1. PR_SET_PDEATHSIG for terminal children stays SIGKILL (a tray crash ends `claude` hard; a clean quit is SIGHUP, then SIGKILL after 5 s) — DEBATED: keep SIGKILL (Advocate 1: keep SIGKILL and add a pid/procStart liveness filter in Live; Advocate 2: SIGHUP for terminal children only; Advocate 3: keep SIGKILL, no code change, guarded by `the_child_dies_with_the_thread_that_started_it`); settled by `docs/ddr/0009-terminal-in-the-app.md:24` "quitting the tray ends it. No daemon." — SIGHUP could leave an orphan `claude` with no backstop. Follow-up (not T133): Live drops `sessions/<pid>.json` whose pid is dead (`session_procs.rs`) ⚠ decided for you — please review
+2. The PTY is opened with `posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC)` + `ptsname_r`, not `openpty` (Path A kept, no PTY crate) — SAFER OPTION: `openpty` fds are not close-on-exec, so an app session or `git` spawned at the same moment could inherit the master; the test asserts FD_CLOEXEC on both ends ⚠ decided for you — please review
+3. The Supervisor committed the implementer's finished tree (`0abdae6`) and Evidence (`d7388b4`) after the hook stopped the agent at its step limit — RULE: `CLAUDE.md` § Hard-Stop Gates ("The Supervisor writes the code itself, in the task's worktree")
+4. Review scope = the branch diff `main...d7388b4` only, not the main checkout's uncommitted kit edits — RULE: `docs/claude-md/pipeline-stages.md:233` "Bound the review to the change's **blast radius**"
+5. Pull moment 3 (`pull_moment.py review`) skipped: every board pull this session overwrote `PROJECT_KANBAN.md` with a board holding only HUN rows (T103-T134 lost) — SAFER OPTION: the local board file is kept; the owner restored it once ⚠ decided for you — please review
+Checks: tests `cd rust && cargo test --offline --workspace && cargo clippy --offline --workspace -- -D warnings` — 99 suites, 1398 passed, 0 failed, clippy exit 0, fmt clean; leak gate — 0 hits over 42 canaries; reviews code-review — 0 P0/P1/P2, 2 P3 (final group kill after reap copies `app_session.rs:1599`; module comment should name the crash path); security-review — no findings (branch diff); reviewer spawn `Reviewer: T133` on `d7388b4` — running; real run `serve` + scripted WS client (AFTER above) — printed 201, 403 for evil Origin, 101, `hi` seen, `stty size 30 100`, exit frame, no stub left (auto-checked, not /verify)
+Memory: memory/decisions.md — 2026-11-22 T133 terminal server: built, PDEATHSIG stays SIGKILL (3-Advocate Debate), T134 page in parallel
+Not done: merge (admin: after the auto verify pass); auto verify: not run yet (after the reviewer reports)
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
