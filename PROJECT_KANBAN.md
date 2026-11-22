@@ -10,9 +10,9 @@
 
 ### Todo
 - [ ] **T134** — Terminal 2 — Terminal choice and the xterm panel (page) | frontend-developer | C2 | Risk: Medium | P2 | guide `tasks/TASK_GUIDE_T134.md` (2026-11-20); Depends on T133; DDR-0009, FR-136..FR-138; owner gives the UI design at the start
-- [ ] **T133** — Terminal 1 — PTY sessions and the terminal WebSocket (server) | backend-developer | C3 | Risk: High | P2 | guide `tasks/TASK_GUIDE_T133.md` (2026-11-20); plan `BRAINSTORMING_LOG_TERMINAL.md` Path A (libc PTY + WebSocket, `portable-pty` fallback); DDR-0009, FR-136..FR-138
 
 ### In Progress
+- [ ] **T133** — Terminal 1 — PTY sessions and the terminal WebSocket (server) | backend-developer | C3 | Risk: High | P2 | guide `tasks/TASK_GUIDE_T133.md` (2026-11-20); plan `BRAINSTORMING_LOG_TERMINAL.md` Path A (libc PTY + WebSocket, `portable-pty` fallback); DDR-0009, FR-136..FR-138; Started 2026-11-22: worktree `easy-personal-mcp-wt/T133`, branch `T133` from `main`
 
 ### Ready for Review
 - [ ] **T130** — Terminal in the app 0 — spike: the real claude in a PTY, drawn by xterm.js | backend-developer | C2 | Risk: Medium | P1 | guide `tasks/TASK_GUIDE_T130.md`; owner idea 2026-11-20 ("go with both"); reverses DDR-0006 cut item only after spike + DDR; started 2026-11-20: worktree `easy-personal-mcp-wt/T130`, branch `T130` from `main`; spike done (1e625ed): 7/7 GO, evidence tasks/evidence-T130/SPIKE.md; Stage 4: code-review docs only 0 P0/P1, security no finding >= 8; Ready for Review; owner answered the open questions 2026-11-20 (beside Chat, end with tray, all pages type, full hook parity, xterm npm OK) → DDR-0009, PRD FR-136..FR-138 + question 47, build tasks T133/T134 — next: owner merges `T130` (the `[admin]` gate needs the task ID)
