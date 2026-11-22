@@ -1814,7 +1814,10 @@ def rust_only_surfaces(base: Path) -> list[str]:
     commands = set(re.findall(r"(?m)^  ([a-z][a-z-]*)  ", done.stdout.split("Commands:")[1].split("Options:")[0])) - {"help"}
     py_top = {k.split(": ", 1)[1].split()[0] for k in inventory() if k.startswith("cli: ") and not k.startswith("cli: -")}
     extra = [f"cli: {c}" for c in sorted(commands - py_top)]
-    return extra + ["route: GET /api/version", "route: POST /api/accounts/create"]
+    return extra + ["route: GET /api/version", "route: POST /api/accounts/create",
+                    # T133 (FR-136, FR-137): terminal sessions, Rust app only
+                    "route: GET /api/term-sessions", "route: POST /api/term-sessions",
+                    "route: POST /api/term-sessions/{id}/stop", "route: GET /api/term/{id} (WebSocket)"]
 
 
 def build_rows(results, inv):

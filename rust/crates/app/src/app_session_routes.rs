@@ -37,7 +37,7 @@ use serde_json::{Map, Value, json};
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
-const OFF: &str = "app sessions are off: choose an agent run account in Settings";
+pub(crate) const OFF: &str = "app sessions are off: choose an agent run account in Settings";
 const NO_SESSION: &str = "no such session";
 const ENDED: &str = "the session has ended";
 const UNREADABLE: &str = "the store cannot be read right now; try again in a moment";
@@ -92,7 +92,10 @@ fn found(api: &Api, id: &str) -> Result<Arc<Session>, Response> {
 }
 
 /// A write's body: JSON object, only `allowed` keys, `confirmed: true` (FR-116).
-async fn write_body(req: Request, allowed: &[&str]) -> Result<Map<String, Value>, Response> {
+pub(crate) async fn write_body(
+    req: Request,
+    allowed: &[&str],
+) -> Result<Map<String, Value>, Response> {
     let body = object(req, false).await?;
     if body
         .keys()
@@ -140,7 +143,7 @@ async fn one(State(api): State<Api>, Path(id): Path<String>) -> Response {
 }
 
 /// What a start is on: a stored repo (new, or `--continue`), or a Claude session to resume in its own folder.
-enum Target {
+pub(crate) enum Target {
     Repo {
         repo: String,
         workspace: String,
@@ -153,17 +156,17 @@ enum Target {
     },
 }
 
-/// The form of `POST /api/app-sessions`, each field checked against its fixed list.
-struct Form {
-    target: Target,
-    account: Option<String>,
-    model: &'static str,
-    effort: &'static str,
-    mode: &'static str,
-    prompt: String,
+/// The form of `POST /api/app-sessions`, each field checked against its fixed list (the prompt is read by `start`; the
+/// terminal start of `term_routes.rs` takes the same form with no prompt, T133).
+pub(crate) struct Form {
+    pub(crate) target: Target,
+    pub(crate) account: Option<String>,
+    pub(crate) model: &'static str,
+    pub(crate) effort: &'static str,
+    pub(crate) mode: &'static str,
 }
 
-fn form(body: &Map<String, Value>) -> Result<Form, Response> {
+pub(crate) fn form(body: &Map<String, Value>) -> Result<Form, Response> {
     let name = |key: &str| match body.get(key) {
         Some(Value::String(text)) if !text.is_empty() && text.len() <= 4096 => Ok(text.clone()),
         _ => Err(fail(
@@ -251,7 +254,6 @@ fn form(body: &Map<String, Value>) -> Result<Form, Response> {
             Some(_) => listed("effort", &EFFORTS)?,
         },
         mode: listed("mode", &MODES)?,
-        prompt: text_field(body, "prompt", MAX_PROMPT)?,
     })
 }
 
@@ -268,7 +270,7 @@ fn port_of(headers: &HeaderMap) -> Option<u16> {
 }
 
 /// A stored repo of a stored workspace, as an existing folder.
-fn stored_repo(dir: &FsPath, workspace: &str, repo: &str) -> Result<PathBuf, Response> {
+pub(crate) fn stored_repo(dir: &FsPath, workspace: &str, repo: &str) -> Result<PathBuf, Response> {
     let bad = |text: &str| fail(StatusCode::BAD_REQUEST, text);
     let conn = open_checked(&dir.join("store.sqlite"))
         .map_err(|_| fail(StatusCode::SERVICE_UNAVAILABLE, UNREADABLE))?;
@@ -385,7 +387,7 @@ fn repo_quiet(api: &Api, dir: &FsPath, repo: &str) -> Result<(), Response> {
 }
 
 /// The account the session uses: the one asked for, else the agent run account (`None`: the default account).
-fn pick_account(
+pub(crate) fn pick_account(
     runner: &Runner,
     dir: &FsPath,
     asked: Option<&str>,
@@ -454,6 +456,10 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
         Ok(form) => form,
         Err(answer) => return answer,
     };
+    let prompt = match text_field(&body, "prompt", MAX_PROMPT) {
+        Ok(prompt) => prompt,
+        Err(answer) => return answer,
+    };
     let Some(port) = port else {
         return fail(StatusCode::INTERNAL_SERVER_ERROR, INTERNAL);
     };
@@ -492,24 +498,7 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
             Ok(account) => account,
             Err(answer) => return answer,
         };
-        let pinned = account.as_ref().map(|a| a.id.clone());
-        let allowed_runner = agent.runner(&dir);
-        // the setting is the flag file (removed by `off` and when the agent run account is ignored); a named account
-        // that cannot be found three checks in a row (one a second) counts as gone: a busy store is not "gone"
-        let misses = std::sync::atomic::AtomicU8::new(0);
-        let allowed = Box::new(move || {
-            if !allowed_runner.enabled() {
-                return false;
-            }
-            let Some(id) = pinned.as_deref() else {
-                return true;
-            };
-            if allowed_runner.resolve(id).is_ok() {
-                misses.store(0, std::sync::atomic::Ordering::Relaxed);
-                return true;
-            }
-            misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1 < 3
-        });
+        let allowed = still_allowed(agent.runner(&dir), account.as_ref());
         let plan = Plan {
             repo,
             resume,
@@ -518,23 +507,52 @@ async fn start(State(api): State<Api>, req: Request) -> Response {
             effort: form.effort,
             mode: form.mode,
             worktree,
-            prompt: form.prompt,
+            prompt,
         };
         match agent.sessions.start(plan, &dir, port, allowed) {
             Ok(id) => respond(StatusCode::ACCEPTED, &json!({"id": id})),
-            Err(StartError::Busy) => fail(
-                StatusCode::CONFLICT,
-                &format!(
-                    "{} app sessions are going; stop one first",
-                    app::MAX_RUNNING
-                ),
-            ),
+            Err(StartError::Busy) => busy(),
             Err(StartError::Running) => fail(StatusCode::CONFLICT, RUNNING_HERE),
             Err(StartError::Refused(text)) => fail(StatusCode::BAD_REQUEST, text),
             Err(StartError::Internal) => fail(StatusCode::INTERNAL_SERVER_ERROR, INTERNAL),
         }
     })
     .await
+}
+
+/// The 409 of a start over the one cap of [`app::MAX_RUNNING`] (app and terminal sessions, question 41).
+pub(crate) fn busy() -> Response {
+    fail(
+        StatusCode::CONFLICT,
+        &format!(
+            "{} app sessions are going; stop one first",
+            app::MAX_RUNNING
+        ),
+    )
+}
+
+/// Whether a going session may go on: the setting is the flag file (removed by `off` and when the agent run account is
+/// ignored); a named account that cannot be found three checks in a row (one a second) counts as gone: a busy store is
+/// not "gone".
+pub(crate) fn still_allowed(
+    allowed_runner: Runner,
+    account: Option<&Account>,
+) -> Box<dyn Fn() -> bool + Send> {
+    let pinned = account.map(|a| a.id.clone());
+    let misses = std::sync::atomic::AtomicU8::new(0);
+    Box::new(move || {
+        if !allowed_runner.enabled() {
+            return false;
+        }
+        let Some(id) = pinned.as_deref() else {
+            return true;
+        };
+        if allowed_runner.resolve(id).is_ok() {
+            misses.store(0, std::sync::atomic::Ordering::Relaxed);
+            return true;
+        }
+        misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1 < 3
+    })
 }
 
 /// `POST /api/app-sessions/{id}/message` `{text, confirmed: true}`: one more user message (sent as typed).
