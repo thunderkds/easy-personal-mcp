@@ -44,6 +44,18 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Auto decisions
+
+Mode: auto
+1. The panel uses the existing Live / SessionPanel / appsession.css styles, no new design — RULE: owner answer 2026-11-22 ("Use existing styles"), which replaces the guide's ask-for-a-design step
+2. Built in parallel with T133 against the route contract in `tasks/TASK_GUIDE_T133.md`, tested with a fake WebSocket; checked against T133's committed routes before merge (list fields, POST fields, frames all match, re-review at `63dd426`) — RULE: owner request 2026-11-22 ("start the parallel session if possible")
+3. A failing `GET /api/term-sessions` (any error, not only 404) hides the Terminal choice and leaves Chat working (`web/src/NewSessionSheet.jsx:12`) — RULE: `tasks/TASK_GUIDE_T134.md:30` "Chat default, today's form unchanged"
+4. The session list stays visible beside an open terminal (the three hiding rules and `data-term` removed, `b3a2aea`) — RULE: owner answer 2026-11-22 ("Keep the list visible"); cost measured by the re-review: the terminal is 44 columns at 1280 px (81 before), so Claude Code's wide screens wrap
+5. Terminal text stays 13 px, below the 16 px baseline (B-e note) — RULE: owner answer 2026-11-22 ("Keep 13 px")
+Checks: tests `cd web && npm ci && npm test -- --run && npm run build && cd .. && python3 scripts/check_static.py` — 1611 passed (1611), build ok, `check_static: ok`; reviews code-review — 0 P0/P1/P2, 3 P3 (below the fold at 375, polling a 404 route, keys before open dropped); security-review — no findings; reviewer spawns `Reviewer: T134` on `3122a17`, `63dd426`, `b3a2aea` — PASS each time; real run built page against a stand-in for the T133 routes in Chrome and WebKitGTK (auth frame sent, typed bytes arrived, Ended (code 130)) (auto-checked, not /verify)
+Memory: memory/decisions.md — 2026-11-22 T134 terminal page: existing styles, list visible beside the terminal, 13 px (owner)
+Not done: merge (admin: after the auto verify pass; the `[admin]` request must name T134); auto verify: running (T182) — the pass on `8fcf0b8` predates `b3a2aea`
+
 ## Review findings (independent reviewer, 2026-11-22, commit 3122a17)
 
 Scope: `main...3122a17`, bounded to the blast radius: `web/src` files in the diff plus `LiveView` callers, `scripts/check_static.py`, the built bundle. T133 is not merged (its worktree is uncommitted work in progress), so nothing here ran against the real routes. `Skill` was not callable in this reviewer's context: `code-review`, `ux-evaluate` and `security-review` (no `skills/security-review/` in the repo) were applied by hand from `skills/code-review/SKILL.md` and `skills/ux-evaluate/SKILL.md`.
