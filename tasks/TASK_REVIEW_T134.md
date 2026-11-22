@@ -48,9 +48,39 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 Scope: `main...3122a17`, bounded to the blast radius: `web/src` files in the diff plus `LiveView` callers, `scripts/check_static.py`, the built bundle. T133 is not merged (its worktree is uncommitted work in progress), so nothing here ran against the real routes. `Skill` was not callable in this reviewer's context: `code-review`, `ux-evaluate` and `security-review` (no `skills/security-review/` in the repo) were applied by hand from `skills/code-review/SKILL.md` and `skills/ux-evaluate/SKILL.md`.
 
-Verdict: **PASS with findings. No P0, no P1. The merge of the page can go ahead once the owner accepts the two P2 items or has them fixed; AC 5 and the real-server half of AC 8 wait on T133.**
+Verdict at 3122a17 (superseded by the re-review above): **PASS with findings. No P0, no P1. The merge of the page can go ahead once the owner accepts the two P2 items or has them fixed; AC 5 and the real-server half of AC 8 wait on T133.**
 
-### Findings
+### Re-review (independent reviewer, 2026-11-22, commit 63dd426)
+
+Scope: `3122a17..63dd426` (3 source files: `LiveView.jsx` comment, `NewSessionSheet.jsx` one line, `NewSessionSheet.test.jsx` one test) plus the full `main...63dd426` diff re-read for blast radius. `Skill` was not callable here: `code-review`, `ux-evaluate` and `security-review` were applied by hand from `skills/code-review/SKILL.md` and `skills/ux-evaluate/SKILL.md` (no `skills/security-review/` in the repo). `ux-evaluate`: the fix commit changes no markup or CSS, so the 3122a17 verdict table below stands unchanged (B-a still fails, finding 3).
+
+Verdict: **PASS. No P0, no P1, no P2 open. The merge can go ahead** (the page side; AC 5 and the real-server half of AC 8 still need `/verify` against `serve` after T133 is merged).
+
+| # | Status at 63dd426 | Evidence |
+|---|---|---|
+| 1 (P2) | **fixed** | `NewSessionSheet.jsx:12` now `getTermSessions().catch(() => null)`. Mutation: I put the old call back, `npx vitest run src/NewSessionSheet.test.jsx` -> `FAIL ... a failing terminal list (500) leaves the Chat form working, with no Terminal choice`, `1 failed \| 14 passed`; restored with `git checkout`, tree clean. The only other caller (`LiveView.jsx` `useTerms`) already had its own try/catch. |
+| 2 (P2) | **closed: contract matches** | T133 is now committed (`T133` head `d7388b4`). `term_session.rs:350 json()` returns `id, repo, branch, account {id,label}|null, started, state "running"|"exited", code, reason, pages, session_id`; `term_routes.rs list` returns `{sessions, max}` -> `getTermSessions` reads `list.sessions`, `isExited` reads `state === 'exited'`, `accountLabel` reads `.label`, `termOnly` reads `repo, session_id, code`. POST `{repo, workspace, account?, model, mode, worktree?, confirmed}` and `write_body` rejects any other field: `NewSession.jsx` sends exactly those (no prompt; test asserts the body). 201 `{id}`. Stop `POST /api/term-sessions/{id}/stop {confirmed}` -> 200 term json, 404 "no such session". WebSocket: first frame text `{t:'auth', token, cols, rows}` within 5 s (`AUTH_WAIT`), page sends it in `onopen`; binary in = typed bytes (page sends `Uint8Array`); text `{t:'resize', cols, rows}` (page sends it, debounced); out: binary screen, `{t:'exit', code}` (code may be null -> "Ended"), `{t:'pages', n}`, `{t:'notice', text}` (-> dropped line); `RecvError::Lagged` closes the socket -> page shows "Not attached" + Reconnect, a new attach replays. Token not in the URL (server never reads it). Max frame 1 MiB: key row sends 1-3 bytes. No mismatch. (Page-local tolerance for `running === false` and a bare list is dead code against T133: harmless.) |
+| 3 (P3) | open | Terminal below the fold after Start (owner decides the design). |
+| 4 (P3) | **fixed** | Comment now says "about 85 KB gzip", matching the build (85.43 kB). |
+| 5 (P3) | open | `useTerms` keeps polling a server without the route (T133 serves it, so only the Python server or an old app hits it). |
+| 6 (P3) | open | Dropped input before open is silent while "Connecting" shows; xterm screen-reader mode off. Not an AC. |
+
+New findings in the fix commit: none. The change is one `.catch` and one comment; the test added is red without the fix (above).
+
+Commands run (this re-review):
+
+```
+$ cd web && npm ci && npm test -- --run && npm run build && cd .. && python3 scripts/check_static.py
+found 0 vulnerabilities
+Tests  1611 passed (1611)          (48 files; the +1 is the new 500 test)
+TermPanel-hSWxPZkd.js  337.14 kB | gzip: 85.43 kB   index-DEWu3EJ3.js  473.06 kB | gzip: 139.79 kB   built in 199ms
+check_static: ok
+$ git status --short   -> clean (the build output is not tracked)
+```
+
+Security review (Medium, manual), re-checked on the full diff and against T133: no finding above P3. The auth frame carries the token and the server compares it in constant time; the page never puts it in a URL, storage or console; Stop sends `confirmed: true`; no HTML is built from server bytes; no link or clipboard addon; CSP and `rust/**` untouched; two pinned MIT dependencies, 0 vulnerabilities; the built `TermPanel` chunk holds no `http(s)://` URL. Residual (owner-accepted, FR-137): every attached page can type.
+
+### Findings (first review, commit 3122a17; status in the re-review table above)
 
 | # | Sev | Where | Finding |
 |---|-----|-------|---------|
