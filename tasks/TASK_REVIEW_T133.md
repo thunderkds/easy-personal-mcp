@@ -55,6 +55,7 @@ Mode: auto
 Checks: tests `cd rust && cargo test --offline --workspace && cargo clippy --offline --workspace -- -D warnings` — 99 suites, 1398 passed, 0 failed, clippy exit 0, fmt clean; leak gate — 0 hits over 42 canaries; reviews code-review — 0 P0/P1/P2, 2 P3 (final group kill after reap copies `app_session.rs:1599`; module comment should name the crash path); security-review — no findings (branch diff); reviewer spawn `Reviewer: T133` on `d7388b4` — running; real run `serve` + scripted WS client (AFTER above) — printed 201, 403 for evil Origin, 101, `hi` seen, `stty size 30 100`, exit frame, no stub left (auto-checked, not /verify)
 Memory: memory/decisions.md — 2026-11-22 T133 terminal server: built, PDEATHSIG stays SIGKILL (3-Advocate Debate), T134 page in parallel
 Not done: merge (admin: after the auto verify pass); auto verify: not run yet (after the reviewer reports)
+Paused: auto-mode check failed — Risk High: decision 2 (`SAFER OPTION`) is a choice — it is flagged ⚠ — so it must be `DEBATED` with exactly 3 Advocates named; Risk High: decision 5 (`SAFER OPTION`) is a choice — it is flagged ⚠ — so it must be `DEBATED` with exactly 3 Advocates named [report 27fecc4466ed]
 
 ## Evidence
 
@@ -64,7 +65,7 @@ Not done: merge (admin: after the auto verify pass); auto verify: not run yet (a
 | Verification command run | ☑ pass | `cargo test --offline --workspace && cargo clippy --offline --workspace -- -D warnings` 2026-11-22T15:07:41Z..15:13:22Z: 99 suites, passed 1398, failed 0; `test exit 0`; `clippy exit 0`; `clippy --all-targets -D warnings` clean; `fmt-clean`. Leak gate: `leak check: 0 hits over 42 canaries, 1466 surfaces, 3254986 bytes`; `check terminal bytes on the guarded socket ok (3 of 3 planted strings)`; `check terminal socket foreign origin 403 ok`; `check terminal children end with the server ok (2 children, 0 left, exit 0)` |
 | Negative cases hold | ☑ pass | mutations by the implementer, each reverted: M1 cap not shared → 5th-start test fails (409 vs 202); M2 guard carve-out off → 5 of 9 `term_routes` tests fail; M3 list carries the replay → leak gate exit 1 `HIT T133 term_secret as raw in [terms api GET /api/term-sessions -> 200]` (outputs: scratchpad `t133/leak-mut.txt`) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewer (fresh context) read the branch diff `main...d7388b4` (HEAD `4d05665` adds only this file): all of `term_session.rs`, `term_routes.rs`, the guard carve-out in `server.rs`, the shared count and extracted helpers in `app_session.rs` / `app_session_routes.rs`, `agent_routes.rs` (shutdown), Cargo manifests and lock, `leak_rust.py`, `run_parity.py`. Skipped: the main checkout's uncommitted kit edits, `web/**` (T134), Python, the unchanged rest of `app_session.rs`. The `code-review` and `security-review` skills were not callable as tools; `skills/code-review/SKILL.md` and `references/security-reviewer.md` were applied by hand. See "Reviewer findings (T133)" below. |
 | Full smoke suite still green (no regression) | ☑ pass | whole Rust workspace 1398/0 (above) |
 | **Companion score (easy-verifier)** | ☑ N/A | not run: easy-verifier refused every repo path since 2026-11-01 (memory learnings) |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | server-only task; the page is T134 |
@@ -117,3 +118,63 @@ $ GET /api/term-sessions -> {"max":4,"sessions":[{"account":null,"branch":null,"
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
+
+---
+
+## Reviewer findings (T133)
+
+Reviewer: fresh context, 2026-11-22, commit under review `d7388b43a3e44b07829e498d31060609225a4fdf` (branch HEAD `4d05665`). `code-review` and `security-review` were applied by hand from `skills/code-review/SKILL.md` and `skills/code-review/references/security-reviewer.md` (the Skill tool was not callable). No code was changed.
+
+**Verdict: PASS. No P0, P1 or P2 code finding. The merge can go ahead on the code.** One process item (below, P2-process) blocks the auto-mode close-out, not the code.
+
+### Commands I ran (real output)
+- `cd rust && cargo test --offline --workspace` : `test exit 0`, 99 suites, 1398 passed, 0 failed (5:57).
+- `cargo clippy --offline --workspace -- -D warnings` : exit 0. `cargo fmt --check` : clean.
+- Leak gate, run by me with `CLAUDE_CONFIG_DIR`/`CLAUDECODE` unset (the harness refuses a real data folder): `leak check: 0 hits over 42 canaries, 1466 surfaces, 3255642 bytes`; `check terminal bytes on the guarded socket ok (3 of 3 planted strings)`; `check terminal socket foreign origin 403 ok`; `check terminal children end with the server ok (2 children, 0 left, exit 0)`; `check T133 terminal strings scanned ok (3 strings, 1465 surfaces, 1 guarded socket capture allowed to hold them)`.
+- Not run: `rust/parity/run_parity.py` (needs the Python server side); `cargo deny` / `cargo audit` (not installed, no `deny.toml` in the repo).
+
+### Findings
+
+| Sev | Where | Finding | Boundary / result |
+|---|---|---|---|
+| P2 (process) | this file, `## Auto decisions` 2 and 5; hook line `Paused:` | Risk is High; decisions 2 (`openpty` vs `posix_openpt`) and 5 (pull moment skipped) are `SAFER OPTION` with the flag "decided for you", which the auto-mode check refuses (must be `DEBATED` with 3 Advocates). The hook has already written `Paused:` (report 27fecc4466ed). Not a code defect. | Supervisor decides: run the Advocates, or restate both as `RULE:` with a written rule, or drop the flag. |
+| P3 | `term_session.rs:686` vs `:765-772` | If the child exits at once (a `claude` that fails at start), `supervise` can run `close_master()` before `launch` stores the master at `:686`. The master fd then stays in `Term.master` until the entry is evicted (max 12 ended entries). Bounded fd retention only; no data or safety impact. | Fix: store the master before the thread starts the child, or have `launch` skip it when `ended()`. |
+| P3 | `term_session.rs:765-772` | `term.end()` (state `exited`) runs before `drop(slot)`. A caller that polls the list, sees `exited`, and starts at once can get a 409 for the few microseconds before the slot frees. `the_fifth_start_of_either_kind_is_409...` (`term_routes.rs:641`) does exactly that, so it can flake under load. | Fix: drop the slot before `end()`. |
+| P3 | `term_session.rs:758` (`signal_group` after reap) | Group SIGKILL after `try_wait` reaped the leader copies `app_session.rs:1599`; the pgid could in theory be recycled when the group is empty. Same pattern as app sessions; already noted by the implementer. | Accept; note only. |
+| P3 | `term_routes.rs:52` | Before auth a socket may send one frame up to 1 MiB and hold a task for 5 s. Host and Origin are already checked, a local process still needs no token to open sockets. Hardening only (no data reached). | Optional: cap the first frame at about 4 KiB. |
+| P3 | `term_routes.rs:245`, `term_session.rs:61` | A page more than 256 messages behind is closed (`Lagged`) and must reattach. Correct by design, but T134 must reconnect on a close and replay. | Carry into T134 (reconnect on close; the replay restores the screen). |
+| P3 | `app_session_routes.rs:430` vs `term_routes.rs:92` | A terminal start has no `RUNNING_HERE` / `repo_quiet` analogue: it can start in a repo where an app session runs. Not an AC; it follows "full parity" only loosely. | Owner call; leave. |
+| Note | `rust/Cargo.lock` | AC 12 asks that any new crate is named with its licence. Added to the graph by axum `ws` and the dev-deps (licences from `cargo metadata`): `tokio-tungstenite 0.29.0` MIT, `tungstenite 0.29.0` MIT OR Apache-2.0, `data-encoding 2.11.1` MIT, `base64 0.22.1` MIT OR Apache-2.0, `rand 0.9.5` / `rand_chacha 0.9.0` / `rand_core 0.9.5` MIT OR Apache-2.0, `sha1 0.10.7` MIT OR Apache-2.0 (now a dep of axum), dev-only `futures-util 0.3.34` MIT OR Apache-2.0. All permissive. No `cargo deny`; none exists in the repo. | AC 12 met. |
+
+### Security review (by hand; lower-trust actor, boundary, resource, result)
+- Another website in the owner's browser, to the terminal socket: Origin must equal `http://127.0.0.1:<port>` and Host must match (`server.rs:105-120`); tests `the_socket_needs_a_good_host_and_origin...` and the leak gate's foreign Origin 403 show it. Rejected as a finding.
+- A local process with no token: the guard lets `GET /api/term/<hex>` through only without the token header (`server.rs:128`, hex id of 1 to 64 digits, `GET` only); it then must send the token in the first frame within 5 s (constant-time compare, `term_routes.rs:160`); the id is looked up after auth, so a probe learns nothing. The token in the URL is ignored (test). Rejected.
+- Repeated or wrong token header: still 403 (`(Some, None)` arm, `_ => false`). Rejected.
+- Argument and env injection into the shell-capable child: argv is built only from `MODELS` and `MODES` (`term_session.rs argv`); the form is the one `start` uses (`form()`), unknown keys are 400 (`write_body`); no prompt, no free argument; `env_clear` + `child_env` scrub, `TERM`/`COLORTERM` set, `MCP_TOOL_TIMEOUT` dropped. Rejected. `bypassPermissions` at start needs no second confirm, same as the existing app-session start (parity, owner picked it in the form).
+- Typed bytes: any attached page can type by design (owner, question 47); 64 KiB/s cap with one notice; the writer is non-blocking (`try_send`), so a stuck child cannot block a tokio worker. Rejected.
+- Screen bytes: held in memory only; no `Debug`, no logging in either new file (grep: no `println`, `eprintln`, `dbg!`, `tracing`); the list route sends no screen byte (test and leak mutation M3 by the implementer); leak gate 0 hits (my run). Rejected.
+- Process lifetime: `PR_SET_PDEATHSIG` SIGKILL in `pre_exec` from the supervising thread; `Agent::shutdown` stops terminals (`agent_routes.rs`); tests `the_servers_shutdown_ends_every_terminal_child`, `the_child_dies_with_the_thread_that_started_it` and the leak gate (0 children left) pass. Rejected.
+- fd inheritance: master and slave opened with `O_CLOEXEC` (test asserts `FD_CLOEXEC`, `term_session.rs:872`), so an app session or `git` spawned at the same time cannot inherit them. Rejected.
+- `unsafe`: 6 blocks in `term_session.rs`, each with a SAFETY comment; `pre_exec` calls only `setsid`, `ioctl`, `prctl`, `getppid`. No finding.
+
+### Acceptance Criteria 0-13
+
+| AC | Status | Evidence (code and test, all run by me in the 1398/0 pass) |
+|---|---|---|
+| 0 | Met | `term_session.rs:864` `step_0_the_libc_pty_gives_a_session_leader_on_its_tty_keys_sigwinch_and_sighup_at_close`: setsid leader, controlling tty, keys, SIGWINCH, close then SIGHUP. Path A (libc, no PTY crate) kept; Path B not needed |
+| 1 | Met | `term_routes.rs:487` start 201 + `{id}`; argv, env (`TERM`, `COLORTERM`, account folder, scrub), cwd asserted; `form()` and `stored_repo()` shared, not copied |
+| 2 | Met | `:555` compares 14 refusal cases, 3 body shapes, evil Origin, rebinding Host and setting off against `POST /api/app-sessions`: same codes and texts; Chat-only fields are 400 `unknown field` |
+| 3 | Met | `:641` two Chat + two Terminal fill the cap, a fifth of either is 409 with the same text; `Sessions::take_slot` shares the count under the one lock (`app_session.rs:1307`, `:1393`). See P3 on the slot-free ordering |
+| 4 | Met | `:487` list holds id, repo, account, started, state, code, pages, no screen byte (`"ready"` and `/dev/pts` absent) |
+| 5 | Met | `:677` unknown id 404, `confirmed` needed, a stub deaf to SIGHUP is killed after 5 s (5 s <= took < 8 s), reason `stopped` |
+| 6 | Met | `:731` evil Origin 403, rebinding Host 403, wrong header token 403, non-hex id 403; wrong token, binary first frame, URL-only token, silent socket all close with no data (silent after 5 s); right token works |
+| 7 | Met | `:818` 186 single-key frames arrive in order; resize 100x30, clamp to 500x5, zeros ignored; over 64 KiB/s: exactly one notice; `pages` frame on attach. `exit` frame in `:901` |
+| 8 | Met | `:901` both pages see output, both type, last resize wins (90x20), both get `exit` code 7 |
+| 9 | Met | `:979` replay holds the first bytes and the later ones then a SIGWINCH nudge; `term_session.rs:988` 3 MiB written holds at most `RING + PREFIX` |
+| 10 | Met | `:901` bytes dropped at the last detach after exit, entry stays `exited`, `pgrep` finds no stub; `:1010` shutdown ends every child (also a SIGHUP-deaf one); `term_session.rs:1219` PDEATHSIG |
+| 11 | Met | My leak gate run: 0 hits over 42 canaries, 3 of 3 planted strings only on the guarded socket. The tray and popups have no code path to `Terms` (only `agent_routes.rs`, `app_session.rs`, `server.rs`, `main.rs` reference it) |
+| 12 | Met | `rust/Cargo.toml`: only `ws` added to axum; other crates named and licensed in the Note row; no supply-chain tool exists |
+| 13 | Met | Workspace tests and clippy `-D warnings` pass (my run); the four routes added to `rust_only_surfaces` in `run_parity.py`; the parity script itself was not run by me |
+
+### Merge answer
+The code can merge: all 14 criteria are met, tests, clippy and the leak gate are green in my own run, and there is no P0/P1/P2 code finding. Before the auto-mode close-out the Supervisor must resolve the P2-process item (decisions 2 and 5). The three cheap P3 fixes (slot before `end()`, master at launch, first-frame cap) can ride on T134 or a follow-up.
