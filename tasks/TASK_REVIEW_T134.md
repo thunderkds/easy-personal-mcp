@@ -80,6 +80,45 @@ $ git status --short   -> clean (the build output is not tracked)
 
 Security review (Medium, manual), re-checked on the full diff and against T133: no finding above P3. The auth frame carries the token and the server compares it in constant time; the page never puts it in a URL, storage or console; Stop sends `confirmed: true`; no HTML is built from server bytes; no link or clipboard addon; CSP and `rust/**` untouched; two pinned MIT dependencies, 0 vulnerabilities; the built `TermPanel` chunk holds no `http(s)://` URL. Residual (owner-accepted, FR-137): every attached page can type.
 
+### Re-review 2 (independent reviewer, 2026-11-22, commit b3a2aea)
+
+Scope: `63dd426..b3a2aea` is two files (`web/src/LiveView.jsx` drops the `data-term` attribute, `web/src/appsession.css` drops three rules: the grid override, the `.live-sessions { display: none }` and the forced Back button). Blast radius: every reader of `data-term` or of those selectors (`grep -rn "data-term\|dataset.term" web/src src README.md docs`: none left, no test read them), the Chat panel (it shares `.live-split`, `.session-back`), the narrow layout. `Skill` was not callable in this reviewer's context: `code-review` and `ux-evaluate` were applied by hand from `skills/code-review/SKILL.md` and `skills/ux-evaluate/SKILL.md`. Real Chrome 1280x1000, 375x800 and (extra) 1600x1000 against the built page and a scratch stand-in for the T133 routes (not in the repo), two terminal sessions listed, the second opened, key row and Stop measured; screenshots in the reviewer scratchpad `.../scratchpad/rr2/g-open-1280.png`, `h-keys-1280.png`, `g-open-375.png`, `h-keys-375.png`, `i-ended-*.png`.
+
+Verdict: **PASS. No P0, no P1. One P2 (owner-decided trade-off, see 1) and two P3. The merge can go ahead**; AC 5 and the real-server half of AC 8 still need `/verify` against `serve`.
+
+| # | Sev | Finding |
+|---|-----|---------|
+| 1 | P2 | **The terminal is now narrow beside the list.** The split is the `@container live (min-width: 40rem)` rule: list 2fr, panel 3fr. Measured (fit, the cols the page sent in its auth frame): 1280 window, Live column 673 px, box 362 px, **44 columns**; 1600 window, box 466 px, **57 columns**; before this commit the open terminal had the whole column (81 columns at 1280, same stand-in). The removed CSS comment named the reason ("Claude Code's screen is drawn for 80 columns"). It is the owner's choice (commit message, 2026-11-22) and 13 px stays, so it is not a defect to fix here; the cost is that Claude Code's welcome and trust screens wrap below about 60 columns and a real window needs roughly 2000 px of screen to reach 80. Options for the owner if it bites: let the panel take 2fr/3fr the other way for a terminal only, or hide the right-hand cards column while a terminal is open. No test or AC names a column count. |
+| 2 | P3 | **Key row at 1280 is 5 + 3 with a wrapped label.** The grid is `auto-fit, minmax(4rem, 1fr)`: in the narrower box (362 px) the keys are 66x44 and `Ctrl-C` breaks to two lines ("Ctrl-" / "C"), the arrows fall to a second row. Readable and tappable (44 px high), not wrong; before, at 1280 it was one row of eight at 74x44. A `min-width` on the Ctrl-C key or `white-space: nowrap` with a 5rem minimum would keep it one word. |
+| 3 | P3 | **Stop is below the fold at 1280x1000.** The panel is 938 px high from y=403 (below the "All sessions" card), so with the page unscrolled the box ends at 1168 and Stop is at y=1288 (key row at 1180). Same as the first review's finding 3 (open P3, owner decides the design); the new split does not make it worse. At 375 the same applies (box top y=813). |
+
+Not defects, checked: (a) **at 375 the list is not visible beside an open terminal, and that is by design**: below 40 rem of Live column the list is `display: none` while any panel is open and "Back to sessions" (157x44) returns to it, exactly like the Chat panel and FR-128 ("list, then panel full width with Back"); measured `listDisplay none, back block, scrollWidth 375`. The request to see the list at 375 is met only through Back. (b) At 1280: `data-open="true"` with no `data-term`, columns `269px 404px`, list `display: flex` showing both sessions, the open row marked by the accent rail, `Back to sessions` hidden (`display: none`), no horizontal scroll (`scrollWidth` 1265 under a 15 px scrollbar, viewport 1280). (c) Terminal text 13 px (`getComputedStyle(.xterm-rows).fontSize` = `13px`); xterm draws, replay text present; Ctrl-C then "Ended (code 130)" with every key disabled and the screen kept (`i-ended-*.png`). (d) Chat panel untouched: `SessionPanel.jsx` not in the diff, `LiveView.test.jsx:1204` (`.session-back { display: none; }` wide rule) still passes. (e) No dead code left: the three removed rules were the only users of `data-term`; no comment elsewhere says the terminal takes the whole column (grep). (f) The Back button of the terminal panel on a wide screen is hidden like Chat's; the panel closes by activating its row again, the same as Chat.
+
+ux-evaluate (by hand, screenshots read with the image reader; the guide has no UX Acceptance Criteria rows, so baseline checks only):
+
+| Check | 375 | 1280 | Reason |
+|---|---|---|---|
+| B-a primary action in view | fail (known, first review finding 3) | fail (known) | At 375 the terminal box starts y=813 and the key row y=1225; at 1280 the box is visible (y=568..1168) but the key row (1180) and Stop (1288) are below the 1000 px fold. Chat sits in the same place. P3, owner decides the design |
+| B-b hierarchy | pass | pass | Title, facts, state, screen, keys, Stop in one reading order; list left, panel right |
+| B-c spacing | pass | pass with note | Even gaps; at 1280 the key row is 5 + 3 and "Ctrl-C" wraps (finding 2) |
+| B-d targets 44x44 | pass | pass | Keys 69x44, Back 157x44, Stop 65x44 at 375 (measured); at 1280 desktop, Stop is 65x32 (the 44 px rule is the 375 rule) |
+| B-e readable text | pass with note | pass with note | Terminal cells 13 px by owner decision (below the 16 px body rule; the guide and the owner accept it); labels and facts are body size, contrast clear |
+| B-f states | pass | pass | Running and Ended (code 130) with keys off seen; connecting, lost, dropped-input covered by the first review's shots and unchanged here |
+| B-g feedback | pass | pass | "Ended (code 130)" and disabled keys appear at once after Ctrl-C |
+| B-h phone layout | pass | n/a | One column with Back, no horizontal scroll (`scrollWidth` 375), 36 columns, nothing clipped |
+| B-i one visual language | pass | pass | Existing tokens, one accent, same radius and button style as the Chat panel |
+
+Commands run (this re-review), in the T134 worktree:
+
+```
+$ cd web && npm ci && npm test -- --run && npm run build && cd .. && python3 scripts/check_static.py
+found 0 vulnerabilities
+Tests  1611 passed (1611)
+TermPanel-14BkAdyq.js  337.14 kB | gzip: 85.43 kB   index-3mMlrwzZ.js  473.03 kB | gzip: 139.78 kB   built in 1.21s
+check_static: ok
+$ git status --short   -> clean before this file was edited (the build output is not tracked)
+```
+
 ### Findings (first review, commit 3122a17; status in the re-review table above)
 
 | # | Sev | Where | Finding |
