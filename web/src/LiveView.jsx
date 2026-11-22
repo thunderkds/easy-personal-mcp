@@ -811,7 +811,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         <p className="muted">{`No active sessions. A session appears here when it wrote a record in the last ${Math.round(state.windowS / 60)} minutes.`}</p>
       )}
       {(entries.length > 0 || selected) && (
-        <div className="live-split" data-open={selected ? 'true' : undefined} data-term={selected?.term ? 'true' : undefined}>
+        <div className="live-split" data-open={selected ? 'true' : undefined}>
           <div className="live-sessions">
             <FilterBar facts={facts} filters={filters} onChange={changeFilters} />
             {shown === 0 && (

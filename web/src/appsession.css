@@ -206,10 +206,6 @@ main button.filter-clear:disabled { color: var(--color-faint); border-color: var
 .term-box:focus-within { border-color: var(--color-accent-line); }
 .term-keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr)); gap: var(--space-2); min-width: 0; } /* eight keys: one row when there is room, else two rows of four (modifiers first, then the arrows) */
 .term-keys button { min-height: 44px; min-width: 0; padding-inline: var(--space-1); font-family: var(--font-mono); }
-/* An open terminal takes the whole Live column (a terminal needs width: Claude Code's screen is drawn for 80 columns); Back to sessions brings the list back */
-.live-split[data-open][data-term] { grid-template-columns: minmax(0, 1fr); }
-.live-split[data-open][data-term] .live-sessions { display: none; }
-.live-split[data-term] .session-back { display: inline-flex; align-items: center; }
 .term-panel .prompt-cut p { margin: 0 0 var(--space-2); }
 @media (max-width: 39.999rem) {
   .term-box { height: 50vh; }
