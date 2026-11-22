@@ -128,6 +128,13 @@ describe('the Terminal choice (T134)', () => {
     expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
   })
 
+  it('a failing terminal list (500) leaves the Chat form working, with no Terminal choice', async () => {
+    install({ routes: { 'GET /api/term-sessions': () => ({ status: 500, body: {} }) } })
+    await open()
+    expect(screen.queryByRole('group', { name: 'Session type' })).toBeNull()
+    expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
+  })
+
   it('starts a Terminal session and hands its id to Live as a terminal', async () => {
     const server = install({ terms: [], routes: { 'POST /api/term-sessions': () => ({ status: 201, body: { id: 't7' } }) } })
     const onStarted = vi.fn()

@@ -9,7 +9,7 @@ import { useLoad } from './useLoad.js'
 export const OFF = 'App sessions are off. Choose an agent run account in Settings.'
 export const NO_CLAUDE = 'Claude Code was not found on this machine, so no session can start.'
 
-const load = () => Promise.all([getAppSessions(), getAgentRun(), getJson('/api/workspaces'), getJson('/api/accounts?by=account'), getTermSessions()])
+const load = () => Promise.all([getAppSessions(), getAgentRun(), getJson('/api/workspaces'), getJson('/api/accounts?by=account'), getTermSessions().catch(() => null)]) // a failing terminal list hides Terminal; Chat still starts (AC 1)
 
 /**
  * `form`: `{workspace}` opens the form on that workspace's first repo (or the first repo), `{resume: {id, project, account, fork}}` opens it for a stored

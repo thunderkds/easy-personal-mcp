@@ -10,7 +10,7 @@ import { useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
 import SessionPanel, { STATES, folderName } from './SessionPanel.jsx'
 
-// The terminal panel carries xterm (about 124 KB gzip): it loads when the first terminal session is opened, not with the page (T134, FR-138).
+// The terminal panel carries xterm (about 85 KB gzip): it loads when the first terminal session is opened, not with the page (T134, FR-138).
 const TermPanel = lazy(() => import('./TermPanel.jsx'))
 
 export const FEED_MAX = 50 // oldest feed items beyond this are dropped
