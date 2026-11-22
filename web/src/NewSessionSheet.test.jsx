@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import NewSessionSheet, { NO_CLAUDE, OFF } from './NewSessionSheet.jsx'
 import { agentRunOff, agentRunOn } from './test/fixtures.js'
-import { appServer, appSession } from './test/appSessions.js'
+import { appServer, appSession, termSession } from './test/appSessions.js'
 
 // The New session sheet of the Live view (T128, FR-133): the FR-109 form with the reasons it cannot start. It lists no session; Live does.
 const install = (opts) => {
@@ -110,5 +110,46 @@ describe('the form (FR-109)', () => {
     install()
     await open({ form: { continueIn: { workspace: 'company', repo: '/work/company-web' } } })
     expect(screen.getByRole('heading', { name: 'Continue session' })).toBeInTheDocument()
+  })
+})
+
+// T134 (FR-136): the sheet offers Terminal only when the server has the terminal route, and one cap covers both kinds.
+describe('the Terminal choice (T134)', () => {
+  it('is offered when the server lists terminal sessions', async () => {
+    install({ terms: [] })
+    await open()
+    expect(screen.getByRole('group', { name: 'Session type' })).toBeInTheDocument()
+  })
+
+  it('is not offered by a server with no terminal route (404): the form is Chat only', async () => {
+    install()
+    await open()
+    expect(screen.queryByRole('group', { name: 'Session type' })).toBeNull()
+    expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
+  })
+
+  it('a failing terminal list (500) leaves the Chat form working, with no Terminal choice', async () => {
+    install({ routes: { 'GET /api/term-sessions': () => ({ status: 500, body: {} }) } })
+    await open()
+    expect(screen.queryByRole('group', { name: 'Session type' })).toBeNull()
+    expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
+  })
+
+  it('starts a Terminal session and hands its id to Live as a terminal', async () => {
+    const server = install({ terms: [], routes: { 'POST /api/term-sessions': () => ({ status: 201, body: { id: 't7' } }) } })
+    const onStarted = vi.fn()
+    await open({ onStarted })
+    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('t7', 'terminal'))
+    expect(server.posts('/api/term-sessions')[0].body).toMatchObject({ confirmed: true, repo: '/work/company' })
+  })
+
+  it('the one cap counts the running terminal sessions with the app sessions (max 2: one of each is the limit)', async () => {
+    install({ max: 2, sessions: [appSession({ id: 'a1' })], terms: [termSession({ id: 't1' }), termSession({ id: 't2', state: 'exited', code: 0 })] })
+    await open()
+    expect(screen.getByText('2 sessions are going; stop one first.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('First prompt')).toBeNull()
   })
 })

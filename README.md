@@ -216,6 +216,10 @@ Known limit: the warm start reads only files changed in the last hour, and only 
 
 The totals add up the listed session rows. The tab never shows message text, tool input or tool output, except the labels above. It shows only tool names, those labels, counts and times. Claude Code itself writes some records a little late, so an event can show up a second or two after it happened.
 
+#### Terminal sessions (Rust app)
+
+**New session** offers **Chat** (the default) or **Terminal**. Terminal runs your own interactive `claude` in a terminal drawn inside the Live page (xterm), for the repo, account, model and permission mode you pick. There is no prompt field: a permission request or a question shows in the terminal, not as a card. A phone gets an on-screen key row (Esc, Tab, Ctrl-C, Enter, the arrows). Every page that opens the session can type, and the panel says how many pages are attached. The screen is shown and never stored: the app keeps it in memory while the session runs, and drops it when the session has ended and its panel is closed, and at exit. The page keeps nothing of it. **Stop** closes the terminal; quitting the tray ends the session. The Terminal choice shows only when the app has the terminal routes.
+
 #### Past sessions and names (Rust app)
 
 `GET /api/sessions/past` lists past sessions from the store's metadata only (no message text): `id`, `project` (folder name), `branch`, `first` and `last` event time, `kind`, `account` (label), `model` and your `name`, newest `last` first, 50 a page. Filters: `project` (a folder name or a full path, matched exactly), `branch`, `from`, `to` (ISO 8601 date or datetime; no offset means local time), `kind` (`terminal` or `headless`) and `account` (id or label). `next` in the answer is the `before` value for the following page; it is `null` on the last page. A bad value is a 400 with one fixed line that never echoes your input.

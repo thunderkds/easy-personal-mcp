@@ -200,3 +200,14 @@ main button.filter-clear:disabled { color: var(--color-faint); border-color: var
 .turn-todos li[data-status='in_progress'] .turn-todo-mark { color: var(--color-accent); }
 .turn-todos li[data-status='in_progress'] { color: var(--color-heading); font-weight: 500; }
 .turn-todos li[data-status='completed'] .turn-todo-text { color: var(--color-secondary); text-decoration: line-through; }
+
+/* The terminal panel (T134, FR-136..FR-138): the xterm box and the key row, existing tokens only. xterm sizes itself from the box (FitAddon), so the box has a height. */
+.term-box { box-sizing: border-box; height: 60vh; min-height: 14rem; min-width: 0; padding: var(--space-2); overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); }
+.term-box:focus-within { border-color: var(--color-accent-line); }
+.term-keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr)); gap: var(--space-2); min-width: 0; } /* eight keys: one row when there is room, else two rows of four (modifiers first, then the arrows) */
+.term-keys button { min-height: 44px; min-width: 0; padding-inline: var(--space-1); font-family: var(--font-mono); }
+.term-panel .prompt-cut p { margin: 0 0 var(--space-2); }
+@media (max-width: 39.999rem) {
+  .term-box { height: 50vh; }
+  .term-panel .prompt-cut button { min-height: 44px; }
+}

@@ -1,9 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { startAppSession } from './api.js'
+import { startAppSession, startTermSession } from './api.js'
 
 // The New session form (T104, FR-109, FR-116, FR-131). The lists are the server's fixed lists (`app_session.rs` MODELS, MODES, EFFORTS); the server checks
 // each field again. Nothing starts without the confirm step, and the bypass mode needs a second, explicit one. The first prompt is React
-// state only: it is sent once and never kept (FR-115).
+// state only: it is sent once and never kept (FR-115). A Terminal session (T134, FR-136) has no prompt field: Claude Code's own screen asks.
 export const MODELS = ['default', 'opus', 'sonnet', 'haiku', 'opusplan', 'opus[1m]', 'sonnet[1m]']
 export const EFFORTS = ['default', 'low', 'medium', 'high', 'xhigh', 'max'] // `--effort`; default = no flag
 export const MODES = ['default', 'acceptEdits', 'auto', 'plan', 'dontAsk', 'bypassPermissions']
@@ -13,6 +13,7 @@ export const SIZE_HINT = 'The size limit is 100,000 bytes (about 100 KB). Englis
 export const byteLength = (text) => new TextEncoder().encode(text).length
 export const NOTE =
   "This starts Claude Code on this machine with this account's subscription. It can run tools and change files in this folder as your Claude Code settings allow, and it counts against the account's plan limits. Permission requests come to you in the session panel."
+export const TERMINAL_NOTE = 'Prompts appear in the terminal, not as cards. A permission request or a question is answered inside the terminal, as in your own terminal.'
 export const BYPASS_NOTE = 'Bypass permissions runs every tool without asking you. No request will wait for your Allow, and nothing in this session can be refused from here except by Stop. It can change or delete files in this folder.'
 export const FORK_NOTE = 'The open window does not see a fork: it becomes a new session.'
 export const STILL_ACTIVE = 'this session is still active in another window; fork it instead' // the server's fixed 409 text (T105)
@@ -30,8 +31,9 @@ export function repoChoices(workspaces) {
  * `resume` (T105): `{id, project, account, fork}` opens the form for a Claude session that is already stored: no repo or worktree, the server
  * takes the folder from the session; `account` is the live view's account name, chosen when it is one of the confirmed accounts.
  * `continueIn`: `{workspace, repo}` opens it to continue the newest conversation of that repo (no worktree).
+ * `terminal` (T134): the server has the terminal route, so a new session can be a Terminal (Chat is the default); `onStarted(id, 'terminal')` for one.
  */
-export default function NewSession({ workspaces, accounts, defaultAccount, initialWorkspace, resume = null, continueIn = null, onStarted, onCancel }) {
+export default function NewSession({ workspaces, accounts, defaultAccount, initialWorkspace, resume = null, continueIn = null, terminal = false, onStarted, onCancel }) {
   const id = useId()
   const repos = useMemo(() => repoChoices(workspaces), [workspaces])
   const groups = useMemo(() => {
@@ -42,6 +44,7 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
   const accountOptions = useMemo(() => [...(defaultAccount === '' ? [{ value: '', label: 'Default Claude Code account' }] : []), ...accounts.map((a) => ({ value: String(a.id), label: a.label }))], [accounts, defaultAccount])
   const kind = resume ? 'resume' : continueIn ? 'continue' : 'new'
   const [fork, setFork] = useState(Boolean(resume?.fork))
+  const [type, setType] = useState('chat') // 'chat' | 'terminal'; only a new session can be a Terminal
   const [fields, setFields] = useState(() => ({
     repo: Math.max(0, repos.findIndex((r) => r.workspace === initialWorkspace)),
     account: (resume && accountOptions.find((o) => o.label === resume.account)?.value) ?? (accountOptions.some((o) => o.value === defaultAccount) ? defaultAccount : (accountOptions[0]?.value ?? '')),
@@ -63,14 +66,21 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
 
   const picked = kind === 'continue' ? continueIn : repos[fields.repo]
   const account = accountOptions.find((o) => o.value === fields.account)
-  const ready = (kind === 'resume' || Boolean(picked)) && Boolean(account) && fields.prompt.trim() !== '' && byteLength(fields.prompt) <= MAX_BYTES
-  const tooBig = byteLength(fields.prompt) > MAX_BYTES
+  const term = terminal && kind === 'new' && type === 'terminal'
+  const ready = (kind === 'resume' || Boolean(picked)) && Boolean(account) && (term || (fields.prompt.trim() !== '' && byteLength(fields.prompt) <= MAX_BYTES))
+  const tooBig = !term && byteLength(fields.prompt) > MAX_BYTES
   const start = async () => {
     if (open.current) return
     open.current = true
     setBusy(true)
     setError('')
     try {
+      if (term) {
+        // no prompt, no effort, no worktree: the fields the terminal route takes (T133)
+        const answer = await startTermSession({ repo: picked.repo, workspace: picked.workspace, account: fields.account === '' ? null : fields.account, model: fields.model, mode: fields.mode })
+        onStarted(answer.id, 'terminal')
+        return
+      }
       const common = { account: fields.account === '' ? null : fields.account, model: fields.model, effort: fields.effort, mode: fields.mode, prompt: fields.prompt }
       const answer = await startAppSession(
         kind === 'resume'
@@ -157,9 +167,13 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
           <dd>{fields.mode}</dd>
           <dt>Model</dt>
           <dd>{fields.model}</dd>
-          <dt>Effort</dt>
-          <dd>{fields.effort}</dd>
-          {kind === 'new' && (
+          {!term && (
+            <>
+              <dt>Effort</dt>
+              <dd>{fields.effort}</dd>
+            </>
+          )}
+          {kind === 'new' && !term && (
             <>
               <dt>Worktree</dt>
               <dd>{fields.worktree ? 'a new worktree on a new branch' : 'no, the repo folder itself'}</dd>
@@ -167,6 +181,7 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
           )}
         </dl>
         <p>{NOTE}</p>
+        {term && <p className="prompt-cut">{TERMINAL_NOTE}</p>}
         {fork && <p className="prompt-cut">{FORK_NOTE}</p>}
         {bypass && <p className="prompt-cut">{BYPASS_NOTE}</p>}
         {error && (
@@ -198,6 +213,15 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
       {session}
       {fork && <p className="prompt-cut">{FORK_NOTE}</p>}
       <form className="new-session-form" onSubmit={review}>
+        {terminal && kind === 'new' && (
+          <div className="periods" role="group" aria-label="Session type">
+            {[['chat', 'Chat'], ['terminal', 'Terminal']].map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={type === value} onClick={() => setType(value)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {kind === 'new' && (
           <label className="field" htmlFor={`${id}-repo`}>
             Repo
@@ -241,16 +265,18 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
             ))}
           </select>
         </label>
-        <label className="field" htmlFor={`${id}-effort`}>
-          Effort
-          <select id={`${id}-effort`} value={fields.effort} onChange={set('effort')}>
-            {EFFORTS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!term && (
+          <label className="field" htmlFor={`${id}-effort`}>
+            Effort
+            <select id={`${id}-effort`} value={fields.effort} onChange={set('effort')}>
+              {EFFORTS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="field" htmlFor={`${id}-mode`}>
           Permission mode
           <select id={`${id}-mode`} value={fields.mode} onChange={set('mode')}>
@@ -261,17 +287,23 @@ export default function NewSession({ workspaces, accounts, defaultAccount, initi
             ))}
           </select>
         </label>
-        {kind === 'new' && (
+        {kind === 'new' && !term && (
           <label className="check" htmlFor={`${id}-worktree`}>
             <input id={`${id}-worktree`} type="checkbox" checked={fields.worktree} onChange={set('worktree')} />
             New worktree (a new branch in its own folder; nothing is committed, merged or deleted for you)
           </label>
         )}
-        <label className="field new-session-prompt" htmlFor={`${id}-prompt`}>
-          First prompt
-          <textarea id={`${id}-prompt`} rows={4} value={fields.prompt} onChange={set('prompt')} />
-        </label>
-        <p className="muted">{SIZE_HINT}</p>
+        {term ? (
+          <p className="prompt-cut">{TERMINAL_NOTE}</p>
+        ) : (
+          <>
+            <label className="field new-session-prompt" htmlFor={`${id}-prompt`}>
+              First prompt
+              <textarea id={`${id}-prompt`} rows={4} value={fields.prompt} onChange={set('prompt')} />
+            </label>
+            <p className="muted">{SIZE_HINT}</p>
+          </>
+        )}
         {tooBig && (
           <p role="alert" className="field-error">
             Too long to start with. Shorten the prompt.
