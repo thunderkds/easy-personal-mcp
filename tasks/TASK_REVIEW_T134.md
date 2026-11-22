@@ -44,6 +44,57 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Review findings (independent reviewer, 2026-11-22, commit 3122a17)
+
+Scope: `main...3122a17`, bounded to the blast radius: `web/src` files in the diff plus `LiveView` callers, `scripts/check_static.py`, the built bundle. T133 is not merged (its worktree is uncommitted work in progress), so nothing here ran against the real routes. `Skill` was not callable in this reviewer's context: `code-review`, `ux-evaluate` and `security-review` (no `skills/security-review/` in the repo) were applied by hand from `skills/code-review/SKILL.md` and `skills/ux-evaluate/SKILL.md`.
+
+Verdict: **PASS with findings. No P0, no P1. The merge of the page can go ahead once the owner accepts the two P2 items or has them fixed; AC 5 and the real-server half of AC 8 wait on T133.**
+
+### Findings
+
+| # | Sev | Where | Finding |
+|---|-----|-------|---------|
+| 1 | P2 | `web/src/NewSessionSheet.jsx:12` + `web/src/api.js` `getTermSessions` | The terminal list is read inside the same `Promise.all` as the Chat data. `getTermSessions` turns only a 404 into `null`; a 500 or a network error on `/api/term-sessions` rejects the whole load, so the New session sheet fails and **Chat cannot be started either**. AC 1 says today's Chat form is unchanged; this couples it to the new route. Fix: catch to `null` for this one call (the Terminal choice then stays hidden). No test covers a failing term list. |
+| 2 | P2 | `web/src/LiveView.jsx` (`useTerms`, `termOnly`), `web/src/api.js` (`isExited`, `accountLabel`) | The page guesses the list shape: `state: 'exited'` or `running === false`, `account` as `{id,label}` or a string, a bare list or `{sessions}`. T133's guide only says "`running` or `exited` + code". The T133 worktree (uncommitted) returns `state`, `code`, `pages`, `session_id`, `started`, `account {id,label}` inside `{sessions}`, which matches, and POST returns `201 {id}`; the field list T133 accepts (`repo, workspace, account, model, mode, worktree`) matches what `NewSession.jsx` sends. Re-check once T133 is committed: a renamed field would show every ended session as "Running". |
+| 3 | P3 | UX, `web/src/appsession.css` `.term-box`, `LiveView.jsx` placement | After Start the panel opens below the "All sessions" summary card: at 375x800 the terminal box top is y=813 (below the fold; only the title, facts and "Running" show), at 1280x1000 the box starts y=580 and the key row and Stop are below the fold. The terminal is the page's one job here, yet the user must scroll to reach it. Chat panels sit in the same place, so it is not new for them, but a 60vh terminal makes it matter. Suggest scrolling the box into view on open (the owner decides the design). B-a: fail at 375, partial at 1280. |
+| 4 | P3 | `web/src/LiveView.jsx` comment above `TermPanel` | Says "about 124 KB gzip"; the build prints `TermPanel-*.js` 337.14 kB, gzip 85.43 kB (+ css 1.01 kB gzip). Wrong number in a comment only. |
+| 5 | P3 | `web/src/LiveView.jsx` `useTerms` | A server with no terminal route answers 404 to the first read, `useTerms` returns `null` and still polls every `APPS_IDLE_MS` for ever. Harmless noise; stop after a 404 if it ever matters. |
+| 6 | P3 | `web/src/TermPanel.jsx` | Typed bytes before the socket opens are dropped silently (tested as intended). The "Connecting" line shows, so acceptable. The xterm screen-reader mode is off: the terminal is an unnamed-content `role=group`. Not an AC; note for later. |
+
+Not defects, checked: token only in the first frame and in the `Stop` header (no `?token`, tested); no storage or console output of screen bytes (tested); no HTML from server bytes (xterm draws them); no link or clipboard addon loaded; CSP header unchanged and `@xterm` brings no remote URL (`grep -o "https\?://"` on the built `TermPanel-*.js`: none; `check_static: ok`); two pinned MIT deps, no install scripts, `npm ci` reports 0 vulnerabilities; Esc is not bound to close the terminal panel (the Chat panel's Esc handler sits on `SessionPanel` and the row `li`, neither wraps `TermPanel`); the 8-key bytes match the guide.
+
+### Security review (Medium risk, manual)
+
+No finding above P3. A page that sends typed bytes is bounded by the same-origin guard and token that T133 enforces; the page adds no new input path beyond the xterm keys and the fixed key row. xterm answers terminal queries (device attributes, cursor position) back as stdin: that is a normal terminal property, not a page flaw. OSC 8 links in xterm 6 default to its own confirm before `window.open`; the build adds no link addon. Residual (owner-accepted, FR-137): every attached page can type.
+
+### AC table
+
+| # | Verdict | Evidence |
+|---|---------|----------|
+| 1 | pass | `NewSession.test.jsx` (Chat default, Terminal hides prompt/effort/worktree, note text, POST body exactly repo/workspace/account/model/mode/confirmed, bypass second step, 409 shown) and `NewSessionSheet.test.jsx`; see finding 1 for the Chat-coupling gap |
+| 2 | pass | `TermPanel.test.jsx` "the socket (AC 2)" (auth first, no token in URL, wss, fit, binary typed bytes, debounced resize); real Chrome run against a stand-in: `AUTH {'t':'auth','cols':36,'rows':23}` at 375, `cols 81 rows 35` at 1280 |
+| 3 | pass | `it.each` of the eight keys; my run: keys 69x44 px at 375 (two rows of four), 74x44 at 1280, no horizontal scroll (`scrollWidth` 375). Terminal is below the fold on open (finding 3) |
+| 4 | pass | Tests for exit, pages, notice, Stop with `confirmed`, refused Stop; my run: Ctrl-C then `Ended (code 130)`, all keys disabled, screen text kept |
+| 5 | waits on T133 | Page side tested (new panel opens its own socket, authenticates, draws the replay; Reconnect clears the screen first). The replay itself and `/verify` need the real routes |
+| 6 | pass | `LiveTerm.test.jsx` (listed, ended row, dedupe by Claude session id, opens `TermPanel` not `SessionPanel`, Chat still opens Chat) |
+| 7 | pass | `git diff` of `web/package.json` and lock: only `@xterm/xterm 6.0.0` and `@xterm/addon-fit 0.11.0`, exact pins; `check_static: ok`; no `.map` in the build; no `https?://` in the new chunk; `server.rs:39` CSP untouched |
+| 8 | pass for the page, waits on T133 for the real server | Chrome (above) and WebKitGTK 4.1 under Xvfb against a stand-in: xterm drawn, screen text "Welcome to Claude Code cwd: /work/company", status Running, focus on the terminal after a key-row press. Not run against `serve` |
+| 9 | pass | Run below |
+
+### Commands run (this reviewer)
+
+```
+$ cd web && npm ci && npm test -- --run && npm run build && cd .. && python3 scripts/check_static.py
+found 0 vulnerabilities
+Test Files  48 passed (48)
+     Tests  1610 passed (1610)
+TermPanel-Bj9yDdaC.js  337.14 kB | gzip: 85.43 kB   index-B7eL-4YZ.js  473.05 kB | gzip: 139.79 kB
+check_static: ok
+$ git status --short   (after the build)   -> clean (the build output is not tracked)
+```
+
+ux-evaluate (by hand; screenshots in the reviewer scratchpad `.../scratchpad/qa/*-375.png`, `*-1280.png`, read with the image reader): B-a fail (finding 3), B-b pass, B-c pass, B-d pass at 375 (keys 69x44, Stop 64x44), B-e pass, B-f pass (connecting, lost with Reconnect, ended, dropped-input notice all say what to do), B-g pass, B-h pass (no horizontal scroll, 36 columns at 375), B-i pass (existing tokens, one accent). The ended state shows the accent border from `:focus-within` while input is off: cosmetic.
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
@@ -52,7 +103,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Verification command run | ☑ pass | `cd web && npm ci && npm test -- --run && npm run build && cd .. && python3 scripts/check_static.py` at 2026-11-22T15:02:51Z: `found 0 vulnerabilities`; `Tests  1610 passed (1610)` (48 test files, 54 of them new: 30 + 10 + 10 + 4; no existing test was changed or removed); build `✓ built in 290ms`, lazy chunk `assets/TermPanel-Bj9yDdaC.js 337.14 kB │ gzip: 85.43 kB` + `TermPanel-BrP-ENHg.css 1.01 kB gzip`, entry `index-B7eL-4YZ.js 473.05 kB │ gzip: 139.79 kB`; `check_static: ok` (exit 0; no change to `ALLOWED_URL_PREFIXES` or `vite.config.js` was needed: Vite drops the comment URLs and `sourcemap: false`). |
 | Negative cases hold | ☑ pass | Red first: `npx vitest run src/TermPanel.test.jsx` before `TermPanel.jsx` existed failed to import it (0 tests ran). Mutation: in `TermPanel.jsx` keep the input on after exit (`live = link === 'open'` and `send` without `!endedRef.current`): `FAIL src/TermPanel.test.jsx > the end and the pages (AC 4) > an exit frame says "Ended (code N)", turns the input off ...`, `Tests  1 failed \| 29 passed (30)`; restored: `Tests  30 passed (30)`. Negative tests: token not in the URL, nothing sent before open, nothing typed after exit, malformed text frame ignored, no storage/console, 404 server hides the choice, refused start/Stop shown. |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | Reviewed the 15 changed files and the `LiveView` callers; skipped `rust/**` (T133) and Chat panel files except to confirm they are untouched. See "Review findings" |
 | Full smoke suite still green (no regression) | ☑ pass | Whole web suite 1610 / 1610 (all 48 files), Chat panel files (`LiveAppPanel`, `LiveAnswer`, `LivePanel`, `LiveSteer`, `NewSessionSheet`, `NewSession`) unchanged and green. Python smoke / Rust suites not run (no `rust/**` or `src/**` change). |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ pass | Real Chrome (headless, real built page) against a scratch stand-in for T133's routes (not in the repo): screenshots in `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/52d65067-54e0-48e5-831f-372e5cc75bee/scratchpad/ux` (1-form-chat, 2-form-terminal, 3-confirm, 4-panel, 5-typed, 5b-lost, 5c-reattached, 6-ended at 375 and 1280). The Chat form screenshot shows today's form plus the Chat/Terminal switch. See the ux-evaluate verdict table in the report. |
