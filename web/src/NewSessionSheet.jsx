@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { getAgentRun, getAppSessions, getJson } from './api.js'
+import { getAgentRun, getAppSessions, getJson, getTermSessions, isExited } from './api.js'
 import Loading from './Loading.jsx'
 import NewSession from './NewSession.jsx'
 import { useLoad } from './useLoad.js'
@@ -9,7 +9,7 @@ import { useLoad } from './useLoad.js'
 export const OFF = 'App sessions are off. Choose an agent run account in Settings.'
 export const NO_CLAUDE = 'Claude Code was not found on this machine, so no session can start.'
 
-const load = () => Promise.all([getAppSessions(), getAgentRun(), getJson('/api/workspaces'), getJson('/api/accounts?by=account')])
+const load = () => Promise.all([getAppSessions(), getAgentRun(), getJson('/api/workspaces'), getJson('/api/accounts?by=account'), getTermSessions()])
 
 /**
  * `form`: `{workspace}` opens the form on that workspace's first repo (or the first repo), `{resume: {id, project, account, fork}}` opens it for a stored
@@ -42,8 +42,8 @@ export default function NewSessionSheet({ form, onStarted, onCancel, onOpenSetti
       </>
     )
   else {
-    const [list, agentRun, workspaces, accounts] = state.data
-    const going = list ? list.sessions.filter((s) => s.state !== 'ended').length : 0
+    const [list, agentRun, workspaces, accounts, terms] = state.data // `terms`: null when the server has no terminal route (T134)
+    const going = (list ? list.sessions.filter((s) => s.state !== 'ended').length : 0) + (terms ?? []).filter((t) => !isExited(t)).length // one cap covers both kinds (question 41)
     if (list === null || agentRun === null)
       body = (
         <>
@@ -90,6 +90,7 @@ export default function NewSessionSheet({ form, onStarted, onCancel, onOpenSetti
           initialWorkspace={form.workspace}
           resume={form.resume}
           continueIn={form.continueIn}
+          terminal={terms !== null}
           onStarted={onStarted}
           onCancel={onCancel}
         />

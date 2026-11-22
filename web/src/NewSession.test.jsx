@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import NewSession, { BYPASS, BYPASS_NOTE, EFFORTS, FORK_NOTE, MODELS, MODES, NOTE, STILL_ACTIVE, repoChoices } from './NewSession.jsx'
+import NewSession, { BYPASS, BYPASS_NOTE, EFFORTS, FORK_NOTE, MODELS, MODES, NOTE, STILL_ACTIVE, TERMINAL_NOTE, repoChoices } from './NewSession.jsx'
 import { appServer, workspaces } from './test/appSessions.js'
 
 const accounts = [
@@ -368,5 +368,117 @@ describe('continue mode: Continue in app', () => {
     expect(body).not.toHaveProperty('resume')
     expect(body).not.toHaveProperty('continue')
     expect(body).not.toHaveProperty('fork')
+  })
+})
+
+// T134 (FR-136): the Terminal / Chat choice. Chat is today's form; Terminal drops the prompt and starts through POST /api/term-sessions.
+describe('the Terminal / Chat choice (T134 AC 1)', () => {
+  const termServer = (route = () => ({ status: 201, body: { id: 't9' } })) => {
+    server = appServer({ routes: { 'POST /api/term-sessions': route, 'POST /api/app-sessions': () => ({ status: 202, body: { id: 'a9' } }) } })
+    vi.stubGlobal('fetch', server)
+  }
+  const choose = (name) => fireEvent.click(within(screen.getByRole('group', { name: 'Session type' })).getByRole('button', { name }))
+
+  it('is not offered when the server has no terminal route, and the form is today\'s form', () => {
+    setup()
+    expect(screen.queryByRole('group', { name: 'Session type' })).toBeNull()
+    expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
+  })
+
+  it('is not offered for Resume or Continue', () => {
+    setup({ terminal: true, continueIn: { workspace: 'company', repo: '/work/company' } })
+    expect(screen.queryByRole('group', { name: 'Session type' })).toBeNull()
+  })
+
+  it('offers Chat and Terminal, Chat chosen first, the form unchanged', () => {
+    setup({ terminal: true })
+    const group = screen.getByRole('group', { name: 'Session type' })
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Chat', 'Terminal'])
+    expect(within(group).getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(group).getByRole('button', { name: 'Terminal' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
+    expect(screen.getByLabelText('Effort')).toBeInTheDocument()
+    expect(screen.queryByText(TERMINAL_NOTE)).toBeNull()
+  })
+
+  it('Chat still starts through the app session route with the prompt', async () => {
+    termServer()
+    const { onStarted } = setup({ terminal: true })
+    fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('a9'))
+    expect(server.posts('/api/term-sessions')).toHaveLength(0)
+  })
+
+  it('Terminal hides the prompt, effort and worktree, keeps repo, account, model and mode, and says prompts appear in the terminal', () => {
+    setup({ terminal: true })
+    choose('Terminal')
+    expect(screen.getByRole('button', { name: 'Terminal' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByLabelText('First prompt')).toBeNull()
+    expect(screen.queryByLabelText('Effort')).toBeNull()
+    expect(screen.queryByLabelText(/New worktree/)).toBeNull()
+    for (const label of ['Repo', 'Account', 'Model', 'Permission mode']) expect(screen.getByLabelText(label)).toBeInTheDocument()
+    expect(screen.getByText(TERMINAL_NOTE, { exact: false })).toBeInTheDocument()
+    expect(TERMINAL_NOTE).toContain('Prompts appear in the terminal, not as cards')
+  })
+
+  it('Terminal needs no prompt: Review is on at once, and Chat again needs the prompt back', () => {
+    setup({ terminal: true })
+    choose('Terminal')
+    expect(screen.getByRole('button', { name: 'Review' })).toBeEnabled()
+    choose('Chat')
+    expect(screen.getByRole('button', { name: 'Review' })).toBeDisabled()
+    expect(screen.getByLabelText('First prompt')).toBeInTheDocument()
+  })
+
+  it('Terminal: Review shows the facts and the note, and sends nothing until Start', () => {
+    termServer()
+    setup({ terminal: true })
+    choose('Terminal')
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    expect(screen.getByRole('heading', { name: 'Start this session?' })).toBeInTheDocument()
+    expect(screen.getByText('/work/company')).toBeInTheDocument()
+    expect(screen.queryByText('Effort')).toBeNull()
+    expect(screen.queryByText('Worktree')).toBeNull()
+    expect(screen.getByText(TERMINAL_NOTE, { exact: false })).toBeInTheDocument()
+    expect(server.calls.filter((c) => c.method === 'POST')).toEqual([])
+  })
+
+  it('Terminal posts exactly repo, workspace, account, model, mode and confirmed to /api/term-sessions, and hands the id over as a terminal', async () => {
+    termServer()
+    const { onStarted } = setup({ terminal: true })
+    choose('Terminal')
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'opus' } })
+    fireEvent.change(screen.getByLabelText('Permission mode'), { target: { value: 'plan' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('t9', 'terminal'))
+    expect(server.posts('/api/term-sessions')).toHaveLength(1)
+    expect(server.posts('/api/term-sessions')[0].body).toEqual({ repo: '/work/company', workspace: 'company', account: '2', model: 'opus', mode: 'plan', confirmed: true })
+    expect(server.posts('/api/app-sessions')).toHaveLength(0)
+  })
+
+  it('Terminal with the bypass mode still needs the second, explicit step', async () => {
+    termServer()
+    const { onStarted } = setup({ terminal: true })
+    choose('Terminal')
+    fireEvent.change(screen.getByLabelText('Permission mode'), { target: { value: BYPASS } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(screen.getByText(BYPASS_NOTE)).toBeInTheDocument()
+    expect(server.posts('/api/term-sessions')).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Start without permission prompts' }))
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('t9', 'terminal'))
+  })
+
+  it('a refused Terminal start shows the server line and stays on the confirm step (the cap, 409)', async () => {
+    termServer(() => ({ status: 409, body: { error: '4 sessions are going; stop one first' } }))
+    const { onStarted } = setup({ terminal: true })
+    choose('Terminal')
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start session' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('4 sessions are going; stop one first')
+    expect(onStarted).not.toHaveBeenCalled()
   })
 })

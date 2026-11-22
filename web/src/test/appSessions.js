@@ -15,6 +15,10 @@ export const appSession = (over = {}) => ({
   id: 'a1', state: 'idle', reason: null, session_id: 'sess-1111', account: { id: '2', label: 'Claude personal' }, model: 'default', mode: 'default',
   folder: '/work/company', worktree: false, branch: null, changed_files: [], items: [], ...over,
 })
+/** One terminal session as `GET /api/term-sessions` lists it (T133's contract; `session_id` is the Claude id once its process file exists). */
+export const termSession = (over = {}) => ({
+  id: 't1', repo: '/work/company', account: { id: '2', label: 'Claude personal' }, started: '2026-11-22T09:00:00Z', state: 'running', code: null, pages: 0, session_id: null, ...over,
+})
 export const user = (text) => ({ kind: 'user', text })
 export const assistant = (text) => ({ kind: 'assistant', text })
 export const tool = (name, label = null, outcome = 'ok') => ({ kind: 'tool', name, label, outcome })
@@ -32,8 +36,8 @@ const reply = (status, body) => ({ ok: status < 400, status, json: async () => b
  * A server for the page: `state.sessions` is the list the server holds; a test changes it between polls. `routes` maps `'METHOD path'` to
  * `(body, call) => body | {status, body}`; a route it does not name answers like the server for an unknown id. Every call is in `calls`.
  */
-export function appServer({ sessions = [], max = 4, agentRun = agentRunOn(), routes = {}, list = undefined } = {}) {
-  const state = { sessions, max, agentRun, list }
+export function appServer({ sessions = [], max = 4, agentRun = agentRunOn(), routes = {}, list = undefined, terms = undefined } = {}) {
+  const state = { sessions, max, agentRun, list, terms } // `terms`: the terminal sessions (T134); undefined = a server with no such route (404)
   const calls = []
   const fn = async (url, init = {}) => {
     const method = init.method ?? 'GET'
@@ -46,6 +50,7 @@ export function appServer({ sessions = [], max = 4, agentRun = agentRunOn(), rou
       return answer && typeof answer.status === 'number' ? reply(answer.status, answer.body) : reply(200, answer)
     }
     if (method === 'GET' && path === '/api/app-sessions') return state.fail ? reply(500, {}) : state.list === null ? reply(404, {}) : reply(200, { sessions: state.sessions, max: state.max })
+    if (method === 'GET' && path === '/api/term-sessions') return state.terms === undefined ? reply(404, {}) : reply(200, { sessions: state.terms })
     if (method === 'GET' && path === '/api/agent-run') return state.agentRun === null ? reply(404, {}) : reply(200, state.agentRun)
     if (method === 'GET' && path === '/api/workspaces') return reply(200, workspaces)
     if (method === 'GET' && path === '/api/accounts') return reply(200, accountsByAccount)

@@ -1,13 +1,17 @@
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { getAppSessions, readToken } from './api.js'
+import { createContext, lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { accountLabel, endedWords, getAppSessions, getTermSessions, isExited, readToken } from './api.js'
 import Cost from './Cost.jsx'
 import { ago, compact, fmt } from './format.js'
 import FilterBar, { kindOf, loadFilters, passes, saveFilters } from './LiveFilters.jsx'
+import Loading from './Loading.jsx'
 import PastSessions from './PastSessions.jsx'
 import NewSessionSheet from './NewSessionSheet.jsx'
 import { useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
 import SessionPanel, { STATES, folderName } from './SessionPanel.jsx'
+
+// The terminal panel carries xterm (about 124 KB gzip): it loads when the first terminal session is opened, not with the page (T134, FR-138).
+const TermPanel = lazy(() => import('./TermPanel.jsx'))
 
 export const FEED_MAX = 50 // oldest feed items beyond this are dropped
 const DEFAULT_WINDOW_S = 300
@@ -509,6 +513,48 @@ function useApps(enabled, fast) {
   return { apps, stale, replace, remove, reload }
 }
 
+/**
+ * The terminal sessions as the server has them (T134, FR-136): read at once and every 5 s. The panel's own socket tells it the rest; `reload` reads at once
+ * (a session was just started, ended or stopped). A failed read keeps the last answer. `null` until the first read answered, and for a server with no
+ * such route.
+ */
+function useTerms(enabled) {
+  const [terms, setTerms] = useState(null)
+  const last = useRef(null)
+  const [again, setAgain] = useState(0)
+  useEffect(() => {
+    if (!enabled) return undefined
+    let current = true
+    const read = async () => {
+      try {
+        const list = await getTermSessions()
+        if (!current || !list) return
+        const body = JSON.stringify(list)
+        if (body !== last.current) {
+          last.current = body
+          setTerms(list)
+        }
+      } catch {
+        // keep what the page has; the next read tries again
+      }
+    }
+    read()
+    const timer = setInterval(read, APPS_IDLE_MS)
+    return () => {
+      current = false
+      clearInterval(timer)
+    }
+  }, [enabled, again])
+  const reload = useCallback(() => setAgain((n) => n + 1), [])
+  return { terms, reload }
+}
+
+/** The row of a terminal session the live tail does not list yet (its process file is not there yet, or it ended): built from its own view. */
+function termOnly(t, seenAt) {
+  const base = fromSnapshot({ session_id: typeof t.session_id === 'string' ? t.session_id : null, account: accountLabel(t.account), project: folderName(t.repo) || 'terminal', last_ts: seenAt, tool_calls: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0 })
+  return { ...base, appOnly: true, appState: isExited(t) ? endedWords(t.code) : 'Running' }
+}
+
 const appCard = (a) => a.items.some((i) => i.kind === 'prompt' && i.status === 'pending')
 
 /** The row of an app session the live tail does not list yet (it is starting, or it wrote nothing in the window): built from its own view. */
@@ -574,6 +620,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   const sessions = useMemo(() => Object.values(state.sessions), [state.sessions])
   const selectedApp = openId !== null && openId.startsWith('app:')
   const { apps, stale, replace, remove, reload } = useApps(appSessions, selectedApp)
+  const { terms, reload: reloadTerms } = useTerms(appSessions)
   // The New session sheet (T128, FR-133): `{workspace}`, `{resume}` or `{continueIn}` for NewSession, drawn in place above the list, never as a dialog (FR-128).
   const [form, setForm] = useState(null)
   const [formKey, setFormKey] = useState(0) // each opening is a new form: its fields are read once
@@ -593,11 +640,15 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     const list = apps ?? []
     const byClaudeId = new Map(list.filter((a) => typeof a.session_id === 'string').map((a) => [a.session_id, a]))
     const used = new Set()
+    const termByClaudeId = new Map((terms ?? []).filter((t) => typeof t.session_id === 'string').map((t) => [t.session_id, t]))
+    const usedTerms = new Set()
     const out = sessions.map((live) => {
       const s = live.session_id in renamed ? { ...live, name: renamed[live.session_id] } : live
       const a = byClaudeId.get(s.session_id)
       if (a) used.add(a.id)
-      return { s, key: a ? `app:${a.id}` : s.session_id, app: a ?? null, card: a ? appCard(a) : false }
+      const t = a ? undefined : termByClaudeId.get(s.session_id) // a terminal session the app started: the live row is its row
+      if (t) usedTerms.add(t.id)
+      return { s, key: a ? `app:${a.id}` : t ? `term:${t.id}` : s.session_id, app: a ?? null, term: t ?? null, card: a ? appCard(a) : false }
     })
     for (const a of list) {
       if (used.has(a.id)) continue
@@ -609,10 +660,22 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         cache.current.set(a.id, row)
       }
       const s = typeof a.session_id === 'string' && a.session_id in renamed ? { ...row.s, name: renamed[a.session_id] } : row.s
-      out.push({ s, key: `app:${a.id}`, app: a, card: appCard(a) })
+      out.push({ s, key: `app:${a.id}`, app: a, term: null, card: appCard(a) })
+    }
+    for (const t of terms ?? []) {
+      if (usedTerms.has(t.id)) continue
+      const key = `term:${t.id}`
+      const sig = JSON.stringify([accountLabel(t.account), t.repo, t.state, t.code, t.session_id])
+      let row = cache.current.get(key)
+      if (!row || row.sig !== sig) {
+        seen.current[key] ??= new Date().toISOString()
+        row = { sig, s: termOnly(t, seen.current[key]) }
+        cache.current.set(key, row)
+      }
+      out.push({ s: row.s, key, app: null, term: t, card: false })
     }
     return out
-  }, [sessions, apps, renamed])
+  }, [sessions, apps, terms, renamed])
   useEffect(() => {
     // A name the snapshot now carries is no longer held here: the stream is the page's one source again. A name held for a session that is in neither
     // the stream nor the app session list is let go too, so it cannot come back with the session after the server changed it.
@@ -647,9 +710,10 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   }, [wantedId, entries, onWantedUsed])
   useEffect(() => {
     // The app session just started from the New session sheet: its panel opens here, once it is in the list.
-    if (wantedApp && entries.some((e) => e.key === `app:${wantedApp}`)) {
+    const wantedKey = wantedApp && (wantedApp.startsWith('term:') ? wantedApp : `app:${wantedApp}`) // a started terminal session comes as `term:<id>`
+    if (wantedKey && entries.some((e) => e.key === wantedKey)) {
       setView('live')
-      setOpenId(`app:${wantedApp}`)
+      setOpenId(wantedKey)
       setOpened((n) => n + 1)
       setFocusPanel(true)
       onWantedAppUsed?.()
@@ -711,11 +775,12 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         <NewSessionSheet
           key={formKey}
           form={form}
-          onStarted={(id) => {
+          onStarted={(id, kind) => {
             setForm(null)
             setView('live')
             reload() // the new session is listed now, not at the next read
-            onOpenAppSession?.(id)
+            if (kind === 'terminal') reloadTerms()
+            onOpenAppSession?.(kind === 'terminal' ? `term:${id}` : id)
           }}
           onCancel={() => setForm(null)}
           onOpenSettings={onOpenSettings}
@@ -746,7 +811,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         <p className="muted">{`No active sessions. A session appears here when it wrote a record in the last ${Math.round(state.windowS / 60)} minutes.`}</p>
       )}
       {(entries.length > 0 || selected) && (
-        <div className="live-split" data-open={selected ? 'true' : undefined}>
+        <div className="live-split" data-open={selected ? 'true' : undefined} data-term={selected?.term ? 'true' : undefined}>
           <div className="live-sessions">
             <FilterBar facts={facts} filters={filters} onChange={changeFilters} />
             {shown === 0 && (
@@ -795,6 +860,11 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
           {selected && (
             <div className="live-panel-col">
               {stale && selected.app && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
+              {selected.term ? (
+                <Suspense fallback={<Loading label="Loading the terminal" />}>
+                  <TermPanel key={opened} term={selected.term} onBack={closePanel} onChanged={reloadTerms} autoFocus={focusPanel} />
+                </Suspense>
+              ) : (
               <SessionPanel
                 key={opened}
                 s={selected.s}
@@ -813,6 +883,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                 onBack={closePanel}
                 autoFocus={focusPanel}
               />
+              )}
             </div>
           )}
         </div>

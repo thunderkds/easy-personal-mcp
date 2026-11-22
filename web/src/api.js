@@ -78,6 +78,27 @@ export const getAppSessions = () =>
 /** Start one from the form's fields only (the caller has shown the confirm step). Answers 202 `{id}`. */
 export const startAppSession = (form) => sendJson('POST', '/api/app-sessions', { ...form, confirmed: true })
 const appPath = (id, action) => `/api/app-sessions/${encodeURIComponent(id)}/${action}`
+/**
+ * Terminal sessions (T133 routes; FR-136, FR-137). The list `[...]`, or null when the server has no such route (404: the Python server or an app
+ * from before the terminal). The list may come bare or as `{sessions}`.
+ */
+export const getTermSessions = () =>
+  getJson('/api/term-sessions')
+    .then((list) => (Array.isArray(list) ? list : (list.sessions ?? [])))
+    .catch((error) => {
+      if (error.status === 404) return null
+      throw error
+    })
+/** The session ended: the list says `exited` (a `running: false` too). */
+export const isExited = (term) => term.state === 'exited' || term.running === false
+/** The words for an ended terminal session: its exit code when it has one. */
+export const endedWords = (code) => (Number.isInteger(code) ? `Ended (code ${code})` : 'Ended')
+/** A terminal session's account as a line: the list may give `{id, label}` or the label. */
+export const accountLabel = (account) => (typeof account === 'string' ? account : (account?.label ?? 'Default Claude Code account'))
+/** Start one from the form's fields only (repo, workspace, account, model, mode; no prompt: the caller has shown the confirm step). Answers 201 `{id}`. */
+export const startTermSession = (form) => sendJson('POST', '/api/term-sessions', { ...form, confirmed: true })
+/** Close its PTY (the server kills the group after 5 s). */
+export const stopTermSession = (id) => sendJson('POST', `/api/term-sessions/${encodeURIComponent(id)}/stop`, { confirmed: true })
 /** One more user message, sent as typed. Each of these answers the session as the list has it. */
 export const sendAppMessage = (id, text) => sendJson('POST', appPath(id, 'message'), { text, confirmed: true })
 export const interruptAppSession = (id) => sendJson('POST', appPath(id, 'interrupt'), { confirmed: true })
