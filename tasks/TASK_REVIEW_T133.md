@@ -48,16 +48,16 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | `rust/crates/app/src/term_session.rs` (13 tests, incl. AC 0 gate `step_0_the_libc_pty_gives_a_session_leader_on_its_tty_keys_sigwinch_and_sighup_at_close`, ring bound, PDEATHSIG), `rust/crates/app/src/term_routes.rs` (9 route/WS tests: auth frame, evil Origin 403, 186-key order, resize clamp, input cap notice, two pages, shared cap 409), `rust/parity/leak_rust.py` (terminal checks, AC 11) |
+| Verification command run | ☑ pass | `cargo test --offline --workspace && cargo clippy --offline --workspace -- -D warnings` 2026-11-22T15:07:41Z..15:13:22Z: 99 suites, passed 1398, failed 0; `test exit 0`; `clippy exit 0`; `clippy --all-targets -D warnings` clean; `fmt-clean`. Leak gate: `leak check: 0 hits over 42 canaries, 1466 surfaces, 3254986 bytes`; `check terminal bytes on the guarded socket ok (3 of 3 planted strings)`; `check terminal socket foreign origin 403 ok`; `check terminal children end with the server ok (2 children, 0 left, exit 0)` |
+| Negative cases hold | ☑ pass | mutations by the implementer, each reverted: M1 cap not shared → 5th-start test fails (409 vs 202); M2 guard carve-out off → 5 of 9 `term_routes` tests fail; M3 list carries the replay → leak gate exit 1 `HIT T133 term_secret as raw in [terms api GET /api/term-sessions -> 200]` (outputs: scratchpad `t133/leak-mut.txt`) |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Full smoke suite still green (no regression) | ☑ pass | whole Rust workspace 1398/0 (above) |
+| **Companion score (easy-verifier)** | ☑ N/A | not run: easy-verifier refused every repo path since 2026-11-01 (memory learnings) |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | server-only task; the page is T134 |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | server-only task; the page is T134 |
+| **UI: Responsiveness at target viewports** | ☑ N/A | server-only task; the page is T134 |
 
 ---
 
@@ -84,9 +84,24 @@ $ curl GET /api/term/abc (token header)
 404
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER**: real `serve` built from the T133 tree, temp HOME, stub `claude` = `exec /bin/sh -i` (scratchpad `t133/after.txt`):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+2026-11-22T15:06:16Z serve up; dashboard line printed (token hidden)
+$ POST /api/workspaces -> 201
+$ POST /api/term-sessions -> 201 {"id":"6fb3a4e42a2b140f"}
+$ WS /api/term/{id} Origin evil -> HTTP/1.1 403 Forbidden
+$ WS /api/term/{id} -> HTTP/1.1 101 Switching Protocols
+  text frames: ['{"n":1,"t":"pages"}'] | typed echo h''i, output hi seen: True
+  after resize, stty size seen 30 100: True
+$ POST /api/term-sessions/{id}/stop -> 200
+  exit frame: ['{"code":null,"t":"exit"}']
+$ GET /api/term-sessions -> {"max":4,"sessions":[{"account":null,"branch":null,"code":null,"id":"6fb3a4e42a2b140f","pages":1,"reason":"stopped","repo":"<scratch>/demo/repo","started":"2026-11-22T15:06:16Z","state":"exited"}]}
+  stub pid 189267 left: False | serve exit 0
+2026-11-22T15:06:17Z
+```
+
+**DELTA**: the app can now start a session in a real terminal (PTY) and any attached page can watch and type into it over a guarded WebSocket; before, all four routes answered 404/403.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
 implementing agent alone]
