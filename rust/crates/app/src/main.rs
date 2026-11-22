@@ -33,6 +33,8 @@ mod session_procs;
 mod static_files;
 mod store_check_cmd;
 mod sync_apply;
+mod term_routes;
+mod term_session;
 mod transcript_route;
 #[cfg(any(feature = "window", test))]
 mod tray;

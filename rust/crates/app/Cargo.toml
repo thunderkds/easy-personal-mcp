@@ -54,3 +54,6 @@ tauri-build = { workspace = true, optional = true }
 [dev-dependencies]
 tower = { version = "=0.5.3", features = ["util"] }
 http-body-util = "=0.1.5"
+# T133: a WebSocket client for the terminal route tests (the version axum's `ws` feature pulls in; no TLS).
+tokio-tungstenite = { version = "=0.29.0", default-features = false, features = ["connect"] }
+futures-util = { version = "=0.3.34", default-features = false, features = ["sink"] }

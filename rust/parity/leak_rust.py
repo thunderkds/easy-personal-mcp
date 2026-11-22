@@ -96,6 +96,15 @@ SESSION_PATTERNS = {
     # `serve`) and in `session_names.json` (the one owner-only file it lives in); on no other surface (store, logs, MCP, CLI, alerts).
     "session_name": "LEAKCANARY session name {t}",
 }
+# T133 (FR-138, DDR-0009, the sixth exception of NFR-002): bytes a terminal session's program prints into its PTY, and what the
+# owner types. They may reach the page over the guarded WebSocket `GET /api/term/{id}` (positive control, labels start with
+# `TERM_OK`) and nothing else: not `GET /api/term-sessions`, the store, a log, MCP, the CLI, `/api/alerts`, `/api/live`.
+TERM_OK = "terminal guarded: "
+TERM_PATTERNS = {
+    "term_secret": "sk-ant-PCANARY{t}",  # printed by the program (an env dump, a tool's output)
+    "term_screen": "LEAKCANARY terminal screen {t}",
+    "term_typed": "LEAKCANARY terminal typed {t}",  # typed by the owner; the PTY echoes it
+}
 # T115 (FR-123, DDR-0007, the fifth exception of NFR-002): strings of a session's transcript (the owner's text, the assistant's text,
 # a tool's input and output, a Stop hook reply). They may appear on the guarded `GET /api/live/sessions/{id}/transcript` answers
 # (positive control, labels start with `TRANSCRIPT_OK`; `transcript_thinking` not even there: thinking blocks are not shown) and on no
@@ -247,6 +256,9 @@ API_CALLS: dict[str, list[str]] = {
     "/api/sessions/{id}/name": [""],  # T117: asked literally with GET (the 405); the PUT is in WRITE_CALLS / GUARD_CALLS
     "/api/reply/queue": [""],  # T116: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
     "/api/live/sessions/{id}/stop": [""],  # T116: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
+    "/api/term-sessions": [""],  # T133: the list (empty here: no terminal session is started in this run's data folder)
+    "/api/term-sessions/{id}/stop": [""],  # T133: asked literally with GET (the 405); the POST is in WRITE_CALLS / GUARD_CALLS
+    "/api/term/{id}": [""],  # T133: the WebSocket asked as a plain GET (no upgrade: refused); a real socket is in `term_sessions()`
 }  # fmt: skip
 # Requests the guard or the static fallback answers: (label, method, path, header changes; None drops a header).
 GUARD_CALLS = [
@@ -324,6 +336,10 @@ GUARD_CALLS = [
     ("agent run start without a body", "POST", "/api/agent-run", {}),
     ("app sessions no token", "GET", "/api/app-sessions", {"x-dashboard-token": None}),  # T103
     ("app session start no token", "POST", "/api/app-sessions", {"x-dashboard-token": None}),
+    ("terminal start no token", "POST", "/api/term-sessions", {"x-dashboard-token": None}),  # T133
+    ("terminal start foreign origin", "POST", "/api/term-sessions", {"Origin": "http://evil.invalid"}),
+    ("terminal socket foreign origin", "GET", "/api/term/abc", {"Origin": "http://evil.invalid", "x-dashboard-token": None}),
+    ("terminal socket rebinding host", "GET", "/api/term/abc", {"Host": "evil.invalid:80", "x-dashboard-token": None}),
     ("app session stop no token", "POST", "/api/app-sessions/x/stop", {"x-dashboard-token": None}),
     ("app session start foreign origin", "POST", "/api/app-sessions", {"Origin": "http://evil.invalid"}),
     ("app session query token", "GET", "/api/app-sessions?token=x", {"x-dashboard-token": None}),
@@ -434,6 +450,10 @@ WRITE_CALLS = [
     ("app session stop key as field", "POST", "/api/app-sessions/x/stop", '{"{key}":1,"confirmed":true}'),
     ("app session stop unknown", "POST", "/api/app-sessions/x/stop", '{"confirmed":true}'),
     ("app session close unknown", "POST", "/api/app-sessions/x/close", '{"confirmed":true}'),
+    ("terminal start key as repo", "POST", "/api/term-sessions", '{"repo":"{key}","workspace":"acme","model":"default","mode":"default","confirmed":true}'),  # T133
+    ("terminal start key as model", "POST", "/api/term-sessions", '{"repo":"/r","workspace":"acme","model":"{key}","mode":"default","confirmed":true}'),
+    ("terminal start key as field", "POST", "/api/term-sessions", '{"{key}":1,"confirmed":true}'),
+    ("terminal stop unknown", "POST", "/api/term-sessions/x/stop", '{"confirmed":true}'),
 ]
 # MCP tool -> argument variants (the Python suite's MCP_CALLS for these tools, plus error paths).
 MCP_CALLS: dict[str, list[dict]] = {
@@ -845,6 +865,200 @@ def session_scan(run: "Run") -> tuple[list[str], list[str]]:
 
 
 
+TERM_FAKE = """#!/bin/sh
+# A stand-in for the owner's interactive `claude` in a terminal session: it prints planted bytes into its PTY and answers typed lines.
+here=$(dirname "$0")
+echo $$ >> "$here/pids"
+cat "$here/screen.txt"
+echo ready
+while :; do
+  if read line; then echo "got:$line"; else sleep 0.1; fi
+done
+"""
+
+
+def ws_open(port: int, path: str, headers: dict[str, str]) -> tuple[socket.socket, bytes]:
+    """T133: a WebSocket handshake over a plain socket (stdlib only); returns the socket and the response head."""
+    sock = socket.create_connection(("127.0.0.1", port), timeout=15)
+    key = base64.b64encode(secrets.token_bytes(16)).decode()
+    head = (f"GET {path} HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+            "Sec-WebSocket-Version: 13\r\n" + "".join(f"{k}: {v}\r\n" for k, v in headers.items()) + "\r\n")  # fmt: skip
+    sock.sendall(head.encode())
+    got = b""
+    while b"\r\n\r\n" not in got:
+        byte = sock.recv(1)  # one at a time: the first frame may follow the head at once
+        if not byte:
+            break
+        got += byte
+    return sock, got
+
+
+def ws_send(sock: socket.socket, opcode: int, payload: bytes) -> None:
+    mask, n = secrets.token_bytes(4), len(payload)
+    head = bytes([0x80 | opcode]) + (bytes([0x80 | n]) if n < 126 else bytes([0x80 | 126]) + n.to_bytes(2, "big"))
+    sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+
+def ws_read(sock: socket.socket, secs: float, until: bytes) -> bytes:
+    """The server's frames (payloads only, text and binary) until `until` is in them, the socket closes or `secs` pass."""
+    out, buf, deadline = b"", b"", time.monotonic() + secs
+
+    def take(n: int) -> bytes | None:
+        nonlocal buf
+        while len(buf) < n:
+            left = deadline - time.monotonic()
+            if left <= 0 or not select.select([sock], [], [], left)[0]:
+                return None
+            chunk = sock.recv(65536)
+            if not chunk:
+                return None
+            buf += chunk
+        part, buf = buf[:n], buf[n:]
+        return part
+
+    while until not in out:
+        head = take(2)
+        if head is None:
+            break
+        n = head[1] & 0x7F
+        if n >= 126:
+            ext = take(2 if n == 126 else 8)
+            if ext is None:
+                break
+            n = int.from_bytes(ext, "big")
+        payload = take(n)
+        if payload is None or head[0] & 0x0F == 8:  # closed
+            break
+        out += payload
+    return out
+
+
+def term_sessions(run: "Run", checks: list[str], canaries: Canaries) -> None:
+    """T133 (FR-138): a terminal session over real HTTP and the WebSocket, with a stand-in `claude` that prints a planted secret
+    and screen text into its PTY; the owner types a planted line. All three reach the page over the guarded socket (positive
+    control) and no other surface: the list route, `/api/alerts`, `/api/live`, the server's stdout and stderr, the store files
+    and `.dump`, the CLI, MCP over stdio, the data folder. The server's stop ends the program (no stub left)."""
+    t, home = run.term, run.logs / "terms-home"
+    refuse("terms home", home)
+    term_bin, repo = run.logs / "term-bin", run.logs / "term-repo"
+    term_bin.mkdir()
+    repo.mkdir()
+    (term_bin / "screen.txt").write_text(f"{t.values['term_screen']}\nexport KEY={t.values['term_secret']}\n")
+    (term_bin / "claude").write_text(TERM_FAKE)
+    (term_bin / "claude").chmod(0o755)
+    saved = {name: run.env.get(name) for name in ("EASY_PERSONAL_HOME", "PATH")}
+    run.env["EASY_PERSONAL_HOME"] = str(home)
+    run.env["PATH"] = f"{term_bin}:{saved['PATH']}"
+    pids: list[int] = []
+    try:
+        run.ingest("terms ingest (planted sources: creates the store)")
+        run.run("terms agent-run on", "agent-run", "on")
+        proc, errlog = run.popen(SERVER_TIMEOUT, "serve", "--no-ingest", err=run.logs / "terms-serve.stderr")
+        kids, first = [], b""
+        try:
+            lines = Lines(proc.stdout.fileno())
+            first = lines.read(20) or b""
+            match = re.fullmatch(rb"dashboard: http://127\.0\.0\.1:(\d+)/#([A-Za-z0-9_-]{43})\n", first)
+            if not match:
+                raise Fatal("terms serve: no `dashboard:` line within 20 s")
+            port, token = int(match[1]), match[2].decode()
+            kids = children(proc.pid)
+            base = {"Host": f"127.0.0.1:{port}", "x-dashboard-token": token}
+
+            def call(label: str, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
+                status, blob = request(port, method, path, base, None if body is None else json.dumps(body).encode())
+                run.add(f"terms {label} -> {status}", blob)  # not guarded: no terminal byte may be in any of these
+                try:
+                    return status, json.loads(blob.partition(b"\n\n")[2])
+                except ValueError:
+                    return status, {}
+
+            call("workspace add", "POST", "/api/workspaces", {"name": "term-check", "repos": [str(repo)]})
+            _, listed = call("workspace list", "GET", "/api/workspaces")
+            stored = [r for w in listed.get("workspaces", []) if w.get("name") == "term-check" for r in w.get("repos", [])]
+            if not stored:
+                raise Fatal("terminal sessions: the workspace repo was not stored")
+            form = {"repo": stored[0], "workspace": "term-check", "model": "default", "mode": "default", "confirmed": True}
+            status, started = call("start", "POST", "/api/term-sessions", form)
+            tid = started.get("id", "")
+            if status != 201 or not tid:
+                raise Fatal(f"terminal sessions: start answered {status}")
+            # the guarded socket: the token in the first frame, never in the URL
+            sock, head = ws_open(port, f"/api/term/{tid}", {"Host": f"127.0.0.1:{port}", "Origin": f"http://127.0.0.1:{port}"})
+            try:
+                ws_send(sock, 1, json.dumps({"t": "auth", "token": token, "cols": 80, "rows": 24}).encode())
+                seen = ws_read(sock, 20, b"ready")
+                ws_send(sock, 2, t.values["term_typed"].encode() + b"\r")
+                seen += ws_read(sock, 20, b"got:" + t.values["term_typed"].encode())
+            finally:
+                sock.close()
+            run.add(f"{TERM_OK}socket -> {head.split(b' ')[1].decode() if b' ' in head else '?'}", seen)
+            missing = [n for n, v in t.values.items() if v.encode() not in seen]
+            checks.append(f"check terminal bytes on the guarded socket   {'ok' if head.startswith(b'HTTP/1.1 101') and not missing else 'FAILED'} ({len(t.values) - len(missing)} of {len(t.values)} planted strings)")
+            # a foreign origin is refused at the upgrade
+            sock, refused = ws_open(port, f"/api/term/{tid}", {"Host": f"127.0.0.1:{port}", "Origin": "http://evil.invalid"})
+            sock.close()
+            run.add("terms socket foreign origin (head)", refused)
+            checks.append(f"check terminal socket foreign origin 403   {'ok' if refused.startswith(b'HTTP/1.1 403') else 'FAILED'}")
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and not (term_bin / "pids").exists():
+                time.sleep(0.1)
+            pids = [int(p) for p in (term_bin / "pids").read_text().split()] if (term_bin / "pids").exists() else []
+            for path in ("/api/term-sessions", "/api/alerts", "/api/app-sessions", "/api/version"):
+                call(f"api GET {path}", "GET", path)
+            run.add("terms api GET /api/live (first message)", live_first(port, "/api/live", base))
+            # a second session stays up: the server's stop must end it
+            status, _ = call("second start", "POST", "/api/term-sessions", form)
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and len((term_bin / "pids").read_text().split()) < 2:
+                time.sleep(0.1)
+            pids = [int(p) for p in (term_bin / "pids").read_text().split()]
+            status, _ = call("stop", "POST", f"/api/term-sessions/{tid}/stop", {"confirmed": True})
+            call("api GET /api/term-sessions (after stop)", "GET", "/api/term-sessions")
+            run.add("terms serve stdout (first line, token inside)", first + lines.buf)
+        finally:
+            rc = run.stop("terms serve", proc, kids, signal.SIGINT)
+            errlog.close()
+            run.add("terms serve stdout (after stop)", proc.stdout.read() if proc.stdout else b"")
+            run.add("terms serve stderr", (run.logs / "terms-serve.stderr").read_bytes())
+        time.sleep(0.5)
+        alive = [p for p in pids if Path(f"/proc/{p}").exists() and "Z" not in (Path(f"/proc/{p}/stat").read_text().rsplit(")", 1)[-1].split() or ["?"])[0]]
+        checks.append(f"check terminal children end with the server  {'ok' if len(pids) == 2 and not alive else 'FAILED'} ({len(pids)} children, {len(alive)} left, exit {rc})")
+        for path in sorted(home.glob("store.sqlite*")):
+            run.add(f"terms store: {path.name}", path.read_bytes())
+        conn = sqlite3.connect(home / "store.sqlite")
+        try:
+            run.add("terms store .dump", "\n".join(conn.iterdump()))
+        finally:
+            conn.close()
+        for label, argv in (("store-info", ["store-info", "--json"]), ("usage", ["usage"]), ("warnings", ["warnings"]),
+                            ("agent-run status", ["agent-run", "status"]), ("kit", ["kit"])):
+            done = subprocess.run(run.argv(CHILD_TIMEOUT, *argv), env=run.env, cwd=run.nowhere, capture_output=True, stdin=subprocess.DEVNULL, check=False)
+            run.add(f"terms cli {label} stdout", done.stdout)
+            run.add(f"terms cli {label} stderr", done.stderr)
+        mcp(run, checks, canaries)  # every MCP tool over stdio, against this data folder
+        listing = sorted(p.relative_to(home).as_posix() for p in home.rglob("*"))
+        run.add("terms data folder listing", "\n".join(listing))
+    finally:
+        for name, value in saved.items():
+            run.env[name] = value
+
+
+def term_scan(run: "Run") -> tuple[list[str], list[str]]:
+    """T133: no terminal string is on any surface except the guarded socket bytes `term_sessions` labels `TERM_OK`."""
+    hits = []
+    for label, blob in run.out.items():
+        if label.startswith(TERM_OK):
+            continue
+        text = as_text(blob)
+        for name, value in run.term.values.items():
+            for _, form in Canaries({name: value}).find(text):
+                hits.append(f"HIT T133 {name} as {form} in [{label}]: {excerpt(text, name, value, form)}")
+    guarded = sum(1 for label in run.out if label.startswith(TERM_OK))
+    checks = [f"check T133 terminal strings scanned        {'ok' if guarded == 1 else 'FAILED'} ({len(run.term.values)} strings, {len(run.out) - guarded} surfaces, {guarded} guarded socket capture allowed to hold them)"]
+    return hits, checks
+
+
 def transcript_lines(t: Canaries, session: str, cwd: str, start: datetime.datetime, live: bool, finish: bool = True) -> str:
     """T115: the transcript of a session as Claude Code writes it (2.1.327 shapes, `tasks/evidence-T110/SPIKE.md`) with every planted
     string in a place the route shows: typed text, a thinking block (not shown), assistant text, a Bash command, a Write input, a
@@ -1179,7 +1393,7 @@ def serve(run: Run, checks: list[str], key: str) -> None:
     static.mkdir()
     (static / "index.html").write_text("<!doctype html><title>leak check</title>\n")
     rust_routes = set()
-    for source in ("api.rs", "server.rs", "app_session_routes.rs", "session_names.rs"):
+    for source in ("api.rs", "server.rs", "app_session_routes.rs", "session_names.rs", "term_routes.rs"):
         rust_routes |= set(
             API_ROUTE.findall((RUST / "crates" / "app" / "src" / source).read_text())
         )
@@ -2477,6 +2691,7 @@ def drive_with_service(run: Run, canaries: Canaries, checks: list[str]) -> None:
     mcp(run, checks, canaries)
     mcp_http(run, checks, canaries)
     app_sessions(run, checks, canaries)  # T103
+    term_sessions(run, checks, canaries)  # T133
     again = run.ingest("ingest #2 (same input again)")
     checks.append(
         f"check ingest #2 adds nothing         {'ok' if again.get('new_events') == 0 else 'FAILED'} ({again.get('new_events')})"
@@ -2551,6 +2766,7 @@ def main() -> int:
     run.q, run.live_only, run.bridge = q, {}, None
     run.t = t  # T115
     run.s = Canaries({n: pat.format(t=secrets.token_hex(8)) for n, pat in SESSION_PATTERNS.items()})  # T103
+    run.term = Canaries({n: pat.format(t=secrets.token_hex(8)) for n, pat in TERM_PATTERNS.items()})  # T133
     checks, failure = [], None
     try:
         drive(run, canaries, checks)
@@ -2567,6 +2783,8 @@ def main() -> int:
     checks.extend(t_checks)
     s_hits, s_checks = session_scan(run)  # T103
     checks.extend(s_checks)
+    term_hits, term_checks = term_scan(run)  # T133
+    checks.extend(term_checks)
     b_hits, b_checks = bridge_scan(run) if run.bridge else ([], ["check T106 bridge ran  FAILED"])
     checks.extend(b_checks)
     live_hits = live_only_scan(canaries, run.live_only)
@@ -2601,11 +2819,11 @@ def main() -> int:
         problems.append("the canary set differs from PATTERNS")
     if failure:
         problems.append(failure)
-    problems += q_hits + s_hits + b_hits + t_hits
+    problems += q_hits + s_hits + b_hits + t_hits + term_hits
     for name, form, label, cut in hits:
         report.append(f"HIT canary {name} as {form} in [{label}]: {cut}")
     text = "\n".join(report)
-    if canaries.find(text) or q.find(text) or run.s.find(text) or run.t.find(text) or (run.bridge and run.bridge[0].find(text)):  # the report must not become a leak
+    if canaries.find(text) or q.find(text) or run.s.find(text) or run.t.find(text) or run.term.find(text) or (run.bridge and run.bridge[0].find(text)):  # the report must not become a leak
         print("leak check: the report itself would hold a canary; it was withheld")
         print(f"temp folder kept: {root}")
         return 1

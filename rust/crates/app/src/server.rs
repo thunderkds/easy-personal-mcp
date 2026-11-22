@@ -14,6 +14,7 @@ use crate::app_session_routes;
 use crate::live_feed::{LIVE_PATH, LiveFeed};
 use crate::sampler::{self, Sampler};
 use crate::static_files;
+use crate::term_routes::{self, TERM_PATH};
 use axum::Router;
 use axum::extract::{Request, State};
 use axum::http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, HOST, ORIGIN};
@@ -62,6 +63,7 @@ pub(crate) fn router_with_static(
     authenticated: Arc<AtomicBool>,
 ) -> Router {
     let host = format!("127.0.0.1:{port}");
+    let term = term_routes::routes(Arc::from(token.as_str()));
     let guard = Arc::new(Guard {
         origin: format!("http://{host}"),
         host,
@@ -71,6 +73,7 @@ pub(crate) fn router_with_static(
     let app = Router::new()
         .route("/api/version", get(version))
         .merge(api::routes().with_state(api.clone()))
+        .merge(term.with_state(api.clone()))
         .merge(app_session_routes::routes().with_state(api));
     let app = match static_root {
         Some(root) => {
@@ -99,6 +102,9 @@ fn json(status: StatusCode, body: &'static str) -> Response {
 /// One carve-out (T056, Python's `_query_token`): a `GET` of exactly `/api/live` with no token header may send the
 /// token as the one `token` query parameter instead, because a browser `EventSource` cannot set headers. The value is
 /// compared as sent (no percent-decoding: the token is URL-safe base64) and never echoed or logged.
+/// A second one (T133, FR-137): a `GET` of `/api/term/<id>` (an id of hex digits only) with no token header goes on to
+/// the WebSocket route, whose first frame must carry the token (a browser `WebSocket` cannot set a header). It takes no
+/// token from the URL; Host and Origin are checked as for every request.
 fn allowed(guard: &Guard, method: &Method, uri: &Uri, headers: &HeaderMap) -> bool {
     let path = uri.path();
     let mut hosts = headers.get_all(HOST).iter();
@@ -119,10 +125,20 @@ fn allowed(guard: &Guard, method: &Method, uri: &Uri, headers: &HeaderMap) -> bo
             (Some(t), None) => constant_time_eq(t.as_bytes(), guard.token.as_bytes()),
             (None, _) if method == Method::GET && path == LIVE_PATH => query_token(uri.query())
                 .is_some_and(|t| constant_time_eq(t.as_bytes(), guard.token.as_bytes())),
+            (None, _) if method == Method::GET && is_term_socket(path) => true,
             _ => false,
         };
     }
     true
+}
+
+/// `/api/term/<id>`: the id is 1 to 64 lowercase hex digits (the ids `term_session.rs` makes), nothing else.
+fn is_term_socket(path: &str) -> bool {
+    path.strip_prefix(TERM_PATH).is_some_and(|id| {
+        !id.is_empty()
+            && id.len() <= 64
+            && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    })
 }
 
 /// The value of the one `token=` pair of the query; none, or more than one, is `None`.

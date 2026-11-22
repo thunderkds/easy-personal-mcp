@@ -19,6 +19,7 @@
 use crate::agent_run::{LIMIT, Outcome, Refused, Runner, Setting, utc_now};
 use crate::api::{Api, INTERNAL, respond};
 use crate::app_session::Sessions;
+use crate::term_session::Terms;
 use crate::writes::{fail, parse, raw_body};
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
@@ -58,6 +59,8 @@ pub(crate) struct Agent {
     state: Arc<Mutex<Record>>,
     /// The app sessions of this server (T103); stopped with the agent run at shutdown.
     pub(crate) sessions: Arc<Sessions>,
+    /// The terminal sessions of this server (T133); they share the app sessions' running cap; stopped at shutdown.
+    pub(crate) terms: Arc<Terms>,
 }
 
 fn lock(state: &Mutex<Record>) -> MutexGuard<'_, Record> {
@@ -77,8 +80,10 @@ impl Agent {
     }
 
     pub(crate) fn new(env: Vec<(OsString, OsString)>, exe: PathBuf, limit: Duration) -> Agent {
+        let sessions = Arc::new(Sessions::new(env.clone()));
         Agent {
-            sessions: Arc::new(Sessions::new(env.clone())),
+            terms: Arc::new(Terms::new(env.clone(), Arc::clone(&sessions))),
+            sessions,
             env,
             exe,
             limit,
@@ -171,6 +176,7 @@ impl Agent {
     /// Stops this server's run and joins its thread. After this no `claude` of this server lives.
     pub(crate) fn shutdown(&self) {
         self.sessions.shutdown();
+        self.terms.shutdown();
         self.stop.store(true, Ordering::Relaxed);
         let handle = lock(&self.state).handle.take();
         if let Some(handle) = handle {

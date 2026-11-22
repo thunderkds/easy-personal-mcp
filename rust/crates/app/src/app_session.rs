@@ -42,7 +42,7 @@ use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::JoinHandle;
@@ -52,12 +52,12 @@ use tokio::sync::watch;
 /// At most this many sessions run at once (PRD question 41); one more is a 409.
 pub(crate) const MAX_RUNNING: usize = 4;
 /// Ended sessions that are kept in the list until the owner closes them; the oldest go first past this.
-const MAX_KEPT: usize = 12;
+pub(crate) const MAX_KEPT: usize = 12;
 /// SIGTERM to SIGKILL.
 const STOP_GRACE: Duration = Duration::from_secs(5);
 const POLL: Duration = Duration::from_millis(50);
 /// How often a going session checks that the setting is still on.
-const SETTING_EVERY: Duration = Duration::from_secs(1);
+pub(crate) const SETTING_EVERY: Duration = Duration::from_secs(1);
 /// The fixed lists of the form (FR-109, FR-131); the first of each is "no flag". The models are the aliases the CLI
 /// accepted in the T126 spike (`tasks/evidence-T126/SPIKE.md`: it refuses `haiku[1m]`).
 pub(crate) const MODELS: [&str; 7] = [
@@ -1270,6 +1270,18 @@ pub(crate) struct Sessions {
     list: Mutex<Vec<Arc<Session>>>,
     grace: Duration,
     poll: Duration,
+    /// Terminal sessions that are going (T133, `term_session.rs`): they count against the same [`MAX_RUNNING`]. Raised
+    /// only under the `list` lock ([`Sessions::take_slot`]), so the two kinds never pass the cap together.
+    terminals: AtomicUsize,
+}
+
+/// A running slot a terminal session holds (T133); dropped when its child has ended, which frees it.
+pub(crate) struct Slot(Arc<Sessions>);
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        self.0.terminals.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 impl Sessions {
@@ -1287,7 +1299,20 @@ impl Sessions {
             list: Mutex::new(Vec::new()),
             grace,
             poll,
+            terminals: AtomicUsize::new(0),
         }
+    }
+
+    /// The one cap of question 41 for both kinds (T133): a slot for a terminal session, or `None` when [`MAX_RUNNING`]
+    /// sessions (app and terminal) are going.
+    pub(crate) fn take_slot(self: &Arc<Self>) -> Option<Slot> {
+        let list = lock(&self.list);
+        let going = list.iter().filter(|s| !s.ended()).count();
+        if going + self.terminals.load(Ordering::SeqCst) >= MAX_RUNNING {
+            return None;
+        }
+        self.terminals.fetch_add(1, Ordering::SeqCst);
+        Some(Slot(Arc::clone(self)))
     }
 
     pub(crate) fn all(&self) -> Vec<Arc<Session>> {
@@ -1365,7 +1390,8 @@ impl Sessions {
             {
                 return Err(StartError::Running);
             }
-            if list.iter().filter(|s| !s.ended()).count() >= MAX_RUNNING {
+            let going = list.iter().filter(|s| !s.ended()).count();
+            if going + self.terminals.load(Ordering::SeqCst) >= MAX_RUNNING {
                 return Err(StartError::Busy);
             }
             while list.iter().filter(|s| s.ended()).count() >= MAX_KEPT {
@@ -1540,7 +1566,7 @@ fn write_config(dir: &Path, id: &str, secret: &str, port: u16) -> std::io::Resul
     Ok(path)
 }
 
-fn signal_group(pgid: i32, signal: libc::c_int) {
+pub(crate) fn signal_group(pgid: i32, signal: libc::c_int) {
     if pgid > 0 {
         // SAFETY: a signal to the process group this program started
         unsafe { libc::kill(-pgid, signal) };
