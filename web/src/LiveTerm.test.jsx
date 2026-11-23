@@ -136,3 +136,29 @@ describe('starting one (AC 1, AC 6)', () => {
     expect(FakeSocket.last.url).toBe('ws://localhost:3000/api/term/t9')
   })
 })
+
+describe('room and Pop out (T135)', () => {
+  it('a terminal panel takes the whole width: the split is marked and Back shows; a Chat panel does not mark it', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    fireEvent.click(rowOf('term:t1'))
+    await screen.findByRole('region', { name: /^Terminal session in / })
+    expect(document.querySelector('.live-split').dataset.term).toBe('true')
+  })
+
+  it('Pop out closes the panel in the app and opens the window; the row stays listed', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    const open = vi.fn(() => ({ opener: {} }))
+    vi.stubGlobal('open', open)
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    fireEvent.click(rowOf('term:t1'))
+    const panel = await screen.findByRole('region', { name: /^Terminal session in / })
+    fireEvent.click(within(panel).getByRole('button', { name: 'Pop out' }))
+    expect(open).toHaveBeenCalledWith('/?term=t1#secret-token', '_blank')
+    await waitFor(() => expect(screen.queryByRole('region', { name: /^Terminal session in / })).toBeNull())
+    expect(document.querySelector('.live-split').dataset.term).toBeUndefined()
+    expect(rowOf('term:t1')).not.toBeNull()
+  })
+})

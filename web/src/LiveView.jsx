@@ -811,7 +811,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         <p className="muted">{`No active sessions. A session appears here when it wrote a record in the last ${Math.round(state.windowS / 60)} minutes.`}</p>
       )}
       {(entries.length > 0 || selected) && (
-        <div className="live-split" data-open={selected ? 'true' : undefined}>
+        <div className="live-split" data-open={selected ? 'true' : undefined} data-term={selected?.term ? 'true' : undefined}>
           <div className="live-sessions">
             <FilterBar facts={facts} filters={filters} onChange={changeFilters} />
             {shown === 0 && (
@@ -862,7 +862,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
               {stale && selected.app && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
               {selected.term ? (
                 <Suspense fallback={<Loading label="Loading the terminal" />}>
-                  <TermPanel key={opened} term={selected.term} onBack={closePanel} onChanged={reloadTerms} autoFocus={focusPanel} />
+                  <TermPanel key={opened} term={selected.term} onBack={closePanel} onChanged={reloadTerms} onPoppedOut={closePanel} autoFocus={focusPanel} />
                 </Suspense>
               ) : (
               <SessionPanel

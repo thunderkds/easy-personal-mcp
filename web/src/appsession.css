@@ -129,6 +129,9 @@ main .agent-row button { min-height: 0; padding: 0 var(--space-2); font-size: va
   .live-split[data-open] { grid-template-columns: minmax(16rem, 2fr) minmax(0, 3fr); }
   .live-split[data-open] .live-sessions { display: flex; }
   .session-back { display: none; }
+  .live-split[data-open][data-term] { grid-template-columns: minmax(0, 1fr); }
+  .live-split[data-open][data-term] .live-sessions { display: none; }
+  .live-split[data-term] .session-back { display: inline-flex; align-items: center; }
 }
 @media (max-width: 39.999rem) {
   .session-panel button, .queue-box button, .stop-confirm button { min-height: 44px; }
@@ -201,13 +204,41 @@ main button.filter-clear:disabled { color: var(--color-faint); border-color: var
 .turn-todos li[data-status='in_progress'] { color: var(--color-heading); font-weight: 500; }
 .turn-todos li[data-status='completed'] .turn-todo-text { color: var(--color-secondary); text-decoration: line-through; }
 
-/* The terminal panel (T134, FR-136..FR-138): the xterm box and the key row, existing tokens only. xterm sizes itself from the box (FitAddon), so the box has a height. */
-.term-box { box-sizing: border-box; height: 60vh; min-height: 14rem; min-width: 0; padding: var(--space-2); overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); }
+/* The terminal panel (T134, FR-136..FR-138; roomier in T135): one head row, then the screen, then the key row, existing tokens only.
+   xterm sizes itself from the box (FitAddon), so the box has a height: the window height left under the sticky header and the panel's own rows,
+   so the whole panel fits the window once it is scrolled to (it is, on open). */
+.term-panel { gap: var(--space-2); scroll-margin-top: calc(var(--header-height) + var(--space-2)); }
+.term-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-width: 0; }
+.term-name { display: flex; flex: 1 1 12rem; flex-direction: column; gap: 2px; min-width: 0; }
+.term-meta { display: flex; gap: var(--space-2); min-width: 0; font-size: var(--fs-note); color: var(--color-muted); white-space: nowrap; }
+.term-meta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.term-meta span:first-child { flex: none; }
+.term-meta span + span::before { content: '·'; margin-right: var(--space-2); }
+.term-meta .mono { font-family: var(--font-mono); }
+.term-head .session-state { white-space: nowrap; }
+.term-actions { display: flex; gap: var(--space-2); margin-left: auto; }
+.term-note { margin: 0; }
+.term-box { box-sizing: border-box; height: max(14rem, calc(100dvh - var(--header-height) - 10.5rem)); min-width: 0; padding: var(--space-2); overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); }
 .term-box:focus-within { border-color: var(--color-accent-line); }
-.term-keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr)); gap: var(--space-2); min-width: 0; } /* eight keys: one row when there is room, else two rows of four (modifiers first, then the arrows) */
+.term-keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr)); gap: var(--space-2); min-width: 0; } /* phones: eight keys in two rows of four (modifiers first, then the arrows), 44 px targets */
 .term-keys button { min-height: 44px; min-width: 0; padding-inline: var(--space-1); font-family: var(--font-mono); }
 .term-panel .prompt-cut p { margin: 0 0 var(--space-2); }
-@media (max-width: 39.999rem) {
-  .term-box { height: 50vh; }
-  .term-panel .prompt-cut button { min-height: 44px; }
+@media (min-width: 40rem) { /* a keyboard is at hand: the keys are a slim row of small buttons, so the screen keeps the height */
+  .term-keys { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+  .term-keys button { min-height: 0; padding: 2px var(--space-3); font-size: var(--fs-note); }
 }
+@media (pointer: coarse) { .term-keys button { min-height: 44px; } } /* a touch screen keeps 44 px targets at every width */
+@media (max-width: 39.999rem) { /* the top bar wraps to two rows here */
+  .term-panel { padding: var(--space-3); scroll-margin-top: 7.75rem; }
+  .term-box { height: max(14rem, calc(100dvh - 25rem)); padding: var(--space-1); }
+  .term-panel .prompt-cut button, .term-actions button { min-height: 44px; }
+}
+/* A terminal open in Live takes the whole width (T135): the list hides and Back shows at every width, and the right rail steps aside while it is
+   open (it comes back with Back); Chat keeps the split and the rail. */
+.live-split[data-term] .live-sessions { display: none; }
+.body:has(.live-split[data-term]) { grid-template-columns: minmax(0, 1fr); }
+.body:has(.live-split[data-term]) .rail { display: none; }
+/* Its own window (T135, `?term=<id>`): the panel fills the window and the screen takes what the head and the keys leave. */
+.term-window { box-sizing: border-box; display: flex; flex-direction: column; height: 100dvh; max-width: none; padding: var(--space-2); }
+.term-window .term-panel { flex: 1 1 auto; min-height: 0; padding: var(--space-3); }
+.term-panel[data-popped] .term-box { flex: 1 1 auto; height: auto; min-height: 10rem; }
