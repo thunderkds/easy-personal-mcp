@@ -130,7 +130,6 @@ main .agent-row button { min-height: 0; padding: 0 var(--space-2); font-size: va
   .live-split[data-open] .live-sessions { display: flex; }
   .session-back { display: none; }
   .live-split[data-open][data-term] { grid-template-columns: minmax(0, 1fr); }
-  .live-split[data-open][data-term] .live-sessions { display: none; }
   .live-split[data-term] .session-back { display: inline-flex; align-items: center; }
 }
 @media (max-width: 39.999rem) {

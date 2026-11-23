@@ -83,14 +83,18 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
     const typed = xterm.onData((text) => send(bytesOf(text)))
     const binary = xterm.onBinary?.((text) => send(Uint8Array.from(text, (c) => c.charCodeAt(0)))) // a mouse report: one byte per character
     let timer = null
+    let forceNext = false // a focus asked for a forced send: a plain refit in the same 150 ms keeps it
     // `force`: tell the size even when it is unchanged. With two pages attached the last resize wins (question 47), so the page whose screen
     // takes the focus sends its own size and the program fits the page being typed in (T135).
     const refit = (force = false) => {
+      forceNext = forceNext || force === true
       clearTimeout(timer)
       timer = setTimeout(() => {
+        const forced = forceNext
+        forceNext = false
         fit.fit()
         const ws = socket.current
-        if (!ws || ws.readyState !== OPEN || (force !== true && last.current?.cols === xterm.cols && last.current?.rows === xterm.rows)) return
+        if (!ws || ws.readyState !== OPEN || (!forced && last.current?.cols === xterm.cols && last.current?.rows === xterm.rows)) return
         last.current = { cols: xterm.cols, rows: xterm.rows }
         ws.send(JSON.stringify({ t: 'resize', cols: xterm.cols, rows: xterm.rows }))
       }, RESIZE_MS)

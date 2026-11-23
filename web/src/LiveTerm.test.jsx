@@ -138,13 +138,23 @@ describe('starting one (AC 1, AC 6)', () => {
 })
 
 describe('room and Pop out (T135)', () => {
-  it('a terminal panel takes the whole width: the split is marked and Back shows; a Chat panel does not mark it', async () => {
+  it('a terminal panel takes the whole width: the split is marked (the list and the rail step aside)', async () => {
     install({ terms: [termSession({ id: 't1' })] })
     mount()
     await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
     fireEvent.click(rowOf('term:t1'))
     await screen.findByRole('region', { name: /^Terminal session in / })
     expect(document.querySelector('.live-split').dataset.term).toBe('true')
+  })
+
+  it('a Chat panel keeps the split: the list beside it, no terminal mark', async () => {
+    install({ terms: [termSession({ id: 't1' })], sessions: [appSession({ id: 'a1', session_id: null })] })
+    mount()
+    await waitFor(() => expect(rowOf('app:a1')).not.toBeNull())
+    fireEvent.click(rowOf('app:a1'))
+    await screen.findByRole('region', { name: /^Session in / })
+    expect(document.querySelector('.live-split').dataset.open).toBe('true')
+    expect(document.querySelector('.live-split').dataset.term).toBeUndefined()
   })
 
   it('Pop out closes the panel in the app and opens the window; the row stays listed', async () => {

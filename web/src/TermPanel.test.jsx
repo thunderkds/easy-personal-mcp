@@ -346,6 +346,16 @@ describe('the roomy panel (T135)', () => {
     expect(Terminal.last.focused).toBe(1) // the keys go to the terminal at once
   })
 
+  it('a plain refit right after a focus keeps the forced send', () => {
+    vi.useFakeTimers()
+    mount()
+    const socket = attach()
+    act(() => Terminal.last.textarea.dispatchEvent(new FocusEvent('focus')))
+    FakeResizeObserver.instances[0].fire() // the box settles within the same 150 ms, at the same size
+    act(() => vi.advanceTimersByTime(300))
+    expect(socket.texts.filter((m) => m.t === 'resize')).toEqual([{ t: 'resize', cols: 100, rows: 30 }])
+  })
+
   it('focusing the screen sends its size even when unchanged, so the page you type in wins (question 47)', () => {
     vi.useFakeTimers()
     mount()

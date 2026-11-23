@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getTermSessions } from './api.js'
 import Loading from './Loading.jsx'
 import { folderName } from './SessionPanel.jsx'
@@ -11,13 +11,16 @@ import TermPanel from './TermPanel.jsx'
 export default function TermWindow({ id }) {
   const [term, setTerm] = useState(undefined) // undefined: reading; null: not listed
   const [error, setError] = useState('')
+  const shown = useRef(false) // a first read answered: a later failed refresh keeps the terminal
   const read = useCallback(async () => {
     try {
       const list = await getTermSessions()
       setTerm((list ?? []).find((t) => t && t.id === id) ?? null)
+      shown.current = true
       setError('')
     } catch {
-      setError('Could not read the terminal sessions. Close this window and open the terminal from Live again.')
+      // A refresh after Stop or the exit frame that fails keeps the terminal shown: only a first read that fails has nothing to show.
+      if (!shown.current) setError('Could not read the terminal sessions. Close this window and open the terminal from Live again.')
     }
   }, [id])
   useEffect(() => {

@@ -72,7 +72,8 @@ fn navigation_allowed(url: &str, port: u16) -> bool {
 
 /// True when `url` is a terminal popped out of the dashboard (T135): inside the server's origin, the path `/`, the query
 /// exactly `term=<id>` (1..=128 of ASCII letters, digits, `-`, `_`, `.`, `%`: the id as the page percent-encodes it), then
-/// nothing or a fragment. Only this address may open a second window; every other new window stays denied.
+/// nothing or a fragment. Only this address may open a second window; every other new window stays denied. The check
+/// limits the address's shape, not the id's content: the page only looks the id up in the server's list.
 #[cfg(any(feature = "window", test))]
 fn is_term_popout(url: &str, port: u16) -> bool {
     if !navigation_allowed(url, port) {
@@ -478,7 +479,8 @@ mod shell {
             })
             .on_new_window(move |url, _features| {
                 if is_term_popout(url.as_str(), port) {
-                    // Built on the next turn of the main loop, not inside the webview's own callback.
+                    // Built on the next turn of the main loop, not inside the webview's own callback. The page has already
+                    // closed its panel (`window.open` answers null here), so a build that fails is one stderr line only.
                     let inner = handle.clone();
                     let _ = handle.run_on_main_thread(move || {
                         let label = format!("term-{}", NEXT_TERM.fetch_add(1, Ordering::Relaxed));
@@ -973,7 +975,8 @@ mod tests {
             "http://127.0.0.1:41234/?live=t1",
             "http://127.0.0.1:41234/assets/?term=t1",
             "http://127.0.0.1:41234?term=t1",
-            "http://127.0.0.1:41234/?term=<script>",
+            "http://127.0.0.1:41234/?term=a/b",
+            "http://127.0.0.1:41234/?term=a b",
             "http://127.0.0.1:41235/?term=t1",
             "http://127.0.0.1:412345/?term=t1",
             "http://localhost:41234/?term=t1",
