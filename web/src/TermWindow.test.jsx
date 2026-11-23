@@ -84,18 +84,49 @@ describe('it belongs to the app (T135, owner 2026-11-23)', () => {
     expect(FakeChannel.sent.at(-1)).toEqual({ t: 'closed', id: 't1' })
   })
 
-  it('Dock back asks Live to show the terminal, closes the window, and says so when the window stays', async () => {
+  it('Dock back asks Live to show the terminal and closes the window once Live answers that it does', async () => {
+    const close = vi.spyOn(window, 'close').mockImplementation(() => {})
+    vi.stubGlobal('fetch', appServer({ terms: [termSession({ id: 't1' })] }))
+    render(<TermWindow id="t1" />)
+    const live = new FakeChannel('easy-personal-term') // a Live page that lists t1
+    live.onmessage = ({ data }) => data.t === 'dock' && live.postMessage({ t: 'docked', id: data.id })
+    fireEvent.click(await screen.findByRole('button', { name: 'Dock back' }))
+    expect(FakeChannel.sent).toContainEqual({ t: 'dock', id: 't1' })
+    expect(close).toHaveBeenCalled()
+    expect(FakeChannel.sent.at(-1)).toEqual({ t: 'closed', id: 't1' })
+    expect(document.querySelector('.term-window-bar')).toHaveTextContent('You can close this window') // a window the browser keeps
+    close.mockRestore()
+  })
+
+  it('with no Live page answering (the app window on another view, or closed), the window stays and says where to go', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const close = vi.spyOn(window, 'close').mockImplementation(() => {})
     vi.stubGlobal('fetch', appServer({ terms: [termSession({ id: 't1' })] }))
     render(<TermWindow id="t1" />)
     fireEvent.click(await screen.findByRole('button', { name: 'Dock back' }))
-    expect(FakeChannel.sent).toContainEqual({ t: 'dock', id: 't1' })
-    expect(close).toHaveBeenCalled()
-    act(() => vi.advanceTimersByTime(400))
-    expect(document.querySelector('.term-window-bar')).toHaveTextContent('You can close this window')
-    expect(screen.queryByRole('button', { name: 'Dock back' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Dock back' })).toBeDisabled() // waiting for the answer
+    act(() => vi.advanceTimersByTime(600))
+    expect(close).not.toHaveBeenCalled()
+    expect(document.querySelector('.term-window-bar')).toHaveTextContent('Open Live in the app window, then press Dock back again.')
+    expect(screen.getByRole('button', { name: 'Dock back' })).toBeEnabled()
+    expect(screen.getByRole('region', { name: /^Terminal session in / })).toBeInTheDocument()
     close.mockRestore()
     vi.useRealTimers()
+  })
+
+  it('the channel carries only a kind and an id: never the token or a screen byte', async () => {
+    vi.spyOn(window, 'close').mockImplementation(() => {})
+    vi.stubGlobal('fetch', appServer({ terms: [termSession({ id: 't1' })] }))
+    render(<TermWindow id="t1" />)
+    await waitFor(() => expect(FakeSocket.last).toBeDefined())
+    FakeSocket.last.open()
+    FakeSocket.last.receive(new TextEncoder().encode('secret screen text'))
+    FakeChannel.from({ t: 'who' })
+    fireEvent.click(screen.getByRole('button', { name: 'Dock back' }))
+    expect(FakeChannel.sent.length).toBeGreaterThan(2)
+    for (const m of FakeChannel.sent) {
+      expect(Object.keys(m).every((k) => k === 't' || k === 'id')).toBe(true)
+      expect(JSON.stringify(m)).not.toMatch(/secret/)
+    }
   })
 })

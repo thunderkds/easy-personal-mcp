@@ -1,8 +1,8 @@
 // Live and the terminals popped out of it talk over one same-origin BroadcastChannel (T135). Nothing on it is a secret or a screen byte: only
-// session ids and four words. `open` (a window shows this terminal; also the answer to `who`), `closed` (that window went), `who` (Live asks which
-// are open) and `dock` (the window's Dock back: Live opens the terminal in its panel again).
+// session ids and five words. `open` (a window shows this terminal; also the answer to `who`), `closed` (that window went), `who` (Live asks which
+// are open), `dock` (the window's Dock back: Live opens the terminal in its panel again) and `docked` (Live did: the window may close).
 const NAME = 'easy-personal-term'
-const KINDS = new Set(['open', 'closed', 'who', 'dock'])
+const KINDS = new Set(['open', 'closed', 'who', 'dock', 'docked'])
 
 /** One end of the channel, or null where the browser has none (then Live shows no marks and Dock back only closes the window). */
 export function termChannel(onMessage) {

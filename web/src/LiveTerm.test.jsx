@@ -195,6 +195,27 @@ describe('terminals in their own window (T135, owner 2026-11-23)', () => {
     await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
     FakeChannel.from({ t: 'dock', id: 't1' })
     expect(await screen.findByRole('region', { name: 'Terminal session in company' })).toBeInTheDocument()
+    expect(FakeChannel.sent).toContainEqual({ t: 'docked', id: 't1' }) // the window may close now
+  })
+
+  it('Dock back for a terminal this page does not list gets no answer and opens nothing', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    FakeChannel.from({ t: 'dock', id: 'zz' })
+    expect(FakeChannel.sent).not.toContainEqual({ t: 'docked', id: 'zz' })
+    expect(screen.queryByRole('region', { name: /^Terminal session in / })).toBeNull()
+  })
+
+  it('when one of two windows of a terminal closes, Live asks again so the other keeps the mark', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    const second = new FakeChannel('easy-personal-term') // the window still open
+    second.onmessage = ({ data }) => data.t === 'who' && second.postMessage({ t: 'open', id: 't1' })
+    FakeChannel.from({ t: 'open', id: 't1' })
+    FakeChannel.from({ t: 'closed', id: 't1' })
+    await waitFor(() => expect(rowOf('term:t1')).toHaveTextContent('in its own window'))
   })
 
   it('a message of another shape is ignored', async () => {

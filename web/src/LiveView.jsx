@@ -618,17 +618,21 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
   )
   // Terminals popped out into their own window (T135): their rows say so, and a window's Dock back opens its terminal here again.
   const [popped, setPopped] = useState(() => new Set())
+  const listedKeys = useRef(new Set()) // the row keys shown now: Dock back is answered only for a terminal this page lists
   useEffect(() => {
     const ch = termChannel((m) => {
       if (m.t === 'open') setPopped((ids) => (ids.has(m.id) ? ids : new Set(ids).add(m.id)))
-      else if (m.t === 'closed')
+      else if (m.t === 'closed') {
         setPopped((ids) => {
           if (!ids.has(m.id)) return ids
           const rest = new Set(ids)
           rest.delete(m.id)
           return rest
         })
-      else if (m.t === 'dock') {
+        ch.postMessage({ t: 'who' }) // a second window of the same terminal answers `open` and keeps the mark
+      }
+      else if (m.t === 'dock' && listedKeys.current.has(`term:${m.id}`)) {
+        ch.postMessage({ t: 'docked', id: m.id }) // the window closes only on this answer
         setView('live')
         setOpenId(`term:${m.id}`)
         setOpened((n) => n + 1)
@@ -705,6 +709,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     }
     return out
   }, [sessions, apps, terms, renamed])
+  listedKeys.current = new Set(entries.map((e) => e.key))
   useEffect(() => {
     // A name the snapshot now carries is no longer held here: the stream is the page's one source again. A name held for a session that is in neither
     // the stream nor the app session list is let go too, so it cannot come back with the session after the server changed it.

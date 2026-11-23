@@ -5,7 +5,7 @@ import { folderName } from './SessionPanel.jsx'
 import TermPanel from './TermPanel.jsx'
 import { termChannel } from './termChannel.js'
 
-const CLOSE_WAIT_MS = 300
+const ANSWER_WAIT_MS = 500 // how long Dock back waits for Live's `docked`
 
 /**
  * A terminal in its own window (T135): the page opened as `/?term=<id>#<token>` by the panel's Pop out. It shows only that session's terminal,
@@ -16,7 +16,8 @@ const CLOSE_WAIT_MS = 300
 export default function TermWindow({ id }) {
   const [term, setTerm] = useState(undefined) // undefined: reading; null: not listed
   const [error, setError] = useState('')
-  const [docked, setDocked] = useState(false) // Dock back was pressed and the window did not close
+  const [dock, setDock] = useState('') // '' | 'waiting' | 'unanswered' (no Live page listed it) | 'docked' (the window did not close)
+  const dockTimer = useRef(null)
   const shown = useRef(false) // a first read answered: a later failed refresh keeps the terminal
   const channel = useRef(null)
   const read = useCallback(async () => {
@@ -39,12 +40,19 @@ export default function TermWindow({ id }) {
   useEffect(() => {
     const ch = termChannel((m) => {
       if (m.t === 'who') ch.postMessage({ t: 'open', id })
+      else if (m.t === 'docked' && m.id === id) {
+        clearTimeout(dockTimer.current)
+        setDock('docked')
+        ch.postMessage({ t: 'closed', id })
+        window.close() // a window opened by script closes; one that stays says so
+      }
     })
     channel.current = ch
     ch?.postMessage({ t: 'open', id })
     const gone = () => ch?.postMessage({ t: 'closed', id })
     window.addEventListener('pagehide', gone)
     return () => {
+      clearTimeout(dockTimer.current)
       window.removeEventListener('pagehide', gone)
       gone()
       ch?.close()
@@ -52,12 +60,20 @@ export default function TermWindow({ id }) {
     }
   }, [id])
 
+  // Dock back closes this window only once a Live page answers that it shows the terminal: with the app window on another view, or none open,
+  // the window stays and says where to go, so the terminal is never shown nowhere.
   const dockBack = () => {
+    setDock('waiting')
     channel.current?.postMessage({ t: 'dock', id })
-    channel.current?.postMessage({ t: 'closed', id })
-    window.close()
-    setTimeout(() => setDocked(true), CLOSE_WAIT_MS) // still here: the browser keeps a window it did not open by script
+    clearTimeout(dockTimer.current)
+    dockTimer.current = setTimeout(() => setDock('unanswered'), ANSWER_WAIT_MS)
   }
+  const note =
+    dock === 'docked'
+      ? 'The terminal is back in the app window. You can close this window.'
+      : dock === 'unanswered'
+        ? 'Open Live in the app window, then press Dock back again.'
+        : 'Closing this window does not stop the session.'
 
   let body
   if (error)
@@ -73,9 +89,11 @@ export default function TermWindow({ id }) {
     <main className="term-window">
       <header className="term-window-bar">
         <span className="term-window-app">Easy Personal · Terminal</span>
-        <span className="muted">{docked ? 'Live shows the terminal again if the app window is open. You can close this window.' : 'Closing this window does not stop the session.'}</span>
-        {term && !docked && (
-          <button type="button" onClick={dockBack} title="Show this terminal in the app window again and close this one">
+        <span className="muted" role={dock === 'unanswered' ? 'status' : undefined}>
+          {note}
+        </span>
+        {term && dock !== 'docked' && (
+          <button type="button" disabled={dock === 'waiting'} onClick={dockBack} title="Show this terminal in the app window again and close this one">
             Dock back
           </button>
         )}
