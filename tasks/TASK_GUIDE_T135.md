@@ -33,9 +33,15 @@ Found (Supervisor, 2026-11-23): the terminal panel sits in the right 3/5 of Live
 | 6 | With two pages attached, focusing a page's screen sends its size (the last resize wins, question 47), so the page you type in fits | vitest |
 | 7 | The desktop app window opens the pop-out as a second app window with the same navigation guard, link guard, no devtools; every other new window stays denied and logged by host only; the token is never logged | Rust unit tests on the pure URL check + `/verify` |
 | 8 | Web suite, build + `check_static.py`, `cargo test` and `cargo clippy --features window` pass | commands below |
+| 9 | **Expand** (owner 2026-11-23, after trying it: "it looks like we open another terminal application"): a toggle in the head makes the panel cover the whole app window and a second press restores the layout; the keys stay with the terminal; not shown in the popped window | vitest + screenshot |
+| 10 | The popped window reads as part of the app: a bar with "Easy Personal · Terminal", "Closing this window does not stop the session." and **Dock back** (Live opens the terminal in its panel, the window closes; if it stays, the bar says it can be closed) | vitest |
+| 11 | A Live row whose terminal is open in its own window shows "in its own window" until that window closes (same-origin `BroadcastChannel`: ids and four message kinds only, never screen bytes or the token) | vitest + two-tab browser check |
 
 ## Approach
 Page: `TermPanel` gets a compact head (`popped` hides Back and Pop out), a full-width mode (`.live-split[data-term]`), a viewport-height screen and a compact key row. `main.jsx` renders a small `TermWindow` for `?term=<id>`: it reads `GET /api/term-sessions`, finds the id, renders `TermPanel popped`. Rust: a pure `is_term_popout(url, port)` (origin as `navigation_allowed`, then `/?term=<safe id>` and an optional `#…`); `on_new_window` builds a `term-<n>` window through one shared guarded builder on the main thread, then denies the webview's own window.
+
+## Owner direction 2026-11-23 (after installing the build)
+Owner: the pop-out "looks like we open another terminal application already, does it make the users is expecting when working in the app". Supervisor's recommendation, owner "approve": the in-app terminal is the main way; **Expand** gives it the whole app window; Pop out stays as a secondary option with app cues (bar, Dock back, row mark, closing note) — kept rather than removed (memory: parity, not narrowing).
 
 ## Cut list (not in this task)
 - The in-app row does not show "open in its own window".

@@ -54,6 +54,7 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
   const [stopBusy, setStopBusy] = useState(false)
   const [error, setError] = useState('')
   const [popError, setPopError] = useState('')
+  const [expanded, setExpanded] = useState(false) // Expand (T135): the panel covers the whole app window until pressed again
   const ended = exit !== null || isExited(term)
   const code = exit ? exit.code : term.code
   const endedRef = useRef(ended)
@@ -172,6 +173,10 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
     send(bytesOf(sequence))
     screen.current?.focus()
   }
+  const toggleExpand = () => {
+    setExpanded((on) => !on)
+    screen.current?.focus() // the keys stay with the terminal
+  }
   const popOut = () => {
     setPopError('')
     const win = window.open(popOutUrl(id), '_blank')
@@ -203,7 +208,7 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
   const live = link === 'open' && !ended
   const status = ended ? endedWords(code) : stopSent ? 'Stopping' : link === 'connecting' ? 'Connecting' : link === 'lost' ? 'Not attached' : 'Running'
   return (
-    <section ref={panel} id={popped ? 'term-window' : 'live-panel'} className="card session-panel term-panel" data-popped={popped ? 'true' : undefined} aria-label={`Terminal session in ${project}`}>
+    <section ref={panel} id={popped ? 'term-window' : 'live-panel'} className="card session-panel term-panel" data-popped={popped ? 'true' : undefined} data-expanded={expanded ? 'true' : undefined} aria-label={`Terminal session in ${project}`}>
       <div className="term-head">
         {!popped && (
           <button type="button" className="session-back" onClick={onBack}>
@@ -226,7 +231,12 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
         </p>
         <div className="term-actions">
           {!popped && (
-            <button type="button" onClick={popOut} title="Open this terminal in its own window">
+            <button type="button" aria-pressed={expanded} onClick={toggleExpand} title={expanded ? 'Back to the normal layout' : 'Give the terminal the whole app window'}>
+              {expanded ? 'Exit full view' : 'Expand'}
+            </button>
+          )}
+          {!popped && (
+            <button type="button" onClick={popOut} title="Open this terminal in a separate window. The session keeps running when that window closes.">
               Pop out
             </button>
           )}

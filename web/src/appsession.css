@@ -239,5 +239,15 @@ main button.filter-clear:disabled { color: var(--color-faint); border-color: var
 .body:has(.live-split[data-term]) .rail { display: none; }
 /* Its own window (T135, `?term=<id>`): the panel fills the window and the screen takes what the head and the keys leave. */
 .term-window { box-sizing: border-box; display: flex; flex-direction: column; height: 100dvh; max-width: none; padding: var(--space-2); }
-.term-window .term-panel { flex: 1 1 auto; min-height: 0; padding: var(--space-3); }
+.term-window .term-panel { flex: 1 1 auto; min-height: 0; padding: 0; border: 0; } /* the window is the frame: no card border inside it */
 .term-panel[data-popped] .term-box { flex: 1 1 auto; height: auto; min-height: 10rem; }
+/* Expand (T135, owner 2026-11-23): the panel covers the whole app window (under the toasts) until pressed again; the page under it does not scroll. */
+.term-panel[data-expanded] { position: fixed; inset: 0; z-index: 8; border: 0; border-radius: 0; background: var(--color-bg); }
+.term-panel[data-expanded] .term-box { flex: 1 1 auto; height: auto; min-height: 10rem; }
+html:has(.term-panel[data-expanded]) { overflow: hidden; }
+.term-actions button[aria-pressed='true'] { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent); }
+/* The bar of a terminal's own window: it names the app, so the window reads as part of it, not as another terminal program. */
+.term-window-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); min-width: 0; padding: 0 var(--space-1) var(--space-2); }
+.term-window-app { font-size: var(--fs-note); font-weight: 600; color: var(--color-heading); }
+.term-window-bar button { margin-left: auto; }
+.live-pill[data-state='popped'] { color: var(--color-secondary); }

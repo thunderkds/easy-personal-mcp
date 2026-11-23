@@ -4,6 +4,7 @@ import LiveView from './LiveView.jsx'
 import { FakeEventSource, liveRow, snapshot, stream } from './test/liveStream.js'
 import { FakeResizeObserver, FakeSocket, Terminal, resetFakes } from './test/fakeXterm.js'
 import { appServer, appSession, termSession } from './test/appSessions.js'
+import { FakeChannel, resetChannels } from './test/fakeChannel.js'
 
 vi.mock('@xterm/xterm', async () => ({ Terminal: (await import('./test/fakeXterm.js')).Terminal }))
 vi.mock('@xterm/addon-fit', async () => ({ FitAddon: (await import('./test/fakeXterm.js')).FitAddon }))
@@ -17,6 +18,8 @@ const install = (opts) => {
 }
 beforeEach(() => {
   resetFakes()
+  resetChannels()
+  vi.stubGlobal('BroadcastChannel', FakeChannel)
   window.location.hash = '#secret-token'
   window.localStorage.clear()
   FakeEventSource.instances = []
@@ -170,5 +173,38 @@ describe('room and Pop out (T135)', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: /^Terminal session in / })).toBeNull())
     expect(document.querySelector('.live-split').dataset.term).toBeUndefined()
     expect(rowOf('term:t1')).not.toBeNull()
+  })
+})
+
+describe('terminals in their own window (T135, owner 2026-11-23)', () => {
+  it('asks which windows are open; a row whose terminal is open in its own window says so until that window closes', async () => {
+    install({ terms: [termSession({ id: 't1' }), termSession({ id: 't2', repo: '/work/other' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t2')).not.toBeNull())
+    expect(FakeChannel.sent).toContainEqual({ t: 'who' })
+    FakeChannel.from({ t: 'open', id: 't1' })
+    await waitFor(() => expect(rowOf('term:t1')).toHaveTextContent('in its own window'))
+    expect(rowOf('term:t2')).not.toHaveTextContent('in its own window')
+    FakeChannel.from({ t: 'closed', id: 't1' })
+    await waitFor(() => expect(rowOf('term:t1')).not.toHaveTextContent('in its own window'))
+  })
+
+  it('Dock back from a window opens that terminal in the panel here', async () => {
+    install({ terms: [termSession({ id: 't1', repo: '/work/company' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    FakeChannel.from({ t: 'dock', id: 't1' })
+    expect(await screen.findByRole('region', { name: 'Terminal session in company' })).toBeInTheDocument()
+  })
+
+  it('a message of another shape is ignored', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    FakeChannel.from({ t: 'open', id: 7 })
+    FakeChannel.from({ t: 'dock' })
+    FakeChannel.from('open')
+    expect(rowOf('term:t1')).not.toHaveTextContent('in its own window')
+    expect(screen.queryByRole('region', { name: /^Terminal session in / })).toBeNull()
   })
 })

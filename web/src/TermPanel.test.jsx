@@ -366,3 +366,24 @@ describe('the roomy panel (T135)', () => {
     expect(socket.texts.filter((m) => m.t === 'resize')).toEqual([{ t: 'resize', cols: 100, rows: 30 }])
   })
 })
+
+describe('Expand (T135, owner 2026-11-23)', () => {
+  it('Expand gives the panel the whole app window and a second press brings the layout back; the keys stay with the terminal', () => {
+    mount()
+    const panel = document.querySelector('.term-panel')
+    const expand = screen.getByRole('button', { name: 'Expand' })
+    expect(expand).toHaveAttribute('aria-pressed', 'false')
+    const focused = Terminal.last.focused
+    fireEvent.click(expand)
+    expect(panel.dataset.expanded).toBe('true')
+    expect(screen.getByRole('button', { name: 'Exit full view' })).toHaveAttribute('aria-pressed', 'true')
+    expect(Terminal.last.focused).toBe(focused + 1)
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full view' }))
+    expect(panel.dataset.expanded).toBeUndefined()
+  })
+
+  it('its own window has no Expand: it is already the whole window', () => {
+    mount({}, { popped: true })
+    expect(screen.queryByRole('button', { name: 'Expand' })).toBeNull()
+  })
+})
