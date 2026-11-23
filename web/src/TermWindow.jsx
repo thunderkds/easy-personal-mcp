@@ -64,9 +64,9 @@ export default function TermWindow({ id }) {
   // the window stays and says where to go, so the terminal is never shown nowhere.
   const dockBack = () => {
     setDock('waiting')
-    channel.current?.postMessage({ t: 'dock', id })
     clearTimeout(dockTimer.current)
-    dockTimer.current = setTimeout(() => setDock('unanswered'), ANSWER_WAIT_MS)
+    dockTimer.current = setTimeout(() => setDock('unanswered'), ANSWER_WAIT_MS) // before the post: an answer can come at once
+    channel.current?.postMessage({ t: 'dock', id })
   }
   const note =
     dock === 'docked'

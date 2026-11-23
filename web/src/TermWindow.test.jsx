@@ -85,6 +85,7 @@ describe('it belongs to the app (T135, owner 2026-11-23)', () => {
   })
 
   it('Dock back asks Live to show the terminal and closes the window once Live answers that it does', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const close = vi.spyOn(window, 'close').mockImplementation(() => {})
     vi.stubGlobal('fetch', appServer({ terms: [termSession({ id: 't1' })] }))
     render(<TermWindow id="t1" />)
@@ -94,8 +95,10 @@ describe('it belongs to the app (T135, owner 2026-11-23)', () => {
     expect(FakeChannel.sent).toContainEqual({ t: 'dock', id: 't1' })
     expect(close).toHaveBeenCalled()
     expect(FakeChannel.sent.at(-1)).toEqual({ t: 'closed', id: 't1' })
+    act(() => vi.advanceTimersByTime(600)) // the wait for an answer ended with the answer: it never says "unanswered"
     expect(document.querySelector('.term-window-bar')).toHaveTextContent('You can close this window') // a window the browser keeps
     close.mockRestore()
+    vi.useRealTimers()
   })
 
   it('with no Live page answering (the app window on another view, or closed), the window stays and says where to go', async () => {
