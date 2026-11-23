@@ -9,6 +9,7 @@ import NewSessionSheet from './NewSessionSheet.jsx'
 import { useNotices } from './PendingAnswer.jsx'
 import { readPrompt } from './PromptCard.jsx'
 import SessionPanel, { STATES, folderName } from './SessionPanel.jsx'
+import { termChannel } from './termChannel.js'
 
 // The terminal panel carries xterm (about 85 KB gzip): it loads when the first terminal session is opened, not with the page (T134, FR-138).
 const TermPanel = lazy(() => import('./TermPanel.jsx'))
@@ -316,7 +317,7 @@ function Bar({ label, text, ratio }) {
 
 /** One session: a button (id, project, states, time) with its three bars. Selecting it opens its panel (FR-128); the row stays in the list.
  * Memoized: it draws again only when its own figures (or its open state) change. */
-const SessionRow = memo(function SessionRow({ s, k, now, windowS, open, reveal, card, onToggle, tokensPct, costPct, callsPct }) {
+const SessionRow = memo(function SessionRow({ s, k, now, windowS, open, reveal, card, popped = false, onToggle, tokensPct, costPct, callsPct }) {
   const states = statesOf(s)
   const idle = isIdle(s, now, windowS)
   const tokens = s.tokens_in + s.tokens_out
@@ -360,6 +361,11 @@ const SessionRow = memo(function SessionRow({ s, k, now, windowS, open, reveal, 
         {cardWaiting && (
           <span className="live-pill" data-state="waiting" title="A question or permission waits for your answer in the panel">
             answer needed
+          </span>
+        )}
+        {popped && (
+          <span className="live-pill" data-state="popped" title="This terminal is open in its own window. Opening it here shows it in both.">
+            in its own window
           </span>
         )}
         <span className="count">{caption}</span>
@@ -610,6 +616,33 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     },
     [onWantedUsed],
   )
+  // Terminals popped out into their own window (T135): their rows say so, and a window's Dock back opens its terminal here again.
+  const [popped, setPopped] = useState(() => new Set())
+  const listedKeys = useRef(new Set()) // the row keys shown now: Dock back is answered only for a terminal this page lists
+  useEffect(() => {
+    const ch = termChannel((m) => {
+      if (m.t === 'open') setPopped((ids) => (ids.has(m.id) ? ids : new Set(ids).add(m.id)))
+      else if (m.t === 'closed') {
+        setPopped((ids) => {
+          if (!ids.has(m.id)) return ids
+          const rest = new Set(ids)
+          rest.delete(m.id)
+          return rest
+        })
+        ch.postMessage({ t: 'who' }) // a second window of the same terminal answers `open` and keeps the mark
+      }
+      else if (m.t === 'dock' && listedKeys.current.has(`term:${m.id}`)) {
+        ch.postMessage({ t: 'docked', id: m.id }) // the window closes only on this answer
+        setView('live')
+        setOpenId(`term:${m.id}`)
+        setOpened((n) => n + 1)
+        setFocusPanel(true)
+        window.focus()
+      }
+    })
+    ch?.postMessage({ t: 'who' }) // windows already open answer `open`
+    return () => ch?.close()
+  }, [])
   useEffect(() => {
     if (backTo === null) return
     quietFocus.current = true // our own focus move: it does not hold the list order (T121 round 2)
@@ -676,6 +709,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
     }
     return out
   }, [sessions, apps, terms, renamed])
+  listedKeys.current = new Set(entries.map((e) => e.key))
   useEffect(() => {
     // A name the snapshot now carries is no longer held here: the stream is the page's one source again. A name held for a session that is in neither
     // the stream nor the app session list is let go too, so it cannot come back with the session after the server changed it.
@@ -811,7 +845,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
         <p className="muted">{`No active sessions. A session appears here when it wrote a record in the last ${Math.round(state.windowS / 60)} minutes.`}</p>
       )}
       {(entries.length > 0 || selected) && (
-        <div className="live-split" data-open={selected ? 'true' : undefined}>
+        <div className="live-split" data-open={selected ? 'true' : undefined} data-term={selected?.term ? 'true' : undefined}>
           <div className="live-sessions">
             <FilterBar facts={facts} filters={filters} onChange={changeFilters} />
             {shown === 0 && (
@@ -846,6 +880,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                       open={e.key === selected?.key}
                       reveal={e.key === revealId}
                       card={e.card}
+                      popped={e.term ? popped.has(e.term.id) : false}
                       onToggle={onToggle}
                       tokensPct={share(e.s.tokens_in + e.s.tokens_out, maxTokens)}
                       costPct={share(e.s.cost, maxCost)}
@@ -862,7 +897,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
               {stale && selected.app && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
               {selected.term ? (
                 <Suspense fallback={<Loading label="Loading the terminal" />}>
-                  <TermPanel key={opened} term={selected.term} onBack={closePanel} onChanged={reloadTerms} autoFocus={focusPanel} />
+                  <TermPanel key={opened} term={selected.term} onBack={closePanel} onChanged={reloadTerms} onPoppedOut={closePanel} autoFocus={focusPanel} />
                 </Suspense>
               ) : (
               <SessionPanel

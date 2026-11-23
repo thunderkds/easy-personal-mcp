@@ -23,6 +23,8 @@ export class Terminal {
   }
   open(element) {
     this.element = element
+    this.textarea = document.createElement('textarea') // the real xterm types into a hidden textarea it puts in the box (T135: its focus event)
+    element.appendChild(this.textarea)
   }
   write(data) {
     this.written.push(data)

@@ -70,6 +70,26 @@ fn navigation_allowed(url: &str, port: u16) -> bool {
     }
 }
 
+/// True when `url` is a terminal popped out of the dashboard (T135): inside the server's origin, the path `/`, the query
+/// exactly `term=<id>` (1..=128 of ASCII letters, digits, `-`, `_`, `.`, `%`: the id as the page percent-encodes it), then
+/// nothing or a fragment. Only this address may open a second window; every other new window stays denied. The check
+/// limits the address's shape, not the id's content: the page only looks the id up in the server's list.
+#[cfg(any(feature = "window", test))]
+fn is_term_popout(url: &str, port: u16) -> bool {
+    if !navigation_allowed(url, port) {
+        return false;
+    }
+    let rest = &url[format!("http://127.0.0.1:{port}").len()..];
+    let Some(query) = rest.strip_prefix("/?term=") else {
+        return false;
+    };
+    let id = query.split('#').next().unwrap_or("");
+    (1..=128).contains(&id.len())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'%'))
+}
+
 /// What a log line may say about a blocked URL: the host only, or the scheme when there is no host. Never the
 /// user, port, path, query or fragment, and only plain characters.
 #[cfg(any(feature = "window", test))]
@@ -194,8 +214,8 @@ pub use shell::{run, tray};
 #[cfg(feature = "window")]
 mod shell {
     use super::{
-        after_spawn, blocked_target, navigation_allowed, observe, spawn_detached, tray_command,
-        wants_tray,
+        after_spawn, blocked_target, is_term_popout, navigation_allowed, observe, spawn_detached,
+        tray_command, wants_tray,
     };
     use crate::live_feed::LiveFeed;
     use crate::server::{self, Running};
@@ -207,7 +227,7 @@ mod shell {
     use std::path::Path;
     use std::process::ExitCode;
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
     use std::sync::mpsc::Receiver;
     use std::thread;
     use std::time::{Duration, Instant};
@@ -242,6 +262,14 @@ mod shell {
   window.addEventListener("click", cancel, true);
   window.addEventListener("auxclick", cancel, true);
 })();"#;
+
+    /// Runs before the page's own scripts in every app window (T135): the page's Pop out reads it. Here the webview's own
+    /// new window is denied and the app opens the pop-out itself, so `window.open` answers null with the window opening;
+    /// without the flag the page would take that null for a pop-up blocker. Not a security boundary: `is_term_popout` is.
+    const APP_FLAG: &str = "window.__EASY_PERSONAL_APP__ = true;";
+
+    /// The number of the next terminal window (`term-<n>`): one label per pop-out, never reused while the app runs.
+    static NEXT_TERM: AtomicU32 = AtomicU32::new(1);
 
     /// A failure before the window ran: its exit code and one line for stderr.
     struct Failure(u8, String);
@@ -414,15 +442,31 @@ mod shell {
         target: &Target,
     ) -> Result<(), Failure> {
         let url = url_of(port, token, target)?;
+        guarded_window(manager, "main", url, "easy-personal", (1280.0, 800.0), port)
+    }
+
+    /// One app window (the dashboard, or a popped-out terminal, T135) with the same guards: locked to the server's
+    /// origin, the link guard, no devtools. A new window it asks for opens only for a terminal pop-out address
+    /// (`is_term_popout`), as another guarded window built here; everything else is denied and logged by host only.
+    fn guarded_window<M: Manager<Wry>>(
+        manager: &M,
+        label: &str,
+        url: Url,
+        title: &str,
+        (width, height): (f64, f64),
+        port: u16,
+    ) -> Result<(), Failure> {
+        let handle = manager.app_handle().clone();
         // Both `app` and the window the tray opens come through here, so one icon call covers both. Compiled in (no file read).
-        WebviewWindowBuilder::new(manager, "main", WebviewUrl::External(url))
+        WebviewWindowBuilder::new(manager, label, WebviewUrl::External(url))
             .icon(tauri::include_image!("icons/128x128.png"))
             .map_err(|e| Failure(1, format!("cannot set the window icon: {e}")))?
-            .title("easy-personal")
-            .inner_size(1280.0, 800.0)
+            .title(title)
+            .inner_size(width, height)
             .resizable(true)
             .devtools(false)
             .initialization_script(LINK_GUARD)
+            .initialization_script(APP_FLAG)
             .on_navigation(move |url| {
                 let allowed = navigation_allowed(url.as_str(), port);
                 if !allowed {
@@ -433,11 +477,31 @@ mod shell {
                 }
                 allowed
             })
-            .on_new_window(|url, _features| {
-                eprintln!(
-                    "easy-personal-rs: blocked new window to {}",
-                    blocked_target(url.as_str())
-                );
+            .on_new_window(move |url, _features| {
+                if is_term_popout(url.as_str(), port) {
+                    // Built on the next turn of the main loop, not inside the webview's own callback. The page has already
+                    // closed its panel (`window.open` answers null here), so a build that fails is one stderr line only.
+                    let inner = handle.clone();
+                    let _ = handle.run_on_main_thread(move || {
+                        let label = format!("term-{}", NEXT_TERM.fetch_add(1, Ordering::Relaxed));
+                        let opened = guarded_window(
+                            &inner,
+                            &label,
+                            url,
+                            "easy-personal · terminal",
+                            (1100.0, 720.0),
+                            port,
+                        );
+                        if let Err(failure) = opened {
+                            eprintln!("easy-personal-rs: {}", failure.1);
+                        }
+                    });
+                } else {
+                    eprintln!(
+                        "easy-personal-rs: blocked new window to {}",
+                        blocked_target(url.as_str())
+                    );
+                }
                 NewWindowResponse::Deny
             })
             .build()
@@ -889,6 +953,41 @@ mod tests {
     use std::time::Duration;
 
     const PORT: u16 = 41234;
+
+    /// T135 AC 7: only the terminal pop-out address may open a second window.
+    #[test]
+    fn only_a_terminal_pop_out_opens_a_window() {
+        for url in [
+            "http://127.0.0.1:41234/?term=t1",
+            "http://127.0.0.1:41234/?term=t1#TOKEN",
+            "http://127.0.0.1:41234/?term=0123abcd-4567_x.y#TOK",
+            "http://127.0.0.1:41234/?term=a%2Fb#TOK",
+        ] {
+            assert!(is_term_popout(url, PORT), "{url}");
+        }
+        let long = format!("http://127.0.0.1:41234/?term={}#T", "a".repeat(129));
+        for url in [
+            "http://127.0.0.1:41234/",
+            "http://127.0.0.1:41234/#TOKEN",
+            "http://127.0.0.1:41234/?term=",
+            "http://127.0.0.1:41234/?term=#TOK",
+            "http://127.0.0.1:41234/?term=t1&x=1",
+            "http://127.0.0.1:41234/?live=t1",
+            "http://127.0.0.1:41234/assets/?term=t1",
+            "http://127.0.0.1:41234?term=t1",
+            "http://127.0.0.1:41234/?term=a/b",
+            "http://127.0.0.1:41234/?term=a b",
+            "http://127.0.0.1:41235/?term=t1",
+            "http://127.0.0.1:412345/?term=t1",
+            "http://localhost:41234/?term=t1",
+            "https://127.0.0.1:41234/?term=t1",
+            "http://127.0.0.1:41234.evil.com/?term=t1",
+            "http://user@127.0.0.1:41234/?term=t1",
+            &long,
+        ] {
+            assert!(!is_term_popout(url, PORT), "{url}");
+        }
+    }
 
     #[test]
     fn only_the_servers_own_origin_is_allowed() {

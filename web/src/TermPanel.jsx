@@ -29,12 +29,17 @@ const css = (name) => getComputedStyle(document.documentElement).getPropertyValu
 
 const wsUrl = (id) => `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/term/${encodeURIComponent(id)}`
 
+/** The address of a terminal's own window (T135): the page alone with `?term=<id>`; the token rides in the hash, as on the dashboard's own address. */
+export const popOutUrl = (id) => `/?term=${encodeURIComponent(id)}#${readToken()}`
+
 /**
  * `term`: the session as `GET /api/term-sessions` lists it (`id`, `repo`, `account`, `state`, `code`). `onBack()` closes the panel. `onChanged()` asks Live to
- * read the list again (the session ended, or Stop was sent). `autoFocus`: move the focus to the heading when the panel opens.
+ * read the list again (the session ended, or Stop was sent). `autoFocus`: move the focus to the heading when the panel opens. `onPoppedOut()`: the
+ * terminal opened in its own window (T135), so Live closes this panel. `popped`: this panel is that window, so it has no Back and no Pop out.
  */
-export default function TermPanel({ term, onBack, onChanged, autoFocus = false }) {
+export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFocus = false, popped = false }) {
   const { id } = term
+  const panel = useRef(null)
   const box = useRef(null)
   const heading = useRef(null)
   const screen = useRef(null) // the xterm Terminal
@@ -48,6 +53,8 @@ export default function TermPanel({ term, onBack, onChanged, autoFocus = false }
   const [stopSent, setStopSent] = useState(false)
   const [stopBusy, setStopBusy] = useState(false)
   const [error, setError] = useState('')
+  const [popError, setPopError] = useState('')
+  const [expanded, setExpanded] = useState(false) // Expand (T135): the panel covers the whole app window until pressed again
   const ended = exit !== null || isExited(term)
   const code = exit ? exit.code : term.code
   const endedRef = useRef(ended)
@@ -55,9 +62,13 @@ export default function TermPanel({ term, onBack, onChanged, autoFocus = false }
   const onChangedRef = useRef(onChanged)
   onChangedRef.current = onChanged
 
+  // In Live the screen is sized to the window (T135): bring the whole panel into view when it opens, under the sticky header.
   useEffect(() => {
-    if (autoFocus) heading.current?.focus()
-  }, [autoFocus])
+    if (!popped) panel.current?.scrollIntoView?.({ block: 'start' })
+  }, [popped])
+  useEffect(() => {
+    if (autoFocus) heading.current?.focus({ preventScroll: !popped })
+  }, [autoFocus, popped])
 
   // The screen: one xterm per panel, fitted to its box; a size change is told to the server after it settles.
   useEffect(() => {
@@ -69,31 +80,41 @@ export default function TermPanel({ term, onBack, onChanged, autoFocus = false }
     xterm.open(box.current)
     fit.fit()
     screen.current = xterm
+    if (popped) xterm.focus() // its own window is only this terminal: the keys go to it at once
     const typed = xterm.onData((text) => send(bytesOf(text)))
     const binary = xterm.onBinary?.((text) => send(Uint8Array.from(text, (c) => c.charCodeAt(0)))) // a mouse report: one byte per character
     let timer = null
-    const refit = () => {
+    let forceNext = false // a focus asked for a forced send: a plain refit in the same 150 ms keeps it
+    // `force`: tell the size even when it is unchanged. With two pages attached the last resize wins (question 47), so the page whose screen
+    // takes the focus sends its own size and the program fits the page being typed in (T135).
+    const refit = (force = false) => {
+      forceNext = forceNext || force === true
       clearTimeout(timer)
       timer = setTimeout(() => {
+        const forced = forceNext
+        forceNext = false
         fit.fit()
         const ws = socket.current
-        if (!ws || ws.readyState !== OPEN || (last.current?.cols === xterm.cols && last.current?.rows === xterm.rows)) return
+        if (!ws || ws.readyState !== OPEN || (!forced && last.current?.cols === xterm.cols && last.current?.rows === xterm.rows)) return
         last.current = { cols: xterm.cols, rows: xterm.rows }
         ws.send(JSON.stringify({ t: 'resize', cols: xterm.cols, rows: xterm.rows }))
       }, RESIZE_MS)
     }
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(refit)
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => refit())
     observer?.observe(box.current)
-    document.fonts?.ready?.then(refit) // the font changes the cell size once it has loaded
+    document.fonts?.ready?.then(() => refit()) // the font changes the cell size once it has loaded
+    const focused = () => refit(true)
+    xterm.textarea?.addEventListener('focus', focused)
     return () => {
       clearTimeout(timer)
       observer?.disconnect()
+      xterm.textarea?.removeEventListener('focus', focused)
       typed.dispose()
       binary?.dispose()
       xterm.dispose()
       screen.current = null
     }
-  }, [id])
+  }, [id]) // `popped` never changes for a mounted panel
 
   useEffect(() => {
     if (screen.current) screen.current.options.disableStdin = ended
@@ -152,6 +173,22 @@ export default function TermPanel({ term, onBack, onChanged, autoFocus = false }
     send(bytesOf(sequence))
     screen.current?.focus()
   }
+  const toggleExpand = () => {
+    setExpanded((on) => !on)
+    screen.current?.focus() // the keys stay with the terminal
+  }
+  const popOut = () => {
+    setPopError('')
+    const win = window.open(popOutUrl(id), '_blank')
+    if (win) win.opener = null
+    // The desktop app window denies the webview's own new window and opens the pop-out as an app window itself (`window.rs`), so there
+    // `window.open` answers null with the window opening; the app marks its windows with this flag. Anywhere else null is a pop-up blocker.
+    else if (window.__EASY_PERSONAL_APP__ !== true) {
+      setPopError('The browser blocked the new window. Allow pop-ups for this page, then try Pop out again.')
+      return
+    }
+    onPoppedOut?.()
+  }
   const stop = async () => {
     if (stopBusy) return
     setStopBusy(true)
@@ -171,28 +208,47 @@ export default function TermPanel({ term, onBack, onChanged, autoFocus = false }
   const live = link === 'open' && !ended
   const status = ended ? endedWords(code) : stopSent ? 'Stopping' : link === 'connecting' ? 'Connecting' : link === 'lost' ? 'Not attached' : 'Running'
   return (
-    <section id="live-panel" className="card session-panel term-panel" aria-label={`Terminal session in ${project}`}>
-      <div className="session-head">
-        <button type="button" className="session-back" onClick={onBack}>
-          Back to sessions
-        </button>
-        <h2 className="session-title" ref={heading} tabIndex={-1}>
-          {`${project} · ${String(id).slice(0, 8)}`}
-        </h2>
+    <section ref={panel} id={popped ? 'term-window' : 'live-panel'} className="card session-panel term-panel" data-popped={popped ? 'true' : undefined} data-expanded={expanded ? 'true' : undefined} aria-label={`Terminal session in ${project}`}>
+      <div className="term-head">
+        {!popped && (
+          <button type="button" className="session-back" onClick={onBack}>
+            Back to sessions
+          </button>
+        )}
+        <div className="term-name">
+          <h2 className="session-title" ref={heading} tabIndex={-1}>
+            {`${project} · ${String(id).slice(0, 8)}`}
+          </h2>
+          <p className="term-meta">
+            <span>{accountLabel(term.account)}</span>
+            <span className="mono" title={term.repo}>
+              {term.repo}
+            </span>
+          </p>
+        </div>
+        <p role="status" className="session-state" data-state={ended || link === 'lost' ? 'ended' : 'working'}>
+          {status}
+        </p>
+        <div className="term-actions">
+          {!popped && (
+            <button type="button" aria-pressed={expanded} onClick={toggleExpand} title={expanded ? 'Back to the normal layout' : 'Give the terminal the whole app window'}>
+              {expanded ? 'Exit full view' : 'Expand'}
+            </button>
+          )}
+          {!popped && (
+            <button type="button" onClick={popOut} title="Open this terminal in a separate window. The session keeps running when that window closes.">
+              Pop out
+            </button>
+          )}
+          {!ended && (
+            <button type="button" className="danger" disabled={stopBusy || stopSent} onClick={stop}>
+              Stop
+            </button>
+          )}
+        </div>
       </div>
-      <dl className="session-facts">
-        <dt>Project</dt>
-        <dd>{project}</dd>
-        <dt>Account</dt>
-        <dd>{accountLabel(term.account)}</dd>
-        <dt>Folder</dt>
-        <dd className="mono">{term.repo}</dd>
-      </dl>
-      <p role="status" className="session-state" data-state={ended || link === 'lost' ? 'ended' : 'working'}>
-        {status}
-      </p>
-      {pages > 1 && <p className="muted">{`${pages} pages attached`}</p>}
-      {dropped && <p className="muted">Some input was dropped: too much was typed too fast.</p>}
+      {pages > 1 && <p className="muted term-note">{`${pages} pages attached`}</p>}
+      {dropped && <p className="muted term-note">Some input was dropped: too much was typed too fast.</p>}
       {link === 'lost' && !ended && (
         <div role="alert" className="prompt-cut">
           <p>Disconnected from the terminal. The session keeps running; reconnect to see it again.</p>
@@ -200,6 +256,11 @@ export default function TermPanel({ term, onBack, onChanged, autoFocus = false }
             Reconnect
           </button>
         </div>
+      )}
+      {(error || popError) && (
+        <p role="alert" className="field-error">
+          {error || popError}
+        </p>
       )}
       <div role="group" aria-label="Terminal" className="term-box" ref={box} />
       <div role="group" aria-label="Terminal keys" className="term-keys">
@@ -209,18 +270,6 @@ export default function TermPanel({ term, onBack, onChanged, autoFocus = false }
           </button>
         ))}
       </div>
-      {!ended && (
-        <div className="actions">
-          <button type="button" className="danger" disabled={stopBusy || stopSent} onClick={stop}>
-            Stop
-          </button>
-        </div>
-      )}
-      {error && (
-        <p role="alert" className="field-error">
-          {error}
-        </p>
-      )}
     </section>
   )
 }

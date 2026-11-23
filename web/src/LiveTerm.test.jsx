@@ -4,6 +4,7 @@ import LiveView from './LiveView.jsx'
 import { FakeEventSource, liveRow, snapshot, stream } from './test/liveStream.js'
 import { FakeResizeObserver, FakeSocket, Terminal, resetFakes } from './test/fakeXterm.js'
 import { appServer, appSession, termSession } from './test/appSessions.js'
+import { FakeChannel, resetChannels } from './test/fakeChannel.js'
 
 vi.mock('@xterm/xterm', async () => ({ Terminal: (await import('./test/fakeXterm.js')).Terminal }))
 vi.mock('@xterm/addon-fit', async () => ({ FitAddon: (await import('./test/fakeXterm.js')).FitAddon }))
@@ -17,6 +18,8 @@ const install = (opts) => {
 }
 beforeEach(() => {
   resetFakes()
+  resetChannels()
+  vi.stubGlobal('BroadcastChannel', FakeChannel)
   window.location.hash = '#secret-token'
   window.localStorage.clear()
   FakeEventSource.instances = []
@@ -134,5 +137,95 @@ describe('starting one (AC 1, AC 6)', () => {
     expect(await screen.findByRole('region', { name: /^Terminal session in / })).toBeInTheDocument()
     expect(onWantedAppUsed).toHaveBeenCalled()
     expect(FakeSocket.last.url).toBe('ws://localhost:3000/api/term/t9')
+  })
+})
+
+describe('room and Pop out (T135)', () => {
+  it('a terminal panel takes the whole width: the split is marked (the list and the rail step aside)', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    fireEvent.click(rowOf('term:t1'))
+    await screen.findByRole('region', { name: /^Terminal session in / })
+    expect(document.querySelector('.live-split').dataset.term).toBe('true')
+  })
+
+  it('a Chat panel keeps the split: the list beside it, no terminal mark', async () => {
+    install({ terms: [termSession({ id: 't1' })], sessions: [appSession({ id: 'a1', session_id: null })] })
+    mount()
+    await waitFor(() => expect(rowOf('app:a1')).not.toBeNull())
+    fireEvent.click(rowOf('app:a1'))
+    await screen.findByRole('region', { name: /^Session in / })
+    expect(document.querySelector('.live-split').dataset.open).toBe('true')
+    expect(document.querySelector('.live-split').dataset.term).toBeUndefined()
+  })
+
+  it('Pop out closes the panel in the app and opens the window; the row stays listed', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    const open = vi.fn(() => ({ opener: {} }))
+    vi.stubGlobal('open', open)
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    fireEvent.click(rowOf('term:t1'))
+    const panel = await screen.findByRole('region', { name: /^Terminal session in / })
+    fireEvent.click(within(panel).getByRole('button', { name: 'Pop out' }))
+    expect(open).toHaveBeenCalledWith('/?term=t1#secret-token', '_blank')
+    await waitFor(() => expect(screen.queryByRole('region', { name: /^Terminal session in / })).toBeNull())
+    expect(document.querySelector('.live-split').dataset.term).toBeUndefined()
+    expect(rowOf('term:t1')).not.toBeNull()
+  })
+})
+
+describe('terminals in their own window (T135, owner 2026-11-23)', () => {
+  it('asks which windows are open; a row whose terminal is open in its own window says so until that window closes', async () => {
+    install({ terms: [termSession({ id: 't1' }), termSession({ id: 't2', repo: '/work/other' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t2')).not.toBeNull())
+    expect(FakeChannel.sent).toContainEqual({ t: 'who' })
+    FakeChannel.from({ t: 'open', id: 't1' })
+    await waitFor(() => expect(rowOf('term:t1')).toHaveTextContent('in its own window'))
+    expect(rowOf('term:t2')).not.toHaveTextContent('in its own window')
+    FakeChannel.from({ t: 'closed', id: 't1' })
+    await waitFor(() => expect(rowOf('term:t1')).not.toHaveTextContent('in its own window'))
+  })
+
+  it('Dock back from a window opens that terminal in the panel here', async () => {
+    install({ terms: [termSession({ id: 't1', repo: '/work/company' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    FakeChannel.from({ t: 'dock', id: 't1' })
+    expect(await screen.findByRole('region', { name: 'Terminal session in company' })).toBeInTheDocument()
+    expect(FakeChannel.sent).toContainEqual({ t: 'docked', id: 't1' }) // the window may close now
+  })
+
+  it('Dock back for a terminal this page does not list gets no answer and opens nothing', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    FakeChannel.from({ t: 'dock', id: 'zz' })
+    expect(FakeChannel.sent).not.toContainEqual({ t: 'docked', id: 'zz' })
+    expect(screen.queryByRole('region', { name: /^Terminal session in / })).toBeNull()
+  })
+
+  it('when one of two windows of a terminal closes, Live asks again so the other keeps the mark', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    const second = new FakeChannel('easy-personal-term') // the window still open
+    second.onmessage = ({ data }) => data.t === 'who' && second.postMessage({ t: 'open', id: 't1' })
+    FakeChannel.from({ t: 'open', id: 't1' })
+    FakeChannel.from({ t: 'closed', id: 't1' })
+    await waitFor(() => expect(rowOf('term:t1')).toHaveTextContent('in its own window'))
+  })
+
+  it('a message of another shape is ignored', async () => {
+    install({ terms: [termSession({ id: 't1' })] })
+    mount()
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    FakeChannel.from({ t: 'open', id: 7 })
+    FakeChannel.from({ t: 'dock' })
+    FakeChannel.from('open')
+    expect(rowOf('term:t1')).not.toHaveTextContent('in its own window')
+    expect(screen.queryByRole('region', { name: /^Terminal session in / })).toBeNull()
   })
 })

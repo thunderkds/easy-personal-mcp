@@ -284,3 +284,106 @@ describe('the panel', () => {
     log.mockRestore()
   })
 })
+
+describe('the roomy panel (T135)', () => {
+  it('has one compact head: Back, the title, the status, Pop out and Stop; account and folder are one line, the folder in full on hover', () => {
+    mount()
+    const head = document.querySelector('.term-head')
+    expect(within(head).getByRole('button', { name: 'Back to sessions' })).toBeInTheDocument()
+    expect(within(head).getByRole('heading', { name: /company/ })).toBeInTheDocument()
+    expect(within(head).getByRole('status')).toHaveTextContent('Connecting')
+    expect(within(head).getByRole('button', { name: 'Pop out' })).toBeInTheDocument()
+    expect(within(head).getByRole('button', { name: 'Stop' })).toBeInTheDocument()
+    const meta = document.querySelector('.term-meta')
+    expect(meta).toHaveTextContent('Claude personal')
+    expect(within(meta).getByText('/work/company')).toHaveAttribute('title', '/work/company')
+    expect(document.querySelector('dl')).toBeNull() // no three-row facts list
+  })
+
+  it('Pop out opens /?term=<id>#<token> in a new window with no opener, and tells Live', () => {
+    const win = { opener: {} }
+    const open = vi.fn(() => win)
+    vi.stubGlobal('open', open)
+    const onPoppedOut = vi.fn()
+    mount({ id: 'a/b' }, { onPoppedOut })
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out' }))
+    expect(open).toHaveBeenCalledWith('/?term=a%2Fb#secret-token', '_blank')
+    expect(win.opener).toBeNull()
+    expect(onPoppedOut).toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('a blocked pop-up says so and the panel stays', () => {
+    vi.stubGlobal('open', vi.fn(() => null))
+    const onPoppedOut = vi.fn()
+    mount({}, { onPoppedOut })
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('blocked the new window')
+    expect(onPoppedOut).not.toHaveBeenCalled()
+  })
+
+  it('in the desktop app window the app opens the window itself (window.open answers null there): no blocked alert', () => {
+    vi.stubGlobal('open', vi.fn(() => null))
+    window.__EASY_PERSONAL_APP__ = true
+    try {
+      const onPoppedOut = vi.fn()
+      mount({}, { onPoppedOut })
+      fireEvent.click(screen.getByRole('button', { name: 'Pop out' }))
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(onPoppedOut).toHaveBeenCalled()
+    } finally {
+      delete window.__EASY_PERSONAL_APP__
+    }
+  })
+
+  it('popped: no Back and no Pop out, and the screen keeps its keys and Stop', () => {
+    mount({}, { popped: true, onBack: undefined })
+    expect(screen.queryByRole('button', { name: 'Back to sessions' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Pop out' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Terminal keys' })).toBeInTheDocument()
+    expect(document.querySelector('.term-panel').dataset.popped).toBe('true')
+    expect(Terminal.last.focused).toBe(1) // the keys go to the terminal at once
+  })
+
+  it('a plain refit right after a focus keeps the forced send', () => {
+    vi.useFakeTimers()
+    mount()
+    const socket = attach()
+    act(() => Terminal.last.textarea.dispatchEvent(new FocusEvent('focus')))
+    FakeResizeObserver.instances[0].fire() // the box settles within the same 150 ms, at the same size
+    act(() => vi.advanceTimersByTime(300))
+    expect(socket.texts.filter((m) => m.t === 'resize')).toEqual([{ t: 'resize', cols: 100, rows: 30 }])
+  })
+
+  it('focusing the screen sends its size even when unchanged, so the page you type in wins (question 47)', () => {
+    vi.useFakeTimers()
+    mount()
+    const socket = attach()
+    expect(socket.texts.filter((m) => m.t === 'resize')).toEqual([])
+    act(() => Terminal.last.textarea.dispatchEvent(new FocusEvent('focus')))
+    act(() => vi.advanceTimersByTime(300))
+    expect(socket.texts.filter((m) => m.t === 'resize')).toEqual([{ t: 'resize', cols: 100, rows: 30 }])
+  })
+})
+
+describe('Expand (T135, owner 2026-11-23)', () => {
+  it('Expand gives the panel the whole app window and a second press brings the layout back; the keys stay with the terminal', () => {
+    mount()
+    const panel = document.querySelector('.term-panel')
+    const expand = screen.getByRole('button', { name: 'Expand' })
+    expect(expand).toHaveAttribute('aria-pressed', 'false')
+    const focused = Terminal.last.focused
+    fireEvent.click(expand)
+    expect(panel.dataset.expanded).toBe('true')
+    expect(screen.getByRole('button', { name: 'Exit full view' })).toHaveAttribute('aria-pressed', 'true')
+    expect(Terminal.last.focused).toBe(focused + 1)
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full view' }))
+    expect(panel.dataset.expanded).toBeUndefined()
+  })
+
+  it('its own window has no Expand: it is already the whole window', () => {
+    mount({}, { popped: true })
+    expect(screen.queryByRole('button', { name: 'Expand' })).toBeNull()
+  })
+})
