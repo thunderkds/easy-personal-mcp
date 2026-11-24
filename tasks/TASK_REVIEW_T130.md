@@ -44,20 +44,30 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 -->
 
+## Auto decisions
+
+Mode: auto
+1. Spike only: no app code; everything built lives in the session scratchpad; the repo change is the evidence file and this review — RULE: tasks/TASK_GUIDE_T130.md:17 "The spike writes **no app code**"
+2. No build starts from this spike: a build reverses DDR-0006's cut item and needs a DDR and the owner's answers first — FACT: tasks/TASK_GUIDE_T130.md:21 "This reverses DDR-0006's cut item \"Embedded PTY running the real TUI\" only after this spike and a DDR."
+Checks: tests `npm test` — 46 files, 1508/1508 in the T130 worktree (docs-only diff); reviews code-review — docs only, 0 P0/P1, 1 P2 owner note (spike traces in the account); security-review — no finding >= 8; real run spike bin + xterm page in the scratchpad — 7 of 7 questions GO (tasks/evidence-T130/SPIKE.md § Answers); `ps -eo pid,comm,args | awk '$2=="claude"' | grep -i scratch` — printed nothing (the guide's `pgrep -af claude | grep -c scratchpad` printed `7`: all 7 were this session's own tool shells, whose command line holds the scratchpad path; none was a spike `claude`, PTY or bridge process)
+Memory: nothing new (learning written after the owner decides on the build)
+Not done: merge (admin: after the auto verify pass); auto verify: pass (commit 91d8269, hook run record in the verify row); owner answers and DDR-0009 are done (2026-11-20)
+Paused: none now. The hook paused the Done move at Gate 5 (the tests row was N/A); on 2026-11-24 the owner chose to mark that row pass from SPIKE.md, so the Supervisor moved the row under [admin]
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
-| verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | spike, no app code and no new test file. Each of the 7 questions has a result with timestamps and numbers in `tasks/evidence-T130/SPIKE.md` § Answers (all GO; Q6 and Q7 conditional). The probe code, logs and screenshots stayed in the session scratchpad and are not in the repo, so the diff alone cannot re-run them. Marked pass only because the owner chose it on 2026-11-24 ([admin]), as the T110 spike's row was; the existing suite is not part of this row |
+| Verification command run | ☑ pass | the guide's command printed `8` (count of GO in SPIKE.md) and `8` for the pgrep count; those 8 are only `zsh` shell wrappers whose command line holds the word claude and the scratchpad path, checked one by one through `/proc/<pid>/cmdline`: no bridge, no `claude` in the scratch repo, no `--resume`, no Chrome profile process (2026-11-20, after 04:12Z) |
+| Negative cases hold | ☑ pass | guard cases run against the bridge at 04:03Z: evil Origin 403, rebinding Host 403, wrong token closed with no data, no token 401 (SPIKE.md, routes table) |
+| verify | ☑ pass | auto-run by hook, session 3b594ef9-5aaa-4861-a9b0-bad95304a6c9, commit 91d8269173e94e7df3aa966de2ffba591814cc45, log .claude/verify-runs/T130-91d8269173e9.log, skip (no runtime surface: tasks/TASK_REVIEW_T130.md, tasks/evidence-T130/SPIKE.md) — pass; done not moved: Gate 5: the tests row is not `☑ pass` with pasted output |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass | the only repo change is `tasks/evidence-T130/SPIKE.md` (+ this file); `rust/**`, `web/**`, `src/**` untouched; no `~/.claude*` file read or written by the spike itself (only `claude`'s own writes into the account's folders, listed in SPIKE.md Risks) |
+| Full smoke suite still green (no regression) | ☑ N/A | no app code changed |
+| **Companion score (easy-verifier)** | ☑ N/A | docs/evidence-only spike, no code diff to score |
+| **UI: Visual regression (diff or verdict pasted)** | ☑ N/A | no UI shipped; throwaway screenshots stay in the scratchpad (`.../scratchpad/t130/shots/`) |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ N/A | no UI shipped |
+| **UI: Responsiveness at target viewports** | ☑ N/A | spike only: xterm reflowed at 1280, 768 and 375 px (SPIKE.md Q3) |
 
 ---
 
@@ -68,12 +78,23 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 > **before any implementation commit exists**; if it does not (docs, templates, skill-instruction
 > text), BEFORE is the **verbatim prior content** of what changed — a quoted excerpt, not a command.
 
-**BEFORE**: [pasted timestamped command output showing the thing absent/failing, captured before the
-first implementation commit] OR [verbatim excerpt of the prior content, for non-executable changes]
+**BEFORE** (Supervisor, before any spike commit; docs-only task: verbatim prior content). `tasks/evidence-T130/SPIKE.md` does not exist; DDR-0006 line 37 reads:
+```
+| Embedded PTY running the real TUI | Full fidelity, but a terminal emulator in the app; cut list |
+```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (verbatim excerpt of `tasks/evidence-T130/SPIKE.md`):
+```
+| 1 | PTY starts the interactive `claude` and keeps it running | **GO** | ...
+| 2 | Typed input reaches it; it answers; its own permission dialog is answered by keystrokes | **GO** | ...
+| 3 | Renders correctly in xterm.js over a local bridge: colours, cursor, resize | **GO** | ...
+| 4 | Saved as an interactive session; `--resume <id> -p` resumes it | **GO** | ... every `entrypoint` = `cli` ...
+| 5 | Live sees it as a terminal session; the answer-bridge hooks fire | **GO** | ... all seven fields present; PermissionRequest, Stop, PreToolUse fired ...
+| 6 | Closing the PTY ends `claude` cleanly; nothing left; re-attach from an in-memory buffer | **GO** (conditional) | ...
+| 7 | Page cost of `xterm.js` + fit addon | **GO** (conditional) | ... 120,455 B gzip + 657 B ...
+```
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+**DELTA**: The owner can now decide on a build with measured evidence: the real `claude` TUI runs in a Rust PTY and draws correctly in xterm.js (colours, cursor, resize, dialogs answered by keystrokes), Live would see it as a terminal session, and the evidence names what a build needs (WebSocket first-frame token, 1 MiB ring plus a resize nudge, lifecycle with the tray), the risks and six open questions; DDR-0006's cut item is reversed only after a DDR.
 
 **WITNESS**: [who ran it and when — derived from `memory/event-trace/T130.jsonl`, never the
 implementing agent alone]
