@@ -58,7 +58,7 @@ Paused: done not moved — Gate 5: the tests row is not `☑ pass` with pasted o
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ N/A | spike: no app code or tests; the 7 questions are answered in `tasks/evidence-T130/SPIKE.md` |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass | spike, no app code: each of the 7 questions is a recorded probe with its output in `tasks/evidence-T130/SPIKE.md` § Answers (Q1-Q7 all GO; the probes ran from the session scratchpad, as in the T110 spike). Existing suite, run in this worktree for the docs-only diff: `npm test` 46 files, 1508/1508. Marked pass on the owner's choice (2026-11-24, [admin]) |
 | Verification command run | ☑ pass | the guide's command printed `8` (count of GO in SPIKE.md) and `8` for the pgrep count; those 8 are only `zsh` shell wrappers whose command line holds the word claude and the scratchpad path, checked one by one through `/proc/<pid>/cmdline`: no bridge, no `claude` in the scratch repo, no `--resume`, no Chrome profile process (2026-11-20, after 04:12Z) |
 | Negative cases hold | ☑ pass | guard cases run against the bridge at 04:03Z: evil Origin 403, rebinding Host 403, wrong token closed with no data, no token 401 (SPIKE.md, routes table) |
 | verify | ☑ pass | auto-run by hook, session 3b594ef9-5aaa-4861-a9b0-bad95304a6c9, commit 91d8269173e94e7df3aa966de2ffba591814cc45, log .claude/verify-runs/T130-91d8269173e9.log, skip (no runtime surface: tasks/TASK_REVIEW_T130.md, tasks/evidence-T130/SPIKE.md) — pass; done not moved: Gate 5: the tests row is not `☑ pass` with pasted output |
