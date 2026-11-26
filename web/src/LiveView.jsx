@@ -576,7 +576,7 @@ function OwnStream(props) {
   return <Live state={state} link={link} reconnect={reconnect} {...props} />
 }
 
-function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessions = false, wantedApp = null, onWantedAppUsed, onResumeInApp, onOpenSettings, target = null, onTargetUsed, onOpenAppSession }) {
+function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessions = false, wantedApp = null, onWantedAppUsed, onResumeInApp, onOpenSettings, target = null, onTargetUsed, onOpenAppSession, onOpenChanges }) {
   const [now, setNow] = useState(Date.now())
   const [openId, setOpenId] = useState(null) // the panel's key: a live session id, or `app:<id>` for an app session; not kept across a reload
   const openRef = useRef(null)
@@ -897,7 +897,15 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
               {stale && selected.app && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
               {selected.term ? (
                 <Suspense fallback={<Loading label="Loading the terminal" />}>
-                  <TermPanel key={opened} term={selected.term} onBack={closePanel} onChanged={reloadTerms} onPoppedOut={closePanel} autoFocus={focusPanel} />
+                  <TermPanel
+                    key={opened}
+                    term={selected.term}
+                    onBack={closePanel}
+                    onChanged={reloadTerms}
+                    onPoppedOut={closePanel}
+                    onOpenChanges={onOpenChanges}
+                    autoFocus={focusPanel}
+                  />
                 </Suspense>
               ) : (
               <SessionPanel
@@ -913,6 +921,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                 onClosed={onClosed}
                 onEnd={endPrompt}
                 onResume={appSessions && apps !== null ? onResumeInApp : undefined}
+                onOpenChanges={appSessions && apps !== null ? onOpenChanges : undefined}
                 onOpenSettings={onOpenSettings}
                 onRenamed={onRenamed}
                 onBack={closePanel}

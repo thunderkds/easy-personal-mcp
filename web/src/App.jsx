@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useState } from 'react'
 import { getJson } from './api.js'
 import AgentsView from './AgentsView.jsx'
 import BoardView from './BoardView.jsx'
+import ChangesView from './ChangesView.jsx'
 import FirstRun, { stepsLeft } from './FirstRun.jsx'
 import JobsView from './JobsView.jsx'
 import KitView from './KitView.jsx'
@@ -29,6 +30,7 @@ const GROUPS = [
       { id: 'live', label: 'Live', View: LiveView },
       { id: 'watch', label: 'Watch', View: WatchView },
       { id: 'board', label: 'Board', View: BoardView, scoped: true },
+      { id: 'changes', label: 'Changes', View: ChangesView, scoped: true },
       { id: 'scheduled', label: 'Scheduled', View: JobsView },
       { id: 'memory', label: 'Memory', View: MemoryView, scoped: true },
     ],
@@ -149,6 +151,7 @@ function Shell() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [appTarget, setAppTarget] = useState(null) // what the New session sheet in Live opens on: {newFor: workspace name}, {resume} or {continueIn} (T104, T128)
   const [wantedApp, setWantedApp] = useState(null) // an app session just started: Live opens its panel (T118, FR-128)
+  const [changesTarget, setChangesTarget] = useState(null) // the session whose folder Changes opens on, asked from a Live panel (T137)
   const [chosen, setChosen] = useState(readScope)
   const [period, setPeriod] = useState('7') // Usage period id, app-wide (FR-064); not remembered across reloads
   const [options, setOptions] = useState(undefined)
@@ -172,6 +175,7 @@ function Shell() {
       setWantedId(null) // leaving Live drops a wish that is still pending
       setWantedApp(null)
     }
+    if (active !== 'changes') setChangesTarget(null) // the tab opened by itself shows the repositories only
   }, [active])
 
   useEffect(() => {
@@ -231,6 +235,11 @@ function Shell() {
     setMenuOpen(false)
   }, [])
   const wantedAppUsed = useCallback(() => setWantedApp(null), [])
+  const openChanges = useCallback((target) => {
+    setChangesTarget(target)
+    setActive('changes')
+    setMenuOpen(false)
+  }, [])
   const resumeInApp = useCallback((resume) => openApp({ resume }), [openApp])
   const continueInApp = useCallback((workspace, repo) => openApp({ continueIn: { workspace, repo } }), [openApp])
   const scope = options ? validScope(chosen, options) : NO_SCOPE
@@ -338,6 +347,8 @@ function Shell() {
                 wantedApp={wantedApp}
                 onWantedAppUsed={wantedAppUsed}
                 onResumeInApp={resumeInApp}
+                onOpenChanges={openChanges}
+                changesTarget={changesTarget}
                 onContinueInApp={continueInApp}
                 target={appTarget}
                 onTargetUsed={appTargetUsed}

@@ -1,0 +1,33 @@
+/* The Changes view (T137, FR-141): the file list beside the patch from 64rem, above it below that. */
+.changes .picks { align-items: flex-end; }
+.changes .field { min-width: 0; max-width: 100%; } /* without it a select grows to its longest option and the page scrolls sideways */
+.changes .field select { max-width: min(32rem, 100%); }
+.changes .diff-refresh { min-height: 44px; }
+.diff-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.diff-files { display: flex; flex-direction: column; gap: var(--space-3); max-height: 40vh; overflow: auto; min-width: 0; }
+.diff-files ul { display: flex; flex-direction: column; gap: 2px; margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.changes .diff-file { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-2); width: 100%; min-height: 44px; padding: var(--space-1) var(--space-2); border-color: transparent; text-align: left; }
+.changes .diff-file[aria-pressed='true'] { background: var(--color-accent-soft); border-color: var(--color-accent-line); }
+.diff-path { grid-column: 1 / -1; grid-row: 2; font-family: var(--font-mono); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.diff-status { font-size: var(--fs-label); color: var(--color-secondary); }
+.diff-status[data-status='added'], .diff-status[data-status='untracked'] { color: var(--color-accent); }
+.diff-status[data-status='deleted'], .diff-status[data-status='conflict'] { color: var(--color-red); }
+.diff-count { grid-column: 2; grid-row: 1; font-family: var(--font-mono); font-size: var(--fs-label); color: var(--color-muted); }
+.diff-note { grid-column: 1 / -1; grid-row: 3; font-size: var(--fs-label); color: var(--color-muted); }
+.diff-view { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.diff-name { margin: 0; overflow-wrap: anywhere; }
+.diff-patch { max-height: 70vh; overflow: auto; padding: var(--space-2) 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-input); }
+.diff-lines { width: max-content; min-width: 100%; }
+.diff-line { padding: 0 var(--space-3); font-family: var(--font-mono); font-size: var(--fs-small); line-height: 1.5; white-space: pre; tab-size: 4; color: var(--color-text); }
+.diff-line[data-kind='add'] { background: var(--color-accent-soft); color: var(--color-link-hover); }
+.diff-line[data-kind='del'] { background: var(--color-red-soft); color: var(--color-red); }
+.diff-line[data-kind='hunk'] { color: var(--color-amber); }
+.diff-line[data-kind='meta'] { color: var(--color-muted); }
+@media (max-width: 39.999rem) {
+  .changes .periods { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+}
+@media (min-width: 64rem) {
+  .changes .diff-refresh { min-height: 36px; }
+  .diff-body { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); }
+  .diff-files { max-height: 70vh; }
+}
