@@ -19,6 +19,7 @@ pub mod metrics;
 pub mod plan;
 pub mod prices;
 pub mod pyjson;
+pub mod repo_diff;
 pub mod report_files;
 pub mod reports;
 pub mod rules;

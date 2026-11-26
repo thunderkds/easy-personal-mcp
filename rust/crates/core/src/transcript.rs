@@ -615,6 +615,37 @@ pub fn read(path: &Path, window: Window, sidechain: bool) -> Result<Page, Error>
     parse(&mut BufReader::new(file), window, sidechain)
 }
 
+/// The ends of a transcript [`last_folder`] reads, each only when the one before it named no folder.
+const FOLDER_PROBE_BYTES: [u64; 3] = [1024 * 1024, 4 * 1024 * 1024, 16 * 1024 * 1024];
+
+/// FR-139: the newest working folder (`cwd`, absolute) a main-thread record of the transcript names, read from its end
+/// (16 MB at most). `None` for a file that cannot be read or names none there: an older folder from further back is
+/// never answered. Nothing else of a record is taken.
+pub fn last_folder(path: &Path) -> Option<String> {
+    let (mut file, meta) = live::open_regular(path)?;
+    for span in FOLDER_PROBE_BYTES {
+        let start = meta.len().saturating_sub(span);
+        file.seek(SeekFrom::Start(start)).ok()?;
+        let mut data = Vec::new();
+        Read::by_ref(&mut file)
+            .take(span)
+            .read_to_end(&mut data)
+            .ok()?;
+        let found = data.split(|&b| b == b'\n').rev().find_map(|line| {
+            let record: Value = serde_json::from_slice(line).ok()?;
+            if record["isSidechain"] == true {
+                return None;
+            }
+            let folder = record["cwd"].as_str()?;
+            folder.starts_with('/').then(|| folder.to_owned())
+        });
+        if found.is_some() || start == 0 {
+            return found;
+        }
+    }
+    None
+}
+
 /// FR-129: the most sub-agent streams one listing names, newest first.
 pub const AGENTS_MAX: usize = 200;
 /// A sub-agent's meta file is read only up to this size (the listing is the one place `*.meta.json` is read here).
