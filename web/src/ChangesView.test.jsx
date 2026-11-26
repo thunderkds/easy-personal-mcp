@@ -184,6 +184,39 @@ describe('Changes view', () => {
     expect(screen.getByRole('combobox', { name: 'Base' })).toHaveDisplayValue('origin/gone')
   })
 
+  it('shows the escaped form of a default base that is not in the list, and asks with the real name', async () => {
+    const odd = 'origin/ev\u202eil'
+    const fn = stub({ '/api/diff/repo': reply(200, { ...overview, base: odd, base_shown: 'origin/ev\\u{202e}il' }) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Branch')
+    expect(screen.getByRole('combobox', { name: 'Base' })).toHaveDisplayValue('origin/ev\\u{202e}il')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe(odd))
+  })
+
+  it('picks the branch of a work tree by its shown name', async () => {
+    const odd = 'to\u202epic'
+    const shown = 'to\\u{202e}pic'
+    const body = { ...overview, worktrees: [{ ...overview.worktrees[0], branch: shown }], branches: [overview.branches[0], { name: odd, shown, kind: 'branch' }] }
+    const fn = stub({ '/api/diff/repo': reply(200, body) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Two refs')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('head')).toBe(`refs/heads/${odd}`))
+  })
+
+  it('says when branches, tags or work trees were left out', async () => {
+    stub()
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    expect(screen.queryByText(/are not listed/)).toBeNull()
+    cleanup()
+    stub({ '/api/diff/repo': reply(200, { ...overview, truncated: true }) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    expect(screen.getByText('Some branches, tags or work trees are not listed: this repository has too many.')).toBeInTheDocument()
+  })
+
   it('says there is no commit yet instead of asking for a compare that cannot work', async () => {
     const empty = { ...overview, base: null, branches: [], commits: [], worktrees: [{ ...overview.worktrees[0], head: null }] }
     const fn = stub({ '/api/diff/repo': reply(200, empty) })

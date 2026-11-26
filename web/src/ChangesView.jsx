@@ -127,14 +127,14 @@ function FileButton({ file, pressed, onOpen }) {
   )
 }
 
-function RefSelect({ label, value, branches, commits, onChange }) {
+function RefSelect({ label, value, base, branches, commits, onChange }) {
   // A value outside both lists (a default base the repository no longer has) is offered as itself: a select never shows another ref.
   const listed = commits.some((c) => c.id === value) || REF_GROUPS.some(([kind, , prefix]) => branches.some((b) => b.kind === kind && prefix + b.name === value))
   return (
     <label className="field">
       {label}
       <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {!listed && <option value={value}>{value}</option>}
+        {!listed && <option value={value}>{value === base?.name ? base.shown : value}</option>}
         {REF_GROUPS.map(([kind, title, prefix]) => {
           const found = branches.filter((b) => b.kind === kind)
           return found.length === 0 ? null : (
@@ -185,9 +185,10 @@ function Repo({ source, round }) {
     }
     const here = worktrees.find((w) => w.id === overview.tree)
     const fallback = base ? full(base) : ''
+    const mine = branches.find((b) => b.kind === 'branch' && b.shown === here?.branch) // a work tree names its branch as it is shown
     const values = {
       base: picked.base ?? fallback,
-      head: picked.head ?? (here?.branch ? full(here.branch) : (commits[0]?.id ?? '')),
+      head: picked.head ?? (here?.branch ? full(mine?.name ?? here.branch) : (commits[0]?.id ?? '')),
       commit: picked.commit ?? commits[0]?.id ?? '',
     }
     // With no commit there is nothing to compare but the uncommitted files; two refs need any ref at all.
@@ -227,6 +228,7 @@ function Repo({ source, round }) {
   if (!overview) return <Loading label="Loading the repository" />
   const { worktrees, branches, commits, values, unborn } = overview
   const pick = (key) => (value) => setPicked((p) => ({ ...p, [key]: value }))
+  const base = overview.base ? { name: overview.base, shown: overview.base_shown ?? overview.base } : null
   return (
     <>
       <div className="picks">
@@ -257,10 +259,11 @@ function Repo({ source, round }) {
           ))}
         </div>
       </div>
+      {overview.truncated && <p className="muted">Some branches, tags or work trees are not listed: this repository has too many.</p>}
       {unborn && <p className="muted">This repository has no commit yet.</p>}
       {mode === 'branch' && !unborn && (
         <div className="picks">
-          <RefSelect label="Base" value={values.base} branches={branches} commits={commits} onChange={pick('base')} />
+          <RefSelect label="Base" value={values.base} base={base} branches={branches} commits={commits} onChange={pick('base')} />
           <p className="muted">Committed changes only, from where this branch left the base. Uncommitted work is under Uncommitted.</p>
         </div>
       )}
@@ -280,8 +283,8 @@ function Repo({ source, round }) {
       )}
       {mode === 'range' && !unborn && (
         <div className="picks">
-          <RefSelect label="From" value={values.base} branches={branches} commits={commits} onChange={pick('base')} />
-          <RefSelect label="To" value={values.head} branches={branches} commits={commits} onChange={pick('head')} />
+          <RefSelect label="From" value={values.base} base={base} branches={branches} commits={commits} onChange={pick('base')} />
+          <RefSelect label="To" value={values.head} base={base} branches={branches} commits={commits} onChange={pick('head')} />
         </div>
       )}
       {list.status === 'loading' && <Loading label="Loading the files" />}

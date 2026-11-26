@@ -136,6 +136,12 @@ that commit needs its own reviewer run.
 | 12 | not changed | The Python dashboard already shows *Watch* with no routes behind it (`/api/machine`, `/api/limits/history`, `/api/effectiveness` are not in `surfaces/api.py`); hiding tabs per server is a separate change |
 | 13 | not changed | Older than this task |
 
+A second commit follows the server's own review fixes (T136 `1cc683b`): the page says when branches, tags or work trees
+were left out, shows `base_shown` for an unlisted default base, and finds a work tree's branch by its shown name. Three
+tests failed first; web tests then 1666 passed. Chrome checks repeated against a `serve` built from `1cc683b`. T137 does
+not contain T136's fix commit: the merge gate refused that branch merge while both tasks are in progress, and the two
+change different files. The commit to review is the branch tip.
+
 Real server (not stubbed), temp data folder, `serve` from `d3215f5` with this commit's built page: a remote default base
 showed `origin/trunk` and compared against it; the select kept focus; a removed work tree showed `no such work tree` and
 the button brought the list back.
