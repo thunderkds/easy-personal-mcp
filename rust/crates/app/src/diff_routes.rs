@@ -321,7 +321,7 @@ mod tests {
         let (app, _) = world(&temp);
         let head = ok(&app, "/api/diff/repo?workspace=t136&repo_no=0").await;
         assert_eq!(head["name"], "proj");
-        assert_eq!(head["base"], "main");
+        assert_eq!(head["base"], "refs/heads/main");
         assert_eq!(head["worktrees"].as_array().unwrap().len(), 2);
         assert_eq!(head["tree"], head["worktrees"][0]["id"]);
         assert_eq!(head["truncated"], false);
@@ -350,11 +350,26 @@ mod tests {
                 .unwrap()
                 .contains("+from the side tree")
         );
-        // the planted change reached the answer and nothing the app keeps
-        for name in ["store.sqlite", "store.sqlite-wal"] {
-            let kept = fs::read(temp.0.join(name)).unwrap_or_default();
-            assert!(!kept.windows(13).any(|w| w == b"SECRET-CHANGE"), "{name}");
+        // the planted change reached the answer and nothing the app keeps: no file outside the work trees holds it
+        let mut scanned = Vec::new();
+        let mut folders = vec![temp.0.clone()];
+        while let Some(folder) = folders.pop() {
+            for found in fs::read_dir(folder).unwrap() {
+                let path = found.unwrap().path();
+                if path == temp.0.join("proj") || path == temp.0.join("side") {
+                    continue;
+                }
+                if path.is_dir() {
+                    folders.push(path);
+                } else {
+                    let kept = fs::read(&path).unwrap();
+                    let found = kept.windows(13).any(|w| w == b"SECRET-CHANGE");
+                    assert!(!found, "{}", path.display());
+                    scanned.push(path);
+                }
+            }
         }
+        assert!(scanned.contains(&temp.0.join("store.sqlite")));
     }
 
     #[tokio::test]

@@ -4,6 +4,7 @@ use easy_personal_core::repo_diff::{self, Compare, DiffError};
 use easy_personal_core::transcript;
 use serde_json::Value;
 use std::fs;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -186,6 +187,10 @@ fn a_binary_file_is_marked_and_a_file_touched_without_a_change_is_not_listed() {
         let one = repo_diff::file(&dir, &Compare::Uncommitted, area, path).unwrap();
         assert_eq!(one["binary"], true, "{path}");
     }
+    assert!(matches!(
+        repo_diff::file(&dir, &Compare::Uncommitted, "unstaged", "same image.bin"),
+        Err(DiffError::NotListed)
+    ));
     assert_eq!(
         fs::read(dir.join(".git/index")).unwrap(),
         index,
@@ -470,6 +475,56 @@ fn no_program_the_repo_names_runs_and_the_index_is_not_written() {
     );
 }
 
+/// `core.worktree` can send one repo's work tree into another repo, and that one's into a third. Git runs a filter from
+/// the config of the repo it runs in, so the filters must be switched off in that same one.
+#[test]
+fn a_chain_of_moved_work_trees_runs_no_program() {
+    let temp = Temp::new();
+    let [a, b, c] = ["a", "b", "c"].map(|name| {
+        let dir = temp.0.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        git(&dir, &["init", "-q", "-b", "main"]);
+        dir
+    });
+    fs::write(b.join("pic.bin"), [0u8, 1, 2]).unwrap();
+    commit(&b, "pic");
+    // the same bytes in `c`, which tracks the file too and has only touched it: both repos have a file there to hash
+    fs::write(c.join("pic.bin"), [0u8, 1, 2]).unwrap();
+    commit(&c, "pic");
+    fs::File::options()
+        .write(true)
+        .open(c.join("pic.bin"))
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000))
+        .unwrap();
+    let ran = temp.0.join("ran");
+    let spy = temp.0.join("spy.sh");
+    fs::write(&spy, format!("#!/bin/sh\ntouch '{}'\ncat\n", ran.display())).unwrap();
+    fs::set_permissions(&spy, fs::Permissions::from_mode(0o755)).unwrap();
+    git(&c, &["config", "filter.evil.clean", spy.to_str().unwrap()]);
+    write(&c, ".git/info/attributes", "pic.bin filter=evil\n");
+    git(&b, &["config", "core.worktree", c.to_str().unwrap()]);
+    git(&a, &["config", "core.worktree", b.to_str().unwrap()]);
+
+    // `a` leads to `b`, which works elsewhere: not read at all
+    assert_eq!(repo_diff::toplevel(&a), None);
+    assert!(matches!(repo_diff::overview(&a), Err(DiffError::NotARepo)));
+    assert!(matches!(repo_diff::worktrees(&a), Err(DiffError::NotARepo)));
+    assert!(matches!(
+        repo_diff::files(&a, &Compare::Uncommitted),
+        Err(DiffError::NotARepo)
+    ));
+    assert!(repo_diff::file(&a, &Compare::Uncommitted, "unstaged", "pic.bin").is_err());
+    // `b` is read as the folder it works in, `c`, with `c`'s own filter off
+    assert_eq!(repo_diff::toplevel(&b), Some(c.clone()));
+    for dir in [&b, &c] {
+        repo_diff::files(dir, &Compare::Uncommitted).unwrap();
+        let _ = repo_diff::file(dir, &Compare::Uncommitted, "untracked", "pic.bin");
+        repo_diff::overview(dir).unwrap_or_default();
+    }
+    assert!(!ran.exists(), "the filter ran");
+}
+
 #[test]
 fn a_filter_that_cannot_be_switched_off_refuses_the_uncommitted_compare_only() {
     let temp = Temp::new();
@@ -593,7 +648,8 @@ fn worktrees_branches_and_commits_are_listed_without_a_full_path() {
         .map(|b| b["name"].as_str().unwrap())
         .collect();
     assert_eq!(names, ["main", "topic"]);
-    assert_eq!(head["base"], "main");
+    assert_eq!(head["base"], "refs/heads/main");
+    assert_eq!(head["base_shown"], "main");
     assert_eq!(head["commits"][0]["subject"], "first");
     assert_eq!(head["commits"][0]["author"], "Ann");
     assert!(!head.to_string().contains(temp.0.to_str().unwrap()));
@@ -728,6 +784,28 @@ fn a_file_replaced_by_a_folder_answers_its_own_patch_only() {
         text.contains("-bye") && !text.contains("inner.txt"),
         "{text}"
     );
+    // a name under that folder that is not text is left out too
+    let odd = std::ffi::OsStr::from_bytes(b"gone.txt/bad\xffname");
+    fs::write(dir.join(odd), "also something else\n").unwrap();
+    git(&dir, &["add", "-A"]);
+    let text = patch(&dir, &Compare::Uncommitted, "staged", "gone.txt");
+    assert!(
+        text.contains("-bye") && !text.contains("something else"),
+        "{text}"
+    );
+}
+
+#[test]
+fn untracked_files_past_the_list_s_read_budget_have_no_count() {
+    let temp = Temp::new();
+    let dir = repo(&temp);
+    let one_mib = "line\n".repeat(1024 * 1024 / 5);
+    for n in 0..18 {
+        write(&dir, &format!("f{n:02}.txt"), &one_mib);
+    }
+    let listed = rows(&repo_diff::files(&dir, &Compare::Uncommitted).unwrap());
+    let counted = listed.iter().filter(|r| r.3.is_some()).count();
+    assert_eq!((listed.len(), counted), (18, 16));
 }
 
 #[test]
@@ -743,7 +821,7 @@ fn names_and_the_default_base_are_shown_with_no_raw_control_or_hidden_character(
     git(&dir, &["update-ref", remote, &head]);
     git(&dir, &["symbolic-ref", "refs/remotes/origin/HEAD", remote]);
     let answer = repo_diff::overview(&dir).unwrap();
-    assert_eq!(answer["base"], "origin/ev\u{202e}il");
+    assert_eq!(answer["base"], "refs/remotes/origin/ev\u{202e}il");
     assert_eq!(answer["base_shown"], "origin/ev\\u{202e}il");
     write(&dir, "n\nl\tx", "w\n");
     let list = repo_diff::files(&dir, &Compare::Uncommitted).unwrap();
@@ -763,7 +841,12 @@ fn a_tag_named_main_does_not_take_the_place_of_the_branch() {
     commit(&dir, "third");
     let answer = repo_diff::files(&dir, &Compare::Branch { base: None }).unwrap();
     assert_eq!(answer["base"], second.as_str());
-    assert_eq!(repo_diff::overview(&dir).unwrap()["base"], "main");
+    // the answered base, sent back, is still the branch
+    let base = repo_diff::overview(&dir).unwrap()["base"]
+        .as_str()
+        .map(str::to_owned);
+    let answer = repo_diff::files(&dir, &Compare::Branch { base }).unwrap();
+    assert_eq!(answer["base"], second.as_str());
 }
 
 #[test]

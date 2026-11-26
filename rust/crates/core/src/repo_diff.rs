@@ -5,8 +5,10 @@
 //! A repo's own config is not trusted to start a program (a plain `git diff` runs its clean filters and its external
 //! diff): every call switches off fsmonitor, hooks and signature checks, every diff switches off external diff and
 //! textconv and overrides each configured filter by name, submodule work trees are not entered, no call writes the index
-//! (`diff.autoRefreshIndex=false`, no optional locks) and none may fetch. A ref reaches `git diff` only as the commit id
-//! `rev-parse` gave for it; a path only as a `:(literal)` pathspec of a file the list answer holds.
+//! (`diff.autoRefreshIndex=false`, no optional locks) and none may fetch. The filters are read in the folder every
+//! later call runs in, the root of the work tree ([`toplevel`]): another repo's config would bring other filters. A ref
+//! reaches `git diff` only as the commit id `rev-parse` gave for it; a path only as a `:(literal)` pathspec of a file the
+//! list answer holds.
 
 use crate::live::clean_block;
 use crate::report_files::sys;
@@ -230,8 +232,14 @@ fn line(dir: &Path, args: &[&str]) -> Result<Option<String>, DiffError> {
     Ok((out.ok && !first.is_empty()).then_some(first))
 }
 
-/// The root of the work tree `folder` is in; `None` for a folder that is in none.
+/// The root of the work tree `folder` is in. `None` for a folder that is in none, and for one whose repo's config puts
+/// the work tree inside another repo's: asked there, git would answer with a different root and config.
 pub fn toplevel(folder: &Path) -> Option<PathBuf> {
+    let top = shown_toplevel(folder)?;
+    (shown_toplevel(&top)? == top).then_some(top)
+}
+
+fn shown_toplevel(folder: &Path) -> Option<PathBuf> {
     let out = run(folder, &[], &["rev-parse", "--show-toplevel"], OUTPUT_MAX).ok()?;
     let text = String::from_utf8(out.stdout).ok()?;
     let top = text.strip_suffix('\n').unwrap_or(&text);
@@ -356,7 +364,8 @@ fn default_base(dir: &Path) -> Result<Option<String>, DiffError> {
 }
 
 /// `{branches, truncated, base, base_shown, commits}`: local and remote branches and tags (500 at most, `truncated` says
-/// more were left out), the default base of a branch compare, and the newest 100 commits of `HEAD`.
+/// more were left out), the default base of a branch compare (`base` is the full ref, to be sent back as it is;
+/// `base_shown` is its short name to show), and the newest 100 commits of `HEAD`.
 pub fn overview(dir: &Path) -> Result<Value, DiffError> {
     work_tree(dir)?;
     let refs = run(
@@ -422,13 +431,13 @@ pub fn overview(dir: &Path) -> Result<Value, DiffError> {
             )
         })
         .collect();
-    let base = default_base(dir)?.map(|full| {
-        ["refs/heads/", "refs/remotes/"]
+    let base = default_base(dir)?;
+    let base_shown = base.as_deref().map(|full| {
+        let short = ["refs/heads/", "refs/remotes/"]
             .iter()
-            .find_map(|prefix| full.strip_prefix(prefix))
-            .map_or_else(|| full.clone(), str::to_owned)
+            .find_map(|prefix| full.strip_prefix(prefix));
+        visible(short.unwrap_or(full))
     });
-    let base_shown = base.as_deref().map(visible);
     Ok(
         json!({"branches": branches, "truncated": truncated, "base": base, "base_shown": base_shown,
               "commits": commits}),
@@ -486,7 +495,7 @@ struct Part {
 }
 
 struct Plan {
-    /// The root of the work tree.
+    /// The root of the work tree: every call of the plan runs here, where its filters were read.
     top: PathBuf,
     parts: Vec<Part>,
     base: Option<String>,
@@ -496,6 +505,7 @@ struct Plan {
 
 fn plan(dir: &Path, compare: &Compare) -> Result<Plan, DiffError> {
     let top = toplevel(dir).ok_or(DiffError::NotARepo)?;
+    let dir = top.as_path();
     let (config, stuck) = filters(dir)?;
     let committed = |base: String, head: String, config| Plan {
         top: top.clone(),
@@ -700,17 +710,21 @@ fn entries(area: &'static str, out: &[u8], cut: bool) -> Vec<Entry> {
 }
 
 /// Drops each unstaged binary file whose content is what the index holds (git says nothing more for a binary file whose
-/// time alone changed). `hash-object` reads the file with the plan's filters off and writes nothing. A file it cannot
-/// answer for stays listed.
-fn drop_unchanged_binaries(plan: &Plan, all: &mut Vec<Entry>) {
+/// time alone changed); with `only`, only that path is asked about. `hash-object` reads the file as it is, no filter, and
+/// writes nothing. A file it cannot answer for, or not within [`GIT_TIMEOUT`] for them all, stays listed.
+fn drop_unchanged_binaries(plan: &Plan, only: Option<&[u8]>, all: &mut Vec<Entry>) {
     let asked: Vec<&str> = all
         .iter()
-        .filter(|e| e.index_id.is_some())
+        .filter(|e| e.index_id.is_some() && only.is_none_or(|path| e.path == path))
         .filter_map(|e| std::str::from_utf8(&e.path).ok())
         .collect();
     let mut same: HashMap<Vec<u8>, String> = HashMap::new();
+    let deadline = Instant::now() + GIT_TIMEOUT;
     for paths in asked.chunks(HASH_PATHS) {
-        let mut args = vec!["hash-object", "--"];
+        if Instant::now() > deadline {
+            break;
+        }
+        let mut args = vec!["hash-object", "--no-filters", "--"];
         args.extend(paths);
         let Ok(out) = run(&plan.top, &plan.config, &args, OUTPUT_MAX) else {
             break; // git is too slow here: the rest stay listed
@@ -729,7 +743,9 @@ fn drop_unchanged_binaries(plan: &Plan, all: &mut Vec<Entry>) {
     all.retain(|e| e.index_id.is_none() || same.get(&e.path) != e.index_id.as_ref());
 }
 
-fn list(dir: &Path, plan: &Plan) -> Result<(Vec<Entry>, bool), DiffError> {
+/// The listed files of the plan's compare, and whether git's answer was cut. `only` is the one file the caller opens.
+fn list(plan: &Plan, only: Option<&[u8]>) -> Result<(Vec<Entry>, bool), DiffError> {
+    let dir = plan.top.as_path();
     let mut all = Vec::new();
     let mut cut = false;
     for part in &plan.parts {
@@ -744,7 +760,7 @@ fn list(dir: &Path, plan: &Plan) -> Result<(Vec<Entry>, bool), DiffError> {
         cut |= out.cut;
         all.extend(entries(part.area, &out.stdout, out.cut));
     }
-    drop_unchanged_binaries(plan, &mut all);
+    drop_unchanged_binaries(plan, only, &mut all);
     if plan.parts.iter().any(|p| p.area == "unstaged") {
         let out = run(
             dir,
@@ -778,7 +794,7 @@ fn list(dir: &Path, plan: &Plan) -> Result<(Vec<Entry>, bool), DiffError> {
 /// path that is not UTF-8 cannot be opened.
 pub fn files(dir: &Path, compare: &Compare) -> Result<Value, DiffError> {
     let plan = plan(dir, compare)?;
-    let (all, cut) = list(dir, &plan)?;
+    let (all, cut) = list(&plan, None)?;
     let total = all.len();
     let mut budget = COUNT_BUDGET;
     let rows: Vec<Value> = all
@@ -788,7 +804,7 @@ pub fn files(dir: &Path, compare: &Compare) -> Result<Value, DiffError> {
             let openable = std::str::from_utf8(&e.path).is_ok();
             let path = String::from_utf8_lossy(&e.path).into_owned();
             if e.area == "untracked" && openable {
-                (e.binary, e.added) = peek(dir, &path, &mut budget);
+                (e.binary, e.added) = peek(&plan.top, &path, &mut budget);
                 e.removed = e.added.map(|_| 0);
             }
             let old = e
@@ -860,23 +876,27 @@ fn peek(dir: &Path, path: &str, budget: &mut usize) -> (bool, Option<u64>) {
     if !meta.is_file() {
         return unknown;
     }
-    let whole = meta.len() <= PATCH_MAX_BYTES.min(*budget) as u64;
-    let want = if whole {
-        meta.len()
-    } else {
-        BINARY_PROBE as u64
-    };
+    sniff(file, meta.len(), budget)
+}
+
+/// [`peek`] over an open file of `len` bytes. Only the start of a binary file is read; the bytes of a counted one come
+/// off the budget.
+fn sniff(mut file: impl Read, len: u64, budget: &mut usize) -> (bool, Option<u64>) {
+    let unknown = (false, None);
+    let whole = len <= PATCH_MAX_BYTES.min(*budget) as u64;
     let mut data = Vec::new();
-    if file.take(want).read_to_end(&mut data).is_err() {
+    let probe = file.by_ref().take(BINARY_PROBE as u64);
+    if { probe }.read_to_end(&mut data).is_err() {
         return unknown;
     }
-    if data[..data.len().min(BINARY_PROBE)].contains(&0) {
+    if data.contains(&0) {
         return (true, None);
     }
-    if !whole {
+    let rest = len.saturating_sub(data.len() as u64);
+    if !whole || file.take(rest).read_to_end(&mut data).is_err() {
         return unknown;
     }
-    *budget -= data.len();
+    *budget = budget.saturating_sub(data.len());
     let breaks = data.iter().filter(|&&b| b == b'\n').count();
     let open_end = data.last().is_some_and(|&b| b != b'\n');
     (false, Some((breaks + usize::from(open_end)) as u64))
@@ -923,22 +943,8 @@ fn untracked(dir: &Path, path: &str) -> Result<Value, DiffError> {
     Ok(patch_answer(&patch, cut, false, None))
 }
 
-/// `{patch, cut, binary, note}` of one file the list of this compare holds in `area`.
-pub fn file(dir: &Path, compare: &Compare, area: &str, path: &str) -> Result<Value, DiffError> {
-    let plan = plan(dir, compare)?;
-    let (all, _) = list(dir, &plan)?;
-    let entry = all
-        .iter()
-        .find(|e| e.area == area && e.path == path.as_bytes())
-        .ok_or(DiffError::NotListed)?;
-    let Some(part) = plan.parts.iter().find(|p| p.area == entry.area) else {
-        // git names a folder with its own repository by the folder, with a slash
-        if path.ends_with('/') {
-            let note = "a folder with its own git repository: its content is not read";
-            return Ok(patch_answer(b"", false, false, Some(note)));
-        }
-        return untracked(dir, path);
-    };
+/// The pathspecs of the patch of the listed `entry`, whose path is `path`.
+fn pathspecs(entry: &Entry, path: &str, all: &[Entry]) -> Result<Vec<String>, DiffError> {
     let mut specs = vec![format!(":(literal){path}")];
     if let Some(old) = &entry.old_path {
         let old = std::str::from_utf8(old).map_err(|_| DiffError::NotListed)?;
@@ -950,27 +956,59 @@ pub fn file(dir: &Path, compare: &Compare, area: &str, path: &str) -> Result<Val
         .flatten()
         .map(Vec::as_slice)
         .collect();
-    let under = |other: &[u8]| {
-        own.iter()
-            .any(|p| other.strip_prefix(*p).is_some_and(|r| r.starts_with(b"/")))
-    };
-    for other in all.iter().filter(|o| o.area == entry.area) {
-        for name in [Some(&other.path), other.old_path.as_ref()]
-            .into_iter()
-            .flatten()
-        {
-            if !own.contains(&name.as_slice()) && under(name) {
-                let name = std::str::from_utf8(name).map_err(|_| DiffError::NotListed)?;
-                specs.push(format!(":(exclude,literal){name}"));
+    let others: Vec<&[u8]> = all
+        .iter()
+        .filter(|o| o.area == entry.area)
+        .flat_map(|o| [Some(&o.path), o.old_path.as_ref()])
+        .flatten()
+        .map(Vec::as_slice)
+        .filter(|name| !own.contains(name))
+        .collect();
+    for mine in &own {
+        let folder = [mine, b"/".as_slice()].concat();
+        let under: Vec<&&[u8]> = others.iter().filter(|o| o.starts_with(&folder)).collect();
+        if under.is_empty() {
+            continue;
+        }
+        let spec = |name: &[u8]| {
+            let name = std::str::from_utf8(name).map_err(|_| DiffError::NotListed)?;
+            Ok(format!(":(exclude,literal){name}"))
+        };
+        if own.iter().any(|o| o.starts_with(&folder)) {
+            // the file's own other name is in that folder: leave out the others one by one
+            for name in under {
+                specs.push(spec(name)?);
             }
+        } else {
+            specs.push(spec(&folder)?);
         }
     }
+    Ok(specs)
+}
+
+/// `{patch, cut, binary, note}` of one file the list of this compare holds in `area`.
+pub fn file(dir: &Path, compare: &Compare, area: &str, path: &str) -> Result<Value, DiffError> {
+    let plan = plan(dir, compare)?;
+    let (all, _) = list(&plan, Some(path.as_bytes()))?;
+    let entry = all
+        .iter()
+        .find(|e| e.area == area && e.path == path.as_bytes())
+        .ok_or(DiffError::NotListed)?;
+    let Some(part) = plan.parts.iter().find(|p| p.area == entry.area) else {
+        // git names a folder with its own repository by the folder, with a slash
+        if path.ends_with('/') {
+            let note = "a folder with its own git repository: its content is not read";
+            return Ok(patch_answer(b"", false, false, Some(note)));
+        }
+        return untracked(&plan.top, path);
+    };
+    let specs = pathspecs(entry, path, &all)?;
     let mut args: Vec<&str> = DIFF_ARGS.to_vec();
     args.push("--patch");
     args.extend(part.revs.iter().map(String::as_str));
     args.push("--");
     args.extend(specs.iter().map(String::as_str));
-    let out = run(dir, &plan.config, &args, PATCH_MAX_BYTES)?;
+    let out = run(&plan.top, &plan.config, &args, PATCH_MAX_BYTES)?;
     if !out.ok {
         return Err(DiffError::Failed);
     }
@@ -1000,5 +1038,74 @@ mod tests {
         // a whole answer: a listed file with no counts only had its time changed
         let whole = raw("one");
         assert!(entries("unstaged", whole.as_bytes(), false).is_empty());
+    }
+
+    /// Counts the bytes taken from it.
+    struct Counted<'a>(&'a [u8], &'a mut usize);
+
+    impl Read for Counted<'_> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let n = self.0.read(buf)?;
+            *self.1 += n;
+            Ok(n)
+        }
+    }
+
+    #[test]
+    fn only_the_start_of_a_binary_file_is_read_and_text_is_charged_to_the_budget() {
+        let binary = vec![0u8; PATCH_MAX_BYTES];
+        let (mut read, mut budget) = (0, COUNT_BUDGET);
+        let answer = sniff(
+            Counted(&binary, &mut read),
+            binary.len() as u64,
+            &mut budget,
+        );
+        assert_eq!(answer, (true, None));
+        assert_eq!((read, budget), (BINARY_PROBE, COUNT_BUDGET));
+
+        let text = b"line\n".repeat(4000);
+        let (mut read, mut budget) = (0, COUNT_BUDGET);
+        let answer = sniff(Counted(&text, &mut read), text.len() as u64, &mut budget);
+        assert_eq!(answer, (false, Some(4000)));
+        assert_eq!((read, budget), (text.len(), COUNT_BUDGET - text.len()));
+        // too big for what is left: only the start is read
+        let (mut read, mut budget) = (0, 100);
+        let answer = sniff(Counted(&text, &mut read), text.len() as u64, &mut budget);
+        assert_eq!(answer, (false, None));
+        assert_eq!((read, budget), (BINARY_PROBE, 100));
+    }
+
+    fn listed(path: &str, old_path: Option<&str>) -> Entry {
+        Entry {
+            area: "staged",
+            status: "modified",
+            path: path.into(),
+            old_path: old_path.map(Into::into),
+            added: None,
+            removed: None,
+            binary: false,
+            index_id: None,
+        }
+    }
+
+    #[test]
+    fn a_folder_in_a_file_s_place_is_left_out_by_one_pathspec() {
+        let all = [
+            listed("a", None),
+            listed("a/one", None),
+            listed("a/two", None),
+            listed("ab", None),
+        ];
+        assert_eq!(
+            pathspecs(&all[0], "a", &all).unwrap(),
+            [":(literal)a", ":(exclude,literal)a/"]
+        );
+        assert_eq!(pathspecs(&all[3], "ab", &all).unwrap(), [":(literal)ab"]);
+        // a file moved into a folder of its old name: that folder cannot be left out whole
+        let moved = [listed("a/b", Some("a")), listed("a/c", None)];
+        assert_eq!(
+            pathspecs(&moved[0], "a/b", &moved).unwrap(),
+            [":(literal)a/b", ":(literal)a", ":(exclude,literal)a/c"]
+        );
     }
 }

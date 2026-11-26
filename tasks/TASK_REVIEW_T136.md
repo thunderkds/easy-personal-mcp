@@ -48,12 +48,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☑ fail | `rust/crates/core/tests/repo_diff.rs` (17 tests), `rust/crates/app/src/diff_routes.rs` `mod tests` (4 tests). Gaps: AC1 (touched binary, F1; untracked binary mark in the list, F2), AC8 (silent 500-ref cap, F3), FR-140 network (F6). |
-| Verification command run | ☑ pass / ☐ fail | At `d3215f5`, `cd rust && cargo test -p easy-personal-core --test repo_diff && cargo test -p easy-personal-rs diff_routes`: `test result: ok. 17 passed; 0 failed; 0 ignored` and `test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 479 filtered out` |
-| Negative cases hold | ☑ pass / ☐ fail | 19 mutants on a scratch copy of `d3215f5`: 13 red, 6 survived. Non-empty diffs and verdicts are under "Mutation run" below. Survivors with no second layer found: lazy fetch, inherited `GIT_*` (F6). |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☑ fail | At `1cc683b`: `rust/crates/core/tests/repo_diff.rs` (28 tests, 1 of them run as a child process), `rust/crates/core/src/repo_diff.rs` `mod tests` (1 test), `rust/crates/app/src/diff_routes.rs` `mod tests` (4 tests). Gaps: AC6 (no test with a work tree root that is another repo, N1); the 16 MiB read budget has no test (N2). |
+| Verification command run | ☑ pass / ☐ fail | At `1cc683b`, `cd rust && cargo test -p easy-personal-core --test repo_diff && cargo test -p easy-personal-rs diff_routes`: `test result: ok. 27 passed; 0 failed; 1 ignored` and `test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 479 filtered out` |
+| Negative cases hold | ☐ pass / ☑ fail | At `1cc683b` a program named by repo config ran during the uncommitted compare (N1; marker file written, command line `git ... -C <c> ... hash-object -- pic.bin`). 16 single-edit mutants on a scratch copy: 15 red, 1 survived ("count budget never charged"). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | Reviewed: the 15 files of `main...d3215f5` and the callees they use (`server.rs` guard, `api.rs` `Query`, `main_file`, `clean_block`, `open_regular`, `report_files::sys`, workspace repo order). Skipped: web, Python app, ingest, store schema (unchanged). |
-| Full smoke suite still green (no regression) | ☑ pass / ☐ fail | `cargo test --workspace --no-fail-fast`: 100 suites, 1420 passed, 0 failed, 29 ignored. `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0. The first run (fail-fast) stopped on the timing test `memgraph_parity::two_hundred_thousand_links_are_counted_in_time` (code not in this diff); it passed in the full rerun and alone. Web and Python suites not run (no change there). |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `1cc683b`: `main...1cc683b` and `d3215f5..1cc683b`, the callees `clean_block`, `report_files::sys`, `transcript::last_folder`, and what the T137 page sends as a ref. Skipped: web, Python app, ingest, store schema (unchanged in this diff). |
+| Full smoke suite still green (no regression) | ☑ pass / ☐ fail | At `1cc683b`, `cargo test --workspace --no-fail-fast` exit 0: 100 suites, 1431 passed, 0 failed, 30 ignored. `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0. Web and Python suites not run (no change there). |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in this review. |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff (page is T137). |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff. |
@@ -187,6 +187,100 @@ repository). Lane note: the diff is past C2's line guide; the level stays as wri
 High.
 
 ---
+
+## Stage 4 review, second run (2026-11-26, fresh-context reviewer, commit `1cc683b`)
+
+**Verdict: fail.** One P0 (N1), new in this commit: the added `git hash-object` call can start a program named by a repo's config. AC6 and FR-140 are not met. The earlier findings are closed except for the remainders noted below. The Evidence rows above now describe `1cc683b`; the rows for `d3215f5` are summed up in the first review section. No source or test file changed.
+
+Probes ran the real `repo_diff` functions (release build from `git archive 1cc683b` and `git archive d3215f5`, git 2.53.0) on scratch repos under the session temp folder.
+
+### Acceptance criteria
+
+| AC | Result | Basis |
+|----|--------|-------|
+| 1 | met | tests, mutants, probes (touched binary, 60,000 files) |
+| 2 | met | tests |
+| 3 | met for refusal; edges N3, N4 | tests, probes |
+| 4 | met; ref name edge N5 | tests |
+| 5 | met in the tested cases | route tests |
+| 6 | **not met** | N1 |
+| 7 | met | tests |
+| 8 | met (what is answered is cut and says so); the read budget does not hold, N2 | tests, probe |
+
+### P0
+| ID | File:line | Finding and failure scenario | Confirmed by | Conf. | Action |
+|----|-----------|------------------------------|--------------|-------|--------|
+| N1 | `rust/crates/core/src/repo_diff.rs:715`, with `:498-499` | `hash-object` runs in `plan.top`, but the filter overrides are read in `dir` and the diff runs in `dir`. When `core.worktree` makes `toplevel(dir)` a folder that is its own repo, `hash-object` reads that other repo's config and attributes, and its clean filter is not overridden: it runs. Layout: repo `a` has `core.worktree=b`; repo `b` has `core.worktree=c` and tracks `pic.bin`; repo `c` defines `filter.evil.clean` and marks `pic.bin filter=evil`. The route takes `toplevel(a)` = `b`, then the plan takes `toplevel(b)` = `c`. Opening the uncommitted compare (list or file) runs the program as the owner. Plain `git status` in `a` runs nothing. The three `.git/config` files cannot come from `git clone`; a copied or unpacked folder can hold them. `d3215f5` runs nothing on the same layout. | Probe through `toplevel`, `worktrees`, `files` in the order `picked()` calls them (HTTP route not driven): marker written, parent command `git --no-pager -C .../chain/c ... hash-object -- pic.bin`; marker absent with the `d3215f5` build and with plain `git status` in `a`. | 100 | Add `--no-filters` to the `hash-object` arguments (checked with git on the same layout: no program ran). Also read the filters and make every call in one folder, or refuse when `toplevel(top)` is not `top`. Add this layout as a test that fails first. |
+
+### P1
+None.
+
+### P2
+| ID | File:line | Finding and failure scenario | Confirmed by | Conf. | Action |
+|----|-----------|------------------------------|--------------|-------|--------|
+| N2 | `repo_diff.rs:863-880` | The 16 MiB budget is not a bound. A binary untracked file of at most 1 MiB is read whole and returns before `*budget -= data.len()`. With up to 2,000 listed files one list reads about 2 GiB. FR-139 and `COUNT_BUDGET` say 16 MiB. No test holds the budget. | Probe: 600 untracked 1 MiB binary files, one list, `rchar: 629197271`. Mutant "budget never charged" survived. | 100 | Read the first 8,000 bytes, return if binary, then read the rest; test the budget. |
+
+### P3
+| ID | File:line | Finding | Confirmed by | Conf. |
+|----|-----------|---------|--------------|-------|
+| N3 | `repo_diff.rs:957-967` | One exclude pathspec per listed file under the opened name. A staged file replaced by a folder: 15,000 files took 3.4 s; 30,000 and 45,000 answered `TooSlow`, where `d3215f5` answered a cut patch (5.2 s, 7.8 s). When no own path is under the folder, one `:(exclude,literal)<name>/` does the same (checked with git). | probe | 100 |
+| N4 | `repo_diff.rs:963` | A file name that is not UTF-8 under that folder refuses the opened file with "that file is not in this compare; refresh the list"; `d3215f5` answered its patch. The fix for N3 covers it. | probe | 100 |
+| N5 | `repo_diff.rs:425-430` | Remainder of F10: with no `base` the full ref is used, but `/api/diff/repo` answers the short `base` (`main`), and a client that sends it back, or a branch name from `branches`, gets the tag of that name. The T137 page builds full refs, but sends the short name when the base is not among the listed refs (past the 500 cut). The README does not tell a client to send full refs. | probe (`main..HEAD` gave the tag's commit); T137 `ChangesView.jsx:181-187` read | 100 |
+| N6 | `diff_routes.rs:353-357` | Remainder of F14: the new check scans only the two store files (and passes if one cannot be read); no log, MCP or CLI answer is checked. Code reading found no write or log path. | code | 100 |
+| N7 | `repo_diff.rs:710-728` | The 10 s limit is per `hash-object` call of 500 paths, with no limit for the whole request, and every one-file open hashes all stat-changed binaries again. | code only | 75 |
+
+### Earlier findings at `1cc683b`
+
+| ID | State | Checked by |
+|----|-------|------------|
+| F1 | closed (the fix brings N1) | probe, test, mutants |
+| F2 | closed (the fix brings N2) | tests, mutant |
+| F3 | closed | test, mutants |
+| F4 | closed | unit test, mutants; 60,000 files gave `total=60000` |
+| F5 | closed | test, mutant |
+| F6 | closed: both guards now have a test that fails without them | mutants |
+| F7 | closed: 60,000 changed files listed in 1.5 s | probe |
+| F8 | closed for the case found (side effects N3, N4) | test, mutant |
+| F9 | closed | test, mutant |
+| F10 | closed for the default; remainder N5 | test, probe |
+| F11 | closed | test, mutant |
+| F12 | closed | test, mutant |
+| F13 | closed; its line "A repo's config cannot start a program" is untrue until N1 is fixed | read |
+| F14 | partly closed (N6) | read |
+
+### Security review
+
+| Lead | Verdict | Evidence |
+|------|---------|----------|
+| Repo content or config starts a program (N1) | confirmed, Medium (code runs as the owner; needs a crafted folder and the owner opening it) | probe above |
+| Extra `hash-object` call writes or fetches | rejected | no `-w`; `GIT_NO_LAZY_FETCH` set by `run`; code read. A `process` filter in the same repo did not run on a touched binary (probe) |
+| Exclude pathspecs inject pathspec magic or options | rejected | after `--`, `:(exclude,literal)` prefix |
+| Cut-list parse panics or lists half a name | rejected | unit test, two mutants |
+| Untracked reads follow a link or block on a FIFO | rejected | same safe open as before, regular files only; existing test |
+| Backwards transcript read answers an older folder | rejected | each window is the file's end; test and mutant |
+
+### Process checks
+- Entry point `/api/diff/` found in `diff_routes.rs`.
+- `lane: C2, 15 files, 2689 lines, EXCEEDS (files 15 > 14; lines 2689 > 500); unpredicted: BRAINSTORMING_LOG_GITDIFF.md, PRD.md, PROJECT_SPEC.md, docs/ddr/0010-git-diff-view-show-never-store.md, rust/README.md, rust/crates/app/src/api.rs, rust/crates/app/src/main.rs, rust/crates/app/src/transcript_route.rs, rust/crates/core/src/lib.rs, rust/crates/core/src/transcript.rs, rust/crates/core/src/workspaces.rs, tasks/TASK_GUIDE_T136.md`
+- `PRD.md` FR-139 gained caps in this commit (untracked counts, the 16 MiB transcript reach) after the first review.
+- No second agent re-checked N1; it rests on the probe. No fix applied (review only).
+- Not checked: N1 through the HTTP route; a layout delivered by `git clone` (embedded bare repos); N1 through a picked `tree`; older git; non-Linux; web and Python suites; `/verify`; easy-verifier.
+
+---
+
+
+## Supervisor response (2026-11-26, after the review of `1cc683b`)
+
+All fixed in the next commit, tests first.
+
+| # | State | Change |
+|---|-------|--------|
+| N1 | fixed | The plan reads the filters in the root of the work tree and runs every call there (`list`, `hash-object`, patch, untracked reads). `toplevel` answers only a root that is its own root, so a chain such as the reviewer's `a` is refused; `hash-object` also gets `--no-filters`. Probe with the new chain test's layout: the planted filter runs on `1cc683b` and not after the fix. Of the three measures, reading and running in one folder blocks it alone; `--no-filters` alone does not (the diff itself would run the filter) |
+| N2 | fixed | An untracked file is probed first (8,000 bytes); only text that fits is read whole and charged. Unit test counts the bytes read; a list test pins 16 of 18 one-MiB files counted |
+| N3, N4 | fixed | One `:(exclude,literal)<name>/` for the folder. Name by name only when the opened file's own other name is inside that folder |
+| N5 | fixed | `repo` answers `base` as the full ref and `base_shown` short; the README says to send full refs. The page (T137) already takes a full `base` as it is |
+| N6 | fixed | The route test scans every file under its temp folder except the two work trees, and requires the store to be among them |
+| N7 | fixed | One deadline for all `hash-object` calls of a list; opening a file hashes that file only |
 
 ## Demonstration
 
