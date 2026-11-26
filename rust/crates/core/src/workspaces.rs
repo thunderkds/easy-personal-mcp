@@ -76,6 +76,20 @@ struct Project {
     abstained: BTreeSet<String>,
 }
 
+/// The stored repo path at place `repo_no` of a workspace's repo list (never the orphan's).
+pub fn repo_at(
+    conn: &Connection,
+    workspace: &str,
+    repo_no: usize,
+) -> rusqlite::Result<Option<String>> {
+    let mut find = conn.prepare(
+        "SELECT r.repo_path FROM workspace_repos r JOIN workspaces w ON w.id = r.workspace_id \
+         WHERE w.name = ?1 AND w.name <> ?2 ORDER BY r.repo_path LIMIT 1 OFFSET ?3",
+    )?;
+    let mut rows = find.query(rusqlite::params![workspace, ORPHAN, repo_no as i64])?;
+    rows.next()?.map(|row| row.get(0)).transpose()
+}
+
 /// `{"repos": [...]}`: real projects with stored usage that no workspace repo equals or lies above, newest use first
 /// (`(last_used_utc, path)` descending). Each is `{path, name, sessions, api_equivalent_cost, last_used_utc}` over all
 /// stored time; `api_equivalent_cost` is `{usd, abstained_models, price_table_date}`, `usd` rounded to six places and

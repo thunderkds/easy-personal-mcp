@@ -14,6 +14,7 @@ mod claude_cli;
 mod cli_cmds;
 mod connector_cmd;
 mod connector_writes;
+mod diff_routes;
 #[cfg(any(feature = "window", test))]
 mod display;
 mod doctor_cmd;

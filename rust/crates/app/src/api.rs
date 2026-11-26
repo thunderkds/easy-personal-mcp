@@ -1,7 +1,7 @@
 //! The dashboard API's routes: the read routes `/api/usage/summary`, `/api/usage/breakdown`, `/api/usage/sessions`,
 //! `/api/usage/outliers`, `/api/warnings`, `/api/plan`, `/api/workspaces`, `/api/workspaces/unassigned`, `/api/connectors`, `/api/kit`,
 //! `/api/kit/workspaces`, `/api/kit/reports`, `/api/kit/workflow` (T108), `/api/kit/report-files`, `/api/kit/report-file` (T045), `/api/reports`, `/api/reports/{id}`,
-//! `/api/board` and `/api/memory-graph` (T043), `/api/effectiveness` (T075: `since`, `until`, `workspace`, `account`), `/api/store/health` (T059, below), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
+//! `/api/board` and `/api/memory-graph` (T043), `/api/diff/*` (T136, `diff_routes.rs`), `/api/effectiveness` (T075: `since`, `until`, `workspace`, `account`), `/api/store/health` (T059, below), `/api/first-run`, `/api/accounts`, `/api/sync`, `/api/dirs` and `/api/jobs` (T040: an id that is not
 //! plain digits, or has no report, is a 404 `no such report`; a saved report whose snapshot cannot be read is a fixed 500),
 //! and the seven store-only write routes of T048, which `writes.rs` serves. T050 adds the connector writes
 //! (`connector_writes.rs`: `POST /api/connectors`, `DELETE /api/connectors/{id}`, `POST /api/connectors/{id}/move`,
@@ -221,6 +221,7 @@ impl Api {
 pub fn routes() -> Router<Api> {
     Router::new()
         .merge(session_names::routes()) // T117: PUT /api/sessions/{id}/name
+        .merge(crate::diff_routes::routes()) // T136: GET /api/diff/* (FR-139)
         .route("/api/sessions/past", get(sessions_past)) // T117
         .route(LIVE_PATH, get(live))
         .route(
@@ -934,7 +935,7 @@ fn rules_failure(error: RulesError) -> Failure {
 pub(crate) struct Query(Vec<(String, String)>);
 
 impl Query {
-    fn parse(raw: &str) -> Self {
+    pub(crate) fn parse(raw: &str) -> Self {
         Query(
             raw.split('&')
                 .filter(|pair| !pair.is_empty())
@@ -946,7 +947,7 @@ impl Query {
         )
     }
 
-    fn get(&self, key: &str) -> Option<&str> {
+    pub(crate) fn get(&self, key: &str) -> Option<&str> {
         self.0
             .iter()
             .rev()

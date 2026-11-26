@@ -51,7 +51,7 @@ fn window(query: &str) -> Option<Window> {
     }
 }
 
-fn answer(status: StatusCode, body: &serde_json::Value) -> Response {
+pub(crate) fn answer(status: StatusCode, body: &serde_json::Value) -> Response {
     (
         status,
         [
@@ -113,7 +113,11 @@ fn agent_param(query: &str) -> Result<Option<&str>, ()> {
 
 /// The main file of the session: the one the live tail read, else the store's (a past session, root-checked).
 /// `Err`: the one line of the 404.
-fn main_file(api: &Api, id: &str, from_tail: Option<String>) -> Result<PathBuf, &'static str> {
+pub(crate) fn main_file(
+    api: &Api,
+    id: &str,
+    from_tail: Option<String>,
+) -> Result<PathBuf, &'static str> {
     let (path, trusted) = match from_tail {
         Some(path) => (path, true), // the file the live tail itself read
         None => past(api, id).ok_or(UNKNOWN)?,
