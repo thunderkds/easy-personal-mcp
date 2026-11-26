@@ -576,7 +576,7 @@ function OwnStream(props) {
   return <Live state={state} link={link} reconnect={reconnect} {...props} />
 }
 
-function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessions = false, wantedApp = null, onWantedAppUsed, onResumeInApp, onOpenSettings, target = null, onTargetUsed, onOpenAppSession }) {
+function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessions = false, wantedApp = null, onWantedAppUsed, onResumeInApp, onOpenSettings, target = null, onTargetUsed, onOpenAppSession, onOpenChanges }) {
   const [now, setNow] = useState(Date.now())
   const [openId, setOpenId] = useState(null) // the panel's key: a live session id, or `app:<id>` for an app session; not kept across a reload
   const openRef = useRef(null)
@@ -913,6 +913,7 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
                 onClosed={onClosed}
                 onEnd={endPrompt}
                 onResume={appSessions && apps !== null ? onResumeInApp : undefined}
+                onOpenChanges={appSessions && apps !== null ? onOpenChanges : undefined}
                 onOpenSettings={onOpenSettings}
                 onRenamed={onRenamed}
                 onBack={closePanel}

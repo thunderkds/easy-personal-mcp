@@ -378,12 +378,13 @@ export const folderName = (folder) => String(folder ?? '').split('/').filter(Boo
 /**
  * `s`: the live session (an app session with no live row yet is built from its own view, `s.appOnly`). `app`: that app session's view, else null.
  * `now`: the clock the times are worked out against. `fallback`: drawn when the conversation cannot be read. `lead`: drawn above the conversation.
+ * `onOpenChanges({session, title})` (T137, FR-141): the Changes view of the session's folder.
  * `onChange(view)` and `onClosed(id)` take an app session's answers; `onEnd` is the terminal prompt's; `onResume({id, project, account, fork})`.
  * `onRenamed(id, name)`: the server's answer to a rename (the owner's name, or null when it was removed).
  * `onBack` closes the panel (Esc and the Back button); the row takes the focus back. `autoFocus`: move the focus to the heading when the panel opens.
  * `gone` (T121, FR-072): the session left the live list; the panel stays with what it last had, says so, and drops its controls and composer.
  */
-export default function SessionPanel({ s, app, now, notice, fallback, lead, onChange, onClosed, onEnd, onResume, onOpenSettings, onRenamed, onBack, autoFocus = false, gone = false }) {
+export default function SessionPanel({ s, app, now, notice, fallback, lead, onChange, onClosed, onEnd, onResume, onOpenChanges, onOpenSettings, onRenamed, onBack, autoFocus = false, gone = false }) {
   const heading = useRef(null)
   useEffect(() => {
     if (autoFocus) heading.current?.focus()
@@ -488,6 +489,11 @@ export default function SessionPanel({ s, app, now, notice, fallback, lead, onCh
         {!app && id && onResume && (
           <button type="button" onClick={() => onResume({ id, project: s.project, account: s.account, fork })}>
             {fork ? 'Fork in app' : 'Resume in app'}
+          </button>
+        )}
+        {id && onOpenChanges && !gone && (
+          <button type="button" onClick={() => onOpenChanges({ session: id, title })}>
+            Changes
           </button>
         )}
       </div>

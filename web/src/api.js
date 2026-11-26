@@ -14,6 +14,14 @@ export async function getJson(path) {
   return response.json()
 }
 
+/** Guarded GET of a diff route (FR-139). A non-2xx answer throws with the server's one `error` line. */
+export async function getDiff(path) {
+  const response = await fetch(path, { headers: { 'X-Dashboard-Token': readToken() } })
+  const data = await response.json().catch(() => null)
+  if (!response.ok || data === null) throw failure(data?.error || `/api/diff failed with status ${response.status}`, response.status)
+  return data
+}
+
 /** Guarded GET of a file's bytes (FR-090): the token goes in the header only. Returns {bytes, type}; a non-2xx answer throws. */
 export async function getBytes(path) {
   const response = await fetch(path, { headers: { 'X-Dashboard-Token': readToken() } })

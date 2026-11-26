@@ -75,6 +75,26 @@ describe('header (AC 2)', () => {
   })
 })
 
+/** `server` as the Rust app answers it: the app-sessions list is there. */
+function withApps(server) {
+  const fn = async (url, init) => (url === '/api/app-sessions' ? { ok: true, status: 200, json: async () => ({ sessions: [] }) } : server(url, init))
+  return Object.assign(fn, server)
+}
+
+describe('Changes (T137, FR-141)', () => {
+  it('asks for the session folder\'s changes, named by the panel title', async () => {
+    const onOpenChanges = vi.fn()
+    await open(withApps(liveServer()), { name: 'the owner name' }, { appSessions: true, onOpenChanges })
+    fireEvent.click(await within(panel()).findByRole('button', { name: 'Changes' }))
+    expect(onOpenChanges).toHaveBeenCalledWith({ session: SID, title: 'the owner name' })
+  })
+
+  it('has no button on a server without app sessions', async () => {
+    await open(liveServer(), {}, { onOpenChanges: vi.fn() })
+    expect(within(panel()).queryByRole('button', { name: 'Changes' })).toBeNull()
+  })
+})
+
 describe('the conversation (AC 2)', () => {
   it('is read once when the panel opens: the newest page, the token in the header only, nothing but the route in the URL', async () => {
     const server = liveServer({ pages: [page([entryUser('fix the bug'), entryAssistant('on it'), entryReply('also run the tests'), entrySkipped(3)])] })

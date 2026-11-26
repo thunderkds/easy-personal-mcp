@@ -77,6 +77,7 @@
   --color-amber: #e3b66b;
   --color-amber-soft: #e3b66b1f;
   --color-red: #e8968f;
+  --color-red-soft: #e8968f1f;
 
   /* Glow (neon pass): text, box, dot and line; each is a full value of text-shadow / box-shadow / filter */
   --glow-text: 0 0 12px #3cf5a859;
