@@ -366,6 +366,52 @@ was **not** checked in a browser (it needs a running agent session); its tests c
 
 ---
 
+## Review findings (Stage 4, independent reviewer, 2026-11-26, commit `c43c472`)
+
+Recorded by the Supervisor from the reviewer's hand-back: the step-limit hook stopped the reviewer before it wrote this
+file. Condensed wording; the reviewer's ratings are unchanged.
+
+**Verdict: fail** for commit `c43c4724f455130391a5dd4cb1b75b13ca65905e`. 0 P0, 1 P1, 0 P2, 6 P3, no confirmed security
+finding. Must fix before merge: finding 1 only; every P3 can be listed for later.
+
+| # | Sev | Where | Finding | Conf. |
+|---|-----|-------|---------|-------|
+| 1 | P1 | `web/src/appsession.css:218`, `web/src/TermPanel.jsx:245` | New in this commit: the fourth terminal button does not fit. At 375 *Stop* crosses the card's border and *Pop out* breaks into two lines; at 360 the page scrolls sideways; at 320 *Stop* is mostly cut off | 100 |
+| 2 | P3 | `web/src/ChangesView.jsx:39` | Two repositories of one folder name: the closed select shows only the shared start of the path at 375 and 1280, so the picked one cannot be told | 100 |
+| 3 | P3 | `web/src/ChangesView.jsx:63-64`, `:249-255` | Uncommitted, then Commit (slow), then Uncommitted shows the old list with its old "Read at" and no reading mark while a new read runs; "Read at" also shows above "Loading the files" | 100 |
+| 4 | P3 | `web/src/ChangesView.jsx:385`, `:415` | *Refresh* does not read the workspace list again: if its repositories change elsewhere, the same `repo_no` reads another repository under the old label | 100 page probe; server order by code read |
+| 5 | P3 | `web/src/ChangesView.jsx:263` | A work tree vanishes on *Refresh*: after *Back to the default work tree*, keyboard focus is on the page body | 100 (jsdom) |
+| 6 | P3 | T136 `diff_routes.rs:60-63`, `transcript_route.rs:116` | A new session with no transcript the app can find would answer "no such session" to *Changes* | 75, not run against the real server |
+| 7 | P3 | `web/src/ChangesView.test.jsx`, `App.test.jsx` | 15 of 48 single-edit mutants survive; among them: the reading line fed only by the file list (a repository error then reads "Read at Invalid Date"), the older-answer guard removed, the tab's `scoped` flag, the non-JSON 200 guard | 100 |
+
+Earlier findings (review of `bf281fd`): 1, 2, 4, 5, 7, 8 closed; 3 closed but brought finding 1; 6 partly closed (finding
+2); 9 older, unchanged.
+
+Runs: `npx vitest run` 1684 passed in 3 of 3 full runs of a `git archive` copy; `npm run build` exit 0; `pytest
+tests/test_readme.py tests/test_site_content.py` `4 failed, 69 passed` at `d3215f5` and `c43c472`, same four names.
+ux-evaluate (375 and 1280, stub API): 9 pass, 2 fail (B-c and B-h, both finding 1). AC 1 to 5 met on the page with
+stubbed data. Lane check (warn only): C2, 14 files, 1277 lines, exceeds 500.
+
+Evidence rows as the reviewer gave them (not entered in the table below): tests cover the AC pass; verification command
+pass; negative cases pass with gaps (finding 7); blast radius pass; full smoke suite web pass, not fully ticked; companion
+score N/A; visual regression fail and responsiveness fail (finding 1); design system pass.
+
+Limits: the permission system denied the reviewer's command that created synthetic git repositories, so nothing was
+checked against the real server. The merge gate blocked a command containing `git merge-tree`; the reviewer ran its other
+read-only parts without it. The step limit killed its last read-only search and the Demonstration capture. Note for the
+T136 review, from reading code only and not counted: `hidden()` treats a carriage return as hidden, so each line of a
+CRLF file's patch would end in `\u{d}`.
+
+### Supervisor response to the review of `c43c472`
+
+| # | State | Change |
+|---|-------|--------|
+| 1 | fixed in the next commit | The terminal button row wraps, right-aligned. CSS pin test seen failing first; web tests 1685 passed; headless Chrome with the reviewer's stand-in server: all four buttons inside the card with no sideways scroll at 320, 360, 375, 390, 414 and 1280 |
+| 2 | open, for later | My earlier response said only a narrow select cuts the path; that was wrong, it also does at 1280 |
+| 3-7 | open, for later | Not changed |
+
+---
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |

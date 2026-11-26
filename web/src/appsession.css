@@ -215,7 +215,7 @@ main button.filter-clear:disabled { color: var(--color-faint); border-color: var
 .term-meta span + span::before { content: '·'; margin-right: var(--space-2); }
 .term-meta .mono { font-family: var(--font-mono); }
 .term-head .session-state { white-space: nowrap; }
-.term-actions { display: flex; gap: var(--space-2); margin-left: auto; }
+.term-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); margin-left: auto; }
 .term-note { margin: 0; }
 .term-box { box-sizing: border-box; height: max(14rem, calc(100dvh - var(--header-height) - 10.5rem)); min-width: 0; padding: var(--space-2); overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); }
 .term-box:focus-within { border-color: var(--color-accent-line); }

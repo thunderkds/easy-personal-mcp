@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LiveView from './LiveView.jsx'
@@ -52,6 +54,11 @@ describe('Changes of a terminal session (T137, FR-141)', () => {
     const panel = await openTerm({ session_id: 'abcdef12-3456' }, { onOpenChanges })
     fireEvent.click(await panel.findByRole('button', { name: 'Changes' }))
     expect(onOpenChanges).toHaveBeenCalledWith({ session: 'abcdef12-3456', title: 'company · t1' })
+  })
+
+  it('lets the row of buttons wrap, so a narrow panel keeps Stop inside it', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
+    expect(css).toMatch(/\.term-actions \{[^}]*flex-wrap: wrap;[^}]*justify-content: flex-end;/)
   })
 
   it('has no button before the session has its Claude id', async () => {
