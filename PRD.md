@@ -364,29 +364,37 @@ Milestones are internal delivery order inside the single v1 release.
 
 ---
 
-## Owner Policy for easy-brain (proposed)
+## easy-brain in the Dashboard (proposed)
 
-**Status**: proposed by the owner on 2026-11-26 in the Easy Kit project ("let add it as a section in the easy personal also"). It is not grilled and not approved. It gets FR numbers only after the Stage 0 grill.
+**Status**: proposed by the owner on 2026-11-26 in the Easy Kit project ("adding the easy brain to the easy personal as a section for the UI interact"). It is not grilled and not approved. It gets FR numbers only after the Stage 0 grill.
 
-**Why here.** easy-brain-mcp is a planned new sibling plug-in. One brain session answers the questions that Easy Kit supervisors in many repos would ask the owner. What the owner wants is about the owner, not about a repo, so the owner policy lives in easy-personal. easy-brain keeps its own decision log (`decisions.jsonl`). easy-personal keeps the policy only.
+**What easy-brain is.** easy-brain-mcp is a planned new sibling plug-in. One brain session answers, for the owner, the questions that Easy Kit supervisors in many repos would ask the owner. It picks one of the options a supervisor lists, or sends the question to the owner (an *escalation*). easy-brain decides; easy-personal only shows and relays. So "No LLM inside" holds.
 
-**What is stored.** One file, `~/.easy-personal/policy.md`, written in plain words:
+**Where.** A new **Brain** page in the dashboard. The service and its files stay in easy-brain-mcp (`~/.easy-brain/`): the escalation queue and `decisions.jsonl`.
 
-- the owner's defaults for taste and scope questions (for example "smaller scope wins", "no new dependency without me");
-- the never-delegate list (questions easy-brain must always send to the owner);
-- optional headings per repo, for rules that hold in one repo only.
+**What the page shows** (read on demand from easy-brain's files, never by calling easy-brain, as FR-066 reads easy-memory's `report.json`):
 
-**Rules (first version).**
+1. **Waiting escalations**: repo, task, question, the listed options, age. Newest first.
+2. **Recent decisions**: time, repo, question, the pick, its basis (rule, fact, policy line, precedent), and an *overturned* mark.
+3. **Owner policy**: the text of `~/.easy-personal/policy.md` (the owner's defaults, the never-delegate list, optional per-repo rules) and any line easy-brain proposed.
 
-1. Only the owner writes `policy.md`: by hand, or by confirming a proposed line. easy-brain may propose a line after the owner corrects one of its decisions. The line is added only when the owner confirms it. No MCP tool writes the file, as FR-021 already rules for connectors. Reason: a supervisor's text must never become the owner's rule.
-2. One read-only MCP tool, `owner_policy`, returns the file text and its version (a content hash). easy-brain reads it before each decision.
-3. No LLM inside: easy-personal never reads meaning into the policy. easy-brain does that (Out of Scope: "AI judgment" written by the server stays out).
-4. NFR-001 is unchanged: the file is local, and the tool is served on the existing local surfaces only.
-5. It needs an eighth exception to NFR-002, because owner-written text is stored and returned by MCP. It keeps the same guards as FR-076: a size limit and the secret check.
+**What the owner can do on it** (write routes under the NFR-008 guard, each needing `confirmed: true`, as FR-116 rules):
 
-**Not in the first version.** Storing easy-brain decisions or the owner's overturns (they stay in easy-brain's `decisions.jsonl`); a policy edit history; policies per workspace; a dashboard page for the policy or for easy-brain decisions.
+1. **Answer an escalation**: pick one listed option. Free text is not sent.
+2. **Overturn a decision**: pick another listed option and type a reason. easy-brain marks that line in `decisions.jsonl`.
+3. **Edit the policy, and confirm or reject a proposed line.** Only the owner writes `policy.md`. No MCP tool writes it, as FR-021 already rules for connectors.
 
-**Open for the grill.** Where the owner confirms a proposed line: in the dashboard, or in chat with the brain session. The size limit for `policy.md`.
+Answers and overturns go to easy-brain's own local socket (mode 0600, peer uid checked, as FR-114's `answer.sock`). easy-personal never writes easy-brain's files.
+
+**Rules it needs.**
+
+- NFR-001 is unchanged: everything is local.
+- An eighth NFR-002 exception (show, never store, like DDR-0010): question, option and decision text is read on demand and shown on the Brain page only. It is never stored, logged, cached or sent to the tray, a popup, MCP or the CLI.
+- A ninth NFR-002 exception: `policy.md` is owner-written text that is stored, and that easy-brain reads through one read-only MCP tool, `owner_policy` (text plus content hash). It keeps FR-076's guards: a size limit and the secret check.
+
+**Not in the first version.** Turning easy-brain on or off per repo from the page: that switch is a project-scope file (`.claude/brain.json`), and Out of Scope keeps project-scope config with the kernel. Tray or popup alerts for escalations. Charts. A policy edit history. The Python app.
+
+**Open for the grill.** Does easy-brain serve a socket or a loopback HTTP route? The size limit of `policy.md`. Is the Brain page its own page or a tab in the `// kit` group?
 
 Design source: the "Super brain design proposal" doc in the Easy Kit project (2026-11-26).
 
