@@ -48,12 +48,12 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass / ☐ fail | At `50870c3`: `rust/crates/core/tests/repo_diff.rs` (30 tests, 1 of them run as a child process), `rust/crates/core/src/repo_diff.rs` `mod tests` (3 tests), `rust/crates/app/src/diff_routes.rs` `mod tests` (4 tests). Every criterion has a test. Gaps: no test holds that the patch call runs in the work tree root (R1); no test swaps a folder and a submodule (R2). |
-| Verification command run | ☑ pass / ☐ fail | At `50870c3`, `cd rust && cargo test -p easy-personal-core --test repo_diff && cargo test -p easy-personal-rs diff_routes`: `test result: ok. 29 passed; 0 failed; 1 ignored` and `test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 479 filtered out` |
-| Negative cases hold | ☑ pass / ☐ fail | At `50870c3`, 22 hostile scratch layouts through the core functions under `strace`, plus the real binary's HTTP routes under `strace`: no program but `git` was executed, no planted marker, no `AF_INET` connect, no file content or inode changed. One timestamp change: `.git/sharedindex.*` of a split-index repo (R4). 18 single-edit mutants: 12 red, 6 survived (third review, Mutation run). |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass / ☐ fail | At `fe687a2`: `rust/crates/core/tests/repo_diff.rs` (33 tests, 1 of them run as a child process), `rust/crates/core/src/repo_diff.rs` `mod tests` (3 tests), `rust/crates/app/src/diff_routes.rs` `mod tests` (4 tests). New in this commit: submodule swap, Windows line endings, order file, and a patch added to the moved-work-tree chain test. Gaps: V4. |
+| Verification command run | ☑ pass / ☐ fail | At `fe687a2`, in `rust/`: `cargo test -p easy-personal-core --test repo_diff`: `test result: ok. 32 passed; 0 failed; 1 ignored`; `cargo test -p easy-personal-core --lib repo_diff`: `test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 101 filtered out`; `cargo test -p easy-personal-rs diff_routes`: `test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 479 filtered out` |
+| Negative cases hold | ☑ pass / ☐ fail | At `fe687a2`, probes through the core under `ulimit -v 1500000`: `diff.orderFile` = `/dev/zero` and `/proc/self/mem` answered list, overview and patch in about 17 ms; a folder of 40,000 files swapped with a submodule answered `TooSlow` after 10.6 s (V2). 9 single-edit mutants on a scratch copy: 5 of the 5 that undo a chosen fix or its rule are red (order file, submodule branch, patch folder, strip with mixed endings, unended line); 4 survived (V4; one equivalent). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `50870c3`: `d3215f5~1...50870c3`, close reading of `1cc683b..50870c3`, and how the T137 page (`9c59b3e`) takes `base` and `tree`. Skipped: web, Python app, ingest, store schema (unchanged in this diff). |
-| Full smoke suite still green (no regression) | ☑ pass / ☐ fail | At `50870c3`, `cargo test -p easy-personal-core -p easy-personal-rs --no-fail-fast` under load average 13 to 29: exit 101, 100 suites, 1429 passed, 6 failed, 30 ignored. The 6 are timing-bound, in 3 files this diff does not change; each file run alone: `live_parity` 15 passed; `answer_bridge` 18 passed; `memgraph_parity` 26 passed, 1 failed at load 23, then 27 passed twice at load 1.4. `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0. Web and Python suites not run (no change there). |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `fe687a2`: `50870c3..fe687a2` only (`repo_diff.rs`, its tests, FR-139, FR-140, `PROJECT_SPEC.md`, DDR-0010, `rust/README.md`) and the callees `clean_block`, `entries`, `list`, `untracked`. Findings left for later were not re-examined. |
+| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | Not run at `fe687a2` (this review was limited to the tests that cover the change). Also run: `cargo clippy -p easy-personal-core --all-targets -- -D warnings` finished with no warning; `cargo fmt --all -- --check` exit 0. The last wider run is the `50870c3` row kept at the end of the fourth-run section. |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in this review. |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff (page is T137). |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff. |
@@ -386,6 +386,46 @@ Single edits of `repo_diff.rs` on a scratch copy, then `--lib repo_diff` and `--
 > | Negative cases hold | ☐ pass / ☑ fail | At `1cc683b` a program named by repo config ran during the uncommitted compare (N1; marker file written, command line `git ... -C <c> ... hash-object -- pic.bin`). 16 single-edit mutants on a scratch copy: 15 red, 1 survived ("count budget never charged"). |
 > | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `1cc683b`: `main...1cc683b` and `d3215f5..1cc683b`, the callees `clean_block`, `report_files::sys`, `transcript::last_folder`, and what the T137 page sends as a ref. Skipped: web, Python app, ingest, store schema (unchanged in this diff). |
 > | Full smoke suite still green (no regression) | ☑ pass / ☐ fail | At `1cc683b`, `cargo test --workspace --no-fail-fast` exit 0: 100 suites, 1431 passed, 0 failed, 30 ignored. `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0. Web and Python suites not run (no change there). |
+
+## Stage 4 review, fourth run (2026-11-26, fresh-context reviewer, commit `fe687a2e219755be98ff16c0a75bc2bad504b00b`)
+
+**Verdict: pass** for commit `fe687a2e219755be98ff16c0a75bc2bad504b00b`. No P0, no P1, no P2. Four P3. Scope: only `50870c3..fe687a2`, the owner's four chosen fixes and the split-index exception. No source or test file changed.
+
+The Evidence rows above now describe `fe687a2`; the rows for `50870c3` are kept word for word at the end of this section. The `verify` row is untouched. The full smoke row is left unticked: it was not run here.
+
+### The four chosen findings
+
+| Item | State | Checked by |
+|------|-------|------------|
+| Carriage return drawn on Windows-line-ending patches | closed for tracked patches (including cut ones and a conflict) and for untracked files up to 1 MiB, also when cut at 5,000 lines; remainder V1 | test, probes, 2 mutants red |
+| R2, folder swapped with a same-named submodule | closed: staged both ways and commit compare show `Subproject commit`; 2,000 / 8,000 / 20,000 files answered in 0.06 / 0.5 / 3.1 s; remainder V2 | test, probe, mutant red |
+| S1, repo `diff.orderFile` | closed: the pin is in `run`, the module's only `git` call | test, `/dev/zero` probe, mutant red |
+| R1, untested rule on the patch's folder | closed for the tracked patch; the two untracked reads are still untested (V4) | mutants |
+
+### Findings (P3)
+| ID | File:line | Finding and failure scenario | Confirmed by | Conf. | New against `50870c3`? |
+|----|-----------|------------------------------|--------------|-------|------------------------|
+| V1 | `rust/crates/core/src/repo_diff.rs` `untracked` with `without_windows_ends` | An untracked all-CRLF file over 1 MiB still draws `\u{d}` on every line: the half line at the byte cut gets a `\n` and no marker, so it counts as a different ending. FR-139 and the README say the return is not shown here. Cosmetic. | probe: 60,000-line file, 4,999 returns drawn | 100 | no (all were drawn) |
+| V2 | `repo_diff.rs` `pathspecs` | A submodule entry names every file of the swapped folder: 40,000 files answer "git took too long" after 10.6 s. By code, a non-UTF-8 name among them answers "that file is not in this compare". Both are bounded by the 10 s kill and the argument limit. | probe (size); code read (name) | 100 | no worse: it opened empty (R2) |
+| V3 | `repo_diff.rs` `without_windows_ends` | A CRLF file that ends in a lone `\r` and then gains `\n` shows `-x\u{d}`, "No newline", `+x`: it reads as a removed return, but the return stayed and a line feed was added. The change itself is still marked. Contrived file. | probe | 100 | yes (`+x\u{d}` was drawn) |
+| V4 | `rust/crates/core/tests/repo_diff.rs` | Mutants survive: untracked patch read in the asked folder, untracked count read in the asked folder (rest of R1), and no `in_hunk` reset at the next `diff ` section (a CRLF file turned into a symlink). The fourth survivor (headers counted as hunk lines) is equivalent. | mutants | 100 | partly known (R1) |
+
+### What the change could break
+- **Program, write, network:** none opened. The change adds one `-c` pin to `/dev/null`, changes which exclude pathspecs one `git diff` gets (all `:(exclude,literal)`), and edits text already read. No new git call.
+- **Resources:** the line-ending pass is linear over at most about 1 MiB. The longer pathspec list is bounded as in V2; memory was not measured beyond the 1.5 GB cap holding.
+- **Hidden change:** no change was found that the rule makes disappear. A change of ending between LF and CRLF is drawn in both directions (test). A line with no ending keeps its "No newline" marker. In a one-line file with no ending, gaining CRLF looks the same as gaining LF, which fits the written rule (V3 is the one misleading case).
+- **Texts:** FR-139, FR-140, `PROJECT_SPEC.md`, DDR-0010 and the README match the code except V1. The split-index wording matches the third run's `strace` result (not run again). The pin also ignores the owner's own global `diff.orderFile`; the texts say only that a repo's is not read.
+
+Not checked: the full suite, web, Python, HTTP routes by hand, git other than 2.53.0, `/verify`.
+
+### Evidence rows at `50870c3` (replaced above, kept as written)
+
+
+> | **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass / ☐ fail | At `50870c3`: `rust/crates/core/tests/repo_diff.rs` (30 tests, 1 of them run as a child process), `rust/crates/core/src/repo_diff.rs` `mod tests` (3 tests), `rust/crates/app/src/diff_routes.rs` `mod tests` (4 tests). Every criterion has a test. Gaps: no test holds that the patch call runs in the work tree root (R1); no test swaps a folder and a submodule (R2). |
+> | Verification command run | ☑ pass / ☐ fail | At `50870c3`, `cd rust && cargo test -p easy-personal-core --test repo_diff && cargo test -p easy-personal-rs diff_routes`: `test result: ok. 29 passed; 0 failed; 1 ignored` and `test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 479 filtered out` |
+> | Negative cases hold | ☑ pass / ☐ fail | At `50870c3`, 22 hostile scratch layouts through the core functions under `strace`, plus the real binary's HTTP routes under `strace`: no program but `git` was executed, no planted marker, no `AF_INET` connect, no file content or inode changed. One timestamp change: `.git/sharedindex.*` of a split-index repo (R4). 18 single-edit mutants: 12 red, 6 survived (third review, Mutation run). |
+> | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `50870c3`: `d3215f5~1...50870c3`, close reading of `1cc683b..50870c3`, and how the T137 page (`9c59b3e`) takes `base` and `tree`. Skipped: web, Python app, ingest, store schema (unchanged in this diff). |
+> | Full smoke suite still green (no regression) | ☑ pass / ☐ fail | At `50870c3`, `cargo test -p easy-personal-core -p easy-personal-rs --no-fail-fast` under load average 13 to 29: exit 101, 100 suites, 1429 passed, 6 failed, 30 ignored. The 6 are timing-bound, in 3 files this diff does not change; each file run alone: `live_parity` 15 passed; `answer_bridge` 18 passed; `memgraph_parity` 26 passed, 1 failed at load 23, then 27 passed twice at load 1.4. `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0. Web and Python suites not run (no change there). |
 
 ## Demonstration
 
