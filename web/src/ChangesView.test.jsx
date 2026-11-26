@@ -191,7 +191,74 @@ describe('Changes view', () => {
     await fileButton('notes.txt')
     compare('Branch')
     expect(screen.getByRole('combobox', { name: 'Base' })).toHaveDisplayValue('origin/ev\\u{202e}il')
-    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe(odd))
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe(`refs/remotes/${odd}`))
+  })
+
+  it('takes a remote default base as the remote one, even beside a local branch of that name', async () => {
+    const branches = [
+      { name: 'origin/trunk', shown: 'origin/trunk', kind: 'branch' },
+      { name: 'origin/trunk', shown: 'origin/trunk', kind: 'remote' },
+    ]
+    const fn = stub({ '/api/diff/repo': reply(200, { ...overview, base: 'origin/trunk', branches }) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Branch')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe('refs/remotes/origin/trunk'))
+  })
+
+  it('keeps showing the picked commit when it is no longer listed, never another one', async () => {
+    let amended = false
+    const newer = { id: '3333333ccccccc', subject: 'Add the page again', author: 'Ann', time: 1_790_000_100 }
+    const fn = stub({ '/api/diff/repo': () => (amended ? reply(200, { ...overview, commits: [newer, overview.commits[1]] }) : null) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Commit')
+    choose('Commit', '2222222bbbbbbbb')
+    choose('Commit', '1111111aaaaaaaa')
+    await fileButton('notes.txt')
+    amended = true
+    const read = calls(fn, '/api/diff/files').length
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    await vi.waitFor(() => expect(calls(fn, '/api/diff/files').length).toBeGreaterThan(read))
+    const select = await screen.findByRole('combobox', { name: 'Commit' })
+    expect(select).toHaveDisplayValue('1111111 Add the page — Ann (no longer listed)')
+    expect(select).toHaveValue('1111111aaaaaaaa')
+    expect(last(fn, '/api/diff/files').get('head')).toBe('1111111aaaaaaaa')
+    choose('Commit', '3333333ccccccc')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('head')).toBe('3333333ccccccc'))
+    expect(screen.queryByRole('option', { name: /no longer listed/ })).toBeNull()
+  })
+
+  it('names a picked ref that is gone as it was shown when picked', async () => {
+    const odd = 'to\u202epic'
+    const there = { ...overview, branches: [overview.branches[0], { name: odd, shown: 'to\\u{202e}pic', kind: 'branch' }] }
+    let removed = false
+    const fn = stub({ '/api/diff/repo': () => reply(200, removed ? { ...there, branches: [overview.branches[0]] } : there) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Two refs')
+    choose('From', `refs/heads/${odd}`)
+    await fileButton('notes.txt')
+    removed = true
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    await vi.waitFor(() => expect(screen.getByRole('combobox', { name: 'From' })).toHaveDisplayValue('to\\u{202e}pic (no longer listed)'))
+    expect(last(fn, '/api/diff/files').get('base')).toBe(`refs/heads/${odd}`)
+  })
+
+  it('shows no base as picked when the repository has no default one', async () => {
+    const fn = stub({ '/api/diff/repo': reply(200, { ...overview, base: null }) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Branch')
+    expect(screen.getByRole('combobox', { name: 'Base' })).toHaveDisplayValue('Pick a base')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('compare')).toBe('branch'))
+    expect(last(fn, '/api/diff/files').get('base')).toBeNull()
+    compare('Two refs')
+    expect(screen.getByRole('combobox', { name: 'From' })).toHaveDisplayValue('main')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe('refs/heads/main'))
+    compare('Branch')
+    choose('Base', 'refs/tags/v1')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe('refs/tags/v1'))
   })
 
   it('picks the branch of a work tree by its shown name', async () => {
@@ -231,6 +298,46 @@ describe('Changes view', () => {
     expect(calls(fn, '/api/diff/files')).toHaveLength(asked)
   })
 
+  it('says a branch has no commit when the repository has others, and still compares two refs', async () => {
+    const lone = { ...overview, commits: [], branches: [overview.branches[0]], worktrees: [{ ...overview.worktrees[0], branch: 'lone', head: '0'.repeat(40) }] }
+    const fn = stub({ '/api/diff/repo': reply(200, lone) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    const asked = calls(fn, '/api/diff/files').length
+    for (const mode of ['Branch', 'Commit']) {
+      compare(mode)
+      expect(screen.getByText('This branch has no commit yet.')).toBeInTheDocument()
+      expect(screen.queryByText('This repository has no commit yet.')).toBeNull()
+    }
+    expect(calls(fn, '/api/diff/files')).toHaveLength(asked)
+    compare('Two refs')
+    expect(screen.queryByText(/no commit yet/)).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'To' })).toHaveDisplayValue('main')
+    await vi.waitFor(() => expect(Object.fromEntries(last(fn, '/api/diff/files'))).toMatchObject({ compare: 'range', base: 'refs/heads/main', head: 'refs/heads/main' }))
+  })
+
+  it('compares the first branch with itself when a branch has no commit and there is no default base', async () => {
+    const lone = { ...overview, base: null, commits: [], branches: [overview.branches[1]], worktrees: [{ ...overview.worktrees[0], branch: 'lone' }] }
+    const fn = stub({ '/api/diff/repo': reply(200, lone) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Two refs')
+    await vi.waitFor(() => expect(Object.fromEntries(last(fn, '/api/diff/files'))).toMatchObject({ base: 'refs/heads/topic', head: 'refs/heads/topic' }))
+  })
+
+  it('does not take the focus back when the owner moved elsewhere during the read', async () => {
+    let release
+    stub({ '/api/diff/repo': (q) => (q.get('tree') === 'bbbb' ? new Promise((done) => (release = () => done(reply(200, { ...overview, tree: 'bbbb' })))) : null) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    screen.getByRole('combobox', { name: 'Work tree' }).focus()
+    choose('Work tree', 'bbbb')
+    screen.getByRole('button', { name: 'Refresh' }).focus()
+    release()
+    await fileButton('notes.txt')
+    expect(screen.getByRole('button', { name: 'Refresh' })).toHaveFocus()
+  })
+
   it('keeps the focus on the work tree select while the other work tree is read', async () => {
     stub()
     render(<ChangesView />)
@@ -255,6 +362,25 @@ describe('Changes view', () => {
     await fileButton('notes.txt')
     expect(last(fn, '/api/diff/repo').get('tree')).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('drops the picked refs on the way back to the default work tree', async () => {
+    let removed = false
+    const fn = stub({ '/api/diff/repo': (q) => (removed && q.get('tree') === 'bbbb' ? reply(404, { error: 'no such work tree' }) : null) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    choose('Work tree', 'bbbb')
+    await fileButton('notes.txt')
+    compare('Two refs')
+    choose('To', 'refs/tags/v1')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('head')).toBe('refs/tags/v1'))
+    removed = true
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to the default work tree' }))
+    await fileButton('notes.txt')
+    expect(screen.getByRole('combobox', { name: 'To' })).toHaveDisplayValue('main')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('tree')).toBe('aaaa'))
+    expect(last(fn, '/api/diff/files').get('head')).toBe('refs/heads/main')
   })
 
   it('reads everything again on Refresh and keeps the open file', async () => {
@@ -337,7 +463,11 @@ describe('Changes view', () => {
     stub({ '/api/diff/files': reply(200, { ...listing, files: [row('unstaged', 'modified', 'bad�name', 1, 1, { openable: false })], total: 1 }) })
     render(<ChangesView />)
     expect(await fileButton('bad')).toBeDisabled()
-    expect(await fileButton('bad')).toHaveTextContent('cannot open: the name is not text')
+    const button = await fileButton('bad')
+    expect(within(button).getByText('cannot open: the name is not text')).toHaveClass('diff-note')
+    expect(button.querySelector('.diff-count')).toBeNull()
+    const css = readFileSync(resolve(process.cwd(), 'src/changes.css'), 'utf8')
+    expect(css).toMatch(/\.diff-note \{[^}]*grid-column: 1 \/ -1;[^}]*grid-row: 3;/) // beside the status it was drawn over it
   })
 })
 

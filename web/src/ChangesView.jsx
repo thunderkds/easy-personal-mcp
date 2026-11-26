@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getDiff, getJson } from './api.js'
 import { fmt } from './format.js'
 import Loading from './Loading.jsx'
@@ -25,6 +25,7 @@ const REF_GROUPS = [
   ['tag', 'Tags', 'refs/tags/'],
 ]
 const SESSION = 'session'
+const NO_BASE = { value: '', label: 'Pick a base' }
 
 /** The workspace repos the owner can pick, as `{key, query, label}`; `repo_no` is the repo's place in the workspace's list. */
 function repoChoices(workspaces, scope) {
@@ -122,54 +123,93 @@ function FileButton({ file, pressed, onOpen }) {
         {file.status}
       </span>
       <span className="diff-path">{file.shown_old ? `${file.shown_old} → ${file.shown}` : file.shown}</span>
-      <span className="diff-count">{!file.openable ? 'cannot open: the name is not text' : file.binary ? 'binary' : file.added === null ? '' : `+${fmt(file.added)} −${fmt(file.removed)}`}</span>
+      {file.openable ? (
+        <span className="diff-count">{file.binary ? 'binary' : file.added === null ? '' : `+${fmt(file.added)} −${fmt(file.removed)}`}</span>
+      ) : (
+        <span className="diff-note">cannot open: the name is not text</span>
+      )}
     </button>
   )
 }
 
-function RefSelect({ label, value, base, branches, commits, onChange }) {
-  // A value outside both lists (a default base the repository no longer has) is offered as itself: a select never shows another ref.
-  const listed = commits.some((c) => c.id === value) || REF_GROUPS.some(([kind, , prefix]) => branches.some((b) => b.kind === kind && prefix + b.name === value))
+/**
+ * A select over `choice` (`{value, label}`). A value that left the lists (a picked commit amended away, a default base
+ * the repository no longer has) is offered as itself, under its label: a select never shows another ref than the one read.
+ */
+function Picker({ label, choice, listed, onPick, children }) {
+  const pick = (e) => onPick({ value: e.target.value, label: `${e.target.selectedOptions[0].text} (no longer listed)` })
   return (
     <label className="field">
       {label}
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {!listed && <option value={value}>{value === base?.name ? base.shown : value}</option>}
-        {REF_GROUPS.map(([kind, title, prefix]) => {
-          const found = branches.filter((b) => b.kind === kind)
-          return found.length === 0 ? null : (
-            <optgroup key={kind} label={title}>
-              {found.map((b) => (
-                <option key={b.name} value={prefix + b.name}>
-                  {b.shown}
-                </option>
-              ))}
-            </optgroup>
-          )
-        })}
-        {commits.length > 0 && (
-          <optgroup label="Commits">
-            {commits.map((c) => (
-              <option key={c.id} value={c.id}>
-                {commitLabel(c)}
-              </option>
-            ))}
-          </optgroup>
-        )}
+      <select value={choice.value} onChange={pick}>
+        {!listed && <option value={choice.value}>{choice.label}</option>}
+        {children}
       </select>
     </label>
   )
 }
 
+function RefSelect({ label, choice, branches, commits, onPick }) {
+  const listed = commits.some((c) => c.id === choice.value) || REF_GROUPS.some(([kind, , prefix]) => branches.some((b) => b.kind === kind && prefix + b.name === choice.value))
+  return (
+    <Picker label={label} choice={choice} listed={listed} onPick={onPick}>
+      {REF_GROUPS.map(([kind, title, prefix]) => {
+        const found = branches.filter((b) => b.kind === kind)
+        return found.length === 0 ? null : (
+          <optgroup key={kind} label={title}>
+            {found.map((b) => (
+              <option key={b.name} value={prefix + b.name}>
+                {b.shown}
+              </option>
+            ))}
+          </optgroup>
+        )
+      })}
+      {commits.length > 0 && (
+        <optgroup label="Commits">
+          {commits.map((c) => (
+            <option key={c.id} value={c.id}>
+              {commitLabel(c)}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </Picker>
+  )
+}
+
 const commitLabel = (c) => `${c.id.slice(0, 7)} ${c.subject}`
+const authored = (c) => `${commitLabel(c)} — ${c.author}`
+
+/**
+ * What the refs of a compare are until the owner picks others, each `{value, label}` or null. Refs go by their full name,
+ * so a branch or tag of the same short name cannot take their place.
+ */
+function defaultRefs({ branches, commits, base: name, base_shown: shown, worktrees, tree }) {
+  // The server's default base is a local `main` or `master`, else the remote's default branch.
+  const prefix = name === 'main' || name === 'master' ? 'refs/heads/' : 'refs/remotes/'
+  const base = name ? { value: name.startsWith('refs/') ? name : prefix + name, label: shown ?? name } : null
+  const commit = commits[0] ? { value: commits[0].id, label: authored(commits[0]) } : null
+  const here = worktrees.find((w) => w.id === tree)
+  let head = commit && { value: commit.value, label: commitLabel(commits[0]) }
+  if (commits.length === 0) {
+    // This branch has no commit to name: start from one that has.
+    const first = branches[0]
+    head = base ?? (first ? { value: REF_GROUPS.find(([kind]) => kind === first.kind)[2] + first.name, label: first.shown } : null)
+  } else if (here?.branch) {
+    const mine = branches.find((b) => b.kind === 'branch' && b.shown === here.branch) // a work tree names its branch as it is shown
+    head = { value: `refs/heads/${mine?.name ?? here.branch}`, label: here.branch }
+  }
+  return { base, head, commit }
+}
 
 /** One repository: its work tree, compare mode, file list and the open file's patch. `source` is `{key, query}`. */
 function Repo({ source, round }) {
   const [tree, setTree] = useState(null)
   const [mode, setMode] = useState('uncommitted')
-  const [picked, setPicked] = useState({}) // the refs the owner chose: {base, head, commit}
+  const [picked, setPicked] = useState({}) // the refs the owner chose: {base, head, commit}, each {value, label}
   const [open, setOpen] = useState(null) // {list, area, path}: the open file belongs to one list
-  const [moved, setMoved] = useState(false) // the owner picked a work tree: its select takes the focus back after the read
+  const moved = useRef(false) // the owner picked a work tree: its select takes the focus back after the read
   const at = { ...source.query, ...(tree ? { tree } : {}) }
   const repo = useDiff(url('repo', at), round)
 
@@ -177,27 +217,19 @@ function Repo({ source, round }) {
   let overview = null
   if (repo.status === 'ready') {
     overview = repo.body
-    const { branches, commits, base, worktrees } = overview
-    // The full ref of a branch name the server gave, local before remote.
-    const full = (name) => {
-      const found = REF_GROUPS.find(([kind]) => branches.some((b) => b.kind === kind && b.name === name))
-      return found ? found[2] + name : name
-    }
-    const here = worktrees.find((w) => w.id === overview.tree)
-    const fallback = base ? full(base) : ''
-    const mine = branches.find((b) => b.kind === 'branch' && b.shown === here?.branch) // a work tree names its branch as it is shown
-    const values = {
-      base: picked.base ?? fallback,
-      head: picked.head ?? (here?.branch ? full(mine?.name ?? here.branch) : (commits[0]?.id ?? '')),
-      commit: picked.commit ?? commits[0]?.id ?? '',
-    }
-    // With no commit there is nothing to compare but the uncommitted files; two refs need any ref at all.
+    const { branches, commits } = overview
+    const defaults = defaultRefs(overview)
+    const head = picked.head ?? defaults.head
+    const base = picked.base ?? defaults.base
+    const from = base ?? head // two refs with no base start as one ref against itself
+    const commit = picked.commit ?? defaults.commit
+    // With no commit here there is nothing to compare but the uncommitted files; two refs need any ref at all.
     const unborn = commits.length === 0 && (mode !== 'range' || branches.length === 0)
     if (mode === 'uncommitted') refs = {}
-    if (mode === 'branch' && !unborn) refs = values.base ? { base: values.base } : {}
-    if (mode === 'commit' && values.commit) refs = { head: values.commit }
-    if (mode === 'range' && !unborn && values.head) refs = { base: values.base || values.head, head: values.head }
-    overview = { ...overview, unborn: mode !== 'uncommitted' && unborn, values: { ...values, base: values.base || values.head } }
+    if (mode === 'branch' && !unborn) refs = base ? { base: base.value } : {}
+    if (mode === 'commit' && !unborn && commit) refs = { head: commit.value }
+    if (mode === 'range' && !unborn && head) refs = { base: from.value, head: head.value }
+    overview = { ...overview, unborn: mode !== 'uncommitted' && unborn, chosen: { base, from, head, commit } }
   }
   // The list and the patch name the work tree the overview answered for: a session that moves cannot answer from another one.
   const query = refs === null ? null : { ...at, ...(overview.tree ? { tree: overview.tree } : {}), compare: mode, ...refs }
@@ -226,9 +258,14 @@ function Repo({ source, round }) {
     )
   }
   if (!overview) return <Loading label="Loading the repository" />
-  const { worktrees, branches, commits, values, unborn } = overview
-  const pick = (key) => (value) => setPicked((p) => ({ ...p, [key]: value }))
-  const base = overview.base ? { name: overview.base, shown: overview.base_shown ?? overview.base } : null
+  const { worktrees, branches, commits, chosen, unborn } = overview
+  const pick = (key) => (choice) => setPicked((p) => ({ ...p, [key]: choice }))
+  // Runs when the select appears: the focus returns only if the read left it nowhere.
+  const refocus = (select) => {
+    if (!select || !moved.current) return
+    moved.current = false
+    if (document.activeElement === document.body) select.focus()
+  }
   return (
     <>
       <div className="picks">
@@ -236,10 +273,10 @@ function Repo({ source, round }) {
           <label className="field">
             Work tree
             <select
-              autoFocus={moved}
+              ref={refocus}
               value={tree ?? overview.tree ?? ''}
               onChange={(e) => {
-                setMoved(true)
+                moved.current = true
                 toTree(e.target.value)
               }}
             >
@@ -260,31 +297,28 @@ function Repo({ source, round }) {
         </div>
       </div>
       {overview.truncated && <p className="muted">Some branches, tags or work trees are not listed: this repository has too many.</p>}
-      {unborn && <p className="muted">This repository has no commit yet.</p>}
+      {unborn && <p className="muted">{`This ${branches.length === 0 ? 'repository' : 'branch'} has no commit yet.`}</p>}
       {mode === 'branch' && !unborn && (
         <div className="picks">
-          <RefSelect label="Base" value={values.base} base={base} branches={branches} commits={commits} onChange={pick('base')} />
+          <RefSelect label="Base" choice={chosen.base ?? NO_BASE} branches={branches} commits={commits} onPick={pick('base')} />
           <p className="muted">Committed changes only, from where this branch left the base. Uncommitted work is under Uncommitted.</p>
         </div>
       )}
-      {mode === 'commit' && !unborn && (
+      {mode === 'commit' && !unborn && chosen.commit && (
         <div className="picks">
-          <label className="field">
-            Commit
-            <select value={values.commit} onChange={(e) => pick('commit')(e.target.value)}>
-              {commits.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {`${commitLabel(c)} — ${c.author}`}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Picker label="Commit" choice={chosen.commit} listed={commits.some((c) => c.id === chosen.commit.value)} onPick={pick('commit')}>
+            {commits.map((c) => (
+              <option key={c.id} value={c.id}>
+                {authored(c)}
+              </option>
+            ))}
+          </Picker>
         </div>
       )}
-      {mode === 'range' && !unborn && (
+      {mode === 'range' && !unborn && chosen.head && (
         <div className="picks">
-          <RefSelect label="From" value={values.base} base={base} branches={branches} commits={commits} onChange={pick('base')} />
-          <RefSelect label="To" value={values.head} base={base} branches={branches} commits={commits} onChange={pick('head')} />
+          <RefSelect label="From" choice={chosen.from} branches={branches} commits={commits} onPick={pick('base')} />
+          <RefSelect label="To" choice={chosen.head} branches={branches} commits={commits} onPick={pick('head')} />
         </div>
       )}
       {list.status === 'loading' && <Loading label="Loading the files" />}
