@@ -364,6 +364,34 @@ Milestones are internal delivery order inside the single v1 release.
 
 ---
 
+## Owner Policy for easy-brain (proposed)
+
+**Status**: proposed by the owner on 2026-11-26 in the Easy Kit project ("let add it as a section in the easy personal also"). It is not grilled and not approved. It gets FR numbers only after the Stage 0 grill.
+
+**Why here.** easy-brain-mcp is a planned new sibling plug-in. One brain session answers the questions that Easy Kit supervisors in many repos would ask the owner. What the owner wants is about the owner, not about a repo, so the owner policy lives in easy-personal. easy-brain keeps its own decision log (`decisions.jsonl`). easy-personal keeps the policy only.
+
+**What is stored.** One file, `~/.easy-personal/policy.md`, written in plain words:
+
+- the owner's defaults for taste and scope questions (for example "smaller scope wins", "no new dependency without me");
+- the never-delegate list (questions easy-brain must always send to the owner);
+- optional headings per repo, for rules that hold in one repo only.
+
+**Rules (first version).**
+
+1. Only the owner writes `policy.md`: by hand, or by confirming a proposed line. easy-brain may propose a line after the owner corrects one of its decisions. The line is added only when the owner confirms it. No MCP tool writes the file, as FR-021 already rules for connectors. Reason: a supervisor's text must never become the owner's rule.
+2. One read-only MCP tool, `owner_policy`, returns the file text and its version (a content hash). easy-brain reads it before each decision.
+3. No LLM inside: easy-personal never reads meaning into the policy. easy-brain does that (Out of Scope: "AI judgment" written by the server stays out).
+4. NFR-001 is unchanged: the file is local, and the tool is served on the existing local surfaces only.
+5. It needs an eighth exception to NFR-002, because owner-written text is stored and returned by MCP. It keeps the same guards as FR-076: a size limit and the secret check.
+
+**Not in the first version.** Storing easy-brain decisions or the owner's overturns (they stay in easy-brain's `decisions.jsonl`); a policy edit history; policies per workspace; a dashboard page for the policy or for easy-brain decisions.
+
+**Open for the grill.** Where the owner confirms a proposed line: in the dashboard, or in chat with the brain session. The size limit for `policy.md`.
+
+Design source: the "Super brain design proposal" doc in the Easy Kit project (2026-11-26).
+
+---
+
 ## Cross-Repo Dependencies
 
 Work that lives in another repo goes on that repo's own board (one project per KANBAN), not this one.
