@@ -546,7 +546,7 @@ No finding: the change is two layout CSS declarations and a test that reads that
 | Negative cases hold | ☑ pass / ☐ fail | At `59d499b`: the new pin fails on the `9c59b3e` CSS and with either declaration removed (1 failed, 21 passed each). Page negative cases carried from `c43c472` (pass with gaps, finding 7 there), not re-run. Earlier: At `9c59b3e`: the new pin fails on the old CSS and with either declaration removed (1 failed, 20 passed each). Page negative cases carried from `c43c472` (pass with gaps, finding 7 there), not re-run. Earlier: At `bf281fd`: 38 single-edit mutants against the three test files (174 tests): 28 killed, 10 survived (findings 4 and 8; M17 is the proposed fix, M36 changes nothing). Probes show findings 1, 2, 3, 6, 7. Earlier: At `7ec73f9`: 23 single-edit mutants against the three test files (166 tests): 20 killed (the 5 earlier survivors and a dropped `tree` among them), 3 survived (finding 7). 7 probe tests passed, each recording what the page does now; they show findings 1, 3, 4, 5, 6 |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `59d499b`: `9c59b3e..59d499b`; `.term-actions` users (`TermPanel.jsx` in the panel, expanded view and own window). Earlier: At `9c59b3e`: `c43c472..9c59b3e`; `.term-actions` users (`TermPanel.jsx` in the panel, expanded view and own window, `TermWindow.jsx`). Earlier: At `bf281fd`: the changed files; `api.js`, `useLoad.js`, `Loading.jsx`, the panel wiring in `LiveView.jsx`; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views. Earlier: At `7ec73f9`: the changed files; helpers `api.js`, `useLoad.js`, `Loading.jsx`, `app.css` rules used; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | Not ticked. At `59d499b` the web suite passed (1686 tests); Rust and Python not run (this commit changes no such file). Earlier: Not ticked. At `9c59b3e` the web suite passed (1685 tests); Rust and Python not run (no such file in this change). Earlier: Not ticked. At `bf281fd` the web suite passed 3 of 3 full runs (1674 tests). Python: only `tests/test_readme.py` and `tests/test_site_content.py`, `4 failed, 69 passed`, the same four at `d3215f5`. Rust suite not run (no Rust file changed). Earlier: Not ticked: the web suite passed 7 of 8 full runs (1666 tests), one run had 1 unidentified failure. Rust suite not run (no Rust file changed). Python: only `tests/test_readme.py`, 1 failure that is the same at `d3215f5` |
+| Full smoke suite still green (no regression) | ☑ pass / ☐ fail | Supervisor, at `dbb5f04` (code of `59d499b`): `npx vitest run` 1686 passed (sixth review). `uv run pytest -q`, 2026-11-26T16:18:59Z: 1853 passed, 5 failed, 1 xfailed; the same 5 fail on the untouched base `2a491e5` (`git archive` copy: `test_kit_local_edits` stage 4, `test_readme` status, three `test_site_content`). Rust files unchanged by this task. Reviewer note kept: Not ticked. At `59d499b` the web suite passed (1686 tests); Rust and Python not run (this commit changes no such file). Earlier: Not ticked. At `9c59b3e` the web suite passed (1685 tests); Rust and Python not run (no such file in this change). Earlier: Not ticked. At `bf281fd` the web suite passed 3 of 3 full runs (1674 tests). Python: only `tests/test_readme.py` and `tests/test_site_content.py`, `4 failed, 69 passed`, the same four at `d3215f5`. Rust suite not run (no Rust file changed). Earlier: Not ticked: the web suite passed 7 of 8 full runs (1666 tests), one run had 1 unidentified failure. Rust suite not run (no Rust file changed). Python: only `tests/test_readme.py`, 1 failure that is the same at `d3215f5` |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in the review of `59d499b`. Earlier: Not run in the review of `9c59b3e`. Earlier: Not run in the review of `bf281fd`. |
 | **UI: Visual regression (diff or verdict pasted)** | ☑ pass / ☐ fail / ☐ N/A | `59d499b`: ux-evaluate on the terminal panel 9 pass, 0 fail; stand-in server. Earlier: `9c59b3e`: ux-evaluate on the terminal panel 8 pass, 1 fail (B-h, finding 1: arrow keys below the window on open at 360 to 414); stand-in server. Earlier: `bf281fd`: ux-evaluate 10 pass, 1 fail (B-g, finding 2); stub data. Earlier: `7ec73f9`: ux-evaluate 10 pass, 1 fail (B-c, finding 2); stub data |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass / ☐ fail / ☐ N/A | `59d499b`: the added declarations use `--space-1` and `--space-2`. Earlier: `9c59b3e`: the CSS change sets layout only. Earlier: `bf281fd`: the one added CSS rule `.diff-note` uses tokens only; the file's token-only test passes. Earlier: `7ec73f9`: the added CSS rules set layout only; the file's token-only test passes |
@@ -570,9 +570,18 @@ d3215f5
 grep exit=1
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same command, after the change):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ date -u +%FT%TZ; git rev-parse --short HEAD; git grep -c ChangesView HEAD -- web/src; echo "grep exit=$?"
+2026-11-26T16:22:23Z
+dbb5f04
+HEAD:web/src/App.jsx:2
+HEAD:web/src/ChangesView.jsx:1
+HEAD:web/src/ChangesView.test.jsx:41
+grep exit=0
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: A user can now open a *Changes* tab, or a *Changes* button on a Live session, pick what to compare, and read each changed file's patch in the dashboard.
+
+**WITNESS**: fresh-context reviewer `aa8bdd8fdfa375ae2`, `ReviewerDone` for `59d499bf03c9fe37bd71a994534df05164c4f63f` at 2026-11-26T15:36:43Z (`memory/event-trace/T137.jsonl`), after the full review of `c43c472`; this capture by the Supervisor at 2026-11-26T16:22:23Z.
