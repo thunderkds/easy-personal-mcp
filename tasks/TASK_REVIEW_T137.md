@@ -463,6 +463,14 @@ No finding: the change is one layout CSS declaration pair and a test that reads 
 
 Reviewer's slip: the first copy failed on `Disk quota exceeded`, and a second attempt failed on a bad path, after which `npx vitest run` started in the **main checkout** by mistake and made `node_modules/` (cache files only, born during that run). The reviewer removed that folder; `git status` there then listed 48 entries, the count at the start.
 
+### Supervisor response to the review of `9c59b3e`
+
+The owner chose this fix (2026-11-26) over removing the terminal button or leaving the finding open.
+
+| # | State | Change |
+|---|-------|--------|
+| 1 | fixed in the next commit | Below 40rem the terminal buttons have a smaller gap and side padding. Pin test seen failing first; web tests 1686 passed; headless Chrome with the reviewer's stand-in server against the `d3215f5` build: one button row from 360 to 1280 and the keys' bottom edge equal to `d3215f5` at 360x740, 375x667, 375x812, 390x844, 414x896, 639x800 and 1280x800; buttons 53px wide or more; at 320x568 two rows inside the card (the keys did not fit at `d3215f5` either: 699/568, now 747/568) |
+
 ---
 
 ## Evidence

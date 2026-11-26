@@ -231,6 +231,8 @@ main button.filter-clear:disabled { color: var(--color-faint); border-color: var
   .term-panel { padding: var(--space-3); scroll-margin-top: 7.75rem; }
   .term-box { height: max(14rem, calc(100dvh - 25rem)); padding: var(--space-1); }
   .term-panel .prompt-cut button, .term-actions button { min-height: 44px; }
+  .term-actions { gap: var(--space-1); } /* four buttons on one line from 360 px, so the keys stay in view */
+  .term-actions button { padding-inline: var(--space-2); }
 }
 /* A terminal open in Live takes the whole width (T135): the list hides and Back shows at every width, and the right rail steps aside while it is
    open (it comes back with Back); Chat keeps the split and the rail. */

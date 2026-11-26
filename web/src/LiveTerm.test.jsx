@@ -61,6 +61,13 @@ describe('Changes of a terminal session (T137, FR-141)', () => {
     expect(css).toMatch(/\.term-actions \{[^}]*flex-wrap: wrap;[^}]*justify-content: flex-end;/)
   })
 
+  it('tightens the row on a narrow screen, so it stays one line and the arrow keys stay in view', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/appsession.css'), 'utf8')
+    const narrow = css.match(/@media \(max-width: 39\.999rem\) \{ \/\* the top bar wraps[\s\S]*?\n\}/)[0]
+    expect(narrow).toMatch(/\.term-actions \{ gap: var\(--space-1\); \}/)
+    expect(narrow).toMatch(/\.term-actions button \{ padding-inline: var\(--space-2\); \}/)
+  })
+
   it('has no button before the session has its Claude id', async () => {
     const panel = await openTerm({ session_id: null }, { onOpenChanges: vi.fn() })
     expect(panel.queryByRole('button', { name: 'Changes' })).toBeNull()
