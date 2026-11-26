@@ -1,5 +1,6 @@
 /* The Changes view (T137, FR-141): the file list beside the patch from 64rem, above it below that. */
 .changes .picks { align-items: flex-end; }
+.changes .field { min-width: 0; max-width: 100%; } /* without it a select grows to its longest option and the page scrolls sideways */
 .changes .field select { max-width: min(32rem, 100%); }
 .changes .diff-refresh { min-height: 44px; }
 .diff-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
@@ -21,6 +22,9 @@
 .diff-line[data-kind='del'] { background: var(--color-red-soft); color: var(--color-red); }
 .diff-line[data-kind='hunk'] { color: var(--color-amber); }
 .diff-line[data-kind='meta'] { color: var(--color-muted); }
+@media (max-width: 39.999rem) {
+  .changes .periods { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+}
 @media (min-width: 64rem) {
   .changes .diff-refresh { min-height: 36px; }
   .diff-body { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); }

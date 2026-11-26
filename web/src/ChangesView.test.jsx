@@ -59,7 +59,8 @@ function stub(answers = {}) {
     const given = answers[path]
     const found = typeof given === 'function' ? given(new URLSearchParams(query)) : given
     if (found) return found
-    return reply(200, { '/api/diff/repo': overview, '/api/diff/files': listing, '/api/diff/file': patch }[path])
+    const repo = { ...overview, tree: new URLSearchParams(query).get('tree') ?? overview.tree } // the server answers with the tree asked for
+    return reply(200, { '/api/diff/repo': repo, '/api/diff/files': listing, '/api/diff/file': patch }[path])
   })
   vi.stubGlobal('fetch', fn)
   return fn
@@ -88,7 +89,7 @@ describe('Changes view', () => {
     expect(await fileButton('src/a b.js')).toHaveTextContent('+3 −1')
     const repos = within(screen.getByRole('combobox', { name: 'Repository' })).getAllByRole('option').map((o) => o.textContent)
     expect(repos).toEqual(['app (acme)', 'site (acme)', 'notes (home)'])
-    expect(Object.fromEntries(last(fn, '/api/diff/files'))).toEqual({ workspace: 'acme', repo_no: '0', compare: 'uncommitted' })
+    expect(Object.fromEntries(last(fn, '/api/diff/files'))).toEqual({ workspace: 'acme', repo_no: '0', tree: 'aaaa', compare: 'uncommitted' })
     expect(fn.mock.calls.at(-1)[1].headers).toHaveProperty('X-Dashboard-Token')
     expect(calls(fn, '/api/diff/file')).toEqual([])
   })
@@ -100,7 +101,7 @@ describe('Changes view', () => {
     fireEvent.click(button)
     expect(button).toHaveAttribute('aria-pressed', 'true')
     const region = await screen.findByRole('region', { name: 'Changes in src/a b.js' })
-    expect(Object.fromEntries(last(fn, '/api/diff/file'))).toEqual({ workspace: 'acme', repo_no: '0', compare: 'uncommitted', area: 'unstaged', path: 'src/a b.js' })
+    expect(Object.fromEntries(last(fn, '/api/diff/file'))).toEqual({ workspace: 'acme', repo_no: '0', tree: 'aaaa', compare: 'uncommitted', area: 'unstaged', path: 'src/a b.js' })
     expect(region).toHaveTextContent('<img src=x onerror=alert(1)>')
     expect(container.querySelector('img')).toBeNull()
     expect(region.querySelector('[data-kind="del"]')).toHaveTextContent('-<img')
@@ -124,7 +125,7 @@ describe('Changes view', () => {
     expect(last(fn, '/api/diff/files').get('tree')).toBe('bbbb')
     choose('Repository', 'acme/1')
     await fileButton('notes.txt')
-    expect(last(fn, '/api/diff/files').get('tree')).toBeNull()
+    expect(last(fn, '/api/diff/repo').get('tree')).toBeNull()
     expect(last(fn, '/api/diff/files').get('repo_no')).toBe('1')
   })
 
@@ -136,6 +137,7 @@ describe('Changes view', () => {
       const q = Object.fromEntries(last(fn, '/api/diff/files'))
       delete q.workspace
       delete q.repo_no
+      delete q.tree
       return q
     }
     compare('Branch')
@@ -149,6 +151,77 @@ describe('Changes view', () => {
     await vi.waitFor(() => expect(asked()).toEqual({ compare: 'range', base: 'refs/heads/main', head: 'refs/heads/main' }))
     choose('To', 'refs/tags/v1')
     await vi.waitFor(() => expect(asked().head).toBe('refs/tags/v1'))
+    choose('From', 'refs/heads/topic')
+    await vi.waitFor(() => expect(asked()).toEqual({ compare: 'range', base: 'refs/heads/topic', head: 'refs/tags/v1' }))
+  })
+
+  it('shows and asks for a remote default base', async () => {
+    const remote = {
+      ...overview,
+      base: 'origin/trunk',
+      worktrees: [{ ...overview.worktrees[0], branch: 'a-feature' }],
+      branches: [
+        { name: 'a-feature', shown: 'a-feature', kind: 'branch' },
+        { name: 'origin/trunk', shown: 'origin/trunk', kind: 'remote' },
+      ],
+    }
+    const fn = stub({ '/api/diff/repo': reply(200, remote) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Branch')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe('refs/remotes/origin/trunk'))
+    expect(screen.getByRole('combobox', { name: 'Base' })).toHaveDisplayValue('origin/trunk')
+    compare('Two refs')
+    expect(screen.getByRole('combobox', { name: 'From' })).toHaveDisplayValue('origin/trunk')
+    expect(screen.getByRole('combobox', { name: 'To' })).toHaveDisplayValue('a-feature')
+  })
+
+  it('shows a default base that is not in the ref list as itself, never as another ref', async () => {
+    stub({ '/api/diff/repo': reply(200, { ...overview, base: 'origin/gone' }) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Branch')
+    expect(screen.getByRole('combobox', { name: 'Base' })).toHaveDisplayValue('origin/gone')
+  })
+
+  it('says there is no commit yet instead of asking for a compare that cannot work', async () => {
+    const empty = { ...overview, base: null, branches: [], commits: [], worktrees: [{ ...overview.worktrees[0], head: null }] }
+    const fn = stub({ '/api/diff/repo': reply(200, empty) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    const asked = calls(fn, '/api/diff/files').length
+    for (const mode of ['Branch', 'Commit', 'Two refs']) {
+      compare(mode)
+      expect(screen.getByText('This repository has no commit yet.')).toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: /Base|From|To|^Commit/ })).toBeNull()
+    }
+    expect(calls(fn, '/api/diff/files')).toHaveLength(asked)
+  })
+
+  it('keeps the focus on the work tree select while the other work tree is read', async () => {
+    stub()
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    screen.getByRole('combobox', { name: 'Work tree' }).focus()
+    choose('Work tree', 'bbbb')
+    await fileButton('notes.txt')
+    expect(screen.getByRole('combobox', { name: 'Work tree' })).toHaveFocus()
+  })
+
+  it('offers a way back when the picked work tree is gone', async () => {
+    let removed = false
+    const fn = stub({ '/api/diff/repo': (q) => (removed && q.get('tree') === 'bbbb' ? reply(404, { error: 'no such work tree' }) : null) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    choose('Work tree', 'bbbb')
+    await fileButton('notes.txt')
+    removed = true
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('no such work tree')
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the default work tree' }))
+    await fileButton('notes.txt')
+    expect(last(fn, '/api/diff/repo').get('tree')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('reads everything again on Refresh and keeps the open file', async () => {
@@ -167,7 +240,8 @@ describe('Changes view', () => {
     render(<ChangesView changesTarget={{ session: 'abc-123', title: 'fix the page' }} />)
     await fileButton('notes.txt')
     expect(screen.getByRole('combobox', { name: 'Repository' })).toHaveDisplayValue('Session: fix the page')
-    expect(Object.fromEntries(last(fn, '/api/diff/files'))).toEqual({ session: 'abc-123', compare: 'uncommitted' })
+    expect(Object.fromEntries(last(fn, '/api/diff/files'))).toEqual({ session: 'abc-123', tree: 'aaaa', compare: 'uncommitted' })
+    expect(last(fn, '/api/diff/repo').get('tree')).toBeNull()
     choose('Repository', 'home/0')
     await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('workspace')).toBe('home'))
     expect(last(fn, '/api/diff/files').get('session')).toBeNull()
@@ -182,6 +256,25 @@ describe('Changes view', () => {
     render(<ChangesView />)
     fireEvent.click(await fileButton('notes.txt'))
     expect(await screen.findByRole('alert')).toHaveTextContent('refresh the list')
+  })
+
+  it('shows loading, never the last file\'s patch, while another file is read', async () => {
+    let wait = false
+    stub({ '/api/diff/file': () => (wait ? new Promise(() => {}) : null) })
+    render(<ChangesView />)
+    fireEvent.click(await fileButton('notes.txt'))
+    await screen.findByRole('region', { name: 'Changes in notes.txt' })
+    wait = true
+    fireEvent.click(await fileButton('src/a b.js'))
+    expect(screen.getByText('Loading the changes')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /^Changes in/ })).toBeNull()
+    expect(screen.queryByText(/onerror=alert/)).toBeNull()
+  })
+
+  it('says why the files cannot be listed', async () => {
+    stub({ '/api/diff/files': reply(400, { error: 'that ref is not in this repository' }) })
+    render(<ChangesView />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('that ref is not in this repository')
   })
 
   it('says when there is no repository, no change, a cut list, filters off, a binary file and a cut patch', async () => {
@@ -211,6 +304,7 @@ describe('Changes view', () => {
     stub({ '/api/diff/files': reply(200, { ...listing, files: [row('unstaged', 'modified', 'bad�name', 1, 1, { openable: false })], total: 1 }) })
     render(<ChangesView />)
     expect(await fileButton('bad')).toBeDisabled()
+    expect(await fileButton('bad')).toHaveTextContent('cannot open: the name is not text')
   })
 })
 
@@ -234,4 +328,10 @@ it('styles the view with tokens only', () => {
   const css = readFileSync(resolve(process.cwd(), 'src/changes.css'), 'utf8')
   expect(css).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsl\(/i)
   expect(css).not.toMatch(/font-family:(?!\s*var\()/)
+})
+
+it('keeps long ref and folder names inside the page, and the compare buttons in two columns on a phone', () => {
+  const css = readFileSync(resolve(process.cwd(), 'src/changes.css'), 'utf8')
+  expect(css).toMatch(/\.changes \.field \{[^}]*min-width: 0;[^}]*max-width: 100%;/)
+  expect(css).toMatch(/@media \(max-width: 39\.999rem\) \{\s*\.changes \.periods \{[^}]*grid-template-columns: 1fr 1fr;/)
 })

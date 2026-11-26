@@ -89,6 +89,14 @@ describe('Changes (T137, FR-141)', () => {
     expect(onOpenChanges).toHaveBeenCalledWith({ session: SID, title: 'the owner name' })
   })
 
+  it('drops the button once the session leaves the list', async () => {
+    await open(withApps(liveServer()), {}, { appSessions: true, onOpenChanges: vi.fn() })
+    await within(panel()).findByRole('button', { name: 'Changes' })
+    act(() => stream().emit('snapshot', snapshot([])))
+    expect(within(panel()).getByText(/no longer active/)).toBeInTheDocument()
+    expect(within(panel()).queryByRole('button', { name: 'Changes' })).toBeNull()
+  })
+
   it('has no button on a server without app sessions', async () => {
     await open(liveServer(), {}, { onOpenChanges: vi.fn() })
     expect(within(panel()).queryByRole('button', { name: 'Changes' })).toBeNull()
