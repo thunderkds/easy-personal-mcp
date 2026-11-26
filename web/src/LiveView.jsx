@@ -897,7 +897,15 @@ function Live({ state, link, reconnect, wantedId = null, onWantedUsed, appSessio
               {stale && selected.app && <p role="status" className="muted">Cannot reach the app right now. Showing the last answer.</p>}
               {selected.term ? (
                 <Suspense fallback={<Loading label="Loading the terminal" />}>
-                  <TermPanel key={opened} term={selected.term} onBack={closePanel} onChanged={reloadTerms} onPoppedOut={closePanel} autoFocus={focusPanel} />
+                  <TermPanel
+                    key={opened}
+                    term={selected.term}
+                    onBack={closePanel}
+                    onChanged={reloadTerms}
+                    onPoppedOut={closePanel}
+                    onOpenChanges={onOpenChanges}
+                    autoFocus={focusPanel}
+                  />
                 </Suspense>
               ) : (
               <SessionPanel

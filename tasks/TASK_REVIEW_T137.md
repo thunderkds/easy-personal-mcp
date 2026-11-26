@@ -243,20 +243,143 @@ The one unnamed failure in a first full web run was not reproduced: one full run
 
 ---
 
+## Review findings (Stage 4, independent reviewer, 2026-11-26, commit `bf281fd`)
+
+**Verdict: fail** for commit `bf281fd3e8641d7d9ba3dccf45df784654444a21`. 0 P0, 2 P1, 2 P2, 5 P3. No confirmed security finding. No source or test file was changed, so no fix was applied.
+
+Diff `d3215f5...bf281fd`, with close reading of `7ec73f9..bf281fd`. Tests, build, probes and 38 single-edit mutants ran in `git archive` copies in the session scratch folder (`node_modules` copied from the worktree). Chrome checks used the built page against a **stub API** on `127.0.0.1`. **Nothing was checked against the real server**: the Rust app was not built or started. The contract was read from `1cc683b`.
+
+Lane check (warn only): `lane: C2, 12 files, 1122 lines, EXCEEDS (lines 1122 > 500); unpredicted: README.md, tasks/TASK_GUIDE_T137.md, web/src/App.jsx, web/src/App.test.jsx, web/src/ChangesView.test.jsx, web/src/LivePanel.test.jsx, web/src/LiveView.jsx, web/src/SessionPanel.jsx, web/src/api.js, web/src/changes.css, web/src/tokens.css`.
+
+Entry point `ChangesView`: reachable (`web/src/App.jsx:5`, `:33`). `1cc683b` and this task's diff change no common file. Startup-reads check: not applicable (the guide names the Supervisor as implementer; there is no implementer spawn or final report).
+
+### P1
+
+| # | File:line | Finding and failure scenario | How confirmed | Conf. | Action |
+|---|-----------|------------------------------|---------------|-------|--------|
+| 1 | `web/src/ChangesView.jsx:224` | *Two refs* in a repository with no default base: picking **To** also changes **From**. `from = base ?? head` follows the picked To until From is picked. Both start at `trunk`; the owner picks To = `topic`; From jumps to `topic`, the request is `topic..topic` and the page says `No changes.` The trigger is narrow: no local `main` or `master` and no `refs/remotes/origin/HEAD` (also an unborn branch with no default base). The selects do show what is read, and picking From afterwards works. The same expression is in `7ec73f9` (code read); both earlier reviews missed it. | Probe: after picking only To, `base=refs/tags/v1&head=refs/tags/v1`. Chrome 375 and 1280 (`nobase_pickTo-*.png`). Git in a fixture `trunk` repository: all three base lookups of `default_base` fail | 100 | `const from = base ?? defaults.head`. Tried in the copy: From stays, and all 174 tests of the three files pass, so add a test that picks To first. |
+| 2 | `web/src/ChangesView.jsx:49-64`, `:401` | *Refresh* gives no visible feedback. The last answer stays while all three reads run, with no loading mark and no busy button. During a slow read the screen is unchanged, and when nothing changed it stays unchanged for good (an error also stays as it was). The server allows 10 s per git call. Fails ux check B-g; `code-review` rates a ux-evaluate `fail` P1. Both earlier reviews judged B-g on the file pick only. | Chrome, stub reads delayed 6 s: the images before and during Refresh are identical at 375 and 1280 (`refresh_before-*`, `refresh_during-*`; JavaScript click, so no focus ring). Probe: 0 `status` elements during Refresh | 100 | Show that a read is running (loading words or a busy *Refresh*) and keep the last answer. Add a test. |
+
+### P2
+
+| # | File:line | Finding and failure scenario | How confirmed | Conf. | Action |
+|---|-----------|------------------------------|---------------|-------|--------|
+| 3 | `web/src/LiveView.jsx:898-901` (`:916` is the only wiring) | A Live session that runs in the app's Terminal has no *Changes* button: its row opens `TermPanel`, which gets no `onOpenChanges`. FR-141 and AC 4 ask for the button on a Live session's panel. `TermPanel.jsx` is not in the guide's predicted files, so the Supervisor must say whether it is in scope. | Probe: the same live session shows 1 *Changes* button without a terminal entry and 0 with one | 100 that it is absent, 75 that it is required | Add the button to the terminal panel, or record it as a cut that the owner accepts. |
+| 4 | `web/src/ChangesView.jsx:190` | No test has `master` as the default base. Dropping `\|\| name === 'master'` passes all 174 tests; every `master` repository would then ask `refs/remotes/master`, which fails in *Branch* and *Two refs*. | Mutant M03 survived | 100 | One test with `base: 'master'`. |
+
+### P3
+
+| # | File:line | Finding | How confirmed | Conf. |
+|---|-----------|---------|---------------|-------|
+| 5 | `web/src/ChangesView.jsx:140` | `(no longer listed)` is cut off in the closed select when the label is long: after an amend, the Commit select reads `bf281fd T137: second review fixes (gor…` at 375 and 1280, so the mark shows only in the opened list. The commit shown is the one read. | `amended-375.png`, `amended-1280.png` | 100 |
+| 6 | `web/src/ChangesView.jsx:38` | Two repositories with the same folder name in one workspace get the same label (`app (acme)` twice). | Probe | 100 |
+| 7 | `web/src/ChangesView.jsx:277` | When the overview answers `tree: null`, the Work tree select shows the first tree while the files are read from the server's default one. The server does that only if the picked tree is not in its list (more than 100 work trees; code read). | Probe for the page | 75 |
+| 8 | `web/src/ChangesView.test.jsx` | Edits that pass all 174 tests: unborn To ignores the default base (M07); first ref always taken as a local branch (M09); focus flag never cleared (M14); a commit picked in *From*/*To* treated as unlisted (M21); no To for a detached work tree (M22); the word `binary` removed from the file row (M24). | Mutation run | 100 |
+| 9 | `site/index.html:322` (older) | Says 10 dashboard views; `App.jsx` has 14 entries (13 at `d3215f5`). `test_stat_strip_numbers_come_from_real_sources` fails at both commits. This diff adds one view. | Test run at both commits | 100 |
+
+Earlier P3 findings 12 (Python dashboard, accepted as not changed) and 13 stand.
+
+### Acceptance Criteria at `bf281fd`
+
+| AC | State | Evidence |
+|----|-------|----------|
+| 1 | met | Page tests; mutant M28 (orphan repo listed) fails |
+| 2 | **not met in one state** | Four modes ask the picked refs; finding 1 changes a ref the owner did not pick |
+| 3 | met | Areas, status, counts, marked patch, *Refresh* reads again (M26 fails); feedback is finding 2 |
+| 4 | met except the terminal panel | `App.test.jsx`, `LivePanel.test.jsx`; M32, M34, M35 fail; finding 3 |
+| 5 | met | Text only (test); empty, loading, error, cut, binary, filters off seen in Chrome |
+
+### Findings of the review of `7ec73f9`
+
+| # | State | Check by this reviewer |
+|---|-------|------------------------|
+| 1 | closed | Test; M02 and M19 fail; Chrome shows the picked commit after an amend. See finding 5 |
+| 2 | closed | Chrome 375 and 1280: no text boxes of a file row intersect; words on their own row; M31 fails |
+| 3 | closed | Chrome shows `Pick a base`; no `base` sent; M16 fails |
+| 4 | closed | Chrome: `This branch has no commit yet.`; M10, M11 fail |
+| 5 | closed | Test; M12, M13 fail (M14 survives, finding 8) |
+| 6 | closed | M01 fails |
+| 7 | closed | M04, M10, M15 fail |
+
+The response's "each with a test seen failing first" holds: 9 tests of the new test file fail on the `7ec73f9` page and CSS, and the *Back* guard passes there. Its real-server Chrome check at 320 to 1920 was not repeated.
+
+### Runs
+
+- `npm run build`: exit 0, `72 modules transformed` (twice).
+- `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1674 passed (1674)` in 3 of 3 full runs (10:24Z to 10:46Z).
+- Mutants against `ChangesView.test.jsx`, `App.test.jsx`, `LivePanel.test.jsx` (174 tests): 38 run, 28 failed the tests, 10 survived (M03, M05, M07, M09, M14, M17, M21, M22, M24, M36). M17 is the fix proposed for finding 1; M36 changes no behaviour; M05 touches a full-name base that the server of `1cc683b` does not send for local or remote branches.
+- `pytest tests/test_readme.py tests/test_site_content.py`: `4 failed, 69 passed` at `d3215f5` and at `bf281fd`, the same four names.
+
+### ux-evaluate (steps followed from `skills/ux-evaluate/SKILL.md`; stub data)
+
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/59c442dc-75ac-448b-90d3-a8b45e0be458/scratchpad/rbf2.NrUWI4/ui/shots/` (all state images opened as contact sheets in `../sheets/`; the two Refresh pairs were compared pixel by pixel).
+
+| # | Story / check | Width | Verdict | Reason |
+|---|---------------|-------|---------|--------|
+| 1 | US-045 pick a file | 375 / 1280 | pass | Grouped by area; green `+` and red `-` lines; page width equals the window |
+| 2 | US-045 two refs | 375 / 1280 | pass | From, To and the file list show |
+| B-a | primary action | 375 / 1280 | pass | View-only screen; pickers and first files in view on the default screen |
+| B-b | hierarchy | 375 / 1280 | pass | Title, pickers, notes, files, patch |
+| B-c | spacing | 375 / 1280 | pass | No overlap; one column of pickers, files and patch aligned |
+| B-d | 44px targets | 375 | pass | Measured in every captured state: no button or select in `main` under 44x44 |
+| B-e | readable text | 375 / 1280 | pass | Body 16px; paths and patch 14px |
+| B-f | states in words | 375 / 1280 | pass | Loading, no changes, list error, no such work tree with button, no repository, no commit, cut list, cut patch, filters off, binary |
+| B-g | feedback | 375 / 1280 | fail | *Refresh* changes nothing on screen while reading (finding 2) |
+| B-h | phone layout | 375 | pass | No sideways page scroll; compare buttons in two columns |
+| B-i | one visual language | 375 / 1280 | pass | Existing accent, buttons, radius |
+
+ux-evaluate: 10 pass, 1 fail, 0 not checked, 0 not checkable. Overall: fail
+
+### security-review pass
+
+No confirmed finding and no `needs_validation` lead. Rejected leads: script from repo content (ref names, subjects, authors, labels and patch lines are React text nodes; no `innerHTML` in `ChangesView.jsx` or `api.js`); content kept (component state only; no storage, cookie or console call; the server answers `no-store`, contract test in `1cc683b`); injection from a picked ref (`URLSearchParams`; the server resolves it after `--end-of-options`). The server routes are T136 and were not re-reviewed.
+
+### Not checked
+
+Real server; widths other than 375 and 1280; real keyboard or screen reader; the Python dashboard; the Rust suite; the Python suite beyond the two files; the easy-verifier score.
+
+### Supervisor response to the review of `bf281fd`
+
+Fixed in the next commit unless the row says otherwise.
+
+| # | State | Change |
+|---|-------|--------|
+| 1 | fixed | With no default base, *From* starts at the default head and picking *To* leaves it. Test |
+| 2 | fixed | A status line says `Reading again…`, then `Read at <time>`: the time of the oldest answer on screen. Also under a repository error. Tests |
+| 3 | fixed | In scope (FR-141, AC 4: the owner chose a *Changes* button on a Live session), so `TermPanel.jsx` joins the files: the button shows once the terminal session has its Claude id. Tests |
+| 4 | fixed | Tests for a `master` and a full-ref default base |
+| 5 | fixed | `(no longer listed)` comes first |
+| 6 | fixed | Repositories with one folder name show their whole paths. A narrow closed select still cuts a long path at its end; the opened list shows it |
+| 7 | fixed | A work tree that is not listed is offered as `This folder (not listed)` |
+| 8 | fixed | Tests for each; see the mutation run below |
+| 9 | not changed | The site's view count and its failing test are older than this task |
+
+Mutation run on a scratch copy (241 tests in five files): the review's mutants that still apply, plus new ones for these
+fixes (M17 turned round, M34 and M37 rewritten for the new text, M01 replaced by the mark-order mutant). All fail the
+tests except M36 (changes no behaviour) and two that showed redundant guards (`!popped` and the app-sessions check on the
+terminal panel); both guards are removed.
+
+After that: web tests 1684 passed, build and `check_static` ok. Headless Chrome against a `serve` built from T136
+`50870c3`: duplicate names, the status line during and after a slowed *Refresh*, *To* leaving *From*, the amended commit's
+mark at 375 and 1280, a `master` base, page width equal to the window, no console problem. The terminal panel's button
+was **not** checked in a browser (it needs a running agent session); its tests cover it.
+
+---
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☑ fail | At `7ec73f9`: `web/src/ChangesView.test.jsx`, `web/src/App.test.jsx`, `web/src/LivePanel.test.jsx`. Earlier gaps closed. Still open: no test for *Refresh* in *Commit* mode with the picked commit gone (AC 2, 3; finding 1), and the AC 5 test for an unopenable file checks text only, not that it can be read (finding 2) |
-| Verification command run | ☑ pass / ☐ fail | `git archive` copy of `7ec73f9`, 2026-11-26T10:15:41Z to 10:16:09Z: `npm run build` exit 0 (`72 modules transformed`, `built in 241ms`), then `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1666 passed (1666)`. One earlier full run had 1 failure (see *Test runs*) |
-| Negative cases hold | ☐ pass / ☑ fail | At `7ec73f9`: 23 single-edit mutants against the three test files (166 tests): 20 killed (the 5 earlier survivors and a dropped `tree` among them), 3 survived (finding 7). 7 probe tests passed, each recording what the page does now; they show findings 1, 3, 4, 5, 6 |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☑ fail | At `bf281fd`: `web/src/ChangesView.test.jsx`, `web/src/App.test.jsx`, `web/src/LivePanel.test.jsx`. Open: no test picks To first with no default base (AC 2, finding 1); none for a `master` default base (finding 4); AC 4 has no case for a terminal panel (finding 3). Earlier: At `7ec73f9`: `web/src/ChangesView.test.jsx`, `web/src/App.test.jsx`, `web/src/LivePanel.test.jsx`. Earlier gaps closed. Still open: no test for *Refresh* in *Commit* mode with the picked commit gone (AC 2, 3; finding 1), and the AC 5 test for an unopenable file checks text only, not that it can be read (finding 2) |
+| Verification command run | ☑ pass / ☐ fail | `git archive` copy of `bf281fd`, 2026-11-26T10:24:12Z to 10:25:16Z (build first, then tests): `npm run build` exit 0 (`72 modules transformed`, `built in 2.52s`); `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1674 passed (1674)`. Two more full runs by 10:46:29Z: same counts. Earlier: `git archive` copy of `7ec73f9`, 2026-11-26T10:15:41Z to 10:16:09Z: `npm run build` exit 0 (`72 modules transformed`, `built in 241ms`), then `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1666 passed (1666)`. One earlier full run had 1 failure (see *Test runs*) |
+| Negative cases hold | ☐ pass / ☑ fail | At `bf281fd`: 38 single-edit mutants against the three test files (174 tests): 28 killed, 10 survived (findings 4 and 8; M17 is the proposed fix, M36 changes nothing). Probes show findings 1, 2, 3, 6, 7. Earlier: At `7ec73f9`: 23 single-edit mutants against the three test files (166 tests): 20 killed (the 5 earlier survivors and a dropped `tree` among them), 3 survived (finding 7). 7 probe tests passed, each recording what the page does now; they show findings 1, 3, 4, 5, 6 |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `7ec73f9`: the changed files; helpers `api.js`, `useLoad.js`, `Loading.jsx`, `app.css` rules used; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | Not ticked: the web suite passed 7 of 8 full runs (1666 tests), one run had 1 unidentified failure. Rust suite not run (no Rust file changed). Python: only `tests/test_readme.py`, 1 failure that is the same at `d3215f5` |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in this review |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☑ fail / ☐ N/A | `7ec73f9`: ux-evaluate 10 pass, 1 fail (B-c, finding 2); stub data |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass / ☐ fail / ☐ N/A | `7ec73f9`: the added CSS rules set layout only; the file's token-only test passes |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☑ fail / ☐ N/A | `7ec73f9`: page width fits at 375 and 1280 and phone targets are 44px or more; text overlaps in the unopenable file row at 375 and 1280 (finding 2) |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `bf281fd`: the changed files; `api.js`, `useLoad.js`, `Loading.jsx`, the panel wiring in `LiveView.jsx`; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views. Earlier: At `7ec73f9`: the changed files; helpers `api.js`, `useLoad.js`, `Loading.jsx`, `app.css` rules used; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views |
+| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | Not ticked. At `bf281fd` the web suite passed 3 of 3 full runs (1674 tests). Python: only `tests/test_readme.py` and `tests/test_site_content.py`, `4 failed, 69 passed`, the same four at `d3215f5`. Rust suite not run (no Rust file changed). Earlier: Not ticked: the web suite passed 7 of 8 full runs (1666 tests), one run had 1 unidentified failure. Rust suite not run (no Rust file changed). Python: only `tests/test_readme.py`, 1 failure that is the same at `d3215f5` |
+| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in the review of `bf281fd`. |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☑ fail / ☐ N/A | `bf281fd`: ux-evaluate 10 pass, 1 fail (B-g, finding 2); stub data. Earlier: `7ec73f9`: ux-evaluate 10 pass, 1 fail (B-c, finding 2); stub data |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass / ☐ fail / ☐ N/A | `bf281fd`: the one added CSS rule `.diff-note` uses tokens only; the file's token-only test passes. Earlier: `7ec73f9`: the added CSS rules set layout only; the file's token-only test passes |
+| **UI: Responsiveness at target viewports** | ☑ pass / ☐ fail / ☐ N/A | `bf281fd`: page width equals the window at 375 and 1280 in every captured state; phone targets 44px or more; no overlapping text in file rows. Earlier: `7ec73f9`: page width fits at 375 and 1280 and phone targets are 44px or more; text overlaps in the unopenable file row at 375 and 1280 (finding 2) |
 
 ---
 

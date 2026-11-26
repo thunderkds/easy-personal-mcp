@@ -29,38 +29,39 @@ const NO_BASE = { value: '', label: 'Pick a base' }
 
 /** The workspace repos the owner can pick, as `{key, query, label}`; `repo_no` is the repo's place in the workspace's list. */
 function repoChoices(workspaces, scope) {
-  return workspaces
+  const repos = workspaces
     .filter((w) => !w.is_orphan && (!scope.workspace || w.name === scope.workspace))
-    .flatMap((w) =>
-      w.repos.map((path, n) => ({
-        key: `${w.name}/${n}`,
-        query: { workspace: w.name, repo_no: String(n) },
-        label: `${folderName(path)} (${w.name})`,
-      })),
-    )
+    .flatMap((w) => w.repos.map((path, n) => ({ workspace: w.name, n, path, short: `${folderName(path)} (${w.name})` })))
+  return repos.map(({ workspace, n, path, short }) => ({
+    key: `${workspace}/${n}`,
+    query: { workspace, repo_no: String(n) },
+    // two folders of one name are told apart by their whole paths
+    label: repos.filter((r) => r.short === short).length > 1 ? `${path} (${workspace})` : short,
+  }))
 }
 
 const url = (route, query) => `/api/diff/${route}?${new URLSearchParams(query)}`
 
 /**
  * The answer of `path` (null: ask nothing), read again when it or `round` changes. While the same path is read again the
- * last answer stays on the page; another path's answer is never shown.
+ * last answer stays on the page, marked `busy`; another path's answer is never shown. `at`: when the answer came.
  */
 function useDiff(path, round) {
   const [answer, setAnswer] = useState(null)
   useEffect(() => {
     if (path === null) return undefined
     let current = true
+    const keep = (answer) => current && setAnswer({ path, round, at: Date.now(), ...answer })
     getDiff(path).then(
-      (body) => current && setAnswer({ path, status: 'ready', body }),
-      (error) => current && setAnswer({ path, status: 'error', message: error.message }),
+      (body) => keep({ status: 'ready', body }),
+      (error) => keep({ status: 'error', message: error.message }),
     )
     return () => {
       current = false
     }
   }, [path, round])
   if (path === null) return { status: 'idle' }
-  return answer?.path === path ? answer : { status: 'loading' }
+  return answer?.path === path ? { ...answer, busy: answer.round !== round } : { status: 'loading' }
 }
 
 /** Each line of a patch with its kind: `meta` (file headers), `hunk`, `add`, `del` or `same`. A conflict has two mark columns. */
@@ -137,7 +138,8 @@ function FileButton({ file, pressed, onOpen }) {
  * the repository no longer has) is offered as itself, under its label: a select never shows another ref than the one read.
  */
 function Picker({ label, choice, listed, onPick, children }) {
-  const pick = (e) => onPick({ value: e.target.value, label: `${e.target.selectedOptions[0].text} (no longer listed)` })
+  // The mark comes first: a closed select cuts a long label at its end.
+  const pick = (e) => onPick({ value: e.target.value, label: `(no longer listed) ${e.target.selectedOptions[0].text}` })
   return (
     <label className="field">
       {label}
@@ -221,7 +223,7 @@ function Repo({ source, round }) {
     const defaults = defaultRefs(overview)
     const head = picked.head ?? defaults.head
     const base = picked.base ?? defaults.base
-    const from = base ?? head // two refs with no base start as one ref against itself
+    const from = base ?? defaults.head // two refs with no base start as one ref against itself; picking To leaves it
     const commit = picked.commit ?? defaults.commit
     // With no commit here there is nothing to compare but the uncommitted files; two refs need any ref at all.
     const unborn = commits.length === 0 && (mode !== 'range' || branches.length === 0)
@@ -243,6 +245,14 @@ function Repo({ source, round }) {
     setTree(id)
     setPicked({})
   }
+  // A read that changes nothing is still seen: the line says that it runs, then the time of the oldest answer shown.
+  const answers = [repo, list, one]
+  const readAt = Math.min(...answers.map((a) => a.at ?? Infinity))
+  const read = (
+    <p role="status" className="muted">
+      {answers.some((a) => a.busy) ? 'Reading again…' : `Read at ${new Date(readAt).toLocaleTimeString()}`}
+    </p>
+  )
   if (repo.status === 'error') {
     return (
       <>
@@ -254,12 +264,14 @@ function Repo({ source, round }) {
             Back to the default work tree
           </button>
         )}
+        {read}
       </>
     )
   }
   if (!overview) return <Loading label="Loading the repository" />
   const { worktrees, branches, commits, chosen, unborn } = overview
   const pick = (key) => (choice) => setPicked((p) => ({ ...p, [key]: choice }))
+  const shownTree = tree ?? overview.tree ?? ''
   // Runs when the select appears: the focus returns only if the read left it nowhere.
   const refocus = (select) => {
     if (!select || !moved.current) return
@@ -274,12 +286,13 @@ function Repo({ source, round }) {
             Work tree
             <select
               ref={refocus}
-              value={tree ?? overview.tree ?? ''}
+              value={shownTree}
               onChange={(e) => {
                 moved.current = true
                 toTree(e.target.value)
               }}
             >
+              {!worktrees.some((w) => w.id === shownTree) && <option value={shownTree}>This folder (not listed)</option>}
               {worktrees.map((w) => (
                 <option key={w.id} value={w.id}>
                   {`${w.folder} · ${w.branch ?? 'detached'}`}
@@ -296,6 +309,7 @@ function Repo({ source, round }) {
           ))}
         </div>
       </div>
+      {read}
       {overview.truncated && <p className="muted">Some branches, tags or work trees are not listed: this repository has too many.</p>}
       {unborn && <p className="muted">{`This ${branches.length === 0 ? 'repository' : 'branch'} has no commit yet.`}</p>}
       {mode === 'branch' && !unborn && (

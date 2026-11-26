@@ -38,6 +38,28 @@ const mount = (rows = [], props = {}) => {
   return view
 }
 
+describe('Changes of a terminal session (T137, FR-141)', () => {
+  const openTerm = async (term, props) => {
+    install({ terms: [termSession({ id: 't1', repo: '/work/company', ...term })], sessions: [] })
+    mount([], props)
+    await waitFor(() => expect(rowOf('term:t1')).not.toBeNull())
+    fireEvent.click(rowOf('term:t1'))
+    return within(await screen.findByRole('region', { name: 'Terminal session in company' }))
+  }
+
+  it('asks for the changes of the session folder, named by the panel title', async () => {
+    const onOpenChanges = vi.fn()
+    const panel = await openTerm({ session_id: 'abcdef12-3456' }, { onOpenChanges })
+    fireEvent.click(await panel.findByRole('button', { name: 'Changes' }))
+    expect(onOpenChanges).toHaveBeenCalledWith({ session: 'abcdef12-3456', title: 'company · t1' })
+  })
+
+  it('has no button before the session has its Claude id', async () => {
+    const panel = await openTerm({ session_id: null }, { onOpenChanges: vi.fn() })
+    expect(panel.queryByRole('button', { name: 'Changes' })).toBeNull()
+  })
+})
+
 describe('listing (AC 6)', () => {
   it('lists a terminal session beside the others, with its project and state, from the term list', async () => {
     install({ terms: [termSession({ id: 't1', repo: '/work/company' })], sessions: [appSession({ id: 'a1', session_id: null })] })

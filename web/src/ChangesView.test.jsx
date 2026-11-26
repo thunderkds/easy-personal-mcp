@@ -221,7 +221,7 @@ describe('Changes view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
     await vi.waitFor(() => expect(calls(fn, '/api/diff/files').length).toBeGreaterThan(read))
     const select = await screen.findByRole('combobox', { name: 'Commit' })
-    expect(select).toHaveDisplayValue('1111111 Add the page — Ann (no longer listed)')
+    expect(select).toHaveDisplayValue('(no longer listed) 1111111 Add the page — Ann')
     expect(select).toHaveValue('1111111aaaaaaaa')
     expect(last(fn, '/api/diff/files').get('head')).toBe('1111111aaaaaaaa')
     choose('Commit', '3333333ccccccc')
@@ -241,7 +241,7 @@ describe('Changes view', () => {
     await fileButton('notes.txt')
     removed = true
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
-    await vi.waitFor(() => expect(screen.getByRole('combobox', { name: 'From' })).toHaveDisplayValue('to\\u{202e}pic (no longer listed)'))
+    await vi.waitFor(() => expect(screen.getByRole('combobox', { name: 'From' })).toHaveDisplayValue('(no longer listed) to\\u{202e}pic'))
     expect(last(fn, '/api/diff/files').get('base')).toBe(`refs/heads/${odd}`)
   })
 
@@ -259,6 +259,66 @@ describe('Changes view', () => {
     compare('Branch')
     choose('Base', 'refs/tags/v1')
     await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe('refs/tags/v1'))
+  })
+
+  it('keeps From where it is when To is picked first and there is no default base', async () => {
+    const fn = stub({ '/api/diff/repo': reply(200, { ...overview, base: null }) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Two refs')
+    choose('To', 'refs/heads/topic')
+    await vi.waitFor(() => expect(Object.fromEntries(last(fn, '/api/diff/files'))).toMatchObject({ base: 'refs/heads/main', head: 'refs/heads/topic' }))
+    expect(screen.getByRole('combobox', { name: 'From' })).toHaveDisplayValue('main')
+  })
+
+  it('takes a master default base as the local branch, and a full default base as it is', async () => {
+    for (const [base, shown] of [['master', 'master'], ['refs/heads/master', 'master'], ['refs/remotes/origin/trunk', 'origin/trunk']]) {
+      const full = base.startsWith('refs/') ? base : `refs/heads/${base}`
+      const branches = [{ name: shown, shown, kind: full.startsWith('refs/heads/') ? 'branch' : 'remote' }]
+      const fn = stub({ '/api/diff/repo': reply(200, { ...overview, base, base_shown: shown, branches }) })
+      render(<ChangesView />)
+      await fileButton('notes.txt')
+      compare('Branch')
+      await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('base')).toBe(full))
+      expect(screen.getByRole('combobox', { name: 'Base' })).toHaveDisplayValue(shown)
+      expect(screen.queryByRole('option', { name: /no longer listed/ })).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('shows a commit picked among two refs under its own label', async () => {
+    stub()
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Two refs')
+    choose('From', '2222222bbbbbbbb')
+    expect(screen.getByRole('combobox', { name: 'From' })).toHaveDisplayValue('2222222 First')
+    expect(screen.queryByRole('option', { name: /no longer listed/ })).toBeNull()
+  })
+
+  it('compares up to the newest commit in a work tree with no branch', async () => {
+    const detached = { ...overview, worktrees: [{ ...overview.worktrees[0], branch: null }] }
+    const fn = stub({ '/api/diff/repo': reply(200, detached) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    compare('Two refs')
+    await vi.waitFor(() => expect(last(fn, '/api/diff/files').get('head')).toBe('1111111aaaaaaaa'))
+    expect(screen.getByRole('combobox', { name: 'To' })).toHaveDisplayValue('1111111 Add the page')
+  })
+
+  it('says a work tree that is not in the list is read, never naming another', async () => {
+    stub({ '/api/diff/repo': reply(200, { ...overview, tree: null }) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    expect(screen.getByRole('combobox', { name: 'Work tree' })).toHaveDisplayValue('This folder (not listed)')
+  })
+
+  it('tells two repositories of one folder name apart', async () => {
+    stub({ workspaces: { workspaces: [{ id: 1, name: 'acme', is_orphan: false, repos: ['/home/me/a/app', '/home/me/b/app', '/home/me/site'] }] } })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    const labels = within(screen.getByRole('combobox', { name: 'Repository' })).getAllByRole('option').map((o) => o.textContent)
+    expect(labels).toEqual(['/home/me/a/app (acme)', '/home/me/b/app (acme)', 'site (acme)'])
   })
 
   it('picks the branch of a work tree by its shown name', async () => {
@@ -299,7 +359,8 @@ describe('Changes view', () => {
   })
 
   it('says a branch has no commit when the repository has others, and still compares two refs', async () => {
-    const lone = { ...overview, commits: [], branches: [overview.branches[0]], worktrees: [{ ...overview.worktrees[0], branch: 'lone', head: '0'.repeat(40) }] }
+    const branches = [overview.branches[1], overview.branches[0]] // the default base is not the first ref
+    const lone = { ...overview, commits: [], branches, worktrees: [{ ...overview.worktrees[0], branch: 'lone', head: '0'.repeat(40) }] }
     const fn = stub({ '/api/diff/repo': reply(200, lone) })
     render(<ChangesView />)
     await fileButton('notes.txt')
@@ -316,13 +377,13 @@ describe('Changes view', () => {
     await vi.waitFor(() => expect(Object.fromEntries(last(fn, '/api/diff/files'))).toMatchObject({ compare: 'range', base: 'refs/heads/main', head: 'refs/heads/main' }))
   })
 
-  it('compares the first branch with itself when a branch has no commit and there is no default base', async () => {
-    const lone = { ...overview, base: null, commits: [], branches: [overview.branches[1]], worktrees: [{ ...overview.worktrees[0], branch: 'lone' }] }
+  it('compares the first ref with itself when a branch has no commit and there is no default base', async () => {
+    const lone = { ...overview, base: null, commits: [], branches: [overview.branches[2]], worktrees: [{ ...overview.worktrees[0], branch: 'lone' }] }
     const fn = stub({ '/api/diff/repo': reply(200, lone) })
     render(<ChangesView />)
     await fileButton('notes.txt')
     compare('Two refs')
-    await vi.waitFor(() => expect(Object.fromEntries(last(fn, '/api/diff/files'))).toMatchObject({ base: 'refs/heads/topic', head: 'refs/heads/topic' }))
+    await vi.waitFor(() => expect(Object.fromEntries(last(fn, '/api/diff/files'))).toMatchObject({ base: 'refs/tags/v1', head: 'refs/tags/v1' }))
   })
 
   it('does not take the focus back when the owner moved elsewhere during the read', async () => {
@@ -346,6 +407,10 @@ describe('Changes view', () => {
     choose('Work tree', 'bbbb')
     await fileButton('notes.txt')
     expect(screen.getByRole('combobox', { name: 'Work tree' })).toHaveFocus()
+    screen.getByRole('combobox', { name: 'Work tree' }).blur()
+    compare('Commit') // any later draw of the page leaves the focus where it is
+    await fileButton('notes.txt')
+    expect(document.body).toHaveFocus()
   })
 
   it('offers a way back when the picked work tree is gone', async () => {
@@ -394,6 +459,32 @@ describe('Changes view', () => {
     await vi.waitFor(() => expect([calls(fn, '/api/diff/repo').length, calls(fn, '/api/diff/files').length, calls(fn, '/api/diff/file').length]).toEqual(before.map((n) => n + 1)))
   })
 
+  it('says that it is reading again, keeps the last answer, then says when it read', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 10, 26, 10, 0, 0))
+    let wait = false
+    const waiting = []
+    stub({ '/api/diff/files': () => (wait ? new Promise((done) => waiting.push(() => done(reply(200, listing)))) : null) })
+    render(<ChangesView />)
+    await fileButton('notes.txt')
+    const status = () => screen.getByRole('status')
+    const at = (hour) => `Read at ${new Date(2026, 10, 26, hour, 0, 0).toLocaleTimeString()}`
+    await vi.waitFor(() => expect(status()).toHaveTextContent(at(10)))
+    wait = true
+    vi.setSystemTime(new Date(2026, 10, 26, 11, 0, 0))
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    await vi.waitFor(() => expect(waiting).toHaveLength(1))
+    expect(status()).toHaveTextContent('Reading again…')
+    expect(screen.getByRole('button', { name: /notes\.txt/ })).toBeInTheDocument()
+    waiting[0]()
+    await vi.waitFor(() => expect(status()).toHaveTextContent(at(11)))
+    vi.setSystemTime(new Date(2026, 10, 26, 12, 0, 0)) // opening a file does not read the list again
+    fireEvent.click(screen.getByRole('button', { name: /notes\.txt/ }))
+    await screen.findByRole('region', { name: 'Changes in notes.txt' })
+    expect(status()).toHaveTextContent(at(11))
+    vi.useRealTimers()
+  })
+
   it('opens on a session folder when Live asks, and leaves it for a repository', async () => {
     const fn = stub()
     render(<ChangesView changesTarget={{ session: 'abc-123', title: 'fix the page' }} />)
@@ -410,6 +501,7 @@ describe('Changes view', () => {
     stub({ '/api/diff/repo': reply(404, { error: 'this folder is not a git work tree' }) })
     render(<ChangesView />)
     expect(await screen.findByRole('alert')).toHaveTextContent('this folder is not a git work tree')
+    expect(screen.getByRole('status')).toHaveTextContent(/^Read at /) // so Refresh is seen on an error too
     cleanup()
     stub({ '/api/diff/file': reply(404, { error: 'that file is not in this compare; refresh the list' }) })
     render(<ChangesView />)
@@ -457,6 +549,12 @@ describe('Changes view', () => {
     fireEvent.click(await fileButton('src/a b.js'))
     expect(await screen.findByText(/The patch is cut/)).toBeInTheDocument()
     expect(screen.getByText('a note')).toBeInTheDocument()
+  })
+
+  it('says binary where a file has no line counts to show', async () => {
+    stub({ '/api/diff/files': reply(200, { ...listing, files: [row('unstaged', 'modified', 'logo.png', null, null, { binary: true })], total: 1 }) })
+    render(<ChangesView />)
+    expect(await fileButton('logo.png')).toHaveTextContent('binary')
   })
 
   it('cannot open a file whose name is not text', async () => {

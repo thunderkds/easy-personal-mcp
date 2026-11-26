@@ -36,8 +36,9 @@ export const popOutUrl = (id) => `/?term=${encodeURIComponent(id)}#${readToken()
  * `term`: the session as `GET /api/term-sessions` lists it (`id`, `repo`, `account`, `state`, `code`). `onBack()` closes the panel. `onChanged()` asks Live to
  * read the list again (the session ended, or Stop was sent). `autoFocus`: move the focus to the heading when the panel opens. `onPoppedOut()`: the
  * terminal opened in its own window (T135), so Live closes this panel. `popped`: this panel is that window, so it has no Back and no Pop out.
+ * `onOpenChanges({session, title})` (T137, FR-141): the Changes view of the session's folder, once the session has its Claude id.
  */
-export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFocus = false, popped = false }) {
+export default function TermPanel({ term, onBack, onChanged, onPoppedOut, onOpenChanges, autoFocus = false, popped = false }) {
   const { id } = term
   const panel = useRef(null)
   const box = useRef(null)
@@ -205,6 +206,7 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
   }
 
   const project = folderName(term.repo) || 'terminal'
+  const title = `${project} · ${String(id).slice(0, 8)}`
   const live = link === 'open' && !ended
   const status = ended ? endedWords(code) : stopSent ? 'Stopping' : link === 'connecting' ? 'Connecting' : link === 'lost' ? 'Not attached' : 'Running'
   return (
@@ -217,7 +219,7 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
         )}
         <div className="term-name">
           <h2 className="session-title" ref={heading} tabIndex={-1}>
-            {`${project} · ${String(id).slice(0, 8)}`}
+            {title}
           </h2>
           <p className="term-meta">
             <span>{accountLabel(term.account)}</span>
@@ -238,6 +240,11 @@ export default function TermPanel({ term, onBack, onChanged, onPoppedOut, autoFo
           {!popped && (
             <button type="button" onClick={popOut} title="Open this terminal in a separate window. The session keeps running when that window closes.">
               Pop out
+            </button>
+          )}
+          {onOpenChanges && typeof term.session_id === 'string' && (
+            <button type="button" onClick={() => onOpenChanges({ session: term.session_id, title })}>
+              Changes
             </button>
           )}
           {!ended && (
