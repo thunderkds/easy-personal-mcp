@@ -523,6 +523,23 @@ fn a_chain_of_moved_work_trees_runs_no_program() {
         repo_diff::overview(dir).unwrap_or_default();
     }
     assert!(!ran.exists(), "the filter ran");
+
+    // a patch opened through `b` is made in `c`: a filter of `b`'s own config, which was not switched off, is never asked
+    write(&c, "t.txt", "one\n");
+    git(&c, &["add", "t.txt"]);
+    git(&c, &["commit", "-q", "-m", "text"]);
+    write(&b, ".git/info/attributes", "t.txt filter=mine\n");
+    git(&b, &["config", "--unset", "core.worktree"]);
+    write(&b, "t.txt", "one\n");
+    git(&b, &["add", "t.txt"]);
+    git(&b, &["commit", "-q", "-m", "text"]);
+    git(&b, &["config", "filter.mine.clean", spy.to_str().unwrap()]);
+    git(&b, &["config", "core.worktree", c.to_str().unwrap()]);
+    write(&c, "t.txt", "two\n");
+    let _ = fs::remove_file(&ran); // git's own commit above refreshes `c`'s index, which asks `c`'s filter
+    let text = patch(&b, &Compare::Uncommitted, "unstaged", "t.txt");
+    assert!(text.contains("+two"), "{text}");
+    assert!(!ran.exists(), "the filter of the folder asked for ran");
 }
 
 #[test]
@@ -770,6 +787,87 @@ fn cut_ref_and_work_tree_lists_say_so() {
     }
     let (trees, cut) = repo_diff::worktrees(&dir).unwrap();
     assert_eq!((trees.len(), cut), (100, true));
+}
+
+/// A folder and a submodule of one name take each other's place: the submodule's own patch still shows its commit.
+#[test]
+fn a_folder_swapped_with_a_submodule_shows_the_submodule_commit() {
+    let temp = Temp::new();
+    let dir = repo(&temp);
+    write(&dir, "lib/inner.txt", "inside\n");
+    let first = commit(&dir, "a folder");
+    let link = format!("160000,{first},lib");
+
+    git(&dir, &["rm", "-r", "-q", "lib"]);
+    git(&dir, &["update-index", "--add", "--cacheinfo", &link]);
+    let text = patch(&dir, &Compare::Uncommitted, "staged", "lib");
+    assert!(
+        text.contains(&format!("+Subproject commit {first}")) && !text.contains("inside"),
+        "{text}"
+    );
+    git(&dir, &["commit", "-q", "-m", "now a submodule"]);
+    let head = git(&dir, &["rev-parse", "HEAD"]);
+    let text = patch(&dir, &Compare::Commit { rev: head }, "committed", "lib");
+    assert!(
+        text.contains(&format!("+Subproject commit {first}")),
+        "{text}"
+    );
+
+    git(&dir, &["update-index", "--force-remove", "lib"]);
+    let _ = fs::remove_dir_all(dir.join("lib"));
+    write(&dir, "lib/inner.txt", "inside again\n");
+    git(&dir, &["add", "lib/inner.txt"]);
+    let text = patch(&dir, &Compare::Uncommitted, "staged", "lib");
+    assert!(
+        text.contains(&format!("-Subproject commit {first}")) && !text.contains("inside"),
+        "{text}"
+    );
+}
+
+/// The carriage return of a Windows line ending is not text to read; one that tells two lines apart stays in sight.
+#[test]
+fn windows_line_endings_are_not_drawn_unless_the_endings_differ() {
+    let temp = Temp::new();
+    let dir = repo(&temp);
+    write(&dir, "win.txt", "one\r\ntwo\r\nlast");
+    write(&dir, "unix.txt", "one\ntwo\n");
+    commit(&dir, "both kinds");
+    write(&dir, "win.txt", "one\r\nTWO\r\nlast");
+    write(&dir, "unix.txt", "one\r\ntwo\r\n");
+    write(&dir, "new.txt", "a\r\nb\r\n");
+    write(&dir, "odd.txt", "a\rb\r\n");
+    let open = |area: &str, path: &str| patch(&dir, &Compare::Uncommitted, area, path);
+
+    let text = open("unstaged", "win.txt");
+    assert!(
+        text.contains(" one\n-two\n+TWO\n last\n\\ No newline") && !text.contains("\\u{d}"),
+        "{text}"
+    );
+    assert!(open("untracked", "new.txt").ends_with("+a\n+b\n"));
+    // a return inside a line is a character like any other
+    assert!(open("untracked", "odd.txt").ends_with("+a\\u{d}b\n"));
+    // the file went from Unix to Windows endings: that is the change, so it is drawn
+    let text = open("unstaged", "unix.txt");
+    assert!(
+        text.contains("-one\n-two\n+one\\u{d}\n+two\\u{d}\n"),
+        "{text}"
+    );
+}
+
+/// A repo's order file is not read: git would load all of it, whatever its size.
+#[test]
+fn the_order_file_a_repo_names_is_not_read() {
+    let temp = Temp::new();
+    let dir = repo(&temp);
+    write(&dir, "a.txt", "changed\n");
+    let missing = temp.0.join("no-such-order-file");
+    git(
+        &dir,
+        &["config", "diff.orderFile", missing.to_str().unwrap()],
+    );
+    let listed = repo_diff::files(&dir, &Compare::Uncommitted).unwrap();
+    assert_eq!(rows(&listed).len(), 1);
+    assert!(patch(&dir, &Compare::Uncommitted, "unstaged", "a.txt").contains("+changed"));
 }
 
 #[test]

@@ -1266,14 +1266,15 @@ Two more things the app does for a Claude Code session that runs in a terminal. 
 
 ## Git diff, view only (T136, FR-139, FR-140, DDR-0010)
 
-`GET /api/diff/repo`, `/api/diff/files` and `/api/diff/file` (guard and token as every `/api/` route) show the changes of one of your repos. Nothing is written to the repo, nothing is fetched, and no file content, path or git name
+`GET /api/diff/repo`, `/api/diff/files` and `/api/diff/file` (guard and token as every `/api/` route) show the changes of one of your repos. Nothing is written to the repo (one exception below), nothing is fetched, and no file content, path or git name
 is stored or logged.
 
 - **Which repo.** `workspace=<name>&repo_no=<n>` (a stored workspace repo) or `session=<id>` (the work tree of the newest folder the session's transcript records, read from its last 16 MiB). `tree=<id>` picks another work tree by the id `repo` gave. A request never holds a folder.
 - **`repo`** answers `{name, tree, worktrees, branches, base, base_shown, commits, truncated}` (`base`: the full ref of the default base, to send back as it is; `base_shown`: its short name): at most 100 work trees, 500 branches and tags and the newest 100 commits; `truncated` says work trees, branches or tags were left out.
 - **`files`** takes `compare=uncommitted`, `compare=branch[&base=]` (merge base with `HEAD`; default `main`, else `master`, else the remote's default branch), `compare=commit&head=` (against the first parent) or `compare=range&base=&head=`. It answers `{files, total, truncated, base, head, filters_off}`: at most 2,000 files. Send a ref as its full name (`refs/heads/…`): a short name that a tag and a branch share means the tag.
-- **`file`** takes the same compare plus `area` and `path` of a listed file, and answers `{patch, cut, binary, note}`: at most 1 MiB or 5,000 lines.
-- **A repo's config cannot start a program.** Filters (by name), external diff, textconv, fsmonitor, hooks and signature checks are switched off for these calls, and submodule work trees are not entered. The filters are read in the root of the work tree, where every later git call runs, so no other repo's config takes part; a repo whose `core.worktree` leads into a repo that itself works elsewhere is refused as not a git work tree. A filter whose name holds `=` or a line break cannot be switched off: the uncommitted compare is then refused. With filters off, a file kept through a filter can show as changed.
+- **`file`** takes the same compare plus `area` and `path` of a listed file, and answers `{patch, cut, binary, note}`: at most 1 MiB or 5,000 lines. The carriage return of a Windows line ending is left out; where the patch's lines end differently from each other, it is shown as `\u{d}`.
+- **A repo's config cannot start a program.** Filters (by name), external diff, textconv, fsmonitor, hooks and signature checks are switched off for these calls, and submodule work trees are not entered. The filters are read in the root of the work tree, where every later git call runs, so no other repo's config takes part; a repo whose `core.worktree` leads into a repo that itself works elsewhere is refused as not a git work tree. A filter whose name holds `=` or a line break cannot be switched off: the uncommitted compare is then refused. With filters off, a file kept through a filter can show as changed. The repo's diff order file (`diff.orderFile`) is not read.
+- **The one write.** In a repo that uses git's split index, git renews the timestamp of `.git/sharedindex.<id>` when it reads the index; no byte changes, as with your own `git status` (accepted by the owner, FR-140).
 
 ## Transcript of a session (T115, FR-123, DDR-0007)
 

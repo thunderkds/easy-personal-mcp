@@ -21,7 +21,7 @@ Gate: (1) hard to reverse: no; (2) surprising without context: yes (file content
 2. **Two entry points** (owner): a *Changes* tab (workspace repos and their worktrees) and a *Changes* button on a Live session.
 3. **Seventh NFR-002 exception**: file contents, file paths, ref names, commit subjects and author names of the selected repo are read on demand and sent to the dashboard page only. Never stored, logged, cached, or sent to MCP, the CLI, `/api/alerts`, the tray or a popup. Nothing is redacted: the page shows what `git diff` shows.
 4. **File list, then one file** (owner chose path B).
-5. **No repo program runs**: external diff, textconv, fsmonitor, hooks and signature checks are off; every configured filter is overridden by name; a filter name that cannot be overridden refuses the working-tree compare. Submodule work trees are not entered.
+5. **No repo program runs**: external diff, textconv, fsmonitor, hooks and signature checks are off; every configured filter is overridden by name; a filter name that cannot be overridden refuses the working-tree compare. Submodule work trees are not entered. A repo's diff order file is not read (git loads all of it, whatever its size).
 6. **The request never names a folder**: it names a workspace repo by number, or a session id; a worktree by an id the server made.
 
 ---
@@ -41,3 +41,4 @@ Gate: (1) hard to reverse: no; (2) surprising without context: yes (file content
 
 - With filters off, a file kept through a filter (for example Git LFS) can show as changed when it is not; the answer says that filters are off.
 - A repo config change between reading the filter names and running the diff is not covered (the owner's own machine).
+- Accepted by the owner 2026-11-26 (AskUserQuestion, after the third review of T136): in a repo that uses git's split index, git renews the timestamp of `.git/sharedindex.<id>` when it reads the index. No byte changes; `git status` does the same. Refusing such repos was the other choice.

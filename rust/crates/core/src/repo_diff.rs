@@ -13,6 +13,7 @@
 use crate::live::clean_block;
 use crate::report_files::sys;
 use serde_json::{Value, json};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -141,6 +142,7 @@ fn run(dir: &Path, config: &[String], args: &[&str], cap: usize) -> Result<Outpu
         "core.fsmonitor=",
         "core.untrackedCache=false",
         "core.hooksPath=/dev/null",
+        "diff.orderFile=/dev/null", // git loads the whole file a repo names, whatever its size
         "core.quotePath=false",
         "log.showSignature=false",
         "diff.autoRefreshIndex=false",
@@ -591,6 +593,8 @@ struct Entry {
     added: Option<u64>,
     removed: Option<u64>,
     binary: bool,
+    /// Either side is a submodule.
+    submodule: bool,
     /// An unstaged binary file of unchanged mode: it differs only if its content's id is not this one, the index's.
     index_id: Option<String>,
 }
@@ -656,6 +660,7 @@ fn entries(area: &'static str, out: &[u8], cut: bool) -> Vec<Entry> {
                 added: None,
                 removed: None,
                 binary: false,
+                submodule: words.iter().take(2).any(|&mode| mode == "160000"),
                 index_id: words.get(2).map(|&id| id.to_owned()),
             });
         } else {
@@ -783,6 +788,7 @@ fn list(plan: &Plan, only: Option<&[u8]>) -> Result<(Vec<Entry>, bool), DiffErro
             added: None,
             removed: None,
             binary: false,
+            submodule: false,
             index_id: None,
         }));
     }
@@ -824,8 +830,42 @@ pub fn files(dir: &Path, compare: &Compare) -> Result<Value, DiffError> {
     )
 }
 
+/// The patch without the carriage return of each Windows line ending, when every ended line of its hunks has one. Where
+/// only some do, the endings are what differs (or the file mixes them): all are kept, and shown as escapes.
+fn without_windows_ends(text: &str) -> Cow<'_, str> {
+    let mut plain = String::with_capacity(text.len());
+    let (mut in_hunk, mut any) = (false, false);
+    let mut lines = text.split_inclusive('\n').peekable();
+    while let Some(line) = lines.next() {
+        // a file's last line may have no ending: git says so on the next line
+        let unended = lines.peek().is_some_and(|next| next.starts_with('\\'));
+        if line.starts_with("@@") {
+            in_hunk = true;
+        } else if line.starts_with("diff ") {
+            in_hunk = false;
+        } else if in_hunk && !unended && !line.starts_with('\\') {
+            if let Some(body) = line.strip_suffix("\r\n") {
+                plain.push_str(body);
+                plain.push('\n');
+                any = true;
+                continue;
+            }
+            if line.ends_with('\n') {
+                return Cow::Borrowed(text);
+            }
+        }
+        plain.push_str(line);
+    }
+    if any {
+        Cow::Owned(plain)
+    } else {
+        Cow::Borrowed(text)
+    }
+}
+
 fn patch_answer(bytes: &[u8], cut: bool, binary: bool, note: Option<&str>) -> Value {
     let text = String::from_utf8_lossy(bytes);
+    let text = without_windows_ends(&text);
     // hidden characters become longer escapes: cap what is sent, at a line end where one fits
     let (mut shown, whole) = clean_block(&text, PATCH_MAX_BYTES);
     let mut cut = cut || !whole;
@@ -974,8 +1014,9 @@ fn pathspecs(entry: &Entry, path: &str, all: &[Entry]) -> Result<Vec<String>, Di
             let name = std::str::from_utf8(name).map_err(|_| DiffError::NotListed)?;
             Ok(format!(":(exclude,literal){name}"))
         };
-        if own.iter().any(|o| o.starts_with(&folder)) {
-            // the file's own other name is in that folder: leave out the others one by one
+        if entry.submodule || own.iter().any(|o| o.starts_with(&folder)) {
+            // leaving the folder out would also leave out a submodule of that name, or the file's own other name in it:
+            // leave out the others one by one
             for name in under {
                 specs.push(spec(name)?);
             }
@@ -1084,6 +1125,7 @@ mod tests {
             added: None,
             removed: None,
             binary: false,
+            submodule: false,
             index_id: None,
         }
     }
