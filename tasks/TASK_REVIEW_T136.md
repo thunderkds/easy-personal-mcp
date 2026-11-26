@@ -53,7 +53,7 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 | Negative cases hold | ☑ pass / ☐ fail | At `fe687a2`, probes through the core under `ulimit -v 1500000`: `diff.orderFile` = `/dev/zero` and `/proc/self/mem` answered list, overview and patch in about 17 ms; a folder of 40,000 files swapped with a submodule answered `TooSlow` after 10.6 s (V2). 9 single-edit mutants on a scratch copy: 5 of the 5 that undo a chosen fix or its rule are red (order file, submodule branch, patch folder, strip with mixed endings, unended line); 4 survived (V4; one equivalent). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
 | Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `fe687a2`: `50870c3..fe687a2` only (`repo_diff.rs`, its tests, FR-139, FR-140, `PROJECT_SPEC.md`, DDR-0010, `rust/README.md`) and the callees `clean_block`, `entries`, `list`, `untracked`. Findings left for later were not re-examined. |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | Not run at `fe687a2` (this review was limited to the tests that cover the change). Also run: `cargo clippy -p easy-personal-core --all-targets -- -D warnings` finished with no warning; `cargo fmt --all -- --check` exit 0. The last wider run is the `50870c3` row kept at the end of the fourth-run section. |
+| Full smoke suite still green (no regression) | ☑ pass / ☐ fail | Supervisor, on the tree committed as `fe687a2` (2026-11-26, load about 4): `cargo test -p easy-personal-core -p easy-personal-rs --no-fail-fast` exit 0, 100 suites, 1438 passed, 0 failed, 30 ignored; clippy `--workspace --all-targets -D warnings` and `fmt --check` clean. Web and Python files unchanged by this task. Fourth reviewer: ran only the covering tests. Reviewer note kept: Not run at `fe687a2` (this review was limited to the tests that cover the change). Also run: `cargo clippy -p easy-personal-core --all-targets -- -D warnings` finished with no warning; `cargo fmt --all -- --check` exit 0. The last wider run is the `50870c3` row kept at the end of the fourth-run section. |
 | **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in this review. |
 | **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff (page is T137). |
 | **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff. |
@@ -443,9 +443,20 @@ $ date -u +%FT%TZ; git rev-parse --short HEAD; grep -rn '/api/diff' rust/crates 
 grep exit=1
 ```
 
-**AFTER**: [same command, post-change] OR [verbatim excerpt of the new content]
+**AFTER** (same command, after the change; long lines cut, 8 of 28 matches shown):
 
-**DELTA**: [one sentence — what a user can now do that they could not before]
+```
+$ date -u +%FT%TZ; git rev-parse --short HEAD; grep -rn '/api/diff' rust/crates web/src; echo "grep exit=$?"
+2026-11-26T16:22:23Z
+3e4cee1
+rust/crates/app/src/api.rs:4://! `/api/board` and `/api/memory-graph` (T043), `/api/diff/*` (T136, `diff_routes.rs`), ...
+rust/crates/app/src/api.rs:224:        .merge(crate::diff_routes::routes()) // T136: GET /api/diff/* (FR-139)
+rust/crates/app/src/diff_routes.rs:36:        .route("/api/diff/repo", get(repo))
+rust/crates/app/src/diff_routes.rs:37:        .route("/api/diff/files", get(files))
+rust/crates/app/src/diff_routes.rs:38:        .route("/api/diff/file", get(file))
+grep exit=0
+```
 
-**WITNESS**: [who ran it and when — derived from `memory/event-trace/Txxx.jsonl`, never the
-implementing agent alone]
+**DELTA**: The dashboard server can now answer, view only, which files of a workspace repo or a session's work tree changed (uncommitted, branch, one commit or two refs) and one listed file's patch.
+
+**WITNESS**: fresh-context reviewer `af45cee72dce3e5df`, `ReviewerDone` for `fe687a2e219755be98ff16c0a75bc2bad504b00b` at 2026-11-26T16:15:08Z (`memory/event-trace/T136.jsonl`), after the full review of `50870c3` by reviewer `a2b75f303ad272131`; this capture by the Supervisor at 2026-11-26T16:22:23Z.
