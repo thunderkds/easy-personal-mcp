@@ -412,20 +412,73 @@ CRLF file's patch would end in `\u{d}`.
 
 ---
 
+## Review findings (Stage 4, independent reviewer, 2026-11-26, commit `9c59b3e`)
+
+**Verdict: fail** for commit `9c59b3ea80133618b3e8f53118032d2326e7d3a7`. 0 P0, 1 P1, 0 P2, 0 P3, no confirmed security finding. Narrow review of `c43c472..9c59b3e` only (one CSS line, one test, this record); the full review at `c43c472` was not repeated and its later-listed findings were not re-examined. No source or test file was changed, so no fix was applied.
+
+**Finding 1 of the review of `c43c472` is closed.** At 320, 360, 375, 390, 414 and 1280 all four buttons are inside the card, each label is on one line, no button covers another or head text, each is hit at its centre, and the page does not scroll sideways. The same build of `c43c472` reproduces the old fault (page 362px wide at 320, 361px at 360, *Stop* outside the card and *Pop out* on two lines at 375). Also checked at 640, 768, 1024: one row, same sizes as before.
+
+### P1
+
+| # | File:line | Finding and failure scenario | How confirmed | Conf. | Action |
+|---|-----------|------------------------------|---------------|-------|--------|
+| 1 | `web/src/appsession.css:218` (with `:231`) | New in this commit: on a phone the arrow keys are off the screen when the panel opens. The wrapped second button row makes the head 52px taller (146 to 198px at 360 to 414), but the screen height stays `calc(100dvh - 25rem)`, so the whole second key row (the four arrows) starts below the window: bottom of the keys / window height 787/740 at 360, 714/667 and 859/812 at 375, 891/844 at 390, 943/896 at 414. At `c43c472` and at `d3215f5` (before this task) the same sizes give 735, 662, 807, 839, 891, all inside the window. The owner must scroll the page to answer a prompt with the arrows. Breaks check B-h and T135's "panel fits" result at 375x812 (`tasks/TASK_REVIEW_T135.md:27`). At 320x568 the keys did not fit before this task either. | Headless Chrome, same stand-in server for three builds; images `9c59b3e-panel-375x667-s1.png` and `d3215f5-panel-375x667-s1.png` read | 100 | Keep one row at 360 and up. Tried in a scratch copy, inside the `max-width: 39.999rem` block: `.term-actions { gap: var(--space-1); }` and `.term-actions button { padding-inline: var(--space-2); }`. One row at 360, 375, 390 and 414, keys back at 735, 662, 807, 839, 891; buttons 44px high and at least 53px wide; 320 still wraps inside the card. Add a pin for it, and look again in a browser. |
+
+### The same button row elsewhere
+
+- Expanded view (320x568, 375x667, 1280x800): all buttons inside, no sideways scroll, no overflow of the panel, keys in view; the screen box gives up the height (268 to 234px at 320, 385 to 333px at 375). *Exit full view* restores the layout.
+- The terminal's own window (same three sizes): only *Stop*; every measured number equals `c43c472`.
+- 1280x800: one row, right-aligned, same sizes as `c43c472`.
+- *Not attached* state (320, 375, 1280): same button positions as *Running*. *Changes* opened the tab (320).
+
+### The record's statements about this change
+
+True: the row wraps and is right-aligned; the pin test fails on the `c43c472` CSS (1 failed, 20 passed) and passes on this commit; removing either pinned declaration fails it; web tests 1685 passed; four buttons inside the card with no sideways scroll at the six named widths. Not checked: that the test was run before the CSS edit (order), and which stand-in server the Supervisor used. The response does not mention the height change (finding above); no pin or width check covers it.
+
+### ux-evaluate (steps followed from `skills/ux-evaluate/SKILL.md`; terminal panel only, stand-in server)
+
+Screenshots: `/tmp/claude-1000/-home-hungnguyenhuu-workspace-pets-hungnguyen111-easy-personal-mcp/59c442dc-75ac-448b-90d3-a8b45e0be458/scratchpad/r9c59.Au9ngU/shots/` (`<commit>-<view>-<size>-s<socket>.png`). Images read: panel at 320x568, 375x667 and 1280x800, `d3215f5` panel at 375x667, expanded at 320x568 and 375x667, own window at 320x568; the other states are judged from measurements only. The guide's US-045 rows were not run again (this commit changes no Changes tab rule).
+
+| # | Check | Width | Verdict | Reason |
+|---|-------|-------|---------|--------|
+| B-a | primary action | 375 / 1280 | pass | The terminal screen is the main element and in view |
+| B-b | hierarchy | 375 / 1280 | pass | Back, title, actions, screen, keys |
+| B-c | spacing | 375 / 1280 | pass | Wrapped buttons are right-aligned with the same gap |
+| B-d | 44px targets | 375 | pass | Head buttons 44px high, at least 65px wide |
+| B-e | readable text | 375 / 1280 | pass | Button labels whole and readable |
+| B-f | states in words | 375 / 1280 | pass | *Running* and *Not attached* measured |
+| B-g | feedback | 375 / 1280 | pass | *Expand* turns into a marked *Exit full view*; *Changes* opens the tab |
+| B-h | phone layout | 375 | fail | The arrow keys are below the window on open (finding 1) |
+| B-i | one visual language | 375 / 1280 | pass | Existing buttons |
+
+ux-evaluate: 8 pass, 1 fail, 0 not checked, 0 not checkable. Overall: fail
+
+### security-review pass
+
+No finding: the change is one layout CSS declaration pair and a test that reads that CSS file.
+
+### Runs and limits
+
+`git archive` copy of `9c59b3e` (2026-11-26T15:06:11Z to 15:07:51Z): `npm run build` exit 0 (`72 modules transformed`); `npx vitest run` `Test Files 50 passed (50)`, `Tests 1685 passed (1685)`. A first run in that copy had 3 failures because the copy lacked `rust/crates/core/tests`; with those files added all passed. Not checked: the real server, a real phone or the app window (WebKitGTK), touch scrolling over the terminal, Rust and Python suites.
+
+Reviewer's slip: the first copy failed on `Disk quota exceeded`, and a second attempt failed on a bad path, after which `npx vitest run` started in the **main checkout** by mistake and made `node_modules/` (cache files only, born during that run). The reviewer removed that folder; `git status` there then listed 48 entries, the count at the start.
+
+---
+
 ## Evidence
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☑ fail | At `bf281fd`: `web/src/ChangesView.test.jsx`, `web/src/App.test.jsx`, `web/src/LivePanel.test.jsx`. Open: no test picks To first with no default base (AC 2, finding 1); none for a `master` default base (finding 4); AC 4 has no case for a terminal panel (finding 3). Earlier: At `7ec73f9`: `web/src/ChangesView.test.jsx`, `web/src/App.test.jsx`, `web/src/LivePanel.test.jsx`. Earlier gaps closed. Still open: no test for *Refresh* in *Commit* mode with the picked commit gone (AC 2, 3; finding 1), and the AC 5 test for an unopenable file checks text only, not that it can be read (finding 2) |
-| Verification command run | ☑ pass / ☐ fail | `git archive` copy of `bf281fd`, 2026-11-26T10:24:12Z to 10:25:16Z (build first, then tests): `npm run build` exit 0 (`72 modules transformed`, `built in 2.52s`); `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1674 passed (1674)`. Two more full runs by 10:46:29Z: same counts. Earlier: `git archive` copy of `7ec73f9`, 2026-11-26T10:15:41Z to 10:16:09Z: `npm run build` exit 0 (`72 modules transformed`, `built in 241ms`), then `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1666 passed (1666)`. One earlier full run had 1 failure (see *Test runs*) |
-| Negative cases hold | ☐ pass / ☑ fail | At `bf281fd`: 38 single-edit mutants against the three test files (174 tests): 28 killed, 10 survived (findings 4 and 8; M17 is the proposed fix, M36 changes nothing). Probes show findings 1, 2, 3, 6, 7. Earlier: At `7ec73f9`: 23 single-edit mutants against the three test files (166 tests): 20 killed (the 5 earlier survivors and a dropped `tree` among them), 3 survived (finding 7). 7 probe tests passed, each recording what the page does now; they show findings 1, 3, 4, 5, 6 |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☑ pass / ☐ fail | At `9c59b3e`: `web/src/LiveTerm.test.jsx` (the wrap pin; fails on the `c43c472` CSS). AC coverage by `web/src/ChangesView.test.jsx`, `App.test.jsx`, `LivePanel.test.jsx`, `LiveTerm.test.jsx` is carried from the review of `c43c472`, not re-reviewed. Earlier: At `bf281fd`: `web/src/ChangesView.test.jsx`, `web/src/App.test.jsx`, `web/src/LivePanel.test.jsx`. Open: no test picks To first with no default base (AC 2, finding 1); none for a `master` default base (finding 4); AC 4 has no case for a terminal panel (finding 3). Earlier: At `7ec73f9`: `web/src/ChangesView.test.jsx`, `web/src/App.test.jsx`, `web/src/LivePanel.test.jsx`. Earlier gaps closed. Still open: no test for *Refresh* in *Commit* mode with the picked commit gone (AC 2, 3; finding 1), and the AC 5 test for an unopenable file checks text only, not that it can be read (finding 2) |
+| Verification command run | ☑ pass / ☐ fail | `git archive` copy of `9c59b3e`, 2026-11-26T15:06:11Z to 15:07:51Z: `npm run build` exit 0 (`72 modules transformed`); `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1685 passed (1685)`. Earlier: `git archive` copy of `bf281fd`, 2026-11-26T10:24:12Z to 10:25:16Z (build first, then tests): `npm run build` exit 0 (`72 modules transformed`, `built in 2.52s`); `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1674 passed (1674)`. Two more full runs by 10:46:29Z: same counts. Earlier: `git archive` copy of `7ec73f9`, 2026-11-26T10:15:41Z to 10:16:09Z: `npm run build` exit 0 (`72 modules transformed`, `built in 241ms`), then `npx vitest run`: `Test Files 50 passed (50)`, `Tests 1666 passed (1666)`. One earlier full run had 1 failure (see *Test runs*) |
+| Negative cases hold | ☑ pass / ☐ fail | At `9c59b3e`: the new pin fails on the old CSS and with either declaration removed (1 failed, 20 passed each). Page negative cases carried from `c43c472` (pass with gaps, finding 7 there), not re-run. Earlier: At `bf281fd`: 38 single-edit mutants against the three test files (174 tests): 28 killed, 10 survived (findings 4 and 8; M17 is the proposed fix, M36 changes nothing). Probes show findings 1, 2, 3, 6, 7. Earlier: At `7ec73f9`: 23 single-edit mutants against the three test files (166 tests): 20 killed (the 5 earlier survivors and a dropped `tree` among them), 3 survived (finding 7). 7 probe tests passed, each recording what the page does now; they show findings 1, 3, 4, 5, 6 |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `bf281fd`: the changed files; `api.js`, `useLoad.js`, `Loading.jsx`, the panel wiring in `LiveView.jsx`; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views. Earlier: At `7ec73f9`: the changed files; helpers `api.js`, `useLoad.js`, `Loading.jsx`, `app.css` rules used; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | Not ticked. At `bf281fd` the web suite passed 3 of 3 full runs (1674 tests). Python: only `tests/test_readme.py` and `tests/test_site_content.py`, `4 failed, 69 passed`, the same four at `d3215f5`. Rust suite not run (no Rust file changed). Earlier: Not ticked: the web suite passed 7 of 8 full runs (1666 tests), one run had 1 unidentified failure. Rust suite not run (no Rust file changed). Python: only `tests/test_readme.py`, 1 failure that is the same at `d3215f5` |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in the review of `bf281fd`. |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☑ fail / ☐ N/A | `bf281fd`: ux-evaluate 10 pass, 1 fail (B-g, finding 2); stub data. Earlier: `7ec73f9`: ux-evaluate 10 pass, 1 fail (B-c, finding 2); stub data |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass / ☐ fail / ☐ N/A | `bf281fd`: the one added CSS rule `.diff-note` uses tokens only; the file's token-only test passes. Earlier: `7ec73f9`: the added CSS rules set layout only; the file's token-only test passes |
-| **UI: Responsiveness at target viewports** | ☑ pass / ☐ fail / ☐ N/A | `bf281fd`: page width equals the window at 375 and 1280 in every captured state; phone targets 44px or more; no overlapping text in file rows. Earlier: `7ec73f9`: page width fits at 375 and 1280 and phone targets are 44px or more; text overlaps in the unopenable file row at 375 and 1280 (finding 2) |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | At `9c59b3e`: `c43c472..9c59b3e`; `.term-actions` users (`TermPanel.jsx` in the panel, expanded view and own window, `TermWindow.jsx`). Earlier: At `bf281fd`: the changed files; `api.js`, `useLoad.js`, `Loading.jsx`, the panel wiring in `LiveView.jsx`; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views. Earlier: At `7ec73f9`: the changed files; helpers `api.js`, `useLoad.js`, `Loading.jsx`, `app.css` rules used; the contract in `1cc683b` `diff_routes.rs` and `repo_diff.rs`. Skipped: re-review of T136 server code and unrelated views |
+| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | Not ticked. At `9c59b3e` the web suite passed (1685 tests); Rust and Python not run (no such file in this change). Earlier: Not ticked. At `bf281fd` the web suite passed 3 of 3 full runs (1674 tests). Python: only `tests/test_readme.py` and `tests/test_site_content.py`, `4 failed, 69 passed`, the same four at `d3215f5`. Rust suite not run (no Rust file changed). Earlier: Not ticked: the web suite passed 7 of 8 full runs (1666 tests), one run had 1 unidentified failure. Rust suite not run (no Rust file changed). Python: only `tests/test_readme.py`, 1 failure that is the same at `d3215f5` |
+| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in the review of `9c59b3e`. Earlier: Not run in the review of `bf281fd`. |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☑ fail / ☐ N/A | `9c59b3e`: ux-evaluate on the terminal panel 8 pass, 1 fail (B-h, finding 1: arrow keys below the window on open at 360 to 414); stand-in server. Earlier: `bf281fd`: ux-evaluate 10 pass, 1 fail (B-g, finding 2); stub data. Earlier: `7ec73f9`: ux-evaluate 10 pass, 1 fail (B-c, finding 2); stub data |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☑ pass / ☐ fail / ☐ N/A | `9c59b3e`: the CSS change sets layout only. Earlier: `bf281fd`: the one added CSS rule `.diff-note` uses tokens only; the file's token-only test passes. Earlier: `7ec73f9`: the added CSS rules set layout only; the file's token-only test passes |
+| **UI: Responsiveness at target viewports** | ☐ pass / ☑ fail / ☐ N/A | `9c59b3e`: buttons inside the card and no sideways scroll at 320 to 414 and 1280; the panel no longer fits the window height at 360x740, 375x667, 375x812, 390x844, 414x896 (finding 1). Earlier: `bf281fd`: page width equals the window at 375 and 1280 in every captured state; phone targets 44px or more; no overlapping text in file rows. Earlier: `7ec73f9`: page width fits at 375 and 1280 and phone targets are 44px or more; text overlaps in the unopenable file row at 375 and 1280 (finding 2) |
 
 ---
 
