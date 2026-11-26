@@ -11,6 +11,7 @@
 use crate::live::clean_block;
 use crate::report_files::sys;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -24,8 +25,13 @@ pub const FILES_MAX: usize = 2000;
 /// The most bytes and lines of one patch.
 pub const PATCH_MAX_BYTES: usize = 1024 * 1024;
 pub const PATCH_MAX_LINES: usize = 5000;
-/// The most bytes read of a git answer that is not a patch.
+/// The most bytes read of a git answer that is not a patch, and of one part of a file list.
 const OUTPUT_MAX: usize = 4 * 1024 * 1024;
+const LIST_MAX: usize = 16 * 1024 * 1024;
+/// The most bytes of untracked files one list reads to count their lines (each file at most [`PATCH_MAX_BYTES`]).
+const COUNT_BUDGET: usize = 16 * 1024 * 1024;
+/// The most paths one `hash-object` call is given.
+const HASH_PATHS: usize = 500;
 const GIT_TIMEOUT: Duration = Duration::from_secs(10);
 const COMMITS_MAX: &str = "100";
 const REFS_MAX: usize = 500;
@@ -248,12 +254,17 @@ fn tree_id(path: &Path) -> String {
     format!("{hash:016x}")
 }
 
+/// A name as it is shown: one line, every hidden or control character (line breaks and tabs too) as an escape.
 fn visible(text: &str) -> String {
-    clean_block(text, usize::MAX).0
+    clean_block(text, usize::MAX)
+        .0
+        .replace('\n', "\\u{a}")
+        .replace('\t', "\\u{9}")
 }
 
-/// The work trees of the repo `dir` is in, the main one first; a bare, prunable or missing one is left out.
-pub fn worktrees(dir: &Path) -> Result<Vec<Worktree>, DiffError> {
+/// The work trees of the repo `dir` is in, the main one first; a bare, prunable or missing one is left out. At most
+/// [`WORKTREES_MAX`]; the flag says more were left out.
+pub fn worktrees(dir: &Path) -> Result<(Vec<Worktree>, bool), DiffError> {
     work_tree(dir)?;
     let out = run(
         dir,
@@ -265,6 +276,7 @@ pub fn worktrees(dir: &Path) -> Result<Vec<Worktree>, DiffError> {
         return Err(DiffError::Failed);
     }
     let mut trees = Vec::new();
+    let mut cut = out.cut;
     let mut fields: Vec<&[u8]> = Vec::new();
     let mut first = true;
     for field in out.stdout.split(|&b| b == 0) {
@@ -289,7 +301,11 @@ pub fn worktrees(dir: &Path) -> Result<Vec<Worktree>, DiffError> {
         let Some(path) = value("worktree ").map(PathBuf::from) else {
             continue;
         };
-        if gone || !path.is_dir() || trees.len() >= WORKTREES_MAX {
+        if gone || !path.is_dir() {
+            continue;
+        }
+        if trees.len() >= WORKTREES_MAX {
+            cut = true;
             continue;
         }
         trees.push(Worktree {
@@ -301,7 +317,7 @@ pub fn worktrees(dir: &Path) -> Result<Vec<Worktree>, DiffError> {
             path,
         });
     }
-    Ok(trees)
+    Ok((trees, cut))
 }
 
 /// The commit id `rev` names. `rev` is the page's text: it goes after `--end-of-options` and only its id goes on.
@@ -324,26 +340,23 @@ fn resolve(dir: &Path, rev: &str) -> Result<String, DiffError> {
     .ok_or(DiffError::UnknownRef)
 }
 
-/// `main`, else `master`, else the remote's default branch (as last fetched: nothing is fetched here).
+/// The full ref of `main`, else `master`, else the remote's default branch (as last fetched: nothing is fetched here).
+/// Full, so a tag of the same name cannot take its place.
 fn default_base(dir: &Path) -> Result<Option<String>, DiffError> {
     for name in ["main", "master"] {
-        if resolve(dir, &format!("refs/heads/{name}")).is_ok() {
-            return Ok(Some(name.to_owned()));
+        let full = format!("refs/heads/{name}");
+        if resolve(dir, &full).is_ok() {
+            return Ok(Some(full));
         }
     }
     line(
         dir,
-        &[
-            "symbolic-ref",
-            "--quiet",
-            "--short",
-            "refs/remotes/origin/HEAD",
-        ],
+        &["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
     )
 }
 
-/// `{branches, base, commits}`: local and remote branches and tags (500 at most), the default base of a branch compare,
-/// and the newest 100 commits of `HEAD`.
+/// `{branches, truncated, base, base_shown, commits}`: local and remote branches and tags (500 at most, `truncated` says
+/// more were left out), the default base of a branch compare, and the newest 100 commits of `HEAD`.
 pub fn overview(dir: &Path) -> Result<Value, DiffError> {
     work_tree(dir)?;
     let refs = run(
@@ -361,7 +374,7 @@ pub fn overview(dir: &Path) -> Result<Value, DiffError> {
     if !refs.ok {
         return Err(DiffError::Failed);
     }
-    let branches: Vec<Value> = String::from_utf8_lossy(&refs.stdout)
+    let mut branches: Vec<Value> = String::from_utf8_lossy(&refs.stdout)
         .lines()
         .filter(|name| !(name.starts_with("refs/remotes/") && name.ends_with("/HEAD")))
         .filter_map(|full| {
@@ -374,8 +387,10 @@ pub fn overview(dir: &Path) -> Result<Value, DiffError> {
             .find_map(|(kind, prefix)| Some((*kind, full.strip_prefix(prefix)?)))?;
             Some(json!({"name": name, "shown": visible(name), "kind": kind}))
         })
-        .take(REFS_MAX)
+        .take(REFS_MAX + 1)
         .collect();
+    let truncated = refs.cut || branches.len() > REFS_MAX;
+    branches.truncate(REFS_MAX);
     let log = run(
         dir,
         &[],
@@ -407,7 +422,17 @@ pub fn overview(dir: &Path) -> Result<Value, DiffError> {
             )
         })
         .collect();
-    Ok(json!({"branches": branches, "base": default_base(dir)?, "commits": commits}))
+    let base = default_base(dir)?.map(|full| {
+        ["refs/heads/", "refs/remotes/"]
+            .iter()
+            .find_map(|prefix| full.strip_prefix(prefix))
+            .map_or_else(|| full.clone(), str::to_owned)
+    });
+    let base_shown = base.as_deref().map(visible);
+    Ok(
+        json!({"branches": branches, "truncated": truncated, "base": base, "base_shown": base_shown,
+              "commits": commits}),
+    )
 }
 
 /// The `-c` pairs that switch every configured filter off, and whether one has a name that cannot be overridden (a `=`
@@ -461,6 +486,8 @@ struct Part {
 }
 
 struct Plan {
+    /// The root of the work tree.
+    top: PathBuf,
     parts: Vec<Part>,
     base: Option<String>,
     head: Option<String>,
@@ -468,9 +495,10 @@ struct Plan {
 }
 
 fn plan(dir: &Path, compare: &Compare) -> Result<Plan, DiffError> {
-    work_tree(dir)?;
+    let top = toplevel(dir).ok_or(DiffError::NotARepo)?;
     let (config, stuck) = filters(dir)?;
     let committed = |base: String, head: String, config| Plan {
+        top: top.clone(),
         parts: vec![Part {
             area: "committed",
             revs: vec![base.clone(), head.clone()],
@@ -486,6 +514,7 @@ fn plan(dir: &Path, compare: &Compare) -> Result<Plan, DiffError> {
                 return Err(DiffError::Filter);
             }
             Plan {
+                top: top.clone(),
                 parts: vec![
                     Part {
                         area: "staged",
@@ -552,12 +581,22 @@ struct Entry {
     added: Option<u64>,
     removed: Option<u64>,
     binary: bool,
+    /// An unstaged binary file of unchanged mode: it differs only if its content's id is not this one, the index's.
+    index_id: Option<String>,
 }
 
 /// The entries of `git diff --raw --numstat -z`: first a `:modes ids status` field and its path (two for a rename or a
 /// copy) per file, then `added<TAB>removed<TAB>path` (`-` for binary; an empty path and two more fields for a rename).
-fn entries(area: &'static str, out: &[u8]) -> Vec<Entry> {
+/// `cut`: the answer is only its beginning, so its last, unfinished field is dropped and a file with no counts stays.
+fn entries(area: &'static str, out: &[u8], cut: bool) -> Vec<Entry> {
+    let out = match out.iter().rposition(|&b| b == 0) {
+        Some(end) if cut => &out[..=end],
+        _ if cut => &[],
+        _ => out,
+    };
     let mut found: Vec<Entry> = Vec::new();
+    // a path's place in `found`
+    let mut places: HashMap<Vec<u8>, usize> = HashMap::new();
     // by place in `found`: the modes differ (or a side is missing), and a numstat field came
     let mut seen_as: Vec<(bool, bool)> = Vec::new();
     let mut fields = out.split(|&b| b == 0);
@@ -575,21 +614,30 @@ fn entries(area: &'static str, out: &[u8]) -> Vec<Entry> {
                 'U' => "conflict",
                 _ => "modified",
             };
-            let Some(first) = fields.next() else { break };
+            // a path is never empty: after a cut, the end of the answer stands where one should
+            let Some(first) = fields.next().filter(|f| !f.is_empty()) else {
+                break;
+            };
             let (old_path, path) = if matches!(letter, 'R' | 'C') {
-                let Some(second) = fields.next() else { break };
+                let Some(second) = fields.next().filter(|f| !f.is_empty()) else {
+                    break;
+                };
                 (Some(first.to_vec()), second.to_vec())
             } else {
                 (None, first.to_vec())
             };
             // a conflict comes as `U` and again as `M`
-            if let Some(seen) = found.iter_mut().rev().find(|e| e.path == path) {
+            if let Some(&at) = places.get(&path) {
                 if status == "conflict" {
-                    seen.status = "conflict";
+                    found[at].status = "conflict";
                 }
                 continue;
             }
-            seen_as.push((words.first() != words.get(1), false));
+            places.insert(path.clone(), found.len());
+            // `old mode, new mode, old id, new id, status`
+            let mode_changed =
+                words.first().map(|w| w.trim_start_matches(':')) != words.get(1).copied();
+            seen_as.push((mode_changed, false));
             found.push(Entry {
                 area,
                 status,
@@ -598,6 +646,7 @@ fn entries(area: &'static str, out: &[u8]) -> Vec<Entry> {
                 added: None,
                 removed: None,
                 binary: false,
+                index_id: words.get(2).map(|&id| id.to_owned()),
             });
         } else {
             let mut parts = field.splitn(3, |&b| b == b'\t');
@@ -615,7 +664,7 @@ fn entries(area: &'static str, out: &[u8]) -> Vec<Entry> {
                 path
             };
             let number = |b: &[u8]| std::str::from_utf8(b).ok()?.parse::<u64>().ok();
-            if let Some(at) = found.iter().position(|e| e.path == path) {
+            if let Some(&at) = places.get(path) {
                 seen_as[at].1 = true;
                 let entry = &mut found[at];
                 entry.binary = added == b"-";
@@ -627,11 +676,21 @@ fn entries(area: &'static str, out: &[u8]) -> Vec<Entry> {
     // with the index not refreshed, a file whose time changed but not its content is listed with nothing to show
     if area == "unstaged" {
         let mut seen = seen_as.into_iter();
-        found.retain(|e| {
+        found.retain_mut(|e| {
             let (mode_changed, counted) = seen.next().unwrap_or((true, true));
-            let empty = !counted || (!e.binary && (e.added, e.removed) == (Some(0), Some(0)));
-            mode_changed || e.status != "modified" || !empty
+            let unproven = !mode_changed && e.status == "modified";
+            if !(unproven && e.binary) {
+                e.index_id = None;
+            }
+            let empty = if counted {
+                !e.binary && (e.added, e.removed) == (Some(0), Some(0))
+            } else {
+                !cut
+            };
+            !(unproven && empty)
         });
+    } else {
+        found.iter_mut().for_each(|e| e.index_id = None);
     }
     // a conflict is shown once, from the work tree (the side with the markers)
     if area == "staged" {
@@ -640,27 +699,58 @@ fn entries(area: &'static str, out: &[u8]) -> Vec<Entry> {
     found
 }
 
+/// Drops each unstaged binary file whose content is what the index holds (git says nothing more for a binary file whose
+/// time alone changed). `hash-object` reads the file with the plan's filters off and writes nothing. A file it cannot
+/// answer for stays listed.
+fn drop_unchanged_binaries(plan: &Plan, all: &mut Vec<Entry>) {
+    let asked: Vec<&str> = all
+        .iter()
+        .filter(|e| e.index_id.is_some())
+        .filter_map(|e| std::str::from_utf8(&e.path).ok())
+        .collect();
+    let mut same: HashMap<Vec<u8>, String> = HashMap::new();
+    for paths in asked.chunks(HASH_PATHS) {
+        let mut args = vec!["hash-object", "--"];
+        args.extend(paths);
+        let Ok(out) = run(&plan.top, &plan.config, &args, OUTPUT_MAX) else {
+            break; // git is too slow here: the rest stay listed
+        };
+        if !out.ok || out.cut {
+            continue;
+        }
+        let ids = String::from_utf8_lossy(&out.stdout);
+        same.extend(
+            paths
+                .iter()
+                .zip(ids.lines())
+                .map(|(path, id)| (path.as_bytes().to_vec(), id.to_owned())),
+        );
+    }
+    all.retain(|e| e.index_id.is_none() || same.get(&e.path) != e.index_id.as_ref());
+}
+
 fn list(dir: &Path, plan: &Plan) -> Result<(Vec<Entry>, bool), DiffError> {
     let mut all = Vec::new();
     let mut cut = false;
     for part in &plan.parts {
         let mut args: Vec<&str> = DIFF_ARGS.to_vec();
-        args.extend(["--raw", "--numstat", "-z"]);
+        args.extend(["--raw", "--no-abbrev", "--numstat", "-z"]);
         args.extend(part.revs.iter().map(String::as_str));
         args.push("--");
-        let out = run(dir, &plan.config, &args, OUTPUT_MAX)?;
+        let out = run(dir, &plan.config, &args, LIST_MAX)?;
         if !out.ok {
             return Err(DiffError::Failed);
         }
         cut |= out.cut;
-        all.extend(entries(part.area, &out.stdout));
+        all.extend(entries(part.area, &out.stdout, out.cut));
     }
+    drop_unchanged_binaries(plan, &mut all);
     if plan.parts.iter().any(|p| p.area == "unstaged") {
         let out = run(
             dir,
             &plan.config,
             &["ls-files", "--others", "--exclude-standard", "-z"],
-            OUTPUT_MAX,
+            LIST_MAX,
         )?;
         if !out.ok {
             return Err(DiffError::Failed);
@@ -677,6 +767,7 @@ fn list(dir: &Path, plan: &Plan) -> Result<(Vec<Entry>, bool), DiffError> {
             added: None,
             removed: None,
             binary: false,
+            index_id: None,
         }));
     }
     Ok((all, cut))
@@ -689,12 +780,17 @@ pub fn files(dir: &Path, compare: &Compare) -> Result<Value, DiffError> {
     let plan = plan(dir, compare)?;
     let (all, cut) = list(dir, &plan)?;
     let total = all.len();
+    let mut budget = COUNT_BUDGET;
     let rows: Vec<Value> = all
         .into_iter()
         .take(FILES_MAX)
-        .map(|e| {
+        .map(|mut e| {
             let openable = std::str::from_utf8(&e.path).is_ok();
             let path = String::from_utf8_lossy(&e.path).into_owned();
+            if e.area == "untracked" && openable {
+                (e.binary, e.added) = peek(dir, &path, &mut budget);
+                e.removed = e.added.map(|_| 0);
+            }
             let old = e
                 .old_path
                 .map(|p| String::from_utf8_lossy(&p).into_owned());
@@ -703,9 +799,12 @@ pub fn files(dir: &Path, compare: &Compare) -> Result<Value, DiffError> {
                    "added": e.added, "removed": e.removed, "binary": e.binary, "openable": openable})
         })
         .collect();
+    // filters apply only where the work tree is read
+    let reads_tree = plan.parts.iter().any(|p| p.area == "unstaged");
     Ok(
         json!({"files": rows, "total": total, "truncated": cut || total > FILES_MAX,
-              "base": plan.base, "head": plan.head, "filters_off": !plan.config.is_empty()}),
+              "base": plan.base, "head": plan.head,
+              "filters_off": reads_tree && !plan.config.is_empty()}),
     )
 }
 
@@ -747,6 +846,40 @@ fn open_inside(dir: &Path, path: &str) -> Option<File> {
         folder = sys::open_dir_at(&folder, part).ok()?;
     }
     sys::open_file_at(&folder, name).ok()
+}
+
+/// An untracked file for the list: whether it is binary, and its line count when it is text that fits both caps.
+fn peek(dir: &Path, path: &str, budget: &mut usize) -> (bool, Option<u64>) {
+    let unknown = (false, None);
+    let Some(file) = open_inside(dir, path) else {
+        return unknown;
+    };
+    let Ok(meta) = file.metadata() else {
+        return unknown;
+    };
+    if !meta.is_file() {
+        return unknown;
+    }
+    let whole = meta.len() <= PATCH_MAX_BYTES.min(*budget) as u64;
+    let want = if whole {
+        meta.len()
+    } else {
+        BINARY_PROBE as u64
+    };
+    let mut data = Vec::new();
+    if file.take(want).read_to_end(&mut data).is_err() {
+        return unknown;
+    }
+    if data[..data.len().min(BINARY_PROBE)].contains(&0) {
+        return (true, None);
+    }
+    if !whole {
+        return unknown;
+    }
+    *budget -= data.len();
+    let breaks = data.iter().filter(|&&b| b == b'\n').count();
+    let open_end = data.last().is_some_and(|&b| b != b'\n');
+    (false, Some((breaks + usize::from(open_end)) as u64))
 }
 
 /// A new file's patch, made here: `git diff` has none for a file it does not track.
@@ -799,12 +932,38 @@ pub fn file(dir: &Path, compare: &Compare, area: &str, path: &str) -> Result<Val
         .find(|e| e.area == area && e.path == path.as_bytes())
         .ok_or(DiffError::NotListed)?;
     let Some(part) = plan.parts.iter().find(|p| p.area == entry.area) else {
+        // git names a folder with its own repository by the folder, with a slash
+        if path.ends_with('/') {
+            let note = "a folder with its own git repository: its content is not read";
+            return Ok(patch_answer(b"", false, false, Some(note)));
+        }
         return untracked(dir, path);
     };
     let mut specs = vec![format!(":(literal){path}")];
     if let Some(old) = &entry.old_path {
         let old = std::str::from_utf8(old).map_err(|_| DiffError::NotListed)?;
         specs.push(format!(":(literal){old}"));
+    }
+    // a literal path also matches what is under a folder of that name: other listed files there are left out
+    let own: Vec<&[u8]> = [Some(&entry.path), entry.old_path.as_ref()]
+        .into_iter()
+        .flatten()
+        .map(Vec::as_slice)
+        .collect();
+    let under = |other: &[u8]| {
+        own.iter()
+            .any(|p| other.strip_prefix(*p).is_some_and(|r| r.starts_with(b"/")))
+    };
+    for other in all.iter().filter(|o| o.area == entry.area) {
+        for name in [Some(&other.path), other.old_path.as_ref()]
+            .into_iter()
+            .flatten()
+        {
+            if !own.contains(&name.as_slice()) && under(name) {
+                let name = std::str::from_utf8(name).map_err(|_| DiffError::NotListed)?;
+                specs.push(format!(":(exclude,literal){name}"));
+            }
+        }
     }
     let mut args: Vec<&str> = DIFF_ARGS.to_vec();
     args.push("--patch");
@@ -816,4 +975,30 @@ pub fn file(dir: &Path, compare: &Compare, area: &str, path: &str) -> Result<Val
         return Err(DiffError::Failed);
     }
     Ok(patch_answer(&out.stdout, out.cut, entry.binary, None))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_cut_list_keeps_the_files_whose_counts_did_not_come_and_drops_half_a_name() {
+        let raw = |path: &str| {
+            format!(
+                ":100644 100644 {} {} M\0{path}\0",
+                "a".repeat(40),
+                "0".repeat(40)
+            )
+        };
+        let out = raw("one") + &raw("two") + &raw("three-cut-in-the-mid");
+        let out = &out.as_bytes()[..out.len() - 4];
+        let names: Vec<Vec<u8>> = entries("unstaged", out, true)
+            .into_iter()
+            .map(|e| e.path)
+            .collect();
+        assert_eq!(names, [b"one".to_vec(), b"two".to_vec()]);
+        // a whole answer: a listed file with no counts only had its time changed
+        let whole = raw("one");
+        assert!(entries("unstaged", whole.as_bytes(), false).is_empty());
+    }
 }

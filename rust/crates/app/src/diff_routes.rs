@@ -28,6 +28,8 @@ const NO_SESSION: &str = "no such session";
 const NO_FOLDER: &str = "the folder of this session is not known";
 
 type Refusal = (StatusCode, &'static str);
+/// The repo's work trees, and whether some were left out.
+type Trees = (Vec<Worktree>, bool);
 
 pub(crate) fn routes() -> Router<Api> {
     Router::new()
@@ -51,7 +53,7 @@ fn refusal(error: DiffError) -> Refusal {
 }
 
 /// The picked work tree and every work tree of its repo.
-fn picked(api: &Api, q: &Query) -> Result<(PathBuf, Vec<Worktree>), Refusal> {
+fn picked(api: &Api, q: &Query) -> Result<(PathBuf, Trees), Refusal> {
     let value = |key| q.get(key).filter(|v| !v.is_empty());
     let folder = match (value("session"), value("workspace"), value("repo_no")) {
         (Some(id), None, None) => {
@@ -76,7 +78,7 @@ fn picked(api: &Api, q: &Query) -> Result<(PathBuf, Vec<Worktree>), Refusal> {
         _ => return Err((StatusCode::BAD_REQUEST, PICK)),
     };
     let here = repo_diff::toplevel(&folder).ok_or_else(|| refusal(DiffError::NotARepo))?;
-    let trees = repo_diff::worktrees(&here).map_err(refusal)?;
+    let (trees, cut) = repo_diff::worktrees(&here).map_err(refusal)?;
     let tree = match value("tree") {
         Some(id) => trees
             .iter()
@@ -85,14 +87,14 @@ fn picked(api: &Api, q: &Query) -> Result<(PathBuf, Vec<Worktree>), Refusal> {
             .ok_or((StatusCode::NOT_FOUND, NO_TREE))?,
         None => here,
     };
-    Ok((tree, trees))
+    Ok((tree, (trees, cut)))
 }
 
 /// Runs `read` on a blocking thread and answers its JSON (`no-store`) or its fixed refusal.
 async fn serve(
     api: Api,
     uri: Uri,
-    read: impl FnOnce(&Query, PathBuf, Vec<Worktree>) -> Result<Value, Refusal> + Send + 'static,
+    read: impl FnOnce(&Query, PathBuf, Trees) -> Result<Value, Refusal> + Send + 'static,
 ) -> Response {
     let q = Query::parse(uri.query().unwrap_or(""));
     let outcome = tokio::task::spawn_blocking(move || {
@@ -109,10 +111,12 @@ async fn serve(
     }
 }
 
-/// `{name, tree, worktrees: [{id, folder, branch, head, main}], branches, base, commits}`.
+/// `{name, tree, worktrees: [{id, folder, branch, head, main}], branches, base, base_shown, commits, truncated}`
+/// (`truncated`: some branches, tags or work trees were left out).
 async fn repo(State(api): State<Api>, uri: Uri) -> Response {
-    serve(api, uri, |_, tree, trees| {
+    serve(api, uri, |_, tree, (trees, cut)| {
         let mut body = repo_diff::overview(&tree).map_err(refusal)?;
+        body["truncated"] = json!(cut || body["truncated"] == true);
         body["name"] = json!(trees.first().map(|t| t.folder.as_str()));
         body["tree"] = json!(trees.iter().find(|t| t.path == tree).map(|t| t.id.as_str()));
         body["worktrees"] = trees
@@ -320,6 +324,7 @@ mod tests {
         assert_eq!(head["base"], "main");
         assert_eq!(head["worktrees"].as_array().unwrap().len(), 2);
         assert_eq!(head["tree"], head["worktrees"][0]["id"]);
+        assert_eq!(head["truncated"], false);
         assert!(!head.to_string().contains(temp.0.to_str().unwrap()));
 
         let base = "workspace=t136&repo_no=0&compare=uncommitted";
@@ -345,6 +350,11 @@ mod tests {
                 .unwrap()
                 .contains("+from the side tree")
         );
+        // the planted change reached the answer and nothing the app keeps
+        for name in ["store.sqlite", "store.sqlite-wal"] {
+            let kept = fs::read(temp.0.join(name)).unwrap_or_default();
+            assert!(!kept.windows(13).any(|w| w == b"SECRET-CHANGE"), "{name}");
+        }
     }
 
     #[tokio::test]

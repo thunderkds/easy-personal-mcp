@@ -48,16 +48,143 @@ Not done: merge (yours); <auto verify: running (T182) | auto verify: <result> | 
 
 | Check | Result | Notes / output snippet |
 |-------|--------|------------------------|
-| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☐ fail | [test file path(s) — required before Done] |
-| Verification command run | ☐ pass / ☐ fail | [paste actual output] |
-| Negative cases hold | ☐ pass / ☐ fail | [paste the red run against the prior content, or the mutation diff (`git diff --stat`, non-empty) before each verdict] |
+| **New test(s) cover Acceptance Criteria (file paths pasted)** | ☐ pass / ☑ fail | `rust/crates/core/tests/repo_diff.rs` (17 tests), `rust/crates/app/src/diff_routes.rs` `mod tests` (4 tests). Gaps: AC1 (touched binary, F1; untracked binary mark in the list, F2), AC8 (silent 500-ref cap, F3), FR-140 network (F6). |
+| Verification command run | ☑ pass / ☐ fail | At `d3215f5`, `cd rust && cargo test -p easy-personal-core --test repo_diff && cargo test -p easy-personal-rs diff_routes`: `test result: ok. 17 passed; 0 failed; 0 ignored` and `test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 479 filtered out` |
+| Negative cases hold | ☑ pass / ☐ fail | 19 mutants on a scratch copy of `d3215f5`: 13 red, 6 survived. Non-empty diffs and verdicts are under "Mutation run" below. Survivors with no second layer found: lazy fetch, inherited `GIT_*` (F6). |
 | verify | ☐ pass / ☐ fail / ☐ N/A | [leave it: the auto verify hook writes this row, with its run record. If you ran /verify yourself, tick pass and make the whole Notes cell "/verify by the user, session <id>, commit <sha>" (the full 40-character commit). The merge gate counts no other row, even with the word "pass" in it] |
-| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☐ pass / ☐ fail | [what was reviewed vs. skipped, and why] |
-| Full smoke suite still green (no regression) | ☐ pass / ☐ fail | |
-| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☐ N/A | [`overall` and `change_risk` as the tool returned them, the scope, the ref, and the absolute path of the verifier report after a literal `report:` label — e.g. "overall 86 (>= 80), change_risk pass, scope changes, ref `main...HEAD`, report: `/home/me/.easy-verifier-reports/kit/score_changes_20261028T0530Z.html`". The gate reads the path that follows `report:` and nothing else, so with no label, or a path that is absent, the row is unscored — write ☑ N/A instead. ☑ N/A with a reason when neither companion tool was run: the merge gate blocks on ☑ fail only, never on an absent or N/A row] |
-| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☐ N/A | [screenshot path or LLM verdict — required for UI tasks, Hard-Stop Gate 6] |
-| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☐ N/A | [method used + output] |
-| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☐ N/A | [viewports tested, any overflow findings] |
+| Review scope bounded to the change's blast radius (affected set, not whole repo) | ☑ pass / ☐ fail | Reviewed: the 15 files of `main...d3215f5` and the callees they use (`server.rs` guard, `api.rs` `Query`, `main_file`, `clean_block`, `open_regular`, `report_files::sys`, workspace repo order). Skipped: web, Python app, ingest, store schema (unchanged). |
+| Full smoke suite still green (no regression) | ☑ pass / ☐ fail | `cargo test --workspace --no-fail-fast`: 100 suites, 1420 passed, 0 failed, 29 ignored. `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0. The first run (fail-fast) stopped on the timing test `memgraph_parity::two_hundred_thousand_links_are_counted_in_time` (code not in this diff); it passed in the full rerun and alone. Web and Python suites not run (no change there). |
+| **Companion score (easy-verifier)** | ☐ pass / ☐ fail / ☑ N/A | Not run in this review. |
+| **UI: Visual regression (diff or verdict pasted)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff (page is T137). |
+| **UI: Design-system compliance (tokens/colors/typography verified)** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff. |
+| **UI: Responsiveness at target viewports** | ☐ pass / ☐ fail / ☑ N/A | No UI file in the diff. |
+
+---
+
+## Stage 4 review (fresh-context reviewer, commit `d3215f5`)
+
+**Verdict: fail.** One P1 (F1). AC1 and AC8 are met only in part. No security vulnerability confirmed. No source or test file changed.
+
+Probes ran the real `repo_diff` functions (release build of a scratch crate, git 2.53.0) on scratch repos under the session temp folder.
+
+### Acceptance criteria
+
+| AC | Result | Basis |
+|----|--------|-------|
+| 1 | partial | F1, F2 |
+| 2 | met | tests; edge F10 |
+| 3 | met for refusal; edge F8 | tests |
+| 4 | met | tests; F3 on the cut |
+| 5 | met in the tested cases; F5 on which folder a session gives | route tests |
+| 6 | met | tests, mutants, probe below |
+| 7 | met | tests, mutants |
+| 8 | partial | F3, F4, F9 |
+
+### P0
+None.
+
+### P1
+| ID | File:line | Finding and failure scenario | Confirmed by | Conf. | Action |
+|----|-----------|------------------------------|--------------|-------|--------|
+| F1 | `rust/crates/core/src/repo_diff.rs:630-634` | A tracked binary file whose time changed but not its content is listed as `unstaged / modified / binary`. Case: a build rewrites the same image, or the repo folder is copied. `git status` says clean; the list says changed; opening it gives an empty patch. `!e.binary` keeps every binary entry, and git prints `- -` for a stat-dirty binary. The test of this rule touches only a text file. | Probe: commit `b.bin`, `touch -d 2001-01-01`; `git status --porcelain` empty, `files` answers `b.bin` modified, `file` answers `"patch":""`. | 100 | For an unstaged binary entry with no mode change, prove the content differs before keeping it (for example its patch has no `Binary files` line, as seen here, or compare blob ids). Add the touched-binary test. |
+
+### P2
+| ID | File:line | Finding and failure scenario | Confirmed by | Conf. | Action |
+|----|-----------|------------------------------|--------------|-------|--------|
+| F2 | `repo_diff.rs:672-680` | AC1: an untracked binary file is `binary: false` and has no counts in the list; it is marked only when opened. | Code; test at `tests/repo_diff.rs:176-183` asserts the mark only on the `file` answer for `raw.bin`. | 100 | Mark it in the list (bounded probe of the first 8000 bytes, same safe open), or have the owner change the criterion. |
+| F3 | `repo_diff.rs:377`, `:292`, `:410` | AC8 "caps cut and say so": branches/tags are cut at 500 and worktrees at 100 with no flag. Refs sort heads, remotes, tags, so many branches hide every tag. | Probe: 505 branches + tag `v1` gave 500 entries, kinds `['branch']`, keys `base, branches, commits`. Worktree cap by code only. | 100 | Add a `truncated` flag to the overview answer. |
+| F4 | `repo_diff.rs:627-634` with `:651-656` | When the `--raw --numstat` output passes 4 MiB, unstaged entries with no numstat field read as "empty" and are dropped. | Probe: 60,000 modified files gave `rows 0, total 0, truncated true`. 34,000 gave `total 17746`. | 100 | Drop an entry as empty only when the part was not cut. |
+| F5 | `rust/crates/core/src/transcript.rs:624-645` | FR-139 "newest recorded folder": when the last 1 MiB holds no complete main-thread record with `cwd` (a final record over 1 MiB), the first 1 MiB is used, so the session opens the old folder or worktree with no notice. | Probe: records `/work/old` ... `/work/newer`, last line 1.1 MiB, gave `Some("/work/old")`; without the huge line `Some("/work/newer")`. | 100 | Read further back from the end (bounded) before the start fallback, or answer "folder not known". |
+| F6 | `repo_diff.rs:148-156` | No test holds `GIT_NO_LAZY_FETCH` or the `GIT_*` removal; both can be deleted with every test green. Without the first, a partial clone fetches and runs the configured upload-pack program. | Mutants survived. Probe: app answered `git could not read this repo`, nothing ran; plain `git diff` on the same clone ran the planted `uploadpack`. | 100 | Add a partial-clone test and an inherited-`GIT_DIR` test. |
+
+### P3
+| ID | File:line | Finding | Conf. |
+|----|-----------|---------|-------|
+| F7 | `repo_diff.rs:586`, `:618` | Linear search per entry: 34,000 changed files took 4.3 to 5.1 s per call against 0.9 s for git, and every one-file open repeats it. Not under the 10 s git limit. Use a map by path. | 100 |
+| F8 | `repo_diff.rs:804` | A literal pathspec still matches a folder: opening deleted file `a` (now folder `a/`) also returns the patch of `a/b` (probe). | 100 |
+| F9 | `repo_diff.rs:251-253`, `:701`, `:410` | `shown` keeps raw newline and tab of a file name (probe: `"shown":"n\nl\tx"`); overview `base` is raw with no shown form (probe: U+202E passed through). | 100 |
+| F10 | `repo_diff.rs:329-332`, `:506-509` | A tag named `main` wins over the branch: the default base is checked as `refs/heads/main` but then resolved by short name (probe: base was the tag's commit). | 100 |
+| F11 | `repo_diff.rs:669-680`, `:736-743` | A nested untracked repo or worktree is listed as `inner/`, `openable: true`; opening it answers "that file is not in this compare; refresh the list" (probe). | 100 |
+| F12 | `repo_diff.rs:708` | `filters_off` is true for committed compares too, where filters do not apply. | 100 |
+| F13 | `rust/README.md` | The README describes other route families but not `/api/diff/*`. | 75 |
+| F14 | `diff_routes.rs` tests | No planted-secret check that diff text reaches no store row, log, MCP or CLI answer (brainstorm edge list). Code reading found no write or log path. | 75 |
+
+### Security review
+
+Actor and boundary: content and config of a repo, against the app that runs git in it; and a web page, against the loopback routes.
+
+| Lead | Verdict | Evidence |
+|------|---------|----------|
+| Repo config starts a program | rejected | Probe on both work trees, five compares, `overview`, `trees`, every listed file: filters with odd names (space, quote, backslash, dots, non-ASCII, `;$(x)`, empty name tested with git alone), filter from `include.path` and `config.worktree`, global filter via `HOME`, textconv, diff driver and external diff, pager, fsmonitor, ssh, askpass, editor, gpg, hooks, submodule fsmonitor/filter/diff, a merge conflict. No program ran. Plain `git diff` there ran textconv, fsmonitor and a filter. |
+| Diff routes write to the repo | rejected | Same probe: size, mtime, inode and SHA-256 of `.git` files and SHA-256 of work files equal before and after. |
+| Network through lazy fetch | rejected on git 2.53.0 | F6 probe (`file://` remote). Older git not tested. |
+| Filter that cannot be overridden runs in a committed compare | rejected | Git-level probe with the app's diff flags and a required filter `a=b`: no program ran; the repo test checks the same through the app. |
+| Ref or path injection, traversal, symlink, FIFO | rejected | `--end-of-options` plus id-only; listed path only; `:(literal)`; per-part `O_NOFOLLOW` open; tests and mutants. |
+| Unauthenticated or cross-origin read | rejected | Guard test: no token, query token, wrong Host, wrong Origin all 403; POST/PUT/DELETE 405. |
+| Absolute path or repo text in errors, storage or logs | rejected | `DiffError` fixed lines, git stderr discarded, no write or log call in the new code; `no-store`. |
+
+Hardening notes (not findings): the config change between reading filter names and running the diff is accepted in DDR-0010. A stored workspace folder that is not a repo but lies inside one (a home dotfiles repo) shows the enclosing repo, untracked files included, to the owner (`diff_routes.rs:78`, code only).
+
+### Process checks
+- Entry point `/api/diff/` found in `diff_routes.rs`.
+- `lane: C2, 14 files, 2251 lines, EXCEEDS (lines 2251 > 500); unpredicted: BRAINSTORMING_LOG_GITDIFF.md, PRD.md, PROJECT_SPEC.md, docs/ddr/0010-git-diff-view-show-never-store.md, rust/crates/app/src/api.rs, rust/crates/app/src/main.rs, rust/crates/app/src/transcript_route.rs, rust/crates/core/src/lib.rs, rust/crates/core/src/transcript.rs, rust/crates/core/src/workspaces.rs, tasks/TASK_GUIDE_T136.md`
+- The skill's second-agent re-check of security leads was not done (single reviewer); no security lead is rated confirmed.
+- No fix applied (the caller asked for review only).
+
+### Mutation run
+Each row: diff size of the mutant against `d3215f5` (`git diff --no-index --numstat`), then the test result.
+
+| Mutant | Diff | Result |
+|--------|------|--------|
+| no filter overrides | `repo_diff.rs` +1 -3 | red |
+| fsmonitor on | +0 -1 | red |
+| hooks on | +0 -1 | survived (no index write, so no hook fires) |
+| showSignature config on | +0 -1 | survived (`--no-show-signature` covers) |
+| both signature guards off | +0 -2 | red |
+| index refresh on | +0 -1 | red |
+| optional locks on | +0 -1 | survived (index bytes still unchanged) |
+| lazy fetch on | +0 -1 | survived (F6) |
+| `GIT_*` inherited | +1 -1 | survived (F6) |
+| external diff on | +1 -1 | red |
+| textconv on | +1 -1 | red |
+| submodules entered | +1 -1 | red |
+| no `--end-of-options` in `resolve` | +0 -1 | survived (`^{commit}` suffix and id-only still refuse) |
+| pathspec not literal | +1 -1 | red |
+| symlink check off | +1 -1 | red |
+| symlink check and safe open off | +2 -2 | red |
+| listed-path check off | +2 -2 | red |
+| stuck filter ignored | +0 -1 | red |
+| sidechain folder taken | `transcript.rs` +0 -3 | red (route test) |
+
+---
+
+## Supervisor response (2026-11-26, after the review of `d3215f5`)
+
+Tests first, then the fixes; the commit that holds this response needs its own reviewer run. `cargo test --workspace`:
+1431 passed, 0 failed, 30 ignored; clippy `-D warnings` and `fmt --check` pass. Eight single-edit mutants (lazy fetch on,
+`GIT_*` inherited, binary content check off, filters on in `hash-object`, folder excludes off, short default base, cut
+flag ignored, untracked probe off) each fail a test.
+
+| # | Result | What changed |
+|---|--------|--------------|
+| F1 | fixed | An unstaged binary file of unchanged mode is listed only if `hash-object` (filters off, nothing written) gives another id than the index holds. The planted-program test now covers that call |
+| F2 | fixed | The list marks untracked binary files and counts the lines of text ones (1 MiB a file, 16 MiB a list; past that no count). PRD FR-139 states the caps |
+| F3 | fixed | The overview answers `truncated` for cut branches, tags or work trees. The page shows it in T137 |
+| F4 | fixed | A cut list keeps files whose counts did not come and drops an unfinished last name; the list cap is 16 MiB |
+| F5 | fixed | The folder is read from the last 1, 4, then 16 MiB; never from the start of a longer file |
+| F6 | fixed | Tests for a partial clone (nothing fetched) and for inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_EXTERNAL_DIFF` |
+| F7 | fixed | Paths are found by a map |
+| F8 | fixed | Other listed files under a folder of the opened name are excluded from its patch |
+| F9 | fixed | Shown names escape line breaks and tabs; the overview adds `base_shown` |
+| F10 | fixed | The default base is resolved by its full ref |
+| F11 | fixed | A folder with its own repository opens with a note |
+| F12 | fixed | `filters_off` is true only where the work tree is read |
+| F13 | fixed | `rust/README.md` section |
+| F14 | fixed | The route test checks the planted change is not in the store files |
+
+Hardening note on a stored folder inside an enclosing repository: not changed (not a finding; the owner sees their own
+repository). Lane note: the diff is past C2's line guide; the level stays as written, and the task already runs at Risk
+High.
 
 ---
 

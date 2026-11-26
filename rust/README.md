@@ -1264,6 +1264,17 @@ Two more things the app does for a Claude Code session that runs in a terminal. 
 10. **Not built (cut list):** a card for a session that is not in the live list, a settings editor in the page (T107 is the page), macOS peer check.
 11. **Known limits.** Only the oldest waiting item of a session is shown (subagents of one session share its id, so a second prompt of the same session waits behind the first). `Socket::listen` sets the data folder (`~/.easy-personal`, it holds your store) to 0700 whenever it opens the socket. The AC 4 timing test (`hook ask` with no app, 20 runs) asserts the median and the 90th percentile under 50 ms, not the maximum (a loaded machine delays single runs).
 
+## Git diff, view only (T136, FR-139, FR-140, DDR-0010)
+
+`GET /api/diff/repo`, `/api/diff/files` and `/api/diff/file` (guard and token as every `/api/` route) show the changes of one of your repos. Nothing is written to the repo, nothing is fetched, and no file content, path or git name
+is stored or logged.
+
+- **Which repo.** `workspace=<name>&repo_no=<n>` (a stored workspace repo) or `session=<id>` (the work tree of the newest folder the session's transcript records, read from its last 16 MiB). `tree=<id>` picks another work tree by the id `repo` gave. A request never holds a folder.
+- **`repo`** answers `{name, tree, worktrees, branches, base, base_shown, commits, truncated}`: at most 100 work trees, 500 branches and tags and the newest 100 commits; `truncated` says work trees, branches or tags were left out.
+- **`files`** takes `compare=uncommitted`, `compare=branch[&base=]` (merge base with `HEAD`; default `main`, else `master`, else the remote's default branch), `compare=commit&head=` (against the first parent) or `compare=range&base=&head=`. It answers `{files, total, truncated, base, head, filters_off}`: at most 2,000 files.
+- **`file`** takes the same compare plus `area` and `path` of a listed file, and answers `{patch, cut, binary, note}`: at most 1 MiB or 5,000 lines.
+- **A repo's config cannot start a program.** Filters (by name), external diff, textconv, fsmonitor, hooks and signature checks are switched off for these calls, and submodule work trees are not entered. A filter whose name holds `=` or a line break cannot be switched off: the uncommitted compare is then refused. With filters off, a file kept through a filter can show as changed.
+
 ## Transcript of a session (T115, FR-123, DDR-0007)
 
 `GET /api/live/sessions/{id}/transcript` (guard and token as every `/api/` route; the query token is for `/api/live` only) answers `{entries, next, start, complete}` for the main transcript of a session: a live one (the file the live tail read, a T105 resume included) or a past one (the newest main-thread `source_path` the store holds for the id, opened only when it is an absolute `*.jsonl` whose folder, symlinks resolved, lies under the `projects` folder of a confirmed Claude account, with the ingest's `EASY_PERSONAL_CLAUDE_PROJECTS` override; else 404 `the transcript cannot be read`). The page polls it while a session's panel is open. This is the **fifth exception of NFR-002**: the text is read from Claude Code's own file when the request arrives and exists only in that answer; it is never stored, logged, cached or put on `/api/live`, `/api/alerts`, the tray, a popup, MCP or the CLI (`parity/leak_rust.py` plants strings in a user text, assistant text, a Bash command, a Write input, a string and a block tool result, a Stop hook reply and a thinking block, and scans every other surface).
