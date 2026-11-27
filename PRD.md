@@ -366,37 +366,39 @@ Milestones are internal delivery order inside the single v1 release.
 
 ## easy-brain in the Dashboard (proposed)
 
-**Status**: proposed by the owner on 2026-11-26 in the Easy Kit project ("adding the easy brain to the easy personal as a section for the UI interact"). It is not grilled and not approved. It gets FR numbers only after the Stage 0 grill.
+**Status**: proposed by the owner on 2026-11-26 in the Easy Kit project ("adding the easy brain to the easy personal as a section for the UI interact"), revised 2026-11-27 after the owner's "should split". It is not grilled and not approved. It gets FR numbers only after the Stage 0 grill.
 
-**What easy-brain is.** easy-brain-mcp is a planned new sibling plug-in. One brain session answers, for the owner, the questions that Easy Kit supervisors in many repos would ask the owner. It picks one of the options a supervisor lists, or sends the question to the owner (an *escalation*). easy-brain decides; easy-personal only shows and relays. So "No LLM inside" holds.
+**What easy-brain is.** easy-brain-mcp is a planned sibling plug-in in its own repo, integrated the way easy-note is: a standalone unit with its own state folder (`~/.easy-brain/`) and a public, versioned file format. It shows in one place what needs the owner across repos, restarts stopped supervisor sessions, orders work across repos, and answers routine questions from the owner's policy file. easy-brain decides; easy-personal only shows and relays. So "No LLM inside" holds, and the app still never answers a prompt by itself (Out of Scope, Write sessions).
 
-**Where.** A new **Brain** page in the dashboard. The service and its files stay in easy-brain-mcp (`~/.easy-brain/`): the escalation queue and `decisions.jsonl`.
+**Where.** A new **Brain** page in the dashboard. Everything it shows is read on demand from `~/.easy-brain/` in format `v` 1, never by calling easy-brain, as FR-066 reads easy-memory's `report.json`. A missing folder or a newer `v` is "no data", never a guess.
 
-**What the page shows** (read on demand from easy-brain's files, never by calling easy-brain, as FR-066 reads easy-memory's `report.json`):
+**What the page shows.**
 
-1. **Waiting escalations**: repo, task, question, the listed options, age. Newest first.
-2. **Recent decisions**: time, repo, question, the pick, its basis (rule, fact, policy line, precedent), and an *overturned* mark.
-3. **Owner policy**: the text of `~/.easy-personal/policy.md` (the owner's defaults, the never-delegate list, optional per-repo rules) and any line easy-brain proposed.
+1. **Inbox**: each session or question that needs the owner: repo, task, reason, the listed options when there are any, wait time. Oldest first.
+2. **Recent decisions**: time, repo, the action (`pick`, `continue`, `restart`, `owner`), its basis, and an *overturned* mark.
+3. **Owner policy**: the text of `~/.easy-brain/policy.md`. The file belongs to easy-brain; easy-personal stores no copy.
+4. **State**: whether the watcher runs, and whether easy-brain is on or off.
 
-**What the owner can do on it** (write routes under the NFR-008 guard, each needing `confirmed: true`, as FR-116 rules):
+**What the owner can do on it** (write routes under the NFR-008 guard, each needing `confirmed: true`, as FR-116 rules). Each one runs the installed `easy-brain` program with an argument list (never a shell), as FR-102 starts `claude`:
 
-1. **Answer an escalation**: pick one listed option. Free text is not sent.
-2. **Overturn a decision**: pick another listed option and type a reason. easy-brain marks that line in `decisions.jsonl`.
-3. **Edit the policy, and confirm or reject a proposed line.** Only the owner writes `policy.md`. No MCP tool writes it, as FR-021 already rules for connectors.
+1. **Answer** an inbox question: pick one listed option. Free text is not sent.
+2. **Overturn** a decision: pick another listed option and type a reason.
+3. **Edit the policy.**
+4. **Turn easy-brain off or on.**
 
-Answers and overturns go to easy-brain's own local socket (mode 0600, peer uid checked, as FR-114's `answer.sock`). easy-personal never writes easy-brain's files.
+easy-personal never writes easy-brain's files itself, and easy-brain never reads easy-personal's store, socket or keychain items.
 
 **Rules it needs.**
 
 - NFR-001 is unchanged: everything is local.
-- An eighth NFR-002 exception (show, never store, like DDR-0010): question, option and decision text is read on demand and shown on the Brain page only. It is never stored, logged, cached or sent to the tray, a popup, MCP or the CLI.
-- A ninth NFR-002 exception: `policy.md` is owner-written text that is stored, and that easy-brain reads through one read-only MCP tool, `owner_policy` (text plus content hash). It keeps FR-076's guards: a size limit and the secret check.
+- One new NFR-002 exception, of the show-never-store kind (like DDR-0010): the inbox, decision and policy text is read on demand and shown on the Brain page only. It is never stored, logged, cached or sent to the tray, a popup, MCP or the CLI.
+- No stored-text exception and no new MCP tool: the policy file and the decision log live in easy-brain's folder.
 
-**Not in the first version.** Turning easy-brain on or off per repo from the page: that switch is a project-scope file (`.claude/brain.json`), and Out of Scope keeps project-scope config with the kernel. Tray or popup alerts for escalations. Charts. A policy edit history. The Python app.
+**Not in the first version.** The per-repo switch (`.claude/brain.json` is a project-scope file; Out of Scope keeps project-scope config with the kernel). Tray or popup alerts for the inbox. Charts. Merging the inbox with the Live view's attention states (FR-047 to FR-049, FR-105). The Python app.
 
-**Open for the grill.** Does easy-brain serve a socket or a loopback HTTP route? The size limit of `policy.md`. Is the Brain page its own page or a tab in the `// kit` group?
+**Open for the grill.** Is the Brain page its own page or a tab in the `// kit` group? Which text limits and secret check apply to what the page shows (FR-106 cuts a question to 300 characters)?
 
-Design source: the "Super brain design proposal" doc in the Easy Kit project (2026-11-26).
+Design source: the "Super brain design proposal" doc and `EXECUTION_PLAN.md` (revision 2, 2026-11-27) in the Easy Kit project.
 
 ---
 
