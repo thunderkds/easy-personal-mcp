@@ -388,6 +388,8 @@ Milestones are internal delivery order inside the single v1 release.
 
 easy-personal never writes easy-brain's files itself, and easy-brain never reads easy-personal's store, socket or keychain items.
 
+**Chat with the brain** (asked by the owner on 2026-11-27: "from the personal it should be the chat bot and I can type, control the status through that"). A **Chat with the brain** button on the Brain page starts an ordinary Chat app session (FR-109) in the folder `~/.easy-brain/home/`. easy-brain owns that folder: its `.mcp.json` loads easy-brain's own control tools, and its settings file lets the read tools run and makes each change tool ask. So a change the owner types shows as an Allow or Deny card (FR-111), and the app still never answers by itself. No new chat code and no new easy-personal MCP tool: the session is the owner's own Claude Code, and its text is shown and never stored (FR-115). The session counts toward the cap of 4 (question 41). The watcher behind it (`easy-brain watch`) is a separate service, not a Terminal session of the app, because FR-136 ends those when the tray quits. Before the button exists, the owner can add `~/.easy-brain/home` to a workspace as a repo path (FR-028) and start a Chat app session there by hand.
+
 **Rules it needs.**
 
 - NFR-001 is unchanged: everything is local.
@@ -396,7 +398,7 @@ easy-personal never writes easy-brain's files itself, and easy-brain never reads
 
 **Not in the first version.** The per-repo switch (`.claude/brain.json` is a project-scope file; Out of Scope keeps project-scope config with the kernel). Tray or popup alerts for the inbox. Charts. Merging the inbox with the Live view's attention states (FR-047 to FR-049, FR-105). The Python app.
 
-**Open for the grill.** Is the Brain page its own page or a tab in the `// kit` group? Which text limits and secret check apply to what the page shows (FR-106 cuts a question to 300 characters)?
+**Open for the grill.** Is the Brain page its own page or a tab in the `// kit` group? Which text limits and secret check apply to what the page shows (FR-106 cuts a question to 300 characters)? May the button start a Chat app session in `~/.easy-brain/home/` when that folder is in no workspace (FR-109 picks the folder from the stored workspace repos)?
 
 Design source: the "Super brain design proposal" doc and `EXECUTION_PLAN.md` (revision 2, 2026-11-27) in the Easy Kit project.
 
