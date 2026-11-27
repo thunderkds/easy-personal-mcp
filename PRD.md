@@ -364,6 +364,46 @@ Milestones are internal delivery order inside the single v1 release.
 
 ---
 
+## easy-brain in the Dashboard (proposed)
+
+**Status**: proposed by the owner on 2026-11-26 in the Easy Kit project ("adding the easy brain to the easy personal as a section for the UI interact"), revised 2026-11-27 after the owner's "should split". It is not grilled and not approved. It gets FR numbers only after the Stage 0 grill.
+
+**What easy-brain is.** easy-brain (github.com/thunderkds/easy-brain) is a planned sibling plug-in in its own repo, integrated the way easy-note is: a standalone unit with its own state folder (`~/.easy-brain/`) and a public, versioned file format. It shows in one place what needs the owner across repos, restarts stopped supervisor sessions, orders work across repos, and answers routine questions from the owner's policy file. easy-brain decides; easy-personal only shows and relays. So "No LLM inside" holds, and the app still never answers a prompt by itself (Out of Scope, Write sessions).
+
+**Where.** A new **Brain** page in the dashboard. Everything it shows is read on demand from `~/.easy-brain/` in format `v` 1, never by calling easy-brain, as FR-066 reads easy-memory's `report.json`. A missing folder or a newer `v` is "no data", never a guess.
+
+**What the page shows.**
+
+1. **Inbox**: each session or question that needs the owner: repo, task, reason, the listed options when there are any, wait time. Oldest first.
+2. **Recent decisions**: time, repo, the action (`pick`, `continue`, `restart`, `owner`), its basis, and an *overturned* mark.
+3. **Owner policy**: the text of `~/.easy-brain/policy.md`. The file belongs to easy-brain; easy-personal stores no copy.
+4. **State**: whether the watcher runs, and whether easy-brain is on or off.
+
+**What the owner can do on it** (write routes under the NFR-008 guard, each needing `confirmed: true`, as FR-116 rules). Each one runs the installed `easy-brain` program with an argument list (never a shell), as FR-102 starts `claude`:
+
+1. **Answer** an inbox question: pick one listed option. Free text is not sent.
+2. **Overturn** a decision: pick another listed option and type a reason.
+3. **Edit the policy.**
+4. **Turn easy-brain off or on.**
+
+easy-personal never writes easy-brain's files itself, and easy-brain never reads easy-personal's store, socket or keychain items.
+
+**Chat with the brain** (asked by the owner on 2026-11-27: "from the personal it should be the chat bot and I can type, control the status through that"). A **Chat with the brain** button on the Brain page starts an ordinary Chat app session (FR-109) in the folder `~/.easy-brain/home/`. easy-brain owns that folder: its `.mcp.json` loads easy-brain's own control tools, and its settings file lets the read tools run and makes each change tool ask. So a change the owner types shows as an Allow or Deny card (FR-111), and the app still never answers by itself. No new chat code and no new easy-personal MCP tool: the session is the owner's own Claude Code, and its text is shown and never stored (FR-115). The session counts toward the cap of 4 (question 41). The watcher behind it (`easy-brain watch`) is a separate service, not a Terminal session of the app, because FR-136 ends those when the tray quits. Before the button exists, the owner can add `~/.easy-brain/home` to a workspace as a repo path (FR-028) and start a Chat app session there by hand.
+
+**Rules it needs.**
+
+- NFR-001 is unchanged: everything is local.
+- One new NFR-002 exception, of the show-never-store kind (like DDR-0010): the inbox, decision and policy text is read on demand and shown on the Brain page only. It is never stored, logged, cached or sent to the tray, a popup, MCP or the CLI.
+- No stored-text exception and no new MCP tool: the policy file and the decision log live in easy-brain's folder.
+
+**Not in the first version.** The per-repo switch (`.claude/brain.json` is a project-scope file; Out of Scope keeps project-scope config with the kernel). Tray or popup alerts for the inbox. Charts. Merging the inbox with the Live view's attention states (FR-047 to FR-049, FR-105). The Python app.
+
+**Open for the grill.** Is the Brain page its own page or a tab in the `// kit` group? Which text limits and secret check apply to what the page shows (FR-106 cuts a question to 300 characters)? May the button start a Chat app session in `~/.easy-brain/home/` when that folder is in no workspace (FR-109 picks the folder from the stored workspace repos)?
+
+Design source: the "Super brain design proposal" doc and `EXECUTION_PLAN.md` (revision 2, 2026-11-27) in the Easy Kit project.
+
+---
+
 ## Cross-Repo Dependencies
 
 Work that lives in another repo goes on that repo's own board (one project per KANBAN), not this one.
